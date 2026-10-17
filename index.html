@@ -733,11 +733,13 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 .flame { overflow: visible; display: block; }
 .flame-box .flame { width: 116px; height: auto; }
 .flame .fbody, .flame .fo, .flame .fi, .flame .fc, .flame .fv { transform-box: fill-box; }
-.flame.big.on .fbody { transform-origin: 50% 100%; animation: sway 3.2s ease-in-out infinite; }
-.flame.big.on .fo, .flame.big.on .fv, .flame.big.on .fs { transform-origin: 50% 100%; animation: flick 1.9s ease-in-out infinite; }
-.flame.big.on .fi { transform-origin: 50% 100%; animation: flick2 1.3s ease-in-out infinite; }
-.flame.big.on .fc { transform-origin: 50% 100%; animation: flick3 .95s ease-in-out infinite; }
-.flame.big.on { filter: drop-shadow(0 8px 24px rgba(255,110,25,.5)); animation: glow 2.6s ease-in-out infinite; }
+.flame.big.on { filter: drop-shadow(0 8px 24px rgba(255,110,25,.48)); }
+.flame.big.celebrate .fbody { transform-origin: 50% 100%; animation: sway 1.6s ease-in-out 2; }
+.flame.big.celebrate .fo, .flame.big.celebrate .fv, .flame.big.celebrate .fs { transform-origin: 50% 100%; animation: flick .95s ease-in-out 3; }
+.flame.big.celebrate .fi { transform-origin: 50% 100%; animation: flick2 .7s ease-in-out 4; }
+.flame.big.celebrate .fc { transform-origin: 50% 100%; animation: flick3 .55s ease-in-out 5; }
+.flame.big.celebrate { animation: ignite 1.2s cubic-bezier(.34, 1.4, .64, 1) both, glow 1.4s ease-in-out 1.2s 2; transform-origin: 50% 90%; }
+@keyframes ignite { 0% { transform: scale(.4); opacity: 0; } 55% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
 .flame .embers circle { opacity: 0; transform-box: fill-box; transform-origin: center; }
 .flame.big.on .embers circle { animation: ember 2.6s ease-out infinite; }
 .p-hero.risk .flame-box .flame { animation: none; filter: saturate(.7) brightness(.9) drop-shadow(0 6px 16px rgba(255,110,25,.22)); }
@@ -900,6 +902,161 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 .lib input, .lib textarea { -webkit-user-select: text; user-select: text; }
 .bcell.pressing .bc { transform: scale(.97); transition: transform .36s ease-out; }
 
+/* ---------- book page ---------- */
+.book-sheet .sheet-head { display: none; }
+.book-sheet .grab { position: absolute; top: 0; left: 0; right: 0; z-index: 5; }
+.book-sheet .grab::before { background: rgba(255,255,255,.45); }
+.book-sheet .sheet-body { padding: 0; display: flex; flex-direction: column; }
+.book-sheet { overflow: hidden; }
+.bd { display: flex; flex-direction: column; min-height: 100%; }
+.bh { position: relative; height: 250px; flex: none; display: grid; place-items: end center; }
+/* the blurred cover fades out through a mask, so it melts into the page instead of ending on a line */
+.bh-bg { position: absolute; left: 0; right: 0; top: 0; height: calc(100% + 110px); z-index: 0; overflow: hidden; pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.85) 45%, rgba(0,0,0,.35) 72%, transparent 100%);
+          mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.85) 45%, rgba(0,0,0,.35) 72%, transparent 100%); }
+.bh-bg .cover { position: absolute; inset: -50px; width: auto; height: auto; aspect-ratio: auto; border-radius: 0; box-shadow: none; filter: blur(32px) saturate(1.5); opacity: .8; }
+.bh-bg .cover::after { display: none; }
+.bh::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 120px; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(0,0,0,.22), transparent); }
+.bh-bar { position: absolute; top: 14px; left: 12px; right: 12px; z-index: 3; display: flex; justify-content: space-between; }
+.bh-btn { width: 40px; height: 40px; border-radius: 20px; display: grid; place-items: center; color: #fff; background: rgba(0,0,0,.28); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: transform .15s var(--ease); }
+.bh-btn:active { transform: scale(.92); }
+.bh .cv { position: relative; z-index: 2; width: 132px; margin-bottom: -28px; animation: cover-in .6s cubic-bezier(.34, 1.3, .64, 1) .05s backwards; }
+.bh .cv .cover { box-shadow: 0 2px 4px rgba(0,0,0,.3), 0 18px 40px rgba(0,0,0,.45); }
+.bd-main { position: relative; z-index: 1; padding: 40px 20px 8px; display: grid; justify-items: center; text-align: center; gap: 4px; animation: rise .5s var(--ease) .1s backwards; }
+.bd-main h3 { font: 600 23px/1.2 var(--f-display); margin: 4px 0 0; text-wrap: balance; }
+.bd-main .au { color: var(--fg-2); font-size: 15px; }
+.tiles3 { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }
+.bt-tile { display: grid; gap: 6px; justify-items: center; padding: 12px 6px; border-radius: 14px; background: var(--bg-raised); box-shadow: inset 0 0 0 1px var(--hair); }
+.btl { font-size: 12px; color: var(--fg-3); }
+.btv { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.btv .ic { color: var(--accent-ink); }
+.btv b { font-weight: 600; }
+.prog-card { width: 100%; margin-top: 12px; padding: 14px 16px; border-radius: 16px; background: var(--bg-raised); box-shadow: inset 0 0 0 1px var(--hair); text-align: left; display: grid; gap: 6px; min-height: 84px; }
+.pc-t { font: 600 16px/1.25 var(--f-display); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.pc-bar { height: 5px; border-radius: 3px; background: var(--fill-2); overflow: hidden; }
+.pc-bar i { display: block; height: 100%; border-radius: 3px; background: var(--accent); transform-origin: left; animation: grow-x 1s cubic-bezier(.22, 1, .36, 1) .2s backwards; }
+.bd-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px; }
+.pill-btn { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border-radius: 18px; background: var(--fill); font-size: 14px; font-weight: 500; transition: transform .15s var(--ease), background .2s; max-width: 100%; }
+.pill-btn:active { transform: scale(.95); background: var(--fill-2); }
+.bd-h { justify-self: start; margin: 24px 0 6px; font-size: 18px; font-weight: 600; }
+.bd-main .annot { text-align: left; }
+.bd-main .link-btn { justify-self: start; }
+.bd-main .group { width: 100%; text-align: left; }
+.muted-l { color: var(--fg-3); font-size: 14px; }
+.bd-cta { position: sticky; bottom: 0; margin-top: auto; padding: 18px 20px calc(14px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(180deg, transparent, var(--sheet) 34%); z-index: 4; }
+.btn.primary { min-height: 54px; font-size: 17px; border-radius: 16px; }
+
+/* ---------- quotes page ---------- */
+.q-filter { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: -4px 0 18px; padding-bottom: 2px; }
+.q-filter::-webkit-scrollbar { display: none; }
+.q-filter .chip { box-shadow: inset 0 0 0 1px var(--hair); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-list { display: grid; gap: 14px; }
+@media (min-width: 760px) { .q-list { grid-template-columns: 1fr 1fr; align-items: start; } }
+.qcard { position: relative; background: var(--bg-raised); border-radius: 20px; padding: 6px 8px 8px; overflow: hidden; animation: rise .5s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
+.qcard::before { content: ""; position: absolute; left: 0; top: 18px; bottom: 64px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+.q-body { display: block; width: 100%; text-align: left; padding: 12px 46px 6px 14px; border-radius: 14px; position: relative; transition: background .2s; }
+.q-body:active { background: var(--fill); }
+.q-mark { position: absolute; right: 8px; top: -10px; font: 700 84px/1 var(--f-display); color: var(--accent); opacity: .16; pointer-events: none; }
+.q-text { display: -webkit-box; -webkit-line-clamp: 9; -webkit-box-orient: vertical; overflow: hidden; font: 400 17px/1.55 var(--f-display); color: var(--fg); text-wrap: pretty; }
+.q-foot { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 2px; padding: 8px 4px 0 10px; border-top: 1px solid var(--hair); margin-top: 8px; }
+.q-book { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: center; text-align: left; min-width: 0; padding: 4px 0; }
+.q-book .cover { width: 28px; border-radius: 2px 3px 3px 2px; }
+.q-book span { min-width: 0; display: grid; }
+.q-book b { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-book small { font-size: 12px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-foot .icon-btn { width: 40px; height: 40px; color: var(--fg-2); }
+.q-empty-mark { font: 700 110px/.8 var(--f-display); color: var(--accent); opacity: .55; height: 60px; margin-bottom: 4px; }
+
+/* quote groups: one stack per book */
+.qgroup { position: relative; display: block; width: 100%; text-align: left; animation: rise .5s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 50ms); transition: transform .2s var(--ease); }
+.qgroup:active { transform: scale(.98); }
+.qgroup.stacked { padding-bottom: 8px; }
+.qgroup.stacked2 { padding-bottom: 15px; }
+.qgroup.stacked::before, .qgroup.stacked2::after {
+  content: ""; position: absolute; left: 14px; right: 14px; bottom: 0; height: 30px; border-radius: 0 0 18px 18px;
+  background: var(--bg-raised-2); box-shadow: inset 0 -1px 0 var(--hair);
+}
+.qgroup.stacked::before { bottom: 0; left: 12px; right: 12px; }
+.qgroup.stacked2::before { bottom: 7px; }
+.qgroup.stacked2::after { left: 26px; right: 26px; opacity: .55; }
+.qg-card { position: relative; z-index: 1; display: grid; gap: 12px; padding: 14px 14px 16px; border-radius: 20px; background: var(--bg-raised); box-shadow: 0 1px 0 var(--hair); }
+.qg-top { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; }
+.qg-top .cover { width: 34px; border-radius: 2px 3px 3px 2px; }
+.qg-meta { min-width: 0; display: grid; }
+.qg-meta b { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qg-meta small { font-size: 12.5px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qg-count { display: inline-flex; align-items: center; gap: 2px; min-width: 28px; height: 28px; padding: 0 4px 0 10px; border-radius: 14px; background: var(--fill); color: var(--accent-ink); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.qg-count .ic { color: var(--fg-3); width: 16px; height: 16px; }
+.qg-quote { position: relative; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; padding: 0 30px 0 14px; font: 400 16px/1.5 var(--f-display); color: var(--fg-2); box-shadow: inset 3px 0 0 var(--accent); }
+.qg-q { position: relative; display: block; }
+.qg-q .q-mark { right: 2px; top: -10px; font-size: 64px; line-height: 1; }
+.qb-head { display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: center; width: 100%; text-align: left; margin: -2px 0 18px; }
+.qb-head .cover { width: 52px; }
+.qb-head span { display: grid; gap: 2px; min-width: 0; }
+.qb-head b { font: 600 20px/1.2 var(--f-display); }
+.qb-head small { color: var(--fg-2); font-size: 14px; }
+.q-when { font-size: 12.5px; color: var(--fg-3); padding-left: 4px; }
+
+/* ---------- bottom tab bar ---------- */
+.tabbar {
+  position: fixed; z-index: 50; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  display: grid; grid-template-columns: repeat(4, 56px); gap: 6px; padding: 6px; border-radius: 34px;
+  background: color-mix(in srgb, var(--bg-raised) 82%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: 0 10px 34px rgba(0,0,0,.35), inset 0 0 0 .5px var(--hair), inset 0 1px 0 rgba(255,255,255,.06);
+  --ti: 0;
+}
+.tabbar button { position: relative; z-index: 1; width: 56px; height: 52px; border-radius: 26px; display: grid; place-items: center; color: var(--fg-2); transition: color .3s ease; }
+.tabbar button[aria-selected="true"] { color: var(--pill-fg); }
+.tabbar button:active .ic { transform: scale(.88); }
+.tabbar .ic { transition: transform .2s var(--ease); }
+.tb-ind {
+  position: absolute; z-index: 0; top: 6px; left: 6px; width: 56px; height: 52px; border-radius: 26px; background: var(--pill);
+  box-shadow: 0 4px 14px rgba(0,0,0,.25);
+  transform: translate3d(calc(var(--ti) * 62px), 0, 0);
+  transition: transform .52s cubic-bezier(.34, 1.42, .52, 1);
+}
+@keyframes tb-pop { 0% { transform: scale(1); } 35% { transform: scale(.82); } 70% { transform: scale(1.08); } 100% { transform: scale(1); } }
+.tabbar button.tb-pop .ic { animation: tb-pop .45s var(--ease); }
+.lib { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+.toasts { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
+.reader:not([hidden]) ~ .toasts, body:has(#reader:not([hidden])) .toasts { bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
+@keyframes tab-r { from { opacity: 0; transform: translate3d(22px, 0, 0) scale(.99); } to { opacity: 1; transform: none; } }
+@keyframes tab-l { from { opacity: 0; transform: translate3d(-22px, 0, 0) scale(.99); } to { opacity: 1; transform: none; } }
+.tab-r { animation: tab-r .3s cubic-bezier(.2, .8, .2, 1) both; }
+.tab-l { animation: tab-l .3s cubic-bezier(.2, .8, .2, 1) both; }
+
+/* ---------- minimal chrome: avatar, round buttons, compact tabs + add button ---------- */
+.navbar { grid-template-columns: auto 1fr auto; padding-right: max(16px, env(safe-area-inset-right, 0px)); height: 60px; }
+.navbar .mini { text-align: center; }
+.navbar .end { gap: 8px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--fg); background: linear-gradient(145deg, var(--bg-raised-2), var(--bg-raised)); box-shadow: inset 0 0 0 1px var(--hair), 0 2px 8px rgba(0,0,0,.25); transition: transform .15s var(--ease); }
+.avatar .ic { width: 20px; height: 20px; }
+.round-btn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--fg); background: var(--bg-raised); box-shadow: inset 0 0 0 1px var(--hair), 0 2px 8px rgba(0,0,0,.18); transition: transform .15s var(--ease), background .2s; }
+.round-btn[aria-expanded="true"] { background: var(--pill); color: var(--pill-fg); }
+.avatar:active, .round-btn:active, .fab:active { transform: scale(.92); }
+.profile .navbar .round-btn { justify-self: start; }
+@keyframes search-in { from { opacity: 0; transform: translate3d(0, -8px, 0); } to { opacity: 1; transform: none; } }
+.search-in { animation: search-in .28s var(--ease) both; }
+
+.tabbar { left: max(16px, env(safe-area-inset-left, 0px)); transform: none; grid-template-columns: repeat(3, 52px); gap: 4px; padding: 5px; border-radius: 30px; }
+.tabbar button { width: 52px; height: 48px; border-radius: 24px; }
+.tb-ind { top: 5px; left: 5px; width: 52px; height: 48px; border-radius: 24px; transform: translate3d(calc(var(--ti) * 56px), 0, 0); }
+.fab {
+  position: fixed; z-index: 50; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; background: var(--pill); color: var(--pill-fg);
+  box-shadow: 0 10px 28px rgba(0,0,0,.4); transition: transform .18s var(--ease);
+}
+.fab .ic { width: 26px; height: 26px; stroke-width: 2; }
+.p-add {
+  position: absolute; z-index: 3; right: 9%; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center; background: #fff; color: #161617; box-shadow: 0 4px 12px rgba(0,0,0,.3); transition: transform .15s var(--ease);
+}
+.p-add:active { transform: translateY(-50%) scale(.88); }
+.pocket.add .p-add { display: none; }
+.sort-btn { color: var(--fg-2); font-size: 14px; }
+
 </style>
 </head>
 <body>
@@ -932,17 +1089,21 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-width="2.2"/></symbol>
   <symbol id="i-shelf" viewBox="0 0 24 24"><path d="M3.5 19.5h17M5.5 19.5V7M9 19.5V5M12.5 19.5V9M15.6 9.6l3.6 9.6"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.8 19.5c1.2-3.4 4-5 7.2-5s6 1.6 7.2 5"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.2 3.8 8.5s-1.2 6.1-3.8 8.5c-2.6-2.4-3.8-5.2-3.8-8.5S9.4 5.9 12 3.5z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5H15v-6h-6v6H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4.5 7.5h15M7.5 12h9M10.5 16.5h3"/></symbol>
   <symbol id="i-chevdown" viewBox="0 0 24 24"><path d="M5.5 9.5 12 16l6.5-6.5" stroke-width="2.1"/></symbol>
   <symbol id="i-toc" viewBox="0 0 24 24"><path d="M4 6.5h9M4 11h9M4 15.5h6"/><rect x="15.5" y="5" width="4.5" height="14" rx="2.25"/><path d="M17.75 8v2"/></symbol>
 </svg>
 
 <div id="lib" class="lib">
   <header class="navbar" id="navbar">
-    <button class="icon-btn pf-btn" id="btn-profile" aria-label="Профиль и статистика чтения"><svg class="ic"><use href="#i-user"/></svg><span class="pf-badge" id="pf-badge" hidden></span></button>
+    <button class="avatar" id="btn-profile" aria-label="Профиль и статистика чтения"><svg class="ic"><use href="#i-user"/></svg></button>
     <span class="mini">Мои книги</span>
     <div class="end">
-      <button class="icon-btn" id="btn-add" aria-label="Добавить книги"><svg class="ic"><use href="#i-plus"/></svg></button>
-      <button class="icon-btn" id="btn-settings" aria-label="Настройки"><svg class="ic"><use href="#i-more"/></svg></button>
+      <button class="round-btn" id="btn-search" aria-label="Поиск" aria-expanded="false"><svg class="ic sm"><use href="#i-search"/></svg></button>
+      <button class="round-btn" id="btn-settings" aria-label="Вид и настройки"><svg class="ic sm"><use href="#i-filter"/></svg></button>
     </div>
   </header>
   <div class="wrap">
@@ -962,7 +1123,7 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 
 <section id="profile" class="lib profile" hidden>
   <header class="navbar solid-always">
-    <button class="back-btn" id="pf-back" aria-label="Назад к книгам"><svg class="ic"><use href="#i-back"/></svg>Книги</button>
+    <button class="round-btn" id="pf-back" aria-label="Назад к книгам"><svg class="ic sm"><use href="#i-back"/></svg></button>
     <span class="mini">Профиль</span>
     <span></span>
   </header>
@@ -971,6 +1132,14 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
     <main id="pf-main"></main>
   </div>
 </section>
+
+<nav class="tabbar" id="tabbar" role="tablist" aria-label="Разделы">
+  <span class="tb-ind" aria-hidden="true"></span>
+  <button role="tab" data-tab="all" aria-label="Все книги"><svg class="ic"><use href="#i-home"/></svg></button>
+  <button role="tab" data-tab="shelves" aria-label="Полки"><svg class="ic"><use href="#i-shelf"/></svg></button>
+  <button role="tab" data-tab="quotes" aria-label="Цитаты"><svg class="ic"><use href="#i-quote"/></svg></button>
+</nav>
+<button class="fab" id="btn-add" aria-label="Добавить книги"><svg class="ic"><use href="#i-plus"/></svg></button>
 
 <section id="reader" class="reader" hidden>
   <header class="r-top">
@@ -1749,7 +1918,7 @@ async function exportBook(book) {
 }
 
 /* ================= state ================= */
-const state = { books: [], tab: 'shelves', shelf: null, sort: prefs.sort || 'manual', query: '', coverUrls: new Map() };
+const state = { qbook: '', books: [], tab: 'all', shelf: null, sort: prefs.sort || 'manual', query: '', coverUrls: new Map() };
 const root = document.documentElement;
 
 function applyUi() {
@@ -1775,7 +1944,7 @@ function toast(msg, opts = {}) {
 
 /* ================= sheets ================= */
 const sheets = [];
-function openSheet({ title, label, body, left, right, tall, onClose, closeBtn = true }) {
+function openSheet({ title, label, body, left, right, tall, onClose, closeBtn = true, cls = '' }) {
   const host = document.body;
   const lastFocus = document.activeElement;
   const scrim = h('div', { class: 'scrim' });
@@ -1784,7 +1953,7 @@ function openSheet({ title, label, body, left, right, tall, onClose, closeBtn = 
     h('h2', { id: 'sh-' + uid() }, title || ''),
     h('div', { class: 'r' }, right || (closeBtn ? h('button', { class: 'close', 'aria-label': 'Закрыть', onclick: () => api.close() }, icon('x', 'sm')) : null)));
   const bodyEl = h('div', { class: 'sheet-body' }, body);
-  const panel = h('div', { class: 'sheet' + (tall ? ' tall' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': $('h2', head).id },
+  const panel = h('div', { class: 'sheet' + (tall ? ' tall' : '') + (cls ? ' ' + cls : ''), role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': $('h2', head).id },
     h('div', { class: 'grab', 'aria-hidden': 'true' }), head, bodyEl);
   if (label) panel.setAttribute('aria-label', label);
   let closed = false;
@@ -1876,19 +2045,57 @@ const pctOf = (b) => Math.round(((b.progress && b.progress.pct) || 0) * 100);
 const byPos = (a, b) => (a.pos != null && b.pos != null ? a.pos - b.pos : a.pos != null ? -1 : b.pos != null ? 1 : byRecent(a, b));
 const SORTS = { manual: ['Мой порядок', byPos], recent: ['Недавние', byRecent], title: ['По названию', (a, b) => a.title.localeCompare(b.title, 'ru')], author: ['По автору', (a, b) => authorsStr(a).localeCompare(authorsStr(b), 'ru') || a.title.localeCompare(b.title, 'ru')] };
 
+const TAB_ORDER = { all: 0, shelves: 1, quotes: 2, profile: 3 };
+const TAB_TITLES = { all: 'Мои книги', shelves: 'Полки', quotes: 'Цитаты' };
+function currentTab() { return !$('#profile').hidden ? 'profile' : state.tab; }
+function paintTabbar() {
+  const t = currentTab();
+  const bar = $('#tabbar');
+  bar.style.setProperty('--ti', TAB_ORDER[t] ?? 0);
+  for (const b of bar.querySelectorAll('button[data-tab]')) {
+    const on = b.dataset.tab === t;
+    b.setAttribute('aria-selected', String(on));
+    if (on && b.dataset.was !== 'on') playIn(b, 'tb-pop');
+    b.dataset.was = on ? 'on' : '';
+  }
+}
+// Telegram-like switch: the pill slides, the new section fades in with a short slide from the side it lives on
+function switchTab(tab) {
+  const from = currentTab();
+  if (tab === from) {
+    if (tab !== 'profile' && (state.shelf || state.qbook)) { state.navDir = 'pop'; state.shelf = null; state.qbook = ''; renderLibrary(); }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  const dir = TAB_ORDER[tab] > TAB_ORDER[from] ? 'tab-r' : 'tab-l';
+  if (tab === 'profile') {
+    $('#lib').hidden = true; $('#profile').hidden = false; window.scrollTo(0, 0);
+    renderProfile(); playIn($('#profile .wrap'), dir); paintTabbar(); libScrollChrome();
+    return;
+  }
+  if (from === 'profile') { $('#profile').hidden = true; $('#lib').hidden = false; }
+  state.tab = tab; state.shelf = null; state.qbook = '';
+  state.navDir = '';
+  renderLibrary(false);
+  window.scrollTo(0, 0);
+  playIn($('#lib .wrap'), dir);
+  paintTabbar(); libScrollChrome();
+}
 function go(tab, shelf = null) {
-  const order = { shelves: 0, all: 1 };
+  const order = { all: 0, shelves: 1, quotes: 2 };
   state.navDir = shelf && !state.shelf ? 'push' : !shelf && state.shelf && tab === state.tab ? 'pop' : order[tab] > order[state.tab] ? 'right' : order[tab] < order[state.tab] ? 'left' : '';
+  if (tab !== state.tab) state.qbook = '';
   state.tab = tab; state.shelf = shelf; renderLibrary(); window.scrollTo({ top: 0 });
 }
 
 function renderTabs() {
   const nav = $('#chips');
   nav.replaceChildren();
-  nav.hidden = !!state.query || (!state.books.length && !(prefs.shelves || []).length);
-  if (nav.hidden) return;
+  nav.hidden = true;
+  paintTabbar();
+  return;
   const mk = (key, label) => h('button', { role: 'tab', 'aria-selected': String(state.tab === key), 'aria-pressed': String(state.tab === key), onclick: () => go(key) }, label);
-  nav.append(h('div', { class: 'seg tabs', role: 'tablist', 'aria-label': 'Раздел библиотеки' }, mk('shelves', 'Полки'), mk('all', 'Всё')));
+  nav.append(h('div', { class: 'seg tabs', role: 'tablist', 'aria-label': 'Раздел библиотеки' }, mk('shelves', 'Полки'), mk('all', 'Всё'), mk('quotes', 'Цитаты')));
 }
 
 function bookGrid(list, sortable) {
@@ -2047,9 +2254,20 @@ function pocketWell(list, extraClass = '') {
     h('span', { class: 'glass' }, h('span', { class: 'frost', 'data-n': String(covers.length) }, ...stack()), h('span', { class: 'tint' }), h('i'), h('i'), h('i'), h('i')));
 }
 function pocket(name, list, i) {
+  const well = pocketWell(list);
+  const add = h('span', { class: 'p-add', role: 'button', tabindex: '0', 'aria-label': `Добавить книги на полку «${name}»`, onclick: (e) => { e.stopPropagation(); addToShelf(name); } }, icon('plus', 'sm'));
+  $('.glass', well).append(add);
   return h('button', { class: 'pocket', style: `--i:${i}`, 'aria-label': `${name}: ${list.length} ${plural(list.length, BOOKS)}`, onclick: () => go('shelves', name) },
-    pocketWell(list),
+    well,
     h('span', { class: 'lbl' }, name, h('span', null, `${list.length} ${plural(list.length, BOOKS)}`)));
+}
+function addToShelf(name) {
+  const s = openSheet({
+    title: name,
+    body: h('div', { class: 'group menu-list' },
+      h('button', { onclick: () => { s.close(true); state.tab = 'shelves'; state.shelf = name; $('#file').click(); } }, icon('plus'), 'Добавить файлы на эту полку'),
+      h('button', { onclick: () => { s.close(true); pickBooks(name); } }, icon('shelf'), 'Переложить книги из библиотеки')),
+  });
 }
 function newPocket(i) {
   return h('button', { class: 'pocket add', style: `--i:${i}`, onclick: () => createShelf() },
@@ -2083,11 +2301,12 @@ function renderLibrary(animate = true) {
   const dir = state.navDir; state.navDir = '';
   if (animate) { void main.offsetWidth; main.classList.add('rise'); if (dir) main.classList.add('nav-' + dir); }
   const books = state.books;
-  $('#search-wrap').hidden = !books.length;
+  $('#search-wrap').hidden = !(state.searchOpen || state.query);
+  $('#btn-search').setAttribute('aria-expanded', String(!$('#search-wrap').hidden));
   const all = shelves();
   if (state.shelf && !all.some(([n]) => n === state.shelf)) state.shelf = null;
   const lt = $('#large-title');
-  lt.textContent = state.shelf && !state.query ? state.shelf : 'Мои книги';
+  lt.textContent = state.query ? 'Поиск' : state.shelf ? state.shelf : TAB_TITLES[state.tab] || 'Мои книги';
   $('#navbar .mini').textContent = lt.textContent;
   renderTabs();
   if (!books.length && !(prefs.shelves || []).length) {
@@ -2106,13 +2325,13 @@ function renderLibrary(animate = true) {
     main.append(h('div', { class: 'sec-head' }, h('h2', null, 'Найдено'), h('span', null, `${found.length} ${plural(found.length, BOOKS)}`)), bookGrid(found));
     return;
   }
+  if (state.tab === 'quotes') { renderQuotes(main); return; }
   if (state.tab === 'all') {
     const [label, fn] = SORTS[state.sort] || SORTS.manual;
     const order = Object.keys(SORTS);
     main.append(h('div', { class: 'sec-head' }, h('h2', null, `${books.length} ${plural(books.length, BOOKS)}`),
-      h('button', { class: 'sort-btn', 'aria-label': 'Сортировка: ' + label, onclick: () => { state.sort = order[(order.indexOf(state.sort) + 1) % order.length]; prefs.sort = state.sort; savePrefs(); renderLibrary(false); } }, label, ' ', icon('next', 'xs'))));
+      h('button', { class: 'sort-btn', onclick: () => openViewMenu() }, label)));
     main.append(books.length ? bookGrid(books.slice().sort(fn), true) : h('p', { class: 'muted' }, 'Книг пока нет.'));
-    if (books.length > 1) main.append(h('p', { class: 'reorder-hint' }, 'Зажмите обложку и перетащите, чтобы поменять порядок'));
     return;
   }
   if (state.shelf) {
@@ -2149,40 +2368,77 @@ function libSig() {
 /* ================= book card ================= */
 function openDetail(book) {
   const p = pctOf(book);
+  const pctExact = (book.progress && book.progress.pct) || 0;
   const edited = book.edits || 0;
+  const st = (typeof ST !== 'undefined' && ST.data.books[book.id]) || null;
   const info = [
-    ['Полка', book.shelf],
     book.series ? ['Серия', book.series + (book.seriesNo ? ' · № ' + book.seriesNo : '')] : null,
     book.genres && book.genres.length ? ['Жанры', book.genres.map(genreName).join(', ')] : null,
-    ['Язык', (book.lang || '—').toUpperCase()],
     ['Формат', book.format.toUpperCase() + (book.size ? ' · ' + fmtSize(book.size) : '')],
     ['Добавлена', fmtDate(book.addedAt)],
     edited ? ['Правки текста', `${edited} ${plural(edited, ['сохранение', 'сохранения', 'сохранений'])}`] : null,
   ].filter(Boolean);
-  const annot = book.annotation ? h('div', { class: 'annot' }, book.annotation.split(/\n+/).map((t) => h('p', null, t))) : null;
   let s;
-  const body = h('div', { class: 'detail' },
-    h('div', { class: 'cv' }, coverEl(book)),
-    book.sample ? h('span', { class: 'tag' }, 'Книга-пример') : null,
-    h('h3', null, book.title),
-    h('div', { class: 'au' }, authorsStr(book)),
-    h('div', { class: 'acts' },
-      h('button', { class: 'btn wide', autofocus: true, onclick: () => { openReader(book, $('.cv .cover', body)); s.close(true); } }, icon('book', 'sm'), p > 0 && p < 100 ? `Продолжить · ${p}%` : p >= 100 ? 'Читать снова' : 'Читать'),
-      h('div', { class: 'acts3' },
-        h('button', { class: 'tile', onclick: () => { s.close(true); openMetaEditor(book); } }, icon('pen'), 'Данные книги'),
-        h('button', { class: 'tile', onclick: () => exportBook(book) }, icon('down'), 'Скачать'),
-        h('button', { class: 'tile danger', onclick: () => removeBook(book, s) }, icon('trash'), 'Удалить'))),
-    h('div', { style: 'width:100%;text-align:left' },
-      h('div', { class: 'group' }, info.map(([k, v]) => k === 'Полка'
-        ? h('button', { class: 'cell btn-cell', onclick: () => chooseShelf(book, () => { s.close(true); openDetail(book); }) }, h('span', { class: 'k' }, k), h('span', { class: 'v link' }, v + ' ›'))
-        : h('div', { class: 'cell' }, h('span', { class: 'k' }, k), h('span', { class: 'v' }, v)))),
-      annot ? h('div', { class: 'group-title' }, 'Аннотация') : null,
-      annot));
-  if (annot && book.annotation.length > 320) {
+  const close = () => s.close();
+  // hero: the cover itself, blurred, behind the real cover
+  const backdrop = h('div', { class: 'bh-bg', 'aria-hidden': 'true' }, coverEl(book));
+  const pagesV = h('b', null, '…');
+  const tile = (ic, label, value) => h('div', { class: 'bt-tile' }, h('span', { class: 'btl' }, label), h('span', { class: 'btv' }, icon(ic, 'sm'), value));
+  const progCard = h('div', { class: 'prog-card' });
+  const annot = book.annotation ? h('div', { class: 'annot' }, book.annotation.split(/\n+/).map((t) => h('p', null, t))) : h('p', { class: 'annot muted-l' }, 'Аннотации нет. Её можно добавить через «Редактировать».');
+  const cta = p > 0 && p < 100 ? 'Продолжить чтение' : p >= 100 ? 'Читать снова' : 'Читать';
+  const body = h('div', { class: 'bd' },
+    h('div', { class: 'bh' }, backdrop,
+      h('div', { class: 'bh-bar' },
+        h('button', { class: 'bh-btn', 'aria-label': 'Закрыть', onclick: close }, icon('back')),
+        h('button', { class: 'bh-btn', 'aria-label': 'Ещё', onclick: () => bookMenu(book, s) }, icon('more'))),
+      h('div', { class: 'cv' }, coverEl(book))),
+    h('div', { class: 'bd-main' },
+      book.sample ? h('span', { class: 'tag' }, 'Книга-пример') : null,
+      h('h3', null, book.title),
+      h('div', { class: 'au' }, authorsStr(book)),
+      h('div', { class: 'tiles3' },
+        h('div', { class: 'bt-tile' }, h('span', { class: 'btl' }, 'Страниц'), h('span', { class: 'btv' }, icon('pages', 'sm'), pagesV)),
+        tile('globe', 'Язык', (book.lang || '—').toUpperCase()),
+        tile('clock', 'Читали', st && st.ms >= 60000 ? fmtDur(st.ms, true) : '—')),
+      progCard,
+      h('div', { class: 'bd-acts' },
+        h('button', { class: 'pill-btn', onclick: () => { s.close(true); openMetaEditor(book); } }, icon('pen', 'sm'), 'Редактировать'),
+        h('button', { class: 'pill-btn', onclick: () => chooseShelf(book, () => { s.close(true); openDetail(book); }) }, icon('shelf', 'sm'), book.shelf)),
+      h('h4', { class: 'bd-h' }, 'Аннотация'),
+      annot,
+      h('div', { class: 'group', style: 'margin-top:22px' }, info.map(([k, v]) => h('div', { class: 'cell' }, h('span', { class: 'k' }, k), h('span', { class: 'v' }, v))))),
+    h('div', { class: 'bd-cta' }, h('button', { class: 'btn wide primary', autofocus: true, onclick: () => { openReader(book, $('.cv .cover', body)); s.close(true); } }, cta)));
+  if (book.annotation && book.annotation.length > 260) {
     annot.classList.add('clamp');
     annot.after(h('button', { class: 'link-btn', onclick: (e) => { annot.style.maxHeight = annot.scrollHeight + 'px'; annot.classList.remove('clamp'); annot.addEventListener('transitionend', () => { annot.style.maxHeight = 'none'; }, { once: true }); e.currentTarget.remove(); } }, 'Показать полностью'));
   }
-  s = openSheet({ title: '', label: book.title, body, tall: false });
+  const fillProgress = (content) => {
+    const chars = content ? content.chapters.reduce((a, c) => a + (c.len || 0), 0) : book.chars || 0;
+    const pages = Math.max(1, Math.round(chars / 1800));
+    pagesV.textContent = String(pages);
+    const cur = Math.min(pages, Math.max(1, Math.round(pctExact * pages)));
+    const chIdx = book.progress ? book.progress.ch || 0 : 0;
+    const chTitle = content && content.chapters[chIdx] ? content.chapters[chIdx].title : '';
+    const bar = h('i', { style: `width:${Math.max(p ? 2 : 0, p)}%` });
+    progCard.replaceChildren(
+      h('div', { class: 'pc-t' }, p >= 100 ? 'Книга прочитана' : p > 0 ? chTitle || 'Читаете сейчас' : 'Ещё не начата'),
+      h('div', { class: 'pc-row' }, h('span', null, p > 0 ? `Страница ${cur} из ${pages}` : `${pages} ${plural(pages, ['страница', 'страницы', 'страниц'])}`), h('span', null, p + '%')),
+      h('div', { class: 'pc-bar' }, bar));
+    playIn(progCard, 'fade-in');
+  };
+  fillProgress(null);
+  DB.get('content', book.id).then((c) => { if (c) { fillProgress(c); const n = c.chapters.reduce((a, x) => a + (x.len || 0), 0); if (book.chars !== n) { book.chars = n; DB.put('books', book).catch(() => {}); } } }).catch(() => {});
+  s = openSheet({ title: '', label: book.title, body, tall: true, cls: 'book-sheet', closeBtn: false });
+}
+function bookMenu(book, sheet) {
+  const m = openSheet({
+    title: book.title,
+    body: h('div', { class: 'group menu-list' },
+      h('button', { onclick: () => { m.close(true); sheet.close(true); openMetaEditor(book); } }, icon('pen'), 'Редактировать'),
+      h('button', { onclick: () => { m.close(true); exportBook(book); } }, icon('down'), 'Скачать файл'),
+      h('button', { class: 'danger', onclick: () => { m.close(true); removeBook(book, sheet); } }, icon('trash'), 'Удалить книгу')),
+  });
 }
 
 async function removeBook(book, sheet) {
@@ -2438,6 +2694,111 @@ function chooseShelf(book, after) {
   });
 }
 
+/* ================= all quotes ================= */
+let quoteFilter = '';
+function allQuotes() {
+  const out = [];
+  for (const b of state.books) for (const q of b.quotes || []) out.push({ q, b });
+  return out.sort((x, y) => (y.q.at || 0) - (x.q.at || 0));
+}
+const quoteCite = (q, b) => `«${q.text}»\n— ${authorsStr(b)}, «${b.title}»`;
+async function copyPlain(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch (e) {
+    const ta = h('textarea', { style: 'position:fixed;opacity:0;top:0' }); ta.value = text; document.body.append(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (err) { ok = false; } ta.remove(); return ok;
+  }
+}
+function quoteCard(q, b, i, withBook) {
+  const card = h('article', { class: 'qcard', style: `--i:${Math.min(i, 10)}` });
+  const open = () => openReader(b, null, { ch: q.ch, quote: q.start >= 0 ? q.id : null, block: q.block });
+  const when = fmtDate(q.at || Date.now()).replace(/ \d{4} г\.?$/, '');
+  card.append(
+    h('button', { class: 'q-body', onclick: open, 'aria-label': `Открыть цитату в книге «${b.title}»` },
+      h('span', { class: 'q-mark', 'aria-hidden': 'true' }, '“'),
+      h('span', { class: 'q-text' }, q.text)),
+    h('div', { class: 'q-foot' },
+      withBook
+        ? h('button', { class: 'q-book', onclick: () => openDetail(b) }, coverEl(b), h('span', null, h('b', null, b.title), h('small', null, `${authorsStr(b)} · ${when}`)))
+        : h('span', { class: 'q-when' }, when),
+      h('button', { class: 'icon-btn', 'aria-label': 'Копировать цитату', onclick: async () => { toast((await copyPlain(quoteCite(q, b))) ? 'Цитата скопирована' : 'Не удалось скопировать'); } }, icon('copy', 'sm')),
+      h('button', { class: 'icon-btn', 'aria-label': 'Удалить цитату', onclick: async () => {
+        const idx = b.quotes.indexOf(q);
+        if (idx < 0) return;
+        try { await card.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.96)' }], { duration: reduceMotion() ? 1 : 200, easing: 'ease-in' }).finished; } catch (e) { /* ignore */ }
+        b.quotes.splice(idx, 1); persistBook(b).catch(() => {}); renderLibrary(false);
+        toast('Цитата удалена', { action: { label: 'Вернуть', fn: () => { b.quotes.splice(idx, 0, q); persistBook(b).catch(() => {}); renderLibrary(false); } } });
+      } }, icon('trash', 'sm'))));
+  return card;
+}
+function openQuoteBook(id) { state.navDir = id ? 'push' : 'pop'; state.qbook = id; renderLibrary(); window.scrollTo({ top: 0 }); }
+function renderQuotes(main) {
+  const items = allQuotes();
+  if (!items.length) {
+    state.qbook = '';
+    main.append(h('div', { class: 'empty' },
+      h('div', { class: 'q-empty-mark', 'aria-hidden': 'true' }, '“'),
+      h('h2', null, 'Здесь будут ваши цитаты'),
+      h('p', null, 'Во время чтения выделите текст и нажмите «Цитата» — она появится здесь вместе с названием книги.')));
+    return;
+  }
+  // group by book, freshest book first
+  const groups = [];
+  const byId = new Map();
+  for (const it of items) {
+    if (!byId.has(it.b.id)) { const g = { b: it.b, list: [] }; byId.set(it.b.id, g); groups.push(g); }
+    byId.get(it.b.id).list.push(it.q);
+  }
+  const g = state.qbook && byId.get(state.qbook);
+  if (state.qbook && !g) state.qbook = '';
+  if (g) {
+    main.append(h('div', { class: 'sec-head' },
+      h('button', { class: 'back-link', onclick: () => openQuoteBook('') }, icon('back', 'sm'), 'Цитаты'),
+      h('span', null, `${g.list.length} ${plural(g.list.length, ['цитата', 'цитаты', 'цитат'])}`)));
+    main.append(h('button', { class: 'qb-head', onclick: () => openDetail(g.b) }, coverEl(g.b),
+      h('span', null, h('b', null, g.b.title), h('small', null, authorsStr(g.b)))));
+    const list = h('div', { class: 'q-list' });
+    g.list.slice().sort((x, y) => (x.ch - y.ch) || (x.start - y.start)).forEach((q, i) => list.append(quoteCard(q, g.b, i, false)));
+    main.append(list);
+    return;
+  }
+  main.append(h('div', { class: 'sec-head' }, h('h2', null, `${items.length} ${plural(items.length, ['цитата', 'цитаты', 'цитат'])}`),
+    h('span', null, `из ${groups.length} ${plural(groups.length, ['книги', 'книг', 'книг'])}`)));
+  const list = h('div', { class: 'q-list' });
+  groups.forEach(({ b, list: qs }, i) => {
+    const n = qs.length;
+    list.append(h('button', { class: 'qgroup' + (n > 1 ? ' stacked' : '') + (n > 2 ? ' stacked2' : ''), style: `--i:${Math.min(i, 10)}`, onclick: () => openQuoteBook(b.id), 'aria-label': `${b.title}: ${n} ${plural(n, ['цитата', 'цитаты', 'цитат'])}` },
+      h('span', { class: 'qg-card' },
+        h('span', { class: 'qg-top' }, coverEl(b),
+          h('span', { class: 'qg-meta' }, h('b', null, b.title), h('small', null, authorsStr(b))),
+          h('span', { class: 'qg-count' }, String(n), icon('next', 'sm'))),
+        h('span', { class: 'qg-q' }, h('span', { class: 'q-mark', 'aria-hidden': 'true' }, '“'), h('span', { class: 'qg-quote' }, qs[0].text)))));
+  });
+  main.append(list);
+}
+
+/* ---------- top bar actions ---------- */
+function toggleSearch(force) {
+  state.searchOpen = force != null ? force : !state.searchOpen;
+  if (!state.searchOpen && state.query) { state.query = ''; $('#q').value = ''; $('#q-clear').hidden = true; }
+  renderLibrary(false);
+  const w = $('#search-wrap');
+  if (state.searchOpen) { playIn(w, 'search-in'); setTimeout(() => $('#q').focus(), 30); }
+}
+function openViewMenu() {
+  const opts = [['manual', 'Мой порядок'], ['recent', 'Недавние'], ['title', 'По названию'], ['author', 'По автору']];
+  const list = h('ul', { class: 'pick' });
+  const paint = () => list.replaceChildren(...opts.map(([k, l]) => h('li', null, h('button', { 'aria-pressed': String(state.sort === k), onclick: () => { state.sort = k; prefs.sort = k; savePrefs(); paint(); renderLibrary(false); } },
+    h('span', { class: 'ck', style: 'margin-left:6px' }, icon('check')), h('span', null, h('span', { class: 't' }, l)), h('span')))));
+  paint();
+  const s = openSheet({
+    title: 'Вид',
+    body: h('div', null, h('div', { class: 'group-title' }, 'Сортировка книг'), list,
+      h('div', { class: 'group menu-list', style: 'margin-top:22px' },
+        h('button', { onclick: () => { s.close(true); openSettings(); } }, icon('more'), 'Настройки приложения'))),
+  });
+}
+
 /* ================= reader ================= */
 const R = {
   book: null, content: null, ch: 0, blocks: [], imgUrls: new Map(), editing: false, dirty: false,
@@ -2479,7 +2840,7 @@ function applyReaderPrefs() {
   c.classList.toggle('justify', !!prefs.justify);
 }
 
-async function openReader(book, src) {
+async function openReader(book, src, jump) {
   flyCover(src);
   let content;
   try { content = await DB.get('content', book.id); } catch (e) { content = null; }
@@ -2491,6 +2852,9 @@ async function openReader(book, src) {
   statsStart(book, R.total);
   R.libScroll = window.scrollY;
   $('#lib').hidden = true;
+  $('#profile').hidden = true;
+  $('#tabbar').hidden = true;
+  $('#btn-add').hidden = true;
   const rd = $('#reader');
   rd.hidden = false;
   rd.classList.remove('calm', 'editing');
@@ -2498,7 +2862,8 @@ async function openReader(book, src) {
   applyReaderPrefs();
   renderTop();
   const p = book.progress || { ch: 0, block: 0 };
-  goTo(clamp(p.ch || 0, 0, content.chapters.length - 1), { block: p.block || 0, off: p.off || 0 });
+  if (jump && jump.ch != null) goTo(clamp(jump.ch, 0, content.chapters.length - 1), jump.quote ? { quote: jump.quote } : { block: jump.block || 0 });
+  else goTo(clamp(p.ch || 0, 0, content.chapters.length - 1), { block: p.block || 0, off: p.off || 0 });
   setCalm(isPaged() && !!prefs.seenReader);
   if (!prefs.seenReader) { prefs.seenReader = true; savePrefs(); }
   book.openedAt = Date.now();
@@ -2518,6 +2883,9 @@ async function closeReader() {
   root.classList.remove('paged-lock');
   const lib = $('#lib');
   lib.hidden = false;
+  $('#tabbar').hidden = false;
+  $('#btn-add').hidden = false;
+  paintTabbar();
   document.body.classList.remove('tone-light', 'tone-dark');
   root.style.removeProperty('--page');
   rc().replaceChildren();
@@ -3555,18 +3923,12 @@ function flameSvg(state, num) {
 /* ---------- profile screen ---------- */
 let profileRange = 7;
 function openProfile() {
-  $('#lib').hidden = true;
-  const pf = $('#profile');
-  pf.hidden = false;
-  window.scrollTo(0, 0);
-  renderProfile();
-  playIn($('#profile .wrap'), 'push-in');
+  $('#lib').hidden = true; $('#profile').hidden = false; $('#tabbar').hidden = true; $('#btn-add').hidden = true;
+  window.scrollTo(0, 0); renderProfile(); playIn($('#profile .wrap'), 'push-in'); libScrollChrome();
 }
 function closeProfile() {
-  $('#profile').hidden = true;
-  $('#lib').hidden = false;
-  renderLibrary(false);
-  playIn($('#lib .wrap'), 'pop-back');
+  $('#profile').hidden = true; $('#lib').hidden = false; $('#tabbar').hidden = false; $('#btn-add').hidden = false;
+  renderLibrary(false); playIn($('#lib .wrap'), 'pop-back'); paintTabbar(); libScrollChrome();
 }
 
 function renderProfile() {
@@ -3582,6 +3944,10 @@ function renderProfile() {
 
   /* hero: the flame carries the streak number; the bar under it is today's goal */
   const flame = flameSvg(state === 'off' ? 'off' : 'on', 0);
+  // the flame only comes alive when the streak has grown since the last visit
+  const celebrate = st.current > 0 && st.current > (ST.data.seenStreak || 0) && !reduceMotion();
+  if (ST.data.seenStreak !== st.current) { ST.data.seenStreak = st.current; saveStats(); }
+  if (celebrate) flame.classList.add('celebrate');
   const num = flame.querySelector('.fnum');
   const status = st.todayMet ? `Цель на сегодня выполнена — ${fmtDur(today.ms)}. Огонёк горит!`
     : st.current > 0 ? `Почитайте ещё ${left} мин сегодня, чтобы не потерять серию`
@@ -3604,8 +3970,8 @@ function renderProfile() {
         h('p', { class: 'hero-status' }, status),
         h('div', { class: 'goal-bar' }, h('div', { class: 'gb-row' }, h('span', null, 'Сегодня'), h('span', null, `${Math.min(ST.data.goal, Math.floor(today.ms / 60000))} из ${ST.data.goal} мин`)), h('div', { class: 'gb' }, fill)))),
     week));
-  countUp(num, st.current, (v) => String(Math.round(v)), 700);
-  setTimeout(() => num.classList.add('pop'), reduceMotion() ? 0 : 720);
+  if (celebrate) { countUp(num, st.current, (v) => String(Math.round(v)), 900); setTimeout(() => num.classList.add('pop'), 920); }
+  else num.textContent = String(st.current);
 
   /* tiles */
   const tiles = [
@@ -3706,7 +4072,7 @@ function activityCard() {
 function updatePfBadge() {
   const b = $('#pf-badge'); if (!b) return;
   const st = streakInfo();
-  b.hidden = !st.current;
+  b.hidden = true;
   b.textContent = st.current;
   b.classList.toggle('dim', !st.todayMet);
 }
@@ -3780,9 +4146,11 @@ function libScrollChrome() {
   (pf ? $('#profile .navbar') : $('#navbar')).classList.toggle('solid', t.getBoundingClientRect().bottom < 56);
 }
 $('#btn-add').addEventListener('click', () => $('#file').click());
-$('#btn-settings').addEventListener('click', () => openSettings());
+$('#btn-settings').addEventListener('click', () => openViewMenu());
 $('#btn-profile').addEventListener('click', () => openProfile());
 $('#pf-back').addEventListener('click', () => closeProfile());
+$('#btn-search').addEventListener('click', () => toggleSearch());
+$('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) switchTab(b.dataset.tab); });
 $('#file').addEventListener('change', (e) => { const files = e.target.files; importFiles(files).finally(() => { e.target.value = ''; }); });
 $('#q').addEventListener('input', debounce((e) => { state.query = e.target.value; $('#q-clear').hidden = !e.target.value; renderLibrary(false); }, 120));
 $('#q-clear').addEventListener('click', () => { $('#q').value = ''; state.query = ''; $('#q-clear').hidden = true; renderLibrary(); $('#q').focus(); });
