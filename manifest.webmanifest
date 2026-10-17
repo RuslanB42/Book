@@ -1,0 +1,32 @@
+{
+  "id": "./",
+  "name": "Полка — читалка FB2 и EPUB",
+  "short_name": "Полка",
+  "description": "Читалка FB2 и EPUB с полками, цитатами, статистикой и правкой текста прямо во время чтения.",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#161617",
+  "theme_color": "#161617",
+  "categories": ["books", "education"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "share_target": {
+    "action": "./share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        { "name": "book", "accept": [".fb2", ".epub", ".zip", "application/x-fictionbook+xml", "application/epub+zip", "application/zip", "application/octet-stream", "text/xml", "application/xml", "*/*"] }
+      ]
+    }
+  },
+  "file_handlers": [
+    { "action": "./", "accept": { "application/x-fictionbook+xml": [".fb2"], "application/epub+zip": [".epub"], "application/zip": [".zip"] } }
+  ]
+}
