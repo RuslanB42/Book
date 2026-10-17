@@ -827,6 +827,75 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 .install .icon-btn { width: 36px; height: 36px; color: var(--fg-3); }
 .steps { margin: 6px 0 4px; padding-left: 22px; display: grid; gap: 10px; font-size: 16px; line-height: 1.4; }
 
+/* ---------- motion pass ---------- */
+/* segmented controls: one pill slides under the labels */
+.seg.pill { position: relative; isolation: isolate; }
+.seg.pill::before {
+  content: ""; position: absolute; z-index: -1; top: 2px; bottom: 2px; left: 2px;
+  width: calc((100% - 4px - (var(--n) - 1) * 2px) / var(--n));
+  border-radius: 8px; background: var(--seg-on); box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  transform: translate3d(calc(var(--idx) * (100% + 2px)), 0, 0);
+  transition: transform .42s cubic-bezier(.32, .72, 0, 1);
+}
+.seg.pill.none::before { opacity: 0; }
+.seg.pill button[aria-pressed="true"], .seg.pill button[aria-selected="true"] { background: transparent; box-shadow: none; }
+.seg.pill button { transition: color .25s, transform .2s var(--ease); }
+.seg.pill button:active { transform: scale(.96); }
+.type .seg.pill::before { border-radius: 9px; }
+
+/* library navigation */
+@keyframes nav-push { from { opacity: 0; transform: translate3d(36px, 0, 0); } to { opacity: 1; transform: none; } }
+@keyframes nav-pop { from { opacity: 0; transform: translate3d(-36px, 0, 0); } to { opacity: 1; transform: none; } }
+.nav-push, .nav-right, .push-in { animation: nav-push .42s cubic-bezier(.32, .72, 0, 1) both; }
+.nav-pop, .nav-left, .pop-back { animation: nav-pop .42s cubic-bezier(.32, .72, 0, 1) both; }
+
+/* book detail and sheet content */
+@keyframes cover-in { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(.92); } to { opacity: 1; transform: none; } }
+.detail .cv { animation: cover-in .55s cubic-bezier(.34, 1.3, .64, 1) .06s backwards; }
+.detail .acts, .detail > div:last-child { animation: rise .5s var(--ease) .12s backwards; }
+.sheet .menu-list button, .pick li, .toc li, .res li { animation: rise .4s var(--ease) backwards; }
+.sheet .pick li:nth-child(n+2), .sheet .toc li:nth-child(n+2) { animation-delay: 30ms; }
+.sheet .pick li:nth-child(n+4), .sheet .toc li:nth-child(n+4) { animation-delay: 60ms; }
+.sheet .pick li:nth-child(n+6), .sheet .toc li:nth-child(n+6) { animation-delay: 90ms; }
+.annot { transition: max-height .5s cubic-bezier(.32, .72, 0, 1); }
+.font-card { transition: box-shadow .2s, background .2s, transform .2s var(--ease); }
+.font-card:active, .size-btn:active, .rb-ch:active, .back-link:active, .sort-btn:active { transform: scale(.95); }
+.size-btn, .rb-ch, .back-link, .sort-btn, .chip { transition: transform .18s var(--ease), background .2s, color .2s; }
+.btn:active { transform: scale(.97); }
+.link-btn { transition: opacity .2s; } .link-btn:active { opacity: .55; }
+
+/* reader */
+@keyframes top-swap { from { opacity: 0; transform: translate3d(0, -6px, 0); } to { opacity: 1; transform: none; } }
+.top-swap { animation: top-swap .3s var(--ease) both; }
+@keyframes q-new { 0% { background-color: color-mix(in srgb, var(--accent) 70%, transparent); } 100% { background-color: color-mix(in srgb, var(--accent) 22%, transparent); } }
+.r-content mark.q.q-new { animation: q-new .9s ease-out; }
+.rb-tip { transform-origin: 50% 100%; }
+.rb-tip.pop-in { animation: tip-in .2s var(--ease) both; }
+@keyframes tip-in { from { opacity: 0; transform: translate(-50%, 6px) scale(.9); } to { opacity: 1; transform: translate(-50%, 0); } }
+.fly { border-radius: 4px; box-shadow: 0 24px 60px rgba(0,0,0,.5); will-change: transform, opacity; overflow: hidden; }
+.r-bottom .icon-btn, .r-top .icon-btn { transition: transform .15s var(--ease), background .15s; }
+
+/* profile bars grow with transforms instead of width */
+.brow .share i { transform-origin: left center; transition: none; animation: grow-x 1s cubic-bezier(.22, 1, .36, 1) backwards; animation-delay: calc(.3s + var(--i, 0) * 60ms); }
+.gb i { transform-origin: left center; transition: none; animation: grow-x 1.1s cubic-bezier(.22, 1, .36, 1) .25s backwards; }
+@keyframes grow-x { from { transform: scaleX(0); } }
+
+/* theme switches cross-fade */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .38s; animation-timing-function: ease; }
+
+/* reorder by long-press */
+.bgrid { position: relative; }
+.bgrid.sortable .bcell { -webkit-touch-callout: none; touch-action: manipulation; }
+.bgrid.sortable .bcell img { -webkit-user-drag: none; pointer-events: none; }
+.bcell.lifted { position: relative; z-index: 60; pointer-events: none; transition: none; }
+.bcell.lifted .bc { transform: none !important; }
+.bcell.lifted .cover { box-shadow: 0 2px 4px rgba(0,0,0,.35), 0 26px 50px rgba(0,0,0,.55); }
+.bcell.lifted .bt, .bcell.lifted .ba, .bcell.lifted .bp { opacity: 0; transition: opacity .15s; }
+.bgrid.dragging .bcell:not(.lifted) { animation: jiggle .32s ease-in-out infinite alternate; }
+.bgrid.dragging .bcell:not(.lifted):nth-child(2n) { animation-delay: -.16s; }
+@keyframes jiggle { from { rotate: -.7deg; } to { rotate: .7deg; } }
+.reorder-hint { margin: 26px 0 0; text-align: center; font-size: 13px; color: var(--fg-3); }
+
 </style>
 </head>
 <body>
@@ -1676,7 +1745,7 @@ async function exportBook(book) {
 }
 
 /* ================= state ================= */
-const state = { books: [], tab: 'shelves', shelf: null, sort: 'recent', query: '', coverUrls: new Map() };
+const state = { books: [], tab: 'shelves', shelf: null, sort: prefs.sort || 'manual', query: '', coverUrls: new Map() };
 const root = document.documentElement;
 
 function applyUi() {
@@ -1795,14 +1864,19 @@ function shelves() {
   const m = new Map();
   for (const s of prefs.shelves || []) m.set(s, []);
   for (const b of state.books) { if (!m.has(b.shelf)) m.set(b.shelf, []); m.get(b.shelf).push(b); }
-  for (const list of m.values()) list.sort(byRecent);
+  for (const list of m.values()) list.sort(byPos);
   return [...m.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'ru'));
 }
 const byRecent = (a, b) => (b.openedAt || b.addedAt) - (a.openedAt || a.addedAt);
 const pctOf = (b) => Math.round(((b.progress && b.progress.pct) || 0) * 100);
-const SORTS = { recent: ['Недавние', byRecent], title: ['По названию', (a, b) => a.title.localeCompare(b.title, 'ru')], author: ['По автору', (a, b) => authorsStr(a).localeCompare(authorsStr(b), 'ru') || a.title.localeCompare(b.title, 'ru')] };
+const byPos = (a, b) => (a.pos != null && b.pos != null ? a.pos - b.pos : a.pos != null ? -1 : b.pos != null ? 1 : byRecent(a, b));
+const SORTS = { manual: ['Мой порядок', byPos], recent: ['Недавние', byRecent], title: ['По названию', (a, b) => a.title.localeCompare(b.title, 'ru')], author: ['По автору', (a, b) => authorsStr(a).localeCompare(authorsStr(b), 'ru') || a.title.localeCompare(b.title, 'ru')] };
 
-function go(tab, shelf = null) { state.tab = tab; state.shelf = shelf; renderLibrary(); window.scrollTo({ top: 0 }); }
+function go(tab, shelf = null) {
+  const order = { shelves: 0, all: 1 };
+  state.navDir = shelf && !state.shelf ? 'push' : !shelf && state.shelf && tab === state.tab ? 'pop' : order[tab] > order[state.tab] ? 'right' : order[tab] < order[state.tab] ? 'left' : '';
+  state.tab = tab; state.shelf = shelf; renderLibrary(); window.scrollTo({ top: 0 });
+}
 
 function renderTabs() {
   const nav = $('#chips');
@@ -1813,15 +1887,125 @@ function renderTabs() {
   nav.append(h('div', { class: 'seg tabs', role: 'tablist', 'aria-label': 'Раздел библиотеки' }, mk('shelves', 'Полки'), mk('all', 'Всё')));
 }
 
-function bookGrid(list) {
-  return h('div', { class: 'bgrid' }, list.map((b, i) => {
+function bookGrid(list, sortable) {
+  const grid = h('div', { class: 'bgrid' + (sortable ? ' sortable' : '') }, list.map((b, i) => {
     const p = pctOf(b);
-    return h('button', { class: 'bcell', style: `--i:${Math.min(i, 12)}`, 'aria-label': `${b.title}. ${authorsStr(b)}${p ? `. Прочитано ${p}%` : ''}`, onclick: () => openDetail(b) },
+    return h('button', { class: 'bcell', 'data-id': b.id, style: `--i:${Math.min(i, 12)}`, 'aria-label': `${b.title}. ${authorsStr(b)}${p ? `. Прочитано ${p}%` : ''}`, onclick: (e) => { if (grid.dataset.justDragged) { e.preventDefault(); return; } openDetail(b); } },
       h('span', { class: 'bc' }, coverEl(b), b.sample ? h('span', { class: 'badge' }, 'Пример') : null),
       h('span', { class: 'bt' }, b.title),
       h('span', { class: 'ba' }, authorsStr(b)),
       h('span', { class: 'bp' }, p >= 100 ? 'Прочитана' : p > 0 ? h('span', { class: 'bar' }, h('i', { style: `width:${p}%` })) : 'Новая', p > 0 && p < 100 ? h('span', null, p + '%') : null));
   }));
+  if (sortable) enableReorder(grid);
+  return grid;
+}
+
+/* ---------- press, lift and drag a cover to change its place ---------- */
+function enableReorder(grid) {
+  let d = null;
+  const HOLD = 360;
+  const buzz = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* not supported */ } };
+  const cells = () => [...grid.querySelectorAll('.bcell')];
+  const place = () => {
+    if (!d) return;
+    const g = grid.getBoundingClientRect();
+    const x = d.px - g.left - d.gx - d.el.offsetLeft, y = d.py - g.top - d.gy - d.el.offsetTop;
+    d.el.style.transform = `translate3d(${x}px,${y}px,0) scale(1.08)`;
+  };
+  const flip = (mutate) => {
+    const others = cells().filter((c) => c !== d.el);
+    const before = new Map(others.map((c) => [c, c.getBoundingClientRect()]));
+    mutate();
+    for (const c of others) {
+      const a = before.get(c), b = c.getBoundingClientRect();
+      const dx = a.left - b.left, dy = a.top - b.top;
+      if (!dx && !dy) continue;
+      c.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }], { duration: reduceMotion() ? 1 : 320, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    }
+    place();
+  };
+  const hitTest = () => {
+    const under = document.elementFromPoint(d.px, d.py);
+    const t = under && under.closest('.bcell');
+    if (!t || t === d.el || t.parentElement !== grid) return;
+    const list = cells(), from = list.indexOf(d.el), to = list.indexOf(t);
+    flip(() => grid.insertBefore(d.el, to > from ? t.nextSibling : t));
+    buzz(6);
+  };
+  const autoscroll = () => {
+    if (!d || !d.lifted) return;
+    const edge = 90, v = d.py < edge ? -(edge - d.py) / 6 : d.py > window.innerHeight - edge ? (d.py - (window.innerHeight - edge)) / 6 : 0;
+    if (v) { window.scrollBy(0, v); place(); hitTest(); }
+    d.raf = requestAnimationFrame(autoscroll);
+  };
+  const lift = () => {
+    if (!d) return;
+    d.lifted = true;
+    const r = d.el.getBoundingClientRect();
+    d.gx = d.px - r.left; d.gy = d.py - r.top;
+    grid.classList.add('dragging');
+    d.el.classList.add('lifted');
+    place();
+    buzz(12);
+    d.raf = requestAnimationFrame(autoscroll);
+  };
+  const end = (cancelled) => {
+    if (!d) return;
+    clearTimeout(d.timer); cancelAnimationFrame(d.raf);
+    const el = d.el, wasLifted = d.lifted;
+    d = null;
+    if (!wasLifted) return;
+    grid.dataset.justDragged = '1';
+    setTimeout(() => { delete grid.dataset.justDragged; }, 80);
+    const cur = el.style.transform;
+    el.classList.remove('lifted');
+    el.style.transform = '';
+    el.animate([{ transform: cur }, { transform: 'none' }], { duration: reduceMotion() ? 1 : 300, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    grid.classList.remove('dragging');
+    if (!cancelled) saveOrder();
+  };
+  const saveOrder = async () => {
+    const ids = cells().map((c) => c.dataset.id);
+    const moved = ids.map((id) => state.books.find((b) => b.id === id)).filter(Boolean);
+    // give every book a stable place first, then reuse this view's slots in the new order
+    if (state.books.some((b) => b.pos == null)) {
+      state.books.slice().sort(byPos).forEach((b, i) => { b.pos = i; });
+      const all = cells().map((c) => state.books.find((b) => b.id === c.dataset.id));
+      if (state.tab === 'all' && !state.shelf) all.forEach((b, i) => { b.pos = i; });
+    }
+    const slots = moved.map((b) => b.pos).sort((a, b) => a - b);
+    moved.forEach((b, i) => { b.pos = slots[i]; });
+    for (const b of moved) await DB.put('books', b).catch(() => {});
+    if (state.tab === 'all' && state.sort !== 'manual') {
+      state.sort = 'manual'; prefs.sort = 'manual'; savePrefs();
+      const sb = $('.sort-btn'); if (sb) sb.firstChild.textContent = SORTS.manual[0];
+      toast('Порядок сохранён · сортировка «Мой порядок»');
+    }
+  };
+  grid.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest('.bcell');
+    if (!el || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    d = { el, id: e.pointerId, sx: e.clientX, sy: e.clientY, px: e.clientX, py: e.clientY, lifted: false, mouse: e.pointerType === 'mouse' };
+    if (!d.mouse) d.timer = setTimeout(lift, HOLD);
+  });
+  grid.addEventListener('pointermove', (e) => {
+    if (!d || e.pointerId !== d.id) return;
+    d.px = e.clientX; d.py = e.clientY;
+    const moved = Math.hypot(d.px - d.sx, d.py - d.sy);
+    if (!d.lifted) {
+      if (d.mouse && moved > 6) { try { grid.setPointerCapture(d.id); } catch (err) { /* ignore */ } lift(); }
+      else if (!d.mouse && moved > 10) { clearTimeout(d.timer); d = null; }
+      return;
+    }
+    place(); hitTest();
+  });
+  grid.addEventListener('pointerup', (e) => { if (d && e.pointerId === d.id) end(false); });
+  grid.addEventListener('pointercancel', () => end(true));
+  grid.addEventListener('lostpointercapture', () => { if (d && d.lifted && d.mouse) end(false); });
+  // while a cover is lifted the page must not scroll under the finger
+  grid.addEventListener('touchmove', (e) => { if (d && d.lifted) e.preventDefault(); }, { passive: false });
+  grid.addEventListener('contextmenu', (e) => e.preventDefault());
+  grid.addEventListener('dragstart', (e) => e.preventDefault());
 }
 
 function pocketWell(list, extraClass = '') {
@@ -1852,7 +2036,7 @@ function continueCard() {
   const cur = state.books.filter((b) => b.openedAt && pctOf(b) < 100 && !b.sample).sort(byRecent)[0] || state.books.filter((b) => b.openedAt && pctOf(b) < 100).sort(byRecent)[0];
   if (!cur) return null;
   const p = pctOf(cur);
-  return h('button', { class: 'cont', onclick: () => openReader(cur) },
+  return h('button', { class: 'cont', onclick: (e) => openReader(cur, e.currentTarget.querySelector('.cover')) },
     coverEl(cur),
     h('span', { class: 'meta' },
       h('span', { class: 'eyebrow' }, 'Продолжить чтение'),
@@ -1865,8 +2049,9 @@ function renderLibrary(animate = true) {
   if (typeof updatePfBadge === 'function') updatePfBadge();
   const main = $('#lib-main');
   main.replaceChildren();
-  main.classList.remove('rise');
-  if (animate) { void main.offsetWidth; main.classList.add('rise'); }
+  main.classList.remove('rise', 'nav-push', 'nav-pop', 'nav-right', 'nav-left', 'lib-fade');
+  const dir = state.navDir; state.navDir = '';
+  if (animate) { void main.offsetWidth; main.classList.add('rise'); if (dir) main.classList.add('nav-' + dir); }
   const books = state.books;
   $('#search-wrap').hidden = !books.length;
   const all = shelves();
@@ -1892,11 +2077,12 @@ function renderLibrary(animate = true) {
     return;
   }
   if (state.tab === 'all') {
-    const [label, fn] = SORTS[state.sort] || SORTS.recent;
+    const [label, fn] = SORTS[state.sort] || SORTS.manual;
     const order = Object.keys(SORTS);
     main.append(h('div', { class: 'sec-head' }, h('h2', null, `${books.length} ${plural(books.length, BOOKS)}`),
-      h('button', { class: 'sort-btn', 'aria-label': 'Сортировка: ' + label, onclick: () => { state.sort = order[(order.indexOf(state.sort) + 1) % order.length]; renderLibrary(false); } }, label, ' ', icon('next', 'xs'))));
-    main.append(books.length ? bookGrid(books.slice().sort(fn)) : h('p', { class: 'muted' }, 'Книг пока нет.'));
+      h('button', { class: 'sort-btn', 'aria-label': 'Сортировка: ' + label, onclick: () => { state.sort = order[(order.indexOf(state.sort) + 1) % order.length]; prefs.sort = state.sort; savePrefs(); renderLibrary(false); } }, label, ' ', icon('next', 'xs'))));
+    main.append(books.length ? bookGrid(books.slice().sort(fn), true) : h('p', { class: 'muted' }, 'Книг пока нет.'));
+    if (books.length > 1) main.append(h('p', { class: 'reorder-hint' }, 'Зажмите обложку и перетащите, чтобы поменять порядок'));
     return;
   }
   if (state.shelf) {
@@ -1912,7 +2098,7 @@ function renderLibrary(animate = true) {
         h('div', { class: 'acts', style: 'display:grid;gap:8px;margin-top:10px' },
           h('button', { class: 'btn', onclick: () => pickBooks(state.shelf) }, icon('shelf', 'sm'), 'Переложить книги'),
           h('button', { class: 'link-btn', onclick: () => $('#file').click() }, 'Добавить файлы'))));
-    } else main.append(bookGrid(list));
+    } else main.append(bookGrid(list, true));
     return;
   }
   // the shelves page is built once and reused while nothing changes, so the glass never re-renders on tab switches
@@ -1924,10 +2110,10 @@ function renderLibrary(animate = true) {
   main.classList.remove('rise');
   const ib = installBanner(); if (ib) main.append(ib);
   main.append(state.homeCache.node);
-  if (animate) { main.classList.remove('lib-fade'); void main.offsetWidth; main.classList.add('lib-fade'); }
+  if (animate && !dir) { void main.offsetWidth; main.classList.add('lib-fade'); }
 }
 function libSig() {
-  return (prefs.shelves || []).join('|') + '#' + state.books.map((b) => [b.id, b.shelf, b.title, authorsStr(b), pctOf(b), b.openedAt, b.modifiedAt, b.cover ? b.cover.size : 0, b.sample ? 1 : 0].join('~')).join('|');
+  return (prefs.shelves || []).join('|') + '#' + state.books.map((b) => [b.id, b.shelf, b.title, authorsStr(b), pctOf(b), b.openedAt, b.modifiedAt, b.cover ? b.cover.size : 0, b.sample ? 1 : 0, b.pos].join('~')).join('|');
 }
 
 /* ================= book card ================= */
@@ -1951,7 +2137,7 @@ function openDetail(book) {
     h('h3', null, book.title),
     h('div', { class: 'au' }, authorsStr(book)),
     h('div', { class: 'acts' },
-      h('button', { class: 'btn wide', autofocus: true, onclick: () => { s.close(true); openReader(book); } }, icon('book', 'sm'), p > 0 && p < 100 ? `Продолжить · ${p}%` : p >= 100 ? 'Читать снова' : 'Читать'),
+      h('button', { class: 'btn wide', autofocus: true, onclick: () => { openReader(book, $('.cv .cover', body)); s.close(true); } }, icon('book', 'sm'), p > 0 && p < 100 ? `Продолжить · ${p}%` : p >= 100 ? 'Читать снова' : 'Читать'),
       h('div', { class: 'acts3' },
         h('button', { class: 'tile', onclick: () => { s.close(true); openMetaEditor(book); } }, icon('pen'), 'Данные книги'),
         h('button', { class: 'tile', onclick: () => exportBook(book) }, icon('down'), 'Скачать'),
@@ -1964,7 +2150,7 @@ function openDetail(book) {
       annot));
   if (annot && book.annotation.length > 320) {
     annot.classList.add('clamp');
-    annot.after(h('button', { class: 'link-btn', onclick: (e) => { annot.classList.remove('clamp'); e.currentTarget.remove(); } }, 'Показать полностью'));
+    annot.after(h('button', { class: 'link-btn', onclick: (e) => { annot.style.maxHeight = annot.scrollHeight + 'px'; annot.classList.remove('clamp'); annot.addEventListener('transitionend', () => { annot.style.maxHeight = 'none'; }, { once: true }); e.currentTarget.remove(); } }, 'Показать полностью'));
   }
   s = openSheet({ title: '', label: book.title, body, tall: false });
 }
@@ -2061,7 +2247,7 @@ function openMetaEditor(book) {
 async function openSettings() {
   const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Оформление' });
   const opts = [['dark', 'Тёмное'], ['light', 'Светлое'], ['system', 'Как в системе']];
-  const paint = () => seg.replaceChildren(...opts.map(([k, l]) => h('button', { 'aria-pressed': String(prefs.ui === k), onclick: () => { prefs.ui = k; savePrefs(); applyUi(); paint(); } }, l)));
+  const paint = () => seg.replaceChildren(...opts.map(([k, l]) => h('button', { 'aria-pressed': String(prefs.ui === k), onclick: () => withVT(() => { prefs.ui = k; savePrefs(); applyUi(); paint(); }) }, l)));
   paint();
   const mseg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Анимации' });
   const mopts = [['full', 'Включены'], ['system', 'Как в системе']];
@@ -2107,6 +2293,8 @@ async function importFiles(fileList) {
       if (twin) { dup.push(book.title); continue; }
       if (target) book.shelf = target;
       await DB.put('content', content);
+      await DB.put('books', book);
+      book.pos = Math.min(0, ...state.books.map((x) => x.pos ?? 0)) - 1;
       await DB.put('books', book);
       state.books.push(book); added.push(book);
     } catch (e) {
@@ -2261,7 +2449,8 @@ function applyReaderPrefs() {
   c.classList.toggle('justify', !!prefs.justify);
 }
 
-async function openReader(book) {
+async function openReader(book, src) {
+  flyCover(src);
   let content;
   try { content = await DB.get('content', book.id); } catch (e) { content = null; }
   if (!content || !content.chapters || !content.chapters.length) { toast('Текст этой книги не найден на устройстве. Удалите её и добавьте файл заново.', { tone: 'error' }); return; }
@@ -2291,6 +2480,7 @@ async function closeReader() {
   if (R.editing) { const ok = await leaveEditing(); if (!ok) return; }
   saveProgress();
   hideQbar();
+  if (!reduceMotion()) { try { await $('#reader').animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.985)' }], { duration: 200, easing: 'ease-in' }).finished; } catch (e) { /* interrupted */ } }
   for (const u of R.imgUrls.values()) URL.revokeObjectURL(u);
   R.imgUrls.clear();
   $('#reader').hidden = true;
@@ -2330,6 +2520,9 @@ function imgUrl(key) {
 /* ---------- chrome ---------- */
 function renderTop() {
   const top = $('#r-top');
+  const mode = R.editing ? 'edit' : 'read';
+  if (R.topMode && R.topMode !== mode) playIn(top, 'top-swap');
+  R.topMode = mode;
   top.replaceChildren();
   const chTitle = R.content.chapters[R.ch] ? R.content.chapters[R.ch].title : '';
   if (R.editing) {
@@ -2799,6 +2992,7 @@ function saveQuote() {
   window.getSelection().removeAllRanges();
   hideQbar();
   paintQuotes();
+  $$(`mark.q[data-q="${b.quotes[b.quotes.length - 1].id}"]`, rc()).forEach((m) => playIn(m, 'q-new'));
   R.blocks = [...rc().querySelectorAll(BLOCK_SEL)];
   persistBook(b).catch(() => {});
   toast('Цитата сохранена', { action: { label: 'Все цитаты', fn: () => openNav('notes') } });
@@ -2982,7 +3176,7 @@ function openType() {
         segIcons('mode', [['paged', 'pages', 'Страницами'], ['scroll', 'scroll', 'Лентой']], 'Листание')),
       h('div', { class: 'opt' }, h('div', { class: 'opt-h' }, h('span', null, 'Цвет страницы')),
         h('div', { class: 'swatches' }, Object.entries(READER_THEMES).map(([k, t]) =>
-          h('button', { class: 'sw', 'aria-pressed': String(readerTheme() === t), onclick: () => { prefs.rt = k; savePrefs(); applyReaderPrefs(); paint(); } },
+          h('button', { class: 'sw', 'aria-pressed': String(readerTheme() === t), onclick: () => withVT(() => { prefs.rt = k; savePrefs(); applyReaderPrefs(); paint(); }) },
             h('i', { style: `background:${t.bg};color:${t.fg}` }, 'Аа'), t.name)))),
       h('div', { class: 'opt row' }, h('label', { for: 'justify' }, 'Выравнивание по ширине'),
         h('span', { class: 'switch' }, (() => { const i = h('input', { type: 'checkbox', id: 'justify', role: 'switch' }); i.checked = !!prefs.justify; i.addEventListener('change', () => set('justify', i.checked)); return i; })(), h('span'))));
@@ -3156,7 +3350,7 @@ $('#rt-edit').addEventListener('click', () => startEditing());
     R.sliding = true;
     const loc = locate(+sl.value);
     sl.style.setProperty('--fill', (sl.value / sl.max) * 100 + '%');
-    tip.hidden = false;
+    if (tip.hidden) { tip.hidden = false; playIn(tip, 'pop-in'); }
     tip.textContent = `${loc.label} · ${R.content.chapters[loc.ch].title}`;
   });
   sl.addEventListener('change', () => {
@@ -3336,13 +3530,13 @@ function openProfile() {
   pf.hidden = false;
   window.scrollTo(0, 0);
   renderProfile();
-  playIn($('#profile .wrap'), 'screen-in');
+  playIn($('#profile .wrap'), 'push-in');
 }
 function closeProfile() {
   $('#profile').hidden = true;
   $('#lib').hidden = false;
   renderLibrary(false);
-  playIn($('#lib .wrap'), 'screen-in');
+  playIn($('#lib .wrap'), 'pop-back');
 }
 
 function renderProfile() {
@@ -3362,7 +3556,7 @@ function renderProfile() {
   const status = st.todayMet ? `Цель на сегодня выполнена — ${fmtDur(today.ms)}. Огонёк горит!`
     : st.current > 0 ? `Почитайте ещё ${left} мин сегодня, чтобы не потерять серию`
       : `Огонёк загорится после ${ST.data.goal} минут чтения за день`;
-  const fill = h('i', { style: 'width:0' });
+  const fill = h('i', { style: `width:${Math.min(100, (today.ms / goal) * 100)}%` });
   const week = h('div', { class: 'week', role: 'list', 'aria-label': 'Последние 7 дней' });
   const wd = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
   for (let i = 6; i >= 0; i--) {
@@ -3382,7 +3576,6 @@ function renderProfile() {
     week));
   countUp(num, st.current, (v) => String(Math.round(v)), 700);
   setTimeout(() => num.classList.add('pop'), reduceMotion() ? 0 : 720);
-  requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = Math.min(100, (today.ms / goal) * 100) + '%'; }));
 
   /* tiles */
   const tiles = [
@@ -3413,7 +3606,7 @@ function renderProfile() {
     const pct = book ? pctOf(book) : 0;
     const remainChars = book && s.total ? Math.max(0, s.total * (1 - ((book.progress && book.progress.pct) || 0))) : 0;
     const eta = sp && remainChars && pct < 100 ? `осталось ≈ ${fmtDur(remainChars / CHARS_PER_WORD / sp * 60000)}` : pct >= 100 ? 'прочитана' : '';
-    const bar = h('i', { style: 'width:0' });
+    const bar = h('i', { style: `width:${Math.max(4, (s.ms / maxMs) * 100)}%` });
     const row = h(book ? 'button' : 'div', { class: 'brow', style: `--i:${i}`, onclick: book ? () => openDetail(book) : null },
       book ? coverEl(book) : h('span', { class: 'cover' }),
       h('span', { class: 'bm' },
@@ -3422,7 +3615,6 @@ function renderProfile() {
         h('span', { class: 'share' }, bar)),
       h('span', { class: 'bpct' }, book ? pct + '%' : ''));
     list.append(row);
-    requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.width = Math.max(4, (s.ms / maxMs) * 100) + '%'; }));
   });
   main.append(h('section', { class: 'card pad' }, h('div', { class: 'card-h' }, h('h2', null, 'Время по книгам'), rows.length ? h('span', null, `${rows.length} ${plural(rows.length, BOOKS)}`) : null), list));
 
@@ -3647,6 +3839,53 @@ if ('launchQueue' in window) {
 if (window.POLKA_PWA && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
+
+/* ================= motion helpers ================= */
+function withVT(fn) {
+  if (document.startViewTransition && !reduceMotion()) { try { document.startViewTransition(fn); return; } catch (e) { /* fall through */ } }
+  fn();
+}
+// the book cover flies from where it was tapped into the opening book
+function flyCover(src) {
+  if (!src || reduceMotion()) return;
+  const r = src.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const c = src.cloneNode(true);
+  c.classList.add('fly');
+  Object.assign(c.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', margin: '0', zIndex: '200', transformOrigin: 'center', pointerEvents: 'none' });
+  document.body.append(c);
+  const s = Math.min((window.innerHeight * 0.6) / r.height, (window.innerWidth * 0.7) / r.width);
+  const tx = window.innerWidth / 2 - (r.left + r.width / 2), ty = window.innerHeight / 2 - (r.top + r.height / 2);
+  const a = c.animate([
+    { transform: 'translate(0,0) scale(1) rotateY(0)', opacity: 1 },
+    { transform: `translate(${tx}px,${ty}px) scale(${s})`, opacity: 1, offset: 0.62 },
+    { transform: `translate(${tx}px,${ty}px) scale(${s * 1.06})`, opacity: 0 },
+  ], { duration: 680, easing: 'cubic-bezier(.32,.72,0,1)' });
+  a.onfinish = a.oncancel = () => c.remove();
+}
+// sliding selection pill for every segmented control, remembered per control
+const SEGMEM = new Map();
+function enhanceSeg(seg) {
+  const btns = [...seg.children].filter((b) => b.tagName === 'BUTTON');
+  if (!btns.length) return;
+  const idx = btns.findIndex((b) => b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-selected') === 'true');
+  const key = btns.map((b) => b.textContent.trim()).join('|');
+  const prev = SEGMEM.has(key) ? SEGMEM.get(key) : idx;
+  seg.classList.add('pill');
+  seg.style.setProperty('--n', btns.length);
+  seg.style.setProperty('--idx', Math.max(0, prev));
+  seg.classList.toggle('none', idx < 0);
+  SEGMEM.set(key, idx);
+  if (prev !== idx && idx >= 0) requestAnimationFrame(() => requestAnimationFrame(() => seg.style.setProperty('--idx', idx)));
+}
+new MutationObserver((list) => {
+  for (const m of list) for (const n of m.addedNodes) {
+    if (n.nodeType !== 1) continue;
+    if (n.classList.contains('seg')) enhanceSeg(n);
+    else if (n.parentElement && n.parentElement.classList.contains('seg')) enhanceSeg(n.parentElement);
+    else n.querySelectorAll && n.querySelectorAll('.seg').forEach(enhanceSeg);
+  }
+}).observe(document.body, { childList: true, subtree: true });
 
 (async function init() {
   applyUi();

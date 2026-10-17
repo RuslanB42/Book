@@ -1,5 +1,5 @@
 /* Полка — service worker: works offline, accepts books shared from other apps */
-const VERSION = 'polka-20261017070531';
+const VERSION = 'polka-20261017081750';
 const CORE = ['./', './index.html', './manifest.webmanifest', './jszip.min.js', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
