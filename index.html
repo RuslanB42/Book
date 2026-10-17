@@ -536,7 +536,7 @@ input, textarea, select { font: inherit; color: inherit; }
   display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: 18px;
   background: color-mix(in srgb, var(--bg-raised) 88%, transparent); color: var(--fg);
   -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
-  box-shadow: 0 10px 30px rgba(0,0,0,.28), inset 0 0 0 .5px var(--hair);
+  box-shadow: 0 10px 30px rgba(0,0,0,.24);
 }
 .r-edit-bar button { width: 44px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 16px; }
 .r-edit-bar button:hover { background: var(--fill); }
@@ -579,17 +579,19 @@ input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; border: 0; bo
 input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.12); }
 input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
 .fonts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.font-card { display: grid; justify-items: center; gap: 4px; padding: 10px 4px 9px; border-radius: 14px; background: var(--fill); box-shadow: inset 0 0 0 1.5px transparent; transition: box-shadow .2s, background .2s; }
+.font-card { display: grid; justify-items: center; gap: 4px; padding: 10px 4px 9px; border-radius: 14px; background: var(--fill); box-shadow: none; transition: background .2s, color .2s; }
 .font-card .ff { font-size: 26px; line-height: 1.1; }
 .font-card .fn { font-size: 12px; color: var(--fg-2); white-space: nowrap; }
-.font-card[aria-pressed="true"] { background: var(--seg-on); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.font-card[aria-pressed="true"] { background: var(--pill); color: var(--pill-fg); box-shadow: none; }
+.font-card[aria-pressed="true"] .fn { color: inherit; }
 .type .seg button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 56px; }
 .seg-l { font-size: 12px; font-weight: 500; white-space: nowrap; }
 .swatches { display: flex; justify-content: space-between; gap: 8px; }
 .sw { display: grid; justify-items: center; gap: 6px; font-size: 12px; color: var(--fg-2); flex: 1; }
-.sw i { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; font: 600 16px/1 var(--f-display); box-shadow: inset 0 0 0 1px var(--hair); font-style: normal; transition: box-shadow .2s, transform .2s var(--ease); }
+.sw i { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; font: 600 16px/1 var(--f-display); box-shadow: none; font-style: normal; position: relative; transition: transform .2s var(--ease); }
 .sw:active i { transform: scale(.94); }
-.sw[aria-pressed="true"] i { box-shadow: 0 0 0 2px var(--sheet), 0 0 0 4px var(--accent); }
+.sw[aria-pressed="true"] { color: var(--fg); font-weight: 600; }
+.sw[aria-pressed="true"] i::after { content: "✓"; position: absolute; right: -3px; bottom: -2px; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: var(--pill); color: var(--pill-fg); font: 700 12px/1 var(--f-ui); }
 .switch { position: relative; width: 51px; height: 31px; flex: none; }
 .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
 .switch span { position: absolute; inset: 0; border-radius: 16px; background: var(--fill-2); transition: background .2s; pointer-events: none; }
@@ -631,11 +633,13 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
   position: fixed; z-index: 45; display: flex; gap: 2px; padding: 4px; border-radius: 14px;
   background: var(--pill); color: var(--pill-fg); box-shadow: 0 10px 30px rgba(0,0,0,.35);
 }
-.qbar button { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px; border-radius: 10px; font-size: 15px; font-weight: 500; color: inherit; white-space: nowrap; }
+.qbar { max-width: calc(100vw - 16px); user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.qbar button:disabled { opacity: .55; cursor: wait; }
+.qbar button { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 12px; border-radius: 10px; font-size: 15px; font-weight: 500; color: inherit; white-space: nowrap; }
 .qbar button:hover, .qbar button:active { background: color-mix(in srgb, var(--pill-fg) 12%, transparent); }
 
 /* shelves management */
-.chip.add { display: inline-flex; align-items: center; gap: 4px; color: var(--fg-2); box-shadow: inset 0 0 0 1px var(--hair); padding: 0 14px 0 10px; }
+.chip.add { display: inline-flex; align-items: center; gap: 4px; color: var(--fg-2); box-shadow: none; padding: 0 14px 0 10px; }
 .sec-head .tools { display: flex; align-items: center; gap: 6px; }
 .sec-head .icon-btn { width: 36px; height: 36px; color: var(--fg-2); }
 .pocket .well.empty-well::before {
@@ -926,12 +930,12 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 .bd-main h3 { font: 600 23px/1.2 var(--f-display); margin: 4px 0 0; text-wrap: balance; }
 .bd-main .au { color: var(--fg-2); font-size: 15px; }
 .tiles3 { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }
-.bt-tile { display: grid; gap: 6px; justify-items: center; padding: 12px 6px; border-radius: 14px; background: var(--bg-raised); box-shadow: inset 0 0 0 1px var(--hair); }
+.bt-tile { display: grid; gap: 6px; justify-items: center; padding: 12px 6px; border-radius: 14px; background: var(--bg-raised); box-shadow: none; }
 .btl { font-size: 12px; color: var(--fg-3); }
 .btv { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .btv .ic { color: var(--accent-ink); }
 .btv b { font-weight: 600; }
-.prog-card { width: 100%; margin-top: 12px; padding: 14px 16px; border-radius: 16px; background: var(--bg-raised); box-shadow: inset 0 0 0 1px var(--hair); text-align: left; display: grid; gap: 6px; min-height: 84px; }
+.prog-card { width: 100%; margin-top: 12px; padding: 14px 16px; border-radius: 16px; background: var(--bg-raised); box-shadow: none; text-align: left; display: grid; gap: 6px; min-height: 84px; }
 .pc-t { font: 600 16px/1.25 var(--f-display); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pc-row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
 .pc-bar { height: 5px; border-radius: 3px; background: var(--fill-2); overflow: hidden; }
@@ -950,7 +954,7 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 /* ---------- quotes page ---------- */
 .q-filter { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: -4px 0 18px; padding-bottom: 2px; }
 .q-filter::-webkit-scrollbar { display: none; }
-.q-filter .chip { box-shadow: inset 0 0 0 1px var(--hair); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-filter .chip { box-shadow: none; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .q-list { display: grid; gap: 14px; }
 @media (min-width: 760px) { .q-list { grid-template-columns: 1fr 1fr; align-items: start; } }
 .qcard { position: relative; background: var(--bg-raised); border-radius: 20px; padding: 6px 8px 8px; overflow: hidden; animation: rise .5s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
@@ -1004,7 +1008,7 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
   display: grid; grid-template-columns: repeat(4, 56px); gap: 6px; padding: 6px; border-radius: 34px;
   background: color-mix(in srgb, var(--bg-raised) 82%, transparent);
   -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6);
-  box-shadow: 0 10px 34px rgba(0,0,0,.35), inset 0 0 0 .5px var(--hair), inset 0 1px 0 rgba(255,255,255,.06);
+  box-shadow: 0 10px 34px rgba(0,0,0,.28);
   --ti: 0;
 }
 .tabbar button { position: relative; z-index: 1; width: 56px; height: 52px; border-radius: 26px; display: grid; place-items: center; color: var(--fg-2); transition: color .3s ease; }
@@ -1019,7 +1023,7 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 }
 @keyframes tb-pop { 0% { transform: scale(1); } 35% { transform: scale(.82); } 70% { transform: scale(1.08); } 100% { transform: scale(1); } }
 .tabbar button.tb-pop .ic { animation: tb-pop .45s var(--ease); }
-.lib { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+.lib { overflow-x: clip; padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
 .toasts { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
 .reader:not([hidden]) ~ .toasts, body:has(#reader:not([hidden])) .toasts { bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
 @keyframes tab-r { from { opacity: 0; transform: translate3d(22px, 0, 0) scale(.99); } to { opacity: 1; transform: none; } }
@@ -1031,14 +1035,35 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 .navbar { grid-template-columns: auto 1fr auto; padding-right: max(16px, env(safe-area-inset-right, 0px)); height: 60px; }
 .navbar .mini { text-align: center; }
 .navbar .end { gap: 8px; }
-.avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--fg); background: linear-gradient(145deg, var(--bg-raised-2), var(--bg-raised)); box-shadow: inset 0 0 0 1px var(--hair), 0 2px 8px rgba(0,0,0,.25); transition: transform .15s var(--ease); }
+.avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--fg); background: linear-gradient(145deg, var(--bg-raised-2), var(--bg-raised)); box-shadow: 0 2px 8px rgba(0,0,0,.15); transition: transform .15s var(--ease); }
 .avatar .ic { width: 20px; height: 20px; }
-.round-btn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--fg); background: var(--bg-raised); box-shadow: inset 0 0 0 1px var(--hair), 0 2px 8px rgba(0,0,0,.18); transition: transform .15s var(--ease), background .2s; }
+.round-btn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--fg); background: var(--bg-raised); box-shadow: 0 2px 8px rgba(0,0,0,.12); transition: transform .15s var(--ease), background .2s; }
 .round-btn[aria-expanded="true"] { background: var(--pill); color: var(--pill-fg); }
 .avatar:active, .round-btn:active, .fab:active { transform: scale(.92); }
 .profile .navbar .round-btn { justify-self: start; }
-@keyframes search-in { from { opacity: 0; transform: translate3d(0, -8px, 0); } to { opacity: 1; transform: none; } }
-.search-in { animation: search-in .28s var(--ease) both; }
+/* Search expands horizontally towards the avatar, without moving the toolbar. */
+#navbar { grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; }
+.navbar .avatar, .navbar .round-btn { width: 44px; height: 44px; flex: none; }
+.nav-center { position: relative; min-width: 0; height: 44px; display: grid; align-items: center; }
+.nav-center .mini { display: block; overflow: hidden; text-overflow: ellipsis; }
+#navbar.search-open .mini { opacity: 0; visibility: hidden; }
+#navbar .search {
+  position: absolute; right: 0; top: 0; width: 0; max-width: 400px; height: 44px; margin: 0;
+  opacity: 0; visibility: hidden; overflow: hidden; pointer-events: none;
+  transition: width .32s var(--ease), opacity .2s ease, visibility 0s linear .32s;
+}
+#navbar.search-open .search {
+  width: 100%; opacity: 1; visibility: visible; pointer-events: auto;
+  transition: width .32s var(--ease), opacity .2s ease, visibility 0s;
+}
+#navbar .search input { min-width: 0; height: 44px; padding-left: 12px; padding-right: 44px; background: var(--bg-raised); box-shadow: inset 0 0 0 1px var(--hair); }
+#navbar .search > .ic { display: none; }
+#navbar .search input:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+#navbar .search .clear { right: 0; width: 44px; height: 44px; }
+#navbar .search .clear .ic { position: static; }
+@media (prefers-reduced-motion: reduce) {
+  #navbar .search, #navbar.search-open .search { transition: none; }
+}
 
 .tabbar { left: max(16px, env(safe-area-inset-left, 0px)); transform: none; grid-template-columns: repeat(3, 52px); gap: 4px; padding: 5px; border-radius: 30px; }
 .tabbar button { width: 52px; height: 48px; border-radius: 24px; }
@@ -1049,13 +1074,131 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
   box-shadow: 0 10px 28px rgba(0,0,0,.4); transition: transform .18s var(--ease);
 }
 .fab .ic { width: 26px; height: 26px; stroke-width: 2; }
-.p-add {
-  position: absolute; z-index: 3; right: 9%; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%;
-  display: grid; place-items: center; background: #fff; color: #161617; box-shadow: 0 4px 12px rgba(0,0,0,.3); transition: transform .15s var(--ease);
-}
-.p-add:active { transform: translateY(-50%) scale(.88); }
-.pocket.add .p-add { display: none; }
 .sort-btn { color: var(--fg-2); font-size: 14px; }
+
+
+/* Stable bottom navigation; no spring overshoot, icon bounce or nested reveals. */
+.tb-ind { transition: transform .22s cubic-bezier(.2,.8,.2,1); will-change: transform; }
+.tabbar button.tb-pop .ic { animation: none; }
+.tab-stable, .tab-stable * { animation: none !important; }
+html { scrollbar-gutter: stable; }
+.storage-panel { margin-top: 24px; }
+.storage-actions { display: grid; gap: 10px; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .tb-ind { transition: none; } }
+
+/* Match shelf hit targets to the visible artwork, not its empty layout box.
+   The native button remains keyboard-focusable; only pointer hit testing changes. */
+button.pocket { pointer-events: none; cursor: default; }
+button.pocket .well > .c,
+button.pocket .glass,
+button.pocket .lbl { pointer-events: auto; cursor: pointer; }
+
+/* Covers, not tiles: a quiet, front-facing book with a bound spine and paper edge. */
+.bgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 24px; padding: 6px 5px 0 2px; }
+@media (min-width: 680px) { .bgrid { grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 36px 28px; } }
+@media (min-width: 980px) { .bgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 40px 30px; } }
+.bcell { gap: 4px; overflow: visible; }
+.bcell .bc { isolation: isolate; margin-bottom: 12px; }
+/* A very thin page block is behind the original cover, never on top of its artwork. */
+.bcell .bc::before {
+  content: ""; position: absolute; inset: 2px 0 0 3px; z-index: -1; pointer-events: none;
+  transform: translate(2px, 2px); border-radius: 1px 3px 3px 1px;
+  background: repeating-linear-gradient(180deg, #dcd6c9 0, #dcd6c9 1px, #f1ede3 1px, #f1ede3 2px);
+  box-shadow: 1px 2px 3px rgba(0,0,0,.18), 4px 12px 18px -5px rgba(0,0,0,.3);
+}
+.bcell .cover {
+  border-radius: 1px 3px 3px 1px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.16), 2px 6px 12px rgba(0,0,0,.12);
+}
+.bcell .cover::after, .bh .cv .cover::after {
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.38) 0%, rgba(255,255,255,.22) 1.4%, rgba(255,255,255,.08) 2.4%, rgba(0,0,0,.2) 3.1%, rgba(0,0,0,.1) 4.2%, rgba(255,255,255,.13) 5.2%, transparent 8%),
+    linear-gradient(90deg, transparent 96.5%, rgba(0,0,0,.1) 100%),
+    linear-gradient(180deg, rgba(255,255,255,.06), transparent 20%, transparent 80%, rgba(0,0,0,.05));
+}
+.bcell .gcover { padding: 13cqw 11cqw 12cqw 15cqw; }
+.bcell .gcover::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,.045), transparent 45%, rgba(0,0,0,.035));
+}
+.bcell .gcover .gt { font-size: 11cqw; line-height: 1.12; -webkit-line-clamp: 6; text-wrap: balance; hyphens: none; }
+.bcell .gcover .ga { font-size: 6.8cqw; letter-spacing: .1em; }
+.bcell .bt { font-size: 15px; line-height: 1.3; font-weight: 500; }
+.bcell .ba { font-size: 14px; line-height: 1.35; }
+.bcell .bp { min-height: 20px; margin-top: 4px; gap: 8px; font-size: 14px; color: var(--fg-2); }
+.bcell .bp .bar { max-width: 72px; height: 3px; }
+.bcell .book-example { margin-left: auto; font-size: 14px; color: var(--fg-2); white-space: nowrap; }
+.bcell.lifted .bc::before { box-shadow: 1px 2px 4px rgba(0,0,0,.2), 8px 22px 30px -6px rgba(0,0,0,.4); }
+
+/* ---------- personal book discovery ---------- */
+.tabbar { grid-template-columns: repeat(4, 52px); }
+.lib:has(.rec-main) { overflow-x: clip; }
+.rec-main { min-height: 400px; }
+.rec-shell { max-width: 700px; margin: 0 auto; }
+.rec-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 20px; }
+.rec-seg { width: min(100%, 320px); }
+.rec-seg button { min-height:44px; }
+.rec-tools > .icon-btn { flex: none; width: 44px; height: 44px; }
+.rec-stage { position: relative; isolation: isolate; }
+.rec-card { position: relative; overflow: hidden; display: grid; grid-template-columns: 215px minmax(0,1fr); align-items: center; gap: 32px; padding: 32px; background: var(--bg-raised); border-radius: 24px; touch-action: pan-y pinch-zoom; user-select: none; -webkit-user-select: none; will-change: transform; }
+.rec-art { width: 100%; padding: 6px 4px 14px; }
+.rec-art .cover { display: block; width: 100%; aspect-ratio: 2/3; border-radius: 2px 4px 4px 2px; box-shadow: 3px 12px 22px rgba(0,0,0,.25); }
+.rec-art .cover::after { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.25),rgba(255,255,255,.12) 2%,rgba(0,0,0,.1) 5%,transparent 9%); }
+.rec-art .gt { font-size: 24px; line-height:1.1; }
+.rec-copy { min-width: 0; }
+.rec-copy h2 { font-family: var(--f-display, Georgia, serif); font-size: 28px; line-height: 1.12; font-weight: 700; margin: 0 0 10px; overflow-wrap:anywhere; }
+.rec-author { font-size: 15px; color: var(--fg-2); line-height:1.4; margin: 0 0 20px; }
+.rec-description { color:var(--fg-2); font-size:16px; line-height:1.55; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:7; overflow:hidden; margin:0 0 8px; white-space:pre-line; }
+.rec-more { min-height:44px; padding:8px 0; font-size:15px; }
+.rec-stamp { pointer-events:none; position:absolute; z-index:4; top:24px; display:flex; align-items:center; gap:6px; padding:10px 14px; border-radius:12px; font-size:16px; font-weight:600; }
+.rec-stamp-like { right:20px; color:#fff; background:#226d4f; opacity:var(--like,0); transform:rotate(8deg); }
+.rec-stamp-skip { left:20px; color:#fff; background:#8b3b39; opacity:var(--skip,0); transform:rotate(-8deg); }
+.rec-actions { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:20px; }
+.rec-actions .btn { min-height:52px; width:100%; gap:8px; padding:10px 12px; }
+.rec-foot { font-size:14px; color:var(--fg-2); text-align:center; line-height:1.5; min-height:21px; margin:14px 0 0; }
+.rec-attribution { font-size:12px; color:var(--fg-3); text-align:center; margin:12px 0 0; }
+.rec-empty { min-height:330px; display:flex; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:40px 20px; gap:16px; }
+.rec-empty > .ic { width:40px; height:40px; color:var(--fg-2); }
+.rec-empty h2 { font-family:Georgia,serif; font-size:26px; line-height:1.15; margin:0; }
+.rec-empty p { color:var(--fg-2); max-width:380px; font-size:16px; line-height:1.55; margin:0; }
+.rec-favorites { display:grid; gap:16px; }
+.rec-favorite { display:grid; grid-template-columns:74px minmax(0,1fr) 44px; gap:16px; align-items:center; padding:16px; background:var(--bg-raised); border-radius:18px; }
+.rec-fav-cover { width:74px; display:block; text-align:left; }
+.rec-fav-cover .cover { display:block; aspect-ratio:2/3; width:100%; box-shadow:2px 5px 10px rgba(0,0,0,.18); }
+.rec-fav-cover .gt { font-size:13px; }
+.rec-fav-cover .ga { font-size:8px; }
+.rec-fav-info { min-width:0; }
+.rec-fav-title { font-family:Georgia,serif; font-size:20px; line-height:1.15; text-align:left; overflow-wrap:anywhere; min-height:44px; }
+.rec-fav-info p { font-size:14px; line-height:1.4; margin:6px 0 0; padding:0; text-align:left; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+.rec-fav-info .link-btn { font-size:14px; min-height:44px; padding:8px 0; }
+.rec-favorite > .icon-btn { width:44px; height:44px; align-self:start; }
+.rec-detail .annot { white-space:pre-line; }
+.rec-detail > .muted { padding:0; text-align:left; margin:0 0 20px; }
+@media(max-width:600px) {
+  .rec-tools { margin-bottom:16px; }
+  .rec-card { grid-template-columns:1fr; gap:16px; padding:24px; border-radius:22px; }
+  .rec-art { width:126px; margin:0 auto; padding:0 2px 8px; }
+  .rec-art .gt { font-size:18px; }
+  .rec-art .ga { font-size:10px; }
+  .rec-copy h2 { font-size:25px; margin-bottom:6px; }
+  .rec-author { margin-bottom:14px; }
+  .rec-description { -webkit-line-clamp:4; font-size:15px; line-height:1.5; }
+  .rec-actions { margin-top:16px; gap:10px; }
+  .rec-favorite { gap:12px; padding:14px; grid-template-columns:62px minmax(0,1fr) 44px; }
+  .rec-fav-cover { width:62px; }
+  .rec-fav-title { font-size:18px; }
+}
+@media(max-width:350px) {
+  .tabbar { grid-template-columns:repeat(4,46px); }
+  .tabbar button { width:46px; }
+  .tb-ind { width:46px; transform:translate3d(calc(var(--ti) * 50px),0,0); }
+  .rec-card { padding:20px; }
+  .rec-art { width:110px; }
+  .rec-copy h2 { font-size:23px; }
+  .rec-actions .btn { font-size:14px; gap:5px; padding:10px 8px; }
+}
+@media(prefers-reduced-motion:reduce) { .rec-card { will-change:auto; } }
 
 </style>
 </head>
@@ -1091,7 +1234,11 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.8 19.5c1.2-3.4 4-5 7.2-5s6 1.6 7.2 5"/></symbol>
   <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.2 3.8 8.5s-1.2 6.1-3.8 8.5c-2.6-2.4-3.8-5.2-3.8-8.5S9.4 5.9 12 3.5z"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-discover" viewBox="0 0 24 24"><path d="m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7z"/><path d="m12 8 1.2 2.8L16 12l-2.8 1.2L12 16l-1.2-2.8L8 12l2.8-1.2z"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20 5.5c-2-2-5.2-1.7-8 1.2C9.2 3.8 6 3.5 4 5.5c-2.1 2.2-1.6 5.5.6 7.8L12 21l7.4-7.7c2.2-2.3 2.7-5.6.6-7.8z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 9a8 8 0 1 0 .3 5M19.5 4v5h-5"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5H15v-6h-6v6H5.5A1.5 1.5 0 0 1 4 19z"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="m9.5 3-.6 2.2-1.5.9-2.2-.6-2.5 4.3 1.6 1.6v1.7l-1.6 1.6L5.2 19l2.2-.6 1.5.9.6 2.2h5l.6-2.2 1.5-.9 2.2.6 2.5-4.3-1.6-1.6v-1.7l1.6-1.6-2.5-4.3-2.2.6-1.5-.9L14.5 3z"/><circle cx="12" cy="12.25" r="3"/></symbol>
   <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4.5 7.5h15M7.5 12h9M10.5 16.5h3"/></symbol>
   <symbol id="i-chevdown" viewBox="0 0 24 24"><path d="M5.5 9.5 12 16l6.5-6.5" stroke-width="2.1"/></symbol>
   <symbol id="i-toc" viewBox="0 0 24 24"><path d="M4 6.5h9M4 11h9M4 15.5h6"/><rect x="15.5" y="5" width="4.5" height="14" rx="2.25"/><path d="M17.75 8v2"/></symbol>
@@ -1100,32 +1247,37 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 <div id="lib" class="lib">
   <header class="navbar" id="navbar">
     <button class="avatar" id="btn-profile" aria-label="Профиль и статистика чтения"><svg class="ic"><use href="#i-user"/></svg></button>
-    <span class="mini">Мои книги</span>
+    <div class="nav-center">
+      <span class="mini">Мои книги</span>
+      <div class="search" id="search-wrap" aria-hidden="true" inert>
+        <svg class="ic sm"><use href="#i-search"/></svg>
+        <label for="q" class="vh">Поиск по библиотеке</label>
+        <input id="q" type="search" placeholder="Поиск книг" autocomplete="off" enterkeyhint="search">
+        <button class="clear" id="q-clear" aria-label="Очистить поиск" hidden><svg class="ic sm"><use href="#i-xc"/></svg></button>
+      </div>
+    </div>
     <div class="end">
-      <button class="round-btn" id="btn-search" aria-label="Поиск" aria-expanded="false"><svg class="ic sm"><use href="#i-search"/></svg></button>
-      <button class="round-btn" id="btn-settings" aria-label="Вид и настройки"><svg class="ic sm"><use href="#i-filter"/></svg></button>
+      <button class="round-btn" id="btn-search" aria-label="Поиск" aria-controls="search-wrap" aria-expanded="false"><svg class="ic sm"><use href="#i-search"/></svg></button>
+      <button class="round-btn" id="btn-view" aria-label="Сортировка книг"><svg class="ic sm"><use href="#i-filter"/></svg></button>
     </div>
   </header>
   <div class="wrap">
     <h1 class="large-title" id="large-title">Мои книги</h1>
     <div id="storage-banner"></div>
-    <div class="search" id="search-wrap" hidden>
-      <svg class="ic sm"><use href="#i-search"/></svg>
-      <label for="q" class="vh">Поиск по библиотеке</label>
-      <input id="q" type="search" placeholder="Название, автор или серия" autocomplete="off" enterkeyhint="search">
-      <button class="clear" id="q-clear" aria-label="Очистить поиск" hidden><svg class="ic sm"><use href="#i-xc"/></svg></button>
-    </div>
     <nav class="chips" id="chips" aria-label="Полки"></nav>
     <main id="lib-main"></main>
   </div>
   <input type="file" id="file" multiple hidden>
+  <input type="file" id="backup-file" accept=".polka,application/octet-stream" hidden>
 </div>
 
 <section id="profile" class="lib profile" hidden>
   <header class="navbar solid-always">
     <button class="round-btn" id="pf-back" aria-label="Назад к книгам"><svg class="ic sm"><use href="#i-back"/></svg></button>
     <span class="mini">Профиль</span>
-    <span></span>
+    <div class="end">
+      <button class="round-btn" id="pf-settings" aria-label="Настройки приложения" title="Настройки"><svg class="ic sm"><use href="#i-settings"/></svg></button>
+    </div>
   </header>
   <div class="wrap">
     <h1 class="large-title">Профиль</h1>
@@ -1138,6 +1290,7 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
   <button role="tab" data-tab="all" aria-label="Все книги"><svg class="ic"><use href="#i-home"/></svg></button>
   <button role="tab" data-tab="shelves" aria-label="Полки"><svg class="ic"><use href="#i-shelf"/></svg></button>
   <button role="tab" data-tab="quotes" aria-label="Цитаты"><svg class="ic"><use href="#i-quote"/></svg></button>
+  <button role="tab" data-tab="discover" aria-label="Для тебя"><svg class="ic"><use href="#i-discover"/></svg></button>
 </nav>
 <button class="fab" id="btn-add" aria-label="Добавить книги"><svg class="ic"><use href="#i-plus"/></svg></button>
 
@@ -1226,43 +1379,82 @@ const safeName = (s) => (s || 'book').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' '
 
 /* ================= storage ================= */
 const DB = {
-  db: null, ok: false, mem: { books: new Map(), content: new Map() },
+  db: null, ok: false, opening: false, mem: { books: new Map(), content: new Map(), meta: new Map() },
   async open() {
+    this.opening = true;
     try {
-      if (!('indexedDB' in window)) throw new Error('no idb');
-      this.db = await new Promise((res, rej) => {
-        const r = indexedDB.open('polka-reader', 1);
+      if (!('indexedDB' in window)) throw new Error('IndexedDB недоступна');
+      this.db = await new Promise((resolve, reject) => {
+        let finished = false;
+        const r = indexedDB.open('polka-reader', 2);
+        const timer = setTimeout(() => { finished = true; reject(new Error('Закройте другие вкладки Полки и перезапустите.')); }, 6000);
         r.onupgradeneeded = () => {
           const d = r.result;
-          if (!d.objectStoreNames.contains('books')) d.createObjectStore('books', { keyPath: 'id' });
-          if (!d.objectStoreNames.contains('content')) d.createObjectStore('content', { keyPath: 'id' });
+          for (const store of ['books','content','meta']) if (!d.objectStoreNames.contains(store)) d.createObjectStore(store, { keyPath: 'id' });
         };
-        r.onsuccess = () => res(r.result);
-        r.onerror = () => rej(r.error);
-        r.onblocked = () => rej(new Error('blocked'));
-        setTimeout(() => rej(new Error('timeout')), 5000);
+        r.onsuccess = () => { clearTimeout(timer); if (finished) { r.result.close(); return; } finished = true; resolve(r.result); };
+        r.onerror = () => { clearTimeout(timer); finished = true; reject(r.error); };
+        r.onblocked = () => { /* wait for another tab to release the old version; never delete the database */ };
       });
+      this.db.onversionchange = () => { this.db.close(); this.ok = false; storageError(new Error('База обновлена в другой вкладке. Перезапустите приложение.')); };
+      this.db.onclose = () => { this.ok = false; paintStorageBanner(); };
       this.ok = true;
     } catch (e) { this.ok = false; }
+    finally { this.opening = false; }
+  },
+  transaction(stores, mode) {
+    if (mode === 'readwrite') {
+      try { return this.db.transaction(stores, mode, { durability: 'strict' }); } catch (e) { if (!(e instanceof TypeError)) throw e; }
+    }
+    return this.db.transaction(stores, mode);
   },
   req(store, mode, fn) {
     return new Promise((res, rej) => {
-      const tx = this.db.transaction(store, mode);
+      const tx = this.transaction(store, mode);
       const r = fn(tx.objectStore(store));
       tx.oncomplete = () => res(r && r.result);
-      tx.onerror = () => rej(tx.error);
-      tx.onabort = () => rej(tx.error || new Error('abort'));
+      tx.onerror = () => rej(tx.error || (r && r.error));
+      tx.onabort = () => rej(tx.error || new Error('Транзакция отменена'));
+    }).catch(e => { if (mode === 'readwrite') storageError(e); throw e; });
+  },
+  async all(store) { if (!this.ok) return [...this.mem[store].values()]; return (await this.req(store, 'readonly', s => s.getAll())) || []; },
+  async get(store, id) { if (!this.ok) return this.mem[store].get(id); return this.req(store, 'readonly', s => s.get(id)); },
+  async put(store, obj) { if (!this.ok) throw new Error('Постоянное хранилище недоступно'); return this.req(store, 'readwrite', s => s.put(obj)); },
+  async del(store, id) { return this.writeBatch([{ store, delete: id }]); },
+  async writeBatch(operations) {
+    if (!this.ok) throw new Error('Постоянное хранилище недоступно');
+    return new Promise((resolve, reject) => {
+      const tx = this.transaction([...new Set(operations.map(o => o.store))], 'readwrite');
+      tx.oncomplete = () => resolve();
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('Запись отменена'));
+      try { for (const op of operations) { const store = tx.objectStore(op.store); if (op.delete !== undefined) store.delete(op.delete); else store.put(op.value); } }
+      catch (e) { tx.abort(); reject(e); }
+    }).catch(e => { storageError(e); throw e; });
+  },
+  async snapshot() {
+    return new Promise((resolve, reject) => {
+      const tx = this.transaction(['books','content','meta'], 'readonly'), out = {};
+      for (const store of ['books','content','meta']) { const r = tx.objectStore(store).getAll(); r.onsuccess = () => { out[store] = r.result; }; }
+      tx.oncomplete = () => resolve(out); tx.onerror = tx.onabort = () => reject(tx.error || new Error('Не удалось прочитать библиотеку'));
     });
   },
-  async all(store) { if (!this.ok) return [...this.mem[store].values()]; return (await this.req(store, 'readonly', (s) => s.getAll())) || []; },
-  async get(store, id) { if (!this.ok) return this.mem[store].get(id); return this.req(store, 'readonly', (s) => s.get(id)); },
-  async put(store, obj) { if (!this.ok) { this.mem[store].set(obj.id, obj); return; } return this.req(store, 'readwrite', (s) => s.put(obj)); },
-  async del(store, id) { if (!this.ok) { this.mem[store].delete(id); return; } return this.req(store, 'readwrite', (s) => s.delete(id)); },
+  async replaceSnapshot(snapshot) {
+    return new Promise((resolve, reject) => {
+      const tx = this.transaction(['books','content','meta'], 'readwrite');
+      tx.oncomplete = () => resolve(); tx.onerror = tx.onabort = () => reject(tx.error || new Error('Восстановление отменено'));
+      try { for (const store of ['books','content','meta']) { const os = tx.objectStore(store); os.clear(); for (const value of snapshot[store]) os.put(value); } }
+      catch (e) { tx.abort(); reject(e); }
+    });
+  },
 };
 
 const PREF_KEY = 'polka.prefs.v1';
 const prefs = Object.assign({ ui: 'dark', rt: '', size: 19, font: 'literata', lh: 'normal', justify: true, seeded: false, mode: 'paged', motion: 'full', shelves: [] }, (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; } })());
-function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) { /* storage blocked */ } }
+function savePrefs() {
+  try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) { /* IndexedDB remains authoritative */ }
+  if (DB.ok) DB.put('meta', { id: 'prefs', data: structuredClone(prefs) }).catch(storageError);
+  else if (!DB.opening) storageError(new Error('Настройки не сохранены в IndexedDB.'));
+}
 
 /* ================= genres ================= */
 const GENRES = {
@@ -1923,7 +2115,7 @@ const root = document.documentElement;
 
 function applyUi() {
   root.setAttribute('data-ui', prefs.ui);
-  root.setAttribute('data-motion', prefs.motion === 'system' ? 'system' : 'full');
+  root.setAttribute('data-motion', 'system');
 }
 
 /* ================= toasts ================= */
@@ -2045,8 +2237,8 @@ const pctOf = (b) => Math.round(((b.progress && b.progress.pct) || 0) * 100);
 const byPos = (a, b) => (a.pos != null && b.pos != null ? a.pos - b.pos : a.pos != null ? -1 : b.pos != null ? 1 : byRecent(a, b));
 const SORTS = { manual: ['Мой порядок', byPos], recent: ['Недавние', byRecent], title: ['По названию', (a, b) => a.title.localeCompare(b.title, 'ru')], author: ['По автору', (a, b) => authorsStr(a).localeCompare(authorsStr(b), 'ru') || a.title.localeCompare(b.title, 'ru')] };
 
-const TAB_ORDER = { all: 0, shelves: 1, quotes: 2, profile: 3 };
-const TAB_TITLES = { all: 'Мои книги', shelves: 'Полки', quotes: 'Цитаты' };
+const TAB_ORDER = { all: 0, shelves: 1, quotes: 2, discover: 3, profile: 4 };
+const TAB_TITLES = { all: 'Мои книги', shelves: 'Полки', quotes: 'Цитаты', discover: 'Для тебя' };
 function currentTab() { return !$('#profile').hidden ? 'profile' : state.tab; }
 function paintTabbar() {
   const t = currentTab();
@@ -2055,37 +2247,66 @@ function paintTabbar() {
   for (const b of bar.querySelectorAll('button[data-tab]')) {
     const on = b.dataset.tab === t;
     b.setAttribute('aria-selected', String(on));
-    if (on && b.dataset.was !== 'on') playIn(b, 'tb-pop');
+
     b.dataset.was = on ? 'on' : '';
   }
 }
-// Telegram-like switch: the pill slides, the new section fades in with a short slide from the side it lives on
+// Keep fixed chrome still; cancel the previous transition on rapid taps.
+let tabAnimation = null;
+const tabScroll = new Map();
+const libraryTabCache = new Map();
 function switchTab(tab) {
+  if (!(tab in TAB_ORDER) || STORE_HEALTH.busy) return;
   const from = currentTab();
+  if (tabAnimation) { tabAnimation.cancel(); tabAnimation = null; }
   if (tab === from) {
-    if (tab !== 'profile' && (state.shelf || state.qbook)) { state.navDir = 'pop'; state.shelf = null; state.qbook = ''; renderLibrary(); }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    return;
+    if (tab === 'shelves' && state.shelf) { go('shelves'); return; }
+    if (tab !== 'profile' && (state.shelf || state.qbook)) { state.navDir = ''; state.shelf = null; state.qbook = ''; renderLibrary(false); }
+    window.scrollTo({ top: 0, behavior: 'instant' }); return;
   }
-  const dir = TAB_ORDER[tab] > TAB_ORDER[from] ? 'tab-r' : 'tab-l';
+  tabScroll.set(from, window.scrollY);
+  if (from !== 'profile' && !state.shelf && !state.qbook) libraryTabCache.set(from, [...$('#lib-main').childNodes]);
+  for (const wrap of $$('.lib > .wrap')) wrap.classList.remove('tab-r','tab-l','screen-in','push-in','pop-back');
   if (tab === 'profile') {
-    $('#lib').hidden = true; $('#profile').hidden = false; window.scrollTo(0, 0);
-    renderProfile(); playIn($('#profile .wrap'), dir); paintTabbar(); libScrollChrome();
-    return;
+    $('#lib').hidden = true; $('#profile').hidden = false; renderProfile();
+  } else {
+    $('#profile').hidden = true; $('#lib').hidden = false;
+    state.tab = tab; state.shelf = null; state.qbook = ''; state.navDir = '';
+    renderLibrary(false, true);
   }
-  if (from === 'profile') { $('#profile').hidden = true; $('#lib').hidden = false; }
-  state.tab = tab; state.shelf = null; state.qbook = '';
-  state.navDir = '';
-  renderLibrary(false);
-  window.scrollTo(0, 0);
-  playIn($('#lib .wrap'), dir);
-  paintTabbar(); libScrollChrome();
+  paintTabbar();
+  window.scrollTo({ top: tabScroll.get(tab) || 0, behavior: 'instant' }); libScrollChrome();
+  const target = tab === 'profile' ? $('#pf-main') : $('#lib-main');
+  target.classList.add('tab-stable');
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && !reduceMotion()) {
+    const dx = TAB_ORDER[tab] > TAB_ORDER[from] ? 8 : -8;
+    tabAnimation = target.animate([{ opacity: .65, transform: `translateX(${dx}px)` }, { opacity: 1, transform: 'none' }], { duration: 160, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  }
 }
+
 function go(tab, shelf = null) {
-  const order = { all: 0, shelves: 1, quotes: 2 };
-  state.navDir = shelf && !state.shelf ? 'push' : !shelf && state.shelf && tab === state.tab ? 'pop' : order[tab] > order[state.tab] ? 'right' : order[tab] < order[state.tab] ? 'left' : '';
+  const order = { all: 0, shelves: 1, quotes: 2, discover: 3 };
+  const previousShelf = state.shelf;
+  const shelfTransition = tab === 'shelves' && shelf !== previousShelf && !!(shelf || previousShelf);
+  const direction = shelf ? 1 : -1;
+  // One cancellable animation, shared with tab navigation. The fixed chrome stays still.
+  if (tabAnimation) { tabAnimation.cancel(); tabAnimation = null; }
+  state.navDir = shelfTransition ? '' : order[tab] > order[state.tab] ? 'right' : order[tab] < order[state.tab] ? 'left' : '';
   if (tab !== state.tab) state.qbook = '';
-  state.tab = tab; state.shelf = shelf; renderLibrary(); window.scrollTo({ top: 0 });
+  state.tab = tab; state.shelf = shelf;
+  renderLibrary(!shelfTransition);
+  window.scrollTo({ top: 0, behavior: 'instant' }); libScrollChrome();
+  if (shelfTransition) {
+    const main = $('#lib-main');
+    main.classList.add('tab-stable');
+    // WAAPI is intentional: tab-stable disables old CSS animations on this subtree.
+    if (!reduceMotion()) {
+      tabAnimation = main.animate([
+        { opacity: .12, transform: `translate3d(${direction * 32}px,0,0)` },
+        { opacity: 1, transform: 'translate3d(0,0,0)' },
+      ], { duration: 320, easing: 'cubic-bezier(.22,.72,.2,1)' });
+    }
+  }
 }
 
 function renderTabs() {
@@ -2102,10 +2323,10 @@ function bookGrid(list, sortable) {
   const grid = h('div', { class: 'bgrid' + (sortable ? ' sortable' : '') }, list.map((b, i) => {
     const p = pctOf(b);
     return h('button', { class: 'bcell', 'data-id': b.id, style: `--i:${Math.min(i, 12)}`, 'aria-label': `${b.title}. ${authorsStr(b)}${p ? `. Прочитано ${p}%` : ''}`, onclick: (e) => { if (grid.dataset.justDragged) { e.preventDefault(); return; } openDetail(b); } },
-      h('span', { class: 'bc' }, coverEl(b), b.sample ? h('span', { class: 'badge' }, 'Пример') : null),
+      h('span', { class: 'bc' }, coverEl(b)),
       h('span', { class: 'bt' }, b.title),
       h('span', { class: 'ba' }, authorsStr(b)),
-      h('span', { class: 'bp' }, p >= 100 ? 'Прочитана' : p > 0 ? h('span', { class: 'bar' }, h('i', { style: `width:${p}%` })) : 'Новая', p > 0 && p < 100 ? h('span', null, p + '%') : null));
+      h('span', { class: 'bp' }, p >= 100 ? 'Прочитана' : p > 0 ? h('span', { class: 'bar' }, h('i', { style: `width:${p}%` })) : 'Новая', p > 0 && p < 100 ? h('span', null, p + '%') : null, b.sample ? h('span', { class: 'book-example' }, 'Пример') : null));
   }));
   if (sortable) enableReorder(grid);
   return grid;
@@ -2255,19 +2476,9 @@ function pocketWell(list, extraClass = '') {
 }
 function pocket(name, list, i) {
   const well = pocketWell(list);
-  const add = h('span', { class: 'p-add', role: 'button', tabindex: '0', 'aria-label': `Добавить книги на полку «${name}»`, onclick: (e) => { e.stopPropagation(); addToShelf(name); } }, icon('plus', 'sm'));
-  $('.glass', well).append(add);
   return h('button', { class: 'pocket', style: `--i:${i}`, 'aria-label': `${name}: ${list.length} ${plural(list.length, BOOKS)}`, onclick: () => go('shelves', name) },
     well,
     h('span', { class: 'lbl' }, name, h('span', null, `${list.length} ${plural(list.length, BOOKS)}`)));
-}
-function addToShelf(name) {
-  const s = openSheet({
-    title: name,
-    body: h('div', { class: 'group menu-list' },
-      h('button', { onclick: () => { s.close(true); state.tab = 'shelves'; state.shelf = name; $('#file').click(); } }, icon('plus'), 'Добавить файлы на эту полку'),
-      h('button', { onclick: () => { s.close(true); pickBooks(name); } }, icon('shelf'), 'Переложить книги из библиотеки')),
-  });
 }
 function newPocket(i) {
   return h('button', { class: 'pocket add', style: `--i:${i}`, onclick: () => createShelf() },
@@ -2293,22 +2504,34 @@ function continueCard() {
       h('span', { class: 'prog' }, h('span', { class: 'bar' }, h('i', { style: `width:${p}%` })), `${p}%`)));
 }
 
-function renderLibrary(animate = true) {
+function renderLibrary(animate = true, fromTabSwitch = false) {
+  if (!fromTabSwitch) libraryTabCache.clear();
+  const cached = fromTabSwitch && state.tab !== 'discover' ? libraryTabCache.get(state.tab) : null;
   if (typeof updatePfBadge === 'function') updatePfBadge();
   const main = $('#lib-main');
-  main.replaceChildren();
+  main.classList.remove('rec-main');
+  main.replaceChildren(...(cached || []));
   main.classList.remove('rise', 'nav-push', 'nav-pop', 'nav-right', 'nav-left', 'lib-fade');
   const dir = state.navDir; state.navDir = '';
   if (animate) { void main.offsetWidth; main.classList.add('rise'); if (dir) main.classList.add('nav-' + dir); }
   const books = state.books;
-  $('#search-wrap').hidden = !(state.searchOpen || state.query);
-  $('#btn-search').setAttribute('aria-expanded', String(!$('#search-wrap').hidden));
+  const searchOpen = !!(state.searchOpen || state.query);
+  $('#navbar').classList.toggle('search-open', searchOpen);
+  $('#search-wrap').inert = !searchOpen;
+  $('#search-wrap').setAttribute('aria-hidden', String(!searchOpen));
+  $('#btn-search').setAttribute('aria-expanded', String(searchOpen));
+  $('#btn-search').setAttribute('aria-label', searchOpen ? 'Закрыть поиск' : 'Поиск');
+  $('#btn-search use').setAttribute('href', searchOpen ? '#i-x' : '#i-search');
   const all = shelves();
   if (state.shelf && !all.some(([n]) => n === state.shelf)) state.shelf = null;
   const lt = $('#large-title');
   lt.textContent = state.query ? 'Поиск' : state.shelf ? state.shelf : TAB_TITLES[state.tab] || 'Мои книги';
   $('#navbar .mini').textContent = lt.textContent;
   renderTabs();
+  const discovering = state.tab === 'discover';
+  $('#btn-search').hidden = discovering; $('#btn-view').hidden = discovering; $('#btn-add').hidden = discovering;
+  if (discovering) { state.query=''; state.searchOpen=false; $('#q').value=''; $('#navbar').classList.remove('search-open'); $('#search-wrap').inert=true; $('#search-wrap').setAttribute('aria-hidden','true'); lt.textContent='Для тебя'; $('#navbar .mini').textContent='Для тебя'; renderRecommendations(main); return; }
+  if (cached) return;
   if (!books.length && !(prefs.shelves || []).length) {
     main.append(h('div', { class: 'empty' }, emptyArt(),
       h('h2', null, 'Здесь будут ваши книги'),
@@ -2445,7 +2668,7 @@ async function removeBook(book, sheet) {
   const ok = await confirmSheet({ title: 'Удалить книгу?', text: `«${book.title}» и все правки в ней будут удалены с этого устройства. Это нельзя отменить.`, ok: 'Удалить книгу', danger: true });
   if (!ok) return;
   try {
-    await DB.del('books', book.id); await DB.del('content', book.id);
+    await DB.writeBatch([{ store: 'books', delete: book.id }, { store: 'content', delete: book.id }]);
     state.books = state.books.filter((b) => b.id !== book.id);
     dropCoverUrl(book.id);
     if (sheet) sheet.close(true);
@@ -2529,37 +2752,245 @@ function openMetaEditor(book) {
   });
 }
 
+/* ================= storage health & full offline backups ================= */
+const STORE_HEALTH = { error: '', warned: false, lastBackup: null, busy: false, restoring: false };
+function storageError(error) {
+  STORE_HEALTH.error = error && error.name === 'QuotaExceededError'
+    ? 'Не хватает места: последнее изменение не сохранено. Сделайте копию и освободите место на телефоне.'
+    : 'Не удалось записать данные. Не закрывайте приложение до резервного копирования. ' + ((error && error.message) || 'Хранилище недоступно.');
+  paintStorageBanner();
+  if (!STORE_HEALTH.warned) { STORE_HEALTH.warned = true; toast(STORE_HEALTH.error, { tone: 'error', timeout: 10000 }); }
+}
+function paintStorageBanner() {
+  const host = $('#storage-banner'); if (!host) return;
+  host.replaceChildren();
+  const message = !DB.ok ? 'Постоянное хранилище недоступно. Новые книги не будут импортированы. Не удаляйте данные сайта; закройте другие вкладки и перезапустите приложение.' : STORE_HEALTH.error;
+  if (message) host.append(h('div', { class: 'banner', role: 'alert' }, message));
+}
+function fmtStorage(n) {
+  if (!Number.isFinite(n)) return 'Недоступно';
+  if (n === 0) return '0 Б';
+  const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ']; let i = 0;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return new Intl.NumberFormat('ru', { maximumFractionDigits: i ? 1 : 0 }).format(n) + ' ' + units[i];
+}
+async function storageInfo() {
+  let estimate = {}, persistent = null;
+  try { if (navigator.storage && navigator.storage.estimate) estimate = await navigator.storage.estimate(); } catch (_) {}
+  try { if (navigator.storage && navigator.storage.persisted) persistent = await navigator.storage.persisted(); } catch (_) {}
+  return { usage: estimate.usage, quota: estimate.quota, persistent };
+}
+async function protectStorage(notify = false) {
+  let granted = false;
+  try {
+    if (navigator.storage && navigator.storage.persist) granted = await navigator.storage.persist();
+  } catch (_) {}
+  if (notify) toast(granted ? 'Браузер подтвердил постоянное хранение.' : 'Браузер не подтвердил защиту. Данные остаются локальными; сохраните резервную копию.', { timeout: 7000 });
+  return granted;
+}
+function objectBytes(value) {
+  if (value instanceof Blob) return value.size;
+  if (typeof value === 'string') return new TextEncoder().encode(value).length;
+  if (Array.isArray(value)) return value.reduce((n, v) => n + objectBytes(v), 0);
+  if (value && typeof value === 'object') return Object.entries(value).reduce((n, [k,v]) => n + k.length * 2 + objectBytes(v), 0);
+  return 16;
+}
+async function checkImportSpace(book, content) {
+  const {usage, quota} = await storageInfo();
+  const need = Math.ceil((objectBytes(book) + objectBytes(content)) * 1.2) + 1048576;
+  if (Number.isFinite(quota) && Number.isFinite(usage) && quota - usage < need) {
+    const e = new Error('Для этой книги нужно ориентировочно ' + fmtStorage(need) + ', по квоте осталось ' + fmtStorage(Math.max(0, quota - usage)) + '. Освободите место или сохраните резервную копию.');
+    e.name = 'QuotaExceededError'; throw e;
+  }
+}
+async function storagePanel() {
+  return h('div', { class: 'storage-panel' },
+    h('div', { class: 'group-title' }, 'Резервная копия'),
+    h('div', { class: 'storage-actions' },
+      h('button', { class: 'btn wide', disabled: !DB.ok, onclick: () => runBackup() }, icon('down', 'sm'), 'Создать резервную копию'),
+      h('button', { class: 'btn wide ghost', disabled: !DB.ok, onclick: () => $('#backup-file').click() }, 'Восстановить из копии')));
+}
+
+async function flushLocalState() {
+  await saveProgress();
+  await REC.queue.catch(() => {});
+  statsDirty = true;
+  await flushStats();
+  await DB.put('meta', { id: 'prefs', data: structuredClone(prefs) });
+}
+const BACKUP_MAGIC = 'POLKA_BACKUP_V1\n';
+const BACKUP_CHUNK = 4 * 1024 * 1024;
+async function hashChunks(blob) {
+  if (!crypto.subtle) throw new Error('Для проверки целостности нужен HTTPS или localhost.');
+  const hashes = [];
+  for (let off = 0; off < blob.size; off += BACKUP_CHUNK) {
+    const hash = await crypto.subtle.digest('SHA-256', await blob.slice(off, off + BACKUP_CHUNK).arrayBuffer());
+    hashes.push(Array.from(new Uint8Array(hash), x => x.toString(16).padStart(2, '0')).join(''));
+  }
+  return hashes;
+}
+async function makeBackup() {
+  if (!DB.ok) throw new Error('Постоянное хранилище недоступно.');
+  await flushLocalState();
+  const snap = await DB.snapshot();
+  const blobs = [], records = [], seen = new WeakMap();
+  function encode(v) {
+    if (v instanceof Blob) {
+      if (!seen.has(v)) { seen.set(v, blobs.length); blobs.push(v); }
+      return { __polkaBlob: seen.get(v) };
+    }
+    if (Array.isArray(v)) return v.map(encode);
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k,val]) => [k,encode(val)]));
+    return v;
+  }
+  for (const store of ['books', 'content', 'meta']) for (const value of snap[store]) {
+    const encoded = encode(value);
+    const index = blobs.length;
+    blobs.push(new Blob([JSON.stringify(encoded)], { type: 'application/json' }));
+    records.push({ store, id: value.id, part: index });
+  }
+  const parts = [];
+  for (const blob of blobs) parts.push({ size: blob.size, type: blob.type, hashes: await hashChunks(blob) });
+  const manifest = new Blob([JSON.stringify({ app: 'polka', version: 1, createdAt: new Date().toISOString(), records, parts })]);
+  if (manifest.size > 16 * 1024 * 1024) throw new Error('Слишком большой каталог архива для этой версии.');
+  const manifestHash = (await hashChunks(manifest)).join('');
+  const length = new DataView(new ArrayBuffer(8)); length.setBigUint64(0, BigInt(manifest.size));
+  // Manifest digest length is fixed by the manifest chunk count; no implicit trust in data parts.
+  return new Blob([BACKUP_MAGIC, length.buffer, manifestHash, manifest, ...blobs], { type: 'application/octet-stream' });
+}
+async function readBackup(file) {
+  if (await file.slice(0, BACKUP_MAGIC.length).text() !== BACKUP_MAGIC) throw new Error('Это не резервная копия Полки.');
+  const lengthBuffer = await file.slice(BACKUP_MAGIC.length, BACKUP_MAGIC.length + 8).arrayBuffer();
+  if (lengthBuffer.byteLength !== 8) throw new Error('Архив обрезан.');
+  const n = Number(new DataView(lengthBuffer).getBigUint64(0));
+  if (!Number.isSafeInteger(n) || n < 2 || n > 16 * 1024 * 1024) throw new Error('Неверный размер каталога.');
+  const hashLength = Math.ceil(n / BACKUP_CHUNK) * 64;
+  const headerEnd = BACKUP_MAGIC.length + 8 + hashLength;
+  const expectedHash = await file.slice(BACKUP_MAGIC.length + 8, headerEnd).text();
+  const manifestBlob = file.slice(headerEnd, headerEnd + n);
+  if ((await hashChunks(manifestBlob)).join('') !== expectedHash) throw new Error('Каталог повреждён. Ничего не изменено.');
+  const manifest = JSON.parse(await manifestBlob.text());
+  if (manifest.app !== 'polka' || manifest.version !== 1 || !Array.isArray(manifest.parts) || !Array.isArray(manifest.records)) throw new Error('Неподдерживаемая версия архива.');
+  const parts = []; let off = headerEnd + n;
+  for (const p of manifest.parts) {
+    if (!Number.isSafeInteger(p.size) || p.size < 0 || off + p.size > file.size || !Array.isArray(p.hashes) || typeof p.type !== 'string') throw new Error('Повреждена структура архива.');
+    const blob = file.slice(off, off + p.size, p.type); off += p.size;
+    if (JSON.stringify(await hashChunks(blob)) !== JSON.stringify(p.hashes)) throw new Error('Проверка целостности не пройдена. Данные не изменены.');
+    parts.push(blob);
+  }
+  if (off !== file.size) throw new Error('Некорректная длина архива.');
+  function decode(v, depth = 0) {
+    if (depth > 100) throw new Error('Слишком глубокая структура данных.');
+    if (Array.isArray(v)) return v.map(x => decode(x, depth + 1));
+    if (v && typeof v === 'object') {
+      if (Object.keys(v).length === 1 && Object.hasOwn(v, '__polkaBlob')) {
+        if (!Number.isInteger(v.__polkaBlob) || !parts[v.__polkaBlob]) throw new Error('Неверная ссылка на изображение.');
+        return parts[v.__polkaBlob];
+      }
+      const out = {};
+      for (const [k,val] of Object.entries(v)) {
+        if (['__proto__','prototype','constructor'].includes(k)) throw new Error('Небезопасные данные архива.');
+        out[k] = decode(val, depth + 1);
+      }
+      return out;
+    }
+    return v;
+  }
+  const snapshot = { books: [], content: [], meta: [] }, ids = new Set();
+  for (const rec of manifest.records) {
+    if (!['books','content','meta'].includes(rec.store) || typeof rec.id !== 'string' || !Number.isInteger(rec.part) || !parts[rec.part] || ids.has(rec.store + ':' + rec.id)) throw new Error('Неверная запись или повтор ID в архиве.');
+    ids.add(rec.store + ':' + rec.id);
+    const data = decode(JSON.parse(await parts[rec.part].text()));
+    if (!data || data.id !== rec.id) throw new Error('ID записи не совпадает.');
+    snapshot[rec.store].push(data);
+  }
+  const contents = new Map(snapshot.content.map(c => [c.id,c]));
+  for (const b of snapshot.books) {
+    const c = contents.get(b.id);
+    if (b.quotes == null) b.quotes = [];
+    if (b.bookmarks == null) b.bookmarks = [];
+    if (!b.id || b.id.startsWith('__') || typeof b.title !== 'string' || !Array.isArray(b.authors) || !b.authors.every(a => typeof a === 'string') || !['fb2','epub'].includes(b.format) || !Array.isArray(b.quotes) || !Array.isArray(b.bookmarks) || !c || !Array.isArray(c.chapters) || !c.chapters.length || !Array.isArray(c.toc)) throw new Error('Книга или её текст повреждены.');
+    for (const ch of c.chapters) {
+      if (typeof ch.html !== 'string' || !Number.isFinite(ch.len)) throw new Error('Повреждена глава книги.');
+      const box = h('div'); box.innerHTML = ch.html; sanitizeInto(box); ch.html = box.innerHTML;
+    }
+  }
+  const stats = snapshot.meta.find(m => m.id === 'stats');
+  const settings = snapshot.meta.find(m => m.id === 'prefs');
+  if (!stats || !stats.data || typeof stats.data.days !== 'object' || typeof stats.data.books !== 'object' || !settings || !settings.data || typeof settings.data !== 'object' || !Array.isArray(settings.data.shelves)) throw new Error('Настройки или статистика отсутствуют.');
+  return snapshot;
+}
+async function runBackup() {
+  if (STORE_HEALTH.busy) return;
+  STORE_HEALTH.busy = true;
+  const t = toast('Собираю полную копию и проверяю контрольные суммы…', { busy: true, timeout: 0 });
+  try {
+    // Native picker is called before any await, within the user's click.
+    const handle = window.showSaveFilePicker ? await window.showSaveFilePicker({ suggestedName: 'polka-' + dayKey() + '.polka', types: [{ description: 'Резервная копия Полки', accept: { 'application/octet-stream': ['.polka'] } }] }) : null;
+    const blob = await makeBackup();
+    if (handle) {
+      const stream = await handle.createWritable();
+      try { await stream.write(blob); await stream.close(); } catch (e) { await stream.abort().catch(() => {}); throw e; }
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = h('a', { href: url, download: 'polka-' + dayKey() + '.polka', hidden: true });
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+    STORE_HEALTH.lastBackup = Date.now();
+    await DB.put('meta', { id: 'backup', exportedAt: STORE_HEALTH.lastBackup });
+    const panel = $('.storage-panel'); if (panel) panel.replaceWith(await storagePanel());
+    t.close(); toast('Файл копии передан на сохранение. Убедитесь, что он есть в «Файлах» или загрузках.', { timeout: 8000 });
+  } catch (e) { t.close(); if (e.name !== 'AbortError') toast('Копия не создана: ' + e.message, { tone: 'error', timeout: 9000 }); }
+  finally { STORE_HEALTH.busy = false; STORE_HEALTH.restoring = false; }
+}
+async function restoreBackup(file) {
+  if (!file || STORE_HEALTH.busy) return;
+  if (!DB.ok) { storageError(new Error('Хранилище недоступно.')); return; }
+  STORE_HEALTH.busy = true;
+  const t = toast('Проверяю архив. Текущие данные пока не изменяются…', { busy: true, timeout: 0 });
+  try {
+    const snapshot = await readBackup(file); t.close();
+    const ok = await confirmSheet({ title: 'Восстановить библиотеку?', text: 'В копии ' + snapshot.books.length + ' книг. Текущие книги, настройки и статистика будут полностью заменены. Если здесь есть новые данные, сначала отмените и сохраните отдельную копию.', ok: 'Заменить из копии', danger: true });
+    if (!ok) return;
+    await flushLocalState();
+    clearTimeout(statsSaveTimer);
+    STORE_HEALTH.restoring = true;
+    await DB.replaceSnapshot(snapshot); // One atomic transaction: quota failure preserves old data.
+    statsDirty = false;
+    for (const u of state.coverUrls.values()) URL.revokeObjectURL(u); state.coverUrls.clear();
+    state.books = snapshot.books;
+    await loadRecommendations();
+    const restored = snapshot.meta.find(m => m.id === 'prefs').data;
+    for (const k of Object.keys(prefs)) delete prefs[k]; Object.assign(prefs, restored);
+    try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (_) {}
+    ST.data = snapshot.meta.find(m => m.id === 'stats').data;
+    try { localStorage.removeItem('polka.stats.v1'); } catch (_) {}
+    state.sort = SORTS[prefs.sort] ? prefs.sort : 'manual';
+    state.tab = 'all'; state.shelf = null; state.qbook = ''; state.query = ''; state.searchOpen = false; $('#q').value = ''; $('#q-clear').hidden = true;
+    STORE_HEALTH.error = ''; STORE_HEALTH.warned = false;
+    STORE_HEALTH.lastBackup = (snapshot.meta.find(m => m.id === 'backup') || {}).exportedAt || null;
+    for (const sh of [...sheets]) sh.close(true);
+    $('#profile').hidden = true; $('#lib').hidden = false;
+    applyUi(); renderLibrary(false); paintStorageBanner(); window.scrollTo({top:0,behavior:'instant'});
+    toast('Библиотека, цитаты, статистика, избранное и настройки восстановлены.', { timeout: 6000 });
+  } catch (e) { t.close(); toast('Восстановление не выполнено: ' + e.message + '. Текущая библиотека сохранена.', { tone: 'error', timeout: 10000 }); }
+  finally { STORE_HEALTH.busy = false; STORE_HEALTH.restoring = false; }
+}
+
 /* ================= settings ================= */
 async function openSettings() {
   const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Оформление' });
   const opts = [['dark', 'Тёмное'], ['light', 'Светлое'], ['system', 'Как в системе']];
   const paint = () => seg.replaceChildren(...opts.map(([k, l]) => h('button', { 'aria-pressed': String(prefs.ui === k), onclick: () => withVT(() => { prefs.ui = k; savePrefs(); applyUi(); paint(); }) }, l)));
   paint();
-  const mseg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Анимации' });
-  const mopts = [['full', 'Включены'], ['system', 'Как в системе']];
-  const mpaint = () => mseg.replaceChildren(...mopts.map(([k, l]) => h('button', { 'aria-pressed': String((prefs.motion || 'full') === k), onclick: () => { prefs.motion = k; savePrefs(); applyUi(); mpaint(); } }, l)));
-  mpaint();
-  let usage = '';
-  try { const est = await navigator.storage.estimate(); if (est && est.usage) usage = fmtSize(est.usage); } catch (e) { /* not supported */ }
+  const storage = await storagePanel();
   openSheet({
     title: 'Настройки',
     body: h('div', null,
       h('div', { class: 'group-title' }, 'Оформление'),
       h('div', { style: 'margin-bottom:24px' }, seg),
-      h('div', { class: 'group-title' }, 'Анимации'),
-      h('div', { style: 'margin-bottom:24px' }, mseg),
-      h('div', { class: 'group-title' }, 'Приложение'),
-      h('div', { class: 'group' }, isStandalone()
-        ? h('div', { class: 'cell' }, h('span', { class: 'k' }, 'Установлено на устройство'), h('span', { class: 'v' }, icon('check', 'sm')))
-        : h('button', { class: 'cell btn-cell', onclick: () => installApp() }, h('span', { class: 'k', style: 'color:var(--accent-ink)' }, 'Установить на телефон…'))),
-      h('div', { class: 'group-title' }, 'Библиотека'),
-      h('div', { class: 'group' },
-        h('div', { class: 'cell' }, h('span', { class: 'k' }, 'Книг'), h('span', { class: 'v' }, String(state.books.length))),
-        usage ? h('div', { class: 'cell' }, h('span', { class: 'k' }, 'Занято'), h('span', { class: 'v' }, usage)) : null,
-        h('button', { class: 'cell btn-cell', onclick: () => $('#file').click() }, h('span', { class: 'k', style: 'color:var(--accent-ink)' }, 'Добавить книги…'))),
-      h('p', { class: 'muted', style: 'text-align:left;padding:0 4px;font-size:13px' },
-        DB.ok ? 'Книги, закладки и правки хранятся только в этом браузере. Чтобы перенести книгу со всеми правками, скачайте её из карточки книги.'
-          : 'Браузер запретил хранилище, поэтому книги пропадут после закрытия страницы. Откройте читалку в обычном окне, не в приватном режиме.')),
+      storage),
   });
 }
 
@@ -2567,6 +2998,9 @@ async function openSettings() {
 async function importFiles(fileList) {
   const files = [...fileList];
   if (!files.length) return;
+  if (!DB.ok) { storageError(new Error('Импорт отменён: постоянное хранилище недоступно.')); return; }
+  if (STORE_HEALTH.busy) { toast('Дождитесь завершения резервного копирования.'); return; }
+  await protectStorage();
   const t = toast(files.length > 1 ? `Добавляю 1 из ${files.length}…` : `Добавляю «${files[0].name}»…`, { busy: true, timeout: 0 });
   const added = [], failed = [], dup = [];
   const target = !state.query && state.tab === 'shelves' && state.shelf ? state.shelf : null;
@@ -2578,18 +3012,17 @@ async function importFiles(fileList) {
       const twin = state.books.find((b) => b.title === book.title && b.authors.join() === book.authors.join() && b.format === book.format);
       if (twin) { dup.push(book.title); continue; }
       if (target) book.shelf = target;
-      await DB.put('content', content);
-      await DB.put('books', book);
       book.pos = Math.min(0, ...state.books.map((x) => x.pos ?? 0)) - 1;
-      await DB.put('books', book);
+      await checkImportSpace(book, content);
+      await DB.writeBatch([{ store: 'content', value: content }, { store: 'books', value: book }]);
       state.books.push(book); added.push(book);
     } catch (e) {
-      failed.push({ name: f.name, why: e && e.name === 'QuotaExceededError' ? 'на устройстве не хватает места' : (e && e.message) || 'неизвестная ошибка' });
+      failed.push({ name: f.name, why: e && e.name === 'QuotaExceededError' ? (e.message || 'не хватает места по квоте или на устройстве') : (e && e.message) || 'неизвестная ошибка' });
     }
   }
   t.close();
   if (added.length) { state.query = ''; $('#q').value = ''; $('#q-clear').hidden = true; if (target) state.shelf = target; else { state.tab = added.length === 1 ? 'shelves' : 'all'; state.shelf = added.length === 1 ? added[0].shelf : null; } renderLibrary(); }
-  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* optional */ }
+
   setTimeout(() => {
     if (failed.length) toast(failed.length === 1 ? `Не удалось открыть «${failed[0].name}»: ${failed[0].why}.` : `Не удалось открыть ${failed.length} ${plural(failed.length, ['файл', 'файла', 'файлов'])}: ${failed.map((x) => x.name).join(', ')}. Поддерживаются FB2, FB2.ZIP и EPUB.`, { tone: 'error', timeout: 7000 });
     else if (added.length === 1) toast(`«${added[0].title}» на полке «${added[0].shelf}»`, { action: { label: 'Читать', fn: () => openReader(added[0]) } });
@@ -2780,10 +3213,10 @@ function renderQuotes(main) {
 /* ---------- top bar actions ---------- */
 function toggleSearch(force) {
   state.searchOpen = force != null ? force : !state.searchOpen;
-  if (!state.searchOpen && state.query) { state.query = ''; $('#q').value = ''; $('#q-clear').hidden = true; }
+  if (!state.searchOpen) { state.query = ''; $('#q').value = ''; $('#q-clear').hidden = true; }
   renderLibrary(false);
-  const w = $('#search-wrap');
-  if (state.searchOpen) { playIn(w, 'search-in'); setTimeout(() => $('#q').focus(), 30); }
+  if (state.searchOpen) $('#q').focus({ preventScroll: true });
+  else $('#btn-search').focus({ preventScroll: true });
 }
 function openViewMenu() {
   const opts = [['manual', 'Мой порядок'], ['recent', 'Недавние'], ['title', 'По названию'], ['author', 'По автору']];
@@ -2791,11 +3224,9 @@ function openViewMenu() {
   const paint = () => list.replaceChildren(...opts.map(([k, l]) => h('li', null, h('button', { 'aria-pressed': String(state.sort === k), onclick: () => { state.sort = k; prefs.sort = k; savePrefs(); paint(); renderLibrary(false); } },
     h('span', { class: 'ck', style: 'margin-left:6px' }, icon('check')), h('span', null, h('span', { class: 't' }, l)), h('span')))));
   paint();
-  const s = openSheet({
-    title: 'Вид',
-    body: h('div', null, h('div', { class: 'group-title' }, 'Сортировка книг'), list,
-      h('div', { class: 'group menu-list', style: 'margin-top:22px' },
-        h('button', { onclick: () => { s.close(true); openSettings(); } }, icon('more'), 'Настройки приложения'))),
+  openSheet({
+    title: 'Сортировка',
+    body: h('div', null, h('div', { class: 'group-title' }, 'Сортировка книг'), list),
   });
 }
 
@@ -2816,7 +3247,7 @@ const FONTS = { literata: '"Literata", Georgia, serif', ptserif: '"PT Serif", Ge
 const LH = { tight: 1.42, normal: 1.6, loose: 1.82 };
 const rc = () => $('#r-content');
 const isPaged = () => prefs.mode !== 'scroll' && !R.editing;
-const reduceMotion = () => prefs.motion === 'system' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function uiIsLight() {
   if (prefs.ui === 'light') return true;
@@ -2873,7 +3304,8 @@ async function openReader(book, src, jump) {
 
 async function closeReader() {
   if (R.editing) { const ok = await leaveEditing(); if (!ok) return; }
-  saveProgress();
+  await saveProgress().catch(storageError);
+  await flushStats().catch(storageError);
   hideQbar();
   if (!reduceMotion()) { try { await $('#reader').animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.985)' }], { duration: 200, easing: 'ease-in' }).finished; } catch (e) { /* interrupted */ } }
   for (const u of R.imgUrls.values()) URL.revokeObjectURL(u);
@@ -3068,7 +3500,9 @@ function blockPage(el) {
 }
 function setPage(n, opt = {}) {
   const c = rc();
-  R.page = clamp(n, 0, R.pages - 1);
+  const targetPage = clamp(n, 0, R.pages - 1);
+  if (targetPage !== R.page) { window.getSelection()?.removeAllRanges(); hideQbar(); }
+  R.page = targetPage;
   const x = -R.page * R.step;
   if (opt.enter && !reduceMotion()) {
     c.style.transition = 'none';
@@ -3085,14 +3519,14 @@ function setPage(n, opt = {}) {
   onScroll();
 }
 function nextPage() {
-  hideQbar();
+  window.getSelection()?.removeAllRanges(); hideQbar();
   if (R.page < R.pages - 1) { setPage(R.page + 1, { animate: true }); setCalm(true); return; }
   if (R.ch < R.content.chapters.length - 1) { goTo(R.ch + 1, { enter: 1 }); setCalm(true); return; }
   setPage(R.page, { animate: true });
   toast('Это последняя страница книги');
 }
 function prevPage() {
-  hideQbar();
+  window.getSelection()?.removeAllRanges(); hideQbar();
   if (R.page > 0) { setPage(R.page - 1, { animate: true }); return; }
   if (R.ch > 0) { goTo(R.ch - 1, { atEnd: true, enter: -1 }); return; }
   setPage(0, { animate: true });
@@ -3197,26 +3631,26 @@ function onScroll() {
   const bm = $('#r-bm'); bm.setAttribute('aria-pressed', String(marked)); bm.classList.toggle('on', marked); $('.ic', bm).classList.toggle('on', marked);
   bm.setAttribute('aria-label', marked ? 'Убрать закладку' : 'Добавить закладку');
   clearTimeout(R.saveTimer);
-  R.saveTimer = setTimeout(saveProgress, 700);
+  R.saveTimer = setTimeout(() => saveProgress().catch(storageError), 700);
   statsPosition();
 }
-function saveProgress() {
+async function saveProgress() {
   if (!R.book) return;
   clearTimeout(R.saveTimer);
   const pos = R.blocks.length ? curPos() : { block: 0, off: 0 };
   R.book.progress = { ch: R.ch, block: pos.block, off: pos.off, pct: R.pct || 0 };
-  DB.put('books', R.book).catch(() => {});
+  return DB.put('books', R.book).catch(e => { storageError(e); throw e; });
 }
 let scrollTick = false;
 window.addEventListener('scroll', () => {
   if ($('#reader').hidden) { libScrollChrome(); return; }
   if (isPaged()) return;
   const y = window.scrollY;
-  if (!R.editing && Math.abs(y - R.lastY) > 6) { if (y > R.lastY && y > 120) setCalm(true); R.lastY = y; }
+  if (!R.editing && !selRange() && !QS.snapshot && Math.abs(y - R.lastY) > 6) { if (y > R.lastY && y > 120) setCalm(true); R.lastY = y; }
   if (!scrollTick) { scrollTick = true; requestAnimationFrame(() => { scrollTick = false; onScroll(); }); }
 }, { passive: true });
-document.addEventListener('visibilitychange', () => { if (document.hidden) saveProgress(); });
-window.addEventListener('pagehide', () => saveProgress());
+document.addEventListener('visibilitychange', () => { if (document.hidden && !STORE_HEALTH.restoring) { saveProgress().catch(storageError); flushStats().catch(storageError); savePrefs(); } });
+window.addEventListener('pagehide', () => { if (STORE_HEALTH.restoring) return; saveProgress().catch(storageError); flushStats().catch(storageError); savePrefs(); });
 window.addEventListener('resize', debounce(() => { if (R.book && !$('#reader').hidden) relayoutKeep(); }, 150));
 
 /* ---------- gestures: swipe, tap zones, wheel ---------- */
@@ -3225,7 +3659,8 @@ window.addEventListener('resize', debounce(() => { if (R.book && !$('#reader').h
   let g = null;
   const hasSel = () => { const s = window.getSelection(); return s && !s.isCollapsed && s.toString().trim().length > 0; };
   main.addEventListener('pointerdown', (e) => {
-    if (!isPaged() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    // Mouse drags belong to native text selection, never to paging.
+    if (!isPaged() || R.editing || e.pointerType === 'mouse' || hasSel() || QS.snapshot) return;
     if (e.target.closest('a,button,#qbar')) return;
     g = { x: e.clientX, y: e.clientY, t: performance.now(), drag: false, id: e.pointerId, dx: 0 };
   });
@@ -3233,7 +3668,8 @@ window.addEventListener('resize', debounce(() => { if (R.book && !$('#reader').h
     if (!g || e.pointerId !== g.id) return;
     const dx = e.clientX - g.x, dy = e.clientY - g.y;
     if (!g.drag) {
-      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2 && !hasSel()) {
+      if (hasSel() || performance.now() - g.t > 260) { g = null; return; }
+      if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy) * 1.4) {
         g.drag = true; try { main.setPointerCapture(g.id); } catch (err) { /* ignore */ }
         rc().style.transition = 'none'; hideQbar();
       } else return;
@@ -3244,6 +3680,9 @@ window.addEventListener('resize', debounce(() => { if (R.book && !$('#reader').h
     g.dx = dx;
     rc().style.transform = `translate3d(${-R.page * R.step + off}px,0,0)`;
   });
+  const cancel = () => { if (g?.drag) setPage(R.page); g = null; };
+  main.addEventListener('selectstart', cancel);
+  document.addEventListener('selectionchange', () => { if (hasSel()) cancel(); });
   const end = (e) => {
     if (!g || (e && e.pointerId !== g.id)) return;
     if (g.drag) {
@@ -3259,7 +3698,7 @@ window.addEventListener('resize', debounce(() => { if (R.book && !$('#reader').h
   main.addEventListener('pointercancel', (e) => { if (g && g.drag) setPage(R.page, { animate: true }); g = null; });
   let wheelLock = 0, acc = 0;
   main.addEventListener('wheel', (e) => {
-    if (!isPaged() || sheets.length) return;
+    if (!isPaged() || sheets.length || hasSel() || QS.snapshot || e.ctrlKey || e.metaKey) return;
     e.preventDefault();
     acc += Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
     const now = performance.now();
@@ -3270,7 +3709,7 @@ window.addEventListener('resize', debounce(() => { if (R.book && !$('#reader').h
 
 $('#r-main').addEventListener('click', (e) => {
   if (R.editing) { if (e.target.closest('a')) e.preventDefault(); return; }
-  if (R.suppressClick) return;
+  if (R.suppressClick || performance.now() < QS.ignoreTapUntil || e.detail > 1) return;
   if (e.target.closest('#qbar,.r-pager')) return;
   const a = e.target.closest('a');
   if (a) { if (a.hasAttribute('data-href')) { e.preventDefault(); handleLink(a); } return; }
@@ -3279,12 +3718,15 @@ $('#r-main').addEventListener('click', (e) => {
   const qm = e.target.closest('mark.q');
   if (qm) { showQbarForQuote(qm); return; }
   if (!$('#qbar').hidden) { hideQbar(); return; }
-  if (isPaged()) {
-    const x = e.clientX / window.innerWidth;
-    if (x < 0.28) { prevPage(); return; }
-    if (x > 0.72) { nextPage(); return; }
-  }
-  setCalm(!$('#reader').classList.contains('calm'));
+  // Wait out a double tap: its first click must not turn the page under the word.
+  clearTimeout(QS.tapTimer);
+  const book = R.book, ch = R.ch, page = R.page, x = e.clientX / innerWidth;
+  QS.tapTimer = setTimeout(() => {
+    if (R.book !== book || R.ch !== ch || R.page !== page || selRange() || QS.snapshot || R.editing) return;
+    if (isPaged() && x < .28) { prevPage(); return; }
+    if (isPaged() && x > .72) { nextPage(); return; }
+    setCalm(!$('#reader').classList.contains('calm'));
+  }, 280);
 });
 
 /* ---------- bookmarks ---------- */
@@ -3319,6 +3761,7 @@ function wrapOffsets(start, end, id) {
   }
   for (const [node, a, b] of todo) {
     if (!node.nodeValue.slice(a, b).trim() && /^(TABLE|TR|TBODY|UL|OL|DIV|SECTION|BLOCKQUOTE|ARTICLE)$/.test(node.parentNode.tagName)) continue;
+    if (node.parentElement.closest('mark.q')) continue; // no nested highlights
     let t = node;
     if (a > 0) t = t.splitText(a);
     if (b - a < t.nodeValue.length) t.splitText(b - a);
@@ -3329,31 +3772,80 @@ function wrapOffsets(start, end, id) {
 function paintQuotes() {
   const c = rc();
   c.querySelectorAll('mark.q').forEach(unmark);
-  for (const q of (R.book.quotes || []).filter((x) => x.ch === R.ch && x.start >= 0).sort((a, b) => a.start - b.start)) wrapOffsets(q.start, q.end, q.id);
+  for (const q of (R.book.quotes || []).filter((x) => x.ch === R.ch && x.start >= 0).slice().reverse()) wrapOffsets(q.start, q.end, q.id);
 }
+// Selection is snapshotted before a toolbar tap can collapse the native range.
+// Numeric UTF-16 offsets retain compatibility with existing saved quotes.
+const QS = { snapshot: null, quoteId: null, mode: '', busy: false, dragging: false,
+  lockedUntil: 0, ignoreTapUntil: 0, timer: 0, tapTimer: 0 };
 function selRange() {
   const s = window.getSelection();
   if (!s || s.isCollapsed || !s.rangeCount) return null;
   const r = s.getRangeAt(0);
-  if (!rc().contains(r.commonAncestorContainer)) return null;
-  if (!r.toString().trim()) return null;
-  return r;
+  return rc().contains(r.startContainer) && rc().contains(r.endContainer) && r.toString().trim() ? r : null;
+}
+function quoteText(r) {
+  const box = document.createElement('div'); box.append(r.cloneContents());
+  box.querySelectorAll('br').forEach(el => el.replaceWith('\n'));
+  box.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,div,section,tr').forEach(el => { el.prepend('\n'); el.append('\n'); });
+  return box.textContent.replace(/[^\S\n]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+function selectionSnapshot() {
+  const r = selRange(); if (!r || !R.book || R.editing) return null;
+  let start = offsetIn(r.startContainer, r.startOffset), end = offsetIn(r.endContainer, r.endOffset);
+  const full = rc().textContent;
+  while (start < end && /\s/.test(full[start])) start++;
+  while (end > start && /\s/.test(full[end - 1])) end--;
+  if (end <= start) return null;
+  const block = R.blocks.findIndex(el => el.contains(r.startContainer));
+  return { book: R.book, ch: R.ch, start, end, text: quoteText(r), rawText: full.slice(start, end), block: Math.max(0, block) };
+}
+function validSnapshot(s) {
+  return s && s.book === R.book && s.ch === R.ch && rc().textContent.slice(s.start, s.end) === s.rawText;
+}
+function visibleQuoteRect(rects) {
+  const vv = window.visualViewport, vp = $('#r-vp').getBoundingClientRect();
+  const left = Math.max(vv?.offsetLeft || 0, isPaged() ? vp.left : 0);
+  const right = Math.min(left + (vv?.width || innerWidth), isPaged() ? vp.right : innerWidth);
+  const top = Math.max(vv?.offsetTop || 0, isPaged() ? vp.top : 0);
+  const bottom = Math.min((vv?.offsetTop || 0) + (vv?.height || innerHeight), isPaged() ? vp.bottom : innerHeight);
+  const visible = [...rects].filter(r => r.width > 0 && r.height > 0 && r.right > left + 1 && r.left < right - 1 && r.bottom > top && r.top < bottom)
+    .map(r => ({ left: Math.max(left, r.left), right: Math.min(right, r.right), top: Math.max(top, r.top), bottom: Math.min(bottom, r.bottom) }));
+  if (!visible.length) return null;
+  // Only on-screen column fragments, never the union of all off-screen pages.
+  return { left: Math.min(...visible.map(r => r.left)), right: Math.max(...visible.map(r => r.right)),
+    top: Math.min(...visible.map(r => r.top)), bottom: Math.max(...visible.map(r => r.bottom)) };
 }
 function placeQbar(rect) {
-  const bar = $('#qbar');
+  const bar = $('#qbar'); if (!rect) { bar.hidden = true; return; }
   bar.hidden = false;
-  const bw = bar.offsetWidth, bh = bar.offsetHeight;
-  const coarse = matchMedia('(pointer: coarse)').matches;
-  let top = coarse ? rect.bottom + 14 : rect.top - bh - 10;
-  if (top < 70) top = rect.bottom + 14;
-  if (top + bh > window.innerHeight - 70) top = Math.max(70, rect.top - bh - 10);
-  const left = clamp(rect.left + rect.width / 2 - bw / 2, 10, window.innerWidth - bw - 10);
-  bar.style.top = top + 'px'; bar.style.left = left + 'px';
-  playIn(bar, 'pop-in');
+  const vv = window.visualViewport, ox = vv?.offsetLeft || 0, oy = vv?.offsetTop || 0;
+  const width = vv?.width || innerWidth, height = vv?.height || innerHeight;
+  const bw = bar.offsetWidth, bh = bar.offsetHeight, gap = matchMedia('(pointer: coarse)').matches ? 28 : 12;
+  const calm = $('#reader').classList.contains('calm');
+  const minY = Math.max(oy + 8, calm ? 0 : $('#reader .r-top').getBoundingClientRect().bottom + 8);
+  const maxY = Math.max(minY, Math.min(oy + height - bh - 12, calm ? Infinity : $('#r-bottom').getBoundingClientRect().top - bh - 8));
+  let y = rect.top - bh - gap;
+  if (y < minY) y = rect.bottom + gap;
+  bar.style.top = clamp(y, minY, maxY) + 'px';
+  bar.style.left = clamp((rect.left + rect.right - bw) / 2, ox + 8, Math.max(ox + 8, ox + width - bw - 8)) + 'px';
 }
-function hideQbar() { const b = $('#qbar'); if (b) b.hidden = true; }
-function qbarButtons(items) {
-  $('#qbar').replaceChildren(...items.map(([ic, label, fn]) => h('button', { onmousedown: (e) => e.preventDefault(), onclick: fn }, icon(ic, 'sm'), label)));
+function hideQbar() {
+  const b = $('#qbar'); if (b) b.hidden = true;
+  QS.snapshot = null; QS.quoteId = null; QS.mode = '';
+  clearTimeout(QS.timer); clearTimeout(QS.tapTimer);
+}
+function qbarButtons(items, key) {
+  if (QS.mode === key) return; // no focus loss / flicker while selection handles move
+  QS.mode = key;
+  $('#qbar').replaceChildren(...items.map(([ic, label, fn]) => h('button', {
+    type: 'button', onpointerdown: e => {
+      if (QS.busy) return;
+      if (QS.snapshot) QS.snapshot = selectionSnapshot() || QS.snapshot;
+      QS.lockedUntil = performance.now() + 1000;
+      e.preventDefault(); // retain native range for mouse, pen and touch
+    }, onmousedown: e => e.preventDefault(), onclick: fn,
+  }, icon(ic, 'sm'), label)));
 }
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; }
@@ -3362,56 +3854,114 @@ async function copyText(text) {
     let ok = false; try { ok = document.execCommand('copy'); } catch (err) { ok = false; } ta.remove(); return ok;
   }
 }
-const citeOf = (text) => `«${text}»\n— ${authorsStr(R.book)}, «${R.book.title}»`;
-function onSelection() {
-  if ($('#reader').hidden || R.editing) return;
-  const r = selRange();
-  if (!r) { if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#qbar')) return; hideQbar(); return; }
-  qbarButtons([
-    ['quote', 'Цитата', () => saveQuote()],
-    ['copy', 'Копировать', async () => { const ok = await copyText(citeOf(r.toString().trim())); hideQbar(); window.getSelection().removeAllRanges(); toast(ok ? 'Скопировано' : 'Не удалось скопировать'); }],
-  ]);
-  placeQbar(r.getBoundingClientRect());
+const citeOf = (text, book = R.book) => `«${text}»\n— ${authorsStr(book)}, «${book.title}»`;
+function setQuoteBusy(busy) {
+  QS.busy = busy; $('#qbar').setAttribute('aria-busy', String(busy));
+  $$('#qbar button').forEach(b => { b.disabled = busy; });
 }
-document.addEventListener('selectionchange', debounce(onSelection, 180));
-function saveQuote() {
-  const r = selRange(); if (!r) return;
-  let start = offsetIn(r.startContainer, r.startOffset), end = offsetIn(r.endContainer, r.endOffset);
-  const full = rc().textContent;
-  while (start < end && /\s/.test(full[start])) start++;
-  while (end > start && /\s/.test(full[end - 1])) end--;
-  if (end <= start) return;
-  const b = R.book;
-  const overlapping = b.quotes.filter((q) => q.ch === R.ch && q.start >= 0 && q.start < end && q.end > start);
-  for (const q of overlapping) { start = Math.min(start, q.start); end = Math.max(end, q.end); }
-  b.quotes = b.quotes.filter((q) => !overlapping.includes(q));
-  const blk = R.blocks.findIndex((el) => el.contains(r.startContainer) || el === r.startContainer);
-  b.quotes.push({ id: uid(), ch: R.ch, start, end, block: Math.max(0, blk), text: full.slice(start, end).replace(/\s+/g, ' ').trim(), at: Date.now() });
-  window.getSelection().removeAllRanges();
-  hideQbar();
-  paintQuotes();
-  $$(`mark.q[data-q="${b.quotes[b.quotes.length - 1].id}"]`, rc()).forEach((m) => playIn(m, 'q-new'));
-  R.blocks = [...rc().querySelectorAll(BLOCK_SEL)];
-  persistBook(b).catch(() => {});
-  toast('Цитата сохранена', { action: { label: 'Все цитаты', fn: () => openNav('notes') } });
+async function copySelection() {
+  const s = selectionSnapshot() || QS.snapshot;
+  if (!validSnapshot(s) || QS.busy) return;
+  setQuoteBusy(true);
+  try {
+    const ok = await copyText(citeOf(s.text, s.book));
+    if (s.book === R.book && s.ch === R.ch) { window.getSelection()?.removeAllRanges(); hideQbar(); }
+    toast(ok ? 'Скопировано' : 'Не удалось скопировать');
+  } finally { setQuoteBusy(false); }
+}
+function onSelection() {
+  if ($('#reader').hidden || R.editing || sheets.length || QS.busy) return;
+  const r = selRange();
+  if (!r) {
+    if (performance.now() < QS.lockedUntil || QS.quoteId || document.activeElement?.closest('#qbar')) return;
+    hideQbar(); return;
+  }
+  QS.snapshot = selectionSnapshot(); QS.quoteId = null;
+  QS.ignoreTapUntil = performance.now() + 400; clearTimeout(QS.tapTimer);
+  if (QS.dragging) { $('#qbar').hidden = true; return; }
+  qbarButtons([['quote', 'Цитата', saveQuote], ['copy', 'Копировать', copySelection]], 'selection');
+  placeQbar(visibleQuoteRect(r.getClientRects()));
+}
+function scheduleSelection() { clearTimeout(QS.timer); QS.timer = setTimeout(onSelection, 120); }
+document.addEventListener('selectionchange', () => {
+  if (selRange()) { clearTimeout(QS.tapTimer); QS.ignoreTapUntil = performance.now() + 400; }
+  scheduleSelection();
+});
+rc().addEventListener('selectstart', () => { clearTimeout(QS.tapTimer); });
+rc().addEventListener('dblclick', () => { clearTimeout(QS.tapTimer); QS.ignoreTapUntil = performance.now() + 400; });
+document.addEventListener('pointerdown', e => {
+  if ($('#reader').hidden) return;
+  if (e.target.closest('#qbar')) return;
+  QS.lockedUntil = 0;
+  if (rc().contains(e.target)) {
+    QS.dragging = true;
+    if (QS.snapshot || selRange()) QS.ignoreTapUntil = performance.now() + 500;
+  }
+  if (!$('#qbar').hidden) { QS.ignoreTapUntil = performance.now() + 500; hideQbar(); }
+}, true);
+for (const event of ['pointerup', 'pointercancel', 'touchend', 'touchcancel']) document.addEventListener(event, () => {
+  QS.dragging = false; scheduleSelection();
+}, { passive: true });
+function refreshQbarPosition() {
+  if ($('#qbar').hidden || QS.busy) return;
+  if (QS.quoteId) {
+    const marks = $$('mark.q', rc()).filter(m => m.dataset.q === QS.quoteId);
+    placeQbar(visibleQuoteRect(marks.flatMap(m => [...m.getClientRects()])));
+  } else if (selRange()) placeQbar(visibleQuoteRect(selRange().getClientRects()));
+}
+window.addEventListener('scroll', refreshQbarPosition, { passive: true });
+window.addEventListener('resize', () => { hideQbar(); });
+window.visualViewport?.addEventListener('resize', refreshQbarPosition);
+window.visualViewport?.addEventListener('scroll', refreshQbarPosition);
+async function saveQuote() {
+  const s = selectionSnapshot() || QS.snapshot;
+  if (!validSnapshot(s) || QS.busy) return;
+  const b = s.book;
+  if (b.quotes.some(q => q.ch === s.ch && q.start === s.start && q.end === s.end)) {
+    window.getSelection()?.removeAllRanges(); hideQbar(); toast('Эта цитата уже сохранена'); return;
+  }
+  const q = { id: uid(), ch: s.ch, start: s.start, end: s.end, block: s.block,
+    text: s.text, rawText: s.rawText, at: Date.now() };
+  // Preserve overlapping quotes independently; do not silently merge or erase them.
+  b.quotes.push(q); setQuoteBusy(true);
+  try {
+    await persistBook(b);
+    if (b === R.book && s.ch === R.ch) {
+      window.getSelection()?.removeAllRanges(); hideQbar(); paintQuotes();
+      R.blocks = [...rc().querySelectorAll(BLOCK_SEL)];
+    }
+    toast('Цитата сохранена', { action: { label: 'Все цитаты', fn: () => openNav('notes') } });
+  } catch (e) {
+    b.quotes = b.quotes.filter(x => x.id !== q.id);
+    // Keep native selection and its snapshot so the save can be retried.
+  } finally { setQuoteBusy(false); }
 }
 function showQbarForQuote(m) {
-  const id = m.dataset.q;
-  const q = R.book.quotes.find((x) => x.id === id); if (!q) return;
+  const id = m.dataset.q, book = R.book;
+  const q = book.quotes.find(x => x.id === id); if (!q) return;
+  QS.snapshot = null; QS.quoteId = id;
   qbarButtons([
-    ['copy', 'Копировать', async () => { const ok = await copyText(citeOf(q.text)); hideQbar(); toast(ok ? 'Скопировано' : 'Не удалось скопировать'); }],
+    ['copy', 'Копировать', async () => {
+      if (QS.busy) return; setQuoteBusy(true);
+      try { const ok = await copyText(citeOf(q.text, book)); hideQbar(); toast(ok ? 'Скопировано' : 'Не удалось скопировать'); }
+      finally { setQuoteBusy(false); }
+    }],
     ['trash', 'Убрать', () => removeQuote(id)],
-  ]);
-  const marks = $$(`mark.q[data-q="${id}"]`, rc());
-  const a = marks[0].getBoundingClientRect(), z = marks[marks.length - 1].getBoundingClientRect();
-  placeQbar({ top: a.top, bottom: z.bottom, left: Math.min(a.left, z.left), width: Math.abs(z.right - Math.min(a.left, z.left)) });
+  ], 'quote:' + id);
+  refreshQbarPosition();
+  const marks = $$('mark.q', rc()).filter(el => el.dataset.q === id);
+  placeQbar(visibleQuoteRect(marks.flatMap(el => [...el.getClientRects()])));
 }
-function removeQuote(id) {
-  R.book.quotes = R.book.quotes.filter((x) => x.id !== id);
-  persistBook(R.book).catch(() => {});
-  hideQbar();
-  if (R.content) { paintQuotes(); R.blocks = [...rc().querySelectorAll(BLOCK_SEL)]; }
-  toast('Цитата убрана');
+async function removeQuote(id) {
+  if (QS.busy || !R.book) return;
+  const b = R.book, previous = b.quotes, ch = R.ch;
+  b.quotes = previous.filter(x => x.id !== id); setQuoteBusy(true);
+  try {
+    await persistBook(b); hideQbar();
+    if (b === R.book && ch === R.ch && R.content) { paintQuotes(); R.blocks = [...rc().querySelectorAll(BLOCK_SEL)]; }
+    toast('Цитата убрана');
+  } catch (e) { b.quotes = previous; }
+  finally { setQuoteBusy(false); }
 }
 
 /* ---------- links and notes ---------- */
@@ -3480,13 +4030,12 @@ function openNav(tab = 'toc') {
       const marks = R.book.bookmarks.slice().sort((a, b) => a.ch - b.ch || a.block - b.block);
       if (!quotes.length && !marks.length) { pane.append(h('p', { class: 'muted' }, 'Здесь появятся цитаты и закладки. Выделите текст, чтобы сохранить цитату, или нажмите значок закладки внизу экрана.')); return; }
       if (quotes.length) {
-        pane.append(h('div', { class: 'group-title', style: 'margin-top:6px' }, `Цитаты · ${quotes.length}`),
-          h('ul', { class: 'res' }, quotes.map((q) => h('li', { class: 'bmk' },
+        pane.append(h('ul', { class: 'res' }, quotes.map((q) => h('li', { class: 'bmk' },
             h('button', { onclick: () => { s.close(true); if (q.start >= 0) goTo(q.ch, { quote: q.id, fade: true }); else goTo(q.ch, { block: q.block, fade: true }); } },
               h('span', { class: 'w' }, chName(q.ch) + ' · ' + fmtDate(q.at) + (q.start < 0 ? ' · текст главы изменён' : '')),
               h('span', { class: 'qt' }, q.text)),
             h('button', { class: 'icon-btn', 'aria-label': 'Копировать цитату', onclick: async () => { const ok = await copyText(citeOf(q.text)); toast(ok ? 'Скопировано' : 'Не удалось скопировать'); } }, icon('copy', 'sm')),
-            h('button', { class: 'icon-btn', 'aria-label': 'Удалить цитату', onclick: () => { removeQuote(q.id); show('notes'); } }, icon('trash', 'sm'))))));
+            h('button', { class: 'icon-btn', 'aria-label': 'Удалить цитату', onclick: async e => { e.currentTarget.disabled = true; await removeQuote(q.id); if (pane.isConnected) show('notes'); } }, icon('trash', 'sm'))))));
       }
       if (marks.length) {
         pane.append(h('div', { class: 'group-title', style: 'margin-top:22px' }, `Закладки · ${marks.length}`),
@@ -3628,7 +4177,7 @@ function cleanHtml() {
 }
 function relocateQuotes(newText) {
   for (const q of R.book.quotes.filter((x) => x.ch === R.ch)) {
-    const needle = q.text;
+    const needle = q.rawText || q.text;
     let best = -1, bestD = Infinity, from = 0, pos;
     const norm = newText;
     while ((pos = norm.indexOf(needle, from)) >= 0) { const d = Math.abs(pos - q.start); if (d < bestD) { best = pos; bestD = d; } from = pos + 1; }
@@ -3644,14 +4193,14 @@ async function saveEditing() {
   const pos = curPos();
   if (changed) {
     const prev = { html: ch.html, len: ch.len, edited: ch.edited };
+    const previousBook = structuredClone(R.book);
     ch.html = html; ch.len = box.textContent.length; ch.edited = true;
     try {
-      await DB.put('content', R.content);
       relocateQuotes(box.textContent);
       R.book.modifiedAt = Date.now(); R.book.edits = (R.book.edits || 0) + 1;
-      await persistBook(R.book);
+      await DB.writeBatch([{ store: 'content', value: R.content }, { store: 'books', value: R.book }]);
     } catch (e) {
-      Object.assign(ch, prev);
+      Object.assign(ch, prev); Object.assign(R.book, previousBook);
       toast('Правка не сохранилась: ' + (e && e.name === 'QuotaExceededError' ? 'на устройстве не хватает места' : (e && e.message) || 'ошибка хранилища') + '. Текст остался в режиме правки.', { tone: 'error', timeout: 7000 });
       return;
     }
@@ -3716,6 +4265,8 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (sheets.length || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if (e.key === 'Escape' && (selRange() || !$('#qbar').hidden)) { e.preventDefault(); window.getSelection()?.removeAllRanges(); hideQbar(); return; }
+  if (mod || e.shiftKey || e.altKey || selRange() || document.activeElement.closest('button,[contenteditable=true],#qbar')) return;
   if (isPaged()) {
     if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); nextPage(); return; }
     if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); prevPage(); return; }
@@ -3775,14 +4326,27 @@ const goalMs = () => (ST.data.goal || 10) * 60000;
 
 async function loadStats() {
   let d = null;
-  try { const rec = await DB.get('content', '__stats'); if (rec) d = rec.data; } catch (e) { /* fall through */ }
+  try { const rec = await DB.get('meta', 'stats') || await DB.get('content', '__stats'); if (rec) d = rec.data; } catch (e) { /* fall through */ }
   if (!d) { try { d = JSON.parse(localStorage.getItem('polka.stats.v1') || 'null'); } catch (e) { d = null; } }
   if (d) ST.data = Object.assign({ days: {}, books: {}, goal: 10, best: 0 }, d);
 }
-const saveStats = debounce(() => {
-  DB.put('content', { id: '__stats', data: ST.data }).catch(() => {});
-  try { localStorage.setItem('polka.stats.v1', JSON.stringify(ST.data)); } catch (e) { /* blocked */ }
-}, 1200);
+let statsSaveTimer = null, statsDirty = false, statsWriting = null;
+function saveStats() {
+  statsDirty = true;
+  if (statsSaveTimer === null) statsSaveTimer = setTimeout(() => { statsSaveTimer = null; flushStats().catch(storageError); }, 1000);
+}
+async function flushStats() {
+  clearTimeout(statsSaveTimer); statsSaveTimer = null;
+  if (statsWriting) { await statsWriting; }
+  if (!statsDirty) return;
+  statsDirty = false;
+  const snapshot = structuredClone(ST.data);
+  statsWriting = DB.put('meta', { id: 'stats', data: snapshot });
+  try { await statsWriting; }
+  catch (e) { statsDirty = true; throw e; }
+  finally { statsWriting = null; }
+}
+
 
 function statsActivity() { ST.lastAct = Date.now(); }
 function statsStart(book, totalChars) {
@@ -3829,7 +4393,7 @@ setInterval(() => {
   const now = Date.now();
   const dt = now - (ST.lastTick || now);
   ST.lastTick = now;
-  if (!R.book || document.hidden || R.editing || $('#reader').hidden) return;
+  if (!R.book || document.hidden || R.editing || STORE_HEALTH.restoring || $('#reader').hidden) return;
   if (now - ST.lastAct > IDLE_MS) return;
   statsCredit(Math.min(dt, 2500));
 }, 1000);
@@ -4077,6 +4641,317 @@ function updatePfBadge() {
   b.classList.toggle('dim', !st.todayMet);
 }
 
+/* ================= personal recommendations ================= */
+const REC = { data: { version: 1, items: [], decisions: {}, pages: {}, round: 0, fetchedAt: 0, libraryRefs: {} },
+  mode: 'feed', loading: false, deciding: false, dragging: false, error: '', generation: 0,
+  queue: Promise.resolve(), controllers: new Set(), covers: new Set(), details: new Set(), googleUntil: 0, olNext: 0, olQueue: Promise.resolve() };
+const recNorm = s => String(s || '').normalize('NFKD').toLowerCase().replace(/ё/g, 'е').replace(/[\u0300-\u036f]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const recAuthor = s => recNorm(s).split(' ').sort().join(' ');
+const recFingerprint = b => recTitle(b.title) + ':' + (b.authors || []).map(recAuthor).sort().join('|');
+const recTitle = s => recNorm(s);
+const recWords = s => [...new Set(recNorm(s).split(' ').filter(x => x.length > 3 && !['книга','книги','роман','очень','который','которые','этого','того','the','with','from','this','that','fiction','general'].includes(x)))].slice(0, 70);
+const recPlain = s => { const box = document.createElement('textarea'); box.innerHTML = String(s || '').slice(0, 24000).replace(/<\/?(?:p|div|br)[^>]*>/gi, '\n').replace(/<[^>]*>/g, ''); return box.value.replace(/\n{3,}/g, '\n\n').trim().slice(0, 12000); };
+function recPreview(value) {
+  const text = recPlain(value).replace(/\r\n?/g,'\n').replace(/^[ \t]*>[ \t]?/gm,'').replace(/\[([^\]]+)\]\[\d+\]/g,'$1').replace(/\[([^\]]+)\]\((?:https?:)[^)]*\)/g,'$1').replace(/^\s*\[\d+\]:.*$/gm,'').replace(/\*\*/g,'');
+  const paragraphs = text.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
+  return paragraphs.find(x=>x.length>100&&!/^(?:comment by|original title|источник:)/i.test(x)) || paragraphs[0] || '';
+}
+const REC_SUBJECTS = { sf: 'science fiction', sf_fantasy: 'fantasy', sf_history: 'alternate history', sf_action: 'science fiction', sf_epic: 'fantasy', sf_heroic: 'fantasy', sf_horror: 'horror', sf_detective: 'science fiction', sf_cyberpunk: 'cyberpunk', det_classic: 'detective', detective: 'mystery', det_police: 'crime', det_thriller: 'thriller', det_hard: 'crime', prose_classic: 'classic literature', prose_contemporary: 'literary fiction', prose_rus_classic: 'Russian literature', prose_history: 'historical fiction', love: 'romance', love_contemporary: 'romance', love_history: 'historical romance', adventure: 'adventure', adv_history: 'historical fiction', child: 'children', child_tale: 'fairy tales', science: 'science', sci_history: 'history', sci_psychology: 'psychology', sci_philosophy: 'philosophy', poetry: 'poetry', nonf_biography: 'biography', nonf_publicism: 'essays', business: 'business', religion: 'religion', home: 'home', computers: 'computers' };
+function recSafeUrl(value, cover = false) {
+  try { const u = new URL(value); if (u.protocol === 'http:') u.protocol = 'https:';
+    if (u.protocol !== 'https:') return '';
+    const hosts = cover ? ['books.google.com','books.googleusercontent.com','covers.openlibrary.org'] : ['books.google.com','www.google.com','openlibrary.org'];
+    return hosts.includes(u.hostname) ? u.href : '';
+  } catch (_) { return ''; }
+}
+function recBook(raw) {
+  if (!raw || typeof raw.id !== 'string' || !/^(gb:|ol:)/.test(raw.id) || !raw.title) return null;
+  return { id: raw.id.slice(0, 100), provider: raw.provider === 'Google Books' ? 'Google Books' : 'Open Library',
+    title: String(raw.title).slice(0, 350), aliases: (raw.aliases || []).filter(x => typeof x === 'string').slice(0, 8),
+    authors: (raw.authors || []).filter(x => typeof x === 'string').slice(0, 10), genres: (raw.genres || []).filter(x => typeof x === 'string').slice(0, 30),
+    description: recPlain(raw.description), descriptionChecked: !!raw.descriptionChecked, year: String(raw.year || '').slice(0, 10),
+    isbn: (raw.isbn || []).filter(x => typeof x === 'string').slice(0, 30), coverUrl: recSafeUrl(raw.coverUrl, true),
+    cover: raw.cover instanceof Blob && raw.cover.size < 1500000 ? raw.cover : null,
+    url: recSafeUrl(raw.url), work: /^\/works\/OL\d+W$/.test(raw.work || '') ? raw.work : '',
+    edition: /^\/books\/OL\d+M$/.test(raw.edition || '') ? raw.edition : '', addedAt: Number(raw.addedAt) || Date.now() };
+}
+async function loadRecommendations() {
+  REC.generation++; for (const c of REC.controllers) c.abort(); REC.controllers.clear();
+  REC.loading = false; REC.deciding = false; REC.dragging = false; REC.error = ''; REC.mode = 'feed';
+  const saved = await DB.get('meta', 'recommendations');
+  const data = saved?.data || {};
+  const decisions = {};
+  for (const [key, d] of Object.entries(data.decisions || {})) {
+    const book = recBook(d?.book); if (book && ['like','skip'].includes(d.kind) && key === book.id) decisions[key] = { kind: d.kind, at: +d.at || 0, book };
+  }
+  REC.data = { version: 1, items: (data.items || []).map(recBook).filter(Boolean).slice(-180), decisions,
+    libraryRefs: data.libraryRefs && typeof data.libraryRefs === 'object' ? data.libraryRefs : {},
+    pages: data.pages && typeof data.pages === 'object' ? data.pages : {}, round: +data.round || 0, fetchedAt: +data.fetchedAt || 0 };
+  REC.queue = Promise.resolve();
+}
+function recCommit(change, generation = REC.generation) {
+  const job = REC.queue.catch(() => {}).then(async () => {
+    if (generation !== REC.generation || STORE_HEALTH.restoring) return false;
+    const next = structuredClone(REC.data); change(next);
+    await DB.put('meta', { id: 'recommendations', data: next });
+    if (generation !== REC.generation) return false;
+    REC.data = next; libraryTabCache.delete('discover'); return true;
+  });
+  REC.queue = job; return job;
+}
+function recSame(a, b) {
+  if (a.id === b.id) return true;
+  if ((a.isbn || []).some(x => (b.isbn || []).includes(x))) return true;
+  const aa = [a.title, ...(a.aliases || [])].map(recTitle), bb = [b.title, ...(b.aliases || [])].map(recTitle);
+  return aa.some(t => t && bb.includes(t) && (t.length >= 8 || a.authors.some(x => b.authors.some(y => recAuthor(x) === recAuthor(y)))));
+}
+function recLibrary() { return state.books.filter(b => !b.sample); }
+function recProfile() {
+  const authors = new Map(), subjects = new Map(), topics = new Map();
+  const add = (map, key, w) => { if (key && key.length < 140) map.set(key, (map.get(key) || 0) + w); };
+  const apply = (b, weight) => {
+    for (const a of b.authors || []) add(authors, a, weight);
+    for (const g of b.genres || []) add(subjects, REC_SUBJECTS[g] || g.replace(/_/g, ' '), weight);
+    for (const w of recWords([b.title, b.annotation || b.description || '', ...(b.genres || [])].join(' '))) add(topics, w, weight);
+  };
+  recLibrary().forEach(b => apply(b, 2 + ((b.progress?.pct || 0) >= .5 ? 1 : 0)));
+  Object.values(REC.data.decisions).forEach(d => apply(d.book, d.kind === 'like' ? 4 : -.65));
+  const sorted = m => [...m].filter(([,w]) => w > 0).sort((a,b) => b[1] - a[1]);
+  const lang = recLibrary().some(b => /^(ru|rus)(-|$)/i.test(b.lang || '') || /[а-яё]/i.test(b.title)) ? 'ru' : 'en';
+  const queries = [...sorted(authors).slice(0, 4).map(([value]) => ({ type: 'author', value })), ...sorted(subjects).slice(0, 4).map(([value]) => ({ type: 'subject', value }))];
+  if (!queries.length && recLibrary().length) queries.push({ type: 'text', value: recLibrary()[0].title.slice(0, 100) });
+  return { authors, subjects, topics, queries, lang };
+}
+function recFeed() {
+  const p = recProfile(), decided = Object.values(REC.data.decisions).map(d => d.book), library = recLibrary();
+  const knownIds = new Set(library.flatMap(b => { const ref = REC.data.libraryRefs?.[b.id]; return ref?.fingerprint === recFingerprint(b) && Array.isArray(ref.ids) ? ref.ids : []; }));
+  const pool = REC.data.items.filter(b => !knownIds.has(b.id) && !decided.some(x => recSame(x,b)) && !library.some(x => recSame(x,b)));
+  const score = b => {
+    let value = 1;
+    for (const a of b.authors) for (const [name,w] of p.authors) if (recAuthor(a) === recAuthor(name)) value += w * 3;
+    const words = recWords([b.title, b.description, ...b.genres].join(' '));
+    value += Math.min(10, words.reduce((sum,w) => sum + Math.min(5,p.topics.get(w)||0)*.25, 0));
+    for (const [subject,w] of p.subjects) if (b.genres.some(g => recNorm(g).includes(recNorm(subject)) || recNorm(subject).includes(recNorm(g)))) value += Math.min(6,w) * 2;
+    if (p.lang === 'ru' && /[а-яё]/i.test(b.title)) value += 1.5;
+    return value;
+  };
+  pool.sort((a,b) => score(b) - score(a) || a.addedAt - b.addedAt);
+  const out = [], used = new Map();
+  while (pool.length) {
+    let idx = pool.findIndex(b => (used.get(recNorm(b.authors[0])) || 0) < 2); if (idx < 0) idx = 0;
+    const b = pool.splice(idx,1)[0]; if (out.some(x => recSame(x,b))) continue;
+    out.push(b); const a = recNorm(b.authors[0]); used.set(a, (used.get(a) || 0) + 1);
+  }
+  return out;
+}
+async function recFetch(url, openLibrary = false) {
+  const generation = REC.generation;
+  const run = async () => {
+    if (generation !== REC.generation) throw new DOMException('Cancelled', 'AbortError');
+    if (openLibrary) { await new Promise(r => setTimeout(r, Math.max(0, REC.olNext - Date.now()))); REC.olNext = Date.now() + 1150; }
+    const controller = new AbortController(); REC.controllers.add(controller);
+    const timer = setTimeout(() => controller.abort(), 14000);
+    try { const r = await fetch(url, { signal: controller.signal, credentials: 'omit', referrerPolicy: 'no-referrer' });
+      if (!r.ok) { const e = new Error('Каталог временно недоступен (' + r.status + ')'); e.status = r.status; throw e; }
+      return await r.json();
+    } finally { clearTimeout(timer); REC.controllers.delete(controller); }
+  };
+  if (!openLibrary) return run();
+  const job = REC.olQueue.catch(() => {}).then(run); REC.olQueue = job; return job;
+}
+async function recSearch(query, lang, pages) {
+  const generation = REC.generation;
+  const key = lang + ':' + query.type + ':' + query.value, page = Math.max(0, Math.min(1000, +pages[key] || 0));
+  if (Date.now() >= REC.googleUntil) {
+    try {
+      const q = (query.type === 'author' ? 'inauthor:' : query.type === 'subject' ? 'subject:' : query.type === 'title' ? 'intitle:' : '') + '"' + query.value.replace(/"/g,'') + '"';
+      const params = new URLSearchParams({ q, printType:'books', langRestrict:lang, maxResults:'16', startIndex:String(page * 16) });
+      const data = await recFetch('https://www.googleapis.com/books/v1/volumes?' + params);
+      if (data.items?.length) return { key, items: data.items.map(item => { const v = item.volumeInfo || {}; return recBook({ id:'gb:' + item.id, provider:'Google Books', title:v.title, authors:v.authors || [], genres:v.categories || [], description:v.description, descriptionChecked:true,
+        year:v.publishedDate, isbn:(v.industryIdentifiers || []).map(x => x.identifier), coverUrl:v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail,
+        url:'https://books.google.com/books?id=' + encodeURIComponent(item.id) }); }).filter(Boolean) };
+    } catch (e) { if (generation !== REC.generation) throw e; REC.googleUntil = Date.now() + 30 * 60 * 1000; }
+  }
+  if (generation !== REC.generation) throw new DOMException('Cancelled', 'AbortError');
+  const q = (query.type === 'author' ? 'author:' : query.type === 'subject' ? 'subject:' : query.type === 'title' ? 'title:' : '') + '"' + query.value.replace(/"/g,'') + '"' + (lang === 'ru' ? ' language:rus' : ' language:eng');
+  const params = new URLSearchParams({ q, limit:'16', page:String(page + 1), fields:'key,title,author_name,cover_i,subject,isbn,first_publish_year,editions,editions.title,editions.key,editions.language,editions.cover_i' });
+  const data = await recFetch('https://openlibrary.org/search.json?' + params, true);
+  return { key, items:(data.docs || []).map(d => { const ed = d.editions?.docs?.[0]; const cover = ed?.cover_i || d.cover_i;
+    return recBook({ id:'ol:' + d.key, provider:'Open Library', title:ed?.title || d.title, aliases:[d.title], authors:d.author_name || [], genres:(d.subject || []).slice(0,30), year:d.first_publish_year,
+      isbn:d.isbn || [], coverUrl:cover ? 'https://covers.openlibrary.org/b/id/' + cover + '-M.jpg' : '', work:d.key, edition:ed?.key,
+      url:'https://openlibrary.org' + d.key }); }).filter(Boolean) };
+}
+async function recIdentifyLibrary(lang, generation) {
+  const pending = recLibrary().filter(b => { const ref = REC.data.libraryRefs?.[b.id]; return !ref || ref.fingerprint !== recFingerprint(b) || (!ref.ids?.length && Date.now() - ref.checkedAt > 86400000); }).slice(0,2);
+  for (const book of pending) {
+    if (generation !== REC.generation) return;
+    try {
+      const result = await recSearch({ type:'title', value:book.title.slice(0,140) },lang,{});
+      const match = result.items.find(x => (book.authors || []).some(a => x.authors.some(b => recAuthor(a) === recAuthor(b))));
+      await recCommit(data => { data.libraryRefs ||= {}; data.libraryRefs[book.id] = { fingerprint:recFingerprint(book), ids:match?[match.id]:[], checkedAt:Date.now() }; },generation);
+    } catch (_) { /* Exact local title/author filtering still applies without catalogue IDs. */ }
+  }
+}
+async function recLoad() {
+  if (REC.loading || STORE_HEALTH.busy || !recLibrary().length || !navigator.onLine) { if (!navigator.onLine) { REC.error='Нет соединения. Сохранённые карточки и избранное доступны.'; recDraw(); } return; }
+  const generation = REC.generation, profile = recProfile(); REC.loading = true; REC.error = ''; recDraw();
+  let added = 0, succeeded = 0;
+  try {
+    await recIdentifyLibrary(profile.lang, generation);
+    const pages = { ...REC.data.pages };
+    for (let i = 0; i < Math.min(3, profile.queries.length); i++) {
+      if (generation !== REC.generation) return;
+      const q = profile.queries[(REC.data.round * 3 + i) % profile.queries.length];
+      try {
+        const result = await recSearch(q, profile.lang, pages); pages[result.key] = (+pages[result.key] || 0) + 1;
+        if (generation !== REC.generation) return;
+        await recCommit(data => {
+          for (const book of result.items) if (!data.items.some(x => recSame(x,book))) { data.items.push(book); added++; }
+          data.items = data.items.slice(-180); data.pages = pages; data.fetchedAt = Date.now();
+        }, generation); succeeded++;
+      } catch (e) { if (e.name === 'AbortError' && generation !== REC.generation) return; if (!DB.ok) throw e; }
+    }
+    if (generation === REC.generation) {
+      await recCommit(data => { data.round++; }, generation);
+      if (!succeeded) REC.error='Не удалось загрузить каталог. Попробуйте позже — избранное сохранено.';
+      else if (!added && !recFeed().length) REC.error='Новых книг в этой подборке не нашлось. Попробуйте ещё или добавьте другие книги в библиотеку.';
+    }
+  } catch (e) { if (generation === REC.generation) REC.error='Не удалось сохранить подборку на устройстве.'; }
+  finally { if (generation === REC.generation) { REC.loading = false; recDraw(); } }
+}
+function recDraw() {
+  libraryTabCache.delete('discover');
+  if (REC.dragging || REC.deciding) { REC.redrawPending = true; return; }
+  REC.redrawPending = false;
+  if (state.tab === 'discover' && !$('#lib').hidden && $('#reader').hidden) renderRecommendations($('#lib-main'));
+}
+async function recHydrate(book) {
+  if (!navigator.onLine || book.descriptionChecked || !book.work || REC.details.has(book.id)) return;
+  REC.details.add(book.id); const generation = REC.generation;
+  try {
+    let description = '';
+    if (book.edition) { const edition = await recFetch('https://openlibrary.org' + book.edition + '.json', true); description = typeof edition.description === 'string' ? edition.description : edition.description?.value || ''; }
+    if (!description) { const work = await recFetch('https://openlibrary.org' + book.work + '.json', true); description = typeof work.description === 'string' ? work.description : work.description?.value || ''; }
+    await recCommit(data => {
+      const update = x => { if (x.id === book.id) { x.description = recPlain(description); x.descriptionChecked = true; } };
+      data.items.forEach(update); Object.values(data.decisions).forEach(d => update(d.book));
+    }, generation);
+    if (generation !== REC.generation) return;
+    const detail = $('.rec-detail'); if (detail?.dataset.id === book.id) { const text = recPlain(description) || 'В каталоге нет описания этой книги.'; $('.annot',detail).replaceChildren(...text.split(/\n+/).map(t => h('p',null,t))); }
+    // Update text in place: never replace a card under a moving finger.
+    const el = $('.rec-card'); if (el?.dataset.id === book.id) {
+      $('.rec-description',el).textContent = recPreview(description) || 'В каталоге нет описания этой книги.';
+    }
+  } catch (_) { if (generation !== REC.generation) return; const card=$('.rec-card'); if(card?.dataset.id===book.id) $('.rec-description',card).textContent='Описание временно недоступно. Можно попробовать открыть его позже.'; }
+  finally { REC.details.delete(book.id); }
+}
+async function recCacheCover(book) {
+  if (!book.coverUrl || book.cover || !navigator.onLine || REC.covers.has(book.id)) return;
+  REC.covers.add(book.id); const generation = REC.generation, controller = new AbortController(); REC.controllers.add(controller);
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const r = await fetch(book.coverUrl, { signal:controller.signal, credentials:'omit', referrerPolicy:'no-referrer' });
+    if (!r.ok) return; const blob = await r.blob();
+    if (!blob.type.startsWith('image/') || !blob.size || blob.size > 1500000) return;
+    await recCommit(data => { for (const item of data.items) if (item.id === book.id) item.cover=blob; if (data.decisions[book.id]?.kind === 'like') data.decisions[book.id].book.cover=blob; }, generation);
+  } catch (_) { /* remote cover is optional, no loss of recommendations */ }
+  finally { clearTimeout(timer); REC.controllers.delete(controller); REC.covers.delete(book.id); }
+}
+function recCover(book) {
+  const box = coverEl(book);
+  if (!book.cover && book.coverUrl) box.append(h('img', { src:book.coverUrl, alt:'', loading:'lazy', referrerpolicy:'no-referrer', onerror:e => e.target.remove() }));
+  return box;
+}
+function recDetails(book) {
+  const latest = REC.data.decisions[book.id]?.book || REC.data.items.find(x => x.id === book.id) || book;
+  recHydrate(latest); recCacheCover(latest);
+  openSheet({ title:latest.title, body:h('div', { class:'rec-detail', 'data-id':book.id }, h('p', { class:'muted' }, authorsStr(latest)),
+    h('div', { class:'annot' }, (latest.description || (!latest.descriptionChecked && navigator.onLine ? 'Загружаем описание…' : 'В каталоге нет описания этой книги.')).split(/\n+/).map(t => h('p',null,t))),
+    latest.url ? h('a', { class:'btn wide ghost', href:latest.url, target:'_blank', rel:'noopener noreferrer' }, 'Открыть в каталоге') : null) });
+}
+async function recDecide(book, kind, card) {
+  if (REC.deciding || STORE_HEALTH.busy || STORE_HEALTH.restoring) return;
+  REC.deciding = true; const generation = REC.generation;
+  $$('.rec-actions button').forEach(b => b.disabled = true);
+  try {
+    const ok = await recCommit(data => { const latest = data.items.find(x => x.id === book.id) || data.decisions[book.id]?.book || book;
+      data.decisions[book.id] = { kind, at:Date.now(), book:kind === 'like' ? structuredClone(latest) : { ...structuredClone(latest), cover:null, coverUrl:'', description:'' } };
+    }, generation);
+    if (!ok) return;
+    if (card?.isConnected && !reduceMotion()) {
+      const sign = kind === 'like' ? 1 : -1;
+      await card.animate([{transform:getComputedStyle(card).transform, opacity:1},{transform:`translateX(${sign * Math.min(innerWidth,520)}px) rotate(${sign*14}deg)`,opacity:0}], {duration:210,easing:'ease-in'}).finished.catch(()=>{});
+    }
+    if (kind === 'like') toast('Добавлено в избранное');
+  } catch (_) { toast('Решение не сохранено. Попробуйте ещё раз.', { tone:'error' }); }
+  finally { if (generation === REC.generation) { REC.deciding=false; REC.dragging=false; recDraw(); } }
+}
+function recSwipe(card, book) {
+  let g = null;
+  const reset = () => { if (g?.drag) { card.style.transition = reduceMotion() ? 'none' : 'transform .2s ease'; card.style.transform=''; card.style.setProperty('--like',0); card.style.setProperty('--skip',0); } g=null; REC.dragging=false; if (REC.redrawPending && !REC.deciding) recDraw(); };
+  card.addEventListener('pointerdown', e => {
+    if (REC.deciding || e.button > 0 || e.target.closest('button,a') || g) return;
+    g={id:e.pointerId,x:e.clientX,y:e.clientY,drag:false,dx:0};
+  });
+  card.addEventListener('pointermove', e => {
+    if (!g || g.id !== e.pointerId) return;
+    const dx=e.clientX-g.x, dy=e.clientY-g.y;
+    if (!g.drag) {
+      if (Math.abs(dy)>12 && Math.abs(dy)>Math.abs(dx)) { reset(); return; }
+      if (Math.abs(dx)<14 || Math.abs(dx)<Math.abs(dy)*1.4) return;
+      g.drag=true;REC.dragging=true;try{card.setPointerCapture(g.id)}catch(_){} card.style.transition='none';
+    }
+    g.dx=dx; card.style.transform=`translate3d(${dx}px,0,0) rotate(${clamp(dx/28,-12,12)}deg)`;
+    card.style.setProperty('--like',clamp(dx/100,0,1));card.style.setProperty('--skip',clamp(-dx/100,0,1));
+  });
+  card.addEventListener('pointerup', e => { if (!g || g.id!==e.pointerId) return;const dx=g.dx,drag=g.drag;
+    if (drag && Math.abs(dx)>Math.min(95,card.offsetWidth*.25)) { g=null;REC.dragging=false;recDecide(book,dx>0?'like':'skip',card); }
+    else reset();
+  });
+  card.addEventListener('pointercancel',reset); card.addEventListener('lostpointercapture',reset);
+  card.addEventListener('dragstart',e=>e.preventDefault());
+}
+function renderRecommendations(main) {
+  main.replaceChildren(); main.classList.add('rec-main');
+  const shell=h('div',{class:'rec-shell'}), seg=h('div',{class:'seg rec-seg',role:'group','aria-label':'Подборки книг'},
+    ...[['feed','Подборка'],['favorites','Избранное']].map(([key,label])=>h('button',{'aria-pressed':String(REC.mode===key),onclick:()=>{REC.mode=key;recDraw()}},label)));
+  shell.append(h('div',{class:'rec-tools'},seg,h('button',{class:'icon-btn','aria-label':'Загрузить ещё рекомендации',title:'Обновить подборку',disabled:REC.loading,onclick:recLoad},icon('refresh'))));main.append(shell);
+  if (REC.mode==='favorites') {
+    const favorites=Object.values(REC.data.decisions).filter(d=>d.kind==='like').sort((a,b)=>b.at-a.at);
+    if (!favorites.length) { shell.append(h('div',{class:'rec-empty'},icon('heart'),h('h2',null,'Пока ничего не выбрано'),h('p',null,'Свайпните книгу вправо — она появится здесь.')));return; }
+    shell.append(h('div',{class:'rec-favorites'},favorites.map(({book})=>h('article',{class:'rec-favorite'},
+      h('button',{class:'rec-fav-cover','aria-label':'Подробнее: '+book.title,onclick:()=>recDetails(book)},recCover(book)),
+      h('div',{class:'rec-fav-info'},h('button',{class:'rec-fav-title',onclick:()=>recDetails(book)},book.title),h('p',{class:'muted'},authorsStr(book)),
+        h('button',{class:'link-btn',onclick:()=>recDetails(book)},'Описание')),
+      h('button',{class:'icon-btn','aria-label':'Удалить из избранного: '+book.title,disabled:REC.deciding,onclick:()=>recDecide(book,'skip')},icon('x','sm'))))));return;
+  }
+  if (!recLibrary().length) { shell.append(h('div',{class:'rec-empty'},icon('discover'),h('h2',null,'Начнём с твоих книг'),h('p',null,'Добавьте свои книги в библиотеку. По ним появится персональная подборка — книги-примеры на вкус не влияют.'),h('button',{class:'btn',onclick:()=>$('#file').click()},icon('plus','sm'),'Добавить книги')));return; }
+  const feed=recFeed(), book=feed[0];
+  if (!book) {
+    shell.append(h('div',{class:'rec-empty','aria-live':'polite'},REC.loading?h('span',{class:'spin'}):icon('discover'),h('h2',null,REC.loading?'Собираем подборку':'Пока нет новых карточек'),
+      h('p',null,REC.loading?'Ищем книги в каталоге.':REC.error||'Загрузите следующую подборку по вашей библиотеке.'),
+      !REC.loading?h('button',{class:'btn',onclick:recLoad},'Найти книги'):null));
+    if (!REC.loading && !REC.data.fetchedAt && !REC.error) queueMicrotask(()=>{if(state.tab==='discover')recLoad()});return;
+  }
+  const card=h('article',{class:'rec-card','data-id':book.id,'aria-label':book.title},
+    h('span',{class:'rec-stamp rec-stamp-like','aria-hidden':'true'},icon('heart'),'В избранное'),h('span',{class:'rec-stamp rec-stamp-skip','aria-hidden':'true'},icon('x'),'Неинтересно'),
+    h('div',{class:'rec-art'},recCover(book)),h('div',{class:'rec-copy'},h('h2',null,book.title),h('p',{class:'rec-author'},authorsStr(book)),
+      h('p',{class:'rec-description'},recPreview(book.description)||(book.descriptionChecked?'В каталоге нет описания этой книги.':navigator.onLine?'Загружаем описание…':'Описание пока не загружено.')),
+      h('button',{class:'link-btn rec-more',onclick:()=>recDetails(book)},'Подробнее')));
+  const stage=h('div',{class:'rec-stage'},card); shell.append(stage,h('div',{class:'rec-actions'},
+    h('button',{class:'btn ghost',disabled:REC.deciding,onclick:()=>recDecide(book,'skip',card)},icon('x','sm'),'Неинтересно'),
+    h('button',{class:'btn',disabled:REC.deciding,onclick:()=>recDecide(book,'like',card)},icon('heart','sm'),'В избранное')),
+    h('p',{class:'rec-foot','aria-live':'polite'},REC.error || (REC.loading?'Загружаем ещё книги…':'← Неинтересно · В избранное →')),
+    h('p',{class:'rec-attribution'},'Каталоги: Google Books / Open Library'));
+  recSwipe(card,book); recHydrate(book); recCacheCover(book); if(feed[1])recCacheCover(feed[1]);
+  if (!REC.loading && !REC.error && feed.length<5 && Date.now()-REC.data.fetchedAt>60000) queueMicrotask(()=>{if(state.tab==='discover')recLoad()});
+}
+document.addEventListener('keydown',e=>{
+  if(state.tab!=='discover'||!$('#reader').hidden||!$('#profile').hidden||sheets.length||REC.mode!=='feed'||REC.deciding||e.ctrlKey||e.metaKey||e.altKey||e.shiftKey||e.target.closest('input,textarea,button,a,[contenteditable=true]'))return;
+  if(!['ArrowLeft','ArrowRight'].includes(e.key))return;const current=$('.rec-card')?.dataset.id;const book=REC.data.items.find(x=>x.id===current);if(book){e.preventDefault();recDecide(book,e.key==='ArrowRight'?'like':'skip',$('.rec-card'))}
+});
+
+
 /* ================= sample books (original texts) ================= */
 function sampleFb2(s) {
   const sec = (c) => `<section><title><p>${c.title}</p></title>${c.epigraph ? `<epigraph><p>${c.epigraph[0]}</p><text-author>${c.epigraph[1]}</text-author></epigraph>` : ''}${c.paras.map((p) => p === '*' ? '<subtitle>* * *</subtitle>' : `<p>${p}</p>`).join('')}${c.poem ? `<poem><stanza>${c.poem.map((v) => `<v>${v}</v>`).join('')}</stanza></poem>` : ''}${c.after ? c.after.map((p) => `<p>${p}</p>`).join('') : ''}</section>`;
@@ -4132,9 +5007,9 @@ async function seedSamples() {
     const xml = sampleFb2(s);
     const res = parseFb2Text(xml);
     const now = Date.now() - (s.shelf === 'Проза' ? 1000 : 0);
-    Object.assign(res.book, { id: uid(), fileName: s.id + '.fb2', size: new Blob([xml]).size, addedAt: now, openedAt: 0, progress: null, bookmarks: [], shelf: s.shelf, modifiedAt: 0, edits: 0, coverChanged: false, sample: true });
+    Object.assign(res.book, { id: uid(), fileName: s.id + '.fb2', size: new Blob([xml]).size, addedAt: now, openedAt: 0, progress: null, bookmarks: [], quotes: [], shelf: s.shelf, modifiedAt: 0, edits: 0, coverChanged: false, sample: true });
     res.content.id = res.book.id;
-    try { await DB.put('content', res.content); await DB.put('books', res.book); state.books.push(res.book); } catch (e) { /* storage unavailable */ }
+    try { await DB.writeBatch([{ store: 'content', value: res.content }, { store: 'books', value: res.book }]); state.books.push(res.book); } catch (e) { /* storage unavailable */ }
   }
   prefs.seeded = true; savePrefs();
 }
@@ -4145,14 +5020,24 @@ function libScrollChrome() {
   const t = pf ? $('#profile .large-title') : $('#large-title');
   (pf ? $('#profile .navbar') : $('#navbar')).classList.toggle('solid', t.getBoundingClientRect().bottom < 56);
 }
+$('#backup-file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) restoreBackup(f); });
 $('#btn-add').addEventListener('click', () => $('#file').click());
-$('#btn-settings').addEventListener('click', () => openViewMenu());
+$('#btn-view').addEventListener('click', () => openViewMenu());
+$('#pf-settings').addEventListener('click', () => openSettings());
 $('#btn-profile').addEventListener('click', () => openProfile());
 $('#pf-back').addEventListener('click', () => closeProfile());
 $('#btn-search').addEventListener('click', () => toggleSearch());
 $('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) switchTab(b.dataset.tab); });
 $('#file').addEventListener('change', (e) => { const files = e.target.files; importFiles(files).finally(() => { e.target.value = ''; }); });
-$('#q').addEventListener('input', debounce((e) => { state.query = e.target.value; $('#q-clear').hidden = !e.target.value; renderLibrary(false); }, 120));
+$('#q').addEventListener('input', debounce((e) => {
+  if ($('#search-wrap').inert) return;
+  state.query = e.target.value; $('#q-clear').hidden = !e.target.value; renderLibrary(false);
+}, 120));
+$('#navbar').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !sheets.length && !$('#search-wrap').inert) {
+    e.preventDefault(); toggleSearch(false);
+  }
+});
 $('#q-clear').addEventListener('click', () => { $('#q').value = ''; state.query = ''; $('#q-clear').hidden = true; renderLibrary(); $('#q').focus(); });
 
 // drag and drop import
@@ -4288,13 +5173,27 @@ new MutationObserver((list) => {
 (async function init() {
   applyUi();
   await DB.open();
-  await loadStats();
-  try { state.books = await DB.all('books'); } catch (e) { state.books = []; }
-  if (!state.books.length && !prefs.seeded) await seedSamples();
-  if (!DB.ok) {
-    $('#storage-banner').replaceChildren(h('div', { class: 'banner', role: 'status' }, 'Браузер не дал сохранить данные на устройстве, поэтому книги пропадут после закрытия страницы. Откройте читалку в обычном окне, не в приватном режиме.'));
+  let loaded = false;
+  if (DB.ok) {
+    try {
+      const saved = await DB.get('meta', 'prefs');
+      if (saved && saved.data) Object.assign(prefs, saved.data);
+      applyUi(); state.sort = SORTS[prefs.sort] ? prefs.sort : 'manual';
+      await loadStats();
+      state.books = await DB.all('books');
+      await loadRecommendations(); loaded = true;
+      STORE_HEALTH.lastBackup = (await DB.get('meta','backup') || {}).exportedAt || null;
+      await DB.put('meta', { id: 'prefs', data: structuredClone(prefs) });
+      statsDirty = true; await flushStats();
+      // Remove unbounded legacy localStorage duplication after successful migration.
+      try { localStorage.removeItem('polka.stats.v1'); } catch (_) {}
+      if (await DB.get('content','__stats')) await DB.del('content','__stats');
+    } catch (e) { storageError(e); }
   }
-  renderLibrary();
+  if (loaded && !STORE_HEALTH.error && !state.books.length && !prefs.seeded) await seedSamples();
+  if (DB.ok && isStandalone()) protectStorage();
+  paintStorageBanner();
+  renderLibrary(false);
   libScrollChrome();
   takeSharedFiles();
 })();
