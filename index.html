@@ -1136,7 +1136,7 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 @media(max-width:350px){.tabbar{grid-template-columns:repeat(4,46px)}.tabbar button{width:46px}.tb-ind{width:46px;transform:translate3d(calc(var(--ti)*50px),0,0)}}
 html.rec-open,html.rec-open body { overflow:hidden; overscroll-behavior:none; }
 .discovery { position:fixed; inset:0; z-index:60; height:100vh; height:100dvh; overflow:hidden; background:#141617; color:#faf7f0; isolation:isolate; --pill:#f6f3ec; --pill-fg:#181818; --fg-2:rgba(250,247,240,.75); --fg-3:rgba(250,247,240,.6); }
-.rec-ambient { position:absolute; inset:-20%; z-index:-2; filter:blur(56px) saturate(1.2); opacity:.6; pointer-events:none; transform:scale(1.12); }
+.rec-ambient { position:absolute; left:50%;top:50%;width:240px;height:320px; z-index:-2; filter:blur(12px) saturate(1.2); opacity:.6; pointer-events:none; transform:translate(-50%,-50%) scale(6); contain:layout style; }
 .rec-ambient .cover { position:absolute; inset:0; width:100%; height:100%; aspect-ratio:auto; border-radius:0; box-shadow:none; }
 .rec-ambient .cover img { width:100%; height:100%; object-fit:cover; }
 .rec-ambient .gcover { width:100%; height:100%; }
@@ -1199,7 +1199,7 @@ html.rec-open,html.rec-open body { overflow:hidden; overscroll-behavior:none; }
 .rec-hero-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:0; }
 .rec-hero-heading p { color:var(--fg-2); font-size:14px; margin:0; }
 .rec-hero-heading .icon-btn { width:44px; height:44px; }
-.rec-hero-glow { position:absolute; z-index:-1; top:35px; left:-20px; right:-20px; height:300px; opacity:.27; filter:blur(42px) saturate(1.3); pointer-events:none; mask-image:linear-gradient(transparent,#000 30%,#000 65%,transparent); }
+.rec-hero-glow { position:absolute; z-index:-1; top:35px; left:50%; right:auto; width:240px; height:75px; transform:translateX(-50%) scale(4);transform-origin:top center; opacity:.27; filter:blur(10.5px) saturate(1.3); pointer-events:none; mask-image:radial-gradient(ellipse at center,#000 10%,transparent 72%); }
 .rec-hero-glow .cover { width:100%; height:100%; aspect-ratio:auto; border-radius:0; box-shadow:none; }.rec-hero-glow img{width:100%;height:100%;object-fit:cover}
 .rec-carousel { --cw:190px; position:relative; display:flex; align-items:center; gap:28px; margin:0 -20px; padding:12px calc(50% - var(--cw)/2 + 20px) 28px; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; overscroll-behavior-x:contain; scrollbar-width:none; -webkit-overflow-scrolling:touch; touch-action:pan-x pan-y; }
 .rec-carousel::-webkit-scrollbar,.rec-book-row::-webkit-scrollbar{display:none}
@@ -1284,6 +1284,9 @@ html.rec-open,html.rec-open body { overflow:hidden; overscroll-behavior:none; }
 .rec-mini-open:active,.rec-all:active,.link-btn:active{opacity:.65}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
+/* Keep blur raster surfaces small even at desktop breakpoints. */
+.rec-hero-glow{height:75px}
+@media(min-width:720px){.rec-hero-glow{height:89px}}
 </style>
 </head>
 <body>
@@ -4948,7 +4951,16 @@ const recAuthor = s => recNorm(s).split(' ').sort().join(' ');
 const recFingerprint = b => recTitle(b.title) + ':' + (b.authors || []).map(recAuthor).sort().join('|');
 const recTitle = s => recNorm(s);
 const recWords = s => [...new Set(recNorm(s).split(' ').filter(x => x.length > 3 && !['книга','книги','роман','очень','который','которые','этого','того','the','with','from','this','that','fiction','general'].includes(x)))].slice(0, 70);
-const recPlain = s => { const box = document.createElement('textarea'); box.innerHTML = String(s || '').slice(0, 24000).replace(/<\/?(?:p|div|br)[^>]*>/gi, '\n').replace(/<[^>]*>/g, ''); return box.value.replace(/\n{3,}/g, '\n\n').trim().slice(0, 12000); };
+const REC_PLAIN_CACHE=new Map();
+const recPlain = value => {
+  const raw=String(value||'').slice(0,24000);
+  if(!/[<&]/.test(raw))return raw.replace(/\n{3,}/g,'\n\n').slice(0,12000);
+  if(REC_PLAIN_CACHE.has(raw))return REC_PLAIN_CACHE.get(raw);
+  const box=document.createElement('textarea');box.innerHTML=raw.replace(/<\/?(?:p|div|br)[^>]*>/gi,'\n').replace(/<[^>]*>/g,'');
+  const text=box.value.replace(/\n{3,}/g,'\n\n').slice(0,12000);
+  if(REC_PLAIN_CACHE.size>=256)REC_PLAIN_CACHE.delete(REC_PLAIN_CACHE.keys().next().value);
+  REC_PLAIN_CACHE.set(raw,text);return text;
+};
 function recPreview(value) {
   const text = recPlain(value).replace(/\r\n?/g,'\n').replace(/^[ \t]*>[ \t]?/gm,'').replace(/\[([^\]]+)\]\[\d+\]/g,'$1').replace(/\[([^\]]+)\]\((?:https?:)[^)]*\)/g,'$1').replace(/^\s*\[\d+\]:.*$/gm,'').replace(/\*\*/g,'');
   const paragraphs = text.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
@@ -5108,24 +5120,40 @@ async function loadRecommendations() {
     pages: data.pages && typeof data.pages === 'object' ? data.pages : {}, round: +data.round || 0, fetchedAt: +data.fetchedAt || 0, profileKey: typeof data.profileKey==='string'?data.profileKey:'' };
   REC.queue = Promise.resolve();
 }
-function recCommit(change, generation = REC.generation) {
+function recCommit(change, generation = REC.generation, options = {}) {
   const job = REC.queue.catch(() => {}).then(async () => {
     if (generation !== REC.generation || STORE_HEALTH.restoring) return false;
     const next = structuredClone(REC.data); change(next);
     await DB.put('meta', { id: 'recommendations', data: next });
     if (generation !== REC.generation) return false;
+    if(options.cosmetic&&REC_MODEL?.data===REC.data){REC_MODEL.data=next;REC_MODEL.items=next.items;}
     REC.data = next; libraryTabCache.delete('discover'); return true;
   });
   REC.queue = job; return job;
 }
-function recSame(a, b) {
-  if (a.id === b.id) return true;
-  if ((a.isbn || []).some(x => (b.isbn || []).includes(x))) return true;
-  const aa = [a.title, ...(a.aliases || [])].map(recTitle), bb = [b.title, ...(b.aliases || [])].map(recTitle);
-  return aa.some(t => t && bb.includes(t) && (t.length >= 8 || a.authors.some(x => b.authors.some(y => recAuthor(x) === recAuthor(y)))));
+const REC_INFO=new WeakMap();
+function recInfo(book){
+  const signature=[book.id,book.title,(book.authors||[]).join('|'),(book.aliases||[]).join('|'),(book.isbn||[]).join('|'),(book.genres||[]).join('|'),book.description||''].join('\0');
+  const cached=REC_INFO.get(book);if(cached?.signature===signature)return cached;
+  const info={signature,id:book.id,titles:[...new Set([book.title,...(book.aliases||[])].map(recTitle).filter(Boolean))],authors:(book.authors||[]).map(recAuthor),isbn:book.isbn||[],genres:(book.genres||[]).map(recNorm),words:recWords([book.title,book.description,...(book.genres||[])].join(' ')),ready:recRuReady(book)};
+  REC_INFO.set(book,info);return info;
+}
+function recSame(a,b){
+  if(a.id===b.id)return true;const aa=recInfo(a),bb=recInfo(b);
+  return aa.isbn.some(x=>bb.isbn.includes(x))||aa.titles.some(t=>bb.titles.includes(t)&&(t.length>=8||aa.authors.some(x=>bb.authors.includes(x))));
+}
+function recIndex(books){
+  const out={ids:new Map(),isbns:new Map(),titles:new Map()};
+  for(const book of books){const b=recInfo(book);out.ids.set(b.id,book);for(const isbn of b.isbn)out.isbns.set(isbn,book);for(const t of b.titles){if(!out.titles.has(t))out.titles.set(t,[]);out.titles.get(t).push(book);}}return out;
+}
+function recIndexFind(index,book){
+  const b=recInfo(book);if(index.ids.has(b.id))return index.ids.get(b.id);
+  for(const isbn of b.isbn)if(index.isbns.has(isbn))return index.isbns.get(isbn);
+  for(const t of b.titles)for(const candidate of index.titles.get(t)||[])if(t.length>=8||b.authors.some(a=>recInfo(candidate).authors.includes(a)))return candidate;
+  return null;
 }
 function recLibrary() { return state.books.filter(b => !b.sample); }
-function recLibraryKey(){return recLibrary().map(b=>[b.id,recFingerprint(b),...(b.genres||[])].join(':')).sort().join('||');}
+function recLibraryKey(){return recLibrary().map(b=>[b.id,recFingerprint(b),...(b.genres||[]),hash(b.annotation||''),(b.progress?.pct||0)>=.5?1:0].join(':')).sort().join('||');}
 function recProfile() {
   const authors = new Map(), subjects = new Map(), topics = new Map();
   const add = (map, key, w) => { if (key && key.length < 140) map.set(key, (map.get(key) || 0) + w); };
@@ -5142,28 +5170,35 @@ function recProfile() {
   if (!queries.length && recLibrary().length) queries.push({ type: 'text', value: recLibrary()[0].title.slice(0, 100) });
   return { authors, subjects, topics, queries, lang };
 }
-function recFeed() {
-  const p = recProfile(), decided = Object.values(REC.data.decisions).map(d => d.book), library = recLibrary();
-  const knownIds = new Set(library.flatMap(b => { const ref = REC.data.libraryRefs?.[b.id]; return ref?.fingerprint === recFingerprint(b) && Array.isArray(ref.ids) ? ref.ids : []; }));
-  const pool = REC.data.items.filter(b => !b.catalogueOnly && recRuReady(b) && !knownIds.has(b.id) && !decided.some(x => recSame(x,b)) && !library.some(x => recSame(x,b)));
-  const score = b => {
-    let value = 1;
-    for (const a of b.authors) for (const [name,w] of p.authors) if (recAuthor(a) === recAuthor(name)) value += w * 3;
-    const words = recWords([b.title, b.description, ...b.genres].join(' '));
-    value += Math.min(10, words.reduce((sum,w) => sum + Math.min(5,p.topics.get(w)||0)*.25, 0));
-    for (const [subject,w] of p.subjects) if (b.genres.some(g => recNorm(g).includes(recNorm(subject)) || recNorm(subject).includes(recNorm(g)))) value += Math.min(6,w) * 2;
-    if (p.lang === 'ru' && /[а-яё]/i.test(b.title)) value += 1.5;
-    return value;
-  };
-  pool.sort((a,b) => score(b) - score(a) || a.addedAt - b.addedAt);
-  const out = [], used = new Map();
-  while (pool.length) {
-    let idx = pool.findIndex(b => (used.get(recNorm(b.authors[0])) || 0) < 2); if (idx < 0) idx = 0;
-    const b = pool.splice(idx,1)[0]; if (out.some(x => recSame(x,b))) continue;
-    out.push(b); const a = recNorm(b.authors[0]); used.set(a, (used.get(a) || 0) + 1);
-  }
-  return out;
+let REC_MODEL=null;
+function recGetModel(){
+  if(REC.renderModel)return REC.renderModel;
+  const key=recLibraryKey();
+  if(REC_MODEL?.data===REC.data&&REC_MODEL.items===REC.data.items&&REC_MODEL.itemCount===REC.data.items.length&&REC_MODEL.decisionCount===Object.keys(REC.data.decisions).length&&REC_MODEL.key===key)return REC_MODEL;
+  const library=recLibrary(),decisions=Object.values(REC.data.decisions),decidedIndex=recIndex(decisions.map(d=>d.book)),ownedIndex=recIndex(library);
+  const knownIds=new Set(library.flatMap(b=>{const ref=REC.data.libraryRefs?.[b.id];return ref?.fingerprint===recFingerprint(b)&&Array.isArray(ref.ids)?ref.ids:[]}));
+  const available=b=>!knownIds.has(b.id)&&recInfo(b).ready&&!recIndexFind(decidedIndex,b)&&!recIndexFind(ownedIndex,b);
+  const profile=recProfile(),authorWeights=new Map();for(const [a,w]of profile.authors)authorWeights.set(recAuthor(a),(authorWeights.get(recAuthor(a))||0)+w);
+  const subjects=[...profile.subjects].map(([g,w])=>[recNorm(g),Math.min(6,w)]);
+  const ranked=(library.length?REC.data.items:[]).filter(b=>!b.catalogueOnly&&available(b)).map(book=>{
+    const b=recInfo(book);let score=1+(/[а-яё]/i.test(book.title)?1.5:0);
+    for(const a of b.authors)score+=(authorWeights.get(a)||0)*3;
+    score+=Math.min(10,b.words.reduce((sum,w)=>sum+Math.min(5,profile.topics.get(w)||0)*.25,0));
+    for(const [subject,w]of subjects)if(b.genres.some(g=>g.includes(subject)||subject.includes(g)))score+=w*2;
+    return {book,score};
+  }).sort((a,b)=>b.score-a.score||a.book.addedAt-b.book.addedAt);
+  const used=new Map(),preferred=[],rest=[],unique=recIndex([]);
+  for(const {book}of ranked){if(recIndexFind(unique,book))continue;recIndexAdd(unique,book);const a=recNorm(book.authors[0]),n=used.get(a)||0;(n<2?preferred:rest).push(book);used.set(a,n+1);}
+  const feed=[...preferred,...rest],taste=recTaste(),pool=[],poolIndex=recIndex([]);
+  for(const book of library.length?[...feed,...REC_COLLECTION_SEEDS.map(recSeedBook)]:[]){if(!available(book)||recIndexFind(poolIndex,book))continue;recIndexAdd(poolIndex,book);pool.push({book,...recAffinity(book,taste)});}
+  pool.sort((a,b)=>b.score-a.score||a.book.title.localeCompare(b.book.title,'ru'));
+  const groups={favorites:decisions.filter(d=>d.kind==='like'&&recDisplayRussian(d.book)).sort((a,b)=>b.at-a.at).map(d=>d.book),personal:[],authors:[],genres:[],explore:[]};
+  for(const x of pool){if(x.score>0)groups.personal.push(x.book);if(x.author)groups.authors.push(x.book);if(x.genre>0)groups.genres.push(x.book);if(!x.author&&(x.genre>0||x.topic>=2))groups.explore.push(x.book);}
+  const world=recSeedBooks('world').filter(available);
+  return REC_MODEL={data:REC.data,items:REC.data.items,itemCount:REC.data.items.length,decisionCount:Object.keys(REC.data.decisions).length,key,feed,groups,world,decidedIndex,libraryCount:library.length,carousel:feed.length?feed.slice(0,16):world.slice(0,12)};
 }
+function recIndexAdd(index,book){const b=recInfo(book);index.ids.set(b.id,book);for(const isbn of b.isbn)index.isbns.set(isbn,book);for(const t of b.titles){if(!index.titles.has(t))index.titles.set(t,[]);index.titles.get(t).push(book);}}
+function recFeed(){return recGetModel().feed;}
 async function recFetch(url, openLibrary = false) {
   const generation = REC.generation;
   const run = async () => {
@@ -5241,12 +5276,21 @@ async function recLoad() {
   } catch (e) { if (generation === REC.generation) REC.error='Не удалось сохранить подборку на устройстве.'; }
   finally { if (generation === REC.generation) { REC.loading = false; recDraw(); } }
 }
-function recDraw() {
-  libraryTabCache.delete('discover');
-  if (REC.dragging || REC.deciding || REC.homeInteracting || sheets.length) { REC.redrawPending = true; return; }
-  REC.redrawPending = false;
-  if (state.tab === 'discover' && $('#reader').hidden && $('#profile').hidden) renderRecommendations();
+function recDraw(){
+  libraryTabCache.delete('discover');REC.redrawPending=true;
+  if(REC.drawFrame||REC.dragging||REC.deciding||REC.homeInteracting||sheets.length)return;
+  REC.drawFrame=requestAnimationFrame(()=>{
+    REC.drawFrame=0;if(REC.dragging||REC.deciding||REC.homeInteracting||sheets.length)return;
+    REC.redrawPending=false;
+    if(state.tab==='discover'&&$('#reader').hidden&&$('#profile').hidden)renderRecommendations();
+  });
 }
+let recVerticalTimer=0;
+window.addEventListener('scroll',()=>{
+  if(state.tab!=='discover'||REC.fullscreen||sheets.length)return;
+  REC.homeInteracting=true;clearTimeout(recVerticalTimer);
+  recVerticalTimer=setTimeout(()=>{REC.homeInteracting=false;if(REC.redrawPending)recDraw()},140);
+},{passive:true});
 async function recHydrate(book) {
   if(!navigator.onLine||recRuReady(book))return book;
   const generation=REC.generation;
@@ -5258,20 +5302,24 @@ async function recHydrate(book) {
 }
 
 async function recCacheCover(book) {
-  if (!book.coverUrl || book.cover || !navigator.onLine || REC.covers.has(book.id)) return;
+  REC.coverAttempts ||= new Map();
+  if (!book.coverUrl || book.cover || !navigator.onLine || REC.covers.has(book.id) || REC.covers.size>=2 || Date.now()-(REC.coverAttempts.get(book.id)||0)<60000) return;
+  REC.coverAttempts.set(book.id,Date.now());
   REC.covers.add(book.id); const generation = REC.generation, controller = new AbortController(); REC.controllers.add(controller);
   const timer = setTimeout(() => controller.abort(), 10000);
   try {
     const r = await fetch(book.coverUrl, { signal:controller.signal, credentials:'omit', referrerPolicy:'no-referrer' });
     if (!r.ok) return; const blob = await r.blob();
     if (!blob.type.startsWith('image/') || !blob.size || blob.size > 1500000) return;
-    await recCommit(data => { for (const item of data.items) if (item.id === book.id) item.cover=blob; if (data.decisions[book.id]?.kind === 'like') data.decisions[book.id].book.cover=blob; }, generation);
+    await recCommit(data => { for (const item of data.items) if (item.id === book.id) item.cover=blob; if (data.decisions[book.id]?.kind === 'like') data.decisions[book.id].book.cover=blob; }, generation, {cosmetic:true});
   } catch (_) { /* remote cover is optional, no loss of recommendations */ }
   finally { clearTimeout(timer); REC.controllers.delete(controller); REC.covers.delete(book.id); }
 }
 function recCover(book) {
+  book=recFindBook(book.id)||book;
   const box = coverEl(book);
-  if (!book.cover && book.coverUrl) box.append(h('img', { src:book.coverUrl, alt:'', loading:'lazy', referrerpolicy:'no-referrer', onerror:e => e.target.remove() }));
+  for(const img of box.querySelectorAll('img')){img.loading='lazy';img.decoding='async';img.draggable=false;}
+  if (!book.cover && book.coverUrl) box.append(h('img', { src:book.coverUrl, alt:'', loading:'lazy', decoding:'async', referrerpolicy:'no-referrer', onerror:e => e.target.remove() }));
   return box;
 }
 function recDetails(book) {
@@ -5397,7 +5445,13 @@ function recSwipe(card,book) {
 }
 function recMode(mode) { REC.mode=mode;recDraw(); }
 function renderRecImmersive() {
-  recOpenScreen();REC.gestureCleanup?.();REC.gestureCleanup=null;
+  recOpenScreen();
+  $('#rec-refresh').hidden=REC.mode==='favorites'||REC.source==='world';$('#rec-refresh').disabled=REC.loading;
+  const next=recActiveFeed().find(b=>b.id===REC.currentId)||recActiveFeed()[0],mounted=$('.rec-card');
+  if(REC.mode==='feed'&&next&&mounted?.dataset.id===next.id&&mounted.dataset.signature===recVisualKey(next)){
+    $$('.rec-actions button').forEach(button=>button.disabled=REC.deciding);return;
+  }
+  REC.gestureCleanup?.();REC.gestureCleanup=null;
   const main=$('#rec-screen-main'),oldId=$('.rec-card',main)?.dataset.id,oldY=$('.rec-description-scroll',main)?.scrollTop||0;main.replaceChildren();
   $('#rec-screen-title').textContent=REC.mode==='favorites'?'Избранное':'Для тебя';
   $('#rec-refresh').hidden=REC.mode==='favorites'||REC.source==='world';$('#rec-refresh').disabled=REC.loading;
@@ -5422,7 +5476,7 @@ function renderRecImmersive() {
     if(!REC.loading&&!REC.error&&navigator.onLine&&(!REC.data.fetchedAt||!REC.data.items.some(recRuReady)))queueMicrotask(()=>{if(state.tab==='discover'&&!REC.loading)recLoad()});return;
   }
   recBackground(book);
-  const card=h('article',{class:'rec-card','data-id':book.id,'aria-label':book.title},
+  const card=h('article',{class:'rec-card','data-id':book.id,'data-signature':recVisualKey(book),'aria-label':book.title},
     h('span',{class:'rec-stamp rec-stamp-like','aria-hidden':'true'},icon('heart'),'В избранное'),h('span',{class:'rec-stamp rec-stamp-skip','aria-hidden':'true'},icon('x'),'Неинтересно'),
     h('div',{class:'rec-art'},h('div',{class:'rec-book'},recCover(book))),
     h('h2',{class:'rec-title'},book.title),h('p',{class:'rec-author'},authorsStr(book)),
@@ -5464,16 +5518,22 @@ function recSeedBook(raw){
   REC_SEED_CACHE.set(book.id,book);return book;
 }
 function recDisplayRussian(b){return !!b&&(recRussianText(b.title,2,true)||/^\d{3,4}$/.test(b.title))&&b.authors?.length>0&&b.authors.every(a=>recRussianText(a,2,true));}
-function recDecision(book){return REC.data.decisions[book.id]||Object.values(REC.data.decisions).find(d=>recSame(d.book,book));}
+function recDecision(book){if(REC.data.decisions[book.id])return REC.data.decisions[book.id];const match=recIndexFind(recGetModel().decidedIndex,book);return match?REC.data.decisions[match.id]:undefined;}
 function recFindBook(id){const d=REC.data.decisions[id],seed=REC_COLLECTION_SEEDS.find(b=>b.id===id);return (d?.kind==='like'?d.book:null)||REC.data.items.find(b=>b.id===id)||(seed?recSeedBook(seed):null)||d?.book;}
 function recSeedBooks(key){return REC_COLLECTION_SEEDS.filter(b=>b.collections.includes(key)).map(b=>recFindBook(b.id)||recSeedBook(b));}
-function recAuthorRelated(a,b){
-  if(recAuthor(a)===recAuthor(b))return true;
-  const words=name=>recNorm(String(name).includes(',')?String(name).split(',')[0]:name).split(/\s+/).filter(Boolean);
-  const aa=words(a),bb=words(b),family=x=>(x.at(-1)||'').replace(/(?:кие|кий|ые|ый|ая|ой)$/,'');
-  if(!family(aa)||family(aa)!==family(bb))return false;
-  return aa.length===1||bb.length===1||aa.includes('братья')||bb.includes('братья')||aa.slice(0,-1).some(x=>x.length>2&&bb.slice(0,-1).includes(x));
+const REC_AUTHOR_IDS=new Map();
+function recAuthorIdentity(name){
+  if(REC_AUTHOR_IDS.has(name))return REC_AUTHOR_IDS.get(name);
+  const words=recNorm(String(name).includes(',')?String(name).split(',')[0]:name).split(/\s+/).filter(Boolean);
+  const value={canonical:recAuthor(name),words,family:(words.at(-1)||'').replace(/(?:кие|кий|ые|ый|ая|ой)$/,'')};
+  if(REC_AUTHOR_IDS.size>=2048)REC_AUTHOR_IDS.delete(REC_AUTHOR_IDS.keys().next().value);
+  REC_AUTHOR_IDS.set(name,value);return value;
 }
+function recAuthorIDsRelated(a,b){
+  if(a.canonical===b.canonical)return true;
+  return !!a.family&&a.family===b.family&&(a.words.length===1||b.words.length===1||a.words.includes('братья')||b.words.includes('братья')||a.words.slice(0,-1).some(x=>x.length>2&&b.words.slice(0,-1).includes(x)));
+}
+function recAuthorRelated(a,b){return recAuthorIDsRelated(recAuthorIdentity(a),recAuthorIdentity(b));}
 function recCategories(book){
   return new Set((book.genres||[]).flatMap(g=>{
     const t=recNorm(REC_SUBJECTS[g]||g.replace(/_/g,' ')),out=[t];
@@ -5483,22 +5543,16 @@ function recCategories(book){
 }
 function recTaste(){
   const library=recLibrary(),basis=[...library,...Object.values(REC.data.decisions).filter(d=>d.kind==='like').map(d=>d.book)];
-  return {authors:library.flatMap(b=>b.authors||[]),genres:new Set(basis.flatMap(b=>[...recCategories(b)])),topics:new Set(basis.flatMap(b=>recWords([b.title,b.annotation||b.description||''].join(' '))))};
+  const authorIndex=new Map();for(const name of library.flatMap(b=>b.authors||[])){const a=recAuthorIdentity(name);if(!authorIndex.has(a.family))authorIndex.set(a.family,[]);const list=authorIndex.get(a.family);if(!list.some(x=>x.canonical===a.canonical))list.push(a);}
+  return {authorIndex,genres:new Set(basis.flatMap(b=>[...recCategories(b)])),topics:new Set(basis.flatMap(b=>recWords([b.title,b.annotation||b.description||''].join(' '))))};
 }
 function recAffinity(book,taste=recTaste()){
-  const author=taste.authors.some(a=>book.authors.some(x=>recAuthorRelated(a,x)));
+  const author=book.authors.some(name=>{const b=recAuthorIdentity(name);return (taste.authorIndex.get(b.family)||[]).some(a=>recAuthorIDsRelated(a,b));});
   const genre=[...recCategories(book)].filter(g=>g&&taste.genres.has(g)).length;
   const topic=recWords([book.title,book.description].join(' ')).filter(w=>taste.topics.has(w)).length;
   return {author,genre,topic,score:(author?18:0)+genre*5+Math.min(8,topic)};
 }
-function recCollectionBooks(key){
-  if(key==='favorites')return Object.values(REC.data.decisions).filter(d=>d.kind==='like'&&recDisplayRussian(d.book)).sort((a,b)=>b.at-a.at).map(d=>d.book);
-  if(!recLibrary().length)return [];
-  const owned=recLibrary(),refs=new Set(owned.flatMap(b=>REC.data.libraryRefs?.[b.id]?.fingerprint===recFingerprint(b)?REC.data.libraryRefs[b.id].ids||[]:[]));
-  const taste=recTaste();
-  const pool=[...recFeed(),...REC_COLLECTION_SEEDS.map(recSeedBook)].filter((b,i,arr)=>recRuReady(b)&&!refs.has(b.id)&&!recDecision(b)&&!owned.some(x=>recSame(x,b))&&arr.findIndex(x=>recSame(x,b))===i).map(book=>({book,...recAffinity(book,taste)}));
-  return pool.filter(x=>key==='authors'?x.author:key==='genres'?x.genre>0:key==='explore'?!x.author&&(x.genre>0||x.topic>=2):x.score>0).sort((a,b)=>b.score-a.score||a.book.title.localeCompare(b.book.title,'ru')).map(x=>x.book);
-}
+function recCollectionBooks(key){return recGetModel().groups[key]||[];}
 const recViews=new Map();
 function recViewKey(){return REC.collection||'home';}
 function recSaveView(){
@@ -5515,14 +5569,9 @@ function recRestoreView(key){
   const anchor=$$('.rec-mini,.rec-home-row,.rec-hero',$('#lib-main')).find(el=>(el.dataset.book||el.getAttribute('aria-label'))===view.anchor);
   if(anchor&&Number.isFinite(view.offset)){const delta=anchor.getBoundingClientRect().top-view.offset;if(Math.abs(delta)>1)window.scrollTo({top:window.scrollY+delta,behavior:'instant'});}
 }
-function recCarouselBooks(){
-  const personal=recLibrary().length?recFeed():[];
-  return personal.length?personal.slice(0,16):recSeedBooks('world').filter(b=>recRuReady(b)&&!recDecision(b)&&!recLibrary().some(x=>recSame(x,b))).slice(0,12);
-}
-function recActiveFeed(){
-  return REC.source==='world'?recSeedBooks('world').filter(b=>recRuReady(b)&&!recDecision(b)&&!recLibrary().some(x=>recSame(x,b))):recFeed();
-}
-function recHomeCleanup(){REC.homeCleanup?.();REC.homeCleanup=null;REC.homeInteracting=false;}
+function recCarouselBooks(){return recGetModel().carousel;}
+function recActiveFeed(){const model=recGetModel();return REC.source==='world'?model.world:model.feed;}
+function recHomeCleanup(){REC.homeCleanup?.();REC.homeCleanup=null;REC.hero=null;REC.homeModel=null;REC.homeInteracting=false;}
 function recOpenFull(id){
   const books=recCarouselBooks();if(!books.length)return;
   REC.source=recFeed().some(b=>b.id===id)?'personal':'world';REC.currentId=id||books[0].id;
@@ -5538,16 +5587,65 @@ function recBackHome(){recSaveView();REC.collection=null;renderRecommendations()
 async function recToggleFavorite(book){
   const d=recDecision(book);await recDecide(d?.kind==='like'?d.book:book,d?.kind==='like'?'skip':'like');
 }
+function recVisualKey(book){return recInfo(book).signature+'|'+(book.coverUrl||'')+'|'+(book.cover?.size||0);}
+function recMiniKey(book){return [book.id,book.title,authorsStr(book),book.coverUrl||'',book.cover?.size||0].join('|');}
+function recUpdateHeart(button,book){
+  if(!button)return;const liked=recDecision(book)?.kind==='like',label=(liked?'Убрать из избранного: ':'В избранное: ')+book.title;
+  if(button.getAttribute('aria-pressed')!==String(liked))button.setAttribute('aria-pressed',String(liked));
+  if(button.getAttribute('aria-label')!==label)button.setAttribute('aria-label',label);button.disabled=REC.deciding;
+}
+function recSyncChildren(parent,nodes){
+  let changed=false;const wanted=new Set(nodes);
+  for(const child of [...parent.children])if(!wanted.has(child)){child.remove();changed=true;}
+  nodes.forEach((node,i)=>{if(parent.children[i]!==node){parent.insertBefore(node,parent.children[i]||null);changed=true;}});return changed;
+}
+function recSyncBooks(parent,books){
+  const old=new Map([...parent.children].map(el=>[el.dataset.book,el]));
+  const nodes=books.map(book=>{let el=old.get(book.id);if(!el||el.dataset.signature!==recMiniKey(book))el=recMiniBook(book);else recUpdateHeart($('.rec-mini-heart',el),book);return el;});
+  return recSyncChildren(parent,nodes);
+}
+function recMaybeLoad(){
+  const model=REC.renderModel||recGetModel();
+  if(navigator.onLine&&!REC.loading&&(!REC.error||REC.attemptKey!==model.key)&&model.libraryCount&&(REC.data.profileKey!==model.key||Date.now()-REC.data.fetchedAt>60000))queueMicrotask(()=>{if(state.tab==='discover'&&!REC.fullscreen&&!REC.loading)recLoad()});
+}
+function recPatchCollection(main,key){
+  const grid=$('.rec-collection-grid',main),books=recCollectionBooks(key);if(!grid||!books.length)return false;
+  const signature=books.map(recMiniKey).join('\n');
+  if(main.dataset.listSignature!==signature){recSaveView();main.style.minHeight=main.offsetHeight+'px';recSyncBooks(grid,books);main.style.minHeight='';recRestoreView(key);main.dataset.listSignature=signature;}
+  else $$('.rec-mini',grid).forEach(el=>recUpdateHeart($('.rec-mini-heart',el),recFindBook(el.dataset.book)));
+  $('.rec-collection-head>span',main).textContent=books.length+' '+plural(books.length,BOOKS);return true;
+}
+function recPatchHome(main,model){
+  if(!model.carousel.length)return false;
+  $('#lib').hidden=false;$('#profile').hidden=true;$('#tabbar').hidden=false;$('#btn-add').hidden=true;
+  const refresh=$('.rec-hero-heading .icon-btn',main);refresh.disabled=REC.loading||!model.libraryCount;
+  if(REC.homeModel===model){REC.hero.refresh();recMaybeLoad();return true;}
+  recSaveView();main.style.minHeight=main.offsetHeight+'px';
+  REC.hero.update([...model.carousel],model.libraryCount&&model.feed.length>0);
+  const keys=['favorites','personal','authors','genres','explore'].filter(key=>key==='favorites'||key==='personal'||model.groups[key].length);
+  const sections=keys.map(key=>{
+    const books=model.groups[key].slice(0,12);let section=$('[data-collection="'+key+'"]',main);
+    if(!section)return recHomeRow(key);
+    const row=$('[data-row]',section),empty=$('.rec-row-empty',section);
+    if(!!row!==!!books.length)return recHomeRow(key);
+    if(row)recSyncBooks(row,books);
+    else if(empty)empty.textContent=recEmptyRowText(key);
+    return section;
+  });
+  const hint=$('.rec-personal-hint',main);recSyncChildren(main,[REC.hero.element,...sections,...(hint&&!model.libraryCount?[hint]:[])]);
+  main.style.minHeight='';recRestoreView('home');REC.homeModel=model;recMaybeLoad();return true;
+}
+function recEmptyRowText(key){return key==='favorites'?'Понравится книга — добавь её сердечком или свайпом вправо.':!recLibrary().length?'Добавь свои книги — здесь появится личная подборка.':REC.loading?'Ищем книги по твоей библиотеке…':'Пока нет подходящих книг. Обнови подборку или добавь книги в библиотеку.';}
 function recMiniBook(book){
   const liked=recDecision(book)?.kind==='like';
-  return h('article',{class:'rec-mini','data-book':book.id},
+  return h('article',{class:'rec-mini','data-book':book.id,'data-signature':recMiniKey(book)},
     h('button',{class:'rec-mini-open','aria-label':book.title+' — '+authorsStr(book),onclick:()=>recDetails(book)},h('span',{class:'rec-mini-art rec-book'},recCover(book)),h('span',{class:'rec-mini-title'},book.title),h('span',{class:'rec-mini-author'},authorsStr(book))),
     h('button',{class:'rec-mini-heart','aria-label':(liked?'Убрать из избранного: ':'В избранное: ')+book.title,'aria-pressed':String(liked),disabled:REC.deciding,onclick:()=>recToggleFavorite(book)},icon('heart','sm')));
 }
 function recHomeRow(key){
   const conf=REC_COLLECTIONS[key],books=recCollectionBooks(key),all=()=>recOpenCollection(key);
   const section=h('section',{class:'rec-home-row','data-collection':key,'aria-label':conf.title},h('div',{class:'rec-row-heading'},h('div',null,h('h2',null,conf.title),key!=='favorites'?h('p',null,conf.subtitle):null),books.length?h('button',{class:'rec-all',onclick:all,'aria-label':'Все книги: '+conf.title},'Все',icon('next','sm')):null));
-  if(!books.length)section.append(h('p',{class:'rec-row-empty'},key==='favorites'?'Понравится книга — добавь её сердечком или свайпом вправо.':!recLibrary().length?'Добавь свои книги — здесь появится личная подборка.':REC.loading?'Ищем книги по твоей библиотеке…':'Пока нет подходящих книг. Обнови подборку или добавь книги в библиотеку.'));
+  if(!books.length)section.append(h('p',{class:'rec-row-empty'},recEmptyRowText(key)));
   else section.append(h('div',{class:'rec-book-row','data-row':key,tabindex:'0','aria-label':conf.title},books.slice(0,12).map(recMiniBook)));
   return section;
 }
@@ -5561,12 +5659,20 @@ function renderRecCollection(main,key){
 }
 function renderRecommendations(){
   if(REC.fullscreen){renderRecImmersive();return;}
-  const main=$('#lib-main'),key=recViewKey();if(main.dataset.recView===key&&!REC.restoringView)recSaveView();const scrolls=new Map(Object.entries(recViews.get(key)?.rows||{}));const height=main.offsetHeight;main.style.minHeight=height+'px';recHomeCleanup();main.dataset.recView=key;
+  const model=recGetModel();REC.renderModel=model;
+  try{return recRenderRecommendations();}finally{REC.renderModel=null;}
+}
+function recRenderRecommendations(){
+  if(REC.fullscreen){renderRecImmersive();return;}
+  const main=$('#lib-main'),key=recViewKey();
+  if(!REC.collection&&REC.hero?.element.isConnected&&main.dataset.recView==='home'&&recPatchHome(main,REC.renderModel))return;
+  if(REC.collection&&main.dataset.recView===key&&recPatchCollection(main,key))return;
+  if(main.dataset.recView===key&&!REC.restoringView)recSaveView();const scrolls=new Map(Object.entries(recViews.get(key)?.rows||{}));const height=main.offsetHeight;main.style.minHeight=height+'px';recHomeCleanup();main.dataset.recView=key;
   const finish=()=>{main.style.minHeight='';recRestoreView(key);};
   main.replaceChildren();main.classList.add('rec-home');$('#lib').hidden=false;$('#profile').hidden=true;$('#tabbar').hidden=false;$('#btn-add').hidden=true;
   if(REC.collection){renderRecCollection(main,REC.collection);finish();return;}
   $('#large-title').textContent='Для тебя';$('#navbar .mini').textContent='Для тебя';
-  const books=recCarouselBooks(),personal=recLibrary().length&&recFeed().length>0;
+  const books=[...recCarouselBooks()],personal=recGetModel().libraryCount&&recFeed().length>0;
   const section=h('section',{class:'rec-hero','aria-label':'Карусель книг'});
   const label=personal?'По твоей библиотеке':'Открой новую книгу';
   const refresh=h('button',{class:'icon-btn','aria-label':'Обновить персональную подборку',disabled:REC.loading||!recLibrary().length,onclick:recLoad},icon('refresh'));
@@ -5575,16 +5681,41 @@ function renderRecommendations(){
     let index=books.findIndex(b=>b.id===REC.carouselId);if(index<0)index=books.length>2?1:0;let active=books[index];REC.carouselId=active.id;
     const glow=h('div',{class:'rec-hero-glow','aria-hidden':'true'}),track=h('div',{class:'rec-carousel',role:'region','aria-roledescription':'карусель','aria-label':'Рекомендации книг',tabindex:'0'});
     const title=h('button',{class:'rec-hero-title',onclick:()=>recDetails(active)}),author=h('p',{class:'rec-hero-author'}),description=h('p',{class:'rec-hero-description'}),position=h('span',{class:'rec-hero-position','aria-live':'polite'}),favorite=h('button',{class:'rec-hero-like','aria-label':'В избранное',onclick:()=>recToggleFavorite(active)},icon('heart'));
-    const setActive=i=>{const changed=active?.id!==books[i]?.id;index=i;active=books[i];REC.carouselId=active.id;if(changed)uiMotion(title.parentElement,[{opacity:.25,transform:'translateY(5px)'},{opacity:1,transform:'none'}],240);title.textContent=active.title;author.textContent=authorsStr(active);description.textContent=active.description;position.textContent=(i+1)+' / '+books.length;const liked=recDecision(active)?.kind==='like';favorite.setAttribute('aria-pressed',String(liked));favorite.setAttribute('aria-label',(liked?'Убрать из избранного: ':'В избранное: ')+active.title);favorite.disabled=REC.deciding;glow.replaceChildren(recCover(active));[...track.children].forEach((el,j)=>{el.classList.toggle('active',j===i);el.setAttribute('aria-current',String(j===i))});};
-    books.forEach((b,i)=>track.append(h('button',{class:'rec-carousel-item'+(i===index?' active':''),'aria-label':b.title,onclick:()=>{if(index===i)recOpenFull(b.id);else center(i)}},h('span',{class:'rec-book'},recCover(b)))));
+    let glowKey='',geometry=null;
+    const measure=()=>{const children=[...track.children];geometry={width:track.clientWidth,centers:children.map(el=>el.offsetLeft+el.offsetWidth/2)};};
+    const setActive=i=>{
+      const previous=index,changed=active?.id!==books[i]?.id;index=i;active=books[i];REC.carouselId=active.id;
+      if(changed)uiMotion(title.parentElement,[{opacity:.25,transform:'translateY(5px)'},{opacity:1,transform:'none'}],240);
+      if(title.textContent!==active.title)title.textContent=active.title;
+      if(author.textContent!==authorsStr(active))author.textContent=authorsStr(active);
+      if(description.textContent!==active.description)description.textContent=active.description;
+      position.textContent=(i+1)+' / '+books.length;recUpdateHeart(favorite,active);
+      const coverKey=[active.id,active.coverUrl||'',active.cover?.size||0].join('|');
+      if(glowKey!==coverKey){glowKey=coverKey;glow.replaceChildren(recCover(active));const img=$('img',glow);if(img)img.loading='eager';}
+      for(const j of new Set([previous,i])){const el=track.children[j];if(el){el.classList.toggle('active',j===i);el.setAttribute('aria-current',String(j===i));}}
+      const img=$('img',track.children[i]);if(img)img.loading='eager';
+    };
+    const slide=b=>h('button',{class:'rec-carousel-item','aria-label':b.title,'data-slide':b.id,'data-signature':recMiniKey(b),onclick:()=>{const i=books.findIndex(book=>book.id===b.id);if(index===i)recOpenFull(b.id);else center(i)}},h('span',{class:'rec-book'},recCover(b)));
+    books.forEach(b=>track.append(slide(b)));
     const center=(i,instant=false)=>{i=clamp(i,0,books.length-1);const el=track.children[i];setActive(i);track.scrollTo({left:el.offsetLeft-(track.clientWidth-el.offsetWidth)/2,behavior:instant||reduceMotion()?'instant':'smooth'});};
     const navigation=h('div',{class:'rec-hero-navigation'},h('button',{'aria-label':'Предыдущая книга',onclick:()=>center(index-1)},icon('back','sm')),position,h('button',{'aria-label':'Следующая книга',onclick:()=>center(index+1)},icon('next','sm')));
+    REC.hero={element:section,refresh:()=>recUpdateHeart(favorite,active),update:(next,isPersonal)=>{
+      const current=active.id,previous=index,oldIds=books.map(b=>b.id).join('|'),newIds=next.map(b=>b.id).join('|');
+      const old=new Map([...track.children].map(el=>[el.dataset.slide,el]));
+      const nodes=next.map(b=>{const el=old.get(b.id);return el?.dataset.signature===recMiniKey(b)?el:slide(b);});
+      books.splice(0,books.length,...next);recSyncChildren(track,nodes);geometry=null;
+      const found=books.findIndex(b=>b.id===current);index=clamp(found<0?previous:found,0,books.length-1);setActive(index);
+      [...track.children].forEach((el,j)=>{el.classList.toggle('active',j===index);el.setAttribute('aria-current',String(j===index))});
+      $('.rec-hero-heading p',section).textContent=isPersonal?'По твоей библиотеке':'Открой новую книгу';
+      if(oldIds!==newIds)center(index,true);
+    }};
     section.append(glow,track,h('div',{class:'rec-hero-info'},title,author,description,h('div',{class:'rec-hero-actions'},h('button',{class:'btn','data-open-full':true,onclick:()=>recOpenFull(active.id)},icon('expand','sm'),'На весь экран'),favorite),navigation));
     const ctrl=new AbortController();let timer,frame;const signal=ctrl.signal;
     const release=()=>{clearTimeout(timer);timer=setTimeout(()=>{REC.homeInteracting=false;if(REC.redrawPending)recDraw()},180)};
     track.addEventListener('touchstart',()=>{REC.homeInteracting=true;clearTimeout(timer)},{passive:true,signal});window.addEventListener('touchend',release,{passive:true,signal});window.addEventListener('touchcancel',release,{passive:true,signal});
-    track.addEventListener('scroll',()=>{REC.homeInteracting=true;cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{const c=track.scrollLeft+track.clientWidth/2;let best=0,dist=Infinity;[...track.children].forEach((el,i)=>{const d=Math.abs(el.offsetLeft+el.offsetWidth/2-c);if(d<dist){dist=d;best=i}});if(best!==index)setActive(best)});release()},{passive:true,signal});
+    track.addEventListener('scroll',()=>{REC.homeInteracting=true;cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{if(!geometry)measure();const c=track.scrollLeft+geometry.width/2;let best=0,dist=Infinity;geometry.centers.forEach((center,i)=>{const d=Math.abs(center-c);if(d<dist){dist=d;best=i}});if(best!==index)setActive(best)});release()},{passive:true,signal});
     track.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();center(index+(e.key==='ArrowRight'?1:-1))},{signal});
+    window.addEventListener('resize',()=>{geometry=null},{passive:true,signal});
     REC.homeCleanup=()=>{ctrl.abort();clearTimeout(timer);cancelAnimationFrame(frame)};
     requestAnimationFrame(()=>{if(track.isConnected)center(index,true)});setActive(index);
   }else section.append(h('div',{class:'rec-home-empty'},REC.loading?h('span',{class:'spin'}):icon('discover'),h('h2',null,REC.loading?'Собираем подборку':'Пока нет новых книг'),h('p',null,REC.error||'Обнови подборку или выбери книгу ниже.'),h('button',{class:'btn',onclick:()=>recLibrary().length?recLoad():$('#file').click()},recLibrary().length?'Найти книги':'Добавить свои книги')));
@@ -5594,14 +5725,12 @@ function renderRecommendations(){
   finish();
   const rowsController=new AbortController();let rowsTimer;
   const rowsRelease=()=>{clearTimeout(rowsTimer);rowsTimer=setTimeout(()=>{REC.homeInteracting=false;if(REC.redrawPending)recDraw()},180)};
-  $$('[data-row]',main).forEach(el=>{
-    el.scrollLeft=scrolls.get(el.dataset.row)||0;
-    el.addEventListener('touchstart',()=>{REC.homeInteracting=true;clearTimeout(rowsTimer)},{passive:true,signal:rowsController.signal});
-    el.addEventListener('scroll',()=>{REC.homeInteracting=true;rowsRelease()},{passive:true,signal:rowsController.signal});
-  });
+  $$('[data-row]',main).forEach(el=>el.scrollLeft=scrolls.get(el.dataset.row)||0);
+  main.addEventListener('touchstart',e=>{if(e.target.closest('[data-row]')){REC.homeInteracting=true;clearTimeout(rowsTimer)}},{passive:true,signal:rowsController.signal});
+  main.addEventListener('scroll',e=>{if(e.target.matches('[data-row]')){REC.homeInteracting=true;rowsRelease()}},{passive:true,capture:true,signal:rowsController.signal});
   window.addEventListener('touchend',rowsRelease,{passive:true,signal:rowsController.signal});window.addEventListener('touchcancel',rowsRelease,{passive:true,signal:rowsController.signal});
   const previousCleanup=REC.homeCleanup;REC.homeCleanup=()=>{previousCleanup?.();rowsController.abort();clearTimeout(rowsTimer)};
-  if(navigator.onLine&&!REC.loading&&(!REC.error||REC.attemptKey!==recLibraryKey())&&recLibrary().length&&(REC.data.profileKey!==recLibraryKey()||Date.now()-REC.data.fetchedAt>60000))queueMicrotask(()=>{if(state.tab==='discover'&&!REC.fullscreen)recLoad()});
+  REC.homeModel=REC.renderModel;recMaybeLoad();
 }
 
 document.addEventListener('click',e=>{
