@@ -891,8 +891,7 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 .bcell.lifted .bc { transform: none !important; }
 .bcell.lifted .cover { box-shadow: 0 2px 4px rgba(0,0,0,.35), 0 26px 50px rgba(0,0,0,.55); }
 .bcell.lifted .bt, .bcell.lifted .ba, .bcell.lifted .bp { opacity: 0; transition: opacity .15s; }
-.bgrid.dragging .bcell:not(.lifted) { animation: jiggle .32s ease-in-out infinite alternate; }
-.bgrid.dragging .bcell:not(.lifted):nth-child(2n) { animation-delay: -.16s; }
+.bgrid.dragging .bcell:not(.lifted) { opacity: .82; transition: opacity .25s; }
 @keyframes jiggle { from { rotate: -.7deg; } to { rotate: .7deg; } }
 .reorder-hint { margin: 26px 0 0; text-align: center; font-size: 13px; color: var(--fg-3); }
 
@@ -1920,22 +1919,33 @@ function enableReorder(grid) {
   const flip = (mutate) => {
     const others = cells().filter((c) => c !== d.el);
     const before = new Map(others.map((c) => [c, c.getBoundingClientRect()]));
+    others.forEach((c) => c.getAnimations().forEach((an) => an.cancel()));
     mutate();
     for (const c of others) {
       const a = before.get(c), b = c.getBoundingClientRect();
       const dx = a.left - b.left, dy = a.top - b.top;
-      if (!dx && !dy) continue;
-      c.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }], { duration: reduceMotion() ? 1 : 320, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+      c.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }], { duration: reduceMotion() ? 1 : 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
     }
     place();
   };
+  // pick the slot by layout position (offsets ignore running animations), so cards never ping-pong
   const hitTest = () => {
-    const under = document.elementFromPoint(d.px, d.py);
-    const t = under && under.closest('.bcell');
-    if (!t || t === d.el || t.parentElement !== grid) return;
-    const list = cells(), from = list.indexOf(d.el), to = list.indexOf(t);
-    flip(() => grid.insertBefore(d.el, to > from ? t.nextSibling : t));
-    buzz(6);
+    const g = grid.getBoundingClientRect();
+    const w = d.el.offsetWidth;
+    const cx = d.px - g.left - d.gx + w / 2, cy = d.py - g.top - d.gy + w * 0.75;
+    const list = cells(), from = list.indexOf(d.el);
+    let best = -1, bestD = Infinity, curD = Infinity;
+    list.forEach((c, i) => {
+      const sx = c.offsetLeft + c.offsetWidth / 2, sy = c.offsetTop + c.offsetWidth * 0.75;
+      const dist = Math.hypot(cx - sx, cy - sy);
+      if (dist < bestD) { bestD = dist; best = i; }
+      if (i === from) curD = dist;
+    });
+    if (best < 0 || best === from || bestD > curD - w * 0.18) return;
+    const t = list[best];
+    flip(() => grid.insertBefore(d.el, best > from ? t.nextSibling : t));
+    buzz(5);
   };
   const autoscroll = () => {
     if (!d || !d.lifted) return;
