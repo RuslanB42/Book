@@ -896,6 +896,11 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 @keyframes jiggle { from { rotate: -.7deg; } to { rotate: .7deg; } }
 .reorder-hint { margin: 26px 0 0; text-align: center; font-size: 13px; color: var(--fg-3); }
 
+/* the library is an app surface: no text selection or long-press callouts (the reader keeps them) */
+.lib, .lib * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.lib input, .lib textarea { -webkit-user-select: text; user-select: text; }
+.bcell.pressing .bc { transform: scale(.97); transition: transform .36s ease-out; }
+
 </style>
 </head>
 <body>
@@ -1982,28 +1987,43 @@ function enableReorder(grid) {
       toast('Порядок сохранён · сортировка «Мой порядок»');
     }
   };
+  /* mouse: drag right away */
   grid.addEventListener('pointerdown', (e) => {
-    const el = e.target.closest('.bcell');
-    if (!el || (e.pointerType === 'mouse' && e.button !== 0)) return;
-    d = { el, id: e.pointerId, sx: e.clientX, sy: e.clientY, px: e.clientX, py: e.clientY, lifted: false, mouse: e.pointerType === 'mouse' };
-    if (!d.mouse) d.timer = setTimeout(lift, HOLD);
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    const el = e.target.closest('.bcell'); if (!el) return;
+    d = { el, id: e.pointerId, sx: e.clientX, sy: e.clientY, px: e.clientX, py: e.clientY, lifted: false, mouse: true };
   });
   grid.addEventListener('pointermove', (e) => {
-    if (!d || e.pointerId !== d.id) return;
+    if (!d || !d.mouse || e.pointerId !== d.id) return;
     d.px = e.clientX; d.py = e.clientY;
-    const moved = Math.hypot(d.px - d.sx, d.py - d.sy);
-    if (!d.lifted) {
-      if (d.mouse && moved > 6) { try { grid.setPointerCapture(d.id); } catch (err) { /* ignore */ } lift(); }
-      else if (!d.mouse && moved > 10) { clearTimeout(d.timer); d = null; }
-      return;
-    }
+    if (!d.lifted) { if (Math.hypot(d.px - d.sx, d.py - d.sy) > 6) { try { grid.setPointerCapture(d.id); } catch (err) { /* ignore */ } lift(); } return; }
     place(); hitTest();
   });
-  grid.addEventListener('pointerup', (e) => { if (d && e.pointerId === d.id) end(false); });
-  grid.addEventListener('pointercancel', () => end(true));
-  grid.addEventListener('lostpointercapture', () => { if (d && d.lifted && d.mouse) end(false); });
-  // while a cover is lifted the page must not scroll under the finger
-  grid.addEventListener('touchmove', (e) => { if (d && d.lifted) e.preventDefault(); }, { passive: false });
+  grid.addEventListener('pointerup', (e) => { if (d && d.mouse && e.pointerId === d.id) end(false); });
+  grid.addEventListener('lostpointercapture', () => { if (d && d.mouse && d.lifted) end(false); });
+  /* touch: hold, then drag — touch events are not cancelled by the browser's own long-press */
+  const touchOf = (e) => d && [...e.changedTouches].find((t) => t.identifier === d.tid);
+  grid.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) { if (d) end(true); return; }
+    const el = e.target.closest('.bcell'); if (!el) return;
+    const t = e.changedTouches[0];
+    d = { el, tid: t.identifier, sx: t.clientX, sy: t.clientY, px: t.clientX, py: t.clientY, lifted: false, mouse: false };
+    el.classList.add('pressing');
+    d.timer = setTimeout(() => { if (d && !d.lifted) { d.el.classList.remove('pressing'); try { window.getSelection().removeAllRanges(); } catch (err) { /* ignore */ } lift(); } }, HOLD);
+  }, { passive: true });
+  grid.addEventListener('touchmove', (e) => {
+    const t = touchOf(e); if (!t) return;
+    d.px = t.clientX; d.py = t.clientY;
+    if (!d.lifted) {
+      if (Math.hypot(d.px - d.sx, d.py - d.sy) > 10) { clearTimeout(d.timer); d.el.classList.remove('pressing'); d = null; }
+      return;
+    }
+    if (e.cancelable) e.preventDefault();
+    place(); hitTest();
+  }, { passive: false });
+  grid.addEventListener('touchend', (e) => { if (touchOf(e)) { d.el.classList.remove('pressing'); end(false); } });
+  grid.addEventListener('touchcancel', (e) => { if (touchOf(e)) { d.el.classList.remove('pressing'); end(true); } });
+  grid.addEventListener('selectstart', (e) => e.preventDefault());
   grid.addEventListener('contextmenu', (e) => e.preventDefault());
   grid.addEventListener('dragstart', (e) => e.preventDefault());
 }
