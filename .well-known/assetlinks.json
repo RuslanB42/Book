@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.ruslanb42.twa",
+        "sha256_cert_fingerprints": ["8D:46:9F:66:DA:BC:B4:89:1B:FE:88:45:4B:B9:B4:D2:50:E1:A2:E6:DE:80:68:95:48:AA:54:BC:27:24:17:85"]
+      }
+    }]
