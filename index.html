@@ -1263,6 +1263,9 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
   .wd{min-width:0}.wd .dot{width:100%;max-width:34px;height:auto;aspect-ratio:1}
   .gb-row{flex-wrap:wrap;gap:4px}
 }
+.reading-results{min-width:0}
+.reading-ghost,.reading-ghost *{pointer-events:none!important;animation:none!important;transition:none!important}
+
 </style>
 </head>
 <body>
@@ -2338,21 +2341,65 @@ function readingStatus(book) {
   if (progress >= 1) return 'done';
   return book.openedAt || progress > 0 ? 'reading' : 'paused';
 }
+let readingSectionMotion = null;
+function stopReadingSectionMotion() {
+  if (readingSectionMotion) readingSectionMotion();
+}
+function switchReadingSection(key) {
+  if (!READING_SECTIONS.some(([value]) => value === key) || state.bookStatus === key) return;
+  const main = $('#lib-main'), previous = main.querySelector('.reading-sections');
+  if (!previous || state.tab !== 'all' || state.query) { state.bookStatus = key; renderLibrary(false); return; }
+  const previousKey = state.bookStatus, direction = READING_SECTIONS.findIndex(([k])=>k===key) > READING_SECTIONS.findIndex(([k])=>k===previousKey) ? 1 : -1;
+  const oldTop = previous.getBoundingClientRect().top, scroll = previous.scrollLeft;
+  const outgoing = main.querySelector('.reading-results'), oldContinue = main.querySelector('.cont');
+  const makeGhost = element => {
+    if (!element || reduceMotion()) return null;
+    const rect = element.getBoundingClientRect(), alpha = Number(getComputedStyle(element).opacity);
+    const ghost = element.cloneNode(true);
+    ghost.removeAttribute('id');ghost.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));
+    ghost.classList.add('reading-ghost');ghost.inert=true;ghost.setAttribute('aria-hidden','true');
+    ghost.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${Math.min(rect.height,Math.max(0,innerHeight-rect.top))}px;opacity:${alpha};margin:0;pointer-events:none;overflow:hidden;z-index:4;`;
+    return {node:ghost,alpha};
+  };
+  const ghost = makeGhost(outgoing), contGhost = key !== 'all' ? makeGhost(oldContinue) : null;
+  stopReadingSectionMotion();
+  state.bookStatus = key; renderLibrary(false);
+  const group = main.querySelector('.reading-sections'), results = main.querySelector('.reading-results');
+  if (!group || !results) return;
+  group.scrollLeft = scroll;
+  const selected = group.querySelector(`[data-reading-status="${key}"]`);
+  selected.focus({preventScroll:true});
+  if(selected.offsetLeft < group.scrollLeft)group.scrollLeft=selected.offsetLeft;
+  else if(selected.offsetLeft+selected.offsetWidth > group.scrollLeft+group.clientWidth)group.scrollLeft=selected.offsetLeft+selected.offsetWidth-group.clientWidth;
+  if (reduceMotion() || document.hidden) return;
+  const delta = oldTop - group.getBoundingClientRect().top, animations = [], ghosts = [ghost,contGhost].filter(Boolean);
+  const media=matchMedia('(prefers-reduced-motion: reduce)');let ended=false,timer;
+  const cleanup=()=>{
+    if(ended)return;ended=true;clearTimeout(timer);
+    animations.forEach(a=>a.cancel());ghosts.forEach(g=>g.node.remove());
+    window.removeEventListener('resize',cleanup);document.removeEventListener('visibilitychange',onVisibility);media.removeEventListener('change',onReduced);
+    if(readingSectionMotion===cleanup)readingSectionMotion=null;
+  };
+  const onVisibility=()=>{if(document.hidden)cleanup();},onReduced=e=>{if(e.matches)cleanup();};
+  readingSectionMotion=cleanup;
+  window.addEventListener('resize',cleanup);document.addEventListener('visibilitychange',onVisibility);media.addEventListener('change',onReduced);
+  const run=(node,frames,opts={})=>{const a=node.animate(frames,{duration:300,easing:'cubic-bezier(.22,.72,.2,1)',fill:'both',...opts});animations.push(a);return a;};
+  // Controls and results move together when the continue-reading card appears or leaves.
+  if(Math.abs(delta)>.5)run(group,[{transform:`translate3d(0,${delta}px,0)`},{transform:'none'}]);
+  for(const g of ghosts){document.body.append(g.node);run(g.node,[{opacity:g.alpha,transform:'none'},{opacity:0,transform:`translate3d(${-direction*6}px,-4px,0)`}],{duration:110,easing:'ease-out'});}
+  run(results,[{transform:`translate3d(${direction*8}px,${delta+6}px,0)`},{transform:'none'}]);
+  run(results,[{opacity:0},{opacity:1}],{duration:230,delay:65,easing:'ease-out'});
+  const freshContinue = previousKey !== 'all' && key === 'all' ? main.querySelector('.cont') : null;
+  if(freshContinue)run(freshContinue,[{opacity:0,transform:'translateY(-5px)'},{opacity:1,transform:'none'}],{duration:220,delay:60});
+  Promise.all(animations.map(a=>a.finished.catch(()=>{}))).then(cleanup);timer=setTimeout(cleanup,600);
+}
+
 function readingSections() {
   const group = h('div', { class: 'reading-sections', role: 'group', 'aria-label': 'Статус чтения' },
     READING_SECTIONS.map(([key,label]) => h('button', {
       type: 'button', 'data-reading-status': key, 'aria-pressed': String(state.bookStatus === key),
       title: key === 'paused' ? 'Книги, которые ещё не начали читать' : label,
-      onclick: () => {
-        if (state.bookStatus === key) return;
-        const scroll = $('#lib-main .reading-sections').scrollLeft;
-        state.bookStatus = key; renderLibrary(false);
-        const group = $('#lib-main .reading-sections'); group.scrollLeft = scroll;
-        const button = group.querySelector(`[data-reading-status="${key}"]`);
-        button.focus({preventScroll:true});
-        if(button.offsetLeft < group.scrollLeft) group.scrollLeft = button.offsetLeft;
-        else if(button.offsetLeft+button.offsetWidth > group.scrollLeft+group.clientWidth) group.scrollLeft = button.offsetLeft+button.offsetWidth-group.clientWidth;
-      }
+      onclick: () => switchReadingSection(key)
     }, label)));
   requestAnimationFrame(() => {
     if (!group.isConnected) return;
@@ -2634,6 +2681,7 @@ function continueCard() {
 }
 
 function renderLibrary(animate = true, fromTabSwitch = false) {
+  stopReadingSectionMotion();
   if (!fromTabSwitch) libraryTabCache.clear();
   const cached = fromTabSwitch ? libraryTabCache.get(state.tab) : null;
   if (typeof updatePfBadge === 'function') updatePfBadge();
@@ -2680,16 +2728,18 @@ function renderLibrary(animate = true, fromTabSwitch = false) {
     main.append(readingSections());
     const visible = status === 'all' ? books : books.filter(book => readingStatus(book) === status);
     const [label, fn] = SORTS[state.sort] || SORTS.manual;
-    main.append(h('div', { class: 'sec-head' }, h('h2', null, `${visible.length} ${plural(visible.length, BOOKS)}`),
+    const results = h('div', { class: 'reading-results' });
+    main.append(results);
+    results.append(h('div', { class: 'sec-head' }, h('h2', null, `${visible.length} ${plural(visible.length, BOOKS)}`),
       h('button', { class: 'sort-btn', onclick: () => openViewMenu() }, label)));
     const empty = {
       reading: ['Пока ничего не читаете', 'Откройте книгу из раздела «Все» — она появится здесь автоматически.'],
       paused: ['Все книги уже начаты', 'Новые книги появятся здесь автоматически, пока вы не начнёте их читать.'],
       done: ['Прочитанные книги — здесь', 'Книги попадут сюда автоматически, когда прогресс достигнет 100%.']
     }[status];
-    main.append(visible.length ? bookGrid(visible.slice().sort(fn), true) : empty ?
+    results.append(visible.length ? bookGrid(visible.slice().sort(fn), true) : empty ?
       h('div', { class: 'reading-empty' }, h('h3', null, empty[0]), h('p', null, empty[1]),
-        h('button', { class: 'link-btn', onclick: () => { state.bookStatus = 'all'; renderLibrary(false); } }, 'Все книги')) :
+        h('button', { class: 'link-btn', onclick: () => switchReadingSection('all') }, 'Все книги')) :
       h('p', { class: 'muted' }, 'Книг пока нет.'));
     return;
   }
@@ -4822,6 +4872,7 @@ function flameSvg(state, num) {
 /* ---------- profile screen ---------- */
 let profileRange = 7;
 function openProfile() {
+  stopReadingSectionMotion();
   $('#lib').hidden = true; $('#profile').hidden = false; $('#tabbar').hidden = true; $('#btn-add').hidden = true;
   window.scrollTo(0, 0); renderProfile(); playIn($('#profile .wrap'), 'push-in'); libScrollChrome();
 }
