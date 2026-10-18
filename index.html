@@ -1150,6 +1150,49 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .link-btn{transition:opacity .18s ease}
 .link-btn:active{opacity:.65}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+/* Interaction and motion only. Existing layout, type, colours and content are unchanged. */
+:root{--motion-out:cubic-bezier(.2,.75,.2,1);--motion-settle:cubic-bezier(.22,1,.36,1)}
+.motion-down:is(.btn,.icon-btn,.round-btn,.avatar,.pocket,.bcell,.fab,.cont):active{transform:none}
+.sheet{transition:transform .4s var(--motion-settle),opacity .28s ease;will-change:transform}
+.sheet.drag{transition:none}
+.scrim{transition:opacity .3s ease}
+.tb-ind{transition:transform .32s var(--motion-settle)}
+.r-top,.r-bottom{transition:transform .36s var(--motion-settle),opacity .24s ease}
+.seg.pill::before{transition:transform .3s var(--motion-settle),opacity .18s ease}
+.motion-haptics{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:0 0 24px}
+.motion-haptics>span{min-width:0}.motion-haptics b{font:500 16px/1.4 var(--f-ui);display:block}.motion-haptics small{display:block;font-size:13px;line-height:1.5;color:var(--fg-2);margin-top:5px}
+.motion-haptics .switch{flex:none;margin:0}
+/* The opening uses one live reader surface, not a duplicate chapter / bitmap. */
+.book-opening{position:fixed;inset:0;z-index:250;overflow:hidden;isolation:isolate;touch-action:none;overscroll-behavior:none;perspective:1700px;perspective-origin:50% 48%;--book-inside:#2d2a32}
+.book-opening-veil,.book-opening-light{position:absolute;inset:0;pointer-events:none}
+.book-opening-rig{position:absolute;left:0;top:0;transform-origin:0 0;transform-style:preserve-3d;will-change:transform}
+.book-opening-page{position:absolute;inset:0;background:var(--book-paper);border-radius:0;transform:translateZ(0);overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.book-opening-reader{position:absolute;left:0;top:0;transform-origin:0 0;overflow:hidden;will-change:opacity;pointer-events:none}
+.book-opening-reader>.reader{position:relative!important;width:100%!important;min-height:100%!important;margin:0!important}
+.book-opening-reader .reader,.book-opening-reader .r-content{animation:none!important}
+.book-opening-typeset{position:absolute;inset:0;padding:12% 10% 10% 12%;overflow:hidden;background:var(--book-paper);color:var(--book-ink);font-weight:400;line-height:1.6;transform:translateZ(.1px);box-shadow:inset 6px 0 12px #0001}
+.book-opening-typeset h4{font-family:inherit;font-size:1.08em;font-weight:600;line-height:1.3;margin:0 0 1.25em}
+.book-opening-typeset p{margin:.7em 0 0;text-indent:1em}
+.book-opening-edge{position:absolute;inset:1px -3px -2px 1px;border-radius:1px 4px 4px 1px;background:var(--book-edge);box-shadow:1px 0 0 #0002;transform:translateZ(-2px)}
+.book-opening-edge.e2{inset:2px -4px -3px 2px;transform:translateZ(-4px)}
+.book-opening-base{position:absolute;inset:-1px -5px -5px -2px;background:var(--book-inside);border-radius:2px 5px 5px 2px;transform:translateZ(-6px);box-shadow:0 18px 35px #0003}
+.book-opening-cover{position:absolute;inset:0;transform:translateZ(2px);transform-style:preserve-3d;transform-origin:0 50%;will-change:transform}
+.book-opening-front,.book-opening-back{position:absolute;inset:0;overflow:hidden;border-radius:1px 4px 4px 1px;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.book-opening-front{transform:translateZ(1px);background:var(--book-inside);box-shadow:2px 1px 2px #0002}
+.book-opening-front>.cover{width:100%;height:100%;aspect-ratio:auto;display:block;margin:0;container-type:inline-size;box-shadow:none!important}
+.book-opening-front .cover img{width:100%;height:100%;object-fit:cover}
+.book-opening-front .gcover{width:100%;height:100%;padding:13cqw 11cqw 12cqw 15cqw}
+.book-opening-front .gcover .gt{font-size:11cqw;line-height:1.12;-webkit-line-clamp:6;text-wrap:balance;hyphens:none}
+.book-opening-front .gcover .ga{font-size:6.8cqw;letter-spacing:.1em}
+.book-opening-back{transform:rotateY(180deg) translateZ(1px);background:var(--book-inside);box-shadow:inset -5px 0 10px #0003}
+.book-opening-back::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#ffffff08,transparent 60%,#0002)}
+.book-opening-cover-shade{position:absolute;inset:0;transform:translateZ(1.2px);background:linear-gradient(90deg,#0008,#0002 35%,transparent);pointer-events:none;opacity:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.book-opening-gutter{position:absolute;inset:0;background:linear-gradient(90deg,#0005,transparent 12%);pointer-events:none;opacity:0;transform:translateZ(.3px)}
+.book-opening-loading #reader{opacity:0!important;pointer-events:none}
+@media(prefers-reduced-motion:reduce){.book-opening{display:none!important}.motion-down{scale:1!important}.sheet,.scrim,.r-top,.r-bottom,.tb-ind,.seg.pill::before{transition-duration:.01ms!important}}
+
+.book-opening-reader .r-top,.book-opening-reader .r-bottom{-webkit-backdrop-filter:none;backdrop-filter:none}
+
 </style>
 </head>
 <body>
@@ -1410,7 +1453,7 @@ const DB = {
 };
 
 const PREF_KEY = 'polka.prefs.v1';
-const prefs = Object.assign({ ui: 'dark', rt: '', size: 19, font: 'literata', lh: 'normal', justify: true, seeded: false, mode: 'paged', motion: 'full', shelves: [] }, (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; } })());
+const prefs = Object.assign({ ui: 'dark', rt: '', size: 19, font: 'literata', lh: 'normal', justify: true, seeded: false, mode: 'paged', motion: 'full', haptics: true, shelves: [] }, (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; } })());
 function savePrefs() {
   try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) { /* IndexedDB remains authoritative */ }
   if (DB.ok) DB.put('meta', { id: 'prefs', data: structuredClone(prefs) }).catch(storageError);
@@ -2081,6 +2124,7 @@ function applyUi() {
 
 /* ================= toasts ================= */
 function toast(msg, opts = {}) {
+  if(opts.tone==='error')haptic('error');
   const host = $('#toasts');
   host.replaceChildren();
   const el = h('div', { class: 'toast' + (opts.tone === 'error' ? ' error' : ''), role: opts.tone === 'error' ? 'alert' : 'status' },
@@ -2136,7 +2180,8 @@ function openSheet({ title, label, body, left, right, tall, onClose, closeBtn = 
     close(silent) {
       if (closed) return; closed = true;
       panel.classList.remove('in'); scrim.classList.remove('in');
-      setTimeout(() => { panel.remove(); scrim.remove(); }, 380);
+      panel.style.pointerEvents='none';scrim.style.pointerEvents='none';
+      setTimeout(() => { panel.remove(); scrim.remove(); }, reduceMotion()?0:440);
       const i = sheets.indexOf(api); if (i >= 0) sheets.splice(i, 1);
       if (!sheets.length) unlockSheetScroll();
       if (!silent && onClose) onClose();
@@ -2262,7 +2307,7 @@ function switchTab(tab) {
   target.classList.add('tab-stable');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && !reduceMotion()) {
     const dx = TAB_ORDER[tab] > TAB_ORDER[from] ? 8 : -8;
-    tabAnimation = target.animate([{ opacity: .65, transform: `translateX(${dx}px)` }, { opacity: 1, transform: 'none' }], { duration: 160, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    tabAnimation = target.animate([{ opacity: .65, transform: `translateX(${dx}px)` }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'cubic-bezier(.22,1,.36,1)' });
   }
 }
 
@@ -2318,7 +2363,7 @@ function bookGrid(list, sortable) {
 function enableReorder(grid) {
   let d = null;
   const HOLD = 360;
-  const buzz = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* not supported */ } };
+  const buzz = () => haptic('impact');
   const cells = () => [...grid.querySelectorAll('.bcell')];
   const place = () => {
     if (!d) return;
@@ -2528,6 +2573,8 @@ function renderLibrary(animate = true, fromTabSwitch = false) {
   }
   if (state.tab === 'quotes') { renderQuotes(main); return; }
   if (state.tab === 'all') {
+    const cont = continueCard();
+    if (cont) main.append(cont);
     const [label, fn] = SORTS[state.sort] || SORTS.manual;
     const order = Object.keys(SORTS);
     main.append(h('div', { class: 'sec-head' }, h('h2', null, `${books.length} ${plural(books.length, BOOKS)}`),
@@ -2554,8 +2601,7 @@ function renderLibrary(animate = true, fromTabSwitch = false) {
   // the shelves page is built once and reused while nothing changes, so the glass never re-renders on tab switches
   const sig = libSig();
   if (!state.homeCache || state.homeCache.sig !== sig) {
-    const cont = continueCard();
-    state.homeCache = { sig, node: h('div', { class: 'home' }, cont, h('div', { class: 'pockets' }, all.map(([name, list], i) => pocket(name, list, i)), newPocket(all.length))) };
+    state.homeCache = { sig, node: h('div', { class: 'home' }, h('div', { class: 'pockets' }, all.map(([name, list], i) => pocket(name, list, i)), newPocket(all.length))) };
   }
   main.classList.remove('rise');
   const ib = installBanner(); if (ib) main.append(ib);
@@ -2717,6 +2763,7 @@ function openMetaEditor(book) {
     s.close(true);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     renderLibrary();
+    haptic('success');
     toast('Данные книги сохранены');
     openDetail(book);
   };
@@ -2966,6 +3013,7 @@ async function openSettings() {
     body: h('div', null,
       h('div', { class: 'group-title' }, 'Оформление'),
       h('div', { style: 'margin-bottom:24px' }, seg),
+      hapticsSetting(),
       storage),
   });
 }
@@ -3248,7 +3296,12 @@ function applyReaderPrefs() {
 }
 
 async function openReader(book, src, jump) {
-  flyCover(src);
+  if(bookOpeningBusy||R.book)return;
+  bookOpeningBusy=true;bookOpeningCancel=false;
+  const opening=captureOpeningCover(book,src);
+  try {
+  await openingAssets(opening);
+  const needsFonts=document.fonts?.status==='loading';
   let content;
   try { content = await DB.get('content', book.id); } catch (e) { content = null; }
   if (!content || !content.chapters || !content.chapters.length) { toast('Текст этой книги не найден на устройстве. Удалите её и добавьте файл заново.', { tone: 'error' }); return; }
@@ -3263,9 +3316,10 @@ async function openReader(book, src, jump) {
   $('#tabbar').hidden = true;
   $('#btn-add').hidden = true;
   const rd = $('#reader');
+  if(opening&&!reduceMotion())root.classList.add('book-opening-loading');
   rd.hidden = false;
   rd.classList.remove('calm', 'editing');
-  playIn(rd, 'screen-in');
+  if(!opening)playIn(rd, 'screen-in');
   applyReaderPrefs();
   renderTop();
   const p = book.progress || { ch: 0, block: 0 };
@@ -3275,10 +3329,15 @@ async function openReader(book, src, jump) {
   if (!prefs.seenReader) { prefs.seenReader = true; savePrefs(); }
   book.openedAt = Date.now();
   persistBook(book).catch(() => {});
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (R.book && isPaged()) relayoutKeep(); });
+  await openingFrame();await openingFrame();
+  try{await revealOpeningBook(opening);}catch(e){stopBookOpening();}
+  if(needsFonts&&document.fonts?.ready)document.fonts.ready.then(()=>{if(R.book===book&&isPaged()&&!bookOpeningTransition)relayoutKeep();});
+  } finally {root.classList.remove('book-opening-loading');bookOpeningBusy=false;if(R.book===book&&isPaged())startCount();}
 }
 
 async function closeReader() {
+  stopBookOpening();
+  if(!R.book)return;
   if (R.editing) { const ok = await leaveEditing(); if (!ok) return; }
   await saveProgress().catch(storageError);
   await flushStats().catch(storageError);
@@ -3426,7 +3485,7 @@ function startCount() {
   const key = pcKey();
   if (PC.key !== key) { PC.key = key; PC.counts = new Array(R.content.chapters.length).fill(0); }
   PC.counts[R.ch] = R.pages;
-  clearTimeout(PC.timer); PC.timer = setTimeout(countStep, 500);
+  clearTimeout(PC.timer);if(!bookOpeningBusy)PC.timer=setTimeout(countStep,500);
 }
 function measureEl() {
   if (!PC.el) { PC.el = h('div', { class: 'r-content measure', 'aria-hidden': 'true' }); $('#r-main').append(PC.el); }
@@ -3447,7 +3506,7 @@ function countChapter(i) {
   return Math.max(1, Math.ceil((span + 1) / R.step - 0.02));
 }
 function countStep() {
-  if (!R.book || !isPaged()) return;
+  if (!R.book || !isPaged() || bookOpeningBusy) return;
   const key = PC.key, t0 = performance.now();
   let did = false;
   for (let i = 0; i < PC.counts.length; i++) {
@@ -3508,11 +3567,13 @@ function prevPage() {
   setPage(0, { animate: true });
 }
 function curPos() {
+  if(bookOpeningTransition&&bookOpeningPosition)return {...bookOpeningPosition};
   if (!R.blocks.length) return { block: 0, off: 0 };
   const b = currentBlock();
   return { block: b, off: isPaged() ? Math.max(0, R.page - blockPage(R.blocks[b])) : 0 };
 }
 function relayoutKeep(pos) {
+  if(bookOpeningTransition){bookOpeningRelayout=pos||curPos();return;}
   if (!R.book) return;
   pos = pos || curPos();
   layout();
@@ -3581,6 +3642,7 @@ function chapterFrac() {
   return clamp((window.scrollY - top + topOffset()) / span, 0, 1);
 }
 function onScroll() {
+  if(bookOpeningTransition)return;
   if (!R.book) return;
   R.curBlock = currentBlock();
   const ch = R.content.chapters[R.ch];
@@ -3619,6 +3681,7 @@ async function saveProgress() {
 }
 let scrollTick = false;
 window.addEventListener('scroll', () => {
+  if(bookOpeningTransition)return;
   if ($('#reader').hidden) { libScrollChrome(); return; }
   if (isPaged()) return;
   const y = window.scrollY;
@@ -3698,18 +3761,15 @@ $('#r-main').addEventListener('click',e=>{
 });
 
 /* ---------- bookmarks ---------- */
-$('#r-bm').addEventListener('click', () => {
-  const b = R.book;
-  const i = b.bookmarks.findIndex((x) => x.ch === R.ch && x.block === R.curBlock);
-  if (i >= 0) { b.bookmarks.splice(i, 1); toast('Закладка убрана'); }
-  else {
-    const el = R.blocks[R.curBlock];
-    b.bookmarks.push({ ch: R.ch, block: R.curBlock, text: (el ? el.textContent : '').replace(/\s+/g, ' ').trim().slice(0, 140) || R.content.chapters[R.ch].title, at: Date.now() });
-    toast('Закладка добавлена');
-    playIn($('#r-bm .ic'), 'pop');
-  }
-  persistBook(b).catch(() => {});
-  onScroll();
+$('#r-bm').addEventListener('click', async () => {
+  const b=R.book,button=$('#r-bm');if(!b||button.disabled)return;
+  const previous=structuredClone(b.bookmarks||[]),i=b.bookmarks.findIndex(x=>x.ch===R.ch&&x.block===R.curBlock);
+  if(i>=0)b.bookmarks.splice(i,1);
+  else{const el=R.blocks[R.curBlock];b.bookmarks.push({ch:R.ch,block:R.curBlock,text:(el?el.textContent:'').replace(/\s+/g,' ').trim().slice(0,140)||R.content.chapters[R.ch].title,at:Date.now()});}
+  button.disabled=true;
+  try{await persistBook(b);haptic('success');toast(i>=0?'Закладка убрана':'Закладка добавлена');if(i<0)playIn($('#r-bm .ic'),'pop');}
+  catch(e){b.bookmarks=previous;}
+  finally{button.disabled=false;if(R.book===b)onScroll();}
 });
 
 /* ---------- quotes ---------- */
@@ -3806,14 +3866,23 @@ function hideQbar() {
 function qbarButtons(items, key) {
   if (QS.mode === key) return; // no focus loss / flicker while selection handles move
   QS.mode = key;
-  $('#qbar').replaceChildren(...items.map(([ic, label, fn]) => h('button', {
-    type: 'button', onpointerdown: e => {
-      if (QS.busy) return;
-      if (QS.snapshot) QS.snapshot = selectionSnapshot() || QS.snapshot;
-      QS.lockedUntil = performance.now() + 1000;
-      e.preventDefault(); // retain native range for mouse, pen and touch
-    }, onmousedown: e => e.preventDefault(), onclick: fn,
-  }, icon(ic, 'sm'), label)));
+  $('#qbar').replaceChildren(...items.map(([ic, label, fn]) => {
+    let touch=null,ignoreClickUntil=0;
+    return h('button', {
+      type:'button', onpointerdown:e=>{
+        if(QS.busy)return;
+        if(QS.snapshot)QS.snapshot=selectionSnapshot()||QS.snapshot;
+        QS.lockedUntil=performance.now()+1000;
+        touch=e.pointerType==='touch'?{id:e.pointerId,x:e.clientX,y:e.clientY}:null;
+        e.preventDefault(); // keep the selection stable while the action is pressed
+      }, onpointerup:e=>{
+        const t=touch;touch=null;
+        if(!t||t.id!==e.pointerId||QS.busy||Math.hypot(e.clientX-t.x,e.clientY-t.y)>10)return;
+        e.preventDefault();e.stopPropagation();ignoreClickUntil=performance.now()+700;fn();
+      }, onpointercancel:()=>{touch=null;}, onmousedown:e=>e.preventDefault(),
+      onclick:e=>{if(performance.now()<ignoreClickUntil){e.preventDefault();return;}fn(e);},
+    },icon(ic,'sm'),label);
+  }));
 }
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; }
@@ -3898,6 +3967,7 @@ async function saveQuote() {
       window.getSelection()?.removeAllRanges(); hideQbar(); paintQuotes();
       R.blocks = [...rc().querySelectorAll(BLOCK_SEL)];
     }
+    haptic('success');
     toast('Цитата сохранена', { action: { label: 'Все цитаты', fn: () => openNav('notes') } });
   } catch (e) {
     b.quotes = b.quotes.filter(x => x.id !== q.id);
@@ -3990,8 +4060,13 @@ function quoteReadingBounds(){
 function quotePointOffset(x,y){
   const bounds=quoteReadingBounds();x=clamp(x,bounds.left+1,bounds.right-1);y=clamp(y,bounds.top+1,bounds.bottom-1);
   let node,offset;
-  if(document.caretPositionFromPoint){const p=document.caretPositionFromPoint(x,y);node=p?.offsetNode;offset=p?.offset;}
-  if(!node&&document.caretRangeFromPoint){const r=document.caretRangeFromPoint(x,y);node=r?.startContainer;offset=r?.startOffset;}
+  // Hit-test the text beneath the moving handles, never the overlay itself.
+  const overlays=[quoteHandles,quoteLayer,$('#qbar')],visibility=overlays.map(e=>e.style.visibility);
+  overlays.forEach(e=>e.style.visibility='hidden');
+  try {
+    if(document.caretPositionFromPoint){const p=document.caretPositionFromPoint(x,y);node=p?.offsetNode;offset=p?.offset;}
+    if(!node&&document.caretRangeFromPoint){const r=document.caretRangeFromPoint(x,y);node=r?.startContainer;offset=r?.startOffset;}
+  } finally {overlays.forEach((e,i)=>e.style.visibility=visibility[i]);}
   if(node&&rc().contains(node))return offsetIn(node,offset);
   return null;
 }
@@ -4019,6 +4094,7 @@ function quoteTouchSnapshot(start,end){
   return{book:R.book,ch:R.ch,start,end,text:quoteText(r),rawText:full.slice(start,end),block:Math.max(0,block)};
 }
 function quoteSetTouchRange(start,end,quoteId=null){
+  if(!QS.touch)haptic('select');
   const snap=quoteTouchSnapshot(start,end);if(!snap)return;
   getSelection()?.removeAllRanges();QS.touch=true;QS.snapshot=snap;QS.quoteId=quoteId;QS.ignoreTapUntil=performance.now()+600;
   clearTimeout(QS.tapTimer);paintTouchSelection();
@@ -4544,7 +4620,7 @@ setInterval(() => {
   const now = Date.now();
   const dt = now - (ST.lastTick || now);
   ST.lastTick = now;
-  if (!R.book || document.hidden || R.editing || STORE_HEALTH.restoring || $('#reader').hidden) return;
+  if (!R.book || bookOpeningBusy || document.hidden || R.editing || STORE_HEALTH.restoring || $('#reader').hidden) return;
   if (now - ST.lastAct > IDLE_MS) return;
   statsCredit(Math.min(dt, 2500));
 }, 1000);
@@ -4792,11 +4868,6 @@ function updatePfBadge() {
   b.classList.toggle('dim', !st.todayMet);
 }
 
-document.addEventListener('click',e=>{
-  const button=e.target.closest('button');
-  if(!button||button.disabled||button.closest('#r-content,#quote-selection-handles,#qbar'))return;
-  uiMotion(button,[{scale:'.96'},{scale:'1'}],220);
-});
 /* ================= sample books (original texts) ================= */
 function sampleFb2(s) {
   const sec = (c) => `<section><title><p>${c.title}</p></title>${c.epigraph ? `<epigraph><p>${c.epigraph[0]}</p><text-author>${c.epigraph[1]}</text-author></epigraph>` : ''}${c.paras.map((p) => p === '*' ? '<subtitle>* * *</subtitle>' : `<p>${p}</p>`).join('')}${c.poem ? `<poem><stanza>${c.poem.map((v) => `<v>${v}</v>`).join('')}</stanza></poem>` : ''}${c.after ? c.after.map((p) => `<p>${p}</p>`).join('') : ''}</section>`;
@@ -4973,24 +5044,143 @@ function withVT(fn) {
   if (document.startViewTransition && !reduceMotion()) { try { document.startViewTransition(fn); return; } catch (e) { /* fall through */ } }
   fn();
 }
-// the book cover flies from where it was tapped into the opening book
-function flyCover(src) {
-  if (!src || reduceMotion()) return;
-  const r = src.getBoundingClientRect();
-  if (!r.width || !r.height) return;
-  const c = src.cloneNode(true);
-  c.classList.add('fly');
-  Object.assign(c.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', margin: '0', zIndex: '200', transformOrigin: 'center', pointerEvents: 'none' });
-  document.body.append(c);
-  const s = Math.min((window.innerHeight * 0.6) / r.height, (window.innerWidth * 0.7) / r.width);
-  const tx = window.innerWidth / 2 - (r.left + r.width / 2), ty = window.innerHeight / 2 - (r.top + r.height / 2);
-  const a = c.animate([
-    { transform: 'translate(0,0) scale(1) rotateY(0)', opacity: 1 },
-    { transform: `translate(${tx}px,${ty}px) scale(${s})`, opacity: 1, offset: 0.62 },
-    { transform: `translate(${tx}px,${ty}px) scale(${s * 1.06})`, opacity: 0 },
-  ], { duration: 680, easing: 'cubic-bezier(.32,.72,0,1)' });
-  a.onfinish = a.oncancel = () => c.remove();
+/* Motion controller: no recommendation code or visual redesign. */
+const FEEDBACK={at:-Infinity,touch:false,last:-Infinity,press:null};
+function haptic(kind='select'){
+  if(prefs.haptics===false||document.hidden||reduceMotion()||typeof navigator.vibrate!=='function'||!FEEDBACK.touch||performance.now()-FEEDBACK.at>3000)return false;
+  const now=performance.now();if(now-FEEDBACK.last<80)return false;
+  try{const ok=navigator.vibrate(({select:6,impact:10,success:[7,30,10],error:[14,36,14]})[kind]||6);if(ok!==false)FEEDBACK.last=now;return ok!==false}catch(_){return false}
 }
+function endPress(immediate=false){
+  const p=FEEDBACK.press;if(!p)return;FEEDBACK.press=null;
+  const scale=getComputedStyle(p.el).scale;const from=scale==='none'?1:parseFloat(scale)||1;
+  p.animation?.cancel();p.el.classList.remove('motion-down');
+  if(!immediate&&p.el.isConnected&&!reduceMotion())p.el.animate([{scale:String(from)},{scale:'1'}],{duration:280,easing:'cubic-bezier(.22,1,.36,1)'});
+}
+document.addEventListener('pointerdown',e=>{
+  if(!e.isTrusted)return;FEEDBACK.at=performance.now();FEEDBACK.touch=e.pointerType==='touch';
+  endPress(true);
+  const el=e.target.closest('.btn,.icon-btn,.round-btn,.avatar,.pocket,.bcell,.fab,.cont,.pill-btn,.bh-btn,.txt-btn,.sheet-head .close,.seg button,.font-card,.sw');
+  if(!el||el.disabled||el.closest('#r-content,#quote-selection-handles,#qbar')||reduceMotion())return;
+  el.classList.add('motion-down');
+  FEEDBACK.press={el,x:e.clientX,y:e.clientY,id:e.pointerId,animation:el.animate([{scale:'1'},{scale:el.matches('.bcell,.pocket,.cont')?'.985':'.96'}],{duration:110,easing:'cubic-bezier(.2,.75,.2,1)',fill:'forwards'})};
+},{capture:true,passive:true});
+window.addEventListener('pointermove',e=>{const p=FEEDBACK.press;if(p&&p.id===e.pointerId&&Math.hypot(e.clientX-p.x,e.clientY-p.y)>9)endPress();},{passive:true});
+for(const ev of ['pointerup','pointercancel','blur'])window.addEventListener(ev,()=>endPress(),{passive:true});
+document.addEventListener('keydown',e=>{if(e.isTrusted){FEEDBACK.at=performance.now();FEEDBACK.touch=false;}},{capture:true});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!e.isTrusted||!b||b.disabled||b.id==='r-bm'||b.closest('#qbar,#quote-selection-handles,#r-content'))return;
+  if(b.matches('[aria-pressed=true],[aria-selected=true]')||b.closest('.bgrid')?.dataset.justDragged)return;
+  haptic('select');
+},{capture:true,passive:true});
+document.addEventListener('change',e=>{if(e.target.matches('input[type=range],select,input[type=checkbox]'))haptic('select');},{passive:true});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)endPress(true);});
+function hapticsSetting(){
+  const supported=typeof navigator.vibrate==='function';
+  const input=h('input',{type:'checkbox',checked:supported&&prefs.haptics!==false,disabled:!supported,'aria-label':'Тактильный отклик',onchange:()=>{prefs.haptics=input.checked;savePrefs();if(input.checked)haptic('select');}});
+  return h('div',{class:'motion-haptics'},h('span',null,h('b',null,'Тактильный отклик'),h('small',null,supported?'Короткий отклик при выборе и сохранении. Без вибрации при прокрутке.':'Этот браузер не поддерживает вибрацию.')),h('label',{class:'switch'},input,h('span')));
+}
+let bookOpeningBusy=false,bookOpeningTransition=null,bookOpeningCancel=false,bookOpeningRelayout=null,bookOpeningPosition=null;
+function captureOpeningCover(book,src){
+  if(reduceMotion()||!Element.prototype.animate)return null;
+  const actual=src?.matches('.cover')?src:src?.querySelector('.cover');
+  const r=actual?.isConnected?actual.getBoundingClientRect():null;
+  const cover=actual?actual.cloneNode(true):coverEl(book);
+  for(const el of [cover,...cover.querySelectorAll('[id]')])el.removeAttribute('id');
+  cover.removeAttribute('style');
+  const gc=actual?.querySelector('.gcover');
+  const color=gc?getComputedStyle(gc).backgroundColor:'';
+  return{cover,rect:r&&r.width>1&&r.height>1&&r.bottom>0&&r.top<innerHeight?{left:r.left,top:r.top,width:r.width,height:r.height}:null,inside:color&&color!=='rgba(0, 0, 0, 0)'?color:PALETTE[hash(book.title+authorsStr(book))%PALETTE.length][0],background:getComputedStyle(document.body).backgroundColor};
+}
+function stopBookOpening(){bookOpeningCancel=true;if(bookOpeningTransition)bookOpeningTransition();}
+function openingFrame(){return new Promise(resolve=>requestAnimationFrame(resolve));}
+async function openingAssets(snapshot){
+  // Never wait for the network indefinitely. Late fonts are relaid out after the transition.
+  const tasks=[];
+  if(document.fonts?.status==='loading')tasks.push(document.fonts.ready);
+  for(const img of snapshot?.cover.querySelectorAll('img')||[])if(img.decode)tasks.push(img.decode().catch(()=>{}));
+  if(tasks.length)await Promise.race([Promise.all(tasks),new Promise(r=>setTimeout(r,160))]);
+}
+async function revealOpeningBook(snapshot){
+  if(!snapshot||reduceMotion()||document.hidden||bookOpeningCancel||!R.book)return;
+  const rd=$('#reader'),main=$('#r-main'),book=R.book;bookOpeningPosition=curPos();
+  const W=main.getBoundingClientRect().width,H=innerHeight,w=Math.min(264,W*.4,H*.285),ht=w*1.5,cx=(W-w)/2,cy=Math.max(28,(H-ht)/2-16),spine=W/2;
+  const theme=readerTheme(),duration=1320,ease='cubic-bezier(.22,.72,.18,1)',source=snapshot.rect||{left:cx,top:cy+10,width:w*.96,height:ht*.96};
+  const area=(isPaged()?$('#r-vp'):rc()).getBoundingClientRect(),initialScale=w*.86/area.width;
+  const initialTx=w*.07-area.left*initialScale,initialTy=ht*.08-Math.max(0,area.top)*initialScale;
+  const stage=h('div',{class:'book-opening','aria-hidden':'true',inert:true,style:`--book-inside:${snapshot.inside};--book-paper:${theme.bg};--book-ink:${theme.fg};--book-edge:${theme.tone==='light'?'#d9d3c5':'#40403f'}`});
+  const veil=h('div',{class:'book-opening-veil',style:`background:${snapshot.background}`}),light=h('div',{class:'book-opening-light',style:`background:${theme.bg};opacity:0`});
+  const rig=h('div',{class:'book-opening-rig',style:`width:${w}px;height:${ht}px`});
+  const page=h('div',{class:'book-opening-page'}),live=h('div',{class:'book-opening-reader',style:`width:${W}px;height:${H}px;transform:scale(${w/W},${ht/H});opacity:0`});
+  const gutter=h('div',{class:'book-opening-gutter'});
+  const front=h('div',{class:'book-opening-front'},snapshot.cover),shade=h('div',{class:'book-opening-cover-shade'});
+  const cover=h('div',{class:'book-opening-cover'},front,h('div',{class:'book-opening-back'}),shade);
+  const base=h('div',{class:'book-opening-base'}),edge=h('div',{class:'book-opening-edge'}),edge2=h('div',{class:'book-opening-edge e2'});
+  page.append(live,gutter);rig.append(base,edge2,edge,page,cover);stage.append(veil,light,rig);
+  const marker=document.createComment('reader-motion-anchor'),scroll={x:scrollX,y:scrollY};rd.before(marker);
+  const oldInert=rd.inert,oldMainTransform=main.style.transform,oldRootScroll=root.style.scrollBehavior;
+  const rdStyle=rd.getAttribute('style');
+  rd.inert=true;rd.classList.remove('screen-in');
+  if(!isPaged())main.style.transform=`translate3d(0,${-scroll.y}px,0)`;
+  root.style.scrollBehavior='auto';
+  const placeholder=h('div',{'aria-hidden':'true',style:`height:${Math.max(document.documentElement.scrollHeight,H)}px;pointer-events:none`});
+  marker.after(placeholder);live.append(rd);document.body.append(stage);
+  root.classList.remove('book-opening-loading');
+  // All reading/layout work has finished before these compositor animations begin.
+  const animations=[];let ended=false,timer;
+  let resolveDone;const done=new Promise(r=>resolveDone=r);
+  const mm=matchMedia('(prefers-reduced-motion: reduce)');
+  const cleanup=()=>{
+    if(ended)return;ended=true;clearTimeout(timer);
+    for(const a of animations)a.cancel();
+    marker.replaceWith(rd);placeholder.remove();
+    main.style.transform=oldMainTransform;
+    if(rdStyle==null)rd.removeAttribute('style');else rd.setAttribute('style',rdStyle);
+    rd.inert=oldInert;stage.remove();root.style.scrollBehavior=oldRootScroll;
+    window.scrollTo({left:scroll.x,top:scroll.y,behavior:'instant'});
+    document.removeEventListener('keydown',onKey,true);window.removeEventListener('resize',onResize);
+    document.removeEventListener('visibilitychange',onVisibility);mm.removeEventListener('change',onReduced);
+    if(bookOpeningTransition===cleanup)bookOpeningTransition=null;bookOpeningPosition=null;
+    resolveDone();
+  };
+  const onKey=e=>{e.preventDefault();e.stopImmediatePropagation();if(e.key==='Escape'){cleanup();closeReader();}};
+  const onResize=()=>cleanup(),onVisibility=()=>{if(document.hidden)cleanup();},onReduced=e=>{if(e.matches)cleanup();};
+  bookOpeningTransition=cleanup;
+  document.addEventListener('keydown',onKey,true);window.addEventListener('resize',onResize);
+  document.addEventListener('visibilitychange',onVisibility);mm.addEventListener('change',onReduced);
+  const pose=(x,y,sx=1,sy=1,rx=0,ry=0)=>`translate3d(${x}px,${y}px,0) rotateX(${rx}deg) rotateY(${ry}deg) scale(${sx},${sy})`;
+  const begin=pose(source.left,source.top,source.width/w,source.height/ht);
+  rig.style.transform=begin;live.style.opacity='1';live.style.transform=`translate3d(${initialTx}px,${initialTy}px,0) scale(${initialScale},${initialScale})`;
+  const run=(el,frames,options={})=>{const a=el.animate(frames,{duration,fill:'both',easing:'linear',...options});animations.push(a);return a;};
+  try{
+    await openingFrame();await openingFrame();if(ended||bookOpeningCancel){cleanup();return;}
+    // A sampled inverse transform keeps real glyphs uniformly scaled through the
+    // changing page aspect ratio. Native compositor interpolation does the rest.
+    const curve=t=>{let lo=0,hi=1,u=t;const q=(u,a,b)=>3*(1-u)*(1-u)*u*a+3*(1-u)*u*u*b+u*u*u;for(let i=0;i<16;i++){u=(lo+hi)/2;if(q(u,.5,.16)<t)lo=u;else hi=u;}return q(u,0,1);};
+    const poses=[{transform:begin,easing:ease},{transform:pose(cx,cy,1,1,5,-7),offset:.27,easing:'cubic-bezier(.3,.1,.2,1)'},{transform:pose(spine,cy),offset:.64}];
+    const liveFrames=[{transform:live.style.transform},{transform:live.style.transform,offset:.64}];
+    for(let i=1;i<=36;i++){
+      const t=i/36,z=i===36?1:curve(t),sx=1+(W/w-1)*z,sy=1+(H/ht-1)*z,total=initialScale+(1-initialScale)*z,offset=.64+.36*t;
+      poses.push({transform:pose(spine*(1-z),cy*(1-z),sx,sy),offset});
+      liveFrames.push({transform:`translate3d(${initialTx*(1-z)/sx}px,${initialTy*(1-z)/sy}px,0) scale(${total/sx},${total/sy})`,offset});
+    }
+    run(rig,poses);run(live,liveFrames);
+    for(const chrome of rd.querySelectorAll('.r-top,.r-bottom,.r-folio')){
+      const opacity=getComputedStyle(chrome).opacity;
+      run(chrome,[{opacity:0},{opacity:0,offset:.82},{opacity,offset:.98},{opacity}]);
+    }
+    run(cover,[{transform:'translateZ(2px) rotateY(0deg)',easing:ease},{transform:'translateZ(2px) rotateY(-8deg)',offset:.27,easing:'cubic-bezier(.3,.1,.2,1)'},{transform:'translateZ(2px) rotateY(-164deg)',offset:.64,easing:ease},{transform:'translateZ(2px) rotateY(-178deg)',offset:.9},{transform:'translateZ(2px) rotateY(-178deg)'}]);
+    for(const face of [front,cover.querySelector('.book-opening-back')])run(face,[{opacity:1},{opacity:1,offset:.69},{opacity:0,offset:.84},{opacity:0}]);
+    run(shade,[{opacity:0},{opacity:.65,offset:.42},{opacity:0,offset:.66},{opacity:0}]);
+    run(gutter,[{opacity:0},{opacity:.6,offset:.4},{opacity:.45,offset:.63},{opacity:0,offset:.88},{opacity:0}]);
+    for(const el of [base,edge,edge2])run(el,[{opacity:1},{opacity:1,offset:.65},{opacity:0,offset:.84},{opacity:0}]);
+    run(light,[{opacity:0},{opacity:1,offset:.42},{opacity:1}]);
+    // Finish the page on the exact, already-laid-out reader. No last-frame re-render.
+    const end=animations[0];end.finished.then(cleanup,cleanup);timer=setTimeout(cleanup,duration+450);
+    await done;
+  }finally{cleanup();if(bookOpeningRelayout&&R.book===book){const pos=bookOpeningRelayout;bookOpeningRelayout=null;requestAnimationFrame(()=>{if(R.book===book)relayoutKeep(pos);});}}
+}
+
 // sliding selection pill for every segmented control, remembered per control
 const SEGMEM = new Map();
 function enhanceSeg(seg) {
