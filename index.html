@@ -170,7 +170,7 @@ input, textarea, select { font: inherit; color: inherit; }
   padding: 0 36px 0 38px; font-size: 16px; outline: none;
 }
 .search input::placeholder { color: var(--fg-3); }
-.search input:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.search input:focus-visible { box-shadow: none; outline: none; }
 .search .clear { position: absolute; right: 2px; width: 36px; height: 36px; display: grid; place-items: center; color: var(--fg-3); }
 .search input::-webkit-search-cancel-button { display: none; }
 
@@ -254,7 +254,7 @@ input, textarea, select { font: inherit; color: inherit; }
 /* frosted copy of the covers: a plain filter, so the blur survives tab switches and animations */
 .pocket .frost {
   position: absolute; left: -1px; right: -1px; bottom: -1px; height: calc(100% / .54 + 2px);
-  filter: blur(11px) saturate(1.5) brightness(var(--frost-b, .82)); pointer-events: none;
+  filter: blur(3px) saturate(1.12) brightness(var(--frost-b, .82)); pointer-events: none;
   will-change: transform; contain: paint;
 }
 .pocket .frost .c { box-shadow: none; }
@@ -264,11 +264,25 @@ input, textarea, select { font: inherit; color: inherit; }
 .pocket.add .glass b .ic { width: 30px; height: 30px; stroke-width: 1.6; }
 .pocket.add .well::before { display: none; }
 .pocket.add .lbl { color: var(--fg-2); }
+/* Small recessed cross-head screws: washer, beveled metal head and dark drive. */
 .pocket .glass i {
-  position: absolute; width: 4.4cqw; height: 4.4cqw; min-width: 7px; min-height: 7px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff 0, #c9c9c9 35%, #7d7d7d 75%, #5a5a5a 100%);
-  box-shadow: 0 1px 1px rgba(0,0,0,.35);
+  position:absolute;width:4.7cqw;height:4.7cqw;min-width:8px;min-height:8px;max-width:11px;max-height:11px;border-radius:50%;pointer-events:none;
+  background:conic-gradient(from 25deg,#6b7073,#d5d9da 18%,#777c80 43%,#42474b 62%,#aeb4b7 83%,#6b7073);
+  box-shadow:0 .5px 0 #ffffff25,0 1px 2px #0008,inset 0 0 0 .5px #303538;
 }
+.pocket .glass i::before {
+  content:'';position:absolute;inset:1px;border-radius:50%;
+  background:radial-gradient(ellipse at 32% 22%,#ffffffa0,transparent 58%),conic-gradient(from 120deg,#8e969b,#c1c8cc 28%,#7e878c 57%,#cbd0d3 82%,#8e969b);
+  box-shadow:inset 0 .6px .5px #ffffff90,inset 0 -.7px .6px #30383b80;
+}
+.pocket .glass i::after {
+  content:'';position:absolute;inset:22%;background:#3b4246;
+  clip-path:polygon(39% 0,61% 0,61% 39%,100% 39%,100% 61%,61% 61%,61% 100%,39% 100%,39% 61%,0 61%,0 39%,39% 39%);
+  box-shadow:inset .4px .6px .6px #111b;filter:drop-shadow(0 .5px 0 #ffffff90);transform:rotate(var(--screw-turn,18deg));
+}
+.pocket .glass i:nth-of-type(2){--screw-turn:-19deg}
+.pocket .glass i:nth-of-type(3){--screw-turn:38deg}
+.pocket .glass i:nth-of-type(4){--screw-turn:6deg}
 .pocket .glass i:nth-of-type(1) { left: 4.5cqw; top: 4.5cqw; }
 .pocket .glass i:nth-of-type(2) { right: 4.5cqw; top: 4.5cqw; }
 .pocket .glass i:nth-of-type(3) { left: 4.5cqw; bottom: 4.5cqw; }
@@ -394,13 +408,13 @@ input, textarea, select { font: inherit; color: inherit; }
 .field label { font-size: 13px; color: var(--fg-2); padding-left: 2px; }
 .field input, .field textarea {
   width: 100%; border: 0; border-radius: 12px; background: var(--bg-raised); padding: 12px 14px; font-size: 16px; outline: none;
-  box-shadow: inset 0 0 0 1px var(--hair);
+  box-shadow: none;
 }
 .field textarea { min-height: 140px; resize: vertical; line-height: 1.45; }
-.field input:focus, .field textarea:focus { box-shadow: inset 0 0 0 2px var(--accent); }
+.field input:focus, .field textarea:focus { box-shadow: none; outline: none; }
 .field .hint { font-size: 12px; color: var(--fg-3); padding-left: 2px; }
 .field .err { font-size: 13px; color: var(--danger); padding-left: 2px; }
-.field[data-invalid] input { box-shadow: inset 0 0 0 2px var(--danger); }
+.field[data-invalid] label { color: var(--danger); }
 .two { display: grid; grid-template-columns: 1fr 104px; gap: 12px; }
 .cover-edit { display: grid; grid-template-columns: 88px 1fr; gap: 16px; align-items: center; margin-bottom: 22px; }
 .cover-edit .btns { display: grid; gap: 6px; justify-items: start; }
@@ -737,7 +751,7 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 .flame { overflow: visible; display: block; }
 .flame-box .flame { width: 116px; height: auto; }
 .flame .fbody, .flame .fo, .flame .fi, .flame .fc, .flame .fv { transform-box: fill-box; }
-.flame.big.on { filter: drop-shadow(0 8px 24px rgba(255,110,25,.48)); }
+.flame.big.on { filter: drop-shadow(0 5px 14px rgba(255,115,20,.25)); }
 .flame.big.celebrate .fbody { transform-origin: 50% 100%; animation: sway 1.6s ease-in-out 2; }
 .flame.big.celebrate .fo, .flame.big.celebrate .fv, .flame.big.celebrate .fs { transform-origin: 50% 100%; animation: flick .95s ease-in-out 3; }
 .flame.big.celebrate .fi { transform-origin: 50% 100%; animation: flick2 .7s ease-in-out 4; }
@@ -1056,9 +1070,9 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
   width: 100%; opacity: 1; visibility: visible; pointer-events: auto;
   transition: width .32s var(--ease), opacity .2s ease, visibility 0s;
 }
-#navbar .search input { min-width: 0; height: 44px; padding-left: 12px; padding-right: 44px; background: var(--bg-raised); box-shadow: inset 0 0 0 1px var(--hair); }
+#navbar .search input { min-width: 0; height: 44px; padding-left: 12px; padding-right: 44px; background: var(--bg-raised); box-shadow: none; }
 #navbar .search > .ic { display: none; }
-#navbar .search input:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+#navbar .search input:focus-visible { box-shadow: none; outline: none; }
 #navbar .search .clear { right: 0; width: 44px; height: 44px; }
 #navbar .search .clear .ic { position: static; }
 @media (prefers-reduced-motion: reduce) {
@@ -1100,13 +1114,6 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 @media (min-width: 980px) { .bgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 40px 30px; } }
 .bcell { gap: 4px; overflow: visible; }
 .bcell .bc { isolation: isolate; margin-bottom: 12px; }
-/* A very thin page block is behind the original cover, never on top of its artwork. */
-.bcell .bc::before {
-  content: ""; position: absolute; inset: 2px 0 0 3px; z-index: -1; pointer-events: none;
-  transform: translate(2px, 2px); border-radius: 1px 3px 3px 1px;
-  background: repeating-linear-gradient(180deg, #dcd6c9 0, #dcd6c9 1px, #f1ede3 1px, #f1ede3 2px);
-  box-shadow: 1px 2px 3px rgba(0,0,0,.18), 4px 12px 18px -5px rgba(0,0,0,.3);
-}
 .bcell .cover {
   border-radius: 1px 3px 3px 1px;
   box-shadow: 0 1px 2px rgba(0,0,0,.16), 2px 6px 12px rgba(0,0,0,.12);
@@ -1126,10 +1133,9 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .bcell .gcover .ga { font-size: 6.8cqw; letter-spacing: .1em; }
 .bcell .bt { font-size: 15px; line-height: 1.3; font-weight: 500; }
 .bcell .ba { font-size: 14px; line-height: 1.35; }
-.bcell .bp { min-height: 20px; margin-top: 4px; gap: 8px; font-size: 14px; color: var(--fg-2); }
-.bcell .bp .bar { max-width: 72px; height: 3px; }
-.bcell .book-example { margin-left: auto; font-size: 14px; color: var(--fg-2); white-space: nowrap; }
-.bcell.lifted .bc::before { box-shadow: 1px 2px 4px rgba(0,0,0,.2), 8px 22px 30px -6px rgba(0,0,0,.4); }
+.bcell .bp { display: grid; width: 100%; min-width: 0; margin-top: 8px; gap: 6px; font-size: 12px; line-height: 1.4; color: var(--fg-2); }
+.bcell .bp .bar { display: block; width: 100%; max-width: none; height: 3px; }
+.bcell .bp-value { justify-self: end; font-variant-numeric: tabular-nums; }
 
 /* A floated drop cap breaks native range geometry at paragraph starts. */
 .r-content .dc::first-letter{float:none;font:inherit;line-height:inherit;padding:0}
@@ -1166,33 +1172,97 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .book-opening{position:fixed;inset:0;z-index:250;overflow:hidden;isolation:isolate;touch-action:none;overscroll-behavior:none;perspective:1700px;perspective-origin:50% 48%;--book-inside:#2d2a32}
 .book-opening-veil,.book-opening-light{position:absolute;inset:0;pointer-events:none}
 .book-opening-rig{position:absolute;left:0;top:0;transform-origin:0 0;transform-style:preserve-3d;will-change:transform}
-.book-opening-page{position:absolute;inset:0;background:var(--book-paper);border-radius:0;transform:translateZ(0);overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.book-opening-page{position:absolute;inset:0;background:var(--book-paper);border-radius:1px 3px 3px 1px;transform:translateZ(0);overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .book-opening-reader{position:absolute;left:0;top:0;transform-origin:0 0;overflow:hidden;will-change:opacity;pointer-events:none}
 .book-opening-reader>.reader{position:relative!important;width:100%!important;min-height:100%!important;margin:0!important}
 .book-opening-reader .reader,.book-opening-reader .r-content{animation:none!important}
 .book-opening-typeset{position:absolute;inset:0;padding:12% 10% 10% 12%;overflow:hidden;background:var(--book-paper);color:var(--book-ink);font-weight:400;line-height:1.6;transform:translateZ(.1px);box-shadow:inset 6px 0 12px #0001}
 .book-opening-typeset h4{font-family:inherit;font-size:1.08em;font-weight:600;line-height:1.3;margin:0 0 1.25em}
 .book-opening-typeset p{margin:.7em 0 0;text-indent:1em}
-.book-opening-edge{position:absolute;inset:1px -3px -2px 1px;border-radius:1px 4px 4px 1px;background:var(--book-edge);box-shadow:1px 0 0 #0002;transform:translateZ(-2px)}
-.book-opening-edge.e2{inset:2px -4px -3px 2px;transform:translateZ(-4px)}
-.book-opening-base{position:absolute;inset:-1px -5px -5px -2px;background:var(--book-inside);border-radius:2px 5px 5px 2px;transform:translateZ(-6px);box-shadow:0 18px 35px #0003}
 .book-opening-cover{position:absolute;inset:0;transform:translateZ(2px);transform-style:preserve-3d;transform-origin:0 50%;will-change:transform}
 .book-opening-front,.book-opening-back{position:absolute;inset:0;overflow:hidden;border-radius:1px 4px 4px 1px;backface-visibility:hidden;-webkit-backface-visibility:hidden}
-.book-opening-front{transform:translateZ(1px);background:var(--book-inside);box-shadow:2px 1px 2px #0002}
+.book-opening-front{transform:translateZ(2.5px);background:var(--book-inside);box-shadow:2px 1px 2px #0002}
 .book-opening-front>.cover{width:100%;height:100%;aspect-ratio:auto;display:block;margin:0;container-type:inline-size;box-shadow:none!important}
 .book-opening-front .cover img{width:100%;height:100%;object-fit:cover}
 .book-opening-front .gcover{width:100%;height:100%;padding:13cqw 11cqw 12cqw 15cqw}
 .book-opening-front .gcover .gt{font-size:11cqw;line-height:1.12;-webkit-line-clamp:6;text-wrap:balance;hyphens:none}
 .book-opening-front .gcover .ga{font-size:6.8cqw;letter-spacing:.1em}
-.book-opening-back{transform:rotateY(180deg) translateZ(1px);background:var(--book-inside);box-shadow:inset -5px 0 10px #0003}
+.book-opening-back{transform:rotateY(180deg) translateZ(2.5px);background:var(--book-inside);box-shadow:inset -5px 0 10px #0003}
 .book-opening-back::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#ffffff08,transparent 60%,#0002)}
-.book-opening-cover-shade{position:absolute;inset:0;transform:translateZ(1.2px);background:linear-gradient(90deg,#0008,#0002 35%,transparent);pointer-events:none;opacity:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.book-opening-cover-shade{position:absolute;inset:0;transform:translateZ(2.7px);background:linear-gradient(90deg,#0008,#0002 35%,transparent);pointer-events:none;opacity:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .book-opening-gutter{position:absolute;inset:0;background:linear-gradient(90deg,#0005,transparent 12%);pointer-events:none;opacity:0;transform:translateZ(.3px)}
+/* Recessed physical volume: the page block stays inside the cover silhouette. */
+.book-opening-board{position:absolute;inset:0;border-radius:2px 4px 4px 2px;background:var(--book-inside);transform:translateZ(-15px);box-shadow:0 16px 24px #0004,0 3px 6px #0003;backface-visibility:hidden}
+.book-opening-block{position:absolute;inset:1px 1px 1px 2px;transform:translateZ(-1px);transform-style:preserve-3d;pointer-events:none}
+.book-opening-block-face{position:absolute;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.book-opening-block-face.fore{left:100%;top:0;width:14px;height:100%;transform-origin:left center;transform:rotateY(90deg);background:repeating-linear-gradient(90deg,#c4bbaa 0px,#e6dfd0 .65px,#c4bbaa 1.2px,#eee7d9 1.8px);box-shadow:inset 0 0 4px #0004}
+.book-opening-block-face.head,.book-opening-block-face.tail{left:0;width:100%;height:14px;background:repeating-linear-gradient(0deg,#b6ad9c 0px,#e4dccd .7px,#bdb4a4 1.3px,#e7dfd1 1.9px)}
+.book-opening-block-face.head{top:-14px;transform-origin:center bottom;transform:rotateX(90deg)}
+.book-opening-block-face.tail{top:100%;transform-origin:center top;transform:rotateX(-90deg);filter:brightness(.85)}
+.book-opening-spine{position:absolute;left:0;top:1px;bottom:1px;width:17px;transform-origin:left center;transform:translateZ(2px) rotateY(90deg);background:linear-gradient(90deg,#0004,#ffffff12 24%,transparent 55%,#0006),var(--book-inside);border-radius:2px;backface-visibility:hidden}
+/* Four real board edges bridge the front and inner cover; no flat outline. */
+.book-opening-board-rim{position:absolute;pointer-events:none;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:linear-gradient(90deg,#ffffff28,#0004 46%,#ffffff12),var(--book-inside)}
+.book-opening-board-rim.fore{left:100%;top:0;height:100%;width:5px;transform-origin:left center;transform:translateZ(2.5px) rotateY(90deg)}
+.book-opening-board-rim.spine{left:-5px;top:0;height:100%;width:5px;transform-origin:right center;transform:translateZ(2.5px) rotateY(-90deg)}
+.book-opening-board-rim.head{left:0;top:-5px;width:100%;height:5px;transform-origin:center bottom;transform:translateZ(2.5px) rotateX(90deg)}
+.book-opening-board-rim.tail{left:0;top:100%;width:100%;height:5px;transform-origin:center top;transform:translateZ(2.5px) rotateX(-90deg)}
+.book-opening-back::before{content:'';position:absolute;inset:2px;border-radius:2px;box-shadow:inset 0 0 0 .6px #ffffff19,inset 0 2px 4px #0002;pointer-events:none}
+.book-opening-inner-light{position:absolute;inset:0;transform:rotateY(180deg) translateZ(2.8px);backface-visibility:hidden;-webkit-backface-visibility:hidden;pointer-events:none;background:linear-gradient(105deg,#ffffff18,transparent 40%,#0003);opacity:0}
+
+.book-opening-back{background:linear-gradient(90deg,#0003,transparent 5%,#ffffff05 50%,#0001),var(--book-inside);box-shadow:inset -2px 0 3px #0006,inset 0 1px #ffffff15}
+.book-opening-back::after{background:linear-gradient(90deg,transparent 70%,#0002 96%,#ffffff10)}
+.book-opening-gutter{background:linear-gradient(90deg,#0008,transparent 10%,#ffffff04 35%,transparent 70%,#00000006);}
+.book-opening-front::after{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 1px 1px #ffffff25,inset -1px -1px 2px #0005;background:linear-gradient(105deg,#ffffff09,transparent 40%,#00000006)}
+
 .book-opening-loading #reader{opacity:0!important;pointer-events:none}
 @media(prefers-reduced-motion:reduce){.book-opening{display:none!important}.motion-down{scale:1!important}.sheet,.scrim,.r-top,.r-bottom,.tb-ind,.seg.pill::before{transition-duration:.01ms!important}}
 
 .book-opening-reader .r-top,.book-opening-reader .r-bottom{-webkit-backdrop-filter:none;backdrop-filter:none}
 
+/* Detail card: reading facts are not action chips. */
+.bd .prog-card{margin-top:20px;padding:16px;gap:12px;min-height:0}
+.bd .pc-heading{display:flex;align-items:baseline;justify-content:space-between;gap:16px;min-width:0}
+.bd .pc-t{font:500 14px/1.4 var(--f-ui);text-align:left;color:var(--fg-2);min-width:0}
+.bd .pc-pct{font:600 16px/1.4 var(--f-ui);font-variant-numeric:tabular-nums;flex:none}
+.bd .pc-reading{display:flex;align-items:center;gap:7px;font-size:14px;line-height:1.4;color:var(--fg-2);font-variant-numeric:tabular-nums}
+.bd .pc-reading>.ic{width:16px;height:16px;flex:none;opacity:.75}
+.bd .pc-reading b{font-weight:500;color:var(--fg);margin-left:auto;white-space:nowrap}
+.bd .pc-chapter{font-size:13px;line-height:1.5;color:var(--fg-3);text-align:left;overflow-wrap:anywhere;border-top:1px solid var(--hair);padding-top:9px}
+.bd-shelf{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0 14px;border-bottom:1px solid var(--hair);text-align:left}
+.bd-shelf-info{display:flex;align-items:center;gap:12px;min-width:0}
+.bd-shelf-info>.ic{color:var(--fg-3);flex:none}
+.bd-shelf-info>div{min-width:0;display:grid;gap:3px}
+.bd-label{font-size:12px;line-height:1.4;color:var(--fg-3)}
+.bd-shelf-name{font-size:15px;line-height:1.4;overflow-wrap:anywhere}
+.bd-change{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:44px;padding:0 10px;flex:none;border-radius:10px;background:var(--fill);color:var(--fg);font-size:14px;transition:background .2s}
+.bd-change:hover{background:var(--fill-2)}
+.bd-change:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+/* Automatic reading sections, only on the all-books screen. */
+.reading-sections{position:relative;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;max-width:100%;margin:0 0 22px;padding:2px 0}
+.reading-sections::-webkit-scrollbar{display:none}
+.reading-sections button{flex:none;min-height:44px;padding:0 10px;border:1px solid var(--hair);border-radius:24px;background:transparent;color:var(--fg-2);font-size:14px;white-space:nowrap;transition:background .2s,color .2s,border-color .2s}
+.reading-sections button[aria-pressed=true]{background:var(--pill);color:var(--pill-fg);border-color:var(--pill)}
+.reading-sections button:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.reading-empty{padding:38px 8px 28px;max-width:380px;text-align:left}
+.reading-empty h3{font:600 23px/1.3 var(--f-display);margin:0 0 12px}
+.reading-empty p{font-size:15px;line-height:1.6;color:var(--fg-2);margin:0 0 16px}
+@media(prefers-reduced-motion:reduce){.reading-sections button{transition:none}}
+
+/* Borderless text fields; keyboard navigation alone gets a neutral focus cue. */
+:root[data-keyboard-focus] .field input:focus-visible,
+:root[data-keyboard-focus] .field textarea:focus-visible,
+:root[data-keyboard-focus] .search input:focus-visible,
+:root[data-keyboard-focus] #navbar .search input:focus-visible{outline:2px solid var(--fg-2);outline-offset:2px;box-shadow:none}
+
+/* Keep the icon and seven daily markers inside narrow profile cards. */
+@media(max-width:360px){
+  .hero-top{grid-template-columns:100px minmax(0,1fr);gap:12px}
+  .flame-box{width:100px}.flame-box .flame{width:94px}
+  .week{grid-template-columns:repeat(7,minmax(0,1fr))}
+  .wd{min-width:0}.wd .dot{width:100%;max-width:34px;height:auto;aspect-ratio:1}
+  .gb-row{flex-wrap:wrap;gap:4px}
+}
 </style>
 </head>
 <body>
@@ -2114,7 +2184,7 @@ async function exportBook(book) {
 }
 
 /* ================= state ================= */
-const state = { qbook: '', books: [], tab: 'all', shelf: null, sort: prefs.sort || 'manual', query: '', coverUrls: new Map() };
+const state = { qbook: '', books: [], tab: 'all', bookStatus: 'all', shelf: null, sort: prefs.sort || 'manual', query: '', coverUrls: new Map() };
 const root = document.documentElement;
 
 function applyUi() {
@@ -2261,6 +2331,38 @@ function shelves() {
 }
 const byRecent = (a, b) => (b.openedAt || b.addedAt) - (a.openedAt || a.addedAt);
 const pctOf = (b) => Math.round(((b.progress && b.progress.pct) || 0) * 100);
+// Status is derived from existing reading data; importing a book does not start it.
+const READING_SECTIONS = [['all','Все'],['reading','Читаю'],['paused','Отложено'],['done','Прочитано']];
+function readingStatus(book) {
+  const progress = Math.max(0, Number(book.progress && book.progress.pct) || 0);
+  if (progress >= 1) return 'done';
+  return book.openedAt || progress > 0 ? 'reading' : 'paused';
+}
+function readingSections() {
+  const group = h('div', { class: 'reading-sections', role: 'group', 'aria-label': 'Статус чтения' },
+    READING_SECTIONS.map(([key,label]) => h('button', {
+      type: 'button', 'data-reading-status': key, 'aria-pressed': String(state.bookStatus === key),
+      title: key === 'paused' ? 'Книги, которые ещё не начали читать' : label,
+      onclick: () => {
+        if (state.bookStatus === key) return;
+        const scroll = $('#lib-main .reading-sections').scrollLeft;
+        state.bookStatus = key; renderLibrary(false);
+        const group = $('#lib-main .reading-sections'); group.scrollLeft = scroll;
+        const button = group.querySelector(`[data-reading-status="${key}"]`);
+        button.focus({preventScroll:true});
+        if(button.offsetLeft < group.scrollLeft) group.scrollLeft = button.offsetLeft;
+        else if(button.offsetLeft+button.offsetWidth > group.scrollLeft+group.clientWidth) group.scrollLeft = button.offsetLeft+button.offsetWidth-group.clientWidth;
+      }
+    }, label)));
+  requestAnimationFrame(() => {
+    if (!group.isConnected) return;
+    const selected = group.querySelector('[aria-pressed=true]');
+    if(selected && selected.offsetLeft+selected.offsetWidth > group.scrollLeft+group.clientWidth)
+      group.scrollLeft = selected.offsetLeft+selected.offsetWidth-group.clientWidth;
+  });
+  return group;
+}
+
 const byPos = (a, b) => (a.pos != null && b.pos != null ? a.pos - b.pos : a.pos != null ? -1 : b.pos != null ? 1 : byRecent(a, b));
 const SORTS = { manual: ['Мой порядок', byPos], recent: ['Недавние', byRecent], title: ['По названию', (a, b) => a.title.localeCompare(b.title, 'ru')], author: ['По автору', (a, b) => authorsStr(a).localeCompare(authorsStr(b), 'ru') || a.title.localeCompare(b.title, 'ru')] };
 
@@ -2353,7 +2455,7 @@ function bookGrid(list, sortable) {
       h('span', { class: 'bc' }, coverEl(b)),
       h('span', { class: 'bt' }, b.title),
       h('span', { class: 'ba' }, authorsStr(b)),
-      h('span', { class: 'bp' }, p >= 100 ? 'Прочитана' : p > 0 ? h('span', { class: 'bar' }, h('i', { style: `width:${p}%` })) : 'Новая', p > 0 && p < 100 ? h('span', null, p + '%') : null, b.sample ? h('span', { class: 'book-example' }, 'Пример') : null));
+      p > 0 ? h('span', { class: 'bp', 'aria-hidden': 'true' }, h('span', { class: 'bar' }, h('i', { style: `width:${p}%` })), h('span', { class: 'bp-value' }, p + '%')) : null);
   }));
   if (sortable) enableReorder(grid);
   return grid;
@@ -2441,7 +2543,7 @@ function enableReorder(grid) {
     if (state.books.some((b) => b.pos == null)) {
       state.books.slice().sort(byPos).forEach((b, i) => { b.pos = i; });
       const all = cells().map((c) => state.books.find((b) => b.id === c.dataset.id));
-      if (state.tab === 'all' && !state.shelf) all.forEach((b, i) => { b.pos = i; });
+      if (state.tab === 'all' && !state.shelf && state.bookStatus === 'all') all.forEach((b, i) => { b.pos = i; });
     }
     const slots = moved.map((b) => b.pos).sort((a, b) => a - b);
     moved.forEach((b, i) => { b.pos = slots[i]; });
@@ -2573,13 +2675,22 @@ function renderLibrary(animate = true, fromTabSwitch = false) {
   }
   if (state.tab === 'quotes') { renderQuotes(main); return; }
   if (state.tab === 'all') {
-    const cont = continueCard();
-    if (cont) main.append(cont);
+    const status = state.bookStatus || 'all';
+    if (status === 'all') { const cont = continueCard(); if (cont) main.append(cont); }
+    main.append(readingSections());
+    const visible = status === 'all' ? books : books.filter(book => readingStatus(book) === status);
     const [label, fn] = SORTS[state.sort] || SORTS.manual;
-    const order = Object.keys(SORTS);
-    main.append(h('div', { class: 'sec-head' }, h('h2', null, `${books.length} ${plural(books.length, BOOKS)}`),
+    main.append(h('div', { class: 'sec-head' }, h('h2', null, `${visible.length} ${plural(visible.length, BOOKS)}`),
       h('button', { class: 'sort-btn', onclick: () => openViewMenu() }, label)));
-    main.append(books.length ? bookGrid(books.slice().sort(fn), true) : h('p', { class: 'muted' }, 'Книг пока нет.'));
+    const empty = {
+      reading: ['Пока ничего не читаете', 'Откройте книгу из раздела «Все» — она появится здесь автоматически.'],
+      paused: ['Все книги уже начаты', 'Новые книги появятся здесь автоматически, пока вы не начнёте их читать.'],
+      done: ['Прочитанные книги — здесь', 'Книги попадут сюда автоматически, когда прогресс достигнет 100%.']
+    }[status];
+    main.append(visible.length ? bookGrid(visible.slice().sort(fn), true) : empty ?
+      h('div', { class: 'reading-empty' }, h('h3', null, empty[0]), h('p', null, empty[1]),
+        h('button', { class: 'link-btn', onclick: () => { state.bookStatus = 'all'; renderLibrary(false); } }, 'Все книги')) :
+      h('p', { class: 'muted' }, 'Книг пока нет.'));
     return;
   }
   if (state.shelf) {
@@ -2629,8 +2740,6 @@ function openDetail(book) {
   const close = () => s.close();
   // hero: the cover itself, blurred, behind the real cover
   const backdrop = h('div', { class: 'bh-bg', 'aria-hidden': 'true' }, coverEl(book));
-  const pagesV = h('b', null, '…');
-  const tile = (ic, label, value) => h('div', { class: 'bt-tile' }, h('span', { class: 'btl' }, label), h('span', { class: 'btv' }, icon(ic, 'sm'), value));
   const progCard = h('div', { class: 'prog-card' });
   const annot = book.annotation ? h('div', { class: 'annot' }, book.annotation.split(/\n+/).map((t) => h('p', null, t))) : h('p', { class: 'annot muted-l' }, 'Аннотации нет. Её можно добавить через «Редактировать».');
   const cta = p > 0 && p < 100 ? 'Продолжить чтение' : p >= 100 ? 'Читать снова' : 'Читать';
@@ -2644,14 +2753,11 @@ function openDetail(book) {
       book.sample ? h('span', { class: 'tag' }, 'Книга-пример') : null,
       h('h3', null, book.title),
       h('div', { class: 'au' }, authorsStr(book)),
-      h('div', { class: 'tiles3' },
-        h('div', { class: 'bt-tile' }, h('span', { class: 'btl' }, 'Страниц'), h('span', { class: 'btv' }, icon('pages', 'sm'), pagesV)),
-        tile('globe', 'Язык', (book.lang || '—').toUpperCase()),
-        tile('clock', 'Читали', st && st.ms >= 60000 ? fmtDur(st.ms, true) : '—')),
       progCard,
-      h('div', { class: 'bd-acts' },
-        h('button', { class: 'pill-btn', onclick: () => { s.close(true); openMetaEditor(book); } }, icon('pen', 'sm'), 'Редактировать'),
-        h('button', { class: 'pill-btn', onclick: () => chooseShelf(book, () => { s.close(true); openDetail(book); }) }, icon('shelf', 'sm'), book.shelf)),
+      h('div', { class: 'bd-shelf' },
+        h('div', { class: 'bd-shelf-info' }, icon('shelf', 'sm'),
+          h('div', null, h('span', { class: 'bd-label' }, 'На полке'), h('span', { class: 'bd-shelf-name' }, book.shelf || 'Без полки'))),
+        h('button', { class: 'bd-change', 'aria-label': 'Сменить полку', onclick: () => chooseShelf(book, () => { s.close(true); openDetail(book); }) }, 'Сменить', icon('next', 'sm'))),
       h('h4', { class: 'bd-h' }, 'Аннотация'),
       annot,
       h('div', { class: 'group', style: 'margin-top:22px' }, info.map(([k, v]) => h('div', { class: 'cell' }, h('span', { class: 'k' }, k), h('span', { class: 'v' }, v))))),
@@ -2661,18 +2767,16 @@ function openDetail(book) {
     annot.after(h('button', { class: 'link-btn', onclick: (e) => { annot.style.maxHeight = annot.scrollHeight + 'px'; annot.classList.remove('clamp'); annot.addEventListener('transitionend', () => { annot.style.maxHeight = 'none'; }, { once: true }); e.currentTarget.remove(); } }, 'Показать полностью'));
   }
   const fillProgress = (content) => {
-    const chars = content ? content.chapters.reduce((a, c) => a + (c.len || 0), 0) : book.chars || 0;
-    const pages = Math.max(1, Math.round(chars / 1800));
-    pagesV.textContent = String(pages);
-    const cur = Math.min(pages, Math.max(1, Math.round(pctExact * pages)));
     const chIdx = book.progress ? book.progress.ch || 0 : 0;
     const chTitle = content && content.chapters[chIdx] ? content.chapters[chIdx].title : '';
     const bar = h('i', { style: `width:${Math.max(p ? 2 : 0, p)}%` });
-    progCard.replaceChildren(
-      h('div', { class: 'pc-t' }, p >= 100 ? 'Книга прочитана' : p > 0 ? chTitle || 'Читаете сейчас' : 'Ещё не начата'),
-      h('div', { class: 'pc-row' }, h('span', null, p > 0 ? `Страница ${cur} из ${pages}` : `${pages} ${plural(pages, ['страница', 'страницы', 'страниц'])}`), h('span', null, p + '%')),
-      h('div', { class: 'pc-bar' }, bar));
-    playIn(progCard, 'fade-in');
+    const readTime = fmtDur(Math.max(0, Number(st && st.ms) || 0), true);
+    progCard.replaceChildren(...[
+      h('div', { class: 'pc-heading' }, h('span', { class: 'pc-t' }, p >= 100 ? 'Книга прочитана' : p > 0 ? 'Прогресс чтения' : 'Ещё не начата'), h('b', { class: 'pc-pct' }, p + '%')),
+      h('div', { class: 'pc-bar', role: 'progressbar', 'aria-label': 'Прогресс чтения', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(p) }, bar),
+      h('div', { class: 'pc-reading' }, icon('clock', 'sm'), h('span', null, 'Время чтения'), h('b', null, readTime)),
+      p > 0 && p < 100 && chTitle ? h('div', { class: 'pc-chapter', title: chTitle }, chTitle) : null].filter(Boolean));
+
   };
   fillProgress(null);
   DB.get('content', book.id).then((c) => { if (c) { fillProgress(c); const n = c.chapters.reduce((a, x) => a + (x.len || 0), 0); if (book.chars !== n) { book.chars = n; DB.put('books', book).catch(() => {}); } } }).catch(() => {});
@@ -4673,40 +4777,44 @@ const svgEl = (tag, attrs) => { const e = document.createElementNS('http://www.w
 
 let flameSeq = 0;
 function flameSvg(state, num) {
-  const id = 'fl' + (++flameSeq);
-  const off = state === 'off';
-  const big = num != null;
+  const id = 'fl' + (++flameSeq), off = state === 'off', big = num != null;
   const s = svgEl('svg', { viewBox: big ? '0 -14 120 178' : '0 0 120 150', class: 'flame ' + state + (big ? ' big' : ''), 'aria-hidden': 'true' });
   const defs = svgEl('defs', {});
-  const lin = (gid, stops, x2 = '0', y2 = '1') => { const g = svgEl('linearGradient', { id: gid, x1: '0', y1: '0', x2, y2 }); for (const [o, c, a] of stops) g.append(svgEl('stop', { offset: o, 'stop-color': c, 'stop-opacity': a == null ? 1 : a })); defs.append(g); };
-  const rad = (gid, stops, cx = '.5', cy = '1', r = '.75') => { const g = svgEl('radialGradient', { id: gid, cx, cy, r }); for (const [o, c, a] of stops) g.append(svgEl('stop', { offset: o, 'stop-color': c, 'stop-opacity': a })); defs.append(g); };
-  lin(id + 'o', off ? [['0', '#b4b4b9'], ['1', '#5c5c61']] : [['0', '#ffc43a'], ['.45', '#ff9420'], ['1', '#ff4a12']]);
-  lin(id + 'i', off ? [['0', '#ececef'], ['1', '#a9a9ae']] : [['0', '#fff6b0'], ['.55', '#ffd54d'], ['1', '#ffb02a']]);
-  lin(id + 'c', off ? [['0', '#ffffff'], ['1', '#dedee2']] : [['0', '#ffffff'], ['1', '#fff0c8']]);
-  rad(id + 'v', off ? [['0', '#3a3a3e', '.35'], ['1', '#3a3a3e', '0']] : [['0', '#c3260a', '.55'], ['.6', '#e8400e', '.12'], ['1', '#e8400e', '0']]);
-  lin(id + 'n', [['0', '#ffffff'], ['1', '#fff3e6']]);
-  const shadow = svgEl('filter', { id: id + 'sh', x: '-30%', y: '-30%', width: '160%', height: '160%' });
-  shadow.append(svgEl('feDropShadow', { dx: '0', dy: '2.5', stdDeviation: '2.2', 'flood-color': off ? '#000' : '#7a1d00', 'flood-opacity': '.45' }));
+  const gradient = (suffix, stops) => {
+    const g = svgEl('linearGradient', { id: id + suffix, x1: '0', y1: '0', x2: '0', y2: '1' });
+    for (const [offset, color] of stops) g.append(svgEl('stop', { offset, 'stop-color': color }));
+    defs.append(g);
+  };
+  // A rising red tongue, orange shoulders and a warm, luminous base.
+  // All three shapes are drawn for this icon, rather than using the reference images.
+  gradient('o', off ? [['0','#a5a5ac'],['.55','#83838c'],['1','#62626c']] : [['0','#f52d32'],['.3','#ff4c16'],['.65','#ff8006'],['1','#ffb522']]);
+  gradient('i', off ? [['0','#c5c5cb'],['.6','#b1b1b9'],['1','#dedee2']] : [['0','#ffe347'],['.48','#ffe54d'],['.8','#fff17b'],['1','#fff4ab']]);
+  gradient('c', off ? [['0','#e2e2e7'],['1','#f5f5f7']] : [['0','#fff075'],['.55','#fff7ad'],['1','#fffef0']]);
+  gradient('n', [['0','#ffffff'],['1','#fff3e6']]);
+  const glow = svgEl('radialGradient', { id: id+'v', cx:'.5', cy:'.91', r:'.58' });
+  glow.append(svgEl('stop', { offset:'0', 'stop-color':off?'#fff':'#ffe570', 'stop-opacity':off?'.08':'.28' }),
+    svgEl('stop', { offset:'1', 'stop-color':off?'#fff':'#ffb522', 'stop-opacity':'0' }));
+  defs.append(glow);
+  const shadow=svgEl('filter',{id:id+'sh',x:'-30%',y:'-30%',width:'160%',height:'160%'});
+  shadow.append(svgEl('feDropShadow',{dx:'0',dy:'2.5',stdDeviation:'2.2','flood-color':off?'#000':'#7a1d00','flood-opacity':'.45'}));
   defs.append(shadow);
-  const OUT = 'M62 6C66 26 88 40 98 62C108 84 106 112 92 128C82 139 70 144 58 144C42 144 26 137 18 122C8 104 12 82 22 66C26 59 31 53 34 46C38 56 42 63 49 68C48 50 52 26 62 6Z';
-  const g = svgEl('g', { class: 'fbody' });
-  const outer = svgEl('path', { class: 'fo', fill: `url(#${id}o)`, d: OUT });
-  const vol = svgEl('path', { class: 'fv', fill: `url(#${id}v)`, d: OUT });
-  const rim = svgEl('path', { class: 'fr', fill: 'none', stroke: off ? 'rgba(255,255,255,.18)' : 'rgba(255,236,190,.55)', 'stroke-width': '1.6', d: 'M62 9C66 27 87 41 96 62' , 'stroke-linecap': 'round' });
-  const shine = svgEl('path', { class: 'fs', fill: 'none', stroke: 'rgba(255,255,255,.5)', 'stroke-width': '3.6', 'stroke-linecap': 'round', d: 'M26 90C20 104 22 118 32 129' });
-  const inner = svgEl('path', { class: 'fi', fill: `url(#${id}i)`, d: 'M66 50C70 65 85 77 88 98C91 121 77 137 60 137C45 137 33 127 32 112C31 101 36 93 43 87C45 94 48 99 53 102C52 83 57 66 66 50Z' });
-  const core = svgEl('path', { class: 'fc', fill: `url(#${id}c)`, d: 'M63 96C65 104 72 111 71 121C70 129 64 133 59 131C54 129 53 122 55 115C56 108 60 103 63 96Z' });
-  g.append(outer, vol, shine, inner, core);
-  s.append(defs, g);
-  if (big && !off) {
-    const em = svgEl('g', { class: 'embers' });
-    [[44, 30, 2.2, 0], [80, 22, 1.8, .9], [62, 2, 1.5, 1.7]].forEach(([x, y, r, d]) => em.append(svgEl('circle', { cx: x, cy: y, r, fill: '#ffc94d', style: `animation-delay:${d}s` })));
-    s.append(em);
+  const OUT='M60 145C32 145 12 129 9 108C5 86 15 66 31 51C29 63 31 74 38 81C35 61 48 48 57 34C65 21 62 10 54 3C82 5 101 25 99 49C98 62 92 73 97 81C101 87 108 82 111 72C124 90 119 112 105 128C94 140 78 146 60 145Z';
+  const INNER='M60 145C43 145 31 133 30 117C29 105 34 94 42 86C43 94 46 99 51 101C44 84 49 66 63 52C67 47 72 44 77 42C71 59 75 72 84 85C94 99 99 111 94 125C89 139 76 146 60 145Z';
+  const CORE='M60 145C49 145 41 137 42 126C42 116 46 107 51 101C51 110 56 114 61 115C57 106 58 97 63 89C65 101 74 109 78 119C85 134 76 145 60 145Z';
+  const body=svgEl('g',{class:'fbody'});
+  body.append(svgEl('path',{class:'fo',fill:`url(#${id}o)`,d:OUT}),
+    svgEl('path',{class:'fv',fill:`url(#${id}v)`,d:OUT}),
+    svgEl('path',{class:'fi',fill:`url(#${id}i)`,d:INNER}),
+    svgEl('path',{class:'fc',fill:`url(#${id}c)`,d:CORE}));
+  s.append(defs,body);
+  if(big&&!off){
+    const embers=svgEl('g',{class:'embers'});
+    [[40,29,1.6,0],[85,22,1.3,.9],[57,2,1.2,1.7]].forEach(([x,y,r,delay])=>embers.append(svgEl('circle',{cx:x,cy:y,r,fill:'#ffbb32',style:`animation-delay:${delay}s`})));
+    s.append(embers);
   }
-  if (big) {
-    const t = svgEl('text', { class: 'fnum', x: '60', y: '160', 'text-anchor': 'middle', filter: `url(#${id}sh)`, fill: `url(#${id}n)` });
-    t.textContent = String(num);
-    s.append(t);
+  if(big){
+    const t=svgEl('text',{class:'fnum',x:'60',y:'160','text-anchor':'middle',filter:`url(#${id}sh)`,fill:`url(#${id}n)`});
+    t.textContent=String(num);s.append(t);
   }
   return s;
 }
@@ -5105,18 +5213,22 @@ async function revealOpeningBook(snapshot){
   if(!snapshot||reduceMotion()||document.hidden||bookOpeningCancel||!R.book)return;
   const rd=$('#reader'),main=$('#r-main'),book=R.book;bookOpeningPosition=curPos();
   const W=main.getBoundingClientRect().width,H=innerHeight,w=Math.min(264,W*.4,H*.285),ht=w*1.5,cx=(W-w)/2,cy=Math.max(28,(H-ht)/2-16),spine=W/2;
-  const theme=readerTheme(),duration=1320,ease='cubic-bezier(.22,.72,.18,1)',source=snapshot.rect||{left:cx,top:cy+10,width:w*.96,height:ht*.96};
+  const theme=readerTheme(),duration=1520,ease='cubic-bezier(.22,.72,.18,1)',source=snapshot.rect||{left:cx,top:cy+10,width:w*.96,height:ht*.96};
   const area=(isPaged()?$('#r-vp'):rc()).getBoundingClientRect(),initialScale=w*.86/area.width;
   const initialTx=w*.07-area.left*initialScale,initialTy=ht*.08-Math.max(0,area.top)*initialScale;
-  const stage=h('div',{class:'book-opening','aria-hidden':'true',inert:true,style:`--book-inside:${snapshot.inside};--book-paper:${theme.bg};--book-ink:${theme.fg};--book-edge:${theme.tone==='light'?'#d9d3c5':'#40403f'}`});
+  const stage=h('div',{class:'book-opening','aria-hidden':'true',inert:true,style:`--book-inside:${snapshot.inside};--book-paper:${theme.bg};--book-ink:${theme.fg}`});
   const veil=h('div',{class:'book-opening-veil',style:`background:${snapshot.background}`}),light=h('div',{class:'book-opening-light',style:`background:${theme.bg};opacity:0`});
   const rig=h('div',{class:'book-opening-rig',style:`width:${w}px;height:${ht}px`});
   const page=h('div',{class:'book-opening-page'}),live=h('div',{class:'book-opening-reader',style:`width:${W}px;height:${H}px;transform:scale(${w/W},${ht/H});opacity:0`});
   const gutter=h('div',{class:'book-opening-gutter'});
   const front=h('div',{class:'book-opening-front'},snapshot.cover),shade=h('div',{class:'book-opening-cover-shade'});
   const cover=h('div',{class:'book-opening-cover'},front,h('div',{class:'book-opening-back'}),shade);
-  const base=h('div',{class:'book-opening-base'}),edge=h('div',{class:'book-opening-edge'}),edge2=h('div',{class:'book-opening-edge e2'});
-  page.append(live,gutter);rig.append(base,edge2,edge,page,cover);stage.append(veil,light,rig);
+  // True inset page-block sides, a bound spine, and separate cover boards.
+  // Nothing is offset beyond the cover outline as a decorative paper border.
+  const board=h('div',{class:'book-opening-board'}),block=h('div',{class:'book-opening-block'},
+    ...['fore','head','tail'].map(face=>h('div',{class:'book-opening-block-face '+face})));
+  const binding=h('div',{class:'book-opening-spine'}),rims=['fore','spine','head','tail'].map(face=>h('div',{class:'book-opening-board-rim '+face})),innerLight=h('div',{class:'book-opening-inner-light'});
+  cover.append(...rims,innerLight);page.append(live,gutter);rig.append(board,block,binding,page,cover);stage.append(veil,light,rig);
   const marker=document.createComment('reader-motion-anchor'),scroll={x:scrollX,y:scrollY};rd.before(marker);
   const oldInert=rd.inert,oldMainTransform=main.style.transform,oldRootScroll=root.style.scrollBehavior;
   const rdStyle=rd.getAttribute('style');
@@ -5157,7 +5269,7 @@ async function revealOpeningBook(snapshot){
     // A sampled inverse transform keeps real glyphs uniformly scaled through the
     // changing page aspect ratio. Native compositor interpolation does the rest.
     const curve=t=>{let lo=0,hi=1,u=t;const q=(u,a,b)=>3*(1-u)*(1-u)*u*a+3*(1-u)*u*u*b+u*u*u;for(let i=0;i<16;i++){u=(lo+hi)/2;if(q(u,.5,.16)<t)lo=u;else hi=u;}return q(u,0,1);};
-    const poses=[{transform:begin,easing:ease},{transform:pose(cx,cy,1,1,5,-7),offset:.27,easing:'cubic-bezier(.3,.1,.2,1)'},{transform:pose(spine,cy),offset:.64}];
+    const poses=[{transform:begin,easing:ease},{transform:pose(cx,cy,1,1,10,-18),offset:.27,easing:'cubic-bezier(.3,.1,.2,1)'},{transform:pose(spine,cy),offset:.64}];
     const liveFrames=[{transform:live.style.transform},{transform:live.style.transform,offset:.64}];
     for(let i=1;i<=36;i++){
       const t=i/36,z=i===36?1:curve(t),sx=1+(W/w-1)*z,sy=1+(H/ht-1)*z,total=initialScale+(1-initialScale)*z,offset=.64+.36*t;
@@ -5169,11 +5281,15 @@ async function revealOpeningBook(snapshot){
       const opacity=getComputedStyle(chrome).opacity;
       run(chrome,[{opacity:0},{opacity:0,offset:.82},{opacity,offset:.98},{opacity}]);
     }
-    run(cover,[{transform:'translateZ(2px) rotateY(0deg)',easing:ease},{transform:'translateZ(2px) rotateY(-8deg)',offset:.27,easing:'cubic-bezier(.3,.1,.2,1)'},{transform:'translateZ(2px) rotateY(-164deg)',offset:.64,easing:ease},{transform:'translateZ(2px) rotateY(-178deg)',offset:.9},{transform:'translateZ(2px) rotateY(-178deg)'}]);
-    for(const face of [front,cover.querySelector('.book-opening-back')])run(face,[{opacity:1},{opacity:1,offset:.69},{opacity:0,offset:.84},{opacity:0}]);
+    run(cover,[{transform:'translateZ(2px) rotateY(0deg)',easing:ease},{transform:'translateZ(2px) rotateY(-8deg)',offset:.27,easing:'cubic-bezier(.3,.1,.2,1)'},{transform:'translateZ(2px) rotateY(-148deg)',offset:.64,easing:ease},{transform:'translateZ(2px) rotateY(-164deg)',offset:.9},{transform:'translateZ(2px) rotateY(-164deg)'}]);
+    // Dissolve only leaf surfaces, never preserve-3d parents. A broad smooth
+    // handoff keeps the page block and its shadow attached throughout the zoom.
+    const volumeFade=[{opacity:1},{opacity:1,offset:.62}];
+    for(let i=1;i<=24;i++){const t=i/24;volumeFade.push({opacity:1-t*t*(3-2*t),offset:.62+.38*t});}
+    for(const face of [front,cover.querySelector('.book-opening-back'),...rims,board,...block.children,binding])run(face,volumeFade);
+    run(innerLight,[{opacity:0},{opacity:0,offset:.3},{opacity:.8,offset:.54},{opacity:.45,offset:.7},{opacity:0,offset:.98},{opacity:0}]);
     run(shade,[{opacity:0},{opacity:.65,offset:.42},{opacity:0,offset:.66},{opacity:0}]);
-    run(gutter,[{opacity:0},{opacity:.6,offset:.4},{opacity:.45,offset:.63},{opacity:0,offset:.88},{opacity:0}]);
-    for(const el of [base,edge,edge2])run(el,[{opacity:1},{opacity:1,offset:.65},{opacity:0,offset:.84},{opacity:0}]);
+    run(gutter,[{opacity:0},{opacity:.6,offset:.4},{opacity:.5,offset:.64},{opacity:.22,offset:.84},{opacity:0,offset:1},{opacity:0}]);
     run(light,[{opacity:0},{opacity:1,offset:.42},{opacity:1}]);
     // Finish the page on the exact, already-laid-out reader. No last-frame re-render.
     const end=animations[0];end.finished.then(cleanup,cleanup);timer=setTimeout(cleanup,duration+450);
@@ -5234,5 +5350,9 @@ new MutationObserver((list) => {
 })();
 
 </script>
-</body>
+<script>
+// Pointer editing stays borderless; preserve a visible, neutral Tab-navigation cue.
+document.addEventListener('keydown',e=>{if(e.key==='Tab')document.documentElement.setAttribute('data-keyboard-focus','');},true);
+document.addEventListener('pointerdown',()=>document.documentElement.removeAttribute('data-keyboard-focus'),true);
+</script></body>
 </html>
