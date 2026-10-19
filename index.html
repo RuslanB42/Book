@@ -838,6 +838,133 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 
 .col .barv.zero { box-shadow: none !important; }
 
+/* ---------- profile infographics ---------- */
+.ig-ov { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (min-width: 760px) { .ig-ov { grid-template-columns: repeat(4, 1fr); } }
+.ig-tile { position: relative; overflow: hidden; padding: 14px 14px 12px; display: grid; gap: 2px; align-content: start; min-height: 150px; animation: rise .55s var(--ease) backwards; animation-delay: calc(.1s + var(--i) * 60ms); }
+.ig-tile .ig-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; min-width: 0; }
+.ig-ico { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; flex: none; color: var(--c, #f28a2e); background: color-mix(in srgb, var(--c, #f28a2e) 16%, transparent); }
+.ig-ico .ic { width: 16px; height: 16px; stroke-width: 2; }
+.ig-tile .tl { font-size: 13px; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ig-tile b { font: 600 25px/1.1 var(--f-display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.ig-tile .ts { font-size: 12px; color: var(--fg-3); line-height: 1.3; }
+.ig-tile .ig-viz { margin-top: auto; padding-top: 8px; }
+.spark { display: block; width: 100%; height: 34px; overflow: visible; }
+.spark .sl { fill: none; stroke: var(--c, #f28a2e); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.spark.reveal { clip-path: inset(0 100% 0 0); animation: reveal 1.2s cubic-bezier(.22, 1, .36, 1) .3s forwards; }
+@keyframes reveal { to { clip-path: inset(0 0 0 0); } }
+.mbars { display: flex; align-items: flex-end; gap: 2px; height: 34px; }
+.mbars i { flex: 1; min-height: 2px; border-radius: 2px; background: var(--fill-2); transform-origin: bottom; animation: grow .7s cubic-bezier(.22, 1, .36, 1) backwards; animation-delay: calc(.25s + var(--i) * 25ms); }
+.mbars i.on { background: var(--c); }
+.scale { position: relative; height: 6px; border-radius: 3px; margin: 10px 0 0; background: linear-gradient(90deg, var(--fill-2), var(--c)); }
+.scale i { position: absolute; top: 50%; left: var(--x); width: 12px; height: 12px; border-radius: 50%; background: var(--fg); box-shadow: 0 0 0 3px var(--bg-raised); transform: translate(-50%, -50%); transition: left 1.2s cubic-bezier(.22, 1, .36, 1); }
+.scale u { position: absolute; top: -4px; bottom: -4px; left: var(--m); width: 1.5px; background: var(--fg-3); border-radius: 1px; text-decoration: none; }
+.scale-l { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--fg-3); margin-top: 7px; }
+.gauge { display: block; width: 100%; max-width: 112px; height: auto; margin: 0 auto; overflow: visible; }
+.gauge .gt, .ring .rt, .donut .dt { fill: none; stroke: var(--fill-2); }
+.gauge .gv, .ring .rv, .donut .dv { fill: none; stroke-linecap: round; transition: stroke-dasharray 1.2s cubic-bezier(.22, 1, .36, 1); }
+.donut .dv { stroke-linecap: butt; }
+.gauge .gp { fill: var(--fg); font: 600 15px var(--f-ui); font-variant-numeric: tabular-nums; }
+.ig-val { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.trend { display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.trend.up { color: #34c27a; background: rgba(52, 194, 122, .14); }
+.trend.down { color: #ff7a6b; background: rgba(255, 107, 97, .13); }
+.trend.flat { color: var(--fg-3); background: var(--fill); }
+.sum { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.badge .ring-wrap .flame { position: absolute; width: 22px; height: 28px; }
+
+/* rings, donuts */
+.ring, .donut { display: block; overflow: visible; transform: rotate(-90deg); }
+.ring-wrap, .donut-wrap { position: relative; display: grid; place-items: center; flex: none; }
+.ring-wrap > .rc, .donut-wrap > .dc { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1.1; pointer-events: none; }
+.donut-wrap > .dc b { font: 600 26px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.donut-wrap > .dc span { font-size: 11.5px; color: var(--fg-3); margin-top: 3px; }
+.ring-wrap > .rc { font-size: 10.5px; font-weight: 600; color: var(--fg-2); font-variant-numeric: tabular-nums; }
+
+/* split layout: donut + legend */
+.ig-split { display: grid; grid-template-columns: 132px 1fr; gap: 18px; align-items: center; }
+@media (max-width: 360px) { .ig-split { grid-template-columns: 112px 1fr; gap: 12px; } }
+.legend { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.legend li { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; font-size: 14px; min-width: 0; animation: rise .45s var(--ease) backwards; animation-delay: calc(.2s + var(--i, 0) * 50ms); }
+.legend .sw { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.legend .ln { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); }
+.legend .lv { color: var(--fg-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* stacked shelf bar */
+.stack { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; margin: 18px 0 12px; background: var(--fill); }
+.stack i { display: block; height: 100%; background: var(--c); transform-origin: left center; animation: grow-x 1s cubic-bezier(.22, 1, .36, 1) backwards; animation-delay: calc(.25s + var(--i, 0) * 70ms); }
+.chips-lg { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--fg-2); }
+.chips-lg span { display: inline-flex; align-items: center; gap: 6px; }
+.chips-lg span::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.chips-lg em { font-style: normal; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.sub-h { margin: 18px 0 0; font-size: 13px; font-weight: 600; color: var(--fg-3); letter-spacing: .04em; text-transform: uppercase; }
+
+/* counters row */
+.counters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+.counter { display: grid; justify-items: center; gap: 4px; padding: 12px 6px; border-radius: 16px; background: var(--fill); text-align: center; }
+.counter b { font: 600 20px/1.1 var(--f-display); font-variant-numeric: tabular-nums; }
+.counter span:last-child { font-size: 12px; color: var(--fg-3); }
+
+/* heatmap */
+.heat { display: grid; grid-template-columns: auto 1fr; gap: 6px; }
+.heat-days { display: grid; grid-template-rows: repeat(7, 1fr); gap: 3px; font-size: 10px; color: var(--fg-3); padding-top: 16px; }
+.heat-days span { display: flex; align-items: center; }
+.heat-body { min-width: 0; }
+.heat-months { display: grid; grid-template-columns: repeat(var(--w), 1fr); gap: 3px; height: 13px; margin-bottom: 3px; font-size: 10px; color: var(--fg-3); }
+.heat-months span { white-space: nowrap; overflow: visible; }
+.heat-grid { display: grid; grid-template-columns: repeat(var(--w), 1fr); grid-template-rows: repeat(7, 1fr); grid-auto-flow: column; gap: 3px; }
+.hc { aspect-ratio: 1; border-radius: 3px; background: var(--fill); animation: fade .4s ease backwards; animation-delay: calc(var(--i) * 4ms); }
+.hc.l1 { background: rgba(242, 138, 46, .28); }
+.hc.l2 { background: rgba(242, 138, 46, .5); }
+.hc.l3 { background: #f28a2e; }
+.hc.l4 { background: linear-gradient(180deg, #ffb43b, #e8562a); }
+.hc.fut { background: transparent; }
+.hc.today { box-shadow: 0 0 0 1.5px var(--fg-2); }
+.heat-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; font-size: 12px; color: var(--fg-3); flex-wrap: wrap; }
+.heat-legend { display: flex; align-items: center; gap: 3px; }
+.heat-legend .hc { width: 11px; animation: none; }
+.heat-legend span { margin: 0 4px; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+.kpi { display: grid; gap: 2px; }
+.kpi b { font: 600 20px/1.1 var(--f-display); font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 12px; color: var(--fg-3); line-height: 1.25; }
+
+/* weekday rhythm */
+.rhythm { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; height: 132px; align-items: end; margin-top: 8px; }
+.rh { height: 100%; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; gap: 6px; }
+.rh .rv-l { font-size: 11px; color: var(--fg-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rh .track { width: 100%; max-width: 34px; border-radius: 10px; background: var(--fill); display: flex; align-items: flex-end; overflow: hidden; }
+.rh .track i { display: block; width: 100%; border-radius: 10px; background: var(--fg-3); transform-origin: bottom; animation: grow .8s cubic-bezier(.22, 1, .36, 1) backwards; animation-delay: calc(.15s + var(--i) * 50ms); }
+.rh.top .track i { background: linear-gradient(180deg, #ffb43b, #e8562a); }
+.rh .wl { font-size: 12px; color: var(--fg-3); }
+.rh.top .wl, .rh.top .rv-l { color: var(--fg); font-weight: 600; }
+
+/* books: progress ring instead of percent */
+.brow .ring-wrap { width: 38px; height: 38px; }
+.brow .bpct:empty { width: 38px; }
+.heat-days { gap: 3px; }
+.heat-days span { font-size: 10px; line-height: 1; }
+.badge .ring-wrap .flame { margin-top: -2px; }
+
+/* achievements */
+.ach { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px 8px; }
+@media (min-width: 760px) { .ach { grid-template-columns: repeat(6, 1fr); } }
+.badge { display: grid; justify-items: center; gap: 6px; text-align: center; animation: rise .5s var(--ease) backwards; animation-delay: calc(.15s + var(--i) * 45ms); }
+.badge .ring-wrap { width: 64px; height: 64px; }
+.badge .ring-wrap .ic { position: absolute; width: 24px; height: 24px; color: var(--fg-3); }
+.badge.done .ring-wrap .ic { color: #f28a2e; }
+.badge.done .ring-wrap::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: rgba(242, 138, 46, .14); }
+.badge b { font-size: 13px; font-weight: 600; line-height: 1.2; }
+.badge span { font-size: 11.5px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.badge:not(.done) b { color: var(--fg-2); }
+.ig-insight { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: var(--fill); font-size: 13.5px; line-height: 1.4; color: var(--fg-2); }
+.ig-insight .ic { color: #f28a2e; width: 18px; height: 18px; margin-top: 1px; }
+.ig-insight b { color: var(--fg); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  .ig-tile, .legend li, .stack i, .hc, .rh .track i, .badge, .mbars i { animation: none !important; }
+  .spark.reveal { animation: none; clip-path: none; }
+}
+
 /* install */
 .install { display: grid; grid-template-columns: auto 1fr auto auto; gap: 12px; align-items: center; padding: 12px 8px 12px 12px; margin-bottom: 22px; }
 .install img { width: 44px; height: 44px; border-radius: 11px; }
@@ -1266,6 +1393,29 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .reading-results{min-width:0}
 .reading-ghost,.reading-ghost *{pointer-events:none!important;animation:none!important;transition:none!important}
 
+/* Quote stacks unfold independently of the library's legacy page animations. */
+.quote-reveal{overflow:clip;overflow-anchor:none}
+.quote-reveal .qcard,.quote-reveal .qgroup{animation:none!important}
+.quote-motion-ghost,.quote-motion-ghost *{animation:none!important;transition:none!important;pointer-events:none!important}
+
+/* Notebook: quiet filled fields, readable thoughts, no always-on focus border. */
+.notebook{display:grid;gap:16px;min-width:0}.nb-search{margin:0!important}
+.nb-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 4px}.nb-filters::-webkit-scrollbar{display:none}
+.nb-filters button{flex:none;display:flex;gap:6px;align-items:center;min-height:44px;padding:0 12px;border-radius:22px;background:var(--fill);font-size:14px;white-space:nowrap;transition:background .32s,color .32s}
+.nb-filters button span{opacity:.6;font-size:12px;font-variant-numeric:tabular-nums}.nb-filters button[aria-pressed=true]{background:var(--pill);color:var(--pill-fg)}
+.nb-add{justify-self:start;min-height:44px}.nb-results{display:grid;gap:14px;min-width:0}
+.nb-card{padding:16px;background:var(--bg-raised-2);border-radius:18px;min-width:0;overflow-wrap:anywhere}.nb-meta{display:flex;justify-content:space-between;gap:12px;color:var(--fg-3);font-size:12px;margin-bottom:12px}
+.nb-source{margin:0;padding:0 0 0 12px;border-left:2px solid var(--accent);font:400 16px/1.55 var(--f-display);color:var(--fg-2);max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.nb-thought{white-space:pre-wrap;overflow-wrap:anywhere;font:400 16px/1.65 var(--f-ui);margin:14px 0;color:var(--fg)}
+.nb-chapter{display:block;color:var(--fg-3);font-size:12px;margin-top:14px;overflow-wrap:anywhere}
+.nb-actions{display:flex;gap:2px;align-items:center;border-top:1px solid var(--hair);margin-top:12px;padding-top:6px}.nb-actions .link-btn{margin-right:auto;display:flex;align-items:center;gap:2px;font-size:13px;min-height:44px;padding:0 2px;text-align:left}.nb-actions .icon-btn{flex:none;width:44px;height:44px}
+.nb-empty{text-align:center;padding:32px 12px;color:var(--fg-2)}.nb-empty>.ic{width:38px;height:38px;color:var(--accent);margin-bottom:12px}.nb-empty h3{font:600 24px/1.25 var(--f-display);color:var(--fg);margin:0 0 12px}.nb-empty p{line-height:1.6;margin:0}
+.note-editor{display:grid;gap:14px}.note-editor .field{margin:0}.note-editor textarea{min-height:230px;resize:vertical;line-height:1.65}.nb-count{justify-self:end;color:var(--fg-3);font-size:12px}.nb-error{margin:0;color:var(--danger);font-size:14px}
+.q-thought{display:grid;gap:5px;width:100%;padding:12px;text-align:left;background:var(--fill);border-radius:12px;margin-top:12px;overflow-wrap:anywhere;white-space:pre-wrap;font:400 15px/1.5 var(--f-ui)}.q-thought small{color:var(--accent-ink);font-size:12px}.qcard>.q-thought{width:calc(100% - 24px);margin:8px 12px 0}
+.qbar button{font-size:14px;padding:0 8px;gap:5px}
+@media(prefers-reduced-motion:no-preference){.sheet:not(.drag){transition-duration:.5s;transition-timing-function:cubic-bezier(.25,.1,.25,1)}.scrim{transition:opacity .4s ease}.ch-in,.ch-in-back{animation-duration:.54s;animation-timing-function:cubic-bezier(.25,.1,.25,1)}.nav-push,.nav-pop,.nav-right,.nav-left{animation-duration:.5s;animation-timing-function:cubic-bezier(.25,.1,.25,1)}}
+@media(max-width:360px){.nb-card{padding:12px}.nb-filters button{padding:0 10px}.nb-actions .icon-btn{width:44px}}
+
 </style>
 </head>
 <body>
@@ -1305,6 +1455,9 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
   <symbol id="i-settings" viewBox="0 0 24 24"><path d="m9.5 3-.6 2.2-1.5.9-2.2-.6-2.5 4.3 1.6 1.6v1.7l-1.6 1.6L5.2 19l2.2-.6 1.5.9.6 2.2h5l.6-2.2 1.5-.9 2.2.6 2.5-4.3-1.6-1.6v-1.7l1.6-1.6-2.5-4.3-2.2.6-1.5-.9L14.5 3z"/><circle cx="12" cy="12.25" r="3"/></symbol>
   <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4.5 7.5h15M7.5 12h9M10.5 16.5h3"/></symbol>
   <symbol id="i-chevdown" viewBox="0 0 24 24"><path d="M5.5 9.5 12 16l6.5-6.5" stroke-width="2.1"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3.5c.6 4.4 2.6 6.9 7 8.5-4.4 1.6-6.4 4.1-7 8.5-.6-4.4-2.6-6.9-7-8.5 4.4-1.6 6.4-4.1 7-8.5z"/></symbol>
   <symbol id="i-toc" viewBox="0 0 24 24"><path d="M4 6.5h9M4 11h9M4 15.5h6"/><rect x="15.5" y="5" width="4.5" height="14" rx="2.25"/><path d="M17.75 8v2"/></symbol>
 </svg>
 
@@ -1918,7 +2071,7 @@ async function parseFile(file) {
   }
   const now = Date.now();
   Object.assign(res.book, {
-    id: uid(), fileName: file.name, size: file.size, addedAt: now, openedAt: 0, progress: null, bookmarks: [],
+    id: uid(), fileName: file.name, size: file.size, addedAt: now, openedAt: 0, progress: null, bookmarks: [], notes: [],
     shelf: shelfFromGenres(res.book.genres), modifiedAt: 0, edits: 0, coverChanged: false,
   });
   res.content.id = res.book.id;
@@ -2234,7 +2387,7 @@ function uiMotion(el,frames,duration=260){
   return el.animate(frames,{duration,easing:'cubic-bezier(.22,.8,.25,1)'});
 }
 
-function openSheet({ title, label, body, left, right, tall, onClose, closeBtn = true, cls = '' }) {
+function openSheet({ title, label, body, left, right, tall, onClose, closeBtn = true, cls = '', beforeClose }) {
   const host = document.body;
   const lastFocus = document.activeElement;
   const scrim = h('div', { class: 'scrim' });
@@ -2250,10 +2403,10 @@ function openSheet({ title, label, body, left, right, tall, onClose, closeBtn = 
   const api = {
     panel, body: bodyEl,
     close(silent) {
-      if (closed) return; closed = true;
+      if (closed || (!silent && beforeClose && beforeClose() === false)) return; closed = true;
       panel.classList.remove('in'); scrim.classList.remove('in');
       panel.style.pointerEvents='none';scrim.style.pointerEvents='none';
-      setTimeout(() => { panel.remove(); scrim.remove(); }, reduceMotion()?0:440);
+      setTimeout(() => { panel.remove(); scrim.remove(); }, reduceMotion()?0:520);
       const i = sheets.indexOf(api); if (i >= 0) sheets.splice(i, 1);
       if (!sheets.length) unlockSheetScroll();
       if (!silent && onClose) onClose();
@@ -2384,11 +2537,11 @@ function switchReadingSection(key) {
   const onVisibility=()=>{if(document.hidden)cleanup();},onReduced=e=>{if(e.matches)cleanup();};
   readingSectionMotion=cleanup;
   window.addEventListener('resize',cleanup);document.addEventListener('visibilitychange',onVisibility);media.addEventListener('change',onReduced);
-  const run=(node,frames,opts={})=>{const a=node.animate(frames,{duration:300,easing:'cubic-bezier(.22,.72,.2,1)',fill:'both',...opts});animations.push(a);return a;};
+  const run=(node,frames,opts={})=>{const a=node.animate(frames,{duration:420,easing:'cubic-bezier(.25,.1,.25,1)',fill:'both',...opts});animations.push(a);return a;};
   // The continue card and status controls stay mounted and stationary.
-  for(const g of ghosts){document.body.append(g.node);run(g.node,[{opacity:g.alpha,transform:'none'},{opacity:0,transform:`translate3d(${-direction*6}px,-4px,0)`}],{duration:110,easing:'ease-out'});}
+  for(const g of ghosts){document.body.append(g.node);run(g.node,[{opacity:g.alpha,transform:'none'},{opacity:0,transform:`translate3d(${-direction*6}px,-4px,0)`}],{duration:180,easing:'ease-out'});}
   run(results,[{transform:`translate3d(${direction*8}px,6px,0)`},{transform:'none'}]);
-  run(results,[{opacity:0},{opacity:1}],{duration:230,delay:65,easing:'ease-out'});
+  run(results,[{opacity:0},{opacity:1}],{duration:320,delay:45,easing:'ease-out'});
   Promise.all(animations.map(a=>a.finished.catch(()=>{}))).then(cleanup);timer=setTimeout(cleanup,600);
 }
 
@@ -2430,6 +2583,7 @@ let tabAnimation = null;
 const tabScroll = new Map();
 const libraryTabCache = new Map();
 function switchTab(tab) {
+  stopQuoteBookMotion();
   if (!(tab in TAB_ORDER) || STORE_HEALTH.busy) return;
   const from = currentTab();
   if (tabAnimation) { tabAnimation.cancel(); tabAnimation = null; }
@@ -2454,7 +2608,7 @@ function switchTab(tab) {
   target.classList.add('tab-stable');
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches && !reduceMotion()) {
     const dx = TAB_ORDER[tab] > TAB_ORDER[from] ? 8 : -8;
-    tabAnimation = target.animate([{ opacity: .65, transform: `translateX(${dx}px)` }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'cubic-bezier(.22,1,.36,1)' });
+    tabAnimation = target.animate([{ opacity: .65, transform: `translateX(${dx}px)` }, { opacity: 1, transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.25,.1,.25,1)' });
   }
 }
 
@@ -2476,9 +2630,9 @@ function go(tab, shelf = null) {
     // WAAPI is intentional: tab-stable disables old CSS animations on this subtree.
     if (!reduceMotion()) {
       tabAnimation = main.animate([
-        { opacity: .12, transform: `translate3d(${direction * 32}px,0,0)` },
+        { opacity: .4, transform: `translate3d(${direction * 18}px,0,0)` },
         { opacity: 1, transform: 'translate3d(0,0,0)' },
-      ], { duration: 320, easing: 'cubic-bezier(.22,.72,.2,1)' });
+      ], { duration: 460, easing: 'cubic-bezier(.25,.1,.25,1)' });
     }
   }
 }
@@ -2695,6 +2849,7 @@ function readingResults(status) {
 }
 
 function renderLibrary(animate = true, fromTabSwitch = false) {
+  stopQuoteBookMotion();
   stopReadingSectionMotion();
   if (!fromTabSwitch) libraryTabCache.clear();
   const cached = fromTabSwitch ? libraryTabCache.get(state.tab) : null;
@@ -3086,6 +3241,8 @@ async function readBackup(file) {
     const c = contents.get(b.id);
     if (b.quotes == null) b.quotes = [];
     if (b.bookmarks == null) b.bookmarks = [];
+    if (b.notes == null) b.notes = [];
+    if (!Array.isArray(b.notes) || b.notes.some(n => !n || typeof n.id !== 'string' || typeof n.text !== 'string' || n.text.length > 20000 || !Number.isInteger(n.ch) || n.ch < 0 || n.ch >= (c?.chapters?.length || 0))) throw new Error('Повреждены заметки книги.');
     if (!b.id || b.id.startsWith('__') || typeof b.title !== 'string' || !Array.isArray(b.authors) || !b.authors.every(a => typeof a === 'string') || !['fb2','epub'].includes(b.format) || !Array.isArray(b.quotes) || !Array.isArray(b.bookmarks) || !c || !Array.isArray(c.chapters) || !c.chapters.length || !Array.isArray(c.toc)) throw new Error('Книга или её текст повреждены.');
     for (const ch of c.chapters) {
       if (typeof ch.html !== 'string' || !Number.isFinite(ch.len)) throw new Error('Повреждена глава книги.');
@@ -3327,6 +3484,7 @@ function quoteCard(q, b, i, withBook) {
     h('button', { class: 'q-body', onclick: open, 'aria-label': `Открыть цитату в книге «${b.title}»` },
       h('span', { class: 'q-mark', 'aria-hidden': 'true' }, '“'),
       h('span', { class: 'q-text' }, q.text)),
+    ...(b.notes || []).filter(n => n.quoteId === q.id).map(n => h('button', {class:'q-thought',onclick:()=>editNotebookNote({book:b,note:n,onSaved:()=>renderLibrary(false)}),'aria-label':'Изменить мысль к цитате'}, h('small',null,'Моя мысль'),h('span',null,n.text))),
     h('div', { class: 'q-foot' },
       withBook
         ? h('button', { class: 'q-book', onclick: () => openDetail(b) }, coverEl(b), h('span', null, h('b', null, b.title), h('small', null, `${authorsStr(b)} · ${when}`)))
@@ -3341,7 +3499,50 @@ function quoteCard(q, b, i, withBook) {
       } }, icon('trash', 'sm'))));
   return card;
 }
-function openQuoteBook(id) { state.navDir = id ? 'push' : 'pop'; state.qbook = id; renderLibrary(); window.scrollTo({ top: 0 }); }
+let quoteBookMotion = null;
+function stopQuoteBookMotion() { if (quoteBookMotion) quoteBookMotion(); }
+function openQuoteBook(id) {
+  if (state.qbook === id) return;
+  stopQuoteBookMotion();
+  const main = $('#lib-main'), previousId = state.qbook;
+  const opening = !!id, oldRect = main.getBoundingClientRect();
+  const canAnimate = !reduceMotion() && !document.hidden && typeof main.animate === 'function';
+  // Keep the outgoing view as a short-lived, inert visual layer; no duplicated controls.
+  const ghost = canAnimate ? main.cloneNode(true) : null;
+  if (ghost) {
+    ghost.removeAttribute('id'); ghost.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+    ghost.classList.add('quote-motion-ghost'); ghost.inert=true; ghost.setAttribute('aria-hidden','true');
+    ghost.style.cssText=`position:fixed;left:${oldRect.left}px;top:${oldRect.top}px;width:${oldRect.width}px;height:${Math.max(0,Math.min(oldRect.height,innerHeight-oldRect.top))}px;margin:0;overflow:hidden;pointer-events:none;z-index:4;`;
+  }
+  state.navDir = ''; state.qbook = id; renderLibrary(false);
+  window.scrollTo({top:0,behavior:'instant'}); libScrollChrome();
+  const focusTarget = opening ? main.querySelector('.back-link') : [...main.querySelectorAll('.qgroup')].find(el=>el.dataset.quoteBook===previousId);
+  focusTarget?.focus({preventScroll:true});
+  if (!canAnimate) return;
+  main.classList.add('quote-reveal');
+  const animations=[], media=matchMedia('(prefers-reduced-motion: reduce)'); let ended=false,timer;
+  const cleanup=()=>{
+    if(ended)return;ended=true;clearTimeout(timer);
+    animations.forEach(a=>a.cancel());ghost?.remove();main.classList.remove('quote-reveal');
+    window.removeEventListener('resize',cleanup);document.removeEventListener('visibilitychange',onVisibility);media.removeEventListener('change',onReduced);
+    if(quoteBookMotion===cleanup)quoteBookMotion=null;
+  };
+  const onVisibility=()=>{if(document.hidden)cleanup()},onReduced=e=>{if(e.matches)cleanup()};
+  quoteBookMotion=cleanup;
+  window.addEventListener('resize',cleanup);document.addEventListener('visibilitychange',onVisibility);media.addEventListener('change',onReduced);
+  const run=(el,frames,options={})=>{const a=el.animate(frames,{duration:420,easing:'cubic-bezier(.25,.1,.25,1)',fill:'both',...options});animations.push(a);return a};
+  if(ghost){document.body.append(ghost);run(ghost,[{opacity:1,transform:'none'},{opacity:0,transform:`translate3d(${opening?-8:8}px,-3px,0)`}],{duration:190,easing:'ease-out'})}
+  const newHeight=main.getBoundingClientRect().height;
+  if(Math.abs(oldRect.height-newHeight)>1)run(main,[{height:`${oldRect.height}px`},{height:`${newHeight}px`}],{duration:520});
+  main.querySelectorAll(':scope > .sec-head,:scope > .qb-head').forEach((el,i)=>run(el,[{opacity:0,transform:`translate3d(${opening?8:-8}px,6px,0)`},{opacity:1,transform:'none'}],{duration:280,delay:55+i*30}));
+  const cards=[...main.querySelectorAll(opening?'.qcard':'.qgroup')];
+  cards.forEach((card,i)=>{
+    // Bound the stagger; a large collection must never wait seconds to become usable.
+    if(card.getBoundingClientRect().top>innerHeight+80)return;
+    run(card,[{opacity:0,transform:`translate3d(${opening?10:-10}px,${opening?16:10}px,0)`},{opacity:1,transform:'none'}],{duration:420,delay:80+Math.min(i,7)*32});
+  });
+  Promise.all(animations.map(a=>a.finished.catch(()=>{}))).then(cleanup);timer=setTimeout(cleanup,850);
+}
 function renderQuotes(main) {
   const items = allQuotes();
   if (!items.length) {
@@ -3377,7 +3578,7 @@ function renderQuotes(main) {
   const list = h('div', { class: 'q-list' });
   groups.forEach(({ b, list: qs }, i) => {
     const n = qs.length;
-    list.append(h('button', { class: 'qgroup' + (n > 1 ? ' stacked' : '') + (n > 2 ? ' stacked2' : ''), style: `--i:${Math.min(i, 10)}`, onclick: () => openQuoteBook(b.id), 'aria-label': `${b.title}: ${n} ${plural(n, ['цитата', 'цитаты', 'цитат'])}` },
+    list.append(h('button', { 'data-quote-book': b.id, class: 'qgroup' + (n > 1 ? ' stacked' : '') + (n > 2 ? ' stacked2' : ''), style: `--i:${Math.min(i, 10)}`, onclick: () => openQuoteBook(b.id), 'aria-label': `${b.title}: ${n} ${plural(n, ['цитата', 'цитаты', 'цитат'])}` },
       h('span', { class: 'qg-card' },
         h('span', { class: 'qg-top' }, coverEl(b),
           h('span', { class: 'qg-meta' }, h('b', null, b.title), h('small', null, authorsStr(b))),
@@ -3460,7 +3661,7 @@ async function openReader(book, src, jump) {
   if (!content || !content.chapters || !content.chapters.length) { toast('Текст этой книги не найден на устройстве. Удалите её и добавьте файл заново.', { tone: 'error' }); return; }
   sheets.slice().forEach((s) => s.close(true));
   R.book = book; R.content = content; R.idMap = null; R.textCache.clear(); R.editing = false; R.dirty = false;
-  book.quotes = book.quotes || []; book.bookmarks = book.bookmarks || [];
+  book.quotes = book.quotes || []; book.bookmarks = book.bookmarks || []; book.notes = Array.isArray(book.notes) ? book.notes : [];
   recalcLengths();
   statsStart(book, R.total);
   R.libScroll = window.scrollY;
@@ -3489,6 +3690,7 @@ async function openReader(book, src, jump) {
 }
 
 async function closeReader() {
+  stopChapterTransition();
   stopBookOpening();
   if(!R.book)return;
   if (R.editing) { const ok = await leaveEditing(); if (!ok) return; }
@@ -3560,7 +3762,7 @@ function readerMenu() {
     title: R.book.title,
     body: h('div', { class: 'group menu-list' },
       h('button', { onclick: () => { s.close(true); openNav('find'); } }, icon('search'), 'Поиск по книге'),
-      h('button', { onclick: () => { s.close(true); openNav('notes'); } }, icon('quote'), 'Цитаты и закладки'),
+      h('button', { onclick: () => { s.close(true); openNav('notes'); } }, icon('pen'), 'Блокнот: цитаты и мысли'),
       h('button', { onclick: () => { s.close(true); openMetaEditor(R.book); } }, icon('info'), 'Данные книги'),
       h('button', { onclick: () => { s.close(true); exportBook(R.book); } }, icon('down'), 'Скачать файл')),
   });
@@ -3604,6 +3806,7 @@ function renderPager() {
 
 /* ---------- layout: pages or continuous scroll ---------- */
 function layout() {
+  stopChapterTransition();
   const rd = $('#reader'), main = $('#r-main'), vp = $('#r-vp'), c = rc();
   const paged = isPaged();
   rd.classList.toggle('paged', paged);
@@ -3686,7 +3889,33 @@ function blockPage(el) {
   const r = el.getClientRects()[0] || el.getBoundingClientRect();
   return clamp(Math.floor((r.left - cr.left + 2) / R.step), 0, R.pages - 1);
 }
+let chapterTransition = null;
+function stopChapterTransition(){if(chapterTransition)chapterTransition()}
+function captureChapterFrame(opt){
+  stopChapterTransition();
+  if(!R.book||!isPaged()||bookOpeningBusy||reduceMotion()||document.hidden||!(opt.enter||opt.fade)||!rc().children.length)return null;
+  const vp=$('#r-vp'),rect=vp.getBoundingClientRect();if(!rect.width||!rect.height)return null;
+  const frame=h('div',{class:'reader paged chapter-frame','aria-hidden':'true'}),copy=vp.cloneNode(true);
+  frame.inert=true;copy.removeAttribute('id');copy.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+  const c=copy.querySelector('.r-content'),style=getComputedStyle(rc());c.style.transition='none';c.style.animation='none';c.style.transform=style.transform;c.style.opacity=style.opacity;
+  const readerStyle=getComputedStyle($('#reader'));
+  frame.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;min-height:0;overflow:hidden;pointer-events:none;z-index:25;--r-bg:${readerStyle.getPropertyValue('--r-bg')};--r-fg:${readerStyle.getPropertyValue('--r-fg')};`;
+  frame.append(copy);return frame;
+}
+function revealChapterFrame(frame,direction){
+  if(!frame)return;
+  // Move the two clipped pages in lockstep rather than crossfading text on text.
+  const vp=$('#r-vp'),distance=(vp.getBoundingClientRect().width+(R.gap||56))*Math.sign(direction||1);
+  document.body.append(frame);let ended=false,timer;const media=matchMedia('(prefers-reduced-motion: reduce)');
+  const options={duration:560,easing:'cubic-bezier(.25,.1,.25,1)',fill:'both'};
+  const outgoing=frame.animate([{transform:'none'},{transform:`translate3d(${-distance}px,0,0)`}],options);
+  const incoming=vp.animate([{transform:`translate3d(${distance}px,0,0)`},{transform:'none'}],options);
+  const cleanup=()=>{if(ended)return;ended=true;clearTimeout(timer);outgoing.cancel();incoming.cancel();frame.remove();window.removeEventListener('resize',cleanup);document.removeEventListener('visibilitychange',hidden);media.removeEventListener('change',reduced);if(chapterTransition===cleanup)chapterTransition=null};
+  const hidden=()=>{if(document.hidden)cleanup()},reduced=e=>{if(e.matches)cleanup()};chapterTransition=cleanup;window.addEventListener('resize',cleanup);document.addEventListener('visibilitychange',hidden);media.addEventListener('change',reduced);Promise.all([outgoing.finished.catch(()=>{}),incoming.finished.catch(()=>{})]).then(cleanup);timer=setTimeout(cleanup,750);
+}
+
 function setPage(n, opt = {}) {
+  stopChapterTransition();
   const c = rc();
   const targetPage = clamp(n, 0, R.pages - 1);
   if (targetPage !== R.page) { window.getSelection()?.removeAllRanges(); hideQbar(); }
@@ -3694,13 +3923,13 @@ function setPage(n, opt = {}) {
   const x = -R.page * R.step;
   if (opt.enter && !reduceMotion()) {
     c.style.transition = 'none';
-    c.style.transform = `translate3d(${x + opt.enter * R.step * 0.35}px,0,0)`;
+    c.style.transform = `translate3d(${x + opt.enter * Math.min(22, R.step * 0.06)}px,0,0)`;
     c.style.opacity = '0';
     void c.offsetWidth;
-    c.style.transition = 'transform .42s var(--ease), opacity .3s ease';
+    c.style.transition = 'transform .54s cubic-bezier(.25,.1,.25,1), opacity .42s ease';
     c.style.opacity = '1';
   } else {
-    c.style.transition = opt.animate && !reduceMotion() ? 'transform .36s var(--ease)' : 'none';
+    c.style.transition = opt.animate && !reduceMotion() ? 'transform .52s cubic-bezier(.25,.1,.25,1)' : 'none';
     c.style.opacity = '1';
   }
   c.style.transform = `translate3d(${x}px,0,0)`;
@@ -3742,6 +3971,7 @@ function scrollToEl(el, center) {
 }
 function goTo(ch, opt = {}) {
   if (R.editing) return;
+  const outgoingPage = captureChapterFrame(opt);
   R.ch = clamp(ch, 0, R.content.chapters.length - 1);
   R.page = 0;
   renderChapter();
@@ -3757,7 +3987,8 @@ function goTo(ch, opt = {}) {
     else if (target) page = blockPage(target);
     else if (opt.block) page = blockPage(R.blocks[clamp(opt.block, 0, R.blocks.length - 1)]) + (opt.off || 0);
     else if (opt.atEnd) page = R.pages - 1;
-    setPage(page, { enter: opt.enter || (opt.fade ? 1 : 0) });
+    setPage(page, { enter: outgoingPage ? 0 : opt.enter || (opt.fade ? 1 : 0) });
+    revealChapterFrame(outgoingPage,opt.enter || 1);
     return;
   }
   window.scrollTo({ top: 0, behavior: 'instant' });
@@ -3902,7 +4133,7 @@ window.addEventListener('resize', debounce(() => { if (R.book && !$('#reader').h
     acc += Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
     const now = performance.now();
     if (now < wheelLock) { acc = 0; return; }
-    if (acc > 40) { nextPage(); wheelLock = now + 380; acc = 0; } else if (acc < -40) { prevPage(); wheelLock = now + 380; acc = 0; }
+    if (acc > 40) { nextPage(); wheelLock = now + 530; acc = 0; } else if (acc < -40) { prevPage(); wheelLock = now + 530; acc = 0; }
   }, { passive: false });
 })();
 
@@ -4077,7 +4308,7 @@ function onSelection() {
   QS.snapshot = selectionSnapshot(); QS.quoteId = null;
   QS.ignoreTapUntil = performance.now() + 400; clearTimeout(QS.tapTimer);
   if (QS.dragging) { $('#qbar').hidden = true; return; }
-  qbarButtons([['quote', 'Цитата', saveQuote], ['copy', 'Копировать', copySelection]], 'selection');
+  qbarButtons([['quote', 'Цитата', saveQuote], ['pen', 'Мысль', noteFromSelection], ['copy', 'Копировать', copySelection]], 'selection');
   placeQbar(visibleQuoteRect(r.getClientRects()));
 }
 function scheduleSelection() { clearTimeout(QS.timer); QS.timer = setTimeout(onSelection, 120); }
@@ -4139,6 +4370,7 @@ function showQbarForQuote(m) {
   const q = book.quotes.find(x => x.id === id); if (!q) return;
   if(!QS.touch)QS.snapshot=null;QS.quoteId = id;
   qbarButtons([
+    ['pen', 'Мысль', () => noteForQuote(book, q)],
     ['copy', 'Копировать', async () => {
       if (QS.busy) return; setQuoteBusy(true);
       try { const ok = await copyText(citeOf(q.text, book)); hideQbar(); toast(ok ? 'Скопировано' : 'Не удалось скопировать'); }
@@ -4309,7 +4541,7 @@ function paintTouchSelection(){
   }
   if(QS.dragging||QT.drag){$('#qbar').hidden=true;return;}
   if(QS.quoteId){const m=$$('mark.q',rc()).find(m=>m.dataset.q===QS.quoteId);if(m)showQbarForQuote(m);}
-  else qbarButtons([['quote','Цитата',saveQuote],['copy','Копировать',copySelection]],'selection');
+  else qbarButtons([['quote','Цитата',saveQuote],['pen','Мысль',noteFromSelection],['copy','Копировать',copySelection]],'selection');
   placeQbar(visibleQuoteRect(rects.map(r=>({...r,width:r.right-r.left,height:r.bottom-r.top}))));
 }
 (function touchQuoteGestures(){
@@ -4390,6 +4622,128 @@ function jump(ch, anchor) {
   toast('Перешли по ссылке', { action: { label: 'Вернуться', fn: () => goTo(back.ch, { block: back.block, off: back.off, fade: true }) }, timeout: 6000 });
 }
 
+
+/* ================= reader notebook: quotes, thoughts and existing bookmarks ================= */
+function noteForQuote(book, quote, onSaved) {
+  const note = (book.notes || []).find(n => n.quoteId === quote.id);
+  getSelection()?.removeAllRanges();hideQbar();
+  setTimeout(()=>editNotebookNote({book,note,quote,onSaved}),0);
+}
+function noteFromSelection() {
+  const snapshot = selectionSnapshot() || QS.snapshot;
+  if (!validSnapshot(snapshot) || QS.busy) return;
+  // Copy offsets/text before the keyboard or sheet collapses the native selection.
+  const anchor = {...snapshot};
+  const quote = anchor.book.quotes.find(q => q.ch === anchor.ch && q.start === anchor.start && q.end === anchor.end);
+  const note = quote && (anchor.book.notes || []).find(n => n.quoteId === quote.id);
+  getSelection()?.removeAllRanges(); hideQbar();
+  // Open after the compatibility click, otherwise a touch can fall through to the new scrim.
+  setTimeout(()=>editNotebookNote({book:anchor.book,note,quote,snapshot:anchor}),0);
+}
+function editNotebookNote({book=R.book,note=null,quote=null,snapshot=null,onSaved}={}) {
+  if (!book) return;
+  const anchor = snapshot || quote || note;
+  const quoted = snapshot?.text || quote?.text || note?.quoteText || '';
+  const original = note?.text || '';
+  const fieldId='notebook-'+uid();
+  const text = h('textarea',{id:fieldId,placeholder:quoted?'Что вы думаете об этом фрагменте?':'Мысль, вопрос или впечатление о книге…',maxlength:'20000',rows:'8',autofocus:true});
+  text.value=original;
+  const error=h('p',{class:'nb-error',role:'alert',hidden:true});
+  const count=h('small',{class:'nb-count'},`${text.value.length} / 20 000`);
+  const label=h('label',{for:fieldId},'Моя мысль');
+  const body=h('div',{class:'note-editor'},quoted?h('blockquote',{class:'nb-source'},quoted):null,h('div',{class:'field'},label,text),count,error);
+  let editor,saving=false,confirming=false;
+  const discard=()=>{
+    if(saving)return false;
+    if(text.value===original)return true;
+    if(!confirming){confirming=true;confirmSheet({title:'Не сохранять заметку?',text:'Введённый текст будет потерян.',ok:'Не сохранять',cancel:'Продолжить писать',danger:true}).then(ok=>{confirming=false;if(ok)editor.close(true)});}
+    return false;
+  };
+  const save=h('button',{class:'txt-btn strong',onclick:async()=>{
+    const value=text.value.trim();
+    if(!value){error.hidden=false;error.textContent='Напишите мысль перед сохранением.';text.setAttribute('aria-invalid','true');text.focus();return;}
+    if(saving)return;saving=true;save.disabled=true;
+    const oldNotes=book.notes,oldQuotes=book.quotes;
+    const notes=[...(book.notes || [])],quotes=[...(book.quotes || [])];
+    let related=quote || (note?.quoteId && quotes.find(q=>q.id===note.quoteId));
+    if(snapshot&&!related){
+      related=quotes.find(q=>q.ch===snapshot.ch&&q.start===snapshot.start&&q.end===snapshot.end);
+      if(!related){related={id:uid(),ch:snapshot.ch,start:snapshot.start,end:snapshot.end,block:snapshot.block,text:snapshot.text,rawText:snapshot.rawText,at:Date.now()};quotes.push(related);}
+    }
+    const next={...(note || {}),id:note?.id || uid(),text:value,ch:anchor?.ch ?? (R.book===book?R.ch:0),block:anchor?.block ?? (R.book===book?curPos().block:0),at:note?.at || Date.now(),updatedAt:Date.now(),quoteId:related?.id || note?.quoteId || null,quoteText:quoted,start:related?.start ?? note?.start ?? -1};
+    const i=notes.findIndex(n=>n.id===next.id);if(i<0)notes.push(next);else notes[i]=next;
+    book.notes=notes;book.quotes=quotes;
+    try{
+      await persistBook(book);editor.close(true);
+      if(R.book===book&&R.content){paintQuotes();R.blocks=[...rc().querySelectorAll(BLOCK_SEL)];}
+      libraryTabCache.clear();onSaved?.();toast('Мысль сохранена');
+    }catch(e){book.notes=oldNotes;book.quotes=oldQuotes;error.hidden=false;error.textContent='Не удалось сохранить. Текст остаётся здесь — попробуйте ещё раз.';}
+    finally{saving=false;save.disabled=false;}
+  }},'Сохранить');
+  text.addEventListener('input',()=>{count.textContent=`${text.value.length} / 20 000`;error.hidden=true;text.removeAttribute('aria-invalid')});
+  text.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&(e.key==='Enter'||e.key.toLowerCase()==='s')){e.preventDefault();save.click()}});
+  editor=openSheet({title:'Мысль',label:note?'Изменить мысль':'Новая мысль',tall:true,cls:'nb-editor-sheet',body,left:h('button',{class:'txt-btn',onclick:()=>editor.close()},'Отмена'),right:save,beforeClose:discard});
+  // Keep the editor and its Save action above the mobile keyboard.
+  const viewport=window.visualViewport;
+  const fitEditor=()=>{
+    if(innerWidth>=720){for(const name of ['bottom','height','max-height'])editor.panel.style.removeProperty(name);return;}
+    const gap=viewport?Math.max(0,innerHeight-viewport.height-viewport.offsetTop):0;
+    if(gap>80){editor.panel.style.bottom=gap+'px';editor.panel.style.height=Math.max(180,viewport.height-12)+'px';editor.panel.style.maxHeight=Math.max(180,viewport.height-12)+'px';}
+    else for(const name of ['bottom','height','max-height'])editor.panel.style.removeProperty(name);
+  };
+  viewport?.addEventListener('resize',fitEditor);viewport?.addEventListener('scroll',fitEditor);fitEditor();
+  const closeEditor=editor.close;
+  editor.close=silent=>{closeEditor(silent);if(!sheets.includes(editor)){viewport?.removeEventListener('resize',fitEditor);viewport?.removeEventListener('scroll',fitEditor)}};
+  return editor;
+}
+function notebookPane(book, close) {
+  let filter='all',query='',motion=null;
+  const input=h('input',{type:'search',placeholder:'Искать в блокноте','aria-label':'Искать в блокноте',autocomplete:'off'});
+  const chips=h('div',{class:'nb-filters',role:'group','aria-label':'Записи блокнота'});
+  const results=h('div',{class:'nb-results','aria-live':'polite'});
+  const add=h('button',{class:'btn ghost nb-add',onclick:()=>editNotebookNote({book,onSaved:()=>draw()})},icon('pen','sm'),'Новая мысль');
+  const pane=h('section',{class:'notebook'},h('div',{class:'search nb-search'},icon('search','sm'),input),chips,add,results);
+  const chapter=i=>R.content?.chapters[i]?.title || 'Книга';
+  const move=(item,quoteId)=>{close();if(R.book===book){const q=quoteId&&book.quotes.find(q=>q.id===quoteId);goTo(item.ch,{quote:q&&q.start>=0?q.id:undefined,block:item.block || 0,fade:true});}};
+  const remove=async(type,item)=>{
+    const field={quote:'quotes',note:'notes',bookmark:'bookmarks'}[type];
+    const ok=await confirmSheet({title:type==='note'?'Удалить мысль?':type==='quote'?'Удалить цитату?':'Удалить закладку?',text:type==='quote'?'Мысли к этому фрагменту останутся в блокноте.':'Запись можно будет вернуть сразу после удаления.',ok:'Удалить',danger:true});
+    if(!ok)return;
+    const previous=book[field];book[field]=previous.filter(x=>x!==item);
+    try{await persistBook(book);if(R.book===book){paintQuotes();R.blocks=[...rc().querySelectorAll(BLOCK_SEL)];onScroll()}draw();toast('Запись удалена',{action:{label:'Вернуть',fn:async()=>{const current=book[field];book[field]=[...current,item];try{await persistBook(book);if(R.book===book){paintQuotes();R.blocks=[...rc().querySelectorAll(BLOCK_SEL)];onScroll()}draw()}catch(e){book[field]=current}}}})}catch(e){book[field]=previous}
+  };
+  function card(type,item){
+    const quote=type==='note'&&item.quoteId?book.quotes.find(q=>q.id===item.quoteId):null;
+    const fragment=type==='quote'?item.text:type==='note'?(quote?.text||item.quoteText):item.text;
+    const ownThoughts=type==='quote'&&filter==='quotes'?(book.notes||[]).filter(n=>n.quoteId===item.id):[];
+    const label={quote:'Цитата',note:'Заметка',bookmark:'Закладка'}[type];
+    const actions=h('div',{class:'nb-actions'},h('button',{class:'link-btn',onclick:()=>move(item,type==='quote'?item.id:item.quoteId)},'К фрагменту',icon('next','sm')),
+      type==='bookmark'?null:h('button',{class:'icon-btn','aria-label':type==='note'?'Изменить мысль':'Добавить мысль',onclick:()=>type==='note'?editNotebookNote({book,note:item,onSaved:()=>draw()}):noteForQuote(book,item,()=>draw())},icon('pen','sm')),
+      h('button',{class:'icon-btn','aria-label':'Копировать запись',onclick:async()=>toast((await copyPlain(type==='note'?`${fragment?'«'+fragment+'»\n\n':''}${item.text}`:quoteCite(item,book)))?'Скопировано':'Не удалось скопировать')},icon('copy','sm')),
+      h('button',{class:'icon-btn','aria-label':`Удалить ${type==='note'?'мысль':type==='quote'?'цитату':'закладку'}`,onclick:()=>remove(type,item)},icon('trash','sm')));
+    return h('article',{class:'nb-card','data-notebook-kind':type,'data-notebook-id':item.id || ''},
+      h('div',{class:'nb-meta'},h('span',null,label),h('time',null,fmtDate(item.at || Date.now()))),
+      fragment?h('blockquote',{class:'nb-source'},fragment):null,
+      type==='note'?h('p',{class:'nb-thought'},item.text):null,
+      ...ownThoughts.map(n=>h('button',{class:'q-thought',onclick:()=>editNotebookNote({book,note:n,onSaved:()=>draw()})},h('small',null,'Моя мысль'),h('span',null,n.text))),
+      h('small',{class:'nb-chapter'},chapter(item.ch)),actions);
+  }
+  function draw(animate=false){
+    motion?.cancel();
+    const quotes=book.quotes||[],notes=book.notes||[],marks=book.bookmarks||[];
+    const counts={all:quotes.length+notes.length+marks.length,quotes:quotes.length,notes:notes.length,bookmarks:marks.length};
+    const chipScroll=chips.scrollLeft;
+    chips.replaceChildren(...[['all','Все'],['quotes','Цитаты'],['notes','Заметки'],['bookmarks','Закладки']].map(([key,label])=>h('button',{'data-notebook-filter':key,'aria-pressed':String(filter===key),onclick:()=>{filter=key;draw(true);chips.querySelector(`[data-notebook-filter="${key}"]`)?.focus({preventScroll:true})}},label,h('span',null,counts[key]))));
+    chips.scrollLeft=chipScroll;
+    const active=chips.querySelector('[aria-pressed=true]');if(active&&active.offsetLeft+active.offsetWidth>chips.scrollLeft+chips.clientWidth)chips.scrollLeft=active.offsetLeft+active.offsetWidth-chips.clientWidth;else if(active&&active.offsetLeft<chips.scrollLeft)chips.scrollLeft=active.offsetLeft;
+    const items=[...quotes.map(item=>({type:'quote',item,key:'quotes'})),...notes.map(item=>({type:'note',item,key:'notes'})),...marks.map(item=>({type:'bookmark',item,key:'bookmarks'}))].filter(({key,item})=>(filter==='all'||filter===key)&&[item.text,item.quoteText,chapter(item.ch)].filter(Boolean).join(' ').toLocaleLowerCase('ru').includes(query.toLocaleLowerCase('ru'))).sort((a,b)=>(b.item.updatedAt||b.item.at||0)-(a.item.updatedAt||a.item.at||0));
+    results.replaceChildren(...items.map(({type,item})=>card(type,item)));
+    if(!items.length)results.append(h('div',{class:'nb-empty'},icon(query?'search':'pen'),h('h3',null,query?'Ничего не найдено':counts.all?'Здесь пока нет записей':'Ваш книжный блокнот'),h('p',null,query?'Попробуйте другое слово или выберите «Все».':'Сохраняйте цитаты, записывайте мысли к выделенному тексту или создайте отдельную заметку. Закладки тоже будут здесь.')));
+    if(animate&&!reduceMotion()&&!document.hidden)motion=results.animate([{opacity:.2,transform:'translateY(8px)'},{opacity:1,transform:'none'}],{duration:360,easing:'cubic-bezier(.25,.1,.25,1)'});
+  }
+  input.addEventListener('input',()=>{query=input.value.trim();draw()});draw();return pane;
+}
+
 /* ---------- navigation sheet: contents, notes, search ---------- */
 function chapterText(i) {
   if (!R.textCache.has(i)) { const d = new DOMParser().parseFromString('<body>' + R.content.chapters[i].html.replace(/<\/(p|h[1-6]|li|div|blockquote|section|td|th)>|<br\s*\/?>/gi, '$& '), 'text/html'); R.textCache.set(i, d.body.textContent.replace(/\s+/g, ' ')); }
@@ -4399,7 +4753,7 @@ function openNav(tab = 'toc') {
   const seg = h('div', { class: 'seg', role: 'tablist' });
   const pane = h('div', { class: 'pad-top' });
   let s;
-  const tabs = [['toc', 'Оглавление'], ['notes', 'Заметки'], ['find', 'Поиск']];
+  const tabs = [['toc', 'Оглавление'], ['notes', 'Блокнот'], ['find', 'Поиск']];
   const chName = (i) => (R.content.chapters[i] ? R.content.chapters[i].title : '');
   const show = (k) => {
     tab = k;
@@ -4412,24 +4766,7 @@ function openNav(tab = 'toc') {
       pane.append(ul);
       requestAnimationFrame(() => { const c = $('.cur', ul); if (c) c.scrollIntoView({ block: 'center' }); });
     } else if (k === 'notes') {
-      const quotes = R.book.quotes.slice().sort((a, b) => a.ch - b.ch || a.start - b.start);
-      const marks = R.book.bookmarks.slice().sort((a, b) => a.ch - b.ch || a.block - b.block);
-      if (!quotes.length && !marks.length) { pane.append(h('p', { class: 'muted' }, 'Здесь появятся цитаты и закладки. Выделите текст, чтобы сохранить цитату, или нажмите значок закладки внизу экрана.')); return; }
-      if (quotes.length) {
-        pane.append(h('ul', { class: 'res' }, quotes.map((q) => h('li', { class: 'bmk' },
-            h('button', { onclick: () => { s.close(true); if (q.start >= 0) goTo(q.ch, { quote: q.id, fade: true }); else goTo(q.ch, { block: q.block, fade: true }); } },
-              h('span', { class: 'w' }, chName(q.ch) + ' · ' + fmtDate(q.at) + (q.start < 0 ? ' · текст главы изменён' : '')),
-              h('span', { class: 'qt' }, q.text)),
-            h('button', { class: 'icon-btn', 'aria-label': 'Копировать цитату', onclick: async () => { const ok = await copyText(citeOf(q.text)); toast(ok ? 'Скопировано' : 'Не удалось скопировать'); } }, icon('copy', 'sm')),
-            h('button', { class: 'icon-btn', 'aria-label': 'Удалить цитату', onclick: async e => { e.currentTarget.disabled = true; await removeQuote(q.id); if (pane.isConnected) show('notes'); } }, icon('trash', 'sm'))))));
-      }
-      if (marks.length) {
-        pane.append(h('div', { class: 'group-title', style: 'margin-top:22px' }, `Закладки · ${marks.length}`),
-          h('ul', { class: 'res' }, marks.map((b) => h('li', { class: 'bmk' },
-            h('button', { onclick: () => { s.close(true); goTo(b.ch, { block: b.block, fade: true }); } },
-              h('span', { class: 'w' }, chName(b.ch) + ' · ' + fmtDate(b.at)), h('span', { class: 's' }, b.text)),
-            h('button', { class: 'icon-btn', 'aria-label': 'Удалить закладку', onclick: () => { R.book.bookmarks = R.book.bookmarks.filter((x) => x !== b); persistBook(R.book).catch(() => {}); onScroll(); show('notes'); } }, icon('trash', 'sm'))))));
-      }
+      pane.append(notebookPane(R.book, () => s.close(true)));
     } else {
       const input = h('input', { type: 'search', id: 'book-q', placeholder: 'Слово или фраза', autocomplete: 'off', enterkeyhint: 'search' });
       input.value = R.lastQuery || '';
@@ -4877,6 +5214,7 @@ function flameSvg(state, num) {
 /* ---------- profile screen ---------- */
 let profileRange = 7;
 function openProfile() {
+  stopQuoteBookMotion();
   stopReadingSectionMotion();
   $('#lib').hidden = true; $('#profile').hidden = false; $('#tabbar').hidden = true; $('#btn-add').hidden = true;
   window.scrollTo(0, 0); renderProfile(); playIn($('#profile .wrap'), 'push-in'); libScrollChrome();
@@ -4928,28 +5266,21 @@ function renderProfile() {
   if (celebrate) { countUp(num, st.current, (v) => String(Math.round(v)), 900); setTimeout(() => num.classList.add('pop'), 920); }
   else num.textContent = String(st.current);
 
-  /* tiles */
-  const tiles = [
-    ['Всего за всё время', tot.ms, (v) => fmtDur(v, true), tot.first ? `с ${fmtDate(tot.first).replace(/ \d{4} г\.?$/, '')}` : 'Пока ни минуты'],
-    ['Сегодня', today.ms, (v) => fmtDur(v, true), `цель — ${ST.data.goal} мин`],
-    ['Скорость', speed, (v) => (speed ? Math.round(v) + '' : '—'), speed ? 'слов в минуту' : 'посчитаем после пары минут чтения'],
-    ['Прочитано', tot.chars / CHARS_PER_PAGE, (v) => Math.round(v) + '', plural(Math.round(tot.chars / CHARS_PER_PAGE), ['страница', 'страницы', 'страниц'])],
-  ];
-  const grid = h('section', { class: 'tiles' });
-  tiles.forEach(([label, val, fmt, sub], i) => {
-    const n = h('b', null, fmt(0));
-    grid.append(h('div', { class: 'stile card', style: `--i:${i}` }, h('span', { class: 'tl' }, label), n, h('span', { class: 'ts' }, sub)));
-    countUp(n, val, fmt, 1000);
-  });
-  main.append(grid);
+  /* overview tiles: each number carries its own small chart */
+  main.append(overviewTiles(tot, today, goal, speed));
 
   /* activity chart */
   main.append(activityCard());
+
+  /* calendar heatmap and weekly rhythm */
+  main.append(heatmapCard(tot));
+  main.append(rhythmCard());
 
   /* books */
   const rows = Object.entries(ST.data.books).filter(([, b]) => b.ms >= 30000).sort((a, b) => b[1].ms - a[1].ms);
   const maxMs = rows.length ? rows[0][1].ms : 1;
   const list = h('div', { class: 'blist' });
+  const booksDonut = rows.length ? bookShareDonut(rows) : null;
   if (!rows.length) list.append(h('p', { class: 'muted', style: 'padding:18px 6px' }, 'Здесь появятся книги, которые вы читали, и сколько времени ушло на каждую.'));
   rows.forEach(([id, s], i) => {
     const book = state_book(id);
@@ -4964,10 +5295,15 @@ function renderProfile() {
         h('span', { class: 'bt' }, book ? book.title : s.title || 'Удалённая книга'),
         h('span', { class: 'bs' }, [fmtDur(s.ms), sp ? `${sp} сл/мин` : '', eta].filter(Boolean).join(' · ')),
         h('span', { class: 'share' }, bar)),
-      h('span', { class: 'bpct' }, book ? pct + '%' : ''));
+      book ? ringEl(pct / 100, 38, 3.5, pct >= 100 ? '#34c27a' : '#f28a2e', pct + '%') : ringEl(0, 38, 3.5, 'var(--fg-3)', '—'));
     list.append(row);
   });
-  main.append(h('section', { class: 'card pad' }, h('div', { class: 'card-h' }, h('h2', null, 'Время по книгам'), rows.length ? h('span', null, `${rows.length} ${plural(rows.length, BOOKS)}`) : null), list));
+  main.append(h('section', { class: 'card pad' }, h('div', { class: 'card-h' }, h('h2', null, 'Время по книгам'), rows.length ? h('span', null, `${rows.length} ${plural(rows.length, BOOKS)}`) : null),
+    booksDonut, booksDonut ? h('h3', { class: 'sub-h' }, 'Прогресс и темп') : null, list));
+
+  /* library composition and achievements */
+  main.append(libraryCard());
+  main.append(achievementsCard(st, tot));
 
   /* records */
   main.append(h('section', { class: 'records' },
@@ -4985,6 +5321,242 @@ function renderProfile() {
 function rec(label, value) { return h('div', { class: 'rec card' }, h('b', null, value), h('span', null, label)); }
 function booksDone() { return state.books.filter((b) => pctOf(b) >= 100).length; }
 function state_book(id) { return state.books.find((b) => b.id === id) || null; }
+
+/* ---------- profile infographics ---------- */
+const IG_COLORS = ['#f28a2e', '#6f9dff', '#34c27a', '#c77dff', '#ffc93c', '#ff6b8a', '#2ec5d3', '#8e8e93'];
+const WD_MON = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const MON_SHORT = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+let igSeq = 0;
+function dayAgo(i) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); return d; }
+function daySeries(n, field = 'ms') { const out = []; for (let i = n - 1; i >= 0; i--) { const r = ST.data.days[dayKey(dayAgo(i))]; out.push(r ? r[field] || 0 : 0); } return out; }
+function sumRange(from, to) { let s = 0; for (let i = from; i < to; i++) { const r = ST.data.days[dayKey(dayAgo(i))]; if (r) s += r.ms || 0; } return s; }
+function trendChip(cur, prev) {
+  if (!cur && !prev) return null;
+  if (!prev) return h('span', { class: 'trend up', title: 'Раньше вы не читали' }, '↑ новое');
+  const p = Math.round(((cur - prev) / prev) * 100);
+  const cls = p > 2 ? 'up' : p < -2 ? 'down' : 'flat';
+  return h('span', { class: 'trend ' + cls, title: 'По сравнению с прошлым периодом' }, (cls === 'up' ? '↑ +' : cls === 'down' ? '↓ ' : '→ ') + p + '%');
+}
+function animDash(el, val) {
+  if (reduceMotion()) { el.style.strokeDasharray = `${val} 100`; return; }
+  el.style.strokeDasharray = '0 100';
+  requestAnimationFrame(() => requestAnimationFrame(() => { el.style.strokeDasharray = `${val} 100`; }));
+}
+function ringEl(frac, size, stroke, color, label) {
+  const r = (size - stroke) / 2, c = size / 2;
+  const svg = svgEl('svg', { class: 'ring', width: size, height: size, viewBox: `0 0 ${size} ${size}`, 'aria-hidden': 'true' });
+  const v = svgEl('circle', { class: 'rv', cx: c, cy: c, r, 'stroke-width': stroke, stroke: color, pathLength: 100 });
+  svg.append(svgEl('circle', { class: 'rt', cx: c, cy: c, r, 'stroke-width': stroke }), v);
+  animDash(v, clamp(frac, 0, 1) * 100 || 0.001);
+  return h('span', { class: 'ring-wrap', style: `width:${size}px;height:${size}px` }, svg, label != null ? h('span', { class: 'rc' }, label) : null);
+}
+function donutEl(parts, size, stroke, center) {
+  const total = parts.reduce((a, p) => a + p.v, 0) || 1;
+  const r = (size - stroke) / 2, c = size / 2, gap = parts.length > 1 ? 1.2 : 0;
+  const svg = svgEl('svg', { class: 'donut', width: size, height: size, viewBox: `0 0 ${size} ${size}`, 'aria-hidden': 'true' });
+  svg.append(svgEl('circle', { class: 'dt', cx: c, cy: c, r, 'stroke-width': stroke }));
+  let acc = 0;
+  parts.forEach((p) => {
+    const len = (p.v / total) * 100;
+    if (len <= 0) return;
+    const seg = svgEl('circle', { class: 'dv', cx: c, cy: c, r, 'stroke-width': stroke, stroke: p.c, pathLength: 100, 'stroke-dashoffset': String(-acc) });
+    svg.append(seg); animDash(seg, Math.max(0.3, len - gap)); acc += len;
+  });
+  return h('div', { class: 'donut-wrap', style: `width:${size}px;height:${size}px` }, svg, h('div', { class: 'dc' }, center));
+}
+function sparkEl(vals, color) {
+  const id = 'sp' + (++igSeq), n = vals.length, max = Math.max(1, ...vals);
+  const pts = vals.map((v, i) => [n > 1 ? (i / (n - 1)) * 100 : 50, 31 - (v / max) * 27]);
+  // smooth line through the points
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 1; i < n; i++) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], mx = (x0 + x1) / 2; d += ` C${mx},${y0} ${mx},${y1} ${x1},${y1}`; }
+  const svg = svgEl('svg', { class: 'spark reveal', viewBox: '0 0 100 34', preserveAspectRatio: 'none', 'aria-hidden': 'true', style: `--c:${color}` });
+  const g = svgEl('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 });
+  g.append(svgEl('stop', { offset: '0', 'stop-color': color, 'stop-opacity': '.32' }), svgEl('stop', { offset: '1', 'stop-color': color, 'stop-opacity': '0' }));
+  const defs = svgEl('defs', {}); defs.append(g);
+  svg.append(defs, svgEl('path', { d: `${d} L100,34 L0,34 Z`, fill: `url(#${id})` }), svgEl('path', { class: 'sl', d }));
+  return svg;
+}
+function gaugeEl(frac, color) {
+  const svg = svgEl('svg', { class: 'gauge', viewBox: '0 0 100 58', 'aria-hidden': 'true' });
+  const arc = 'M10 52 A40 40 0 0 1 90 52';
+  const v = svgEl('path', { class: 'gv', d: arc, stroke: color, 'stroke-width': 9, pathLength: 100 });
+  const t = svgEl('text', { class: 'gp', x: 50, y: 50, 'text-anchor': 'middle' }); t.textContent = Math.round(frac * 100) + '%';
+  svg.append(svgEl('path', { class: 'gt', d: arc, 'stroke-width': 9, 'stroke-linecap': 'round' }), v, t);
+  animDash(v, clamp(frac, 0, 1) * 100 || 0.001);
+  return svg;
+}
+function igTile(i, color, iconName, label, valueEl, sub, viz) {
+  return h('div', { class: 'ig-tile card', style: `--i:${i};--c:${color}` },
+    h('div', { class: 'ig-head' }, h('span', { class: 'ig-ico' }, icon(iconName)), h('span', { class: 'tl' }, label)),
+    valueEl, h('span', { class: 'ts' }, sub), h('div', { class: 'ig-viz' }, viz));
+}
+function overviewTiles(tot, today, goal, speed) {
+  const grid = h('section', { class: 'ig-ov', 'aria-label': 'Сводка' });
+  const last14 = daySeries(14);
+  const b1 = h('b', null, '0');
+  countUp(b1, tot.ms, (v) => fmtDur(v, true), 1000);
+  grid.append(igTile(0, '#f28a2e', 'clock', 'Всего', b1, tot.first ? `с ${fmtDate(tot.first).replace(/ \d{4} г\.?$/, '')}` : 'Пока ни минуты', sparkEl(last14, '#f28a2e')));
+
+  const frac = goal ? today.ms / goal : 0;
+  const b2 = h('b', null, '0');
+  countUp(b2, today.ms, (v) => fmtDur(v, true), 1000);
+  grid.append(igTile(1, '#34c27a', 'target', 'Сегодня', b2, frac >= 1 ? 'цель выполнена' : `цель — ${ST.data.goal} мин`, gaugeEl(Math.min(1, frac), frac >= 1 ? '#34c27a' : '#f28a2e')));
+
+  const b3 = h('b', null, speed ? '0' : '—');
+  if (speed) countUp(b3, speed, (v) => String(Math.round(v)), 1000);
+  const x = clamp((speed || 0) / 400, 0.02, 0.98) * 100;
+  const scale = h('div', null, h('div', { class: 'scale', style: `--x:${speed ? x : 0}%;--m:50%` }, speed ? h('i') : null, h('u')), h('div', { class: 'scale-l' }, h('span', null, '0'), h('span', null, 'ср. 200'), h('span', null, '400+')));
+  grid.append(igTile(2, '#5b8cff', 'bolt', 'Скорость', b3, speed ? `слов/мин · ${speed >= 220 ? 'быстрее среднего' : speed >= 180 ? 'средний темп' : 'вдумчивый темп'}` : 'посчитаем после пары минут чтения', scale));
+
+  const pages = daySeries(14, 'chars').map((c) => c / CHARS_PER_PAGE);
+  const pmax = Math.max(1, ...pages);
+  const bars = h('div', { class: 'mbars', 'aria-hidden': 'true' }, pages.map((p, i) => h('i', { class: p > 0 ? 'on' : '', style: `--i:${i};height:${p > 0 ? Math.max(8, (p / pmax) * 100) : 6}%` })));
+  const totalPages = Math.round(tot.chars / CHARS_PER_PAGE);
+  const b4 = h('b', null, '0');
+  countUp(b4, totalPages, (v) => String(Math.round(v)), 1000);
+  grid.append(igTile(3, '#c77dff', 'pages', 'Прочитано', b4, `${plural(totalPages, ['страница', 'страницы', 'страниц'])} · 14 дней ниже`, bars));
+  return grid;
+}
+
+function heatmapCard() {
+  // as many weeks as fit with comfortable ~15px cells
+  const avail = (($('#pf-main') && $('#pf-main').clientWidth) || window.innerWidth) - 36 - 30;
+  const weeks = clamp(Math.floor(avail / 18), 12, 52);
+  const goal = goalMs();
+  const now = dayAgo(0), dow = (now.getDay() + 6) % 7;
+  const start = new Date(now); start.setDate(now.getDate() - dow - (weeks - 1) * 7);
+  const grid = h('div', { class: 'heat-grid', style: `--w:${weeks}`, role: 'img' });
+  const months = h('div', { class: 'heat-months', style: `--w:${weeks}`, 'aria-hidden': 'true' });
+  const info = h('span', null, 'Коснитесь дня, чтобы увидеть время');
+  let active = 0, met = 0, counted = 0, lastMonth = -1;
+  const fmtD = (d) => `${d.getDate()} ${['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'][d.getMonth()]}`;
+  for (let w = 0; w < weeks; w++) {
+    const wkStart = new Date(start); wkStart.setDate(start.getDate() + w * 7);
+    months.append(h('span', null, wkStart.getMonth() !== lastMonth && w < weeks - 1 ? MON_SHORT[wkStart.getMonth()] : ''));
+    lastMonth = wkStart.getMonth();
+    for (let d = 0; d < 7; d++) {
+      const day = new Date(wkStart); day.setDate(wkStart.getDate() + d);
+      const fut = day > now && dayKey(day) !== dayKey(now);
+      const ms = fut ? 0 : ((ST.data.days[dayKey(day)] || {}).ms || 0);
+      if (!fut) { counted++; if (ms >= 60000) active++; if (dayMet(dayKey(day))) met++; }
+      const lvl = fut || !ms ? '' : ms < goal * 0.5 ? ' l1' : ms < goal ? ' l2' : ms < goal * 2 ? ' l3' : ' l4';
+      const label = `${fmtD(day)}: ${ms ? fmtDur(ms) : 'не читали'}`;
+      const cell = h('span', { class: 'hc' + lvl + (fut ? ' fut' : '') + (dayKey(day) === dayKey(now) ? ' today' : ''), style: `--i:${w * 7 + d}`, title: fut ? null : label });
+      if (!fut) cell.addEventListener('click', () => { info.textContent = label; });
+      grid.append(cell);
+    }
+  }
+  grid.setAttribute('aria-label', `Календарь чтения за ${weeks} недель: ${active} дней с чтением`);
+  const pct = counted ? Math.round((active / counted) * 100) : 0;
+  const kpis = h('div', { class: 'kpis' },
+    h('div', { class: 'kpi' }, h('b', null, String(active)), h('span', null, plural(active, ['день', 'дня', 'дней']) + ' с чтением')),
+    h('div', { class: 'kpi' }, h('b', null, pct + '%'), h('span', null, 'регулярность')),
+    h('div', { class: 'kpi' }, h('b', null, String(met)), h('span', null, 'с выполненной целью')));
+  const legend = h('span', { class: 'heat-legend', 'aria-hidden': 'true' }, h('span', null, 'меньше'), ...['', ' l1', ' l2', ' l3', ' l4'].map((c) => h('i', { class: 'hc' + c })), h('span', null, 'больше'));
+  return h('section', { class: 'card pad', id: 'heatmap', 'data-weeks': weeks },
+    h('div', { class: 'card-h' }, h('h2', null, 'Календарь чтения'), h('span', null, weeks >= 52 ? 'за год' : `${weeks} нед.`)),
+    kpis,
+    h('div', { class: 'heat' },
+      h('div', { class: 'heat-days', 'aria-hidden': 'true' }, WD_MON.map((d, i) => h('span', null, i % 2 === 0 && i < 6 ? d : ''))),
+      h('div', { class: 'heat-body' }, months, grid)),
+    h('div', { class: 'heat-foot' }, info, legend));
+}
+
+// redraw the calendar when the screen width changes how many weeks fit
+window.addEventListener('resize', debounce(() => {
+  const el = $('#heatmap'); if (!el || $('#profile').hidden) return;
+  const next = heatmapCard();
+  if (next.dataset.weeks !== el.dataset.weeks) el.replaceWith(next);
+}, 200));
+function rhythmCard() {
+  const sums = [0, 0, 0, 0, 0, 0, 0], cnt = [0, 0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < 56; i++) { const d = dayAgo(i), w = (d.getDay() + 6) % 7; sums[w] += ((ST.data.days[dayKey(d)] || {}).ms || 0); cnt[w]++; }
+  const avg = sums.map((s, i) => s / Math.max(1, cnt[i]));
+  const max = Math.max(...avg), top = max > 0 ? avg.indexOf(max) : -1;
+  const sessions = Object.values(ST.data.books).reduce((a, b) => a + (b.sessions || 0), 0);
+  const tot = totals();
+  const avgSession = sessions ? tot.ms / sessions : 0;
+  const weekend = (avg[5] + avg[6]) / 2, weekday = avg.slice(0, 5).reduce((a, b) => a + b, 0) / 5;
+  const names = ['понедельникам', 'вторникам', 'средам', 'четвергам', 'пятницам', 'субботам', 'воскресеньям'];
+  const insight = top < 0 ? 'Почитайте несколько дней — и здесь появится ваш личный ритм.'
+    : null;
+  return h('section', { class: 'card pad' },
+    h('div', { class: 'card-h' }, h('h2', null, 'Ритм недели'), h('span', null, 'среднее за 8 нед.')),
+    h('div', { class: 'rhythm', role: 'list' }, avg.map((v, i) => h('div', { class: 'rh' + (i === top ? ' top' : ''), role: 'listitem', 'aria-label': `${WD_MON[i]}: в среднем ${fmtDur(v, true)}` },
+      h('span', { class: 'rv-l' }, v >= 30000 ? String(Math.round(v / 60000)) + 'м' : v > 0 ? '<1м' : ''),
+      h('span', { class: 'track' }, h('i', { style: `--i:${i};height:${max ? Math.max(v ? 6 : 0, (v / max) * 100) : 0}%` })),
+      h('span', { class: 'wl' }, WD_MON[i])))),
+    h('div', { class: 'ig-insight' }, icon('spark'), insight ? h('span', null, insight)
+      : h('span', null, 'Больше всего вы читаете по ', h('b', null, names[top]), '. ',
+        weekend > weekday * 1.15 ? 'Выходные — ваше время для книг. ' : weekday > weekend * 1.15 ? 'В будни вы читаете больше, чем в выходные. ' : 'Вы читаете ровно всю неделю. ',
+        avgSession ? ['Средняя сессия — ', h('b', null, fmtDur(avgSession, true)), '.'] : '')));
+}
+
+function bookShareDonut(rows) {
+  const total = rows.reduce((a, [, b]) => a + b.ms, 0);
+  const top = rows.slice(0, 5).map(([id, b], i) => { const book = state_book(id); return { n: book ? book.title : b.title || 'Удалённая книга', v: b.ms, c: IG_COLORS[i] }; });
+  const rest = rows.slice(5).reduce((a, [, b]) => a + b.ms, 0);
+  if (rest) top.push({ n: 'Другие', v: rest, c: IG_COLORS[7] });
+  const hrs = total / 3600000;
+  const center = [h('b', null, hrs >= 1 ? (hrs >= 10 ? Math.round(hrs) : hrs.toFixed(1).replace('.', ',')) : String(Math.round(total / 60000))), h('span', null, hrs >= 1 ? 'часов' : 'минут')];
+  return h('div', { class: 'ig-split', style: 'margin:6px 0 4px' }, donutEl(top, 132, 16, center),
+    h('ul', { class: 'legend' }, top.map((p, i) => h('li', { style: `--c:${p.c};--i:${i}` }, h('span', { class: 'sw' }), h('span', { class: 'ln' }, p.n), h('span', { class: 'lv' }, Math.round((p.v / total) * 100) + '%')))));
+}
+
+function libraryCard() {
+  const books = state.books || [];
+  const done = books.filter((b) => pctOf(b) >= 100).length;
+  const reading = books.filter((b) => { const p = pctOf(b); return p > 0 && p < 100; }).length;
+  const fresh = books.length - done - reading;
+  const parts = [{ n: 'Читаю', v: reading, c: '#f28a2e' }, { n: 'Прочитано', v: done, c: '#34c27a' }, { n: 'Не начато', v: fresh, c: '#8e8e93' }];
+  const shelves = {};
+  books.forEach((b) => { const s = b.shelf || 'Без полки'; shelves[s] = (shelves[s] || 0) + 1; });
+  const sh = Object.entries(shelves).sort((a, b) => b[1] - a[1]);
+  const shTop = sh.slice(0, 6), shRest = sh.slice(6).reduce((a, [, n]) => a + n, 0);
+  if (shRest) shTop.push(['Другие', shRest]);
+  const count = (k) => books.reduce((a, b) => a + ((b[k] && b[k].length) || 0), 0);
+  const q = count('quotes'), nt = count('notes'), bm = count('bookmarks');
+  if (!books.length) return h('section', { class: 'card pad' }, h('div', { class: 'card-h' }, h('h2', null, 'Библиотека')), h('p', { class: 'muted', style: 'padding:12px 6px' }, 'Добавьте книги — здесь появится состав библиотеки.'));
+  return h('section', { class: 'card pad' },
+    h('div', { class: 'card-h' }, h('h2', null, 'Библиотека'), h('span', null, `${books.length} ${plural(books.length, BOOKS)}`)),
+    h('div', { class: 'ig-split' },
+      donutEl(parts, 132, 16, [h('b', null, (books.length ? Math.round((done / books.length) * 100) : 0) + '%'), h('span', null, 'прочитано')]),
+      h('ul', { class: 'legend' }, parts.map((p, i) => h('li', { style: `--c:${p.c};--i:${i}` }, h('span', { class: 'sw' }), h('span', { class: 'ln' }, p.n), h('span', { class: 'lv' }, String(p.v)))))),
+    h('h3', { class: 'sub-h' }, 'Полки'),
+    h('div', { class: 'stack', role: 'img', 'aria-label': shTop.map(([n, c]) => `${n}: ${c}`).join(', ') }, shTop.map(([, c], i) => h('i', { style: `flex:${c};--c:${IG_COLORS[(i + 1) % 7]};--i:${i}` }))),
+    h('div', { class: 'chips-lg' }, shTop.map(([n, c], i) => h('span', { style: `--c:${IG_COLORS[(i + 1) % 7]}` }, n, ' ', h('em', null, String(c))))),
+    h('div', { class: 'counters' },
+      h('div', { class: 'counter' }, h('span', { class: 'ig-ico', style: '--c:#ffc93c' }, icon('quote')), h('b', null, String(q)), h('span', null, plural(q, ['цитата', 'цитаты', 'цитат']))),
+      h('div', { class: 'counter' }, h('span', { class: 'ig-ico', style: '--c:#5b8cff' }, icon('pen')), h('b', null, String(nt)), h('span', null, plural(nt, ['заметка', 'заметки', 'заметок']))),
+      h('div', { class: 'counter' }, h('span', { class: 'ig-ico', style: '--c:#ff6b8a' }, icon('bm')), h('b', null, String(bm)), h('span', null, plural(bm, ['закладка', 'закладки', 'закладок'])))));
+}
+
+function achievementsCard(st, tot) {
+  const books = state.books || [];
+  const quotes = books.reduce((a, b) => a + ((b.quotes && b.quotes.length) || 0), 0);
+  const hours = tot.ms / 3600000;
+  const speed = wpm(tot.chars, tot.ms);
+  const list = [
+    { n: 'Первый час', cur: hours, max: 1, ic: 'clock', fmt: (v) => fmtDur(Math.min(v, 1) * 3600000, true) + ' / 1 ч' },
+    { n: 'Неделя огня', cur: st.best, max: 7, flame: true },
+    { n: 'Месяц огня', cur: st.best, max: 30, flame: true },
+    { n: 'Марафон', cur: hours, max: 10, ic: 'target', fmt: (v) => Math.floor(Math.min(v, 10)) + ' / 10 ч' },
+    { n: 'Книжный червь', cur: booksDone(), max: 5, ic: 'book' },
+    { n: 'Коллекционер', cur: quotes, max: 25, ic: 'quote' },
+  ];
+  if (speed) list.push({ n: 'Скорочтец', cur: speed, max: 250, ic: 'bolt' });
+  const got = list.filter((a) => a.cur >= a.max).length;
+  return h('section', { class: 'card pad' },
+    h('div', { class: 'card-h' }, h('h2', null, 'Достижения'), h('span', null, `${got} из ${list.length}`)),
+    h('div', { class: 'ach' }, list.map((a, i) => {
+      const ok = a.cur >= a.max;
+      const ring = ringEl(a.cur / a.max, 64, 5, ok ? '#f28a2e' : 'var(--fg-3)', null);
+      ring.append(a.flame ? flameSvg(ok ? 'on' : 'off') : icon(a.ic));
+      return h('div', { class: 'badge' + (ok ? ' done' : ''), style: `--i:${i}`, role: 'img', 'aria-label': `${a.n}: ${ok ? 'получено' : 'в процессе'}` }, ring,
+        h('b', null, a.n), h('span', null, ok ? 'получено' : a.fmt ? a.fmt(a.cur) : `${Math.floor(Math.min(a.cur, a.max))} / ${a.max}`));
+    })));
+}
 
 function activityCard() {
   const days = profileRange;
@@ -5020,7 +5592,7 @@ function activityCard() {
   const empty = !sum ? h('p', { class: 'chart-empty' }, 'График заполнится, когда вы начнёте читать') : null;
   return h('section', { class: 'card pad', id: 'activity' },
     h('div', { class: 'card-h' }, h('h2', null, 'Активность'), seg),
-    h('p', { class: 'sum' }, h('b', null, fmtDur(sum, true)), ` за ${days === 7 ? 'неделю' : '30 дней'} · в среднем ${fmtDur(sum / days, true)} в день`),
+    h('p', { class: 'sum' }, h('span', null, h('b', null, fmtDur(sum, true)), ` за ${days === 7 ? 'неделю' : '30 дней'} · в среднем ${fmtDur(sum / days, true)} в день`), trendChip(sum, sumRange(days, days * 2))),
     h('div', { class: 'chart' }, plot, tip, empty), axis);
 }
 
@@ -5087,7 +5659,7 @@ async function seedSamples() {
     const xml = sampleFb2(s);
     const res = parseFb2Text(xml);
     const now = Date.now() - (s.shelf === 'Проза' ? 1000 : 0);
-    Object.assign(res.book, { id: uid(), fileName: s.id + '.fb2', size: new Blob([xml]).size, addedAt: now, openedAt: 0, progress: null, bookmarks: [], quotes: [], shelf: s.shelf, modifiedAt: 0, edits: 0, coverChanged: false, sample: true });
+    Object.assign(res.book, { id: uid(), fileName: s.id + '.fb2', size: new Blob([xml]).size, addedAt: now, openedAt: 0, progress: null, bookmarks: [], quotes: [], notes: [], shelf: s.shelf, modifiedAt: 0, edits: 0, coverChanged: false, sample: true });
     res.content.id = res.book.id;
     try { await DB.writeBatch([{ store: 'content', value: res.content }, { store: 'books', value: res.book }]); state.books.push(res.book); } catch (e) { /* storage unavailable */ }
   }
