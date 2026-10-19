@@ -289,7 +289,7 @@ input, textarea, select { font: inherit; color: inherit; }
 .pocket .glass i:nth-of-type(4) { right: 4.5cqw; bottom: 4.5cqw; }
 .pocket .lbl { font-size: 15px; font-weight: 500; }
 .pocket .lbl span { color: var(--fg-3); font-weight: 400; }
-.pocket .lbl span::before { content: "·"; margin: 0 7px; }
+.pocket .lbl span::before { content: "|"; margin: 0 7px; }
 
 /* shelf with planks */
 .shelf { display: grid; gap: 34px; --cols: 3; }
@@ -823,11 +823,11 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 .xaxis { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 2px; margin-top: 6px; font-size: 11px; color: var(--fg-3); text-align: center; font-variant-numeric: tabular-nums; }
 
 .blist { display: grid; }
-.brow { display: grid; grid-template-columns: 42px 1fr auto; gap: 14px; align-items: center; padding: 10px 0; text-align: left; animation: rise .5s var(--ease) backwards; animation-delay: calc(.2s + var(--i) * 50ms); }
+.brow { display: grid; grid-template-columns: 42px minmax(0, 1fr) 38px; gap: 14px; align-items: center; padding: 10px 0; text-align: left; animation: rise .5s var(--ease) backwards; animation-delay: calc(.2s + var(--i) * 50ms); }
 .brow + .brow { box-shadow: inset 0 .5px 0 var(--hair); }
 .brow .bm { display: grid; gap: 3px; min-width: 0; }
 .brow .bt { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.brow .bs { font-size: 12.5px; color: var(--fg-2); }
+.brow .bs { font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; color: var(--fg-2); }
 .brow .share { height: 4px; border-radius: 2px; background: var(--fill); overflow: hidden; margin-top: 3px; }
 .brow .share i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #f28a2e, #ffb43b); transition: width 1s cubic-bezier(.22, 1, .36, 1) .3s; }
 .brow .bpct { font-size: 13px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
@@ -840,7 +840,8 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 
 /* ---------- profile infographics ---------- */
 .ig-ov { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (min-width: 760px) { .ig-ov { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 760px) { .ig-ov { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 759px) { .ig-ov > :last-child { grid-column: 1 / -1; } }
 .ig-tile { position: relative; overflow: hidden; padding: 14px 14px 12px; display: grid; gap: 2px; align-content: start; min-height: 150px; animation: rise .55s var(--ease) backwards; animation-delay: calc(.1s + var(--i) * 60ms); }
 .ig-tile .ig-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; min-width: 0; }
 .ig-ico { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; flex: none; color: var(--c, #f28a2e); background: color-mix(in srgb, var(--c, #f28a2e) 16%, transparent); }
@@ -871,7 +872,6 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 .trend.down { color: #ff7a6b; background: rgba(255, 107, 97, .13); }
 .trend.flat { color: var(--fg-3); background: var(--fill); }
 .sum { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.badge .ring-wrap .flame { position: absolute; width: 22px; height: 28px; }
 
 /* rings, donuts */
 .ring, .donut { display: block; overflow: visible; transform: rotate(-90deg); }
@@ -882,13 +882,19 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 .ring-wrap > .rc { font-size: 10.5px; font-weight: 600; color: var(--fg-2); font-variant-numeric: tabular-nums; }
 
 /* split layout: donut + legend */
-.ig-split { display: grid; grid-template-columns: 132px 1fr; gap: 18px; align-items: center; }
-@media (max-width: 360px) { .ig-split { grid-template-columns: 112px 1fr; gap: 12px; } }
+.ig-split { display: grid; grid-template-columns: 132px minmax(0, 1fr); column-gap: 28px; row-gap: 22px; align-items: center; padding: 8px 0; min-width: 0; }
+.ig-split > .donut-wrap { justify-self: center; }
+.ig-split .donut { width: 100%; height: 100%; }
+.ig-split .donut-wrap > .dc { inset: 23px; min-width: 0; }
+@media (max-width: 600px) {
+  .ig-split { grid-template-columns: minmax(0, 1fr); }
+  .ig-split > .legend { width: 100%; }
+}
 .legend { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; min-width: 0; }
-.legend li { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; font-size: 14px; min-width: 0; animation: rise .45s var(--ease) backwards; animation-delay: calc(.2s + var(--i, 0) * 50ms); }
+.legend li { display: grid; grid-template-columns: 10px minmax(0, 1fr) max-content; column-gap: 10px; row-gap: 4px; align-items: center; font-size: 14px; min-width: 0; animation: rise .45s var(--ease) backwards; animation-delay: calc(.2s + var(--i, 0) * 50ms); }
 .legend .sw { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
-.legend .ln { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); }
-.legend .lv { color: var(--fg-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.legend .ln { min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.45; color: var(--fg); }
+.legend .lv { color: var(--fg-2); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
 
 /* stacked shelf bar */
 .stack { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; margin: 18px 0 12px; background: var(--fill); }
@@ -905,30 +911,6 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 .counter b { font: 600 20px/1.1 var(--f-display); font-variant-numeric: tabular-nums; }
 .counter span:last-child { font-size: 12px; color: var(--fg-3); }
 
-/* heatmap */
-.heat { display: grid; grid-template-columns: auto 1fr; gap: 6px; }
-.heat-days { display: grid; grid-template-rows: repeat(7, 1fr); gap: 3px; font-size: 10px; color: var(--fg-3); padding-top: 16px; }
-.heat-days span { display: flex; align-items: center; }
-.heat-body { min-width: 0; }
-.heat-months { display: grid; grid-template-columns: repeat(var(--w), 1fr); gap: 3px; height: 13px; margin-bottom: 3px; font-size: 10px; color: var(--fg-3); }
-.heat-months span { white-space: nowrap; overflow: visible; }
-.heat-grid { display: grid; grid-template-columns: repeat(var(--w), 1fr); grid-template-rows: repeat(7, 1fr); grid-auto-flow: column; gap: 3px; }
-.hc { aspect-ratio: 1; border-radius: 3px; background: var(--fill); animation: fade .4s ease backwards; animation-delay: calc(var(--i) * 4ms); }
-.hc.l1 { background: rgba(242, 138, 46, .28); }
-.hc.l2 { background: rgba(242, 138, 46, .5); }
-.hc.l3 { background: #f28a2e; }
-.hc.l4 { background: linear-gradient(180deg, #ffb43b, #e8562a); }
-.hc.fut { background: transparent; }
-.hc.today { box-shadow: 0 0 0 1.5px var(--fg-2); }
-.heat-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; font-size: 12px; color: var(--fg-3); flex-wrap: wrap; }
-.heat-legend { display: flex; align-items: center; gap: 3px; }
-.heat-legend .hc { width: 11px; animation: none; }
-.heat-legend span { margin: 0 4px; }
-.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
-.kpi { display: grid; gap: 2px; }
-.kpi b { font: 600 20px/1.1 var(--f-display); font-variant-numeric: tabular-nums; }
-.kpi span { font-size: 12px; color: var(--fg-3); line-height: 1.25; }
-
 /* weekday rhythm */
 .rhythm { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; height: 132px; align-items: end; margin-top: 8px; }
 .rh { height: 100%; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; gap: 6px; }
@@ -942,26 +924,12 @@ html.paged-lock, html.paged-lock body { overflow: hidden; height: 100%; overscro
 /* books: progress ring instead of percent */
 .brow .ring-wrap { width: 38px; height: 38px; }
 .brow .bpct:empty { width: 38px; }
-.heat-days { gap: 3px; }
-.heat-days span { font-size: 10px; line-height: 1; }
-.badge .ring-wrap .flame { margin-top: -2px; }
 
-/* achievements */
-.ach { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px 8px; }
-@media (min-width: 760px) { .ach { grid-template-columns: repeat(6, 1fr); } }
-.badge { display: grid; justify-items: center; gap: 6px; text-align: center; animation: rise .5s var(--ease) backwards; animation-delay: calc(.15s + var(--i) * 45ms); }
-.badge .ring-wrap { width: 64px; height: 64px; }
-.badge .ring-wrap .ic { position: absolute; width: 24px; height: 24px; color: var(--fg-3); }
-.badge.done .ring-wrap .ic { color: #f28a2e; }
-.badge.done .ring-wrap::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: rgba(242, 138, 46, .14); }
-.badge b { font-size: 13px; font-weight: 600; line-height: 1.2; }
-.badge span { font-size: 11.5px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
-.badge:not(.done) b { color: var(--fg-2); }
 .ig-insight { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: var(--fill); font-size: 13.5px; line-height: 1.4; color: var(--fg-2); }
 .ig-insight .ic { color: #f28a2e; width: 18px; height: 18px; margin-top: 1px; }
 .ig-insight b { color: var(--fg); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) {
-  .ig-tile, .legend li, .stack i, .hc, .rh .track i, .badge, .mbars i { animation: none !important; }
+  .ig-tile, .legend li, .stack i, .rh .track i, .mbars i { animation: none !important; }
   .spark.reveal { animation: none; clip-path: none; }
 }
 
@@ -1416,6 +1384,55 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 @media(prefers-reduced-motion:no-preference){.sheet:not(.drag){transition-duration:.5s;transition-timing-function:cubic-bezier(.25,.1,.25,1)}.scrim{transition:opacity .4s ease}.ch-in,.ch-in-back{animation-duration:.54s;animation-timing-function:cubic-bezier(.25,.1,.25,1)}.nav-push,.nav-pop,.nav-right,.nav-left{animation-duration:.5s;animation-timing-function:cubic-bezier(.25,.1,.25,1)}}
 @media(max-width:360px){.nb-card{padding:12px}.nb-filters button{padding:0 10px}.nb-actions .icon-btn{width:44px}}
 
+
+/* Completion is a compact, dismissible status, never a blocking dialog. */
+.completion-card{position:fixed;z-index:65;left:0;right:0;margin-inline:auto;bottom:calc(96px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 32px));display:grid;grid-template-columns:54px minmax(0,1fr);gap:20px;align-items:center;padding:20px 22px 20px 18px;border-radius:22px;background:var(--bg-raised);color:var(--fg);box-shadow:0 14px 44px rgba(0,0,0,.28),inset 0 0 0 1px var(--hair);isolation:isolate;pointer-events:none;}
+.finish-copy{min-width:0;padding-right:8px;position:relative;z-index:1}.finish-kicker{display:block;color:var(--accent-ink);font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px}
+.finish-copy h2{font:600 22px/1.2 var(--f-display);margin:0 0 7px;color:var(--fg)}.finish-title{margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font:400 14px/1.45 var(--f-ui);color:var(--fg-2);overflow-wrap:anywhere}
+.finish-volume{display:block;position:relative;z-index:1;width:54px;transform-origin:50% 80%}.finish-volume .cover{width:54px;display:block;box-shadow:0 5px 12px rgba(0,0,0,.28)}
+.finish-halo{position:absolute;inset:0;border-radius:inherit;z-index:0;opacity:.36;background:radial-gradient(ellipse at 4% 60%,rgba(240,167,66,.3),transparent 65%);pointer-events:none}
+.finish-badge{position:absolute;right:-11px;bottom:-8px;width:32px;height:32px;border-radius:50%;background:var(--bg-raised);box-shadow:0 2px 8px rgba(0,0,0,.2);color:var(--accent-ink)}.finish-badge svg{display:block;width:32px;height:32px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}.finish-ring{stroke-width:1.6;stroke-dasharray:100;stroke-dashoffset:0;transform:rotate(-90deg);transform-origin:16px 16px}.finish-tick{stroke-width:2.3;stroke-dasharray:100;stroke-dashoffset:0}
+.finish-track{height:2px;border-radius:2px;background:var(--fill-2);display:block;margin-top:13px;overflow:hidden}.finish-track i{display:block;width:100%;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--accent),#f6d591);transform-origin:left center}
+.finish-close{position:absolute;right:0;top:0;width:44px;height:44px;display:grid;place-items:center;border-radius:50%;color:var(--fg-3);pointer-events:auto;z-index:2}.finish-close .ic{width:14px;height:14px}.finish-close:hover{color:var(--fg);background:var(--fill)}
+@media(max-width:360px){.completion-card{gap:17px;padding:18px 20px 18px 16px;grid-template-columns:48px minmax(0,1fr)}.finish-volume,.finish-volume .cover{width:48px}.finish-copy h2{font-size:19px}.finish-kicker{font-size:10px}}
+
+
+/* Optional end-of-book feedback, shared with the detailed book card. */
+.finish-feedback{grid-column:1/-1;position:relative;pointer-events:auto;border-top:1px solid var(--hair);padding-top:14px;display:grid;gap:12px}
+.book-rating{min-width:0}.rating-heading{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:13px}.rating-heading small{color:var(--fg-2);font-size:12px}.rating-stars{display:flex;gap:4px;margin-top:5px}.rating-star{width:44px;height:44px;padding:9px;display:grid;place-items:center;background:none;border:0;border-radius:12px;color:var(--fg-2);cursor:pointer;touch-action:manipulation}.rating-star svg{width:26px;height:26px;fill:transparent;stroke:currentColor;stroke-width:1.5;transition:fill .28s,color .28s}.rating-star.is-filled{color:#eea62f}.rating-star.is-filled svg{fill:currentColor}.rating-star:focus-visible{outline:2px solid currentColor;outline-offset:-3px}.rating-star:disabled{cursor:wait;opacity:.65}.rating-error{font-size:12px;color:var(--accent);margin:4px 0}.rating-clear{font-size:12px;min-height:32px}.finish-thought{width:100%;min-height:44px;justify-content:center}.bd-feedback{width:100%;text-align:left;margin:18px 0;padding:16px;border-radius:20px;background:var(--bg-raised)}.bd-feedback .btn{margin-top:10px}.book-reflection-preview{text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.6;margin:12px 0 0;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}.nb-book-scope{font-size:12px;color:var(--fg-2);margin-right:auto}
+@media(max-height:650px){.completion-card{bottom:24px;max-height:calc(100dvh - 48px);overflow:auto}}
+/* A physical bookcase: recessed bays, hard-cover spines and deep cabinet boards. */
+.bookcase{--case-edge:#303536;--case-board:#202526;--case-back:#101415;--case-light:rgba(218,232,226,.11);position:relative;isolation:isolate;container-type:inline-size;width:100%;max-width:640px;margin:0 auto;border:9px solid #272d2e;border-top:12px solid #343a3a;border-bottom:15px solid #202627;border-radius:3px 3px 5px 5px;background:var(--case-back);box-shadow:inset 0 0 0 1px #080b0c,0 2px 0 #090c0d,4px 8px 0 -2px #14191a,0 16px 36px -14px rgba(0,0,0,.55)}
+.bookcase::before,.bookcase::after{content:'';position:absolute;top:-12px;bottom:-15px;width:8px;z-index:3;pointer-events:none;background:linear-gradient(90deg,#454b4b,#2b3132 20%,#1c2223 78%,#080b0c);box-shadow:1px 0 0 #090c0c}
+.bookcase::before{left:-9px}.bookcase::after{right:-9px;transform:scaleX(-1)}
+.case-section{position:relative;background:linear-gradient(90deg,rgba(0,0,0,.5),transparent 9%,transparent 90%,rgba(0,0,0,.6)),linear-gradient(180deg,#0a0e0f,#141a1c 42%,#171e1f);box-shadow:inset 0 14px 24px -15px #000,inset 0 1px 0 #080a0a}
+.case-label{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px;padding:3px 10px 0 14px;color:#b4b9b7}
+.case-open{display:flex;align-items:baseline;gap:8px;min-width:0;text-align:left;min-height:36px;flex:1}.case-open h2{font:500 14px/1.3 var(--f-ui);color:#e2e3de;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.case-open small{font-size:11px;white-space:nowrap;color:#858d8c}.case-open .ic{width:12px;height:12px;align-self:center;color:#858d8c}.case-label .icon-btn{color:#949e9b;width:36px;height:36px;flex:none}.case-label .icon-btn:hover{background:rgba(255,255,255,.08)}
+.case-bay{position:relative;display:flex;align-items:flex-end;gap:clamp(8px,2.2cqw,16px);height:clamp(162px,47cqw,245px);padding:0 clamp(10px,3cqw,20px) 0;box-shadow:inset 12px 0 18px -15px #000,inset -12px 0 18px -15px #000;overflow:hidden}
+.case-bay::after{content:'';position:absolute;z-index:0;inset:auto 0 0;height:25px;background:linear-gradient(transparent,rgba(0,0,0,.5));pointer-events:none}.case-section.is-continuation .case-bay{height:clamp(185px,54cqw,275px)}
+.case-books{position:relative;z-index:1;display:flex;align-items:flex-end;gap:1px;min-width:0;flex:1;height:100%;padding:0 2px 0 0}
+.case-book{--spine-bg:#374951;--spine-fg:#e6e3d8;position:relative;display:block;flex:none;width:calc(clamp(22px,7cqw,36px)*var(--bw,1));height:calc(clamp(118px,41cqw,205px)*var(--bh,1));color:var(--spine-fg);background:var(--spine-bg);border-radius:2px 3px 1px 1px;box-shadow:inset 1px 0 0 rgba(255,255,255,.22),inset -2px 0 3px rgba(0,0,0,.5),2px 0 2px rgba(0,0,0,.5),0 4px 5px rgba(0,0,0,.6);transform-origin:50% 100%;text-align:left;touch-action:pan-y;-webkit-touch-callout:none;user-select:none;cursor:pointer;transition:translate .38s cubic-bezier(.25,.1,.25,1),filter .38s,box-shadow .38s;isolation:isolate}
+.case-book::before{content:'';position:absolute;z-index:-1;inset:0;border-radius:inherit;background:linear-gradient(90deg,rgba(0,0,0,.32),rgba(255,255,255,.15) 12%,transparent 27%,rgba(255,255,255,.04) 58%,rgba(0,0,0,.2) 85%,rgba(0,0,0,.45)),repeating-linear-gradient(0deg,transparent 0 2px,rgba(255,255,255,.025) 2px 3px)}
+.case-book::after{content:'';position:absolute;inset:5px 3px;pointer-events:none;border-top:1px solid currentColor;border-bottom:2px double currentColor;opacity:.35}
+.case-spine-title{position:absolute;inset:15px 3px 20px;display:block;font:600 clamp(9px,2.7cqw,14px)/1.05 var(--f-display);writing-mode:vertical-rl;text-orientation:mixed;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.01em;text-shadow:0 1px 1px rgba(0,0,0,.22)}
+.case-spine-author{position:absolute;bottom:8px;left:4px;right:4px;font:500 clamp(4px,1.25cqw,6px)/1.2 var(--f-ui);text-transform:uppercase;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;opacity:.7;letter-spacing:.06em;text-align:center}
+.case-book.is-leaning{rotate:-4deg;margin-left:6px;margin-right:3px}.case-book.is-plain::after{opacity:.16;border-top:0;border-bottom:1px solid currentColor}.case-book.is-plain .case-spine-title{font-family:var(--f-ui);font-weight:500}
+.case-stack{align-self:flex-end;display:flex;flex-direction:column-reverse;gap:1px;flex:none;width:clamp(86px,28cqw,154px);margin:0 4px 0 clamp(7px,2cqw,13px);padding-bottom:0;filter:drop-shadow(3px 0 3px rgba(0,0,0,.35))}
+.case-books.is-stacked .case-stack{width:min(154px,calc(50% - 12px));margin-inline:4px}
+.case-flat{height:calc(clamp(17px,5.3cqw,26px)*var(--bw,1));width:calc(100% - var(--short,0px));border-radius:2px 1px 2px 2px;translate:var(--offset,0px) 0;box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -3px 3px rgba(0,0,0,.45),1px 2px 1px #090b0c}
+.case-flat::before{background:linear-gradient(180deg,rgba(255,255,255,.11),transparent 24%,rgba(0,0,0,.12) 65%,rgba(0,0,0,.4))}.case-flat::after{inset:3px 4px;border:0;border-left:1px solid currentColor;border-right:2px double currentColor;opacity:.4}
+.case-flat .case-spine-title{writing-mode:horizontal-tb;inset:0 8px;display:flex;align-items:center;font-size:clamp(7px,2.1cqw,11px);line-height:1;white-space:nowrap;letter-spacing:0}.case-flat .case-spine-author{display:none}
+.case-plank{height:15px;position:relative;z-index:2;background:linear-gradient(180deg,#4a5050 0,#3c4343 7%,#303737 15%,#272e2f 24%,#232a2c 76%,#141a1b 96%,#080d0e);box-shadow:0 8px 11px -5px rgba(0,0,0,.8),inset 0 1px 0 rgba(219,230,225,.12)}.case-plank::after{content:'';position:absolute;inset:3px 0 2px;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,255,255,.017) 3px 4px);pointer-events:none}.case-section:last-child .case-plank{height:5px}
+.case-new{width:100%;max-width:640px;margin:20px auto 0;display:flex;justify-content:center;align-items:center;gap:8px;min-height:48px;border:1px solid var(--hair);border-radius:14px;font-size:14px;color:var(--fg-2)}.case-new:hover{background:var(--fill);color:var(--fg)}
+.case-empty{align-self:center;position:relative;z-index:1;flex:1;text-align:left;max-width:230px;padding-bottom:12px}.case-empty p{font-size:13px;line-height:1.5;color:#919c98;margin:0 0 12px}.case-empty button{font-size:12px;color:#e4c691;padding:8px 0}.case-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:640px;margin:0 auto 18px}.case-toolbar .btn{font-size:13px;min-height:40px;padding:9px 13px;gap:6px}.case-hint{color:var(--fg-3);font-size:12px;line-height:1.5;max-width:640px;margin:16px auto 0}
+.case-style-section{margin-top:22px}.case-style-section:first-child{margin-top:0}.case-style-section h3{font-size:14px;margin:0 0 12px}.case-style-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.case-style-choice{display:grid;justify-items:center;align-content:center;gap:8px;min-height:94px;padding:10px 4px;border-radius:14px;background:var(--fill);box-shadow:inset 0 0 0 1px transparent;font-size:12px}.case-style-choice[aria-pressed=true]{background:var(--fill-2);box-shadow:inset 0 0 0 1px var(--fg-3)}.case-style-choice svg{height:48px;width:46px}.case-style-error{font-size:13px;color:var(--danger)}
+.case-drag-source{opacity:.32!important}.case-drop-target{outline:2px solid #e4c691;outline-offset:3px;z-index:4}.case-drag-ghost{position:fixed!important;z-index:90!important;margin:0!important;pointer-events:none!important;transition:none!important;rotate:3deg!important;opacity:1!important;box-shadow:0 18px 28px rgba(0,0,0,.6)!important;transform-origin:center!important;will-change:transform}
+.bookcase :focus-visible{outline:2px solid #e9cf9b;outline-offset:3px}.case-book:focus-visible{z-index:5;translate:0 -6px}.case-style-live{font-size:12px;color:var(--fg-2);min-height:18px;margin-top:14px}.case-empty-art{position:relative;width:150px;height:146px;padding:9px;background:#111719;border:7px solid #303738;box-shadow:5px 8px 16px rgba(0,0,0,.25)}.case-empty-art i{position:absolute;left:0;right:0;top:58%;height:8px;background:linear-gradient(#4a5151,#21292b);box-shadow:0 5px 7px #0008}.case-empty-art span{position:absolute;bottom:42%;left:16px;width:16px;height:73px;background:linear-gradient(90deg,#183a3c,#265e5c,#123638);box-shadow:inset 1px 0 #fff3}.case-empty-art span:nth-of-type(2){left:34px;height:65px;background:linear-gradient(90deg,#53333c,#774656,#38212c)}.case-empty-art span:nth-of-type(3){left:52px;height:77px;background:linear-gradient(90deg,#8a7152,#af9770,#5d4932)}
+@media(hover:hover){.case-book:hover{translate:0 -7px;filter:brightness(1.13);z-index:5}.case-flat:hover{translate:5px -2px}}
+@media(min-width:760px){.case-bay{padding-inline:22px}.case-label{padding:6px 14px 0 22px;min-height:46px}.case-open h2{font-size:16px}.case-open small{font-size:12px}.bookcase{border-width:12px;border-top-width:14px;border-bottom-width:18px}.bookcase::before,.bookcase::after{width:11px;top:-14px;bottom:-18px}.bookcase::before{left:-12px}.bookcase::after{right:-12px}.case-plank{height:19px}}
+@media(prefers-reduced-motion:reduce){.case-book{transition:none}.case-book:hover,.case-flat:hover{translate:0 0}}
+
+.case-drop-shelf{box-shadow:inset 0 0 0 2px #c7b58e,inset 0 0 28px rgba(199,181,142,.09)}.case-drop-cue{position:absolute;z-index:8;top:8px;right:10px;max-width:calc(100% - 20px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;line-height:1.4;padding:6px 9px;border-radius:8px;color:#f7e6bd;background:#303129;box-shadow:0 2px 10px #0005;pointer-events:none}.case-home-hint{margin:0 auto 14px}.case-drop-target{outline-offset:1px}
 </style>
 </head>
 <body>
@@ -2388,6 +2405,7 @@ function uiMotion(el,frames,duration=260){
 }
 
 function openSheet({ title, label, body, left, right, tall, onClose, closeBtn = true, cls = '', beforeClose }) {
+  dismissCompletionCelebration(true);
   const host = document.body;
   const lastFocus = document.activeElement;
   const scrim = h('div', { class: 'scrim' });
@@ -2747,7 +2765,7 @@ function enableReorder(grid) {
     if (state.tab === 'all' && state.sort !== 'manual') {
       state.sort = 'manual'; prefs.sort = 'manual'; savePrefs();
       const sb = $('.sort-btn'); if (sb) sb.firstChild.textContent = SORTS.manual[0];
-      toast('Порядок сохранён · сортировка «Мой порядок»');
+      toast('Порядок сохранён | сортировка «Мой порядок»');
     }
   };
   /* mouse: drag right away */
@@ -2811,10 +2829,7 @@ function newPocket(i) {
     h('span', { class: 'lbl' }, 'Новая полка'));
 }
 function emptyArt() {
-  const s = document.createElement('div');
-  s.className = 'art';
-  s.append(h('div', { class: 'pocket', style: 'pointer-events:none' }, pocketWell([])));
-  return s;
+  return h('div',{class:'art','aria-hidden':'true'},h('div',{class:'case-empty-art'},h('i'),h('span'),h('span'),h('span')));
 }
 function continueCard() {
   const cur = state.books.filter((b) => b.openedAt && pctOf(b) < 100 && !b.sample).sort(byRecent)[0] || state.books.filter((b) => b.openedAt && pctOf(b) < 100).sort(byRecent)[0];
@@ -2904,20 +2919,14 @@ function renderLibrary(animate = true, fromTabSwitch = false) {
       h('button', { class: 'back-link', onclick: () => go('shelves') }, icon('back', 'sm'), 'Полки'),
       h('div', { class: 'tools' }, h('span', null, `${list.length} ${plural(list.length, BOOKS)}`),
         h('button', { class: 'icon-btn', 'aria-label': 'Действия с полкой', onclick: () => shelfMenu(state.shelf) }, icon('more')))));
-    if (!list.length) {
-      main.append(h('div', { class: 'empty' }, emptyArt(),
-        h('h2', null, 'Полка пока пустая'),
-        h('p', null, 'Переложите сюда книги из библиотеки или добавьте новые файлы — они сразу встанут на эту полку.'),
-        h('div', { class: 'acts', style: 'display:grid;gap:8px;margin-top:10px' },
-          h('button', { class: 'btn', onclick: () => pickBooks(state.shelf) }, icon('shelf', 'sm'), 'Переложить книги'),
-          h('button', { class: 'link-btn', onclick: () => $('#file').click() }, 'Добавить файлы'))));
-    } else main.append(bookGrid(list, true));
+    main.append(h('div',{class:'case-toolbar'},h('button',{class:'btn ghost',onclick:()=>openCabinetStyle(state.shelf)},icon('shelf','sm'),'Оформление'),h('button',{class:'btn ghost',onclick:()=>pickBooks(state.shelf)},icon('plus','sm'),'Поставить книги')),
+      cabinetView([[state.shelf,list]],true),h('p',{class:'case-hint'},'Удерживайте книгу, чтобы переставить. Для переноса на другую полку вернитесь в раздел «Полки». С клавиатуры — Alt + ← / →.'));
     return;
   }
-  // the shelves page is built once and reused while nothing changes, so the glass never re-renders on tab switches
+  // Reuse the same cabinet while its books and styling stay unchanged.
   const sig = libSig();
   if (!state.homeCache || state.homeCache.sig !== sig) {
-    state.homeCache = { sig, node: h('div', { class: 'home' }, h('div', { class: 'pockets' }, all.map(([name, list], i) => pocket(name, list, i)), newPocket(all.length))) };
+    state.homeCache = { sig, node: h('div', { class: 'home' }, h('p',{class:'case-hint case-home-hint'},'Удерживайте книгу, чтобы переставить её или перенести на другую полку.'),cabinetView(cabinetGroups(all)),h('button',{class:'case-new',onclick:()=>createShelf()},icon('plus','sm'),'Новая полка')) };
   }
   main.classList.remove('rise');
   const ib = installBanner(); if (ib) main.append(ib);
@@ -2925,19 +2934,176 @@ function renderLibrary(animate = true, fromTabSwitch = false) {
   if (animate && !dir) { void main.offsetWidth; main.classList.add('lib-fade'); }
 }
 function libSig() {
-  return (prefs.shelves || []).join('|') + '#' + state.books.map((b) => [b.id, b.shelf, b.title, authorsStr(b), pctOf(b), b.openedAt, b.modifiedAt, b.cover ? b.cover.size : 0, b.sample ? 1 : 0, b.pos].join('~')).join('|');
+  return cabinetCapacity()+'#'+JSON.stringify(prefs.caseStyles||[])+'#'+(prefs.shelves || []).join('|') + '#' + state.books.map((b) => [b.id, b.shelf, b.title, authorsStr(b), pctOf(b), b.openedAt, b.modifiedAt, b.cover ? b.cover.size : 0, b.sample ? 1 : 0, b.pos].join('~')).join('|');
+}
+
+/* ================= physical shelves ================= */
+function cabinetStyle(name){
+ const value=(Array.isArray(prefs.caseStyles)?prefs.caseStyles:[]).find(s=>s.name===name)||{};
+ return {layout:['mixed','standing','stacked'].includes(value.layout)?value.layout:'mixed'};
+}
+const cabinetColorCache=new WeakMap();
+function colorCaseSpine(book,button){
+ if(!(book.cover instanceof Blob))return;
+ let colors=cabinetColorCache.get(book.cover);
+ if(!colors){colors=new Promise(resolve=>{const img=new Image();img.onload=()=>{try{const c=document.createElement('canvas');c.width=c.height=12;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,12,12);const pixels=ctx.getImageData(0,0,12,12).data;let r=0,g=0,b=0,n=0;for(let i=0;i<pixels.length;i+=4){if(pixels[i+3]<128)continue;r+=pixels[i];g+=pixels[i+1];b+=pixels[i+2];n++;}if(!n){resolve(null);return;}r=Math.round(r/n);g=Math.round(g/n);b=Math.round(b/n);resolve([`rgb(${r},${g},${b})`,(r*.2126+g*.7152+b*.0722)>155?'#242a28':'#f0e9d8']);}catch(e){resolve(null)}};img.onerror=()=>resolve(null);img.src=coverUrl(book);});cabinetColorCache.set(book.cover,colors);}
+ colors.then(pair=>{if(pair){button.style.setProperty('--spine-bg',pair[0]);button.style.setProperty('--spine-fg',pair[1]);}});
+}
+function cabinetBook(book,flat=false){
+ const seed=hash(book.id+book.title),[bg,fg]=PALETTE[hash(book.title+authorsStr(book))%PALETTE.length];
+ const button=h('button',{type:'button',class:'case-book'+(flat?' case-flat':'')+(seed%3===0?' is-plain':''),'data-case-id':book.id,title:`${book.title} — ${authorsStr(book)}`,'aria-label':`${book.title}. ${authorsStr(book)}. Открыть карточку книги`,style:`--spine-bg:${bg};--spine-fg:${fg};--bw:${(.88+seed%22/100).toFixed(2)};--bh:${(.82+seed%18/100).toFixed(2)};--short:${seed%8}px;--offset:${seed%5}px`,onclick:()=>openDetail(book)},h('span',{class:'case-spine-title'},book.title),h('span',{class:'case-spine-author'},book.authors[0]||''));
+ colorCaseSpine(book,button);return button;
+}
+function cabinetCapacity(){return innerWidth>=760?10:innerWidth>=375?8:6;}
+let cabinetSize=cabinetCapacity(),cabinetResizeTimer;
+window.addEventListener('resize',()=>{clearTimeout(cabinetResizeTimer);cabinetResizeTimer=setTimeout(()=>{const next=cabinetCapacity();if(next===cabinetSize)return;cabinetSize=next;if(state.tab==='shelves'&&!state.query&&document.querySelector('#reader')?.hidden){state.homeCache=null;renderLibrary(false);}},140);});
+function cabinetGroups(groups){const names=prefs.shelves||[];return groups.slice().sort((a,b)=>{const i=names.indexOf(a[0]),j=names.indexOf(b[0]);return (i<0?1e9:i)-(j<0?1e9:j)||String(a[0]).localeCompare(String(b[0]),'ru');});}
+function cabinetView(groups,inside=false){
+ const cabinet=h('div',{class:'bookcase','aria-label':inside?'Книжный шкаф: '+groups[0][0]:'Ваш книжный шкаф'});
+ for(const [name,list] of groups){
+  const style=cabinetStyle(name),capacity=style.layout==='stacked'?6:cabinetCapacity(),parts=[];for(let i=0;i<list.length;i+=capacity)parts.push(list.slice(i,i+capacity));if(!parts.length)parts.push([]);
+  parts.forEach((books,row)=>{
+   const rack=h('div',{class:'case-books'+(style.layout==='stacked'?' is-stacked':''),role:'group','aria-label':`${name}, ряд ${row+1}`});
+   if(style.layout==='stacked'){
+    for(let i=0;i<books.length;i+=3)rack.append(h('div',{class:'case-stack'},books.slice(i,i+3).map(b=>cabinetBook(b,true))));
+   }else{
+    const flat=style.layout==='mixed'&&books.length>=5?3:0;
+    books.slice(0,books.length-flat).forEach(b=>rack.append(cabinetBook(b)));
+    if(flat)rack.append(h('div',{class:'case-stack'},books.slice(-flat).map(b=>cabinetBook(b,true))));
+   }
+   const section=h('section',{class:'case-section'+(row?' is-continuation':''),'data-case-shelf':name});
+   if(!row&&!inside)section.append(h('div',{class:'case-label'},h('button',{class:'case-open',onclick:()=>go('shelves',name)},h('h2',null,name),h('small',null,`${list.length} ${plural(list.length,BOOKS)}`),icon('next','sm')),h('button',{class:'icon-btn','aria-label':`Действия с полкой «${name}»`,onclick:()=>shelfMenu(name)},icon('more','sm'))));
+   const empty=books.length?null:h('div',{class:'case-empty'},h('p',null,'Здесь начнётся ваша следующая история.'),h('button',{onclick:()=>pickBooks(name)},'Поставить книги',icon('next','sm')));
+   section.append(h('div',{class:'case-bay'},empty||rack),h('div',{class:'case-plank','aria-hidden':'true'}));cabinet.append(section);
+  });
+ }
+ enableCabinetDrag(cabinet);return cabinet;
+}
+let cabinetMoveBusy=false,cabinetClickUntil=0;
+async function moveCabinetBook(name,sourceId,targetId,destinationName=name,edge=null){
+ if(cabinetMoveBusy||sourceId===targetId)return false;
+ const source=state.books.find(b=>b.id===sourceId),target=targetId?state.books.find(b=>b.id===targetId):null;
+ if(!source||source.shelf!==name||!shelves().some(([n])=>n===destinationName)||(targetId&&(!target||target.shelf!==destinationName)))return false;
+ const original=state.books.slice().sort(byPos),order=original.filter(b=>b!==source);
+ let index;
+ if(target){index=order.indexOf(target);const after=edge==='after'||(edge==null&&(name===destinationName?original.indexOf(source)<original.indexOf(target):false));if(after)index++;}
+ else{const last=order.findLastIndex(b=>b.shelf===destinationName);index=last<0?order.length:last+1;}
+ order.splice(index,0,source);
+ if(name===destinationName&&order.every((b,i)=>b===original[i]))return false;
+ const previous=state.books.map(b=>({book:b,pos:b.pos,shelf:b.shelf})),previousShelves=prefs.shelves,cross=name!==destinationName;
+ // Persist the two memberships and all changed positions in one transaction.
+ // Keep an emptied, previously implicit shelf so the book can be moved back.
+ if(cross)prefs.shelves=cabinetGroups(shelves()).map(([n])=>n);
+ source.shelf=destinationName;order.forEach((b,i)=>b.pos=i);cabinetMoveBusy=true;
+ const operations=previous.filter(x=>x.book.pos!==x.pos||x.book.shelf!==x.shelf).map(x=>({store:'books',value:x.book}));
+ if(cross)operations.push({store:'meta',value:{id:'prefs',data:structuredClone(prefs)}});
+ try{await DB.writeBatch(operations);if(cross){try{localStorage.setItem(PREF_KEY,JSON.stringify(prefs))}catch(e){}toast(`Книга перенесена на полку «${destinationName}»`);}state.homeCache=null;libraryTabCache.clear();return true;}
+ catch(e){previous.forEach(x=>{x.book.shelf=x.shelf;if(x.pos===undefined)delete x.book.pos;else x.book.pos=x.pos});prefs.shelves=previousShelves;toast('Не удалось перенести книгу. Она осталась на прежней полке.',{tone:'error'});return false;}
+ finally{cabinetMoveBusy=false;}
+}
+function enableCabinetDrag(root){
+ let d=null;
+ const cell=el=>{const b=el?.closest?.('[data-case-id]');return b&&root.contains(b)?b:null;};
+ const clearTarget=()=>{d?.target?.classList.remove('case-drop-target');d?.section?.classList.remove('case-drop-shelf');d?.cue?.remove();if(d){d.target=null;d.section=null;d.destination=null;}};
+ const hit=()=>{
+  if(!d?.lifted)return;
+  const under=document.elementFromPoint(d.x,d.y),section=under?.closest?.('[data-case-shelf]'),el=cell(under);
+  clearTarget();
+  if(section&&root.contains(section)&&el!==d.el){
+   const name=section.dataset.caseShelf,books=[...section.querySelectorAll('[data-case-id]')].filter(b=>b!==d.el);
+   const target=el||books.at(-1)||null;
+   if(name!==d.name||target){
+    d.section=section;d.target=target;d.destination={name,id:target?.dataset.caseId||null,edge:el?null:'after'};
+    section.classList.add('case-drop-shelf');target?.classList.add('case-drop-target');
+    d.cue.textContent=name!==d.name?`Перенести на «${name}»`:'Поставить сюда';section.append(d.cue);
+   }
+  }
+  d.ghost.style.transform=`translate3d(${d.x-d.sx}px,${d.y-d.sy-9}px,0) scale(1.08)`;
+ };
+ const finish=async(cancelled=false)=>{
+  if(!d)return;const old=d,destination=d.destination;clearTarget();d=null;
+  clearTimeout(old.timer);cancelAnimationFrame(old.raf);old.abort?.abort();old.el.classList.remove('case-drag-source');old.ghost?.remove();old.cue?.remove();
+  if(!old.lifted)return;cabinetClickUntil=performance.now()+550;
+  if(!cancelled&&destination){const changed=await moveCabinetBook(old.name,old.el.dataset.caseId,destination.id,destination.name,destination.edge);if(changed&&root.isConnected)refreshCabinet();}
+ };
+ const scroll=()=>{if(!d?.lifted)return;if(!root.isConnected||document.hidden){finish(true);return;}const v=d.y<110?-(110-d.y)/8:d.y>innerHeight-110?(d.y-innerHeight+110)/8:0;if(v){scrollBy(0,v);hit();}d.raf=requestAnimationFrame(scroll);};
+ const lift=()=>{
+  if(!d||!root.isConnected||cabinetMoveBusy){finish(true);return;}d.lifted=true;getSelection()?.removeAllRanges();const r=d.el.getBoundingClientRect();d.ghost=d.el.cloneNode(true);d.ghost.removeAttribute('data-case-id');d.ghost.classList.add('case-drag-ghost');d.ghost.setAttribute('aria-hidden','true');d.ghost.inert=true;d.ghost.style.width=r.width+'px';d.ghost.style.height=r.height+'px';d.ghost.style.left=r.left+'px';d.ghost.style.top=r.top+'px';document.body.append(d.ghost);d.el.classList.add('case-drag-source');d.cue=h('span',{class:'case-drop-cue','aria-hidden':'true'});
+  const abort=d.abort||(d.abort=new AbortController());window.addEventListener('blur',()=>finish(true),{signal:abort.signal,once:true});document.addEventListener('visibilitychange',()=>{if(document.hidden)finish(true)},{signal:abort.signal});document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();finish(true)}},{signal:abort.signal});hit();d.raf=requestAnimationFrame(scroll);
+ };
+ root.addEventListener('click',e=>{if(cabinetMoveBusy||performance.now()<cabinetClickUntil){e.preventDefault();e.stopImmediatePropagation();}},true);
+ root.addEventListener('pointerdown',e=>{
+  if(e.pointerType!=='mouse'||e.button!==0||d||cabinetMoveBusy)return;const el=cell(e.target);if(!el)return;const abort=new AbortController();d={el,name:el.closest('[data-case-shelf]').dataset.caseShelf,x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,abort};
+  window.addEventListener('pointermove',e=>{if(!d)return;d.x=e.clientX;d.y=e.clientY;if(!d.lifted&&Math.hypot(d.x-d.sx,d.y-d.sy)>6)lift();if(d?.lifted){e.preventDefault();hit();}},{signal:abort.signal,passive:false});window.addEventListener('pointerup',()=>finish(false),{signal:abort.signal,once:true});window.addEventListener('pointercancel',()=>finish(true),{signal:abort.signal,once:true});
+ });
+ root.addEventListener('touchstart',e=>{if(d)finish(true);if(e.touches.length!==1||cabinetMoveBusy)return;const el=cell(e.target);if(!el)return;const t=e.changedTouches[0];d={el,name:el.closest('[data-case-shelf]').dataset.caseShelf,id:t.identifier,x:t.clientX,y:t.clientY,sx:t.clientX,sy:t.clientY};d.timer=setTimeout(lift,380);},{passive:true});
+ root.addEventListener('touchmove',e=>{if(!d||d.id==null)return;const t=[...e.touches].find(t=>t.identifier===d.id);if(!t)return;d.x=t.clientX;d.y=t.clientY;if(!d.lifted&&Math.hypot(d.x-d.sx,d.y-d.sy)>10){finish(true);return;}if(d?.lifted){if(e.cancelable)e.preventDefault();hit();}},{passive:false});
+ root.addEventListener('touchend',()=>finish(false),{passive:true});root.addEventListener('touchcancel',()=>finish(true),{passive:true});root.addEventListener('contextmenu',e=>{if(cell(e.target))e.preventDefault()});root.addEventListener('dragstart',e=>{if(cell(e.target))e.preventDefault()});
+ root.addEventListener('keydown',async e=>{const el=cell(e.target);if(!el||!e.altKey||!['ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();const name=el.closest('[data-case-shelf]').dataset.caseShelf,ordered=state.books.filter(b=>b.shelf===name).sort(byPos),i=ordered.findIndex(b=>b.id===el.dataset.caseId),target=ordered[i+(e.key==='ArrowRight'?1:-1)];if(target&&await moveCabinetBook(name,el.dataset.caseId,target.id))refreshCabinet(el.dataset.caseId);});
+}
+
+function refreshCabinet(focusId){
+ const before=new Map([...document.querySelectorAll('.bookcase [data-case-id]')].map(el=>[el.dataset.caseId,el.getBoundingClientRect()])),y=scrollY;
+ renderLibrary(false);scrollTo({top:y,behavior:'instant'});
+ for(const el of document.querySelectorAll('.bookcase [data-case-id]')){const a=before.get(el.dataset.caseId);if(!a||reduceMotion())continue;const b=el.getBoundingClientRect();if(Math.hypot(a.left-b.left,a.top-b.top)>1)el.animate([{translate:`${a.left-b.left}px ${a.top-b.top}px`},{translate:getComputedStyle(el).translate}],{duration:520,easing:'cubic-bezier(.25,.1,.25,1)'});}
+ if(focusId)document.querySelector(`.bookcase [data-case-id="${CSS.escape(focusId)}"]`)?.focus({preventScroll:true});
+}
+function openCabinetStyle(name){
+ let value=cabinetStyle(name),saving=false;const body=h('div'),status=h('p',{class:'case-style-live','aria-live':'polite'}),error=h('p',{class:'case-style-error',role:'alert',hidden:true});
+ const save=async(key,next)=>{if(saving||value[key]===next)return;saving=true;status.textContent='Сохраняем…';error.hidden=true;const previous=prefs.caseStyles;const updated={name,...value,[key]:next};prefs.caseStyles=[...(Array.isArray(previous)?previous:[]).filter(x=>x.name!==name),updated];
+ try{await DB.put('meta',{id:'prefs',data:structuredClone(prefs)});try{localStorage.setItem(PREF_KEY,JSON.stringify(prefs))}catch(e){}value=cabinetStyle(name);state.homeCache=null;libraryTabCache.clear();refreshCabinet();status.textContent='Сохранено';}
+ catch(e){prefs.caseStyles=previous;error.hidden=false;error.textContent='Не удалось сохранить оформление. Попробуйте ещё раз.';status.textContent='';}finally{saving=false;draw();}};
+ const draw=()=>{const focus=body.contains(document.activeElement)?document.activeElement.dataset.caseStyle:null;body.replaceChildren(h('div',{class:'case-style-section'},h('h3',null,'Расстановка'),h('div',{class:'case-style-options'},[['mixed','Смешанная','▥ ▤'],['standing','Книги стоя','▥'],['stacked','Стопками','▤ ▤']].map(([key,label,mark])=>h('button',{class:'case-style-choice','data-case-style':'layout-'+key,'aria-pressed':String(value.layout===key),disabled:saving,onclick:()=>save('layout',key)},h('span',{'aria-hidden':'true',style:'font-size:30px;color:var(--fg-2)'},mark),label)))),status,error);if(focus)body.querySelector(`[data-case-style="${focus}"]`)?.focus({preventScroll:true});};draw();openSheet({title:'Оформление полки',label:'Оформление полки «'+name+'»',body});
 }
 
 /* ================= book card ================= */
+function getBookReflection(book) { return (book.notes||[]).find(n=>n.scope==='book') || null; }
+function openBookReflection(book,onSaved) { return editNotebookNote({book,note:getBookReflection(book),scope:'book',onSaved}); }
+function bookRatingControl(book,{clearable=false}={}) {
+  let saving=false;
+  const status=h('small',{'aria-live':'polite'}),error=h('p',{class:'rating-error',role:'alert',hidden:true});
+  const stars=h('div',{class:'rating-stars',role:'radiogroup','aria-label':'Оценка книги'});
+  const root=h('div',{class:'book-rating'},h('div',{class:'rating-heading'},h('span',null,'Ваша оценка'),status),stars,error);
+  const buttons=[];
+  const update=()=>{
+    const value=Number(book.rating)||0;root.setAttribute('aria-busy',String(saving));
+    status.textContent=saving?'Сохраняем…':value?`${value} из 5`:'Не выбрана';
+    buttons.forEach((b,i)=>{b.classList.toggle('is-filled',i<value);b.setAttribute('aria-checked',String(i+1===value));b.tabIndex=i===(value?value-1:0)?0:-1;b.setAttribute('aria-disabled',String(saving));});
+    if(reset){reset.hidden=!value;reset.disabled=saving;}
+  };
+  const set=async value=>{
+    if(saving||value===(Number(book.rating)||0))return;
+    const previous=book.rating;saving=true;book.rating=value;error.hidden=true;update();
+    root.dispatchEvent(new CustomEvent('rating-saving',{bubbles:true}));
+    try {await persistBook(book);libraryTabCache.clear();
+      if(value&&!reduceMotion()&&root.isConnected)buttons[value-1].animate([{transform:'scale(.9)'},{transform:'scale(1.08)',offset:.55},{transform:'scale(1)'}],{duration:380,easing:'cubic-bezier(.25,.1,.25,1)'});
+    } catch(e){if(previous===undefined)delete book.rating;else book.rating=previous;error.hidden=false;error.textContent='Оценка не сохранена. Попробуйте ещё раз.';}
+    finally {saving=false;update();root.dispatchEvent(new CustomEvent('rating-settled',{bubbles:true}));}
+  };
+  for(let n=1;n<=5;n++){
+    const star=svgEl('svg',{viewBox:'0 0 24 24','aria-hidden':'true'});star.append(svgEl('path',{d:'M12 2.8l2.85 5.77 6.37.93-4.61 4.49 1.09 6.34L12 17.34l-5.7 2.99 1.09-6.34-4.61-4.49 6.37-.93Z','stroke-linejoin':'round'}));
+    const b=h('button',{class:'rating-star',role:'radio','aria-label':`${n} ${plural(n,['звезда','звезды','звёзд'])}`,onclick:()=>set(n)},star);
+    b.addEventListener('keydown',e=>{let next;if(e.key==='ArrowRight'||e.key==='ArrowUp')next=n%5+1;else if(e.key==='ArrowLeft'||e.key==='ArrowDown')next=(n+3)%5+1;else if(e.key==='Home')next=1;else if(e.key==='End')next=5;else return;e.preventDefault();buttons[next-1].focus();set(next);});
+    buttons.push(b);stars.append(b);
+  }
+  const reset=clearable?h('button',{class:'link-btn rating-clear',onclick:()=>set(0)},'Убрать оценку'):null;
+  if(reset)root.append(reset);update();return root;
+}
+function bookFeedbackPanel(book) {
+  const panel=h('section',{class:'bd-feedback','aria-label':'Мои впечатления о книге'});
+  const draw=()=>{const note=getBookReflection(book);panel.replaceChildren(...[bookRatingControl(book,{clearable:true}),note?h('p',{class:'book-reflection-preview'},note.text):null,h('button',{class:'btn ghost wide',onclick:()=>openBookReflection(book,()=>{if(panel.isConnected)draw()})},icon('pen','sm'),note?'Изменить мысли о книге':'Мысли о книге')].filter(Boolean));};
+  draw();return panel;
+}
+
 function openDetail(book) {
   const p = pctOf(book);
   const pctExact = (book.progress && book.progress.pct) || 0;
   const edited = book.edits || 0;
   const st = (typeof ST !== 'undefined' && ST.data.books[book.id]) || null;
   const info = [
-    book.series ? ['Серия', book.series + (book.seriesNo ? ' · № ' + book.seriesNo : '')] : null,
+    book.series ? ['Серия', book.series + (book.seriesNo ? ' | № ' + book.seriesNo : '')] : null,
     book.genres && book.genres.length ? ['Жанры', book.genres.map(genreName).join(', ')] : null,
-    ['Формат', book.format.toUpperCase() + (book.size ? ' · ' + fmtSize(book.size) : '')],
+    ['Формат', book.format.toUpperCase() + (book.size ? ' | ' + fmtSize(book.size) : '')],
     ['Добавлена', fmtDate(book.addedAt)],
     edited ? ['Правки текста', `${edited} ${plural(edited, ['сохранение', 'сохранения', 'сохранений'])}`] : null,
   ].filter(Boolean);
@@ -2959,6 +3125,7 @@ function openDetail(book) {
       h('h3', null, book.title),
       h('div', { class: 'au' }, authorsStr(book)),
       progCard,
+      p>=100||book.completedAt||book.rating||getBookReflection(book)?bookFeedbackPanel(book):null,
       h('div', { class: 'bd-shelf' },
         h('div', { class: 'bd-shelf-info' }, icon('shelf', 'sm'),
           h('div', null, h('span', { class: 'bd-label' }, 'На полке'), h('span', { class: 'bd-shelf-name' }, book.shelf || 'Без полки'))),
@@ -3242,6 +3409,7 @@ async function readBackup(file) {
     if (b.quotes == null) b.quotes = [];
     if (b.bookmarks == null) b.bookmarks = [];
     if (b.notes == null) b.notes = [];
+    if (b.rating!=null && (!Number.isInteger(b.rating)||b.rating<0||b.rating>5)) throw new Error('Повреждена оценка книги.');
     if (!Array.isArray(b.notes) || b.notes.some(n => !n || typeof n.id !== 'string' || typeof n.text !== 'string' || n.text.length > 20000 || !Number.isInteger(n.ch) || n.ch < 0 || n.ch >= (c?.chapters?.length || 0))) throw new Error('Повреждены заметки книги.');
     if (!b.id || b.id.startsWith('__') || typeof b.title !== 'string' || !Array.isArray(b.authors) || !b.authors.every(a => typeof a === 'string') || !['fb2','epub'].includes(b.format) || !Array.isArray(b.quotes) || !Array.isArray(b.bookmarks) || !c || !Array.isArray(c.chapters) || !c.chapters.length || !Array.isArray(c.toc)) throw new Error('Книга или её текст повреждены.');
     for (const ch of c.chapters) {
@@ -3399,6 +3567,7 @@ function shelfMenu(name) {
     title: name,
     body: h('div', { class: 'group menu-list' },
       h('button', { onclick: () => { s.close(true); pickBooks(name); } }, icon('shelf'), 'Переложить сюда книги'),
+      h('button', { onclick: () => { s.close(true); openCabinetStyle(name); } }, icon('shelf'), 'Оформление полки'),
       h('button', { onclick: () => { s.close(true); renameShelf(name); } }, icon('pen'), 'Переименовать'),
       h('button', { class: 'danger', onclick: () => { s.close(true); deleteShelf(name); } }, icon('trash'), 'Удалить полку')),
   });
@@ -3408,6 +3577,7 @@ function renameShelf(old) {
     title: 'Переименовать полку', value: old, okLabel: 'Сохранить',
     onSave: async (name) => {
       if (name === old) return;
+      if(Array.isArray(prefs.caseStyles))prefs.caseStyles=prefs.caseStyles.map(x=>x.name===old?{...x,name}:x);
       prefs.shelves = (prefs.shelves || []).map((x) => (x === old ? name : x));
       if (!prefs.shelves.includes(name)) prefs.shelves.push(name);
       savePrefs();
@@ -3421,6 +3591,7 @@ async function deleteShelf(name) {
   const list = state.books.filter((b) => b.shelf === name);
   const ok = await confirmSheet({ title: `Удалить полку «${name}»?`, text: list.length ? `${list.length} ${plural(list.length, BOOKS)} с неё переедут на полку «Разное». Сами книги не удалятся.` : 'Полка пустая, книги не пострадают.', ok: 'Удалить полку', danger: true });
   if (!ok) return;
+  if(Array.isArray(prefs.caseStyles))prefs.caseStyles=prefs.caseStyles.filter(x=>x.name!==name);
   prefs.shelves = (prefs.shelves || []).filter((x) => x !== name); savePrefs();
   for (const b of list) { b.shelf = 'Разное'; await persistBook(b).catch(() => {}); }
   go('shelves');
@@ -3435,7 +3606,7 @@ function pickBooks(target) {
     ? h('ul', { class: 'pick' }, candidates.map((b) => h('li', null, h('button', {
       role: 'checkbox', 'aria-checked': 'false',
       onclick: (e) => { const btn = e.currentTarget; if (chosen.has(b)) chosen.delete(b); else chosen.add(b); btn.setAttribute('aria-checked', String(chosen.has(b))); refresh(); },
-    }, coverEl(b), h('span', null, h('span', { class: 't' }, b.title), h('span', { class: 's' }, `${authorsStr(b)} · ${b.shelf}`)), h('span', { class: 'ck' }, icon('check'))))))
+    }, coverEl(b), h('span', null, h('span', { class: 't' }, b.title), h('span', { class: 's' }, `${authorsStr(b)} | ${b.shelf}`)), h('span', { class: 'ck' }, icon('check'))))))
     : h('p', { class: 'muted' }, 'Все книги уже стоят на этой полке.');
   doneBtn.addEventListener('click', async () => {
     for (const b of chosen) { b.shelf = target; await persistBook(b).catch(() => {}); }
@@ -3487,7 +3658,7 @@ function quoteCard(q, b, i, withBook) {
     ...(b.notes || []).filter(n => n.quoteId === q.id).map(n => h('button', {class:'q-thought',onclick:()=>editNotebookNote({book:b,note:n,onSaved:()=>renderLibrary(false)}),'aria-label':'Изменить мысль к цитате'}, h('small',null,'Моя мысль'),h('span',null,n.text))),
     h('div', { class: 'q-foot' },
       withBook
-        ? h('button', { class: 'q-book', onclick: () => openDetail(b) }, coverEl(b), h('span', null, h('b', null, b.title), h('small', null, `${authorsStr(b)} · ${when}`)))
+        ? h('button', { class: 'q-book', onclick: () => openDetail(b) }, coverEl(b), h('span', null, h('b', null, b.title), h('small', null, `${authorsStr(b)} | ${when}`)))
         : h('span', { class: 'q-when' }, when),
       h('button', { class: 'icon-btn', 'aria-label': 'Копировать цитату', onclick: async () => { toast((await copyPlain(quoteCite(q, b))) ? 'Цитата скопирована' : 'Не удалось скопировать'); } }, icon('copy', 'sm')),
       h('button', { class: 'icon-btn', 'aria-label': 'Удалить цитату', onclick: async () => {
@@ -3661,6 +3832,8 @@ async function openReader(book, src, jump) {
   if (!content || !content.chapters || !content.chapters.length) { toast('Текст этой книги не найден на устройстве. Удалите её и добавьте файл заново.', { tone: 'error' }); return; }
   sheets.slice().forEach((s) => s.close(true));
   R.book = book; R.content = content; R.idMap = null; R.textCache.clear(); R.editing = false; R.dirty = false;
+  R.closing=false;
+  if(Number(book.progress?.pct)>=1&&!book.completedAt)book.completedAt=book.openedAt||Date.now();
   book.quotes = book.quotes || []; book.bookmarks = book.bookmarks || []; book.notes = Array.isArray(book.notes) ? book.notes : [];
   recalcLengths();
   statsStart(book, R.total);
@@ -3690,10 +3863,12 @@ async function openReader(book, src, jump) {
 }
 
 async function closeReader() {
+  dismissCompletionCelebration(true);
   stopChapterTransition();
   stopBookOpening();
   if(!R.book)return;
   if (R.editing) { const ok = await leaveEditing(); if (!ok) return; }
+  R.closing=true;
   await saveProgress().catch(storageError);
   await flushStats().catch(storageError);
   hideQbar();
@@ -4056,19 +4231,101 @@ function onScroll() {
   R.saveTimer = setTimeout(() => saveProgress().catch(storageError), 700);
   statsPosition();
 }
+
+/* A quiet, non-modal reading milestone; the last page stays available. */
+let completionCelebration = null, completionTimer = null;
+function dismissCompletionCelebration(immediate=false) {
+  clearTimeout(completionTimer);completionTimer=null;
+  if(completionCelebration)completionCelebration(immediate);
+}
+function scheduleCompletionCelebration(book) {
+  dismissCompletionCelebration(true);
+  const deadline=performance.now()+12000;
+  const show=()=>{
+    completionTimer=null;
+    if(document.hidden||R.book!==book||R.closing||Number(book.progress?.pct)<1)return;
+    if(bookOpeningBusy||bookOpeningTransition||chapterTransition||sheets.length){if(performance.now()<deadline)completionTimer=setTimeout(show,180);return;}
+    showCompletionCelebration(book);
+  };
+  completionTimer=setTimeout(show,240);
+}
+function showCompletionCelebration(book) {
+  dismissCompletionCelebration(true);
+  if(document.hidden||R.book!==book||R.closing)return;
+  const check=svgEl('svg',{viewBox:'0 0 32 32','aria-hidden':'true'});
+  const circle=svgEl('circle',{cx:16,cy:16,r:13,pathLength:100,class:'finish-ring'});
+  const tick=svgEl('path',{d:'M10 16.5l4 4 8-9',pathLength:100,class:'finish-tick'});
+  check.append(circle,tick);
+  const halo=h('span',{class:'finish-halo','aria-hidden':'true'});
+  const badge=h('span',{class:'finish-badge','aria-hidden':'true'},check);
+  const volume=h('span',{class:'finish-volume','aria-hidden':'true'},coverEl(book),badge);
+  const track=h('i');
+  const card=h('section',{class:'completion-card',role:'status','aria-live':'polite','aria-atomic':'true'},halo,volume,
+    h('div',{class:'finish-copy'},h('span',{class:'finish-kicker'},'100% | Завершено'),h('h2',null,'Книга прочитана'),h('p',{class:'finish-title'},book.title),h('span',{class:'finish-track','aria-hidden':'true'},track)),
+    h('div',{class:'finish-feedback'},bookRatingControl(book),h('button',{class:'btn ghost finish-thought',onclick:()=>openBookReflection(book)},icon('pen','sm'),getBookReflection(book)?'Изменить мысли о книге':'Мысли о книге')),
+    h('button',{class:'finish-close','aria-label':'Закрыть сообщение о прочтении',onclick:()=>dismiss(false)},icon('x','sm')));
+  const animations=[],media=matchMedia('(prefers-reduced-motion: reduce)');let removed=false,leaving=false,auto,exitTimer;
+  const clean=()=>{
+    if(removed)return;removed=true;clearTimeout(auto);clearTimeout(exitTimer);animations.forEach(a=>a.cancel());card.remove();
+    document.removeEventListener('visibilitychange',onVisibility);document.removeEventListener('keydown',onKey,true);window.removeEventListener('resize',onResize);media.removeEventListener('change',onReduced);
+    if(completionCelebration===dismiss)completionCelebration=null;
+  };
+  const run=(el,frames,options)=>{const a=el.animate(frames,{fill:'both',...options});animations.push(a);return a};
+  const dismiss=immediate=>{
+    if(removed)return;
+    if(immediate||reduceMotion()){clean();return;}
+    if(leaving)return;leaving=true;clearTimeout(auto);
+    const style=getComputedStyle(card),opacity=style.opacity,transform=style.transform;
+    animations.forEach(a=>a.cancel());
+    const end=run(card,[{opacity,transform},{opacity:0,transform:'translate3d(0,12px,0) scale(.985)'}],{duration:400,easing:'cubic-bezier(.4,0,.6,1)'});
+    end.finished.then(clean,clean);exitTimer=setTimeout(clean,480);
+  };
+  const onVisibility=()=>{if(document.hidden)clean()},onResize=()=>clean();
+  const onKey=e=>{if(e.key==='Escape'&&!sheets.length){e.preventDefault();e.stopImmediatePropagation();dismiss(false)}};
+  const onReduced=e=>{if(e.matches)animations.forEach(a=>a.cancel())};
+  const startAuto=(ms=12000)=>{clearTimeout(auto);auto=setTimeout(()=>dismiss(false),ms)};
+  completionCelebration=dismiss;document.body.append(card);
+  document.addEventListener('visibilitychange',onVisibility);document.addEventListener('keydown',onKey,true);window.addEventListener('resize',onResize);media.addEventListener('change',onReduced);
+  card.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')clearTimeout(auto)});card.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')startAuto(6000)});
+  card.addEventListener('focusin',()=>clearTimeout(auto));card.addEventListener('focusout',e=>{if(!card.contains(e.relatedTarget))startAuto(6000)});
+  card.addEventListener('rating-saving',()=>clearTimeout(auto));
+  card.addEventListener('rating-settled',()=>{if(!card.contains(document.activeElement))startAuto(10000)});
+  if(!reduceMotion()){
+    run(card,[{opacity:0,transform:'translate3d(0,22px,0) scale(.975)'},{opacity:1,transform:'none'}],{duration:720,easing:'cubic-bezier(.22,.72,.2,1)'});
+    run(volume,[{transform:'translate3d(0,8px,0) rotate(-6deg)'},{transform:'none'}],{duration:1100,delay:80,easing:'cubic-bezier(.25,.1,.25,1)'});
+    run(halo,[{opacity:0},{opacity:.8,offset:.5},{opacity:.36}],{duration:1900,easing:'ease-in-out'});
+    run(badge,[{opacity:0,transform:'scale(.7)'},{opacity:1,transform:'scale(1)'}],{duration:500,delay:350,easing:'cubic-bezier(.22,.72,.2,1)'});
+    run(circle,[{strokeDashoffset:100},{strokeDashoffset:0}],{duration:850,delay:320,easing:'cubic-bezier(.4,0,.2,1)'});
+    run(tick,[{strokeDashoffset:100},{strokeDashoffset:0}],{duration:480,delay:750,easing:'cubic-bezier(.25,.1,.25,1)'});
+    run(track,[{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:1200,delay:140,easing:'cubic-bezier(.25,.1,.25,1)'});
+  }
+  startAuto();return card;
+}
+
 const completionFeedback = new Set();
 async function saveProgress() {
   if (!R.book) return;
   clearTimeout(R.saveTimer);
   const pos = R.blocks.length ? curPos() : { block: 0, off: 0 };
-  const book = R.book, wasDone = Number(book.progress?.pct) >= 1;
-  book.progress = { ch: R.ch, block: pos.block, off: pos.off, pct: R.pct || 0 };
-  const reachedEnd = !wasDone && book.progress.pct >= 1;
+  const book=R.book,previous=book.progress,previousCompletedAt=book.completedAt;
+  const wasDone=Number(previous?.pct)>=1;
+  const progress={ch:R.ch,block:pos.block,off:pos.off,pct:R.pct||0};
+  const reachedEnd=!wasDone&&progress.pct>=1&&!previousCompletedAt;
+  book.progress=progress;
+  // Persistent marker prevents a second celebration after reopening or rereading.
+  if(progress.pct>=1&&!book.completedAt)book.completedAt=Date.now();
+  const completedAt=book.completedAt;
   try {
-    const result = await DB.put('books', book);
-    if (reachedEnd && !completionFeedback.has(book.id)) { completionFeedback.add(book.id); haptic('complete'); }
+    const result=await DB.put('books',book);
+    if(reachedEnd&&!completionFeedback.has(book.id)){
+      completionFeedback.add(book.id);haptic('complete');scheduleCompletionCelebration(book);
+    }
     return result;
-  } catch(e) { storageError(e); throw e; }
+  } catch(e) {
+    // A failed write must not consume the first-completion event.
+    if(book.progress===progress){book.progress=previous;if(book.completedAt===completedAt){if(previousCompletedAt==null)delete book.completedAt;else book.completedAt=previousCompletedAt;}}
+    storageError(e);throw e;
+  }
 }
 let scrollTick = false;
 window.addEventListener('scroll', () => {
@@ -4640,17 +4897,18 @@ function noteFromSelection() {
   // Open after the compatibility click, otherwise a touch can fall through to the new scrim.
   setTimeout(()=>editNotebookNote({book:anchor.book,note,quote,snapshot:anchor}),0);
 }
-function editNotebookNote({book=R.book,note=null,quote=null,snapshot=null,onSaved}={}) {
+function editNotebookNote({book=R.book,note=null,quote=null,snapshot=null,scope=null,onSaved}={}) {
   if (!book) return;
-  const anchor = snapshot || quote || note;
-  const quoted = snapshot?.text || quote?.text || note?.quoteText || '';
+  const wholeBook=scope==='book'||note?.scope==='book';
+  const anchor = wholeBook?null:snapshot || quote || note;
+  const quoted = wholeBook?'':snapshot?.text || quote?.text || note?.quoteText || '';
   const original = note?.text || '';
   const fieldId='notebook-'+uid();
   const text = h('textarea',{id:fieldId,placeholder:quoted?'Что вы думаете об этом фрагменте?':'Мысль, вопрос или впечатление о книге…',maxlength:'20000',rows:'8',autofocus:true});
   text.value=original;
   const error=h('p',{class:'nb-error',role:'alert',hidden:true});
   const count=h('small',{class:'nb-count'},`${text.value.length} / 20 000`);
-  const label=h('label',{for:fieldId},'Моя мысль');
+  const label=h('label',{for:fieldId},wholeBook?'Мои впечатления':'Моя мысль');
   const body=h('div',{class:'note-editor'},quoted?h('blockquote',{class:'nb-source'},quoted):null,h('div',{class:'field'},label,text),count,error);
   let editor,saving=false,confirming=false;
   const discard=()=>{
@@ -4670,7 +4928,8 @@ function editNotebookNote({book=R.book,note=null,quote=null,snapshot=null,onSave
       related=quotes.find(q=>q.ch===snapshot.ch&&q.start===snapshot.start&&q.end===snapshot.end);
       if(!related){related={id:uid(),ch:snapshot.ch,start:snapshot.start,end:snapshot.end,block:snapshot.block,text:snapshot.text,rawText:snapshot.rawText,at:Date.now()};quotes.push(related);}
     }
-    const next={...(note || {}),id:note?.id || uid(),text:value,ch:anchor?.ch ?? (R.book===book?R.ch:0),block:anchor?.block ?? (R.book===book?curPos().block:0),at:note?.at || Date.now(),updatedAt:Date.now(),quoteId:related?.id || note?.quoteId || null,quoteText:quoted,start:related?.start ?? note?.start ?? -1};
+    const next={...(note || {}),id:note?.id || uid(),text:value,ch:wholeBook?0:anchor?.ch ?? (R.book===book?R.ch:0),block:wholeBook?0:anchor?.block ?? (R.book===book?curPos().block:0),at:note?.at || Date.now(),updatedAt:Date.now(),quoteId:related?.id || note?.quoteId || null,quoteText:quoted,start:related?.start ?? note?.start ?? -1};
+    if(wholeBook){next.scope='book';next.quoteId=null;next.quoteText='';next.start=-1;}
     const i=notes.findIndex(n=>n.id===next.id);if(i<0)notes.push(next);else notes[i]=next;
     book.notes=notes;book.quotes=quotes;
     try{
@@ -4682,7 +4941,7 @@ function editNotebookNote({book=R.book,note=null,quote=null,snapshot=null,onSave
   }},'Сохранить');
   text.addEventListener('input',()=>{count.textContent=`${text.value.length} / 20 000`;error.hidden=true;text.removeAttribute('aria-invalid')});
   text.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&(e.key==='Enter'||e.key.toLowerCase()==='s')){e.preventDefault();save.click()}});
-  editor=openSheet({title:'Мысль',label:note?'Изменить мысль':'Новая мысль',tall:true,cls:'nb-editor-sheet',body,left:h('button',{class:'txt-btn',onclick:()=>editor.close()},'Отмена'),right:save,beforeClose:discard});
+  editor=openSheet({title:wholeBook?'О книге':'Мысль',label:wholeBook?'Мысли о книге':note?'Изменить мысль':'Новая мысль',tall:true,cls:'nb-editor-sheet',body,left:h('button',{class:'txt-btn',onclick:()=>editor.close()},'Отмена'),right:save,beforeClose:discard});
   // Keep the editor and its Save action above the mobile keyboard.
   const viewport=window.visualViewport;
   const fitEditor=()=>{
@@ -4716,8 +4975,9 @@ function notebookPane(book, close) {
     const quote=type==='note'&&item.quoteId?book.quotes.find(q=>q.id===item.quoteId):null;
     const fragment=type==='quote'?item.text:type==='note'?(quote?.text||item.quoteText):item.text;
     const ownThoughts=type==='quote'&&filter==='quotes'?(book.notes||[]).filter(n=>n.quoteId===item.id):[];
-    const label={quote:'Цитата',note:'Заметка',bookmark:'Закладка'}[type];
-    const actions=h('div',{class:'nb-actions'},h('button',{class:'link-btn',onclick:()=>move(item,type==='quote'?item.id:item.quoteId)},'К фрагменту',icon('next','sm')),
+    const wholeBook=type==='note'&&item.scope==='book';
+    const label=wholeBook?'О книге':{quote:'Цитата',note:'Заметка',bookmark:'Закладка'}[type];
+    const actions=h('div',{class:'nb-actions'},wholeBook?h('span',{class:'nb-book-scope'},'О всей книге'):h('button',{class:'link-btn',onclick:()=>move(item,type==='quote'?item.id:item.quoteId)},'К фрагменту',icon('next','sm')),
       type==='bookmark'?null:h('button',{class:'icon-btn','aria-label':type==='note'?'Изменить мысль':'Добавить мысль',onclick:()=>type==='note'?editNotebookNote({book,note:item,onSaved:()=>draw()}):noteForQuote(book,item,()=>draw())},icon('pen','sm')),
       h('button',{class:'icon-btn','aria-label':'Копировать запись',onclick:async()=>toast((await copyPlain(type==='note'?`${fragment?'«'+fragment+'»\n\n':''}${item.text}`:quoteCite(item,book)))?'Скопировано':'Не удалось скопировать')},icon('copy','sm')),
       h('button',{class:'icon-btn','aria-label':`Удалить ${type==='note'?'мысль':type==='quote'?'цитату':'закладку'}`,onclick:()=>remove(type,item)},icon('trash','sm')));
@@ -4726,7 +4986,7 @@ function notebookPane(book, close) {
       fragment?h('blockquote',{class:'nb-source'},fragment):null,
       type==='note'?h('p',{class:'nb-thought'},item.text):null,
       ...ownThoughts.map(n=>h('button',{class:'q-thought',onclick:()=>editNotebookNote({book,note:n,onSaved:()=>draw()})},h('small',null,'Моя мысль'),h('span',null,n.text))),
-      h('small',{class:'nb-chapter'},chapter(item.ch)),actions);
+      h('small',{class:'nb-chapter'},wholeBook?'Впечатления о книге':chapter(item.ch)),actions);
   }
   function draw(animate=false){
     motion?.cancel();
@@ -5023,7 +5283,7 @@ $('#rt-edit').addEventListener('click', () => startEditing());
     const loc = locate(+sl.value);
     sl.style.setProperty('--fill', (sl.value / sl.max) * 100 + '%');
     if (tip.hidden) { tip.hidden = false; playIn(tip, 'pop-in'); }
-    tip.textContent = `${loc.label} · ${R.content.chapters[loc.ch].title}`;
+    tip.textContent = `${loc.label} | ${R.content.chapters[loc.ch].title}`;
   });
   sl.addEventListener('change', () => {
     const loc = locate(+sl.value);
@@ -5092,7 +5352,7 @@ function statsCredit(ms) {
     d.met = true;
     const s = streakInfo().current;
     ST.data.best = Math.max(ST.data.best || 0, s);
-    toast(`Цель на сегодня выполнена · ${s} ${plural(s, ['день', 'дня', 'дней'])} подряд`, { action: { label: 'Профиль', fn: () => { closeReader().then(() => openProfile()); } }, timeout: 5000 });
+    toast(`Цель на сегодня выполнена | ${s} ${plural(s, ['день', 'дня', 'дней'])} подряд`, { action: { label: 'Профиль', fn: () => { closeReader().then(() => openProfile()); } }, timeout: 5000 });
   }
   saveStats();
 }
@@ -5272,8 +5532,7 @@ function renderProfile() {
   /* activity chart */
   main.append(activityCard());
 
-  /* calendar heatmap and weekly rhythm */
-  main.append(heatmapCard(tot));
+  /* weekly rhythm */
   main.append(rhythmCard());
 
   /* books */
@@ -5293,7 +5552,7 @@ function renderProfile() {
       book ? coverEl(book) : h('span', { class: 'cover' }),
       h('span', { class: 'bm' },
         h('span', { class: 'bt' }, book ? book.title : s.title || 'Удалённая книга'),
-        h('span', { class: 'bs' }, [fmtDur(s.ms), sp ? `${sp} сл/мин` : '', eta].filter(Boolean).join(' · ')),
+        h('span', { class: 'bs' }, [fmtDur(s.ms), sp ? `${sp} сл/мин` : '', eta].filter(Boolean).join(' | ')),
         h('span', { class: 'share' }, bar)),
       book ? ringEl(pct / 100, 38, 3.5, pct >= 100 ? '#34c27a' : '#f28a2e', pct + '%') : ringEl(0, 38, 3.5, 'var(--fg-3)', '—'));
     list.append(row);
@@ -5301,9 +5560,8 @@ function renderProfile() {
   main.append(h('section', { class: 'card pad' }, h('div', { class: 'card-h' }, h('h2', null, 'Время по книгам'), rows.length ? h('span', null, `${rows.length} ${plural(rows.length, BOOKS)}`) : null),
     booksDonut, booksDonut ? h('h3', { class: 'sub-h' }, 'Прогресс и темп') : null, list));
 
-  /* library composition and achievements */
+  /* library composition */
   main.append(libraryCard());
-  main.append(achievementsCard(st, tot));
 
   /* records */
   main.append(h('section', { class: 'records' },
@@ -5407,68 +5665,11 @@ function overviewTiles(tot, today, goal, speed) {
   if (speed) countUp(b3, speed, (v) => String(Math.round(v)), 1000);
   const x = clamp((speed || 0) / 400, 0.02, 0.98) * 100;
   const scale = h('div', null, h('div', { class: 'scale', style: `--x:${speed ? x : 0}%;--m:50%` }, speed ? h('i') : null, h('u')), h('div', { class: 'scale-l' }, h('span', null, '0'), h('span', null, 'ср. 200'), h('span', null, '400+')));
-  grid.append(igTile(2, '#5b8cff', 'bolt', 'Скорость', b3, speed ? `слов/мин · ${speed >= 220 ? 'быстрее среднего' : speed >= 180 ? 'средний темп' : 'вдумчивый темп'}` : 'посчитаем после пары минут чтения', scale));
+  grid.append(igTile(2, '#5b8cff', 'bolt', 'Скорость', b3, speed ? `слов/мин | ${speed >= 220 ? 'быстрее среднего' : speed >= 180 ? 'средний темп' : 'вдумчивый темп'}` : 'посчитаем после пары минут чтения', scale));
 
-  const pages = daySeries(14, 'chars').map((c) => c / CHARS_PER_PAGE);
-  const pmax = Math.max(1, ...pages);
-  const bars = h('div', { class: 'mbars', 'aria-hidden': 'true' }, pages.map((p, i) => h('i', { class: p > 0 ? 'on' : '', style: `--i:${i};height:${p > 0 ? Math.max(8, (p / pmax) * 100) : 6}%` })));
-  const totalPages = Math.round(tot.chars / CHARS_PER_PAGE);
-  const b4 = h('b', null, '0');
-  countUp(b4, totalPages, (v) => String(Math.round(v)), 1000);
-  grid.append(igTile(3, '#c77dff', 'pages', 'Прочитано', b4, `${plural(totalPages, ['страница', 'страницы', 'страниц'])} · 14 дней ниже`, bars));
   return grid;
 }
 
-function heatmapCard() {
-  // as many weeks as fit with comfortable ~15px cells
-  const avail = (($('#pf-main') && $('#pf-main').clientWidth) || window.innerWidth) - 36 - 30;
-  const weeks = clamp(Math.floor(avail / 18), 12, 52);
-  const goal = goalMs();
-  const now = dayAgo(0), dow = (now.getDay() + 6) % 7;
-  const start = new Date(now); start.setDate(now.getDate() - dow - (weeks - 1) * 7);
-  const grid = h('div', { class: 'heat-grid', style: `--w:${weeks}`, role: 'img' });
-  const months = h('div', { class: 'heat-months', style: `--w:${weeks}`, 'aria-hidden': 'true' });
-  const info = h('span', null, 'Коснитесь дня, чтобы увидеть время');
-  let active = 0, met = 0, counted = 0, lastMonth = -1;
-  const fmtD = (d) => `${d.getDate()} ${['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'][d.getMonth()]}`;
-  for (let w = 0; w < weeks; w++) {
-    const wkStart = new Date(start); wkStart.setDate(start.getDate() + w * 7);
-    months.append(h('span', null, wkStart.getMonth() !== lastMonth && w < weeks - 1 ? MON_SHORT[wkStart.getMonth()] : ''));
-    lastMonth = wkStart.getMonth();
-    for (let d = 0; d < 7; d++) {
-      const day = new Date(wkStart); day.setDate(wkStart.getDate() + d);
-      const fut = day > now && dayKey(day) !== dayKey(now);
-      const ms = fut ? 0 : ((ST.data.days[dayKey(day)] || {}).ms || 0);
-      if (!fut) { counted++; if (ms >= 60000) active++; if (dayMet(dayKey(day))) met++; }
-      const lvl = fut || !ms ? '' : ms < goal * 0.5 ? ' l1' : ms < goal ? ' l2' : ms < goal * 2 ? ' l3' : ' l4';
-      const label = `${fmtD(day)}: ${ms ? fmtDur(ms) : 'не читали'}`;
-      const cell = h('span', { class: 'hc' + lvl + (fut ? ' fut' : '') + (dayKey(day) === dayKey(now) ? ' today' : ''), style: `--i:${w * 7 + d}`, title: fut ? null : label });
-      if (!fut) cell.addEventListener('click', () => { info.textContent = label; });
-      grid.append(cell);
-    }
-  }
-  grid.setAttribute('aria-label', `Календарь чтения за ${weeks} недель: ${active} дней с чтением`);
-  const pct = counted ? Math.round((active / counted) * 100) : 0;
-  const kpis = h('div', { class: 'kpis' },
-    h('div', { class: 'kpi' }, h('b', null, String(active)), h('span', null, plural(active, ['день', 'дня', 'дней']) + ' с чтением')),
-    h('div', { class: 'kpi' }, h('b', null, pct + '%'), h('span', null, 'регулярность')),
-    h('div', { class: 'kpi' }, h('b', null, String(met)), h('span', null, 'с выполненной целью')));
-  const legend = h('span', { class: 'heat-legend', 'aria-hidden': 'true' }, h('span', null, 'меньше'), ...['', ' l1', ' l2', ' l3', ' l4'].map((c) => h('i', { class: 'hc' + c })), h('span', null, 'больше'));
-  return h('section', { class: 'card pad', id: 'heatmap', 'data-weeks': weeks },
-    h('div', { class: 'card-h' }, h('h2', null, 'Календарь чтения'), h('span', null, weeks >= 52 ? 'за год' : `${weeks} нед.`)),
-    kpis,
-    h('div', { class: 'heat' },
-      h('div', { class: 'heat-days', 'aria-hidden': 'true' }, WD_MON.map((d, i) => h('span', null, i % 2 === 0 && i < 6 ? d : ''))),
-      h('div', { class: 'heat-body' }, months, grid)),
-    h('div', { class: 'heat-foot' }, info, legend));
-}
-
-// redraw the calendar when the screen width changes how many weeks fit
-window.addEventListener('resize', debounce(() => {
-  const el = $('#heatmap'); if (!el || $('#profile').hidden) return;
-  const next = heatmapCard();
-  if (next.dataset.weeks !== el.dataset.weeks) el.replaceWith(next);
-}, 200));
 function rhythmCard() {
   const sums = [0, 0, 0, 0, 0, 0, 0], cnt = [0, 0, 0, 0, 0, 0, 0];
   for (let i = 0; i < 56; i++) { const d = dayAgo(i), w = (d.getDay() + 6) % 7; sums[w] += ((ST.data.days[dayKey(d)] || {}).ms || 0); cnt[w]++; }
@@ -5532,32 +5733,6 @@ function libraryCard() {
       h('div', { class: 'counter' }, h('span', { class: 'ig-ico', style: '--c:#ff6b8a' }, icon('bm')), h('b', null, String(bm)), h('span', null, plural(bm, ['закладка', 'закладки', 'закладок'])))));
 }
 
-function achievementsCard(st, tot) {
-  const books = state.books || [];
-  const quotes = books.reduce((a, b) => a + ((b.quotes && b.quotes.length) || 0), 0);
-  const hours = tot.ms / 3600000;
-  const speed = wpm(tot.chars, tot.ms);
-  const list = [
-    { n: 'Первый час', cur: hours, max: 1, ic: 'clock', fmt: (v) => fmtDur(Math.min(v, 1) * 3600000, true) + ' / 1 ч' },
-    { n: 'Неделя огня', cur: st.best, max: 7, flame: true },
-    { n: 'Месяц огня', cur: st.best, max: 30, flame: true },
-    { n: 'Марафон', cur: hours, max: 10, ic: 'target', fmt: (v) => Math.floor(Math.min(v, 10)) + ' / 10 ч' },
-    { n: 'Книжный червь', cur: booksDone(), max: 5, ic: 'book' },
-    { n: 'Коллекционер', cur: quotes, max: 25, ic: 'quote' },
-  ];
-  if (speed) list.push({ n: 'Скорочтец', cur: speed, max: 250, ic: 'bolt' });
-  const got = list.filter((a) => a.cur >= a.max).length;
-  return h('section', { class: 'card pad' },
-    h('div', { class: 'card-h' }, h('h2', null, 'Достижения'), h('span', null, `${got} из ${list.length}`)),
-    h('div', { class: 'ach' }, list.map((a, i) => {
-      const ok = a.cur >= a.max;
-      const ring = ringEl(a.cur / a.max, 64, 5, ok ? '#f28a2e' : 'var(--fg-3)', null);
-      ring.append(a.flame ? flameSvg(ok ? 'on' : 'off') : icon(a.ic));
-      return h('div', { class: 'badge' + (ok ? ' done' : ''), style: `--i:${i}`, role: 'img', 'aria-label': `${a.n}: ${ok ? 'получено' : 'в процессе'}` }, ring,
-        h('b', null, a.n), h('span', null, ok ? 'получено' : a.fmt ? a.fmt(a.cur) : `${Math.floor(Math.min(a.cur, a.max))} / ${a.max}`));
-    })));
-}
-
 function activityCard() {
   const days = profileRange;
   const goal = goalMs();
@@ -5592,7 +5767,7 @@ function activityCard() {
   const empty = !sum ? h('p', { class: 'chart-empty' }, 'График заполнится, когда вы начнёте читать') : null;
   return h('section', { class: 'card pad', id: 'activity' },
     h('div', { class: 'card-h' }, h('h2', null, 'Активность'), seg),
-    h('p', { class: 'sum' }, h('span', null, h('b', null, fmtDur(sum, true)), ` за ${days === 7 ? 'неделю' : '30 дней'} · в среднем ${fmtDur(sum / days, true)} в день`), trendChip(sum, sumRange(days, days * 2))),
+    h('p', { class: 'sum' }, h('span', null, h('b', null, fmtDur(sum, true)), ` за ${days === 7 ? 'неделю' : '30 дней'} | в среднем ${fmtDur(sum / days, true)} в день`), trendChip(sum, sumRange(days, days * 2))),
     h('div', { class: 'chart' }, plot, tip, empty), axis);
 }
 
