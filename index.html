@@ -1245,6 +1245,11 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .quote-handle::after{content:'';position:absolute;left:15px;top:8px;width:14px;height:14px;border-radius:50%;background:currentColor;box-shadow:0 1px 3px rgba(0,0,0,.18)}
 .quote-handle[data-edge=end]::before{top:calc(-1 * var(--line-height))}.quote-handle[data-edge=end]::after{top:0}
 .quote-handle:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-radius:8px}
+#quote-page-cue{position:fixed;z-index:43;pointer-events:none;display:grid;place-items:center;width:34px;height:56px;border-radius:17px;background:color-mix(in srgb,var(--accent) 26%,transparent);color:var(--accent);box-shadow:0 6px 18px rgba(0,0,0,.18);opacity:0;transform:scale(.88);transition:opacity .16s ease,transform .16s var(--ease)}
+#quote-page-cue.on{opacity:1;transform:none}
+#quote-page-cue::before{content:"";width:9px;height:9px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg) translate(-1px,1px)}
+#quote-page-cue[data-dir="-1"]::before{transform:rotate(135deg) translate(-1px,1px)}
+@media(prefers-reduced-motion:reduce){#quote-page-cue{transition:none}}
 
 
 /* Subtle tactile feedback. */
@@ -1401,38 +1406,9 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .finish-feedback{grid-column:1/-1;position:relative;pointer-events:auto;border-top:1px solid var(--hair);padding-top:14px;display:grid;gap:12px}
 .book-rating{min-width:0}.rating-heading{display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:13px}.rating-heading small{color:var(--fg-2);font-size:12px}.rating-stars{display:flex;gap:4px;margin-top:5px}.rating-star{width:44px;height:44px;padding:9px;display:grid;place-items:center;background:none;border:0;border-radius:12px;color:var(--fg-2);cursor:pointer;touch-action:manipulation}.rating-star svg{width:26px;height:26px;fill:transparent;stroke:currentColor;stroke-width:1.5;transition:fill .28s,color .28s}.rating-star.is-filled{color:#eea62f}.rating-star.is-filled svg{fill:currentColor}.rating-star:focus-visible{outline:2px solid currentColor;outline-offset:-3px}.rating-star:disabled{cursor:wait;opacity:.65}.rating-error{font-size:12px;color:var(--accent);margin:4px 0}.rating-clear{font-size:12px;min-height:32px}.finish-thought{width:100%;min-height:44px;justify-content:center}.bd-feedback{width:100%;text-align:left;margin:18px 0;padding:16px;border-radius:20px;background:var(--bg-raised)}.bd-feedback .btn{margin-top:10px}.book-reflection-preview{text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.6;margin:12px 0 0;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}.nb-book-scope{font-size:12px;color:var(--fg-2);margin-right:auto}
 @media(max-height:650px){.completion-card{bottom:24px;max-height:calc(100dvh - 48px);overflow:auto}}
-/* A physical bookcase: recessed bays, hard-cover spines and deep cabinet boards. */
-.bookcase{--case-edge:#303536;--case-board:#202526;--case-back:#101415;--case-light:rgba(218,232,226,.11);position:relative;isolation:isolate;container-type:inline-size;width:100%;max-width:640px;margin:0 auto;border:9px solid #272d2e;border-top:12px solid #343a3a;border-bottom:15px solid #202627;border-radius:3px 3px 5px 5px;background:var(--case-back);box-shadow:inset 0 0 0 1px #080b0c,0 2px 0 #090c0d,4px 8px 0 -2px #14191a,0 16px 36px -14px rgba(0,0,0,.55)}
-.bookcase::before,.bookcase::after{content:'';position:absolute;top:-12px;bottom:-15px;width:8px;z-index:3;pointer-events:none;background:linear-gradient(90deg,#454b4b,#2b3132 20%,#1c2223 78%,#080b0c);box-shadow:1px 0 0 #090c0c}
-.bookcase::before{left:-9px}.bookcase::after{right:-9px;transform:scaleX(-1)}
-.case-section{position:relative;background:linear-gradient(90deg,rgba(0,0,0,.5),transparent 9%,transparent 90%,rgba(0,0,0,.6)),linear-gradient(180deg,#0a0e0f,#141a1c 42%,#171e1f);box-shadow:inset 0 14px 24px -15px #000,inset 0 1px 0 #080a0a}
-.case-label{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px;padding:3px 10px 0 14px;color:#b4b9b7}
-.case-open{display:flex;align-items:baseline;gap:8px;min-width:0;text-align:left;min-height:36px;flex:1}.case-open h2{font:500 14px/1.3 var(--f-ui);color:#e2e3de;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.case-open small{font-size:11px;white-space:nowrap;color:#858d8c}.case-open .ic{width:12px;height:12px;align-self:center;color:#858d8c}.case-label .icon-btn{color:#949e9b;width:36px;height:36px;flex:none}.case-label .icon-btn:hover{background:rgba(255,255,255,.08)}
-.case-bay{position:relative;display:flex;align-items:flex-end;gap:clamp(8px,2.2cqw,16px);height:clamp(162px,47cqw,245px);padding:0 clamp(10px,3cqw,20px) 0;box-shadow:inset 12px 0 18px -15px #000,inset -12px 0 18px -15px #000;overflow:hidden}
-.case-bay::after{content:'';position:absolute;z-index:0;inset:auto 0 0;height:25px;background:linear-gradient(transparent,rgba(0,0,0,.5));pointer-events:none}.case-section.is-continuation .case-bay{height:clamp(185px,54cqw,275px)}
-.case-books{position:relative;z-index:1;display:flex;align-items:flex-end;gap:1px;min-width:0;flex:1;height:100%;padding:0 2px 0 0}
-.case-book{--spine-bg:#374951;--spine-fg:#e6e3d8;position:relative;display:block;flex:none;width:calc(clamp(22px,7cqw,36px)*var(--bw,1));height:calc(clamp(118px,41cqw,205px)*var(--bh,1));color:var(--spine-fg);background:var(--spine-bg);border-radius:2px 3px 1px 1px;box-shadow:inset 1px 0 0 rgba(255,255,255,.22),inset -2px 0 3px rgba(0,0,0,.5),2px 0 2px rgba(0,0,0,.5),0 4px 5px rgba(0,0,0,.6);transform-origin:50% 100%;text-align:left;touch-action:pan-y;-webkit-touch-callout:none;user-select:none;cursor:pointer;transition:translate .38s cubic-bezier(.25,.1,.25,1),filter .38s,box-shadow .38s;isolation:isolate}
-.case-book::before{content:'';position:absolute;z-index:-1;inset:0;border-radius:inherit;background:linear-gradient(90deg,rgba(0,0,0,.32),rgba(255,255,255,.15) 12%,transparent 27%,rgba(255,255,255,.04) 58%,rgba(0,0,0,.2) 85%,rgba(0,0,0,.45)),repeating-linear-gradient(0deg,transparent 0 2px,rgba(255,255,255,.025) 2px 3px)}
-.case-book::after{content:'';position:absolute;inset:5px 3px;pointer-events:none;border-top:1px solid currentColor;border-bottom:2px double currentColor;opacity:.35}
-.case-spine-title{position:absolute;inset:15px 3px 20px;display:block;font:600 clamp(9px,2.7cqw,14px)/1.05 var(--f-display);writing-mode:vertical-rl;text-orientation:mixed;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.01em;text-shadow:0 1px 1px rgba(0,0,0,.22)}
-.case-spine-author{position:absolute;bottom:8px;left:4px;right:4px;font:500 clamp(4px,1.25cqw,6px)/1.2 var(--f-ui);text-transform:uppercase;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;opacity:.7;letter-spacing:.06em;text-align:center}
-.case-book.is-leaning{rotate:-4deg;margin-left:6px;margin-right:3px}.case-book.is-plain::after{opacity:.16;border-top:0;border-bottom:1px solid currentColor}.case-book.is-plain .case-spine-title{font-family:var(--f-ui);font-weight:500}
-.case-stack{align-self:flex-end;display:flex;flex-direction:column-reverse;gap:1px;flex:none;width:clamp(86px,28cqw,154px);margin:0 4px 0 clamp(7px,2cqw,13px);padding-bottom:0;filter:drop-shadow(3px 0 3px rgba(0,0,0,.35))}
-.case-books.is-stacked .case-stack{width:min(154px,calc(50% - 12px));margin-inline:4px}
-.case-flat{height:calc(clamp(17px,5.3cqw,26px)*var(--bw,1));width:calc(100% - var(--short,0px));border-radius:2px 1px 2px 2px;translate:var(--offset,0px) 0;box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -3px 3px rgba(0,0,0,.45),1px 2px 1px #090b0c}
-.case-flat::before{background:linear-gradient(180deg,rgba(255,255,255,.11),transparent 24%,rgba(0,0,0,.12) 65%,rgba(0,0,0,.4))}.case-flat::after{inset:3px 4px;border:0;border-left:1px solid currentColor;border-right:2px double currentColor;opacity:.4}
-.case-flat .case-spine-title{writing-mode:horizontal-tb;inset:0 8px;display:flex;align-items:center;font-size:clamp(7px,2.1cqw,11px);line-height:1;white-space:nowrap;letter-spacing:0}.case-flat .case-spine-author{display:none}
-.case-plank{height:15px;position:relative;z-index:2;background:linear-gradient(180deg,#4a5050 0,#3c4343 7%,#303737 15%,#272e2f 24%,#232a2c 76%,#141a1b 96%,#080d0e);box-shadow:0 8px 11px -5px rgba(0,0,0,.8),inset 0 1px 0 rgba(219,230,225,.12)}.case-plank::after{content:'';position:absolute;inset:3px 0 2px;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,255,255,.017) 3px 4px);pointer-events:none}.case-section:last-child .case-plank{height:5px}
-.case-new{width:100%;max-width:640px;margin:20px auto 0;display:flex;justify-content:center;align-items:center;gap:8px;min-height:48px;border:1px solid var(--hair);border-radius:14px;font-size:14px;color:var(--fg-2)}.case-new:hover{background:var(--fill);color:var(--fg)}
-.case-empty{align-self:center;position:relative;z-index:1;flex:1;text-align:left;max-width:230px;padding-bottom:12px}.case-empty p{font-size:13px;line-height:1.5;color:#919c98;margin:0 0 12px}.case-empty button{font-size:12px;color:#e4c691;padding:8px 0}.case-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:640px;margin:0 auto 18px}.case-toolbar .btn{font-size:13px;min-height:40px;padding:9px 13px;gap:6px}.case-hint{color:var(--fg-3);font-size:12px;line-height:1.5;max-width:640px;margin:16px auto 0}
-.case-style-section{margin-top:22px}.case-style-section:first-child{margin-top:0}.case-style-section h3{font-size:14px;margin:0 0 12px}.case-style-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.case-style-choice{display:grid;justify-items:center;align-content:center;gap:8px;min-height:94px;padding:10px 4px;border-radius:14px;background:var(--fill);box-shadow:inset 0 0 0 1px transparent;font-size:12px}.case-style-choice[aria-pressed=true]{background:var(--fill-2);box-shadow:inset 0 0 0 1px var(--fg-3)}.case-style-choice svg{height:48px;width:46px}.case-style-error{font-size:13px;color:var(--danger)}
-.case-drag-source{opacity:.32!important}.case-drop-target{outline:2px solid #e4c691;outline-offset:3px;z-index:4}.case-drag-ghost{position:fixed!important;z-index:90!important;margin:0!important;pointer-events:none!important;transition:none!important;rotate:3deg!important;opacity:1!important;box-shadow:0 18px 28px rgba(0,0,0,.6)!important;transform-origin:center!important;will-change:transform}
-.bookcase :focus-visible{outline:2px solid #e9cf9b;outline-offset:3px}.case-book:focus-visible{z-index:5;translate:0 -6px}.case-style-live{font-size:12px;color:var(--fg-2);min-height:18px;margin-top:14px}.case-empty-art{position:relative;width:150px;height:146px;padding:9px;background:#111719;border:7px solid #303738;box-shadow:5px 8px 16px rgba(0,0,0,.25)}.case-empty-art i{position:absolute;left:0;right:0;top:58%;height:8px;background:linear-gradient(#4a5151,#21292b);box-shadow:0 5px 7px #0008}.case-empty-art span{position:absolute;bottom:42%;left:16px;width:16px;height:73px;background:linear-gradient(90deg,#183a3c,#265e5c,#123638);box-shadow:inset 1px 0 #fff3}.case-empty-art span:nth-of-type(2){left:34px;height:65px;background:linear-gradient(90deg,#53333c,#774656,#38212c)}.case-empty-art span:nth-of-type(3){left:52px;height:77px;background:linear-gradient(90deg,#8a7152,#af9770,#5d4932)}
-@media(hover:hover){.case-book:hover{translate:0 -7px;filter:brightness(1.13);z-index:5}.case-flat:hover{translate:5px -2px}}
-@media(min-width:760px){.case-bay{padding-inline:22px}.case-label{padding:6px 14px 0 22px;min-height:46px}.case-open h2{font-size:16px}.case-open small{font-size:12px}.bookcase{border-width:12px;border-top-width:14px;border-bottom-width:18px}.bookcase::before,.bookcase::after{width:11px;top:-14px;bottom:-18px}.bookcase::before{left:-12px}.bookcase::after{right:-12px}.case-plank{height:19px}}
-@media(prefers-reduced-motion:reduce){.case-book{transition:none}.case-book:hover,.case-flat:hover{translate:0 0}}
 
-.case-drop-shelf{box-shadow:inset 0 0 0 2px #c7b58e,inset 0 0 28px rgba(199,181,142,.09)}.case-drop-cue{position:absolute;z-index:8;top:8px;right:10px;max-width:calc(100% - 20px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;line-height:1.4;padding:6px 9px;border-radius:8px;color:#f7e6bd;background:#303129;box-shadow:0 2px 10px #0005;pointer-events:none}.case-home-hint{margin:0 auto 14px}.case-drop-target{outline-offset:1px}
+/* Automatic shelves use the same glass pockets as personal shelves. */
+.auto-pocket-label{pointer-events:auto;cursor:pointer;display:grid;gap:5px;align-content:start}.auto-pocket-tag{font-size:12px;line-height:1.25;font-weight:400;color:var(--fg-3)}.personal-shelves-head{margin-top:38px}.auto-shelf-note{font-size:14px;line-height:1.6;color:var(--fg-2);margin:0 0 25px;max-width:650px}.auto-shelf-empty{padding-top:18px}.auto-shelf-empty>p{max-width:340px}.auto-pocket .lbl{line-height:1.4}.auto-pockets{align-items:start}
 </style>
 </head>
 <body>
@@ -2357,7 +2333,7 @@ async function exportBook(book) {
 }
 
 /* ================= state ================= */
-const state = { qbook: '', books: [], tab: 'all', bookStatus: 'all', shelf: null, sort: prefs.sort || 'manual', query: '', coverUrls: new Map() };
+const state = { qbook: '', books: [], tab: 'all', autoShelf: null, shelf: null, sort: prefs.sort || 'manual', query: '', coverUrls: new Map() };
 const root = document.documentElement;
 
 function applyUi() {
@@ -2503,80 +2479,31 @@ function shelves() {
   return [...m.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'ru'));
 }
 const byRecent = (a, b) => (b.openedAt || b.addedAt) - (a.openedAt || a.addedAt);
-const pctOf = (b) => Math.round(((b.progress && b.progress.pct) || 0) * 100);
-// Status is derived from existing reading data; importing a book does not start it.
-const READING_SECTIONS = [['all','Все'],['reading','Читаю'],['paused','Отложено'],['done','Прочитано']];
-function readingStatus(book) {
-  const progress = Math.max(0, Number(book.progress && book.progress.pct) || 0);
-  if (progress >= 1) return 'done';
-  return book.openedAt || progress > 0 ? 'reading' : 'paused';
+const pctOf = (b) => {const p=Math.max(0,Number(b.progress?.pct)||0);return p>=1?100:Math.min(99,Math.round(p*100));};
+// These are derived collections, not values stored in book.shelf.
+// A book keeps its personal shelf while its reading shelf changes automatically.
+const AUTO_SHELVES = [
+ {key:'want',title:'Хочу прочитать',description:'Книги, которые вы ещё не начали читать. После открытия книга автоматически перейдёт на полку «Читаю».',empty:'Неначатых книг пока нет'},
+ {key:'reading',title:'Читаю',description:'Начатые книги. Когда прогресс достигнет 100%, книга автоматически перейдёт на полку «Прочитано».',empty:'Пока ничего не читаете'},
+ {key:'done',title:'Прочитано',description:'Книги, прочитанные до конца. Они попадают сюда автоматически при достижении 100% прогресса.',empty:'Прочитанных книг пока нет'}
+];
+function autoShelfDefinition(key=state.autoShelf){return AUTO_SHELVES.find(s=>s.key===key)||null;}
+function readingStatus(book){
+ const progress=Math.max(0,Number(book.progress?.pct)||0);
+ if(progress>=1)return 'done';
+ return book.openedAt||progress>0?'reading':'want';
 }
-let readingSectionMotion = null;
-function stopReadingSectionMotion() {
-  if (readingSectionMotion) readingSectionMotion();
+function automaticShelfBooks(key){return state.books.filter(book=>readingStatus(book)===key).sort(byPos);}
+function automaticPocket(definition,index){
+ const books=automaticShelfBooks(definition.key);
+ return h('button',{class:'pocket auto-pocket',style:`--i:${index}`,'data-auto-shelf':definition.key,'aria-label':`${definition.title}: ${books.length} ${plural(books.length,BOOKS)}. Автоматическая полка`,onclick:()=>go('shelves',null,definition.key)},
+  pocketWell(books),h('span',{class:'auto-pocket-label'},h('span',{class:'lbl'},definition.title),h('small',{class:'auto-pocket-tag'},`${books.length} ${plural(books.length,BOOKS)} | Авто`)));
 }
-function switchReadingSection(key) {
-  if (!READING_SECTIONS.some(([value]) => value === key) || state.bookStatus === key) return;
-  const main = $('#lib-main'), previous = main.querySelector('.reading-sections');
-  if (!previous || state.tab !== 'all' || state.query) { state.bookStatus = key; renderLibrary(false); return; }
-  const previousKey = state.bookStatus, direction = READING_SECTIONS.findIndex(([k])=>k===key) > READING_SECTIONS.findIndex(([k])=>k===previousKey) ? 1 : -1;
-  const scroll = previous.scrollLeft;
-  const outgoing = main.querySelector('.reading-results');
-  const makeGhost = element => {
-    if (!element || reduceMotion()) return null;
-    const rect = element.getBoundingClientRect(), alpha = Number(getComputedStyle(element).opacity);
-    const ghost = element.cloneNode(true);
-    ghost.removeAttribute('id');ghost.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));
-    ghost.classList.add('reading-ghost');ghost.inert=true;ghost.setAttribute('aria-hidden','true');
-    ghost.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${Math.min(rect.height,Math.max(0,innerHeight-rect.top))}px;opacity:${alpha};margin:0;pointer-events:none;overflow:hidden;z-index:4;`;
-    return {node:ghost,alpha};
-  };
-  const ghost = makeGhost(outgoing);
-  stopReadingSectionMotion();
-  state.bookStatus = key; libraryTabCache.clear();
-  const group = previous, results = readingResults(key);
-  group.querySelectorAll('[data-reading-status]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.readingStatus === key)));
-  if (outgoing) outgoing.replaceWith(results); else main.append(results);
-  if (!group || !results) return;
-  group.scrollLeft = scroll;
-  const selected = group.querySelector(`[data-reading-status="${key}"]`);
-  selected.focus({preventScroll:true});
-  if(selected.offsetLeft < group.scrollLeft)group.scrollLeft=selected.offsetLeft;
-  else if(selected.offsetLeft+selected.offsetWidth > group.scrollLeft+group.clientWidth)group.scrollLeft=selected.offsetLeft+selected.offsetWidth-group.clientWidth;
-  if (reduceMotion() || document.hidden) return;
-  const animations = [], ghosts = [ghost].filter(Boolean);
-  const media=matchMedia('(prefers-reduced-motion: reduce)');let ended=false,timer;
-  const cleanup=()=>{
-    if(ended)return;ended=true;clearTimeout(timer);
-    animations.forEach(a=>a.cancel());ghosts.forEach(g=>g.node.remove());
-    window.removeEventListener('resize',cleanup);document.removeEventListener('visibilitychange',onVisibility);media.removeEventListener('change',onReduced);
-    if(readingSectionMotion===cleanup)readingSectionMotion=null;
-  };
-  const onVisibility=()=>{if(document.hidden)cleanup();},onReduced=e=>{if(e.matches)cleanup();};
-  readingSectionMotion=cleanup;
-  window.addEventListener('resize',cleanup);document.addEventListener('visibilitychange',onVisibility);media.addEventListener('change',onReduced);
-  const run=(node,frames,opts={})=>{const a=node.animate(frames,{duration:420,easing:'cubic-bezier(.25,.1,.25,1)',fill:'both',...opts});animations.push(a);return a;};
-  // The continue card and status controls stay mounted and stationary.
-  for(const g of ghosts){document.body.append(g.node);run(g.node,[{opacity:g.alpha,transform:'none'},{opacity:0,transform:`translate3d(${-direction*6}px,-4px,0)`}],{duration:180,easing:'ease-out'});}
-  run(results,[{transform:`translate3d(${direction*8}px,6px,0)`},{transform:'none'}]);
-  run(results,[{opacity:0},{opacity:1}],{duration:320,delay:45,easing:'ease-out'});
-  Promise.all(animations.map(a=>a.finished.catch(()=>{}))).then(cleanup);timer=setTimeout(cleanup,600);
-}
-
-function readingSections() {
-  const group = h('div', { class: 'reading-sections', role: 'group', 'aria-label': 'Статус чтения' },
-    READING_SECTIONS.map(([key,label]) => h('button', {
-      type: 'button', 'data-reading-status': key, 'aria-pressed': String(state.bookStatus === key),
-      title: key === 'paused' ? 'Книги, которые ещё не начали читать' : label,
-      onclick: () => switchReadingSection(key)
-    }, label)));
-  requestAnimationFrame(() => {
-    if (!group.isConnected) return;
-    const selected = group.querySelector('[aria-pressed=true]');
-    if(selected && selected.offsetLeft+selected.offsetWidth > group.scrollLeft+group.clientWidth)
-      group.scrollLeft = selected.offsetLeft+selected.offsetWidth-group.clientWidth;
-  });
-  return group;
+function renderAutomaticShelf(main,definition){
+ const list=automaticShelfBooks(definition.key),[label,sort]=SORTS[state.sort]||SORTS.manual;
+ main.append(h('div',{class:'sec-head'},h('button',{class:'back-link',onclick:()=>go('shelves')},icon('back','sm'),'Полки'),h('div',{class:'tools'},h('span',null,`${list.length} ${plural(list.length,BOOKS)}`),h('button',{class:'sort-btn',onclick:()=>openViewMenu()},label))),h('p',{class:'auto-shelf-note'},definition.description));
+ if(list.length)main.append(bookGrid(list.slice().sort(sort),true));
+ else main.append(h('div',{class:'empty auto-shelf-empty'},emptyArt(),h('h2',null,definition.empty),h('p',null,definition.key==='want'?'Добавьте книгу в библиотеку — она появится на этой полке.':definition.key==='reading'?'Начните читать любую книгу из библиотеки — она появится здесь.':'Продолжайте читать. Дочитанная книга появится здесь сама.'),h('button',{class:'btn',onclick:()=>definition.key==='want'?$('#file').click():go('all')},definition.key==='want'?'Добавить книги':'Мои книги')));
 }
 
 const byPos = (a, b) => (a.pos != null && b.pos != null ? a.pos - b.pos : a.pos != null ? -1 : b.pos != null ? 1 : byRecent(a, b));
@@ -2606,18 +2533,18 @@ function switchTab(tab) {
   const from = currentTab();
   if (tabAnimation) { tabAnimation.cancel(); tabAnimation = null; }
   if (tab === from) {
-    if (tab === 'shelves' && state.shelf) { go('shelves'); return; }
-    if (tab !== 'profile' && (state.shelf || state.qbook)) { state.navDir = ''; state.shelf = null; state.qbook = ''; renderLibrary(false); }
+    if (tab === 'shelves' && (state.shelf || state.autoShelf)) { go('shelves'); return; }
+    if (tab !== 'profile' && (state.shelf || state.autoShelf || state.qbook)) { state.navDir = ''; state.shelf = null; state.autoShelf = null; state.qbook = ''; renderLibrary(false); }
     window.scrollTo({ top: 0, behavior: 'instant' }); return;
   }
   tabScroll.set(from, window.scrollY);
-  if (from !== 'profile' && !state.shelf && !state.qbook) libraryTabCache.set(from, [...$('#lib-main').childNodes]);
+  if (from !== 'profile' && !state.shelf && !state.autoShelf && !state.qbook) libraryTabCache.set(from, [...$('#lib-main').childNodes]);
   for (const wrap of $$('.lib > .wrap')) wrap.classList.remove('tab-r','tab-l','screen-in','push-in','pop-back');
   if (tab === 'profile') {
     $('#lib').hidden = true; $('#profile').hidden = false; renderProfile();
   } else {
     $('#profile').hidden = true; $('#lib').hidden = false;
-    state.tab = tab; state.shelf = null; state.qbook = ''; state.navDir = '';
+    state.tab = tab; state.shelf = null; state.autoShelf = null; state.qbook = ''; state.navDir = '';
     renderLibrary(false, true);
   }
   paintTabbar();
@@ -2630,16 +2557,18 @@ function switchTab(tab) {
   }
 }
 
-function go(tab, shelf = null) {
+function go(tab, shelf = null, automatic = null) {
   const order = { all: 0, shelves: 1, quotes: 2 };
-  const previousShelf = state.shelf;
-  const shelfTransition = tab === 'shelves' && shelf !== previousShelf && !!(shelf || previousShelf);
-  const direction = shelf ? 1 : -1;
+  const auto=tab==='shelves'?autoShelfDefinition(automatic):null;
+  const previousShelf = state.autoShelf?'auto:'+state.autoShelf:state.shelf;
+  const nextShelf=auto?'auto:'+auto.key:shelf;
+  const shelfTransition = tab === 'shelves' && nextShelf !== previousShelf && !!(nextShelf || previousShelf);
+  const direction = nextShelf ? 1 : -1;
   // One cancellable animation, shared with tab navigation. The fixed chrome stays still.
   if (tabAnimation) { tabAnimation.cancel(); tabAnimation = null; }
   state.navDir = shelfTransition ? '' : order[tab] > order[state.tab] ? 'right' : order[tab] < order[state.tab] ? 'left' : '';
   if (tab !== state.tab) state.qbook = '';
-  state.tab = tab; state.shelf = shelf;
+  state.tab = tab; state.shelf = auto?null:shelf; state.autoShelf=auto?.key||null;
   renderLibrary(!shelfTransition);
   window.scrollTo({ top: 0, behavior: 'instant' }); libScrollChrome();
   if (shelfTransition) {
@@ -2757,7 +2686,7 @@ function enableReorder(grid) {
     if (state.books.some((b) => b.pos == null)) {
       state.books.slice().sort(byPos).forEach((b, i) => { b.pos = i; });
       const all = cells().map((c) => state.books.find((b) => b.id === c.dataset.id));
-      if (state.tab === 'all' && !state.shelf && state.bookStatus === 'all') all.forEach((b, i) => { b.pos = i; });
+      if (state.tab === 'all' && !state.shelf && !state.autoShelf) all.forEach((b, i) => { b.pos = i; });
     }
     const slots = moved.map((b) => b.pos).sort((a, b) => a - b);
     moved.forEach((b, i) => { b.pos = slots[i]; });
@@ -2829,10 +2758,13 @@ function newPocket(i) {
     h('span', { class: 'lbl' }, 'Новая полка'));
 }
 function emptyArt() {
-  return h('div',{class:'art','aria-hidden':'true'},h('div',{class:'case-empty-art'},h('i'),h('span'),h('span'),h('span')));
+  const s = document.createElement('div');
+  s.className = 'art';
+  s.append(h('div', { class: 'pocket', style: 'pointer-events:none' }, pocketWell([])));
+  return s;
 }
 function continueCard() {
-  const cur = state.books.filter((b) => b.openedAt && pctOf(b) < 100 && !b.sample).sort(byRecent)[0] || state.books.filter((b) => b.openedAt && pctOf(b) < 100).sort(byRecent)[0];
+  const cur = state.books.filter((b) => b.openedAt && readingStatus(b)==='reading' && !b.sample).sort(byRecent)[0] || state.books.filter((b) => b.openedAt && readingStatus(b)==='reading').sort(byRecent)[0];
   if (!cur) return null;
   const p = pctOf(cur);
   return h('button', { class: 'cont', onclick: (e) => openReader(cur, e.currentTarget.querySelector('.cover')) },
@@ -2844,28 +2776,13 @@ function continueCard() {
       h('span', { class: 'prog' }, h('span', { class: 'bar' }, h('i', { style: `width:${p}%` })), `${p}%`)));
 }
 
-function readingResults(status) {
-    const books = state.books;
-    const visible = status === 'all' ? books : books.filter(book => readingStatus(book) === status);
-    const [label, fn] = SORTS[state.sort] || SORTS.manual;
-    const results = h('div', { class: 'reading-results' });
-    results.append(h('div', { class: 'sec-head' }, h('h2', null, `${visible.length} ${plural(visible.length, BOOKS)}`),
-      h('button', { class: 'sort-btn', onclick: () => openViewMenu() }, label)));
-    const empty = {
-      reading: ['Пока ничего не читаете', 'Откройте книгу из раздела «Все» — она появится здесь автоматически.'],
-      paused: ['Все книги уже начаты', 'Новые книги появятся здесь автоматически, пока вы не начнёте их читать.'],
-      done: ['Прочитанные книги — здесь', 'Книги попадут сюда автоматически, когда прогресс достигнет 100%.']
-    }[status];
-    results.append(visible.length ? bookGrid(visible.slice().sort(fn), true) : empty ?
-      h('div', { class: 'reading-empty' }, h('h3', null, empty[0]), h('p', null, empty[1]),
-        h('button', { class: 'link-btn', onclick: () => switchReadingSection('all') }, 'Все книги')) :
-      h('p', { class: 'muted' }, 'Книг пока нет.'));
-    return results;
+function allBooksResults(){
+ const [label,sort]=SORTS[state.sort]||SORTS.manual;
+ return h('div',{class:'all-books-results'},h('div',{class:'sec-head'},h('h2',null,`${state.books.length} ${plural(state.books.length,BOOKS)}`),h('button',{class:'sort-btn',onclick:()=>openViewMenu()},label)),bookGrid(state.books.slice().sort(sort),true));
 }
 
 function renderLibrary(animate = true, fromTabSwitch = false) {
   stopQuoteBookMotion();
-  stopReadingSectionMotion();
   if (!fromTabSwitch) libraryTabCache.clear();
   const cached = fromTabSwitch ? libraryTabCache.get(state.tab) : null;
   if (typeof updatePfBadge === 'function') updatePfBadge();
@@ -2883,13 +2800,15 @@ function renderLibrary(animate = true, fromTabSwitch = false) {
   $('#btn-search').setAttribute('aria-label', searchOpen ? 'Закрыть поиск' : 'Поиск');
   $('#btn-search use').setAttribute('href', searchOpen ? '#i-x' : '#i-search');
   const all = shelves();
+  const automatic=state.tab==='shelves'?autoShelfDefinition():null;
+  if(state.autoShelf&&!automatic)state.autoShelf=null;
   if (state.shelf && !all.some(([n]) => n === state.shelf)) state.shelf = null;
   const lt = $('#large-title');
-  lt.textContent = state.query ? 'Поиск' : state.shelf ? state.shelf : TAB_TITLES[state.tab] || 'Мои книги';
+  lt.textContent = state.query ? 'Поиск' : automatic ? automatic.title : state.shelf ? state.shelf : TAB_TITLES[state.tab] || 'Мои книги';
   $('#navbar .mini').textContent = lt.textContent;
   renderTabs();
   if (cached) return;
-  if (!books.length && !(prefs.shelves || []).length) {
+  if (!books.length && !(prefs.shelves || []).length && state.tab!=='shelves') {
     main.append(h('div', { class: 'empty' }, emptyArt(),
       h('h2', null, 'Здесь будут ваши книги'),
       h('p', null, 'Добавьте файлы FB2, FB2.ZIP или EPUB: выберите их на устройстве или перетащите в это окно.'),
@@ -2907,26 +2826,31 @@ function renderLibrary(animate = true, fromTabSwitch = false) {
   }
   if (state.tab === 'quotes') { renderQuotes(main); return; }
   if (state.tab === 'all') {
-    const status = state.bookStatus || 'all';
     const cont = continueCard(); if (cont) main.append(cont);
-    main.append(readingSections());
-    main.append(readingResults(status));
+    main.append(allBooksResults());
     return;
   }
+  if(automatic){renderAutomaticShelf(main,automatic);return;}
   if (state.shelf) {
     const list = all.find(([n]) => n === state.shelf)[1];
     main.append(h('div', { class: 'sec-head' },
       h('button', { class: 'back-link', onclick: () => go('shelves') }, icon('back', 'sm'), 'Полки'),
       h('div', { class: 'tools' }, h('span', null, `${list.length} ${plural(list.length, BOOKS)}`),
         h('button', { class: 'icon-btn', 'aria-label': 'Действия с полкой', onclick: () => shelfMenu(state.shelf) }, icon('more')))));
-    main.append(h('div',{class:'case-toolbar'},h('button',{class:'btn ghost',onclick:()=>openCabinetStyle(state.shelf)},icon('shelf','sm'),'Оформление'),h('button',{class:'btn ghost',onclick:()=>pickBooks(state.shelf)},icon('plus','sm'),'Поставить книги')),
-      cabinetView([[state.shelf,list]],true),h('p',{class:'case-hint'},'Удерживайте книгу, чтобы переставить. Для переноса на другую полку вернитесь в раздел «Полки». С клавиатуры — Alt + ← / →.'));
+    if (!list.length) {
+      main.append(h('div', { class: 'empty' }, emptyArt(),
+        h('h2', null, 'Полка пока пустая'),
+        h('p', null, 'Переложите сюда книги из библиотеки или добавьте новые файлы — они сразу встанут на эту полку.'),
+        h('div', { class: 'acts', style: 'display:grid;gap:8px;margin-top:10px' },
+          h('button', { class: 'btn', onclick: () => pickBooks(state.shelf) }, icon('shelf', 'sm'), 'Переложить книги'),
+          h('button', { class: 'link-btn', onclick: () => $('#file').click() }, 'Добавить файлы'))));
+    } else main.append(bookGrid(list, true));
     return;
   }
-  // Reuse the same cabinet while its books and styling stay unchanged.
+  // the shelves page is built once and reused while nothing changes, so the glass never re-renders on tab switches
   const sig = libSig();
   if (!state.homeCache || state.homeCache.sig !== sig) {
-    state.homeCache = { sig, node: h('div', { class: 'home' }, h('p',{class:'case-hint case-home-hint'},'Удерживайте книгу, чтобы переставить её или перенести на другую полку.'),cabinetView(cabinetGroups(all)),h('button',{class:'case-new',onclick:()=>createShelf()},icon('plus','sm'),'Новая полка')) };
+    state.homeCache = { sig, node: h('div', { class: 'home' },h('div',{class:'pockets auto-pockets','aria-label':'Автоматические полки'},AUTO_SHELVES.map((s,i)=>automaticPocket(s,i))),h('div',{class:'sec-head personal-shelves-head'},h('h2',null,'Мои полки')),h('div', { class: 'pockets personal-pockets' }, all.map(([name, list], i) => pocket(name, list, i+3)), newPocket(all.length+3))) };
   }
   main.classList.remove('rise');
   const ib = installBanner(); if (ib) main.append(ib);
@@ -2934,126 +2858,7 @@ function renderLibrary(animate = true, fromTabSwitch = false) {
   if (animate && !dir) { void main.offsetWidth; main.classList.add('lib-fade'); }
 }
 function libSig() {
-  return cabinetCapacity()+'#'+JSON.stringify(prefs.caseStyles||[])+'#'+(prefs.shelves || []).join('|') + '#' + state.books.map((b) => [b.id, b.shelf, b.title, authorsStr(b), pctOf(b), b.openedAt, b.modifiedAt, b.cover ? b.cover.size : 0, b.sample ? 1 : 0, b.pos].join('~')).join('|');
-}
-
-/* ================= physical shelves ================= */
-function cabinetStyle(name){
- const value=(Array.isArray(prefs.caseStyles)?prefs.caseStyles:[]).find(s=>s.name===name)||{};
- return {layout:['mixed','standing','stacked'].includes(value.layout)?value.layout:'mixed'};
-}
-const cabinetColorCache=new WeakMap();
-function colorCaseSpine(book,button){
- if(!(book.cover instanceof Blob))return;
- let colors=cabinetColorCache.get(book.cover);
- if(!colors){colors=new Promise(resolve=>{const img=new Image();img.onload=()=>{try{const c=document.createElement('canvas');c.width=c.height=12;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,12,12);const pixels=ctx.getImageData(0,0,12,12).data;let r=0,g=0,b=0,n=0;for(let i=0;i<pixels.length;i+=4){if(pixels[i+3]<128)continue;r+=pixels[i];g+=pixels[i+1];b+=pixels[i+2];n++;}if(!n){resolve(null);return;}r=Math.round(r/n);g=Math.round(g/n);b=Math.round(b/n);resolve([`rgb(${r},${g},${b})`,(r*.2126+g*.7152+b*.0722)>155?'#242a28':'#f0e9d8']);}catch(e){resolve(null)}};img.onerror=()=>resolve(null);img.src=coverUrl(book);});cabinetColorCache.set(book.cover,colors);}
- colors.then(pair=>{if(pair){button.style.setProperty('--spine-bg',pair[0]);button.style.setProperty('--spine-fg',pair[1]);}});
-}
-function cabinetBook(book,flat=false){
- const seed=hash(book.id+book.title),[bg,fg]=PALETTE[hash(book.title+authorsStr(book))%PALETTE.length];
- const button=h('button',{type:'button',class:'case-book'+(flat?' case-flat':'')+(seed%3===0?' is-plain':''),'data-case-id':book.id,title:`${book.title} — ${authorsStr(book)}`,'aria-label':`${book.title}. ${authorsStr(book)}. Открыть карточку книги`,style:`--spine-bg:${bg};--spine-fg:${fg};--bw:${(.88+seed%22/100).toFixed(2)};--bh:${(.82+seed%18/100).toFixed(2)};--short:${seed%8}px;--offset:${seed%5}px`,onclick:()=>openDetail(book)},h('span',{class:'case-spine-title'},book.title),h('span',{class:'case-spine-author'},book.authors[0]||''));
- colorCaseSpine(book,button);return button;
-}
-function cabinetCapacity(){return innerWidth>=760?10:innerWidth>=375?8:6;}
-let cabinetSize=cabinetCapacity(),cabinetResizeTimer;
-window.addEventListener('resize',()=>{clearTimeout(cabinetResizeTimer);cabinetResizeTimer=setTimeout(()=>{const next=cabinetCapacity();if(next===cabinetSize)return;cabinetSize=next;if(state.tab==='shelves'&&!state.query&&document.querySelector('#reader')?.hidden){state.homeCache=null;renderLibrary(false);}},140);});
-function cabinetGroups(groups){const names=prefs.shelves||[];return groups.slice().sort((a,b)=>{const i=names.indexOf(a[0]),j=names.indexOf(b[0]);return (i<0?1e9:i)-(j<0?1e9:j)||String(a[0]).localeCompare(String(b[0]),'ru');});}
-function cabinetView(groups,inside=false){
- const cabinet=h('div',{class:'bookcase','aria-label':inside?'Книжный шкаф: '+groups[0][0]:'Ваш книжный шкаф'});
- for(const [name,list] of groups){
-  const style=cabinetStyle(name),capacity=style.layout==='stacked'?6:cabinetCapacity(),parts=[];for(let i=0;i<list.length;i+=capacity)parts.push(list.slice(i,i+capacity));if(!parts.length)parts.push([]);
-  parts.forEach((books,row)=>{
-   const rack=h('div',{class:'case-books'+(style.layout==='stacked'?' is-stacked':''),role:'group','aria-label':`${name}, ряд ${row+1}`});
-   if(style.layout==='stacked'){
-    for(let i=0;i<books.length;i+=3)rack.append(h('div',{class:'case-stack'},books.slice(i,i+3).map(b=>cabinetBook(b,true))));
-   }else{
-    const flat=style.layout==='mixed'&&books.length>=5?3:0;
-    books.slice(0,books.length-flat).forEach(b=>rack.append(cabinetBook(b)));
-    if(flat)rack.append(h('div',{class:'case-stack'},books.slice(-flat).map(b=>cabinetBook(b,true))));
-   }
-   const section=h('section',{class:'case-section'+(row?' is-continuation':''),'data-case-shelf':name});
-   if(!row&&!inside)section.append(h('div',{class:'case-label'},h('button',{class:'case-open',onclick:()=>go('shelves',name)},h('h2',null,name),h('small',null,`${list.length} ${plural(list.length,BOOKS)}`),icon('next','sm')),h('button',{class:'icon-btn','aria-label':`Действия с полкой «${name}»`,onclick:()=>shelfMenu(name)},icon('more','sm'))));
-   const empty=books.length?null:h('div',{class:'case-empty'},h('p',null,'Здесь начнётся ваша следующая история.'),h('button',{onclick:()=>pickBooks(name)},'Поставить книги',icon('next','sm')));
-   section.append(h('div',{class:'case-bay'},empty||rack),h('div',{class:'case-plank','aria-hidden':'true'}));cabinet.append(section);
-  });
- }
- enableCabinetDrag(cabinet);return cabinet;
-}
-let cabinetMoveBusy=false,cabinetClickUntil=0;
-async function moveCabinetBook(name,sourceId,targetId,destinationName=name,edge=null){
- if(cabinetMoveBusy||sourceId===targetId)return false;
- const source=state.books.find(b=>b.id===sourceId),target=targetId?state.books.find(b=>b.id===targetId):null;
- if(!source||source.shelf!==name||!shelves().some(([n])=>n===destinationName)||(targetId&&(!target||target.shelf!==destinationName)))return false;
- const original=state.books.slice().sort(byPos),order=original.filter(b=>b!==source);
- let index;
- if(target){index=order.indexOf(target);const after=edge==='after'||(edge==null&&(name===destinationName?original.indexOf(source)<original.indexOf(target):false));if(after)index++;}
- else{const last=order.findLastIndex(b=>b.shelf===destinationName);index=last<0?order.length:last+1;}
- order.splice(index,0,source);
- if(name===destinationName&&order.every((b,i)=>b===original[i]))return false;
- const previous=state.books.map(b=>({book:b,pos:b.pos,shelf:b.shelf})),previousShelves=prefs.shelves,cross=name!==destinationName;
- // Persist the two memberships and all changed positions in one transaction.
- // Keep an emptied, previously implicit shelf so the book can be moved back.
- if(cross)prefs.shelves=cabinetGroups(shelves()).map(([n])=>n);
- source.shelf=destinationName;order.forEach((b,i)=>b.pos=i);cabinetMoveBusy=true;
- const operations=previous.filter(x=>x.book.pos!==x.pos||x.book.shelf!==x.shelf).map(x=>({store:'books',value:x.book}));
- if(cross)operations.push({store:'meta',value:{id:'prefs',data:structuredClone(prefs)}});
- try{await DB.writeBatch(operations);if(cross){try{localStorage.setItem(PREF_KEY,JSON.stringify(prefs))}catch(e){}toast(`Книга перенесена на полку «${destinationName}»`);}state.homeCache=null;libraryTabCache.clear();return true;}
- catch(e){previous.forEach(x=>{x.book.shelf=x.shelf;if(x.pos===undefined)delete x.book.pos;else x.book.pos=x.pos});prefs.shelves=previousShelves;toast('Не удалось перенести книгу. Она осталась на прежней полке.',{tone:'error'});return false;}
- finally{cabinetMoveBusy=false;}
-}
-function enableCabinetDrag(root){
- let d=null;
- const cell=el=>{const b=el?.closest?.('[data-case-id]');return b&&root.contains(b)?b:null;};
- const clearTarget=()=>{d?.target?.classList.remove('case-drop-target');d?.section?.classList.remove('case-drop-shelf');d?.cue?.remove();if(d){d.target=null;d.section=null;d.destination=null;}};
- const hit=()=>{
-  if(!d?.lifted)return;
-  const under=document.elementFromPoint(d.x,d.y),section=under?.closest?.('[data-case-shelf]'),el=cell(under);
-  clearTarget();
-  if(section&&root.contains(section)&&el!==d.el){
-   const name=section.dataset.caseShelf,books=[...section.querySelectorAll('[data-case-id]')].filter(b=>b!==d.el);
-   const target=el||books.at(-1)||null;
-   if(name!==d.name||target){
-    d.section=section;d.target=target;d.destination={name,id:target?.dataset.caseId||null,edge:el?null:'after'};
-    section.classList.add('case-drop-shelf');target?.classList.add('case-drop-target');
-    d.cue.textContent=name!==d.name?`Перенести на «${name}»`:'Поставить сюда';section.append(d.cue);
-   }
-  }
-  d.ghost.style.transform=`translate3d(${d.x-d.sx}px,${d.y-d.sy-9}px,0) scale(1.08)`;
- };
- const finish=async(cancelled=false)=>{
-  if(!d)return;const old=d,destination=d.destination;clearTarget();d=null;
-  clearTimeout(old.timer);cancelAnimationFrame(old.raf);old.abort?.abort();old.el.classList.remove('case-drag-source');old.ghost?.remove();old.cue?.remove();
-  if(!old.lifted)return;cabinetClickUntil=performance.now()+550;
-  if(!cancelled&&destination){const changed=await moveCabinetBook(old.name,old.el.dataset.caseId,destination.id,destination.name,destination.edge);if(changed&&root.isConnected)refreshCabinet();}
- };
- const scroll=()=>{if(!d?.lifted)return;if(!root.isConnected||document.hidden){finish(true);return;}const v=d.y<110?-(110-d.y)/8:d.y>innerHeight-110?(d.y-innerHeight+110)/8:0;if(v){scrollBy(0,v);hit();}d.raf=requestAnimationFrame(scroll);};
- const lift=()=>{
-  if(!d||!root.isConnected||cabinetMoveBusy){finish(true);return;}d.lifted=true;getSelection()?.removeAllRanges();const r=d.el.getBoundingClientRect();d.ghost=d.el.cloneNode(true);d.ghost.removeAttribute('data-case-id');d.ghost.classList.add('case-drag-ghost');d.ghost.setAttribute('aria-hidden','true');d.ghost.inert=true;d.ghost.style.width=r.width+'px';d.ghost.style.height=r.height+'px';d.ghost.style.left=r.left+'px';d.ghost.style.top=r.top+'px';document.body.append(d.ghost);d.el.classList.add('case-drag-source');d.cue=h('span',{class:'case-drop-cue','aria-hidden':'true'});
-  const abort=d.abort||(d.abort=new AbortController());window.addEventListener('blur',()=>finish(true),{signal:abort.signal,once:true});document.addEventListener('visibilitychange',()=>{if(document.hidden)finish(true)},{signal:abort.signal});document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();finish(true)}},{signal:abort.signal});hit();d.raf=requestAnimationFrame(scroll);
- };
- root.addEventListener('click',e=>{if(cabinetMoveBusy||performance.now()<cabinetClickUntil){e.preventDefault();e.stopImmediatePropagation();}},true);
- root.addEventListener('pointerdown',e=>{
-  if(e.pointerType!=='mouse'||e.button!==0||d||cabinetMoveBusy)return;const el=cell(e.target);if(!el)return;const abort=new AbortController();d={el,name:el.closest('[data-case-shelf]').dataset.caseShelf,x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,abort};
-  window.addEventListener('pointermove',e=>{if(!d)return;d.x=e.clientX;d.y=e.clientY;if(!d.lifted&&Math.hypot(d.x-d.sx,d.y-d.sy)>6)lift();if(d?.lifted){e.preventDefault();hit();}},{signal:abort.signal,passive:false});window.addEventListener('pointerup',()=>finish(false),{signal:abort.signal,once:true});window.addEventListener('pointercancel',()=>finish(true),{signal:abort.signal,once:true});
- });
- root.addEventListener('touchstart',e=>{if(d)finish(true);if(e.touches.length!==1||cabinetMoveBusy)return;const el=cell(e.target);if(!el)return;const t=e.changedTouches[0];d={el,name:el.closest('[data-case-shelf]').dataset.caseShelf,id:t.identifier,x:t.clientX,y:t.clientY,sx:t.clientX,sy:t.clientY};d.timer=setTimeout(lift,380);},{passive:true});
- root.addEventListener('touchmove',e=>{if(!d||d.id==null)return;const t=[...e.touches].find(t=>t.identifier===d.id);if(!t)return;d.x=t.clientX;d.y=t.clientY;if(!d.lifted&&Math.hypot(d.x-d.sx,d.y-d.sy)>10){finish(true);return;}if(d?.lifted){if(e.cancelable)e.preventDefault();hit();}},{passive:false});
- root.addEventListener('touchend',()=>finish(false),{passive:true});root.addEventListener('touchcancel',()=>finish(true),{passive:true});root.addEventListener('contextmenu',e=>{if(cell(e.target))e.preventDefault()});root.addEventListener('dragstart',e=>{if(cell(e.target))e.preventDefault()});
- root.addEventListener('keydown',async e=>{const el=cell(e.target);if(!el||!e.altKey||!['ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();const name=el.closest('[data-case-shelf]').dataset.caseShelf,ordered=state.books.filter(b=>b.shelf===name).sort(byPos),i=ordered.findIndex(b=>b.id===el.dataset.caseId),target=ordered[i+(e.key==='ArrowRight'?1:-1)];if(target&&await moveCabinetBook(name,el.dataset.caseId,target.id))refreshCabinet(el.dataset.caseId);});
-}
-
-function refreshCabinet(focusId){
- const before=new Map([...document.querySelectorAll('.bookcase [data-case-id]')].map(el=>[el.dataset.caseId,el.getBoundingClientRect()])),y=scrollY;
- renderLibrary(false);scrollTo({top:y,behavior:'instant'});
- for(const el of document.querySelectorAll('.bookcase [data-case-id]')){const a=before.get(el.dataset.caseId);if(!a||reduceMotion())continue;const b=el.getBoundingClientRect();if(Math.hypot(a.left-b.left,a.top-b.top)>1)el.animate([{translate:`${a.left-b.left}px ${a.top-b.top}px`},{translate:getComputedStyle(el).translate}],{duration:520,easing:'cubic-bezier(.25,.1,.25,1)'});}
- if(focusId)document.querySelector(`.bookcase [data-case-id="${CSS.escape(focusId)}"]`)?.focus({preventScroll:true});
-}
-function openCabinetStyle(name){
- let value=cabinetStyle(name),saving=false;const body=h('div'),status=h('p',{class:'case-style-live','aria-live':'polite'}),error=h('p',{class:'case-style-error',role:'alert',hidden:true});
- const save=async(key,next)=>{if(saving||value[key]===next)return;saving=true;status.textContent='Сохраняем…';error.hidden=true;const previous=prefs.caseStyles;const updated={name,...value,[key]:next};prefs.caseStyles=[...(Array.isArray(previous)?previous:[]).filter(x=>x.name!==name),updated];
- try{await DB.put('meta',{id:'prefs',data:structuredClone(prefs)});try{localStorage.setItem(PREF_KEY,JSON.stringify(prefs))}catch(e){}value=cabinetStyle(name);state.homeCache=null;libraryTabCache.clear();refreshCabinet();status.textContent='Сохранено';}
- catch(e){prefs.caseStyles=previous;error.hidden=false;error.textContent='Не удалось сохранить оформление. Попробуйте ещё раз.';status.textContent='';}finally{saving=false;draw();}};
- const draw=()=>{const focus=body.contains(document.activeElement)?document.activeElement.dataset.caseStyle:null;body.replaceChildren(h('div',{class:'case-style-section'},h('h3',null,'Расстановка'),h('div',{class:'case-style-options'},[['mixed','Смешанная','▥ ▤'],['standing','Книги стоя','▥'],['stacked','Стопками','▤ ▤']].map(([key,label,mark])=>h('button',{class:'case-style-choice','data-case-style':'layout-'+key,'aria-pressed':String(value.layout===key),disabled:saving,onclick:()=>save('layout',key)},h('span',{'aria-hidden':'true',style:'font-size:30px;color:var(--fg-2)'},mark),label)))),status,error);if(focus)body.querySelector(`[data-case-style="${focus}"]`)?.focus({preventScroll:true});};draw();openSheet({title:'Оформление полки',label:'Оформление полки «'+name+'»',body});
+  return (prefs.shelves || []).join('|') + '#' + state.books.map((b) => [b.id, b.shelf, b.title, authorsStr(b), pctOf(b), readingStatus(b), b.openedAt, b.modifiedAt, b.cover ? b.cover.size : 0, b.sample ? 1 : 0, b.pos].join('~')).join('|');
 }
 
 /* ================= book card ================= */
@@ -3468,7 +3273,7 @@ async function restoreBackup(file) {
     ST.data = snapshot.meta.find(m => m.id === 'stats').data;
     try { localStorage.removeItem('polka.stats.v1'); } catch (_) {}
     state.sort = SORTS[prefs.sort] ? prefs.sort : 'manual';
-    state.tab = 'all'; state.shelf = null; state.qbook = ''; state.query = ''; state.searchOpen = false; $('#q').value = ''; $('#q-clear').hidden = true;
+    state.tab = 'all'; state.shelf = null; state.autoShelf=null; state.qbook = ''; state.query = ''; state.searchOpen = false; $('#q').value = ''; $('#q-clear').hidden = true;
     STORE_HEALTH.error = ''; STORE_HEALTH.warned = false;
     STORE_HEALTH.lastBackup = (snapshot.meta.find(m => m.id === 'backup') || {}).exportedAt || null;
     for (const sh of [...sheets]) sh.close(true);
@@ -3523,11 +3328,11 @@ async function importFiles(fileList) {
     }
   }
   t.close();
-  if (added.length) { state.query = ''; $('#q').value = ''; $('#q-clear').hidden = true; if (target) state.shelf = target; else { state.tab = added.length === 1 ? 'shelves' : 'all'; state.shelf = added.length === 1 ? added[0].shelf : null; } renderLibrary(); }
+  if (added.length) { state.query = ''; $('#q').value = ''; $('#q-clear').hidden = true; if (target) {state.shelf=target;state.autoShelf=null;} else {state.tab='shelves';state.shelf=null;state.autoShelf='want';} renderLibrary(); }
 
   setTimeout(() => {
     if (failed.length) toast(failed.length === 1 ? `Не удалось открыть «${failed[0].name}»: ${failed[0].why}.` : `Не удалось открыть ${failed.length} ${plural(failed.length, ['файл', 'файла', 'файлов'])}: ${failed.map((x) => x.name).join(', ')}. Поддерживаются FB2, FB2.ZIP и EPUB.`, { tone: 'error', timeout: 7000 });
-    else if (added.length === 1) toast(`«${added[0].title}» на полке «${added[0].shelf}»`, { action: { label: 'Читать', fn: () => openReader(added[0]) } });
+    else if (added.length === 1) toast(`«${added[0].title}» добавлена в «Хочу прочитать»`, { action: { label: 'Читать', fn: () => openReader(added[0]) } });
     else if (added.length) toast(`Добавлено ${added.length} ${plural(added.length, BOOKS)}`);
     else if (dup.length) toast(dup.length === 1 ? `«${dup[0]}» уже есть в библиотеке` : `Эти книги уже есть в библиотеке`);
   }, 320);
@@ -3567,7 +3372,6 @@ function shelfMenu(name) {
     title: name,
     body: h('div', { class: 'group menu-list' },
       h('button', { onclick: () => { s.close(true); pickBooks(name); } }, icon('shelf'), 'Переложить сюда книги'),
-      h('button', { onclick: () => { s.close(true); openCabinetStyle(name); } }, icon('shelf'), 'Оформление полки'),
       h('button', { onclick: () => { s.close(true); renameShelf(name); } }, icon('pen'), 'Переименовать'),
       h('button', { class: 'danger', onclick: () => { s.close(true); deleteShelf(name); } }, icon('trash'), 'Удалить полку')),
   });
@@ -3577,7 +3381,6 @@ function renameShelf(old) {
     title: 'Переименовать полку', value: old, okLabel: 'Сохранить',
     onSave: async (name) => {
       if (name === old) return;
-      if(Array.isArray(prefs.caseStyles))prefs.caseStyles=prefs.caseStyles.map(x=>x.name===old?{...x,name}:x);
       prefs.shelves = (prefs.shelves || []).map((x) => (x === old ? name : x));
       if (!prefs.shelves.includes(name)) prefs.shelves.push(name);
       savePrefs();
@@ -3591,7 +3394,6 @@ async function deleteShelf(name) {
   const list = state.books.filter((b) => b.shelf === name);
   const ok = await confirmSheet({ title: `Удалить полку «${name}»?`, text: list.length ? `${list.length} ${plural(list.length, BOOKS)} с неё переедут на полку «Разное». Сами книги не удалятся.` : 'Полка пустая, книги не пострадают.', ok: 'Удалить полку', danger: true });
   if (!ok) return;
-  if(Array.isArray(prefs.caseStyles))prefs.caseStyles=prefs.caseStyles.filter(x=>x.name!==name);
   prefs.shelves = (prefs.shelves || []).filter((x) => x !== name); savePrefs();
   for (const b of list) { b.shelf = 'Разное'; await persistBook(b).catch(() => {}); }
   go('shelves');
@@ -4093,7 +3895,8 @@ function setPage(n, opt = {}) {
   stopChapterTransition();
   const c = rc();
   const targetPage = clamp(n, 0, R.pages - 1);
-  if (targetPage !== R.page) { window.getSelection()?.removeAllRanges(); hideQbar(); }
+  // A live quote selection may travel across pages; paging must not drop it.
+  if (targetPage !== R.page && !opt.keepSelection) { window.getSelection()?.removeAllRanges(); hideQbar(); }
   R.page = targetPage;
   const x = -R.page * R.step;
   if (opt.enter && !reduceMotion()) {
@@ -4653,27 +4456,33 @@ async function removeQuote(id) {
 
 /* Touch selection is owned by the reader, not Android's Search/Translate menu.
    Mouse/keyboard selection stays native. Saved offsets are unchanged UTF-16. */
-const QT={contact:null,timer:0,drag:null,scrollFrame:0,paintFrame:0,nodes:null,words:new WeakMap()};
+const QT={contact:null,timer:0,drag:null,scrollFrame:0,paintFrame:0,nodes:null,words:new WeakMap(),
+  pageTimer:0,pageDir:0,pageLock:false,pageWarned:false};
 new MutationObserver(()=>{QT.nodes=null;QT.words=new WeakMap()}).observe(rc(),{subtree:true,childList:true,characterData:true});
 const quoteLayer=h('div',{id:'quote-selection-layer','aria-hidden':'true'});
 const quoteHandles=h('div',{id:'quote-selection-handles',hidden:true});
-$('#reader').append(quoteLayer,quoteHandles);
+const quotePageCue=h('div',{id:'quote-page-cue','aria-hidden':'true'});
+$('#reader').append(quoteLayer,quoteHandles,quotePageCue);
 for(const edge of ['start','end']){
   const button=h('button',{type:'button',class:'quote-handle','data-edge':edge,'aria-label':edge==='start'?'Начало выделения':'Конец выделения',role:'slider','aria-valuemin':'0','aria-valuenow':'0',tabindex:'0'});
   quoteHandles.append(button);
   button.addEventListener('pointerdown',e=>{
     if(!QS.touch||QS.busy)return;e.preventDefault();e.stopPropagation();
+    QT.pageWarned=false;quoteStopPageTurn();
     const boundary=quoteBoundaryRect(edge==='start'?QS.snapshot.start:QS.snapshot.end,edge==='end');
+    if(!boundary)return;
     QT.drag={edge,id:e.pointerId,x:e.clientX,y:e.clientY,dx:(edge==='start'?boundary.left:boundary.right)-e.clientX,dy:boundary.top+boundary.height/2-e.clientY};
     QS.dragging=true;$('#qbar').hidden=true;
     try{button.setPointerCapture(e.pointerId)}catch(_){}
   });
   button.addEventListener('pointermove',e=>{
     if(!QT.drag||QT.drag.id!==e.pointerId)return;e.preventDefault();
-    QT.drag.x=e.clientX;QT.drag.y=e.clientY;quoteDragPoint(e.clientX+QT.drag.dx,e.clientY+QT.drag.dy);quoteAutoScroll();
+    QT.drag.x=e.clientX;QT.drag.y=e.clientY;
+    if(!quotePageTarget())quoteDragPoint(e.clientX+QT.drag.dx,e.clientY+QT.drag.dy);
+    quoteAutoScroll();
   });
-  const finish=e=>{if(!QT.drag||QT.drag.id!==e.pointerId)return;e.preventDefault();QT.drag=null;cancelAnimationFrame(QT.scrollFrame);QS.dragging=false;QS.ignoreTapUntil=performance.now()+450;paintTouchSelection();};
-  button.addEventListener('pointerup',finish);button.addEventListener('pointercancel',finish);
+  const finish=e=>{if(!QT.drag||QT.drag.id!==e.pointerId)return;e.preventDefault();QT.drag=null;quoteStopPageTurn();cancelAnimationFrame(QT.scrollFrame);QS.dragging=false;QS.ignoreTapUntil=performance.now()+450;paintTouchSelection();};
+  button.addEventListener('pointerup',finish);button.addEventListener('pointercancel',finish);button.addEventListener('lostpointercapture',finish);
   button.addEventListener('click',e=>{e.preventDefault();e.stopPropagation()});
   button.addEventListener('keydown',e=>{
     if(!QS.touch||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(e.key))return;
@@ -4684,9 +4493,9 @@ for(const edge of ['start','end']){
     quoteMoveBoundary(edge,clamp(pos,0,rc().textContent.length));
   });
 }
-function quoteCancelContact(){clearTimeout(QT.timer);QT.contact=null;}
+function quoteCancelContact(){clearTimeout(QT.timer);QT.contact=null;if(QT.drag?.virtual){QT.drag=null;quoteStopPageTurn();}}
 function clearTouchSelection(){
-  quoteCancelContact();QT.drag=null;cancelAnimationFrame(QT.scrollFrame);cancelAnimationFrame(QT.paintFrame);
+  quoteCancelContact();QT.drag=null;quoteStopPageTurn();cancelAnimationFrame(QT.scrollFrame);cancelAnimationFrame(QT.paintFrame);
   QS.touch=false;QT.nodes=null;QT.words=new WeakMap();quoteLayer.replaceChildren();quoteHandles.hidden=true;
 }
 function quoteTextNodes(){
@@ -4760,8 +4569,78 @@ function quoteMoveBoundary(edge,offset){
   quoteSetTouchRange(start,end);
 }
 function quoteDragPoint(x,y){const offset=quotePointOffset(x,y);if(offset!=null&&QT.drag)quoteMoveBoundary(QT.drag.edge,offset);}
+
+/* Dragging a selection handle past the page edge flips the page without
+   dropping the quote. Offsets are stored for the whole chapter, so a selection
+   can span pages; only the fragments on the current page are painted. */
+function quotePageTarget(){
+  if(!isPaged()||!QT.drag)return 0;
+  const b=quoteReadingBounds(),x=QT.drag.x+QT.drag.dx,y=QT.drag.y+QT.drag.dy;
+  if(y<b.top-18||y>b.bottom+18)return 0;
+  if(QT.drag.edge==='end'&&x>b.right+1)return 1;
+  if(QT.drag.edge==='start'&&x<b.left-1)return -1;
+  return 0;
+}
+function quotePageCueShow(dir){
+  if(!dir){quotePageCue.classList.remove('on');return;}
+  const b=quoteReadingBounds(),y=clamp(QT.drag?QT.drag.y+QT.drag.dy:innerHeight/2,b.top,b.bottom-56);
+  quotePageCue.dataset.dir=String(dir);
+  quotePageCue.style.left=(dir>0?b.right-40:b.left+6)+'px';
+  quotePageCue.style.top=y+'px';
+  quotePageCue.classList.add('on');
+}
+function quoteStopPageTurn(){
+  clearTimeout(QT.pageTimer);QT.pageTimer=0;QT.pageDir=0;QT.pageLock=false;quotePageCueShow(0);
+}
+function quoteAutoPage(){
+  if(!isPaged()){quoteStopPageTurn();return;}
+  const dir=quotePageTarget();
+  if(!dir){quoteStopPageTurn();return;}
+  if(QT.pageLock||QT.pageDir===dir)return;
+  QT.pageDir=dir;quotePageCueShow(dir);
+  QT.pageTimer=setTimeout(()=>quoteTurnPageDuringDrag(dir),340);
+}
+function quotePageEdgeOffset(dir){
+  // A caret at a blank corner can resolve to text on the adjacent column.
+  // Locate a real visible character instead, including sparse final pages.
+  const b=quoteReadingBounds(),nodes=quoteTextNodes();
+  for(const n of dir>0?nodes:[...nodes].reverse()){
+    if(!n.node.length)continue;
+    const r=document.createRange();r.selectNodeContents(n.node);
+    const visible=q=>q.width>.1&&q.right>b.left+.5&&q.left<b.right-.5&&q.bottom>b.top&&q.top<b.bottom;
+    if(![...r.getClientRects()].some(visible))continue;
+    const rect=i=>{r.setStart(n.node,i);r.setEnd(n.node,i+1);return r.getBoundingClientRect()};
+    let lo=0,hi=n.node.length;
+    while(lo<hi){const mid=(lo+hi)>>1,q=rect(mid);
+      if(dir>0?q.right<=b.left+.5:q.left<b.right-.5)lo=mid+1;else hi=mid;
+    }
+    let i=dir>0?lo:lo-1;
+    for(;i>=0&&i<n.node.length;i+=dir>0?1:-1){
+      const q=rect(i);
+      if(visible(q)&&/\S/u.test(n.node.data[i]))return n.start+i;
+      if(dir>0?q.left>=b.right:q.right<=b.left)break;
+    }
+  }
+  return null;
+}
+function quoteTurnPageDuringDrag(dir){
+  QT.pageTimer=0;QT.pageDir=0;
+  if(!isPaged()||!QT.drag||!validSnapshot(QS.snapshot)||quotePageTarget()!==dir)return;
+  const target=R.page+dir;
+  if(target<0||target>=R.pages){
+    if(!QT.pageWarned){QT.pageWarned=true;toast(dir>0?'Выделение не переходит на следующую главу':'Выделение не переходит на предыдущую главу');}
+    quoteStopPageTurn();return;
+  }
+  QT.pageLock=true;quotePageCueShow(0);
+  // Instant jump keeps text geometry exact while a handle is under the finger.
+  setPage(target,{keepSelection:true});
+  // Carry the selection into the page we just landed on.
+  const off=quotePageEdgeOffset(dir);
+  if(off!=null)quoteMoveBoundary(QT.drag.edge,off);else paintTouchSelection();
+}
 function quoteAutoScroll(){
-  cancelAnimationFrame(QT.scrollFrame);if(!QT.drag||isPaged())return;
+  cancelAnimationFrame(QT.scrollFrame);if(!QT.drag)return;
+  if(isPaged()){quoteAutoPage();return;}
   const b=quoteReadingBounds(),y=QT.drag.y;let delta=y<b.top+44?-Math.min(12,(b.top+44-y)/3):y>b.bottom-44?Math.min(12,(y-b.bottom+44)/3):0;
   if(!delta)return;
   QT.scrollFrame=requestAnimationFrame(()=>{if(!QT.drag)return;window.scrollBy(0,delta);quoteDragPoint(QT.drag.x+QT.drag.dx,QT.drag.y+QT.drag.dy);quoteAutoScroll()});
@@ -4827,6 +4706,13 @@ function paintTouchSelection(){
     const t=[...e.touches].find(t=>t.identifier===c.id);if(!t)return;
     if(c.selected){
       e.preventDefault();
+      if(QS.snapshot&&c.anchor){
+        const b=quoteReadingBounds();
+        const edge=t.clientX<b.left?'start':t.clientX>b.right?'end':(QT.drag?.edge||'end');
+        QT.drag={edge,id:null,x:t.clientX,y:t.clientY,dx:0,dy:0,virtual:true};
+        if(quotePageTarget()){QS.dragging=true;$('#qbar').hidden=true;quoteAutoPage();return;}
+        quoteAutoPage();
+      }
       if(Math.hypot(t.clientX-c.x,t.clientY-c.y)>8&&c.anchor){
         const offset=quotePointOffset(t.clientX,t.clientY),word=offset==null?null:quoteWordAt(offset);
         if(word){QS.dragging=true;quoteSetTouchRange(Math.min(c.anchor.start,word.start),offset<c.anchor.start?c.anchor.end:word.end);}
@@ -5475,7 +5361,6 @@ function flameSvg(state, num) {
 let profileRange = 7;
 function openProfile() {
   stopQuoteBookMotion();
-  stopReadingSectionMotion();
   $('#lib').hidden = true; $('#profile').hidden = false; $('#tabbar').hidden = true; $('#btn-add').hidden = true;
   window.scrollTo(0, 0); renderProfile(); playIn($('#profile .wrap'), 'push-in'); libScrollChrome();
 }
@@ -5707,10 +5592,10 @@ function bookShareDonut(rows) {
 
 function libraryCard() {
   const books = state.books || [];
-  const done = books.filter((b) => pctOf(b) >= 100).length;
-  const reading = books.filter((b) => { const p = pctOf(b); return p > 0 && p < 100; }).length;
+  const done = books.filter((b) => readingStatus(b)==='done').length;
+  const reading = books.filter((b) => readingStatus(b)==='reading').length;
   const fresh = books.length - done - reading;
-  const parts = [{ n: 'Читаю', v: reading, c: '#f28a2e' }, { n: 'Прочитано', v: done, c: '#34c27a' }, { n: 'Не начато', v: fresh, c: '#8e8e93' }];
+  const parts = [{ n: 'Читаю', v: reading, c: '#f28a2e' }, { n: 'Прочитано', v: done, c: '#34c27a' }, { n: 'Хочу прочитать', v: fresh, c: '#8e8e93' }];
   const shelves = {};
   books.forEach((b) => { const s = b.shelf || 'Без полки'; shelves[s] = (shelves[s] || 0) + 1; });
   const sh = Object.entries(shelves).sort((a, b) => b[1] - a[1]);
