@@ -1209,23 +1209,23 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 @media (min-width: 980px) { .bgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 40px 30px; } }
 .bcell { gap: 4px; overflow: visible; }
 .bcell .bc { isolation: isolate; margin-bottom: 12px; }
-.bcell .cover {
+.bcell .cover, .fy-look .cover {
   border-radius: 1px 3px 3px 1px;
   box-shadow: 0 1px 2px rgba(0,0,0,.16), 2px 6px 12px rgba(0,0,0,.12);
 }
-.bcell .cover::after, .bh .cv .cover::after {
+.bcell .cover::after, .bh .cv .cover::after, .fy-look .cover::after {
   background:
     linear-gradient(90deg, rgba(0,0,0,.38) 0%, rgba(255,255,255,.22) 1.4%, rgba(255,255,255,.08) 2.4%, rgba(0,0,0,.2) 3.1%, rgba(0,0,0,.1) 4.2%, rgba(255,255,255,.13) 5.2%, transparent 8%),
     linear-gradient(90deg, transparent 96.5%, rgba(0,0,0,.1) 100%),
     linear-gradient(180deg, rgba(255,255,255,.06), transparent 20%, transparent 80%, rgba(0,0,0,.05));
 }
-.bcell .gcover { padding: 13cqw 11cqw 12cqw 15cqw; }
-.bcell .gcover::before {
+.bcell .gcover, .fy-look .gcover { padding: 13cqw 11cqw 12cqw 15cqw; }
+.bcell .gcover::before, .fy-look .gcover::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(135deg, rgba(255,255,255,.045), transparent 45%, rgba(0,0,0,.035));
 }
-.bcell .gcover .gt { font-size: 11cqw; line-height: 1.12; -webkit-line-clamp: 6; text-wrap: balance; hyphens: none; }
-.bcell .gcover .ga { font-size: 6.8cqw; letter-spacing: .1em; }
+.bcell .gcover .gt, .fy-look .gcover .gt { font-size: 11cqw; line-height: 1.12; -webkit-line-clamp: 6; text-wrap: balance; hyphens: none; }
+.bcell .gcover .ga, .fy-look .gcover .ga { font-size: 6.8cqw; letter-spacing: .1em; }
 .bcell .bt { font-size: 15px; line-height: 1.3; font-weight: 500; }
 .bcell .ba { font-size: 14px; line-height: 1.35; }
 .bcell .bp { display: grid; width: 100%; min-width: 0; margin-top: 8px; gap: 6px; font-size: 12px; line-height: 1.4; color: var(--fg-2); }
@@ -1481,33 +1481,22 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .fy-count { margin: 0; font-size: 14px; color: var(--fg-2); }
 .fy-tune { flex: none; }
 .fy-stack { position: relative; height: 460px; --pull: 0; }
-.fy-card { --dd: max(0, calc(var(--d) - var(--pull))); position: absolute; inset: 0; border-radius: 26px; overflow: hidden; background: var(--bg-raised);
-  box-shadow: inset 0 0 0 1px var(--hair), 0 22px 46px rgba(0,0,0,.42); touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
-  transform: translate3d(0, calc(var(--dd) * 14px), 0) scale(calc(1 - var(--dd) * .045)); transform-origin: 50% 100%;
-  transition: transform .5s cubic-bezier(.22,1,.36,1); will-change: transform; }
-.fy-card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: #000; opacity: calc(var(--dd) * .22); pointer-events: none; transition: opacity .5s; }
+.fy-card { --dd: max(0, calc(var(--d) - var(--pull))); position: absolute; left: 50%; top: 0; height: calc(100% - 28px); aspect-ratio: 2 / 3; max-width: 80%; translate: -50% 0;
+  touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
+  transform: translate3d(0, calc(var(--dd) * 12px), 0) scale(calc(1 - var(--dd) * .05)); transform-origin: 50% 100%;
+  transition: transform .5s cubic-bezier(.22,1,.36,1), filter .5s; will-change: transform; filter: brightness(calc(1 - var(--dd) * .28)); }
+.fy-card > .cover { width: 100%; height: 100%; aspect-ratio: auto; border-radius: 2px 6px 6px 2px; }
+.fy-card[style*="--d:0"] > .cover, .fy-card:not([inert]) > .cover { box-shadow: 0 2px 4px rgba(0,0,0,.3), 0 26px 48px rgba(0,0,0,.55); }
 .fy-card.drag { transition: none; cursor: grabbing; }
-.fy-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.fy-glow { position: absolute; left: -20%; right: -20%; top: -20%; height: 75%; background: radial-gradient(50% 55% at 50% 50%, var(--tint), transparent 75%); opacity: .75; pointer-events: none; }
-.fy-card { container-type: size; }
-.fy-in { position: relative; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 22px 24px 20px; overflow: hidden; }
-.fy-cv { width: min(46cqw, 30cqh, 170px); flex: none; }
-.fy-cv .cover { box-shadow: 0 2px 4px rgba(0,0,0,.3), 0 16px 34px rgba(0,0,0,.5); }
-.fy-why { margin-top: min(22px, 4cqh); max-width: 100%; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fy-in h2 { margin: 8px 0 0; font: 600 clamp(20px, 6.2cqw, 25px)/1.18 var(--f-display); text-wrap: balance; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.fy-au { margin: 5px 0 0; font-size: 14px; color: var(--fg-2); }
-.fy-open { margin-top: auto; padding-top: 12px; font-size: 12.5px; color: var(--fg-3); display: inline-flex; align-items: center; gap: 6px; }
-.fy-open::before { content: ""; width: 18px; height: 3px; border-radius: 2px; background: var(--fill-2); }
-.fy-open::after { content: ""; width: 18px; height: 3px; border-radius: 2px; background: var(--fill-2); }
-.fy-tint { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; }
-.fy-tint[data-dir="want"] { background: linear-gradient(90deg, transparent 30%, rgba(240,167,66,.38)); box-shadow: inset 0 0 0 2px rgba(240,167,66,.9); }
-.fy-tint[data-dir="nope"] { background: linear-gradient(270deg, transparent 30%, rgba(255,255,255,.14)); box-shadow: inset 0 0 0 2px rgba(243,242,239,.6); }
-.fy-tint[data-dir="read"] { background: linear-gradient(0deg, transparent 35%, rgba(143,211,176,.3)); box-shadow: inset 0 0 0 2px rgba(143,211,176,.85); }
-.fy-th { margin: 10px 0 0; font-size: 13px; color: var(--fg-3); }
-.fy-stamp { position: absolute; top: 24px; padding: 6px 12px; border: 3px solid; border-radius: 12px; font-size: 22px; font-weight: 800; letter-spacing: .08em; opacity: 0; pointer-events: none; z-index: 2; background: rgba(0,0,0,.18); }
-.fy-stamp.want { left: 22px; color: var(--accent); transform: rotate(-14deg); }
-.fy-stamp.nope { right: 22px; color: var(--fg); transform: rotate(14deg); }
-.fy-stamp.read { top: auto; bottom: 26px; left: 50%; color: #8fd3b0; transform: translateX(-50%); }
+.fy-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+.fy-tint { position: absolute; inset: 0; border-radius: 2px 6px 6px 2px; pointer-events: none; opacity: 0; }
+.fy-tint[data-dir="want"] { background: linear-gradient(90deg, transparent 25%, rgba(240,167,66,.45)); box-shadow: inset 0 0 0 3px rgba(240,167,66,.95); }
+.fy-tint[data-dir="read"] { background: linear-gradient(0deg, transparent 30%, rgba(60,140,100,.45)); box-shadow: inset 0 0 0 3px rgba(143,211,176,.95); }
+.fy-tint[data-dir="nope"] { background: linear-gradient(270deg, transparent 25%, rgba(0,0,0,.45)); box-shadow: inset 0 0 0 3px rgba(243,242,239,.7); }
+.fy-stamp { position: absolute; top: 9%; z-index: 3; padding: 6px 12px; border: 3px solid; border-radius: 12px; font-size: 22px; font-weight: 800; letter-spacing: .08em; opacity: 0; pointer-events: none; z-index: 2; background: rgba(16,16,17,.78); box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.fy-stamp.want { left: 10%; color: var(--accent); transform: rotate(-14deg); }
+.fy-stamp.nope { right: 8%; color: var(--fg); transform: rotate(14deg); }
+.fy-stamp.read { top: auto; bottom: 10%; left: 50%; color: #8fd3b0; transform: translateX(-50%); }
 .fy-acts { display: flex; justify-content: center; align-items: flex-start; gap: 16px; margin-top: 18px; }
 .fy-act { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; color: var(--fg-3); }
 .fy-btn { width: 64px; height: 64px; border-radius: 32px; background: var(--fill-2); color: var(--fg); display: grid; place-items: center; transition: transform .16s var(--ease), background .2s, opacity .2s; }
@@ -1546,8 +1535,7 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .fy-th-l { margin: 6px 0 0; font-size: 14px; color: var(--fg-2); }
 .fy-note { font-size: 13px; line-height: 1.5; margin: 14px 4px 0; }
 .bd-nofile { margin: 0; font-size: 13px; line-height: 1.45; color: var(--fg-3); text-align: center; }
-@media (prefers-reduced-motion: reduce) { .fy-card, .fy-card::after { transition: none; } }
-
+@media (prefers-reduced-motion: reduce) { .fy-card { transition: none; } }
 .fy-coach { position: absolute; inset: 0; z-index: 5; border-radius: 26px; background: rgba(10,10,11,.92); display: grid; grid-template-rows: auto 1fr auto auto; justify-items: center; gap: 14px; padding: 26px 22px 22px; text-align: center; color: #f3f2ef; }
 .fy-coach svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .fy-coach b { font-size: 15px; font-weight: 600; }
@@ -1564,10 +1552,9 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .fy-x-scroll { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .fy-x-in { max-width: 520px; margin: 0 auto; padding: calc(64px + env(safe-area-inset-top, 0px)) 24px calc(40px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: center; text-align: center; }
 .fy-x-cv { width: min(170px, 44vw); }
-.fy-x-cv .cover { transform-origin: 0 0; box-shadow: 0 2px 4px rgba(0,0,0,.3), 0 20px 44px rgba(0,0,0,.55); }
-.fy-x .fy-why { margin-top: 24px; white-space: normal; }
-.fy-x h2 { margin: 8px 0 0; font: 600 27px/1.18 var(--f-display); text-wrap: balance; }
-.fy-x .fy-au { margin-top: 7px; font-size: 15px; }
+.fy-x-cv .cover { transform-origin: 0 0; border-radius: 2px 5px 5px 2px; box-shadow: 0 2px 4px rgba(0,0,0,.3), 0 20px 44px rgba(0,0,0,.55); }
+.fy-x h2 { margin: 26px 0 0; font: 600 27px/1.18 var(--f-display); text-wrap: balance; }
+.fy-x .fy-au { margin: 5px 0 0; font-size: 14px; color: var(--fg-2); }
 .fy-x-facts { margin-top: 24px; }
 .fy-x .bd-sec { text-align: left; }
 .fy-x-d { margin: 0; font: 400 17px/1.65 var(--f-display); color: var(--fg); opacity: .9; }
@@ -6371,18 +6358,10 @@ function recPagesLabel(p) { return p ? `≈ ${p.toLocaleString('ru')} стр.` :
 /* ---------- deck ---------- */
 function recCard(j, depth) {
   const b = recBook(j);
-  const [bg] = PALETTE[hash(b.title + authorsStr(b)) % PALETTE.length];
   const stamp = (cls, text) => h('span', { class: 'fy-stamp ' + cls, 'aria-hidden': 'true' }, text);
-  const card = h('article', { class: 'fy-card', 'data-j': j, style: `--d:${depth};--tint:${bg}`, 'aria-label': `${b.title}. ${authorsStr(b)}. Нажмите, чтобы прочитать описание`, tabindex: depth ? -1 : 0 },
-    h('div', { class: 'fy-glow', 'aria-hidden': 'true' }),
-    h('div', { class: 'fy-in' },
-      h('div', { class: 'fy-cv' }, coverEl(b)),
-      h('span', { class: 'fy-why' }, recReason(j)),
-      h('h2', null, b.title),
-      h('p', { class: 'fy-au' }, [authorsStr(b), recPagesLabel(b.pages)].filter(Boolean).join(' · ')),
-      b.themes.length ? h('p', { class: 'fy-th' }, b.themes.join(' · ')) : null,
-      h('span', { class: 'fy-open' }, 'Описание и подробности')),
-    h('div', { class: 'fy-tint', 'aria-hidden': 'true' }),
+  // The card is the book itself: exactly the cover used on the shelves, nothing else.
+  const card = h('article', { class: 'fy-card fy-look', 'data-j': j, style: `--d:${depth}`, 'aria-label': `${b.title}, ${authorsStr(b)}. Нажмите, чтобы открыть описание`, tabindex: depth ? -1 : 0 },
+    coverEl(b), h('div', { class: 'fy-tint', 'aria-hidden': 'true' }),
     stamp('want', 'ХОЧУ'), stamp('nope', 'НЕ ТО'), stamp('read', 'ЧИТАЛ'));
   if (depth) card.inert = true;
   return card;
@@ -6455,7 +6434,7 @@ function recFill(stack, first) {
   $$('.fy-btn', stack.parentNode).forEach((b) => b.disabled = false);
   const next = show.map((j, d) => {
     let c = old.get(j);
-    if (c) { c.style.setProperty('--d', d); c.inert = !!d; c.tabIndex = d ? -1 : 0; $('.fy-why', c).textContent = recReason(j); old.delete(j); }
+    if (c) { c.style.setProperty('--d', d); c.inert = !!d; c.tabIndex = d ? -1 : 0; old.delete(j); }
     else { c = recCard(j, d); if (!first && !reduceMotion()) c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: 'ease-out', fill: 'backwards', delay: 120 }); }
     return c;
   });
@@ -6616,7 +6595,7 @@ function recRateSheet(b) {
     stars.append(...btns);
     const ok = h('button', { class: 'btn wide primary', disabled: true, onclick: () => finish(value) }, 'Готово');
     const body = h('div', { class: 'fy-rate' },
-      h('div', { class: 'fy-rate-cv' }, coverEl(b)),
+      h('div', { class: 'fy-rate-cv fy-look' }, coverEl(b)),
       h('h3', null, `Как вам «${b.title}»?`),
       h('p', { class: 'muted' }, 'Оценка поможет точнее подбирать книги'),
       stars, label, ok,
@@ -6629,10 +6608,9 @@ function recExpand(card, j, box) {
   if (REC.busy || !card || !card.isConnected) return;
   REC.busy = true;
   const b = recBook(j);
-  const tintColor = card.style.getPropertyValue('--tint');
+  const tintColor = PALETTE[hash(b.title + authorsStr(b)) % PALETTE.length][0];
   const facts = [b.year ? ['Год', b.year < 0 ? `${-b.year} до н. э.` : String(b.year)] : null, b.pages ? ['Объём', `${b.pages.toLocaleString('ru')} стр.`] : null, b.avg ? ['Оценка', b.avg.toFixed(1).replace('.', ',') + ' из 5'] : null].filter(Boolean);
   const content = [
-    h('span', { class: 'fy-why' }, recReason(j)),
     h('h2', null, b.title),
     h('p', { class: 'fy-au' }, authorsStr(b)),
     facts.length ? h('div', { class: 'bd-facts fy-x-facts', style: `grid-template-columns:repeat(${facts.length},minmax(0,1fr))` }, facts.map(([k, v]) => h('div', { class: 'bd-fact' }, h('span', null, k), h('b', null, v)))) : null,
@@ -6641,7 +6619,7 @@ function recExpand(card, j, box) {
       b.series ? h('p', { class: 'fy-th-l' }, `Цикл «${b.series}»${b.seriesNo ? `, книга ${b.seriesNo}` : ''}`) : null),
     h('p', { class: 'fy-x-hint' }, 'Сверните описание и смахните карточку: вправо — хочу прочитать, влево — не то, вверх — уже читал.'),
   ].filter(Boolean);
-  const coverBox = h('div', { class: 'fy-x-cv' }, coverEl(b));
+  const coverBox = h('div', { class: 'fy-x-cv fy-look' }, coverEl(b));
   const scroller = h('div', { class: 'fy-x-scroll' }, h('div', { class: 'fy-x-in' }, coverBox, ...content));
   const closeBtn = h('button', { class: 'bh-btn fy-x-close', 'aria-label': 'Свернуть описание' }, icon('chevdown'));
   const panel = h('div', { class: 'fy-x', role: 'dialog', 'aria-modal': 'true', 'aria-label': b.title, style: `--tint:${tintColor}` },
@@ -6650,9 +6628,9 @@ function recExpand(card, j, box) {
   const rm = reduceMotion();
   const ease = 'cubic-bezier(.32,.72,0,1)';
   const W = innerWidth, H = innerHeight;
-  const rectClip = (r) => `inset(${r.top}px ${W - r.right}px ${H - r.bottom}px ${r.left}px round 26px)`;
+  const rectClip = (r) => `inset(${r.top}px ${W - r.right}px ${H - r.bottom}px ${r.left}px round 4px)`;
   const flip = (fromEl, toEl) => { const a = fromEl.getBoundingClientRect(), z = toEl.getBoundingClientRect(); return `translate3d(${a.left - z.left}px,${a.top - z.top}px,0) scale(${a.width / z.width})`; };
-  const cardCover = $('.fy-cv .cover', card), bigCover = $('.cover', coverBox);
+  const cardCover = $('.cover', card), bigCover = $('.cover', coverBox);
   const startClip = rectClip(card.getBoundingClientRect());
   const startCover = flip(cardCover, bigCover);
   card.style.visibility = 'hidden';
@@ -6723,7 +6701,7 @@ function recStart(box) {
   const known = recPositive();
   const go = h('button', { class: 'btn wide primary' }, 'Подобрать книги');
   const paintGo = () => { go.textContent = sel.size ? `Подобрать книги · ${sel.size}` : 'Подобрать книги'; };
-  const grid = h('div', { class: 'fy-pick' }, page.map((i) => {
+  const grid = h('div', { class: 'fy-pick fy-look' }, page.map((i) => {
     const b = recBook(i), gb = b.gb;
     const el = h('button', { class: 'fy-pk', 'aria-pressed': String(sel.has(gb)), 'aria-label': `${b.title}, ${authorsStr(b)}`, onclick: () => { sel.has(gb) ? sel.delete(gb) : sel.add(gb); el.setAttribute('aria-pressed', String(sel.has(gb))); paintGo(); if (!reduceMotion()) el.animate([{ transform: 'scale(.94)' }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.34,1.5,.64,1)' }); } },
       coverEl(b), h('span', { class: 'fy-pk-t' }, b.title), h('span', { class: 'fy-pk-ok', 'aria-hidden': 'true' }));
