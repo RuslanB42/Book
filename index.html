@@ -1209,23 +1209,23 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 @media (min-width: 980px) { .bgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 40px 30px; } }
 .bcell { gap: 4px; overflow: visible; }
 .bcell .bc { isolation: isolate; margin-bottom: 12px; }
-.bcell .cover, .fy-look .cover {
+.bcell .cover, .fy-look .cover, .bh .cv .cover, .cover.cover-ghost {
   border-radius: 1px 3px 3px 1px;
   box-shadow: 0 1px 2px rgba(0,0,0,.16), 2px 6px 12px rgba(0,0,0,.12);
 }
-.bcell .cover::after, .bh .cv .cover::after, .fy-look .cover::after {
+.bcell .cover::after, .bh .cv .cover::after, .fy-look .cover::after, .cover.cover-ghost::after {
   background:
     linear-gradient(90deg, rgba(0,0,0,.38) 0%, rgba(255,255,255,.22) 1.4%, rgba(255,255,255,.08) 2.4%, rgba(0,0,0,.2) 3.1%, rgba(0,0,0,.1) 4.2%, rgba(255,255,255,.13) 5.2%, transparent 8%),
     linear-gradient(90deg, transparent 96.5%, rgba(0,0,0,.1) 100%),
     linear-gradient(180deg, rgba(255,255,255,.06), transparent 20%, transparent 80%, rgba(0,0,0,.05));
 }
-.bcell .gcover, .fy-look .gcover { padding: 13cqw 11cqw 12cqw 15cqw; }
-.bcell .gcover::before, .fy-look .gcover::before {
+.bcell .gcover, .fy-look .gcover, .bh .cv .gcover, .cover-ghost .gcover { padding: 13cqw 11cqw 12cqw 15cqw; }
+.bcell .gcover::before, .fy-look .gcover::before, .bh .cv .gcover::before, .cover-ghost .gcover::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(135deg, rgba(255,255,255,.045), transparent 45%, rgba(0,0,0,.035));
 }
-.bcell .gcover .gt, .fy-look .gcover .gt { font-size: 11cqw; line-height: 1.12; -webkit-line-clamp: 6; text-wrap: balance; hyphens: none; }
-.bcell .gcover .ga, .fy-look .gcover .ga { font-size: 6.8cqw; letter-spacing: .1em; }
+.bcell .gcover .gt, .fy-look .gcover .gt, .bh .cv .gcover .gt, .cover-ghost .gcover .gt { font-size: 11cqw; line-height: 1.12; -webkit-line-clamp: 6; text-wrap: balance; hyphens: none; }
+.bcell .gcover .ga, .fy-look .gcover .ga, .bh .cv .gcover .ga, .cover-ghost .gcover .ga { font-size: 6.8cqw; letter-spacing: .1em; }
 .bcell .bt { font-size: 15px; line-height: 1.3; font-weight: 500; }
 .bcell .ba { font-size: 14px; line-height: 1.35; }
 .bcell .bp { display: grid; width: 100%; min-width: 0; margin-top: 8px; gap: 6px; font-size: 12px; line-height: 1.4; color: var(--fg-2); }
@@ -1414,7 +1414,8 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .book-sheet .sheet-body { padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px)); }
 .bh { height: 258px; }
 .bh .cv { width: 138px; margin-bottom: -34px; }
-.bh .cv .cover { border-radius: 3px 6px 6px 3px; }
+.bh .cv .cover, .cover.cover-ghost { border-radius: 2px 5px 5px 2px; }
+.bh .cv .cover { box-shadow: 0 2px 4px rgba(0,0,0,.3), 0 18px 40px rgba(0,0,0,.45); }
 .flying .bh .cv { animation: none; }
 .bd-main { padding: 50px 24px 0; gap: 0; animation: none; }
 .bd-main > * { animation: bd-in .62s cubic-bezier(.22,1,.36,1) calc(.1s + var(--i, 0) * 45ms) backwards; }
@@ -1464,7 +1465,8 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .bd-list > div:first-child { border-top: 1px solid var(--hair); }
 .bd-list dt { color: var(--fg-3); flex: none; }
 .bd-list dd { margin: 0; text-align: right; min-width: 0; overflow-wrap: anywhere; color: var(--fg); }
-.cover-ghost { will-change: transform; }
+.cover.cover-ghost { position: fixed; margin: 0; z-index: 90; pointer-events: none; transform-origin: 0 0; animation: none; will-change: transform; aspect-ratio: auto;
+  box-shadow: 0 2px 4px rgba(0,0,0,.3), 0 18px 40px rgba(0,0,0,.45); backface-visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { .bd-main > *, .bd-line i { animation: none !important; } }
 
 /* thicker, legible book volume: depth follows --t set from the book size */
@@ -1546,7 +1548,8 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .fy-coach-row > div:last-child { color: var(--accent); }
 .fy-coach p { margin: 0; font-size: 14px; line-height: 1.45; color: rgba(243,242,239,.75); max-width: 26ch; }
 .fy-coach .btn { min-width: 140px; }
-.fy-x { position: fixed; inset: 0; z-index: 80; background: var(--bg-raised); overflow: hidden; will-change: clip-path; }
+.fy-x { position: fixed; inset: 0; z-index: 80; overflow: hidden; }
+.fy-x-bg { position: absolute; left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; background: var(--bg-raised); transform-origin: 0 0; will-change: transform; overflow: hidden; }
 .fy-x-glow { position: absolute; left: -30%; right: -30%; top: -12%; height: 60%; background: radial-gradient(50% 55% at 50% 50%, var(--tint), transparent 75%); opacity: 1; pointer-events: none; }
 .fy-x-bar { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); left: 14px; z-index: 2; }
 .fy-x-scroll { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
@@ -3072,15 +3075,16 @@ function flyCover(from, to, { duration = 520, easing = 'cubic-bezier(.22,1,.36,1
   const src = from.nodeType ? from : to;
   const ghost = src.cloneNode(true);
   for (const el of [ghost, ...ghost.querySelectorAll('[id]')]) el.removeAttribute('id');
+  ghost.removeAttribute('style');
   ghost.classList.add('cover-ghost');
-  Object.assign(ghost.style, { position: 'fixed', left: b.left + 'px', top: b.top + 'px', width: b.width + 'px', height: b.height + 'px', margin: '0', zIndex: 90, pointerEvents: 'none', transformOrigin: '0 0', animation: 'none' });
+  // Lay the copy out at the larger of the two sizes and only ever scale it down:
+  // the type stays crisp and the cover keeps one look (the shelf look) from start to end.
+  const big = a.width >= b.width ? a : b;
+  Object.assign(ghost.style, { left: big.left + 'px', top: big.top + 'px', width: big.width + 'px', height: big.height + 'px' });
+  const pose = (r) => `translate3d(${r.left - big.left}px,${r.top - big.top}px,0) scale(${r.width / big.width},${r.height / big.height})`;
   document.body.append(ghost);
   for (const el of hide) if (el) el.style.visibility = 'hidden';
-  const sx = a.width / b.width, sy = a.height / b.height;
-  const anim = ghost.animate([
-    { transform: `translate3d(${a.left - b.left}px,${a.top - b.top}px,0) scale(${sx},${sy})`, boxShadow: '0 2px 6px rgba(0,0,0,.25)' },
-    { transform: 'none', boxShadow: '0 2px 4px rgba(0,0,0,.3), 0 18px 40px rgba(0,0,0,.45)' }],
-  { duration, easing, fill: 'both' });
+  const anim = ghost.animate([{ transform: pose(a) }, { transform: pose(b) }], { duration, easing, fill: 'both' });
   const done = () => { ghost.remove(); for (const el of hide) if (el) el.style.visibility = ''; };
   anim.finished.then(done, done);
   return anim;
@@ -3196,10 +3200,10 @@ function openDetail(book, srcEl) {
   const from = phone() && srcEl ? cellCover() : null;
   if (from) {
     // measure where the hero cover will rest once the sheet has settled
+    s.panel.classList.add('flying');
     const pr = s.panel.getBoundingClientRect(), hr = heroCover.getBoundingClientRect();
     const dy = pr.top - (innerHeight - s.panel.offsetHeight);
     const rest = { left: hr.left, top: hr.top - dy, width: hr.width, height: hr.height, bottom: hr.bottom - dy };
-    s.panel.classList.add('flying');
     const a = flyCover(from, rest, { duration: 560, hide: [heroCover, from] });
     if (a) a.finished.then(() => s.panel.classList.remove('flying'), () => {}); else s.panel.classList.remove('flying');
   }
@@ -6478,11 +6482,11 @@ function recDrag(card, stack) {
     if (st.dy > 0) st.dy = st.dy * 0.35;
     const now = performance.now(); st.samples.push([e.clientX, e.clientY, now]); while (st.samples.length > 5) st.samples.shift();
     if (!st.moved && Math.hypot(st.dx, st.dy) > 7) st.moved = true;
-    if (st.moved) paint();
+    if (st.moved && !st.raf) st.raf = requestAnimationFrame(() => { if (st) { st.raf = 0; paint(); } });
   });
   const end = (e) => {
     if (!st || (e && e.pointerId !== st.id)) return;
-    const s0 = st; st = null; card.classList.remove('drag');
+    const s0 = st; st = null; if (s0.raf) cancelAnimationFrame(s0.raf); card.classList.remove('drag');
     if (!s0.moved) { reset(false); if (e && e.type === 'pointerup' && performance.now() - s0.t < 500) recExpand(card, +card.dataset.j, box); return; }
     const a = s0.samples[0], z = s0.samples[s0.samples.length - 1], dt = Math.max(16, z[2] - a[2]);
     const vx = (z[0] - a[0]) / dt, vy = (z[1] - a[1]) / dt;
@@ -6500,6 +6504,8 @@ function recDrag(card, stack) {
 async function recFlyOut(card, act, from) {
   if (!card) return;
   card.style.pointerEvents = 'none';
+  // the books behind start rising the moment this one leaves
+  if (card.parentNode) card.parentNode.style.setProperty('--pull', 1);
   const st = $(`.fy-stamp.${act}`, card), tint = $('.fy-tint', card);
   if (st) st.style.opacity = 1;
   if (tint) { tint.dataset.dir = act; tint.style.opacity = 0.9; }
@@ -6622,25 +6628,27 @@ function recExpand(card, j, box) {
   const coverBox = h('div', { class: 'fy-x-cv fy-look' }, coverEl(b));
   const scroller = h('div', { class: 'fy-x-scroll' }, h('div', { class: 'fy-x-in' }, coverBox, ...content));
   const closeBtn = h('button', { class: 'bh-btn fy-x-close', 'aria-label': 'Свернуть описание' }, icon('chevdown'));
+  const sheetBg = h('div', { class: 'fy-x-bg', 'aria-hidden': 'true' }, h('div', { class: 'fy-x-glow' }));
   const panel = h('div', { class: 'fy-x', role: 'dialog', 'aria-modal': 'true', 'aria-label': b.title, style: `--tint:${tintColor}` },
-    h('div', { class: 'fy-x-glow', 'aria-hidden': 'true' }), scroller, h('div', { class: 'fy-x-bar' }, closeBtn));
+    sheetBg, scroller, h('div', { class: 'fy-x-bar' }, closeBtn));
   document.body.append(panel);
+  sheetBg.style.width = innerWidth + 'px'; sheetBg.style.height = innerHeight + 'px';
   const rm = reduceMotion();
   const ease = 'cubic-bezier(.32,.72,0,1)';
   const W = innerWidth, H = innerHeight;
-  const rectClip = (r) => `inset(${r.top}px ${W - r.right}px ${H - r.bottom}px ${r.left}px round 4px)`;
+  const rectPose = (r) => `translate3d(${r.left}px,${r.top}px,0) scale(${r.width / W},${r.height / H})`;
   const flip = (fromEl, toEl) => { const a = fromEl.getBoundingClientRect(), z = toEl.getBoundingClientRect(); return `translate3d(${a.left - z.left}px,${a.top - z.top}px,0) scale(${a.width / z.width})`; };
   const cardCover = $('.cover', card), bigCover = $('.cover', coverBox);
-  const startClip = rectClip(card.getBoundingClientRect());
+  const startPose = rectPose(card.getBoundingClientRect());
   const startCover = flip(cardCover, bigCover);
   card.style.visibility = 'hidden';
   const parts = [...scroller.firstChild.children].slice(1);
   let closing = false;
   const anims = [];
   if (!rm) {
-    anims.push(panel.animate([{ clipPath: startClip }, { clipPath: `inset(0px 0px 0px 0px round 0px)` }], { duration: 620, easing: ease }));
+    anims.push(sheetBg.animate([{ transform: startPose }, { transform: 'none' }], { duration: 620, easing: ease }));
     anims.push(bigCover.animate([{ transform: startCover }, { transform: 'none' }], { duration: 620, easing: ease }));
-    $('.fy-x-glow', panel).animate([{ opacity: 0.4, transform: 'scale(.7)' }, { opacity: 1, transform: 'none' }], { duration: 700, easing: ease });
+    $('.fy-x-glow', panel).animate([{ opacity: 0 }, { opacity: 1 }], { duration: 520, delay: 80, easing: 'ease-out', fill: 'backwards' });
     parts.forEach((el, i) => el.animate([{ opacity: 0, transform: 'translate3d(0,22px,0)' }, { opacity: 1, transform: 'none' }], { duration: 560, delay: 150 + Math.min(i, 6) * 45, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'backwards' }));
     $('.fy-x-bar', panel).animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 260, fill: 'backwards' });
   }
@@ -6655,8 +6663,8 @@ function recExpand(card, j, box) {
       const opts = { duration: 520, easing: ease, fill: 'forwards' };
       parts.forEach((el) => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: 'ease-out', fill: 'forwards' }));
       $('.fy-x-bar', panel).animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, fill: 'forwards' });
-      $('.fy-x-glow', panel).animate([{ opacity: 1 }, { opacity: 0.5 }], opts);
-      const a1 = panel.animate([{ clipPath: `inset(0px 0px 0px 0px round 0px)` }, { clipPath: rectClip(target) }], opts);
+      $('.fy-x-glow', panel).animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: 'ease-out', fill: 'forwards' });
+      const a1 = sheetBg.animate([{ transform: 'none' }, { transform: rectPose(target) }], opts);
       bigCover.animate([{ transform: 'none' }, { transform: back }], opts);
       await a1.finished.catch(() => {});
     }
