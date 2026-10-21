@@ -3205,7 +3205,9 @@ function openDetail(book, srcEl) {
     const dy = pr.top - (innerHeight - s.panel.offsetHeight);
     const rest = { left: hr.left, top: hr.top - dy, width: hr.width, height: hr.height, bottom: hr.bottom - dy };
     const a = flyCover(from, rest, { duration: 560, hide: [heroCover, from] });
-    if (a) a.finished.then(() => s.panel.classList.remove('flying'), () => {}); else s.panel.classList.remove('flying');
+    // the cover arrives by flight, so its own entrance animation must never start afterwards
+    heroCover.parentNode.style.animation = 'none';
+    if (!a) { s.panel.classList.remove('flying'); heroCover.parentNode.style.animation = ''; }
   }
 }
 function bookMenu(book, sheet) {
