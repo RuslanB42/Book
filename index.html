@@ -1418,7 +1418,15 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .bh .cv .cover { box-shadow: 0 2px 4px rgba(0,0,0,.3), 0 18px 40px rgba(0,0,0,.45); }
 .flying .bh .cv { animation: none; }
 .bd-main { padding: 50px 24px 0; gap: 0; animation: none; }
-.bd-main > * { animation: bd-in .62s cubic-bezier(.22,1,.36,1) calc(.1s + var(--i, 0) * 45ms) backwards; }
+/* The book card enters as one surface: no delayed, nested reveals. */
+.book-sheet .bh .cv, .book-sheet .bd-main > * { animation: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .book-sheet.sheet:not(.drag) {
+    transition-duration: 460ms;
+    transition-timing-function: cubic-bezier(.2,.75,.25,1);
+    will-change: transform;
+  }
+}
 @keyframes bd-in { from { opacity: 0; transform: translate3d(0, 14px, 0); } }
 .bd-main .tag { font-size: 11px; letter-spacing: .12em; margin-bottom: 8px; }
 .bd-main h3 { font: 600 25px/1.18 var(--f-display); margin: 0; letter-spacing: -.005em; max-width: 30ch; }
@@ -2582,6 +2590,8 @@ function openSheet({ title, label, body, left, right, tall, onClose, closeBtn = 
   host.append(scrim, panel);
   lockSheetScroll();
   sheets.push(api);
+  // Commit the starting pose even when no shared cover is available.
+  if (panel.classList.contains('book-sheet')) void panel.offsetHeight;
   requestAnimationFrame(() => { scrim.classList.add('in'); panel.classList.add('in'); });
   setTimeout(() => { if(closed)return; const f = panel.querySelector('[autofocus]') || panel.querySelector('.sheet-head button, .sheet-body button, input'); if (f) f.focus({ preventScroll: true }); }, 60);
   return api;
@@ -3085,7 +3095,9 @@ function flyCover(from, to, { duration = 520, easing = 'cubic-bezier(.22,1,.36,1
   document.body.append(ghost);
   for (const el of hide) if (el) el.style.visibility = 'hidden';
   const anim = ghost.animate([{ transform: pose(a) }, { transform: pose(b) }], { duration, easing, fill: 'both' });
-  const done = () => { ghost.remove(); for (const el of hide) if (el) el.style.visibility = ''; };
+  let cleaned = false;
+  const done = () => { if (cleaned) return; cleaned = true; ghost.remove(); for (const el of hide) if (el) el.style.visibility = ''; };
+  anim.cancelFlight = () => { anim.cancel(); done(); };
   anim.finished.then(done, done);
   return anim;
 }
@@ -3190,12 +3202,13 @@ function openDetail(book, srcEl) {
     return r.width && r.bottom > 0 && r.top < innerHeight ? cv : null;
   };
   const phone = () => innerWidth < 720;
-  let reading = false;
+  let openingFlight = null;
   s = openSheet({ title: '', label: book.title, body, tall: true, cls: 'book-sheet', closeBtn: false,
     onClose: () => {
+      if (openingFlight) { openingFlight.cancelFlight(); openingFlight = null; }
       const target = phone() && cellCover();
       if (!target || reduceMotion()) return;
-      flyCover(heroCover, target, { duration: 480, easing: 'cubic-bezier(.32,.72,0,1)', hide: [heroCover, target] });
+      flyCover(heroCover, target, { duration: 460, easing: 'cubic-bezier(.2,.75,.25,1)', hide: [heroCover, target] });
     } });
   const from = phone() && srcEl ? cellCover() : null;
   if (from) {
@@ -3204,7 +3217,7 @@ function openDetail(book, srcEl) {
     const pr = s.panel.getBoundingClientRect(), hr = heroCover.getBoundingClientRect();
     const dy = pr.top - (innerHeight - s.panel.offsetHeight);
     const rest = { left: hr.left, top: hr.top - dy, width: hr.width, height: hr.height, bottom: hr.bottom - dy };
-    const a = flyCover(from, rest, { duration: 560, hide: [heroCover, from] });
+    const a = openingFlight = flyCover(from, rest, { duration: 460, easing: 'cubic-bezier(.2,.75,.25,1)', hide: [heroCover, from] });
     // the cover arrives by flight, so its own entrance animation must never start afterwards
     heroCover.parentNode.style.animation = 'none';
     if (!a) { s.panel.classList.remove('flying'); heroCover.parentNode.style.animation = ''; }
