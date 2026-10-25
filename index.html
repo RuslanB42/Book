@@ -225,11 +225,13 @@ input, textarea, select { font: inherit; color: inherit; }
   display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* pockets (shelves) */
-.pockets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 18px; }
+.pockets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px 18px; align-items: start; }
 @media (min-width: 680px) { .pockets { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 28px; } }
 @media (min-width: 980px) { .pockets { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .pocket { display: grid; gap: 12px; text-align: center; }
+.pockets > .pocket { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; align-self: start; width: 100%; min-width: 0; margin: 0; padding: 0; }
 .pocket .well { position: relative; aspect-ratio: 1 / .94; container-type: inline-size; }
+.pockets > .pocket > .well { display: block; flex: none; width: 100%; min-width: 0; aspect-ratio: 1 / .94; }
 /* every pocket is identical: same cover size, same baseline, no tilt — only the horizontal fan changes with the count */
 .pocket .c {
   position: absolute; width: 46%; bottom: 10%; left: 27%;
@@ -243,7 +245,7 @@ input, textarea, select { font: inherit; color: inherit; }
 .pocket [data-n="3"] > .c:nth-child(1) { left: 11%; }
 .pocket [data-n="3"] > .c:nth-child(2) { left: 27%; }
 .pocket [data-n="3"] > .c:nth-child(3) { left: 43%; }
-@media (hover: hover) { .pocket:hover .c { transform: translateY(-6%); } }
+
 .pocket .glass {
   position: absolute; left: 0; right: 0; bottom: 0; height: 54%; z-index: 5; border-radius: 4.5cqw; overflow: hidden;
   background: var(--bg);
@@ -288,8 +290,11 @@ input, textarea, select { font: inherit; color: inherit; }
 .pocket .glass i:nth-of-type(3) { left: 4.5cqw; bottom: 4.5cqw; }
 .pocket .glass i:nth-of-type(4) { right: 4.5cqw; bottom: 4.5cqw; }
 .pocket .lbl { font-size: 15px; font-weight: 500; }
-.pocket .lbl span { color: var(--fg-3); font-weight: 400; }
-.pocket .lbl span::before { content: "|"; margin: 0 7px; }
+.pockets > .pocket > .lbl { display: grid; grid-template-rows: 42px 20px; gap: 4px; flex: none; width: 100%; min-width: 0; height: 66px; margin: 0; text-align: center; }
+.pocket .pocket-name { display: flex; align-items: center; justify-content: center; min-width: 0; height: 42px; font-size: 15px; line-height: 21px; font-weight: 500; color: var(--fg); }
+.pocket .pocket-name-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; max-width: 100%; min-width: 0; overflow: hidden; overflow-wrap: anywhere; }
+.pocket .pocket-count { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 20px; font-weight: 400; color: var(--fg-2); }
+.pocket.add .pocket-name { color: var(--fg-2); }
 
 /* shelf with planks */
 .shelf { display: grid; gap: 34px; --cols: 3; }
@@ -2527,6 +2532,9 @@ function applyUi() {
 
 /* ================= toasts ================= */
 function toast(msg, opts = {}) {
+  // Only these two import notices are enabled. Keep evaluating callers' arguments
+  // (some of them perform clipboard operations) but never render other feedback.
+  if (!['import-progress', 'import-result'].includes(opts.kind)) return { close() {}, set() {} };
   const host = $('#toasts');
   host.replaceChildren();
   const el = h('div', { class: 'toast' + (opts.tone === 'error' ? ' error' : ''), role: opts.tone === 'error' ? 'alert' : 'status' },
@@ -2689,7 +2697,7 @@ function automaticShelfBooks(key){return state.books.filter(book=>readingStatus(
 function automaticPocket(definition,index){
  const books=automaticShelfBooks(definition.key);
  return h('button',{class:'pocket',style:`--i:${index}`,'data-auto-shelf':definition.key,'aria-label':`${definition.title}: ${books.length} ${plural(books.length,BOOKS)}. Автоматическая полка`,onclick:()=>go('shelves',null,definition.key)},
-  pocketWell(books),h('span',{class:'lbl'},definition.title,h('span',null,`${books.length} ${plural(books.length,BOOKS)}`)));
+  pocketWell(books),pocketLabel(definition.title,books.length));
 }
 function renderAutomaticShelf(main,definition){
  const list=automaticShelfBooks(definition.key),[label,sort]=SORTS[state.sort]||SORTS.manual;
@@ -2939,16 +2947,19 @@ function pocketWell(list, extraClass = '') {
     ...stack(),
     h('span', { class: 'glass' }, h('span', { class: 'frost', 'data-n': String(covers.length) }, ...stack()), h('span', { class: 'tint' }), h('i'), h('i'), h('i'), h('i')));
 }
+function pocketLabel(name, count = null) {
+  return h('span', { class: 'lbl' }, h('span', { class: 'pocket-name', title: name }, h('span', { class: 'pocket-name-text' }, name)), h('span', { class: 'pocket-count', 'aria-hidden': count == null ? 'true' : null }, count == null ? '\u00a0' : `${count} ${plural(count, BOOKS)}`));
+}
 function pocket(name, list, i) {
   const well = pocketWell(list);
   return h('button', { class: 'pocket', style: `--i:${i}`, 'aria-label': `${name}: ${list.length} ${plural(list.length, BOOKS)}`, onclick: () => go('shelves', name) },
     well,
-    h('span', { class: 'lbl' }, name, h('span', null, `${list.length} ${plural(list.length, BOOKS)}`)));
+    pocketLabel(name, list.length));
 }
 function newPocket(i) {
   return h('button', { class: 'pocket add', style: `--i:${i}`, onclick: () => createShelf() },
     h('span', { class: 'well empty-well' }, h('span', { class: 'glass' }, h('span', { class: 'tint' }), h('b', null, icon('plus')), h('i'), h('i'), h('i'), h('i'))),
-    h('span', { class: 'lbl' }, 'Новая полка'));
+    pocketLabel('Новая полка'));
 }
 function emptyArt() {
   const s = document.createElement('div');
@@ -3499,14 +3510,10 @@ function storageError(error) {
   if (!STORE_HEALTH.warned) { STORE_HEALTH.warned = true; toast(STORE_HEALTH.error, { tone: 'error', timeout: 10000 }); }
 }
 function paintStorageBanner() {
-  const host = $('#storage-banner'); if (!host) return;
-  host.replaceChildren();
-  const message = !DB.owner ? 'Полка уже открыта в другой вкладке. Эта вкладка — только для просмотра. Закройте другую и перезагрузите эту.' : DB.ok && !DB.ready ? 'Не удалось безопасно загрузить библиотеку. Запись остановлена; прежние данные и автокопии не перезаписываются. Откройте настройки → Резервная копия.' : !DB.ok ? 'Постоянное хранилище недоступно. Новые книги не будут импортированы. Не удаляйте данные сайта; закройте другие вкладки и перезапустите приложение.' : STORE_HEALTH.error;
-  if (message) host.append(h('div', { class: 'banner', role: 'alert' }, message, h('button', { class: 'link-btn', onclick: () => openSettings() }, 'Хранение и копии')));
-  if (Recovery.error) host.append(h('div', { class: 'banner', role: 'alert' }, 'Автокопия не обновлена: ' + Recovery.error + '. Сохраните внешнюю копию.'));
-  if (location.protocol === 'file:') host.append(h('div', { class: 'banner', role: 'status' }, 'Приложение открыто как файл. Перенос или переименование HTML может изменить доступ к библиотеке. Для постоянной работы используйте один и тот же HTTPS-адрес; перед переносом сохраните .polka.'));
-  if (DB.ready && state.books.some(b => !b.sample) && (!STORE_HEALTH.lastBackup || Date.now() - STORE_HEALTH.lastBackup > 7 * 86400000)) host.append(h('div', { class: 'banner', role: 'status' }, 'Пора сохранить внешнюю копию. Автокопии внутри браузера не переживут очистку данных сайта.', h('button', { class: 'link-btn', onclick: () => runBackup() }, 'Сохранить .polka')));
+  const host = $('#storage-banner');
+  if (host) host.replaceChildren();
 }
+
 function fmtStorage(n) {
   if (!Number.isFinite(n)) return 'Недоступно';
   if (n === 0) return '0 Б';
@@ -3765,12 +3772,12 @@ async function importFiles(fileList) {
   if (!DB.ok) { storageError(new Error('Импорт отменён: постоянное хранилище недоступно.')); return; }
   if (STORE_HEALTH.busy) { toast('Дождитесь завершения резервного копирования.'); return; }
   await protectStorage();
-  const t = toast(files.length > 1 ? `Добавляю 1 из ${files.length}…` : `Добавляю «${files[0].name}»…`, { busy: true, timeout: 0 });
+  const t = toast(files.length > 1 ? `Добавляю файл 1 из ${files.length}…` : 'Добавляю файл…', { kind: 'import-progress', busy: true, timeout: 0 });
   const added = [], failed = [], dup = [];
   const target = !state.query && state.tab === 'shelves' && state.shelf ? state.shelf : null;
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
-    if (files.length > 1) t.set(`Добавляю ${i + 1} из ${files.length}…`);
+    if (files.length > 1) t.set(`Добавляю файл ${i + 1} из ${files.length}…`);
     try {
       const { book, content } = await parseFile(f);
       const wish = state.books.find((b) => b.noFile && recSameBook(b, book));
@@ -3789,12 +3796,7 @@ async function importFiles(fileList) {
   t.close();
   if (added.length) { state.query = ''; $('#q').value = ''; $('#q-clear').hidden = true; if (added.every(isRecommendation)) { state.tab='shelves';state.shelf=REC_SHELF;state.autoShelf=null; } else if (target) {state.shelf=target;state.autoShelf=null;} else {state.tab='shelves';state.shelf=null;state.autoShelf='want';} renderLibrary(); }
 
-  setTimeout(() => {
-    if (failed.length) toast(failed.length === 1 ? `Не удалось открыть «${failed[0].name}»: ${failed[0].why}.` : `Не удалось открыть ${failed.length} ${plural(failed.length, ['файл', 'файла', 'файлов'])}: ${failed.map((x) => x.name).join(', ')}. Поддерживаются FB2, FB2.ZIP и EPUB.`, { tone: 'error', timeout: 7000 });
-    else if (added.length === 1) toast(`«${added[0].title}» добавлена в «${isRecommendation(added[0]) ? 'Рекомендации' : target || 'Хочу прочитать'}»`, { action: { label: 'Читать', fn: () => openReader(added[0]) } });
-    else if (added.length) toast(`Добавлено ${added.length} ${plural(added.length, BOOKS)}`);
-    else if (dup.length) toast(dup.length === 1 ? `«${dup[0]}» уже есть в библиотеке` : `Эти книги уже есть в библиотеке`);
-  }, 320);
+  if (added.length) setTimeout(() => toast(`Добавлено книг: ${added.length}`, { kind: 'import-result' }), 320);
 }
 
 /* ================= shelves management ================= */
@@ -4501,69 +4503,8 @@ function dismissCompletionCelebration(immediate=false) {
   clearTimeout(completionTimer);completionTimer=null;
   if(completionCelebration)completionCelebration(immediate);
 }
-function scheduleCompletionCelebration(book) {
-  dismissCompletionCelebration(true);
-  const deadline=performance.now()+12000;
-  const show=()=>{
-    completionTimer=null;
-    if(document.hidden||R.book!==book||R.closing||Number(book.progress?.pct)<1)return;
-    if(bookOpeningBusy||bookOpeningTransition||chapterTransition||sheets.length){if(performance.now()<deadline)completionTimer=setTimeout(show,180);return;}
-    showCompletionCelebration(book);
-  };
-  completionTimer=setTimeout(show,240);
-}
-function showCompletionCelebration(book) {
-  dismissCompletionCelebration(true);
-  if(document.hidden||R.book!==book||R.closing)return;
-  const check=svgEl('svg',{viewBox:'0 0 32 32','aria-hidden':'true'});
-  const circle=svgEl('circle',{cx:16,cy:16,r:13,pathLength:100,class:'finish-ring'});
-  const tick=svgEl('path',{d:'M10 16.5l4 4 8-9',pathLength:100,class:'finish-tick'});
-  check.append(circle,tick);
-  const halo=h('span',{class:'finish-halo','aria-hidden':'true'});
-  const badge=h('span',{class:'finish-badge','aria-hidden':'true'},check);
-  const volume=h('span',{class:'finish-volume','aria-hidden':'true'},coverEl(book),badge);
-  const track=h('i');
-  const card=h('section',{class:'completion-card',role:'status','aria-live':'polite','aria-atomic':'true'},halo,volume,
-    h('div',{class:'finish-copy'},h('span',{class:'finish-kicker'},'100% | Завершено'),h('h2',null,'Книга прочитана'),h('p',{class:'finish-title'},book.title),h('span',{class:'finish-track','aria-hidden':'true'},track)),
-    h('div',{class:'finish-feedback'},bookRatingControl(book),h('button',{class:'btn ghost finish-thought',onclick:()=>openBookReflection(book)},icon('pen','sm'),getBookReflection(book)?'Изменить мысли о книге':'Мысли о книге')),
-    h('button',{class:'finish-close','aria-label':'Закрыть сообщение о прочтении',onclick:()=>dismiss(false)},icon('x','sm')));
-  const animations=[],media=matchMedia('(prefers-reduced-motion: reduce)');let removed=false,leaving=false,auto,exitTimer;
-  const clean=()=>{
-    if(removed)return;removed=true;clearTimeout(auto);clearTimeout(exitTimer);animations.forEach(a=>a.cancel());card.remove();
-    document.removeEventListener('visibilitychange',onVisibility);document.removeEventListener('keydown',onKey,true);window.removeEventListener('resize',onResize);media.removeEventListener('change',onReduced);
-    if(completionCelebration===dismiss)completionCelebration=null;
-  };
-  const run=(el,frames,options)=>{const a=el.animate(frames,{fill:'both',...options});animations.push(a);return a};
-  const dismiss=immediate=>{
-    if(removed)return;
-    if(immediate||reduceMotion()){clean();return;}
-    if(leaving)return;leaving=true;clearTimeout(auto);
-    const style=getComputedStyle(card),opacity=style.opacity,transform=style.transform;
-    animations.forEach(a=>a.cancel());
-    const end=run(card,[{opacity,transform},{opacity:0,transform:'translate3d(0,12px,0) scale(.985)'}],{duration:400,easing:'cubic-bezier(.4,0,.6,1)'});
-    end.finished.then(clean,clean);exitTimer=setTimeout(clean,480);
-  };
-  const onVisibility=()=>{if(document.hidden)clean()},onResize=()=>clean();
-  const onKey=e=>{if(e.key==='Escape'&&!sheets.length){e.preventDefault();e.stopImmediatePropagation();dismiss(false)}};
-  const onReduced=e=>{if(e.matches)animations.forEach(a=>a.cancel())};
-  const startAuto=(ms=12000)=>{clearTimeout(auto);auto=setTimeout(()=>dismiss(false),ms)};
-  completionCelebration=dismiss;document.body.append(card);
-  document.addEventListener('visibilitychange',onVisibility);document.addEventListener('keydown',onKey,true);window.addEventListener('resize',onResize);media.addEventListener('change',onReduced);
-  card.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')clearTimeout(auto)});card.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')startAuto(6000)});
-  card.addEventListener('focusin',()=>clearTimeout(auto));card.addEventListener('focusout',e=>{if(!card.contains(e.relatedTarget))startAuto(6000)});
-  card.addEventListener('rating-saving',()=>clearTimeout(auto));
-  card.addEventListener('rating-settled',()=>{if(!card.contains(document.activeElement))startAuto(10000)});
-  if(!reduceMotion()){
-    run(card,[{opacity:0,transform:'translate3d(0,22px,0) scale(.975)'},{opacity:1,transform:'none'}],{duration:720,easing:'cubic-bezier(.22,.72,.2,1)'});
-    run(volume,[{transform:'translate3d(0,8px,0) rotate(-6deg)'},{transform:'none'}],{duration:1100,delay:80,easing:'cubic-bezier(.25,.1,.25,1)'});
-    run(halo,[{opacity:0},{opacity:.8,offset:.5},{opacity:.36}],{duration:1900,easing:'ease-in-out'});
-    run(badge,[{opacity:0,transform:'scale(.7)'},{opacity:1,transform:'scale(1)'}],{duration:500,delay:350,easing:'cubic-bezier(.22,.72,.2,1)'});
-    run(circle,[{strokeDashoffset:100},{strokeDashoffset:0}],{duration:850,delay:320,easing:'cubic-bezier(.4,0,.2,1)'});
-    run(tick,[{strokeDashoffset:100},{strokeDashoffset:0}],{duration:480,delay:750,easing:'cubic-bezier(.25,.1,.25,1)'});
-    run(track,[{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:1200,delay:140,easing:'cubic-bezier(.25,.1,.25,1)'});
-  }
-  startAuto();return card;
-}
+function scheduleCompletionCelebration(book) { dismissCompletionCelebration(true); }
+function showCompletionCelebration(book) { /* Completion popup disabled. */ }
 
 const completionFeedback = new Set();
 async function saveProgress() {
@@ -6260,14 +6201,8 @@ async function installApp() {
       h('ol', { class: 'steps' }, steps.map((t) => h('li', null, t)))),
   });
 }
-function installBanner() {
-  if (isStandalone() || prefs.installDismissed || !PWA.evt) return null;
-  return h('div', { class: 'install card' },
-    h('img', { src: (window.POLKA_PWA ? 'icons/icon-192.png' : ''), alt: '', hidden: !window.POLKA_PWA }),
-    h('div', null, h('b', null, 'Полка как приложение'), h('span', null, 'Иконка на главном экране, полный экран, работа без интернета')),
-    h('button', { class: 'btn', onclick: () => installApp() }, 'Установить'),
-    h('button', { class: 'icon-btn', 'aria-label': 'Скрыть', onclick: () => { prefs.installDismissed = true; savePrefs(); renderLibrary(false); } }, icon('x', 'sm')));
-}
+function installBanner() { return null; }
+
 function setThemeColor(c) { const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', c); }
 
 /* books shared into the app (Android share sheet) or opened with it (desktop) */
@@ -6985,7 +6920,7 @@ function attachFileTo(book, after) {
   inp.addEventListener('change', async () => {
     const f = inp.files[0]; inp.remove();
     if (!f) return;
-    const t = toast('Открываю файл…', { busy: true, timeout: 0 });
+    const t = toast('Добавляю файл…', { kind: 'import-progress', busy: true, timeout: 0 });
     try {
       const res = await parseFile(f);
       t.close();
@@ -6995,7 +6930,7 @@ function attachFileTo(book, after) {
       }
       await mergeIntoWish(book, res);
       if (state.tab !== 'foryou') renderLibrary(false);
-      toast(`Файл добавлен — «${book.title}» можно читать`);
+      toast('Добавлено книг: 1', { kind: 'import-result' });
       if (after) after(book);
     } catch (e) { t.close(); toast('Не удалось открыть файл: ' + ((e && e.message) || 'неизвестная ошибка') + '. Подойдут FB2, FB2.ZIP и EPUB.', { tone: 'error', timeout: 6000 }); }
   });
