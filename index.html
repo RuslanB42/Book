@@ -1413,7 +1413,7 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 @media(max-height:650px){.completion-card{bottom:24px;max-height:calc(100dvh - 48px);overflow:auto}}
 
 /* Automatic shelves use the same glass pockets as personal shelves. */
-.auto-shelf-note{font-size:14px;line-height:1.6;color:var(--fg-2);margin:0 0 25px;max-width:650px}.auto-shelf-empty{padding-top:18px}.auto-shelf-empty>p{max-width:340px}
+.auto-shelf-empty{padding-top:18px}.auto-shelf-empty>p{max-width:340px}
 /* ---------- book card v3: one column, no boxes ---------- */
 .bd { min-height: auto; }
 .book-sheet .sheet-body { padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px)); }
@@ -2683,9 +2683,9 @@ const pctOf = (b) => {const p=Math.max(0,Number(b.progress?.pct)||0);return p>=1
 // These are derived collections, not values stored in book.shelf.
 // A book keeps its personal shelf while its reading shelf changes automatically.
 const AUTO_SHELVES = [
- {key:'want',title:'Хочу прочитать',description:'Книги, которые вы ещё не начали читать. После открытия книга автоматически перейдёт на полку «Читаю».',empty:'Неначатых книг пока нет'},
- {key:'reading',title:'Читаю',description:'Начатые книги. Когда прогресс достигнет 100%, книга автоматически перейдёт на полку «Прочитано».',empty:'Пока ничего не читаете'},
- {key:'done',title:'Прочитано',description:'Книги, прочитанные до конца. Они попадают сюда автоматически при достижении 100% прогресса.',empty:'Прочитанных книг пока нет'}
+ {key:'want',title:'Хочу прочитать',empty:'Неначатых книг пока нет'},
+ {key:'reading',title:'Читаю',empty:'Пока ничего не читаете'},
+ {key:'done',title:'Прочитано',empty:'Прочитанных книг пока нет'}
 ];
 function autoShelfDefinition(key=state.autoShelf){return AUTO_SHELVES.find(s=>s.key===key)||null;}
 function readingStatus(book){
@@ -2701,10 +2701,10 @@ function automaticPocket(definition,index){
 }
 function renderAutomaticShelf(main,definition){
  const list=automaticShelfBooks(definition.key),[label,sort]=SORTS[state.sort]||SORTS.manual;
- main.append(h('div',{class:'sec-head'},h('button',{class:'back-link',onclick:()=>go('shelves')},icon('back','sm'),'Полки'),h('div',{class:'tools'},h('span',null,`${list.length} ${plural(list.length,BOOKS)}`),h('button',{class:'sort-btn',onclick:()=>openViewMenu()},label))),h('p',{class:'auto-shelf-note'},definition.description));
+ main.append(h('div',{class:'sec-head'},h('button',{class:'back-link',onclick:()=>go('shelves')},icon('back','sm'),'Полки'),h('div',{class:'tools'},h('span',null,`${list.length} ${plural(list.length,BOOKS)}`),h('button',{class:'sort-btn',onclick:()=>openViewMenu()},label))));
  if(list.length)main.append(bookGrid(list.slice().sort(sort),true));
 
- else main.append(h('div',{class:'empty auto-shelf-empty'},emptyArt(),h('h2',null,definition.empty),h('p',null,definition.key==='want'?'Добавьте книгу в библиотеку — она появится на этой полке.':definition.key==='reading'?'Начните читать любую книгу из библиотеки — она появится здесь.':'Продолжайте читать. Дочитанная книга появится здесь сама.'),h('button',{class:'btn',onclick:()=>definition.key==='want'?$('#file').click():go('all')},definition.key==='want'?'Добавить книги':'Мои книги')));
+ else main.append(h('div',{class:'empty auto-shelf-empty'},emptyArt(),h('h2',null,definition.empty),h('button',{class:'btn',onclick:()=>definition.key==='want'?$('#file').click():go('all')},definition.key==='want'?'Добавить книги':'Мои книги')));
 }
 
 const byPos = (a, b) => (a.pos != null && b.pos != null ? a.pos - b.pos : a.pos != null ? -1 : b.pos != null ? 1 : byRecent(a, b));
