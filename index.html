@@ -1408,7 +1408,7 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 @media(max-height:650px){.completion-card{bottom:24px;max-height:calc(100dvh - 48px);overflow:auto}}
 
 /* Automatic shelves use the same glass pockets as personal shelves. */
-.auto-pocket-label{pointer-events:auto;cursor:pointer;display:grid;gap:5px;align-content:start}.auto-pocket-tag{font-size:12px;line-height:1.25;font-weight:400;color:var(--fg-3)}.personal-shelves-head{margin-top:38px}.auto-shelf-note{font-size:14px;line-height:1.6;color:var(--fg-2);margin:0 0 25px;max-width:650px}.auto-shelf-empty{padding-top:18px}.auto-shelf-empty>p{max-width:340px}.auto-pocket .lbl{line-height:1.4}.auto-pockets{align-items:start}
+.auto-shelf-note{font-size:14px;line-height:1.6;color:var(--fg-2);margin:0 0 25px;max-width:650px}.auto-shelf-empty{padding-top:18px}.auto-shelf-empty>p{max-width:340px}
 /* ---------- book card v3: one column, no boxes ---------- */
 .bd { min-height: auto; }
 .book-sheet .sheet-body { padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px)); }
@@ -1571,6 +1571,20 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .fy-x-d { margin: 0; font: 400 17px/1.65 var(--f-display); color: var(--fg); opacity: .9; }
 .fy-x-hint { margin: 32px 0 0; font-size: 13px; line-height: 1.5; color: var(--fg-3); max-width: 32ch; }
 </style>
+<style>
+/* Storage safety and source filter: match the existing Polka controls. */
+.rec-home-filter{margin:8px 0 24px;gap:16px}
+.rec-home-filter small{font-size:14px;line-height:1.4}
+.storage-note{font-size:14px;line-height:1.5;color:var(--fg-2);overflow-wrap:anywhere}
+.storage-note{margin:10px 0 16px}
+.recovery-choice{text-align:left;justify-content:flex-start;white-space:normal;min-height:76px;height:auto;padding:14px 22px;border-radius:20px}
+.recovery-choice span{display:grid;gap:5px}
+.recovery-choice small{font-size:14px;font-weight:400;color:var(--fg-2)}
+#storage-banner .banner{display:block;line-height:1.5;overflow-wrap:anywhere}
+#storage-banner .link-btn{display:block;min-height:44px;text-align:left}
+.rec-home-filter .switch{flex-shrink:0}
+.rec-home-filter input:focus-visible+span{outline:2px solid var(--fg);outline-offset:4px}
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -1631,7 +1645,7 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
     </div>
     <div class="end">
       <button class="round-btn" id="btn-search" aria-label="Поиск" aria-controls="search-wrap" aria-expanded="false"><svg class="ic sm"><use href="#i-search"/></svg></button>
-      <button class="round-btn" id="btn-view" aria-label="Сортировка книг"><svg class="ic sm"><use href="#i-filter"/></svg></button>
+      <button class="round-btn" id="btn-view" aria-label="Фильтры и сортировка"><svg class="ic sm"><use href="#i-filter"/></svg></button>
     </div>
   </header>
   <div class="wrap">
@@ -1662,8 +1676,8 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
   <span class="tb-ind" aria-hidden="true"></span>
   <button role="tab" data-tab="all" aria-label="Все книги"><svg class="ic"><use href="#i-home"/></svg></button>
   <button role="tab" data-tab="shelves" aria-label="Полки"><svg class="ic"><use href="#i-shelf"/></svg></button>
-  <button role="tab" data-tab="foryou" aria-label="Для вас"><svg class="ic"><use href="#i-cards"/></svg></button>
   <button role="tab" data-tab="quotes" aria-label="Цитаты"><svg class="ic"><use href="#i-quote"/></svg></button>
+  <button role="tab" data-tab="foryou" aria-label="Для вас"><svg class="ic"><use href="#i-cards"/></svg></button>
 </nav>
 <button class="fab" id="btn-add" aria-label="Добавить книги"><svg class="ic"><use href="#i-plus"/></svg></button>
 
@@ -1766,7 +1780,7 @@ const safeName = (s) => (s || 'book').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' '
 
 /* ================= storage ================= */
 const DB = {
-  db: null, ok: false, opening: false, mem: { books: new Map(), content: new Map(), meta: new Map() },
+  db: null, ok: false, ready: false, owner: true, opening: false, mem: { books: new Map(), content: new Map(), meta: new Map() },
   async open() {
     this.opening = true;
     try {
@@ -1790,6 +1804,7 @@ const DB = {
     finally { this.opening = false; }
   },
   transaction(stores, mode) {
+    if (mode === 'readwrite' && (!this.owner || (!this.ready && !STORE_HEALTH.restoring))) throw new Error(!this.owner ? 'Полка открыта в другой вкладке. Закройте её и перезагрузите эту.' : 'Библиотека не проверена. Запись заблокирована, чтобы не затереть данные.');
     if (mode === 'readwrite') {
       try { return this.db.transaction(stores, mode, { durability: 'strict' }); } catch (e) { if (!(e instanceof TypeError)) throw e; }
     }
@@ -1797,24 +1812,28 @@ const DB = {
   },
   req(store, mode, fn) {
     return new Promise((res, rej) => {
-      const tx = this.transaction(store, mode);
+      const tx = this.transaction(mode === 'readwrite' && store === 'books' ? ['books','meta'] : store, mode);
       const r = fn(tx.objectStore(store));
-      tx.oncomplete = () => res(r && r.result);
+      if (mode === 'readwrite' && store === 'books') { const count = tx.objectStore('books').count(); count.onsuccess = () => tx.objectStore('meta').put({ id: 'library-state', count: count.result, at: Date.now() }); }
+      tx.oncomplete = () => { if (mode === 'readwrite') Recovery.schedule(); res(r && r.result); };
       tx.onerror = () => rej(tx.error || (r && r.error));
       tx.onabort = () => rej(tx.error || new Error('Транзакция отменена'));
     }).catch(e => { if (mode === 'readwrite') storageError(e); throw e; });
   },
-  async all(store) { if (!this.ok) return [...this.mem[store].values()]; return (await this.req(store, 'readonly', s => s.getAll())) || []; },
-  async get(store, id) { if (!this.ok) return this.mem[store].get(id); return this.req(store, 'readonly', s => s.get(id)); },
+  async all(store) { if (!this.ok) throw new Error('Хранилище недоступно'); return (await this.req(store, 'readonly', s => s.getAll())) || []; },
+  async get(store, id) { if (!this.ok) throw new Error('Хранилище недоступно'); return this.req(store, 'readonly', s => s.get(id)); },
   async put(store, obj) { if (!this.ok) throw new Error('Постоянное хранилище недоступно'); return this.req(store, 'readwrite', s => s.put(obj)); },
   async del(store, id) { return this.writeBatch([{ store, delete: id }]); },
   async writeBatch(operations) {
     if (!this.ok) throw new Error('Постоянное хранилище недоступно');
     return new Promise((resolve, reject) => {
-      const tx = this.transaction([...new Set(operations.map(o => o.store))], 'readwrite');
-      tx.oncomplete = () => resolve();
+      const touchesBooks = operations.some(o => o.store === 'books');
+      const tx = this.transaction([...new Set([...operations.map(o => o.store), ...(touchesBooks ? ['meta'] : [])])], 'readwrite');
+      tx.oncomplete = () => { Recovery.schedule(true); resolve(); };
       tx.onerror = tx.onabort = () => reject(tx.error || new Error('Запись отменена'));
-      try { for (const op of operations) { const store = tx.objectStore(op.store); if (op.delete !== undefined) store.delete(op.delete); else store.put(op.value); } }
+      try { for (const op of operations) { const store = tx.objectStore(op.store); if (op.delete !== undefined) store.delete(op.delete); else store.put(op.value); }
+        if (touchesBooks) { const count = tx.objectStore('books').count(); count.onsuccess = () => tx.objectStore('meta').put({ id: 'library-state', count: count.result, at: Date.now() }); }
+      }
       catch (e) { tx.abort(); reject(e); }
     }).catch(e => { storageError(e); throw e; });
   },
@@ -1836,8 +1855,9 @@ const DB = {
 };
 
 const PREF_KEY = 'polka.prefs.v1';
-const prefs = Object.assign({ ui: 'dark', rt: '', size: 19, font: 'literata', lh: 'normal', justify: true, seeded: false, mode: 'paged', motion: 'full', haptics: true, shelves: [] }, (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; } })());
+const prefs = Object.assign({ ui: 'dark', rt: '', size: 19, font: 'literata', lh: 'normal', justify: true, seeded: false, mode: 'paged', motion: 'full', haptics: true, showRecommendations: false, shelves: [] }, (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; } })());
 function savePrefs() {
+  if (!DB.ready || !DB.owner || STORE_HEALTH.restoring) return;
   try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) { /* IndexedDB remains authoritative */ }
   if (DB.ok) DB.put('meta', { id: 'prefs', data: structuredClone(prefs) }).catch(storageError);
   else if (!DB.opening) storageError(new Error('Настройки не сохранены в IndexedDB.'));
@@ -2637,6 +2657,12 @@ function coverEl(book) {
 }
 
 /* ================= library ================= */
+function isRecommendation(book) { return book.origin === 'recommendation' || book.rec != null || book.noFile === true; }
+function homeBooks() { return state.books.filter(b => prefs.showRecommendations || !isRecommendation(b)); }
+function recommendationFilter() {
+  const input = h('input', { type: 'checkbox', role: 'switch', checked: !!prefs.showRecommendations, 'aria-label': 'Рекомендации на главной', onchange: () => { prefs.showRecommendations = input.checked; savePrefs(); renderLibrary(false); } });
+  return h('div', { class: 'motion-haptics rec-home-filter' }, h('span', null, h('b', null, 'Рекомендации на главной'), h('small', null, 'Показывать в «Мои книги» вместе с вашими файлами')), h('label', { class: 'switch' }, input, h('span')));
+}
 function shelves() {
   const m = new Map();
   for (const s of prefs.shelves || []) m.set(s, []);
@@ -2662,20 +2688,21 @@ function readingStatus(book){
 function automaticShelfBooks(key){return state.books.filter(book=>readingStatus(book)===key).sort(byPos);}
 function automaticPocket(definition,index){
  const books=automaticShelfBooks(definition.key);
- return h('button',{class:'pocket auto-pocket',style:`--i:${index}`,'data-auto-shelf':definition.key,'aria-label':`${definition.title}: ${books.length} ${plural(books.length,BOOKS)}. Автоматическая полка`,onclick:()=>go('shelves',null,definition.key)},
-  pocketWell(books),h('span',{class:'auto-pocket-label'},h('span',{class:'lbl'},definition.title),h('small',{class:'auto-pocket-tag'},`${books.length} ${plural(books.length,BOOKS)} | Авто`)));
+ return h('button',{class:'pocket',style:`--i:${index}`,'data-auto-shelf':definition.key,'aria-label':`${definition.title}: ${books.length} ${plural(books.length,BOOKS)}. Автоматическая полка`,onclick:()=>go('shelves',null,definition.key)},
+  pocketWell(books),h('span',{class:'lbl'},definition.title,h('span',null,`${books.length} ${plural(books.length,BOOKS)}`)));
 }
 function renderAutomaticShelf(main,definition){
  const list=automaticShelfBooks(definition.key),[label,sort]=SORTS[state.sort]||SORTS.manual;
  main.append(h('div',{class:'sec-head'},h('button',{class:'back-link',onclick:()=>go('shelves')},icon('back','sm'),'Полки'),h('div',{class:'tools'},h('span',null,`${list.length} ${plural(list.length,BOOKS)}`),h('button',{class:'sort-btn',onclick:()=>openViewMenu()},label))),h('p',{class:'auto-shelf-note'},definition.description));
  if(list.length)main.append(bookGrid(list.slice().sort(sort),true));
+
  else main.append(h('div',{class:'empty auto-shelf-empty'},emptyArt(),h('h2',null,definition.empty),h('p',null,definition.key==='want'?'Добавьте книгу в библиотеку — она появится на этой полке.':definition.key==='reading'?'Начните читать любую книгу из библиотеки — она появится здесь.':'Продолжайте читать. Дочитанная книга появится здесь сама.'),h('button',{class:'btn',onclick:()=>definition.key==='want'?$('#file').click():go('all')},definition.key==='want'?'Добавить книги':'Мои книги')));
 }
 
 const byPos = (a, b) => (a.pos != null && b.pos != null ? a.pos - b.pos : a.pos != null ? -1 : b.pos != null ? 1 : byRecent(a, b));
 const SORTS = { manual: ['Мой порядок', byPos], recent: ['Недавние', byRecent], title: ['По названию', (a, b) => a.title.localeCompare(b.title, 'ru')], author: ['По автору', (a, b) => authorsStr(a).localeCompare(authorsStr(b), 'ru') || a.title.localeCompare(b.title, 'ru')] };
 
-const TAB_ORDER = { all: 0, shelves: 1, foryou: 2, quotes: 3, profile: 4 };
+const TAB_ORDER = { all: 0, shelves: 1, quotes: 2, foryou: 3, profile: 4 };
 const TAB_TITLES = { all: 'Мои книги', shelves: 'Полки', foryou: 'Для вас', quotes: 'Цитаты' };
 function currentTab() { return !$('#profile').hidden ? 'profile' : state.tab; }
 function paintTabbar() {
@@ -2724,7 +2751,7 @@ function switchTab(tab) {
 }
 
 function go(tab, shelf = null, automatic = null) {
-  const order = { all: 0, shelves: 1, foryou: 2, quotes: 3 };
+  const order = { all: 0, shelves: 1, quotes: 2, foryou: 3 };
   const auto=tab==='shelves'?autoShelfDefinition(automatic):null;
   const previousShelf = state.autoShelf?'auto:'+state.autoShelf:state.shelf;
   const nextShelf=auto?'auto:'+auto.key:shelf;
@@ -2930,7 +2957,7 @@ function emptyArt() {
   return s;
 }
 function continueCard() {
-  const cur = state.books.filter((b) => b.openedAt && readingStatus(b)==='reading' && !b.sample).sort(byRecent)[0] || state.books.filter((b) => b.openedAt && readingStatus(b)==='reading').sort(byRecent)[0];
+  const cur = homeBooks().filter((b) => b.openedAt && readingStatus(b)==='reading' && !b.sample).sort(byRecent)[0] || homeBooks().filter((b) => b.openedAt && readingStatus(b)==='reading').sort(byRecent)[0];
   if (!cur) return null;
   const p = pctOf(cur);
   return h('button', { class: 'cont', onclick: (e) => openReader(cur, e.currentTarget.querySelector('.cover')) },
@@ -2943,8 +2970,8 @@ function continueCard() {
 }
 
 function allBooksResults(){
- const [label,sort]=SORTS[state.sort]||SORTS.manual;
- return h('div',{class:'all-books-results'},h('div',{class:'sec-head'},h('h2',null,`${state.books.length} ${plural(state.books.length,BOOKS)}`),h('button',{class:'sort-btn',onclick:()=>openViewMenu()},label)),bookGrid(state.books.slice().sort(sort),true));
+ const [label,sort]=SORTS[state.sort]||SORTS.manual, visible=homeBooks();
+ return h('div',{class:'all-books-results'}, h('div',{class:'sec-head'},h('h2',null,`${visible.length} ${plural(visible.length,BOOKS)}`),h('button',{class:'sort-btn',onclick:()=>openViewMenu()},label)), visible.length ? bookGrid(visible.slice().sort(sort),true) : h('div', { class: 'empty' }, h('h2', null, 'Ваших файлов пока нет'), h('p', null, 'Добавьте книгу с телефона или включите рекомендации в фильтрах.'), h('button', { class: 'btn', onclick: () => $('#file').click() }, 'Добавить файл'))); 
 }
 
 function renderLibrary(animate = true, fromTabSwitch = false) {
@@ -2974,7 +3001,8 @@ function renderLibrary(animate = true, fromTabSwitch = false) {
   $('#navbar .mini').textContent = lt.textContent;
   renderTabs();
   if (cached) return;
-  if (!books.length && !(prefs.shelves || []).length && state.tab!=='shelves') {
+  if (!DB.ready && state.tab !== 'foryou' && !books.length) { main.append(h('div', { class: 'empty' }, h('h2', null, 'Библиотека не загружена'), h('p', null, 'Данные не перезаписываются. Попробуйте перезагрузить приложение или выберите копию в настройках.'), h('button', { class: 'btn', onclick: () => openSettings() }, 'Открыть копии и восстановление'))); return; }
+  if (!books.length && !(prefs.shelves || []).length && state.tab!=='shelves' && state.tab!=='foryou') {
     main.append(h('div', { class: 'empty' }, emptyArt(),
       h('h2', null, 'Здесь будут ваши книги'),
       h('p', null, 'Добавьте файлы FB2, FB2.ZIP или EPUB: выберите их на устройстве или перетащите в это окно.'),
@@ -2985,7 +3013,7 @@ function renderLibrary(animate = true, fromTabSwitch = false) {
   }
   const q = state.query.trim().toLowerCase();
   if (q) {
-    const found = books.filter((b) => [b.title, b.authors.join(' '), b.series, b.shelf].join(' ').toLowerCase().includes(q)).sort(byRecent);
+    const found = (state.tab === 'all' ? homeBooks() : books).filter((b) => [b.title, b.authors.join(' '), b.series, b.shelf].join(' ').toLowerCase().includes(q)).sort(byRecent);
     if (!found.length) { main.append(h('p', { class: 'muted' }, `Ничего не нашлось по запросу «${state.query.trim()}». Поиск идёт по названию, автору, серии и полке.`)); return; }
     main.append(h('div', { class: 'sec-head' }, h('h2', null, 'Найдено'), h('span', null, `${found.length} ${plural(found.length, BOOKS)}`)), bookGrid(found));
     return;
@@ -3017,7 +3045,7 @@ function renderLibrary(animate = true, fromTabSwitch = false) {
   // the shelves page is built once and reused while nothing changes, so the glass never re-renders on tab switches
   const sig = libSig();
   if (!state.homeCache || state.homeCache.sig !== sig) {
-    state.homeCache = { sig, node: h('div', { class: 'home' },h('div',{class:'pockets auto-pockets','aria-label':'Автоматические полки'},AUTO_SHELVES.map((s,i)=>automaticPocket(s,i))),h('div',{class:'sec-head personal-shelves-head'},h('h2',null,'Мои полки')),h('div', { class: 'pockets personal-pockets' }, all.map(([name, list], i) => pocket(name, list, i+3)), newPocket(all.length+3))) };
+    state.homeCache = { sig, node: h('div', { class: 'home' }, h('div', { class: 'pockets', 'aria-label': 'Полки' }, all.map(([name, list], i) => pocket(name, list, i)), AUTO_SHELVES.map((s, i) => automaticPocket(s, all.length + i)), newPocket(all.length + AUTO_SHELVES.length))) };
   }
   main.classList.remove('rise');
   const ib = installBanner(); if (ib) main.append(ib);
@@ -3237,6 +3265,7 @@ async function removeBook(book, sheet) {
   const ok = await confirmSheet({ title: 'Удалить книгу?', text: `«${book.title}» и все правки в ней будут удалены с этого устройства. Это нельзя отменить.`, ok: 'Удалить книгу', danger: true });
   if (!ok) return;
   try {
+    await flushLocalState(); await Recovery.capture('safety');
     await DB.writeBatch([{ store: 'books', delete: book.id }, { store: 'content', delete: book.id }]);
     state.books = state.books.filter((b) => b.id !== book.id);
     dropCoverUrl(book.id);
@@ -3322,6 +3351,145 @@ function openMetaEditor(book) {
 }
 
 /* ================= storage health & full offline backups ================= */
+/* Independent local checkpoints: same origin, NOT a substitute for an external .polka. */
+async function acquireLibraryWriter() {
+  if (!navigator.locks || !navigator.locks.request) return;
+  await new Promise(resolve => {
+    navigator.locks.request('polka-library-writer-v1', { ifAvailable: true }, lock => {
+      DB.owner = !!lock; resolve();
+      if (lock) return new Promise(() => {}); // browser releases the lock on tab close/crash
+    }).catch(() => { DB.owner = false; resolve(); });
+  });
+}
+function validateLibrarySnapshot(snap) {
+  for (const store of ['books','content','meta']) {
+    if (!Array.isArray(snap[store])) throw new Error('Не удалось прочитать ' + store);
+    const seen = new Set();
+    for (const row of snap[store]) {
+      if (!row || typeof row.id !== 'string' || seen.has(row.id)) throw new Error('Повреждены записи ' + store);
+      seen.add(row.id);
+    }
+  }
+  const marker = snap.meta.find(m => m.id === 'library-state');
+  if (marker && marker.count !== snap.books.length) throw new Error('Число книг не совпадает с последней сохранённой записью. Запись остановлена.');
+  if (marker && (!snap.meta.some(m => m.id === 'prefs') || !snap.meta.some(m => m.id === 'stats'))) throw new Error('Исчезли сохранённые настройки или статистика. Пустые значения не будут записаны поверх прежних копий.');
+  const contents = new Map(snap.content.map(c => [c.id, c]));
+  for (const b of snap.books) {
+    if (typeof b.title !== 'string' || !Array.isArray(b.authors)) throw new Error('Повреждена карточка книги');
+    if (!b.noFile) {
+      const c = contents.get(b.id);
+      if (!c || !Array.isArray(c.chapters) || !c.chapters.length || !Array.isArray(c.toc) || c.chapters.some(ch => typeof ch.html !== 'string' || !Number.isFinite(ch.len))) throw new Error('Не найден или повреждён текст «' + b.title + '». Попробуйте восстановить копию.');
+    }
+  }
+  for (const m of snap.meta) {
+    if (m.id === 'prefs' && (!m.data || typeof m.data !== 'object' || !Array.isArray(m.data.shelves))) throw new Error('Повреждены настройки');
+    if (m.id === 'stats' && (!m.data || !m.data.days || !m.data.books || typeof m.data.days !== 'object' || typeof m.data.books !== 'object')) throw new Error('Повреждена статистика');
+  }
+}
+const Recovery = {
+  db: null, opening: null, enabled: false, timer: null, writing: null, dirty: false, lastAt: 0, error: '',
+  async open() {
+    if (this.db) return this.db;
+    if (!this.opening) this.opening = new Promise((resolve, reject) => {
+      const req = indexedDB.open('polka-recovery', 1);
+      let ended = false;
+      const timer = setTimeout(() => { ended = true; reject(new Error('Хранилище автокопий не отвечает')); }, 6000);
+      req.onupgradeneeded = () => { for (const name of ['points','info']) if (!req.result.objectStoreNames.contains(name)) req.result.createObjectStore(name, { keyPath: 'id' }); };
+      req.onsuccess = () => { clearTimeout(timer); if (ended) { req.result.close(); return; } this.db = req.result; this.db.onversionchange = () => { this.db.close(); this.db = null; this.opening = null; }; resolve(this.db); };
+      req.onerror = () => { clearTimeout(timer); reject(req.error); };
+    }).catch(e => { this.opening = null; throw e; });
+    return this.opening;
+  },
+  async list() {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('info', 'readonly'), req = tx.objectStore('info').getAll();
+      tx.oncomplete = () => resolve((req.result || []).sort((a,b) => b.at-a.at));
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('Автокопии не прочитаны'));
+    });
+  },
+  async get(id) {
+    const db = await this.open();
+    return new Promise((resolve,reject) => {
+      const tx = db.transaction('points', 'readonly'), req = tx.objectStore('points').get(id);
+      tx.oncomplete = () => resolve(req.result);
+      tx.onerror = tx.onabort = () => reject(tx.error || new Error('Автокопия не прочитана'));
+    });
+  },
+  schedule(urgent = false) {
+    if (!this.enabled || !DB.ready || !DB.owner || STORE_HEALTH.restoring) return;
+    this.dirty = true;
+    const delay = urgent ? 3000 : Math.max(3000, 60000 - (Date.now() - this.lastAt));
+    if (this.timer) { if (!urgent) return; clearTimeout(this.timer); }
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      if (!this.enabled || !this.dirty || STORE_HEALTH.busy) { if (this.enabled) this.schedule(); return; }
+      this.capture('latest').catch(e => { this.error = e.name === 'QuotaExceededError' ? 'не хватает места' : e.message; paintStorageBanner(); });
+    }, delay);
+  },
+  async capture(id = 'latest') {
+    if (!DB.ok || !DB.ready || !DB.owner) throw new Error('Проверенная библиотека недоступна');
+    if (this.writing) await this.writing;
+    const run = async () => {
+      const snap = await DB.snapshot();
+      validateLibrarySnapshot(snap);
+      // An incomplete snapshot is never allowed to replace a usable checkpoint.
+      if (!snap.meta.some(m => m.id === 'prefs') || !snap.meta.some(m => m.id === 'stats')) throw new Error('Настройки или статистика не загружены');
+      const db = await this.open(), at = Date.now();
+      const info = { id, at, count: snap.books.length }, point = { ...info, snapshot: snap };
+      await new Promise((resolve,reject) => {
+        let tx;
+        try { tx = db.transaction(['points','info'], 'readwrite', { durability: 'strict' }); }
+        catch (e) { if (!(e instanceof TypeError)) throw e; tx = db.transaction(['points','info'], 'readwrite'); }
+        const points = tx.objectStore('points'), summaries = tx.objectStore('info');
+        if (id === 'latest') {
+          const old = points.get('latest');
+          old.onsuccess = () => {
+            const previous = summaries.get('previous');
+            previous.onsuccess = () => {
+              if (old.result && (!previous.result || at - previous.result.at >= 86400000)) {
+                points.put({ ...old.result, id: 'previous' });
+                summaries.put({ id: 'previous', at: old.result.at, count: old.result.count });
+              }
+              points.put(point); summaries.put(info);
+            };
+          };
+        } else { points.put(point); summaries.put(info); }
+        tx.oncomplete = resolve;
+        tx.onerror = tx.onabort = () => reject(tx.error || new Error('Автокопия не сохранена'));
+      });
+      this.error = ''; this.lastAt = at; paintStorageBanner();
+    };
+    this.dirty = false;
+    const writing = run(); this.writing = writing;
+    try { await writing; } finally { if (this.writing === writing) this.writing = null; }
+  },
+  async restore(id) {
+    if (STORE_HEALTH.busy || !DB.ok || !DB.owner) return;
+    STORE_HEALTH.busy = true;
+    try {
+      const point = await this.get(id);
+      if (!point) throw new Error('Точка восстановления не найдена');
+      validateLibrarySnapshot(point.snapshot);
+      const snapshot = point.snapshot;
+      if (!snapshot.meta.some(m => m.id === 'prefs') || !snapshot.meta.some(m => m.id === 'stats')) throw new Error('Точка восстановления неполная');
+      const yes = await confirmSheet({ title: 'Восстановить автокопию?', text: `${new Date(point.at).toLocaleString('ru')} · ${point.count} ${plural(point.count, BOOKS)}. Текущая библиотека будет заменена. Приложение перезагрузится.`, ok: 'Восстановить', danger: true });
+      if (!yes) return;
+      if (DB.ready) { await flushLocalState(); if (id !== 'safety') await this.capture('safety'); }
+      clearTimeout(this.timer); clearTimeout(R.saveTimer); clearTimeout(statsSaveTimer);
+      this.enabled = false; STORE_HEALTH.restoring = true;
+      await DB.replaceSnapshot(snapshot);
+      R.book = null; statsDirty = false;
+      const settings = snapshot.meta.find(m => m.id === 'prefs');
+      try { localStorage.setItem(PREF_KEY, JSON.stringify(settings.data)); } catch (_) {}
+      location.reload();
+    } catch (e) {
+      toast('Восстановление не выполнено: ' + e.message, { tone: 'error', timeout: 10000 });
+      STORE_HEALTH.restoring = false; this.enabled = DB.ready && DB.owner;
+    } finally { if (!STORE_HEALTH.restoring) STORE_HEALTH.busy = false; }
+  }
+};
+
 const STORE_HEALTH = { error: '', warned: false, lastBackup: null, busy: false, restoring: false };
 function storageError(error) {
   STORE_HEALTH.error = error && error.name === 'QuotaExceededError'
@@ -3333,8 +3501,11 @@ function storageError(error) {
 function paintStorageBanner() {
   const host = $('#storage-banner'); if (!host) return;
   host.replaceChildren();
-  const message = !DB.ok ? 'Постоянное хранилище недоступно. Новые книги не будут импортированы. Не удаляйте данные сайта; закройте другие вкладки и перезапустите приложение.' : STORE_HEALTH.error;
-  if (message) host.append(h('div', { class: 'banner', role: 'alert' }, message));
+  const message = !DB.owner ? 'Полка уже открыта в другой вкладке. Эта вкладка — только для просмотра. Закройте другую и перезагрузите эту.' : DB.ok && !DB.ready ? 'Не удалось безопасно загрузить библиотеку. Запись остановлена; прежние данные и автокопии не перезаписываются. Откройте настройки → Резервная копия.' : !DB.ok ? 'Постоянное хранилище недоступно. Новые книги не будут импортированы. Не удаляйте данные сайта; закройте другие вкладки и перезапустите приложение.' : STORE_HEALTH.error;
+  if (message) host.append(h('div', { class: 'banner', role: 'alert' }, message, h('button', { class: 'link-btn', onclick: () => openSettings() }, 'Хранение и копии')));
+  if (Recovery.error) host.append(h('div', { class: 'banner', role: 'alert' }, 'Автокопия не обновлена: ' + Recovery.error + '. Сохраните внешнюю копию.'));
+  if (location.protocol === 'file:') host.append(h('div', { class: 'banner', role: 'status' }, 'Приложение открыто как файл. Перенос или переименование HTML может изменить доступ к библиотеке. Для постоянной работы используйте один и тот же HTTPS-адрес; перед переносом сохраните .polka.'));
+  if (DB.ready && state.books.some(b => !b.sample) && (!STORE_HEALTH.lastBackup || Date.now() - STORE_HEALTH.lastBackup > 7 * 86400000)) host.append(h('div', { class: 'banner', role: 'status' }, 'Пора сохранить внешнюю копию. Автокопии внутри браузера не переживут очистку данных сайта.', h('button', { class: 'link-btn', onclick: () => runBackup() }, 'Сохранить .polka')));
 }
 function fmtStorage(n) {
   if (!Number.isFinite(n)) return 'Недоступно';
@@ -3373,11 +3544,23 @@ async function checkImportSpace(book, content) {
   }
 }
 async function storagePanel() {
+  const info = await storageInfo(), copies = await Recovery.list().catch(() => []);
+  const canWrite = DB.ok && DB.owner;
   return h('div', { class: 'storage-panel' },
-    h('div', { class: 'group-title' }, 'Резервная копия'),
+    h('div', { class: 'group-title' }, 'Хранение и резервные копии'),
+    h('p', { class: 'storage-note' }, info.persistent === true ? 'Браузер подтвердил постоянное хранение. Ручная очистка данных всё равно удалит библиотеку.' : 'Данные хранятся только в этом браузере. Защита от автоматической очистки пока не подтверждена.'),
+    h('p', { class: 'storage-note' }, `Занято сайтом: ${fmtStorage(info.usage)}. Квота: ${fmtStorage(info.quota)}.`),
+    h('p', { class: 'storage-note' }, 'Внешняя копия: ' + (STORE_HEALTH.lastBackup ? fmtDate(STORE_HEALTH.lastBackup) + '. Проверьте, что файл действительно сохранён.' : 'ещё не сохранялась.')),
     h('div', { class: 'storage-actions' },
-      h('button', { class: 'btn wide', disabled: !DB.ok, onclick: () => runBackup() }, icon('down', 'sm'), 'Создать резервную копию'),
-      h('button', { class: 'btn wide ghost', disabled: !DB.ok, onclick: () => $('#backup-file').click() }, 'Восстановить из копии')));
+      h('button', { class: 'btn wide ghost', disabled: !canWrite, onclick: async () => { await protectStorage(true); const panel = $('.storage-panel'); if (panel) panel.replaceWith(await storagePanel()); } }, 'Запросить защиту хранения'),
+      h('button', { class: 'btn wide', disabled: !canWrite || !DB.ready, onclick: () => runBackup() }, icon('down', 'sm'), 'Создать внешнюю копию .polka'),
+      h('button', { class: 'btn wide ghost', disabled: !canWrite, onclick: () => $('#backup-file').click() }, 'Восстановить из файла')),
+    h('div', { class: 'group-title', style: 'margin-top:24px' }, 'Локальные автокопии'),
+    h('p', { class: 'storage-note' }, 'До трёх точек: последняя, предыдущая и перед удалением или восстановлением. Содержат книги, тексты, заметки и статистику. Не заменяют внешний файл: очистка данных сайта удалит и их.'),
+    h('div', { class: 'storage-actions' },
+      h('button', { class: 'btn wide ghost', disabled: !canWrite || !DB.ready, onclick: async () => { try { await flushLocalState(); await Recovery.capture('latest'); toast('Локальная автокопия сохранена'); const panel = $('.storage-panel'); if (panel) panel.replaceWith(await storagePanel()); } catch (e) { toast('Автокопия не создана: ' + e.message, { tone: 'error' }); } } }, 'Создать локальную точку сейчас'),
+      ...copies.map(c => h('button', { class: 'btn wide ghost recovery-choice', disabled: !canWrite, onclick: () => Recovery.restore(c.id) }, h('span', null, h('b', null, ({latest:'Последняя',previous:'Предыдущая',safety:'Перед изменением'})[c.id] || 'Автокопия'), h('small', null, `${new Date(c.at).toLocaleString('ru')} · ${c.count} ${plural(c.count, BOOKS)}`)))),
+      !copies.length ? h('p', { class: 'storage-note' }, Recovery.error ? 'Автокопии недоступны: ' + Recovery.error : 'Пока нет автокопий. Первая создастся после успешной проверки библиотеки.') : null));
 }
 
 async function flushLocalState() {
@@ -3490,6 +3673,7 @@ async function readBackup(file) {
   const stats = snapshot.meta.find(m => m.id === 'stats');
   const settings = snapshot.meta.find(m => m.id === 'prefs');
   if (!stats || !stats.data || typeof stats.data.days !== 'object' || typeof stats.data.books !== 'object' || !settings || !settings.data || typeof settings.data !== 'object' || !Array.isArray(settings.data.shelves)) throw new Error('Настройки или статистика отсутствуют.');
+  validateLibrarySnapshot(snapshot);
   return snapshot;
 }
 async function runBackup() {
@@ -3525,28 +3709,36 @@ async function restoreBackup(file) {
     const snapshot = await readBackup(file); t.close();
     const ok = await confirmSheet({ title: 'Восстановить библиотеку?', text: 'В копии ' + snapshot.books.length + ' книг. Текущие книги, настройки и статистика будут полностью заменены. Если здесь есть новые данные, сначала отмените и сохраните отдельную копию.', ok: 'Заменить из копии', danger: true });
     if (!ok) return;
-    await flushLocalState();
-    clearTimeout(statsSaveTimer);
+    if (DB.ready) { await flushLocalState(); await Recovery.capture('safety'); }
+    clearTimeout(statsSaveTimer); clearTimeout(R.saveTimer); clearTimeout(Recovery.timer);
     STORE_HEALTH.restoring = true;
     await DB.replaceSnapshot(snapshot); // One atomic transaction: quota failure preserves old data.
-    statsDirty = false;
+    statsDirty = false; DB.ready = true;
+    R.book = null; R.content = null; R.blocks = [];
+    stopChapterTransition(); stopBookOpening();
+    for (const u of R.imgUrls.values()) URL.revokeObjectURL(u); R.imgUrls.clear();
+    $('#reader').classList.remove('paged', 'editing', 'calm'); root.classList.remove('paged-lock');
+    $('#tabbar').hidden = false; $('#btn-add').hidden = false;
+    document.body.classList.remove('tone-light', 'tone-dark'); root.style.removeProperty('--page'); rc().replaceChildren();
     for (const u of state.coverUrls.values()) URL.revokeObjectURL(u); state.coverUrls.clear();
     state.books = snapshot.books;
     const restored = snapshot.meta.find(m => m.id === 'prefs').data;
-    for (const k of Object.keys(prefs)) delete prefs[k]; Object.assign(prefs, restored);
+    for (const k of Object.keys(prefs)) delete prefs[k]; Object.assign(prefs, { showRecommendations: false }, restored);
     try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (_) {}
     ST.data = snapshot.meta.find(m => m.id === 'stats').data;
+    await migrateRecommendationShelf();
+    REC.loaded = false; REC.matchCache.clear(); state.homeCache = null;
     try { localStorage.removeItem('polka.stats.v1'); } catch (_) {}
     state.sort = SORTS[prefs.sort] ? prefs.sort : 'manual';
     state.tab = 'all'; state.shelf = null; state.autoShelf=null; state.qbook = ''; state.query = ''; state.searchOpen = false; $('#q').value = ''; $('#q-clear').hidden = true;
     STORE_HEALTH.error = ''; STORE_HEALTH.warned = false;
     STORE_HEALTH.lastBackup = (snapshot.meta.find(m => m.id === 'backup') || {}).exportedAt || null;
     for (const sh of [...sheets]) sh.close(true);
-    $('#profile').hidden = true; $('#lib').hidden = false;
+    $('#profile').hidden = true; $('#reader').hidden = true; $('#lib').hidden = false;
     applyUi(); renderLibrary(false); paintStorageBanner(); window.scrollTo({top:0,behavior:'instant'});
     toast('Библиотека, цитаты, статистика и настройки восстановлены.', { timeout: 6000 });
   } catch (e) { t.close(); toast('Восстановление не выполнено: ' + e.message + '. Текущая библиотека сохранена.', { tone: 'error', timeout: 10000 }); }
-  finally { STORE_HEALTH.busy = false; STORE_HEALTH.restoring = false; }
+  finally { STORE_HEALTH.busy = false; STORE_HEALTH.restoring = false; Recovery.enabled = DB.ready && DB.owner; Recovery.schedule(true); }
 }
 
 /* ================= settings ================= */
@@ -3595,11 +3787,11 @@ async function importFiles(fileList) {
     }
   }
   t.close();
-  if (added.length) { state.query = ''; $('#q').value = ''; $('#q-clear').hidden = true; if (target) {state.shelf=target;state.autoShelf=null;} else {state.tab='shelves';state.shelf=null;state.autoShelf='want';} renderLibrary(); }
+  if (added.length) { state.query = ''; $('#q').value = ''; $('#q-clear').hidden = true; if (added.every(isRecommendation)) { state.tab='shelves';state.shelf=REC_SHELF;state.autoShelf=null; } else if (target) {state.shelf=target;state.autoShelf=null;} else {state.tab='shelves';state.shelf=null;state.autoShelf='want';} renderLibrary(); }
 
   setTimeout(() => {
     if (failed.length) toast(failed.length === 1 ? `Не удалось открыть «${failed[0].name}»: ${failed[0].why}.` : `Не удалось открыть ${failed.length} ${plural(failed.length, ['файл', 'файла', 'файлов'])}: ${failed.map((x) => x.name).join(', ')}. Поддерживаются FB2, FB2.ZIP и EPUB.`, { tone: 'error', timeout: 7000 });
-    else if (added.length === 1) toast(`«${added[0].title}» добавлена в «Хочу прочитать»`, { action: { label: 'Читать', fn: () => openReader(added[0]) } });
+    else if (added.length === 1) toast(`«${added[0].title}» добавлена в «${isRecommendation(added[0]) ? 'Рекомендации' : target || 'Хочу прочитать'}»`, { action: { label: 'Читать', fn: () => openReader(added[0]) } });
     else if (added.length) toast(`Добавлено ${added.length} ${plural(added.length, BOOKS)}`);
     else if (dup.length) toast(dup.length === 1 ? `«${dup[0]}» уже есть в библиотеке` : `Эти книги уже есть в библиотеке`);
   }, 320);
@@ -3843,8 +4035,8 @@ function openViewMenu() {
     h('span', { class: 'ck', style: 'margin-left:6px' }, icon('check')), h('span', null, h('span', { class: 't' }, l)), h('span')))));
   paint();
   openSheet({
-    title: 'Сортировка',
-    body: h('div', null, h('div', { class: 'group-title' }, 'Сортировка книг'), list),
+    title: 'Фильтры и сортировка',
+    body: h('div', null, h('div', { class: 'group-title' }, 'Фильтры'), recommendationFilter(), h('div', { class: 'group-title' }, 'Сортировка книг'), list),
   });
 }
 
@@ -4375,7 +4567,7 @@ function showCompletionCelebration(book) {
 
 const completionFeedback = new Set();
 async function saveProgress() {
-  if (!R.book) return;
+  if (!R.book || !DB.ready || !DB.owner || STORE_HEALTH.restoring) return;
   clearTimeout(R.saveTimer);
   const pos = R.blocks.length ? curPos() : { block: 0, off: 0 };
   const book=R.book,previous=book.progress,previousCompletedAt=book.completedAt;
@@ -5463,7 +5655,7 @@ const goalMs = () => (ST.data.goal || 10) * 60000;
 
 async function loadStats() {
   let d = null;
-  try { const rec = await DB.get('meta', 'stats') || await DB.get('content', '__stats'); if (rec) d = rec.data; } catch (e) { /* fall through */ }
+  const rec = await DB.get('meta', 'stats') || await DB.get('content', '__stats'); if (rec) d = rec.data;
   if (!d) { try { d = JSON.parse(localStorage.getItem('polka.stats.v1') || 'null'); } catch (e) { d = null; } }
   if (d) ST.data = Object.assign({ days: {}, books: {}, goal: 10, best: 0 }, d);
 }
@@ -5473,6 +5665,7 @@ function saveStats() {
   if (statsSaveTimer === null) statsSaveTimer = setTimeout(() => { statsSaveTimer = null; flushStats().catch(storageError); }, 1000);
 }
 async function flushStats() {
+  if (!DB.ready || !DB.owner || STORE_HEALTH.restoring) return;
   clearTimeout(statsSaveTimer); statsSaveTimer = null;
   if (statsWriting) { await statsWriting; }
   if (!statsDirty) return;
@@ -6257,8 +6450,21 @@ async function revealOpeningBook(snapshot){
 // readers' ratings (item-item similarity) blended with themes. Everything personal is computed
 // here, on the device, from the library, the starting picks and every swipe.
 const REC = { data: null, loading: null, loaded: false, st: { v: 1, picks: [], sw: {}, onboarded: false }, queue: [], hist: [], seed: Math.random() * 1e9 | 0, matchCache: new Map(), why: null, kind: null, busy: false, startPage: 0, startSel: new Set() };
-const REC_SHELF = 'Из подборки';
+const REC_SHELF = 'Рекомендации';
 const REC_W = [0, -1, -0.6, 0.3, 1.1, 1.6];
+async function migrateRecommendationShelf() {
+  if (prefs.recommendationShelfV2 || !DB.ready || !DB.owner) return;
+  const moved = state.books.filter(isRecommendation).map(book => ({ ...book, shelf: REC_SHELF }));
+  const previous = new Set(['Из подборки', 'Из рекомендаций']);
+  const changedIds = new Set(moved.map(b => b.id));
+  const names = (prefs.shelves || []).filter(name => !previous.has(name) || state.books.some(b => b.shelf === name && !changedIds.has(b.id)));
+  if (!names.includes(REC_SHELF)) names.push(REC_SHELF);
+  const nextPrefs = { ...prefs, shelves: names, recommendationShelfV2: true };
+  await DB.writeBatch([...moved.map(value => ({ store: 'books', value })), { store: 'meta', value: { id: 'prefs', data: structuredClone(nextPrefs) } }]);
+  for (const value of moved) Object.assign(state.books.find(b => b.id === value.id), value);
+  Object.assign(prefs, nextPrefs);
+  try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (_) {}
+}
 async function recLoadState() {
   if (REC.loaded) return; REC.loaded = true;
   try { const r = await DB.get('meta', 'recs'); if (r && r.data) Object.assign(REC.st, r.data); } catch (_) {}
@@ -6556,7 +6762,11 @@ async function recAct(box, act, from) {
   } else { REC.busy = true; await recFlyOut(card, act, from); REC.busy = false; }
   const entry = { gb: b.gb, j, a: act, bookId: null };
   REC.st.sw[b.gb] = { a: act, r: rating || undefined, t: Date.now() };
-  if (act === 'want') entry.bookId = await recAddWish(b);
+  if (act === 'want') {
+    const already = state.books.some(x => x.rec === b.gb || recSameBook(x, b));
+    entry.bookId = await recAddWish(b);
+    if (!entry.bookId && !already) { delete REC.st.sw[b.gb]; recFill(stack, false); return; }
+  }
   REC.hist.push(entry); if (REC.hist.length > 30) REC.hist.shift();
   recSave();
   const keep = REC.queue[1];
@@ -6565,14 +6775,14 @@ async function recAct(box, act, from) {
   stack.style.setProperty('--pull', 0);
   $('.fy-count', box).textContent = recCountLabel();
   recFill(stack, false);
-  if (act === 'want') toast(`«${b.title}» — на полке «Хочу прочитать»`, { action: { label: 'Отменить', fn: () => recUndo(box) } });
+  if (act === 'want' && entry.bookId) toast(`«${b.title}» — на полке «Рекомендации»`, { action: { label: 'Отменить', fn: () => recUndo(box) } });
 }
 async function recAddWish(b) {
   const twin = state.books.find((x) => x.rec === b.gb || recSameBook(x, b));
   if (twin) return null;
   const now = Date.now();
   const book = { id: uid(), title: b.title, authors: b.authors, series: b.series || '', seriesNo: b.seriesNo || '', annotation: b.annotation || '', genres: [], lang: 'ru', format: '', size: 0,
-    noFile: true, rec: b.gb, recPages: b.pages || 0, fileName: '', addedAt: now, openedAt: 0, progress: null, bookmarks: [], notes: [], quotes: [], shelf: REC_SHELF, modifiedAt: 0, edits: 0, coverChanged: false,
+    noFile: true, origin: 'recommendation', rec: b.gb, recPages: b.pages || 0, fileName: '', addedAt: now, openedAt: 0, progress: null, bookmarks: [], notes: [], quotes: [], shelf: REC_SHELF, modifiedAt: 0, edits: 0, coverChanged: false,
     pos: Math.min(0, ...state.books.map((x) => x.pos ?? 0)) - 1 };
   try { await persistBook(book); } catch (_) { return null; }
   state.books.push(book); libraryTabCache.delete('all'); libraryTabCache.delete('shelves');
@@ -6580,13 +6790,13 @@ async function recAddWish(b) {
 }
 async function recUndo(box) {
   if (REC.busy) return;
-  const e = REC.hist.pop();
+  const e = REC.hist.at(-1);
   if (!e) { toast('Возвращать пока нечего'); return; }
-  delete REC.st.sw[e.gb]; recSave();
   if (e.bookId) {
     const book = state.books.find((x) => x.id === e.bookId);
-    if (book && book.noFile) { try { await DB.del('books', book.id); } catch (_) {} state.books = state.books.filter((x) => x !== book); libraryTabCache.delete('all'); libraryTabCache.delete('shelves'); }
+    if (book && book.noFile) { try { await DB.del('books', book.id); } catch (err) { storageError(err); return; } state.books = state.books.filter((x) => x !== book); libraryTabCache.delete('all'); libraryTabCache.delete('shelves'); }
   }
+  REC.hist.pop(); delete REC.st.sw[e.gb]; recSave();
   if (!box.isConnected || !$('.fy-stack', box)) return;
   const stack = $('.fy-stack', box);
   REC.queue = recRank();
@@ -6757,15 +6967,16 @@ function recTune(box) {
 
 /* ---------- books without a file ---------- */
 async function mergeIntoWish(book, res) {
-  const keep = { id: book.id, shelf: book.shelf, pos: book.pos, rating: book.rating, notes: book.notes, rec: book.rec, addedAt: book.addedAt, quotes: book.quotes || [] };
+  const keep = { id: book.id, origin: 'recommendation', shelf: book.shelf, pos: book.pos, rating: book.rating, notes: book.notes, rec: book.rec, addedAt: book.addedAt, quotes: book.quotes || [] };
   const wishAnnot = book.annotation;
-  Object.assign(book, res.book, keep);
-  if (!book.annotation) book.annotation = wishAnnot;
-  delete book.noFile; delete book.recPages;
-  if (book.rating == null) delete book.rating;
+  const merged = Object.assign({}, book, res.book, keep);
+  if (!merged.annotation) merged.annotation = wishAnnot;
+  delete merged.noFile; delete merged.recPages;
+  if (merged.rating == null) delete merged.rating;
   res.content.id = book.id;
-  await checkImportSpace(book, res.content);
-  await DB.writeBatch([{ store: 'content', value: res.content }, { store: 'books', value: book }]);
+  await checkImportSpace(merged, res.content);
+  await DB.writeBatch([{ store: 'content', value: res.content }, { store: 'books', value: merged }]);
+  for (const key of Object.keys(book)) delete book[key]; Object.assign(book, merged);
   dropCoverUrl(book.id); REC.matchCache.clear(); libraryTabCache.clear(); state.homeCache = null;
   return book;
 }
@@ -6817,30 +7028,39 @@ new MutationObserver((list) => {
 
 (async function init() {
   applyUi();
+  await acquireLibraryWriter();
   await DB.open();
   let loaded = false;
   if (DB.ok) {
     try {
-      const saved = await DB.get('meta', 'prefs');
+      const snap = await DB.snapshot();
+      validateLibrarySnapshot(snap);
+      const saved = snap.meta.find(m => m.id === 'prefs');
       if (saved && saved.data) Object.assign(prefs, saved.data);
       applyUi(); state.sort = SORTS[prefs.sort] ? prefs.sort : 'manual';
+      state.books = snap.books;
+      const copies = await Recovery.list().catch(e => { Recovery.error = e.message; return []; });
+      if (!snap.books.length && snap.meta.find(m => m.id === 'library-state')?.count !== 0 && copies.some(c => c.count > 0)) throw new Error('Основная библиотека пуста, но найдена непустая автокопия. Выберите восстановление в настройках.');
       await loadStats();
-      state.books = await DB.all('books');
-      loaded = true;
-      STORE_HEALTH.lastBackup = (await DB.get('meta','backup') || {}).exportedAt || null;
-      await DB.put('meta', { id: 'prefs', data: structuredClone(prefs) });
-      statsDirty = true; await flushStats();
-      // Remove unbounded legacy localStorage duplication after successful migration.
-      try { localStorage.removeItem('polka.stats.v1'); } catch (_) {}
-      if (await DB.get('content','__stats')) await DB.del('content','__stats');
-    } catch (e) { storageError(e); }
+      STORE_HEALTH.lastBackup = (snap.meta.find(m => m.id === 'backup') || {}).exportedAt || null;
+      DB.ready = true; loaded = true;
+      if (DB.owner) {
+        await migrateRecommendationShelf();
+        await DB.put('meta', { id: 'prefs', data: structuredClone(prefs) });
+        statsDirty = true; await flushStats();
+        try { localStorage.removeItem('polka.stats.v1'); } catch (_) {}
+        if (snap.content.some(c => c.id === '__stats')) await DB.del('content','__stats');
+      }
+    } catch (e) { DB.ready = false; storageError(e); }
   }
-  if (loaded && !STORE_HEALTH.error && !state.books.length && !prefs.seeded) await seedSamples();
-  if (DB.ok && isStandalone()) protectStorage();
+  if (loaded && DB.owner && !STORE_HEALTH.error && !state.books.length && !prefs.seeded) await seedSamples();
+  if (DB.ok && DB.owner) protectStorage();
+  Recovery.enabled = DB.ready && DB.owner;
+  if (Recovery.enabled) Recovery.schedule(true);
   paintStorageBanner();
   renderLibrary(false);
   libScrollChrome();
-  takeSharedFiles();
+  if (DB.ready && DB.owner) takeSharedFiles();
 })();
 
 </script>
