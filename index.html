@@ -1214,23 +1214,23 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 @media (min-width: 980px) { .bgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 40px 30px; } }
 .bcell { gap: 4px; overflow: visible; }
 .bcell .bc { isolation: isolate; margin-bottom: 12px; }
-.bcell .cover, .fy-look .cover, .bh .cv .cover, .cover.cover-ghost {
+.bcell .cover, .cont .cover, .fy-look .cover, .bh .cv .cover, .cover.cover-ghost {
   border-radius: 1px 3px 3px 1px;
   box-shadow: 0 1px 2px rgba(0,0,0,.16), 2px 6px 12px rgba(0,0,0,.12);
 }
-.bcell .cover::after, .bh .cv .cover::after, .fy-look .cover::after, .cover.cover-ghost::after {
+.bcell .cover::after, .cont .cover::after, .bh .cv .cover::after, .fy-look .cover::after, .cover.cover-ghost::after {
   background:
     linear-gradient(90deg, rgba(0,0,0,.38) 0%, rgba(255,255,255,.22) 1.4%, rgba(255,255,255,.08) 2.4%, rgba(0,0,0,.2) 3.1%, rgba(0,0,0,.1) 4.2%, rgba(255,255,255,.13) 5.2%, transparent 8%),
     linear-gradient(90deg, transparent 96.5%, rgba(0,0,0,.1) 100%),
     linear-gradient(180deg, rgba(255,255,255,.06), transparent 20%, transparent 80%, rgba(0,0,0,.05));
 }
-.bcell .gcover, .fy-look .gcover, .bh .cv .gcover, .cover-ghost .gcover { padding: 13cqw 11cqw 12cqw 15cqw; }
-.bcell .gcover::before, .fy-look .gcover::before, .bh .cv .gcover::before, .cover-ghost .gcover::before {
+.bcell .gcover, .cont .gcover, .fy-look .gcover, .bh .cv .gcover, .cover-ghost .gcover { padding: 13cqw 11cqw 12cqw 15cqw; }
+.bcell .gcover::before, .cont .gcover::before, .fy-look .gcover::before, .bh .cv .gcover::before, .cover-ghost .gcover::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(135deg, rgba(255,255,255,.045), transparent 45%, rgba(0,0,0,.035));
 }
-.bcell .gcover .gt, .fy-look .gcover .gt, .bh .cv .gcover .gt, .cover-ghost .gcover .gt { font-size: 11cqw; line-height: 1.12; -webkit-line-clamp: 6; text-wrap: balance; hyphens: none; }
-.bcell .gcover .ga, .fy-look .gcover .ga, .bh .cv .gcover .ga, .cover-ghost .gcover .ga { font-size: 6.8cqw; letter-spacing: .1em; }
+.bcell .gcover .gt, .cont .gcover .gt, .fy-look .gcover .gt, .bh .cv .gcover .gt, .cover-ghost .gcover .gt { font-size: 11cqw; line-height: 1.12; -webkit-line-clamp: 6; text-wrap: balance; hyphens: none; }
+.bcell .gcover .ga, .cont .gcover .ga, .fy-look .gcover .ga, .bh .cv .gcover .ga, .cover-ghost .gcover .ga { font-size: 6.8cqw; letter-spacing: .1em; }
 .bcell .bt { font-size: 15px; line-height: 1.3; font-weight: 500; }
 .bcell .ba { font-size: 14px; line-height: 1.35; }
 .bcell .bp { display: grid; width: 100%; min-width: 0; margin-top: 8px; gap: 6px; font-size: 12px; line-height: 1.4; color: var(--fg-2); }
@@ -1574,7 +1574,7 @@ button.pocket .lbl { pointer-events: auto; cursor: pointer; }
 .fy-x-facts { margin-top: 24px; }
 .fy-x .bd-sec { text-align: left; }
 .fy-x-d { margin: 0; font: 400 17px/1.65 var(--f-display); color: var(--fg); opacity: .9; }
-.fy-x-hint { margin: 32px 0 0; font-size: 13px; line-height: 1.5; color: var(--fg-3); max-width: 32ch; }
+
 </style>
 <style>
 /* Storage safety and source filter: match the existing Polka controls. */
@@ -2666,10 +2666,10 @@ function coverEl(book) {
 
 /* ================= library ================= */
 function isRecommendation(book) { return book.origin === 'recommendation' || book.rec != null || book.noFile === true; }
-function homeBooks() { return state.books.filter(b => prefs.showRecommendations || !isRecommendation(b)); }
+function homeBooks() { return state.books.filter(b => prefs.showRecommendations || b.shelf !== REC_SHELF); }
 function recommendationFilter() {
   const input = h('input', { type: 'checkbox', role: 'switch', checked: !!prefs.showRecommendations, 'aria-label': 'Рекомендации на главной', onchange: () => { prefs.showRecommendations = input.checked; savePrefs(); renderLibrary(false); } });
-  return h('div', { class: 'motion-haptics rec-home-filter' }, h('span', null, h('b', null, 'Рекомендации на главной'), h('small', null, 'Показывать в «Мои книги» вместе с вашими файлами')), h('label', { class: 'switch' }, input, h('span')));
+  return h('div', { class: 'motion-haptics rec-home-filter' }, h('span', null, h('b', null, 'Рекомендации на главной'), h('small', null, 'Показывать книги с полки «Рекомендации»')), h('label', { class: 'switch' }, input, h('span')));
 }
 function shelves() {
   const m = new Map();
@@ -3794,7 +3794,7 @@ async function importFiles(fileList) {
     }
   }
   t.close();
-  if (added.length) { state.query = ''; $('#q').value = ''; $('#q-clear').hidden = true; if (added.every(isRecommendation)) { state.tab='shelves';state.shelf=REC_SHELF;state.autoShelf=null; } else if (target) {state.shelf=target;state.autoShelf=null;} else {state.tab='shelves';state.shelf=null;state.autoShelf='want';} renderLibrary(); }
+  if (added.length) { state.query = ''; $('#q').value = ''; $('#q-clear').hidden = true; if (added.every(book => book.shelf === REC_SHELF)) { state.tab='shelves';state.shelf=REC_SHELF;state.autoShelf=null; } else if (target) {state.shelf=target;state.autoShelf=null;} else {state.tab='shelves';state.shelf=null;state.autoShelf='want';} renderLibrary(); }
 
   if (added.length) setTimeout(() => toast(`Добавлено книг: ${added.length}`, { kind: 'import-result' }), 320);
 }
@@ -6389,7 +6389,7 @@ const REC_SHELF = 'Рекомендации';
 const REC_W = [0, -1, -0.6, 0.3, 1.1, 1.6];
 async function migrateRecommendationShelf() {
   if (prefs.recommendationShelfV2 || !DB.ready || !DB.owner) return;
-  const moved = state.books.filter(isRecommendation).map(book => ({ ...book, shelf: REC_SHELF }));
+  const moved = state.books.filter(book => isRecommendation(book) && (!book.shelf || ['Из подборки', 'Из рекомендаций', REC_SHELF].includes(book.shelf))).map(book => ({ ...book, shelf: REC_SHELF }));
   const previous = new Set(['Из подборки', 'Из рекомендаций']);
   const changedIds = new Set(moved.map(b => b.id));
   const names = (prefs.shelves || []).filter(name => !previous.has(name) || state.books.some(b => b.shelf === name && !changedIds.has(b.id)));
@@ -6783,7 +6783,6 @@ function recExpand(card, j, box) {
     b.annotation ? h('section', { class: 'bd-sec' }, h('h4', { class: 'bd-h' }, 'О книге'), h('p', { class: 'fy-x-d' }, b.annotation)) : null,
     h('section', { class: 'bd-sec' }, h('h4', { class: 'bd-h' }, 'Почему в подборке'), h('p', { class: 'fy-why-l' }, recReason(j)), b.themes.length ? h('p', { class: 'fy-th-l' }, 'Темы: ' + b.themes.join(', ')) : null,
       b.series ? h('p', { class: 'fy-th-l' }, `Цикл «${b.series}»${b.seriesNo ? `, книга ${b.seriesNo}` : ''}`) : null),
-    h('p', { class: 'fy-x-hint' }, 'Сверните описание и смахните карточку: вправо — хочу прочитать, влево — не то, вверх — уже читал.'),
   ].filter(Boolean);
   const coverBox = h('div', { class: 'fy-x-cv fy-look' }, coverEl(b));
   const scroller = h('div', { class: 'fy-x-scroll' }, h('div', { class: 'fy-x-in' }, coverBox, ...content));
