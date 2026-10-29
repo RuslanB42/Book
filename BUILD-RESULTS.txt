@@ -1,0 +1,35 @@
+Polka Native 0.6.26 — огонёк, возврат обложки и новый знак
+assembleDebug + testDebugUnitTest + lintDebug: BUILD SUCCESSFUL
+Полный прогон: 244 тестов, 0 failures, 0 errors.
+Lint: {'Warning': 142, 'Information': 1}
+APK SHA-256: 68fc3053547f660540ce25804ba5838873302e7e9d3569647addac4343552248
+app.polka.nativeapp; versionCode 32; minSdk 26; targetSdk 35
+Signer #1 certificate DN: C=US, O=Android, CN=Android Debug
+Signer #1 certificate SHA-256 digest: 236ff0d8c3277449c932cfe51ed72f279ccb5f66c30a9d66ba4ce6299e2f576e
+Signer #1 certificate SHA-1 digest: 78b15efa154723b884379073025a50f7372fd245
+Signer #1 certificate MD5 digest: 8c171e97bbf1a94dfa23a63045422872
+
+app.polka.nativeapp.TransferRegressionTests: tests=29, failures=0, errors=0
+app.polka.nativeapp.NativeTests: tests=14, failures=0, errors=0
+app.polka.nativeapp.BookVolumeTests: tests=8, failures=0, errors=0
+app.polka.nativeapp.ProfileStateTests: tests=6, failures=0, errors=0
+app.polka.nativeapp.ChapterSelectionTests: tests=3, failures=0, errors=0
+app.polka.nativeapp.CalendarPeriodTests: tests=3, failures=0, errors=0
+app.polka.nativeapp.ShelfGlassTests: tests=5, failures=0, errors=0
+app.polka.nativeapp.SwipeVisualTests: tests=17, failures=0, errors=0
+app.polka.nativeapp.BrandingTests: tests=3, failures=0, errors=0
+app.polka.nativeapp.EpubLayoutTests: tests=9, failures=0, errors=0
+app.polka.nativeapp.PageHtmlPatchTests: tests=8, failures=0, errors=0
+app.polka.nativeapp.ShelfReorderTests: tests=15, failures=0, errors=0
+app.polka.nativeapp.ReaderCurlTests: tests=11, failures=0, errors=0
+app.polka.nativeapp.ReadingStatisticsTests: tests=16, failures=0, errors=0
+app.polka.nativeapp.StatisticsVisualTests: tests=26, failures=0, errors=0
+app.polka.nativeapp.ShelfDetailsTests: tests=1, failures=0, errors=0
+app.polka.nativeapp.SurfaceInteractionTests: tests=44, failures=0, errors=0
+app.polka.nativeapp.StatisticsPaletteTests: tests=3, failures=0, errors=0
+app.polka.nativeapp.VisualTests: tests=1, failures=0, errors=0
+app.polka.nativeapp.OpaqueSurfaceTests: tests=2, failures=0, errors=0
+app.polka.nativeapp.SurfaceMotionTests: tests=12, failures=0, errors=0
+app.polka.nativeapp.SheetInsetsTests: tests=8, failures=0, errors=0
+Программные рендеры Robolectric, не тест на физическом телефоне.
+Миграции БД нет. Устанавливать поверх старой версии; резервная копия .polka рекомендуется.

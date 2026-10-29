@@ -1,0 +1,74 @@
+function bookGrid(list, sortable) {
+  const grid = h('div', { class: 'bgrid' + (sortable ? ' sortable' : '') }, list.map((b, i) => {
+    const p = pctOf(b);
+    return h('button', { class: 'bcell', 'data-id': b.id, style: `--i:${Math.min(i, 12)}`, 'aria-label': `${b.title}. ${authorsStr(b)}${p ? `. Прочитано ${p}%` : ''}`, onclick: (e) => { if (grid.dataset.justDragged) { e.preventDefault(); return; } openDetail(b, e.currentTarget); } },
+      h('span', { class: 'bc' }, coverEl(b)),
+      h('span', { class: 'bt' }, b.title),
+      h('span', { class: 'ba' }, authorsStr(b)),
+      p > 0 ? h('span', { class: 'bp', 'aria-hidden': 'true' }, h('span', { class: 'bar' }, h('i', { style: `width:${p}%` })), h('span', { class: 'bp-value' }, p + '%')) : null);
+  }));
+  if (sortable) enableReorder(grid);
+  return grid;
+}
+
+/* ---------- press, lift and drag a cover to change its place ---------- */
+function enableReorder(grid) {
+  let d = null;
+  const HOLD = 360;
+  const cells = () => [...grid.querySelectorAll('.bcell')];
+  const place = () => {
+    if (!d) return;
+    const g = grid.getBoundingClientRect();
+    const x = d.px - g.left - d.gx - d.el.offsetLeft, y = d.py - g.top - d.gy - d.el.offsetTop;
+    d.el.style.transform = `translate3d(${x}px,${y}px,0) scale(1.08)`;
+  };
+  const flip = (mutate) => {
+    const others = cells().filter((c) => c !== d.el);
+    const before = new Map(others.map((c) => [c, c.getBoundingClientRect()]));
+    others.forEach((c) => c.getAnimations().forEach((an) => an.cancel()));
+    mutate();
+    for (const c of others) {
+      const a = before.get(c), b = c.getBoundingClientRect();
+      const dx = a.left - b.left, dy = a.top - b.top;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+      c.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }], { duration: reduceMotion() ? 1 : 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    }
+    place();
+  };
+  // pick the slot by layout position (offsets ignore running animations), so cards never ping-pong
+  const hitTest = () => {
+    const g = grid.getBoundingClientRect();
+    const w = d.el.offsetWidth;
+    const cx = d.px - g.left - d.gx + w / 2, cy = d.py - g.top - d.gy + w * 0.75;
+    const list = cells(), from = list.indexOf(d.el);
+    let best = -1, bestD = Infinity, curD = Infinity;
+    list.forEach((c, i) => {
+      const sx = c.offsetLeft + c.offsetWidth / 2, sy = c.offsetTop + c.offsetWidth * 0.75;
+      const dist = Math.hypot(cx - sx, cy - sy);
+      if (dist < bestD) { bestD = dist; best = i; }
+      if (i === from) curD = dist;
+    });
+    if (best < 0 || best === from || bestD > curD - w * 0.18) return;
+    const t = list[best];
+    flip(() => grid.insertBefore(d.el, best > from ? t.nextSibling : t));
+  };
+  const autoscroll = () => {
+    if (!d || !d.lifted) return;
+    const edge = 90, v = d.py < edge ? -(edge - d.py) / 6 : d.py > window.innerHeight - edge ? (d.py - (window.innerHeight - edge)) / 6 : 0;
+    if (v) { window.scrollBy(0, v); place(); hitTest(); }
+    d.raf = requestAnimationFrame(autoscroll);
+  };
+  const lift = () => {
+    if (!d) return;
+    d.lifted = true;
+    const r = d.el.getBoundingClientRect();
+    d.gx = d.px - r.left; d.gy = d.py - r.top;
+    grid.classList.add('dragging');
+    d.el.classList.add('lifted');
+    place();
+    d.raf = requestAnimationFrame(autoscroll);
+  };
+  const end = (cancelled) => {
+    if (!d) return;
+    clearTimeout(d.timer); cancelAnimationFrame(d.raf);
+    const el = d.el, wasLifted =

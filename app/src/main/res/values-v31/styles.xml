@@ -1,0 +1,10 @@
+<resources>
+<style name="AppLaunchTheme" parent="AppTheme">
+<item name="android:windowBackground">@drawable/launch_background</item>
+<item name="android:windowSplashScreenBackground">@color/launcher_background</item>
+<item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+<item name="android:windowSplashScreenAnimationDuration">0</item>
+<item name="android:statusBarColor">@color/launcher_background</item>
+<item name="android:navigationBarColor">@color/launcher_background</item>
+</style>
+</resources>

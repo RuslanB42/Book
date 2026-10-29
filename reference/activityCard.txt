@@ -1,0 +1,70 @@
+function activityCard() {
+  const days = profileRange;
+  const goal = goalMs();
+  const items = [];
+  for (let i = days - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const k = dayKey(d); items.push({ d, k, ms: (ST.data.days[k] || {}).ms || 0 }); }
+  const sum = items.reduce((a, x) => a + x.ms, 0);
+  const max = Math.max(goal * 1.25, ...items.map((x) => x.ms));
+  const wd = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  const fmtD = (d) => `${wd[d.getDay()]}, ${d.getDate()} ${['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][d.getMonth()]}`;
+  const tip = h('div', { class: 'ctip', hidden: true });
+  const plot = h('div', { class: 'plot', style: `--n:${days}` });
+  const goalY = (goal / max) * 100;
+  plot.append(h('div', { class: 'goal-line', style: `bottom:${goalY}%` }, h('span', null, `цель ${ST.data.goal} мин`)));
+  items.forEach((x, i) => {
+    const col = h('button', { class: 'col' + (x.ms >= goal ? ' met' : '') + (i === days - 1 ? ' today' : ''), style: `--i:${i}`, 'aria-label': `${fmtD(x.d)}: ${x.ms ? fmtDur(x.ms) : 'не читали'}` },
+      h('span', { class: 'barv' + (x.ms ? '' : ' zero'), style: `height:${x.ms ? Math.max(2.5, (x.ms / max) * 100) : 0}%` }));
+    const show = () => {
+      $$('.col.sel', plot).forEach((c) => c.classList.remove('sel'));
+      col.classList.add('sel');
+      tip.hidden = false;
+      tip.replaceChildren(h('b', null, x.ms ? fmtDur(x.ms) : 'Не читали'), h('span', null, fmtD(x.d)));
+      const pr = plot.getBoundingClientRect(), cr = col.getBoundingClientRect();
+      tip.style.left = clamp(cr.left - pr.left + cr.width / 2, 50, pr.width - 50) + 'px';
+    };
+    col.addEventListener('pointerenter', show); col.addEventListener('focus', show); col.addEventListener('click', show);
+    plot.append(col);
+  });
+  plot.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { tip.hidden = true; $$('.col.sel', plot).forEach((c) => c.classList.remove('sel')); } });
+  const axis = h('div', { class: 'xaxis', style: `--n:${days}` }, items.map((x, i) => h('span', null, days === 7 ? wd[x.d.getDay()] : (i % 5 === 4 || i === days - 1 ? String(x.d.getDate()) : ''))));
+  const seg = h('div', { class: 'seg mini', role: 'group', 'aria-label': 'Период' }, [[7, '7 дней'], [30, '30 дней']].map(([n, l]) =>
+    h('button', { 'aria-pressed': String(days === n), onclick: () => { profileRange = n; const c = activityCard(); $('#activity').replaceWith(c); } }, l)));
+  const empty = !sum ? h('p', { class: 'chart-empty' }, 'График заполнится, когда вы начнёте читать') : null;
+  return h('section', { class: 'card pad', id: 'activity' },
+    h('div', { class: 'card-h' }, h('h2', null, 'Активность'), seg),
+    h('p', { class: 'sum' }, h('span', null, h('b', null, fmtDur(sum, true)), ` за ${days === 7 ? 'неделю' : '30 дней'} | в среднем ${fmtDur(sum / days, true)} в день`), trendChip(sum, sumRange(days, days * 2))),
+    h('div', { class: 'chart' }, plot, tip, empty), axis);
+}
+
+function updatePfBadge() {
+  const b = $('#pf-badge'); if (!b) return;
+  const st = streakInfo();
+  b.hidden = true;
+  b.textContent = st.current;
+  b.classList.toggle('dim', !st.todayMet);
+}
+
+/* ================= sample books (original texts) ================= */
+function sampleFb2(s) {
+  const sec = (c) => `<section><title><p>${c.title}</p></title>${c.epigraph ? `<epigraph><p>${c.epigraph[0]}</p><text-author>${c.epigraph[1]}</text-author></epigraph>` : ''}${c.paras.map((p) => p === '*' ? '<subtitle>* * *</subtitle>' : `<p>${p}</p>`).join('')}${c.poem ? `<poem><stanza>${c.poem.map((v) => `<v>${v}</v>`).join('')}</stanza></poem>` : ''}${c.after ? c.after.map((p) => `<p>${p}</p>`).join('') : ''}</section>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink"><description><title-info><genre>${s.genre}</genre><author><nickname>Полка</nickname></author><book-title>${s.title}</book-title><annotation>${s.annotation.map((p) => `<p>${p}</p>`).join('')}</annotation><lang>ru</lang></title-info><document-info><author><nickname>Полка</nickname></author><program-used>Полка</program-used><id>${s.id}</id><version>1.0</version></document-info></description><body>${s.chapters.map(sec).join('')}</body></FictionBook>`;
+}
+const SAMPLES = [
+  {
+    id: 'polka-guide', genre: 'reference', shelf: 'Руководство', title: 'Как устроена Полка',
+    annotation: ['Короткая книга о том, как добавлять книги, читать, править текст прямо во время чтения и менять данные книги. Её можно удалить, когда она станет не нужна.'],
+    chapters: [
+      { title: 'Добавление книг', paras: [
+        'Нажмите плюс в правом верхнем углу или перетащите файлы прямо в окно. Полка понимает FB2, FB2.ZIP и EPUB, можно выбрать сразу несколько файлов.',
+        'Книги хранятся в этом браузере, на этом устройстве. Файлы никуда не отправляются, поэтому библиотека открывается и без интернета.',
+        'Каждая книга попадает на полку по жанру из файла. Полку можно сменить: коснитесь обложки, откройте «Данные книги» и впишите новое название полки или выберите одну из существующих.'] },
+      { title: 'Чтение', paras: [
+        'Коснитесь текста, чтобы спрятать или вернуть панели. Когда вы листаете вниз, они уходят сами.',
+        'Кнопка со списком открывает оглавление, закладки и поиск по всему тексту книги. В меню «Аа» настраиваются шрифт, размер, интервал и цвет страницы: ночная, чисто чёрная, сепия или бумага.',
+        'Место, где вы остановились, запоминается само. Чтобы отметить страницу, нажмите значок закладки справа внизу. На компьютере между главами можно ходить стрелками влево и вправо.'],
+        poem: ['Страница гаснет — и опять светла,', 'закладка помнит, где строка была.'] },
+      { title: 'Правка текста', paras: [
+        'Заметили опечатку или хотите поправить абзац? Нажмите карандаш в верхней панели. Глава станет редактируемой прямо на месте, там, где вы читаете.',
+        'Внизу появятся кнопки: отменить и повторить действие, <strong>полужирный</strong>, <emphasis>курсив</emphasis> и заголовок. «Сохранить» запоминает правку, «Отмена» возвращает главу как было. После сохранения чтение продолжается с той же строки.',
+        'Попробуйте прямо сейчас: в этом предложении спряталась оП

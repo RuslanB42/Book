@@ -1,0 +1,94 @@
+function renderQuotes(main) {
+  const items = allQuotes();
+  if (!items.length) {
+    state.qbook = '';
+    main.append(h('div', { class: 'empty' },
+      h('div', { class: 'q-empty-mark', 'aria-hidden': 'true' }, '“'),
+      h('h2', null, 'Здесь будут ваши цитаты'),
+      h('p', null, 'Во время чтения выделите текст и нажмите «Цитата» — она появится здесь вместе с названием книги.')));
+    return;
+  }
+  // group by book, freshest book first
+  const groups = [];
+  const byId = new Map();
+  for (const it of items) {
+    if (!byId.has(it.b.id)) { const g = { b: it.b, list: [] }; byId.set(it.b.id, g); groups.push(g); }
+    byId.get(it.b.id).list.push(it.q);
+  }
+  const g = state.qbook && byId.get(state.qbook);
+  if (state.qbook && !g) state.qbook = '';
+  if (g) {
+    main.append(h('div', { class: 'sec-head' },
+      h('button', { class: 'back-link', onclick: () => openQuoteBook('') }, icon('back', 'sm'), 'Цитаты'),
+      h('span', null, `${g.list.length} ${plural(g.list.length, ['цитата', 'цитаты', 'цитат'])}`)));
+    main.append(h('button', { class: 'qb-head', onclick: (e) => openDetail(g.b, e.currentTarget) }, coverEl(g.b),
+      h('span', null, h('b', null, g.b.title), h('small', null, authorsStr(g.b)))));
+    const list = h('div', { class: 'q-list' });
+    g.list.slice().sort((x, y) => (x.ch - y.ch) || (x.start - y.start)).forEach((q, i) => list.append(quoteCard(q, g.b, i, false)));
+    main.append(list);
+    return;
+  }
+  main.append(h('div', { class: 'sec-head' }, h('h2', null, `${items.length} ${plural(items.length, ['цитата', 'цитаты', 'цитат'])}`),
+    h('span', null, `из ${groups.length} ${plural(groups.length, ['книги', 'книг', 'книг'])}`)));
+  const list = h('div', { class: 'q-list' });
+  groups.forEach(({ b, list: qs }, i) => {
+    const n = qs.length;
+    list.append(h('button', { 'data-quote-book': b.id, class: 'qgroup' + (n > 1 ? ' stacked' : '') + (n > 2 ? ' stacked2' : ''), style: `--i:${Math.min(i, 10)}`, onclick: () => openQuoteBook(b.id), 'aria-label': `${b.title}: ${n} ${plural(n, ['цитата', 'цитаты', 'цитат'])}` },
+      h('span', { class: 'qg-card' },
+        h('span', { class: 'qg-top' }, coverEl(b),
+          h('span', { class: 'qg-meta' }, h('b', null, b.title), h('small', null, authorsStr(b))),
+          h('span', { class: 'qg-count' }, String(n), icon('next', 'sm'))),
+        h('span', { class: 'qg-q' }, h('span', { class: 'q-mark', 'aria-hidden': 'true' }, '“'), h('span', { class: 'qg-quote' }, qs[0].text)))));
+  });
+  main.append(list);
+}
+
+/* ---------- top bar actions ---------- */
+function toggleSearch(force) {
+  state.searchOpen = force != null ? force : !state.searchOpen;
+  if (!state.searchOpen) { state.query = ''; $('#q').value = ''; $('#q-clear').hidden = true; }
+  renderLibrary(false);
+  if (state.searchOpen) $('#q').focus({ preventScroll: true });
+  else $('#btn-search').focus({ preventScroll: true });
+}
+function openViewMenu() {
+  const opts = [['manual', 'Мой порядок'], ['recent', 'Недавние'], ['title', 'По названию'], ['author', 'По автору']];
+  const list = h('ul', { class: 'pick' });
+  const paint = () => list.replaceChildren(...opts.map(([k, l]) => h('li', null, h('button', { 'aria-pressed': String(state.sort === k), onclick: () => { state.sort = k; prefs.sort = k; savePrefs(); paint(); renderLibrary(false); } },
+    h('span', { class: 'ck', style: 'margin-left:6px' }, icon('check')), h('span', null, h('span', { class: 't' }, l)), h('span')))));
+  paint();
+  openSheet({
+    title: 'Фильтры и сортировка',
+    body: h('div', null, h('div', { class: 'group-title' }, 'Фильтры'), recommendationFilter(), h('div', { class: 'group-title' }, 'Сортировка книг'), list),
+  });
+}
+
+/* ================= reader ================= */
+const R = {
+  book: null, content: null, ch: 0, blocks: [], imgUrls: new Map(), editing: false, dirty: false,
+  cum: [], total: 1, idMap: null, textCache: new Map(), libScroll: 0, lastY: 0, saveTimer: 0, curBlock: 0,
+  page: 0, pages: 1, step: 1, pct: 0, suppressClick: false,
+};
+const BLOCK_SEL = 'p,h1,h2,h3,h4,h5,h6,li,pre,figure,table,div.img';
+const READER_THEMES = {
+  night: { bg: '#18181a', fg: '#dedcd6', tone: 'dark', name: 'Ночь' },
+  black: { bg: '#000000', fg: '#c9c7c1', tone: 'dark', name: 'Чёрная' },
+  sepia: { bg: '#f3ead8', fg: '#3a2e22', tone: 'light', name: 'Сепия' },
+  paper: { bg: '#fbfaf7', fg: '#1e1d1b', tone: 'light', name: 'Бумага' },
+};
+const FONTS = { literata: '"Literata", Georgia, serif', ptserif: '"PT Serif", Georgia, serif', sans: 'var(--f-ui)' };
+const LH = { tight: 1.42, normal: 1.6, loose: 1.82 };
+const rc = () => $('#r-content');
+const isPaged = () => prefs.mode !== 'scroll' && !R.editing;
+const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function uiIsLight() {
+  if (prefs.ui === 'light') return true;
+  if (prefs.ui === 'system') { const dt = root.getAttribute('data-theme'); if (dt) return dt === 'light'; return matchMedia('(prefers-color-scheme: light)').matches; }
+  return false;
+}
+function readerTheme() { return READER_THEMES[prefs.rt] || (uiIsLight() ? READER_THEMES.paper : READER_THEMES.night); }
+function applyReaderPrefs() {
+  const t = readerTheme();
+  const rd = $('#reader');
+ 

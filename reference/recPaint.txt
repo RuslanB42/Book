@@ -1,0 +1,58 @@
+function recPaint(box) {
+  if (!REC.st.onboarded && recPositive() < 3) { recStart(box); return; }
+  REC.queue = recRank();
+  const head = h('div', { class: 'fy-head' }, h('p', { class: 'fy-count' }, recCountLabel()),
+    h('button', { class: 'icon-btn fy-tune', 'aria-label': 'Настроить подборку', onclick: () => recTune(box) }, icon('sliders')));
+  const stack = h('div', { class: 'fy-stack' });
+  const acts = h('div', { class: 'fy-acts' },
+    recBtn('undo', 'Вернуть', 'Вернуть прошлую книгу', () => recUndo(box)),
+    recBtn('nope', 'Не то', 'Не интересно', () => recAct(box, 'nope')),
+    recBtn('read', 'Читал', 'Уже читал', () => recAct(box, 'read')),
+    recBtn('want', 'Хочу', 'Хочу прочитать', () => recAct(box, 'want')));
+  box.replaceChildren(head, stack, acts);
+  if (state.tab === 'foryou') { window.scrollTo({ top: 0, behavior: 'instant' }); if (typeof libScrollChrome === 'function') libScrollChrome(); }
+  recSize(box); requestAnimationFrame(() => recSize(box));
+  recFill(stack, true);
+  if (!REC.st.coached) recCoach(box);
+}
+// The deck always fits between the header and the tab bar: no overlap, no scrolling.
+function recSize(box) {
+  const stack = $('.fy-stack', box), acts = $('.fy-acts', box);
+  if (!stack || !box.isConnected) return;
+  const top = stack.getBoundingClientRect().top + window.scrollY;
+  const bar = $('#tabbar'), barTop = bar && !bar.hidden ? bar.getBoundingClientRect().top : innerHeight - 20;
+  const avail = barTop - top - acts.offsetHeight - 34;
+  stack.style.height = Math.round(Math.max(300, Math.min(600, avail))) + 'px';
+}
+addEventListener('resize', () => { const box = $('.fy'); if (box && $('.fy-stack', box)) recSize(box); });
+function recCoach(box) {
+  const stack = $('.fy-stack', box);
+  const done = () => { REC.st.coached = true; recSave(); if (!reduceMotion()) coach.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: 'ease-out' }).finished.then(() => coach.remove(), () => coach.remove()); else coach.remove(); };
+  const arrow = (d) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = { l: '<path d="M19 12H5M11 6l-6 6 6 6"/>', r: '<path d="M5 12h14M13 6l6 6-6 6"/>', u: '<path d="M12 19V5M6 11l6-6 6 6"/>' }[d]; return s; };
+  const coach = h('div', { class: 'fy-coach', role: 'dialog', 'aria-label': 'Как пользоваться' },
+    h('div', { class: 'fy-coach-up' }, arrow('u'), h('b', null, 'Уже читал')),
+    h('div', { class: 'fy-coach-row' }, h('div', null, arrow('l'), h('b', null, 'Не то')), h('div', null, arrow('r'), h('b', null, 'Хочу прочитать'))),
+    h('p', null, 'Нажмите на карточку — откроются описание и подробности'),
+    h('button', { class: 'btn', onclick: done }, 'Понятно'));
+  stack.append(coach);
+  if (!reduceMotion()) coach.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, delay: 500, easing: 'ease-out', fill: 'backwards' });
+}
+function recBtn(kind, label, aria, fn) {
+  const svg = { undo: '<path d="M9 8H5V4"/><path d="M5.5 8A7.5 7.5 0 1 1 5 13"/>', nope: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', read: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', want: '<path d="M7 4h10v16l-5-3.6L7 20Z"/>' }[kind];
+  const b = h('button', { class: 'fy-btn ' + kind, 'aria-label': aria, onclick: fn });
+  b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${svg}</svg>`;
+  return h('div', { class: 'fy-act' }, b, h('span', null, label));
+}
+function recFill(stack, first) {
+  const old = new Map([...stack.children].map((c) => [+c.dataset.j, c]));
+  const show = REC.queue.slice(0, 3);
+  if (!show.length) {
+    stack.replaceChildren(h('div', { class: 'fy-done' }, h('h2', null, 'На сегодня всё'), h('p', null, 'Вы посмотрели все книги, которые мы смогли подобрать. Добавляйте и оценивайте книги — появятся новые.')));
+    $$('.fy-btn:not(.undo)', stack.parentNode).forEach((b) => b.disabled = true);
+    return;
+  }
+  $$('.fy-btn', stack.parentNode).forEach((b) => b.disabled = false);
+  const next = show.map((j, d) => {
+    let c = old.get(j);
+    if (c) { c.style.setProperty('--d', d); c.inert = !!d; c.tabIndex = d ? -1 : 0; old.delete(j); }
+    else { c = recCard(j, d); if (!first && !reduceMotion()) c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: 'e

@@ -1,0 +1,111 @@
+[
+  {
+    "act": "want",
+    "from": {
+      "dx": 124,
+      "dy": 0,
+      "vx": 0.8,
+      "vy": 0,
+      "side": 1
+    },
+    "keys": [
+      {
+        "transform": "translate3d(124px,0px,0) rotate(7.4399999999999995deg)"
+      },
+      {
+        "transform": "translate3d(520px,0px,0) rotate(28deg)"
+      }
+    ],
+    "opts": {
+      "duration": 359.99999999999994,
+      "easing": "cubic-bezier(.2,.7,.4,1)",
+      "fill": "forwards"
+    }
+  },
+  {
+    "act": "nope",
+    "from": {
+      "dx": -124,
+      "dy": -12,
+      "vx": -1,
+      "vy": -0.2,
+      "side": -1
+    },
+    "keys": [
+      {
+        "transform": "translate3d(-124px,-12px,0) rotate(7.4399999999999995deg)"
+      },
+      {
+        "transform": "translate3d(-520px,-64px,0) rotate(28deg)"
+      }
+    ],
+    "opts": {
+      "duration": 363.09049938521065,
+      "easing": "cubic-bezier(.2,.7,.4,1)",
+      "fill": "forwards"
+    }
+  },
+  {
+    "act": "read",
+    "from": {
+      "dx": 8,
+      "dy": -130,
+      "vx": 0.1,
+      "vy": -1.2,
+      "side": 1
+    },
+    "keys": [
+      {
+        "transform": "translate3d(8px,-130px,0) rotate(0.48deg)"
+      },
+      {
+        "transform": "translate3d(20px,-782px,0) rotate(0.48deg)"
+      }
+    ],
+    "opts": {
+      "duration": 420,
+      "easing": "cubic-bezier(.2,.7,.4,1)",
+      "fill": "forwards"
+    }
+  },
+  {
+    "act": "want",
+    "keys": [
+      {
+        "transform": "translate3d(0,0,0) rotate(0deg)"
+      },
+      {
+        "transform": "translate3d(18px,0px,0) rotate(3deg)",
+        "offset": 0.25
+      },
+      {
+        "transform": "translate3d(520px,50px,0) rotate(28deg)"
+      }
+    ],
+    "opts": {
+      "duration": 460,
+      "easing": "cubic-bezier(.45,0,.6,1)",
+      "fill": "forwards"
+    }
+  },
+  {
+    "act": "read",
+    "keys": [
+      {
+        "transform": "translate3d(0,0,0) rotate(0deg)"
+      },
+      {
+        "transform": "translate3d(0px,-16px,0) rotate(0deg)",
+        "offset": 0.25
+      },
+      {
+        "transform": "translate3d(0px,-782px,0) rotate(0deg)"
+      }
+    ],
+    "opts": {
+      "duration": 460,
+      "easing": "cubic-bezier(.45,0,.6,1)",
+      "fill": "forwards"
+    }
+  }
+]

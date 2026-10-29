@@ -1,0 +1,34 @@
+package app.polka.nativeapp
+
+import org.json.*
+import org.junit.*
+import org.junit.Assert.*
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import java.time.*
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk=[34],manifest=Config.NONE)
+class ReadingStatisticsTests {
+ private val today=LocalDate.of(2028,3,15)
+ private val zone=ZoneId.of("Europe/Moscow")
+ private fun stamp(d:LocalDate)=d.atTime(12,0).atZone(zone).toInstant().toEpochMilli()
+ private fun book(id:String,date:LocalDate?=null,vararg authors:String)=JSONObject().put("id",id).put("title",id).put("progress",JSONObject().put("pct",1.0)).put("authors",JSONArray(authors.toList())).apply{date?.let{put("completedAt",stamp(it))}}
+ @Test fun countsRespectMonthYearAllAndUnknownDates(){val books=listOf(book("m",today),book("y",today.withMonth(1)),book("old",today.minusYears(1)),book("unknown"),book("not-done",today).put("progress",JSONObject().put("pct",.6)));val m=ReadingStatistics(JSONObject(),books,today,zone);assertEquals(1,m.countMonth(YearMonth.from(today)));assertEquals(2,m.countYear(2028));assertEquals(4,m.finished.size);assertEquals(1,m.undated.size)}
+ @Test fun duplicateIdsCannotInflateCounts(){val b=book("a",today);assertEquals(1,ReadingStatistics(JSONObject(),listOf(b,b.copyJson()),today,zone).finished.size)}
+ @Test fun futureAndMalformedTimestampsDoNotFabricateCalendarEntries(){val m=ReadingStatistics(JSONObject(),listOf(book("a",today.plusDays(1)),book("b").put("completedAt","invalid")),today,zone);assertEquals(0,m.countYear(today.year));assertEquals(2,m.undated.size);assertTrue(m.on(today).isEmpty())}
+ @Test fun completionUsesUserLocalDateNotUtcDate(){val b=book("a").put("completedAt",Instant.parse("2028-03-14T22:30:00Z").toEpochMilli());val m=ReadingStatistics(JSONObject(),listOf(b),today,zone);assertEquals(1,m.on(today).size);assertEquals(0,m.on(today.minusDays(1)).size)}
+ @Test fun averageIncludesDaysWithoutReadingAndUsesCalendarBoundaries(){val days=JSONObject().put("2028-03-01",JSONObject().put("ms",150*60000L));val m=ReadingStatistics(JSONObject().put("days",days),emptyList(),today,zone);assertEquals(150*60000L,m.total(0));assertEquals(10*60000L,m.average(0));assertEquals(150*60000L/75,m.average(1));assertEquals(10*60000L,m.average(2))}
+ @Test fun invalidFutureNegativeDaysAreNotUsed(){val days=JSONObject().put("bad",JSONObject().put("ms",99999)).put(today.plusDays(1).toString(),JSONObject().put("ms",99999)).put(today.toString(),JSONObject().put("ms",-1));val m=ReadingStatistics(JSONObject().put("days",days),emptyList(),today,zone);assertEquals(0L,m.total(2));assertEquals(0L,m.average(2));assertEquals(0,m.speed)}
+ @Test fun favoriteCountsBooksNotTimeOrDuplicateCoauthorNames(){val books=listOf(book("a",today," Автор ","автор","Другой"),book("b",today,"Автор"),book("c",today,"Другой"),book("d",today,"Автор").put("progress",JSONObject().put("pct",.5)));val f=ReadingStatistics(JSONObject(),books,today,zone).favorite!!;assertEquals(2,f.count);assertEquals(2,f.books.size);assertEquals("Автор",f.name)}
+ @Test fun emptyFavoriteIsNull(){assertNull(ReadingStatistics(JSONObject(),listOf(book("no-author")),today,zone).favorite)}
+ @Test fun annualGoalEditsAreYearScopedAndPreserveLedger(){val data=JSONObject().put("goal",15).put("days",JSONObject().put("2028-03-15",JSONObject().put("ms",1000)));changeAnnualGoal(data,2028,24);changeAnnualGoal(data,2029,52);changeAnnualGoal(data,2028,12);assertEquals(12,data.getJSONObject("annualGoals").getInt("2028"));assertEquals(52,data.getJSONObject("annualGoals").getInt("2029"));assertEquals(15,data.getInt("goal"));assertEquals(1000,data.getJSONObject("days").getJSONObject("2028-03-15").getInt("ms"));changeAnnualGoal(data,2028,null);assertFalse(data.getJSONObject("annualGoals").has("2028"));assertEquals(52,data.getJSONObject("annualGoals").getInt("2029"))}
+ @Test fun targetsValidateAndDoNotClampUserInputSilently(){for(n in listOf(0,-1,10000)){assertThrows(IllegalArgumentException::class.java){changeAnnualGoal(JSONObject(),2028,n)}}}
+ @Test fun yearlyPaceHandlesLeapYearAndFutureYear(){val m=ReadingStatistics(JSONObject(),emptyList(),LocalDate.of(2028,12,31),zone);assertEquals(366,m.expected(2028,366));assertEquals(0,m.expected(2029,24));val leap=ReadingStatistics(JSONObject(),emptyList(),LocalDate.of(2028,2,29),zone);assertEquals(60,leap.expected(2028,366))}
+ @Test fun goalProgressCanExceedTargetWithoutLosingReadBooks(){val data=JSONObject();changeAnnualGoal(data,2028,1);val m=ReadingStatistics(data,listOf(book("a",today),book("b",today)),today,zone);assertEquals(2,m.countYear(2028));assertEquals(1,m.target(2028))}
+ @Test fun midnightCreditsSplitAndConserveTotals(){val data=JSONObject().put("goal",1);val end=today.atTime(0,0,30).atZone(zone).toInstant().toEpochMilli();creditReading(data,"a",end,90000,900,zone);val m=ReadingStatistics(data,emptyList(),today,zone);assertEquals(60000L,m.ms(today.minusDays(1)));assertEquals(30000L,m.ms(today));assertEquals(90000L,m.total(2));assertEquals(900L,m.entries.sumOf{it.second.optLong("chars")});assertTrue(m.met(today.minusDays(1)));assertFalse(m.met(today))}
+ @Test fun daylightSavingChangeConservesElapsedTime(){val berlin=ZoneId.of("Europe/Berlin");val end=ZonedDateTime.of(2028,3,26,4,0,0,0,berlin).toInstant().toEpochMilli();val data=JSONObject();creditReading(data,"a",end,4*3600000L,400,berlin);assertEquals(4*3600000L,data.getJSONObject("days").keys().asSequence().sumOf{data.getJSONObject("days").getJSONObject(it).getLong("ms")})}
+ @Test fun historicalStreakSurvivesNewThresholdAndCrossesYearBoundary(){val date=LocalDate.of(2028,1,2);val days=JSONObject();repeat(3){days.put(date.minusDays((it+1).toLong()).toString(),JSONObject().put("ms",60000).put("met",true))};val m=ReadingStatistics(JSONObject().put("days",days).put("goal",60),emptyList(),date,zone);assertEquals(3,m.streak);assertFalse(m.met(date));assertFalse(m.met(date.plusDays(1)))}
+ @Test fun completionAndGoalRoundTripInStandardBackup(){val b=book("a",today,"Автор").put("noFile",true);val data=JSONObject().put("days",JSONObject()).put("books",JSONObject());changeAnnualGoal(data,2028,24);val stats=MetaRow("stats",JSONObject().put("id","stats").put("data",data).toString());val prefs=MetaRow("prefs",JSONObject().put("id","prefs").put("data",JSONObject().put("shelves",JSONArray())).toString());val snapshot=Snapshot(listOf(BookRow("a",b.toString())),emptyList(),listOf(stats,prefs),emptyList());val bytes=java.io.ByteArrayOutputStream();Backup.write(snapshot,bytes);val restored=Backup.read(bytes.toByteArray().inputStream());val m=ReadingStatistics(JSONObject(restored.meta.first{it.id=="stats"}.json).getJSONObject("data"),restored.books.map{JSONObject(it.json)},today,zone);assertEquals(24,m.target(2028));assertEquals(1,m.on(today).size)}
+}

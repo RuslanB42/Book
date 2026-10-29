@@ -1,0 +1,47 @@
+function recStart(box) {
+  const pages = recStartList();
+  const page = pages[REC.startPage % Math.max(1, pages.length)] || [];
+  const sel = REC.startSel;
+  const known = recPositive();
+  const go = h('button', { class: 'btn wide primary' }, 'Подобрать книги');
+  const paintGo = () => { go.textContent = sel.size ? `Подобрать книги · ${sel.size}` : 'Подобрать книги'; };
+  const grid = h('div', { class: 'fy-pick fy-look' }, page.map((i) => {
+    const b = recBook(i), gb = b.gb;
+    const el = h('button', { class: 'fy-pk', 'aria-pressed': String(sel.has(gb)), 'aria-label': `${b.title}, ${authorsStr(b)}`, onclick: () => { sel.has(gb) ? sel.delete(gb) : sel.add(gb); el.setAttribute('aria-pressed', String(sel.has(gb))); paintGo(); if (!reduceMotion()) el.animate([{ transform: 'scale(.94)' }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.34,1.5,.64,1)' }); } },
+      coverEl(b), h('span', { class: 'fy-pk-t' }, b.title), h('span', { class: 'fy-pk-ok', 'aria-hidden': 'true' }));
+    return el;
+  }));
+  go.onclick = () => { REC.st.picks = [...new Set([...REC.st.picks, ...sel])]; REC.st.onboarded = true; sel.clear(); recSave(); recPaint(box); };
+  paintGo();
+  box.replaceChildren(h('div', { class: 'fy-start' },
+    h('h2', null, 'Какие из этих книг вам понравились?'),
+    h('p', { class: 'muted' }, known ? `${known} ${plural(known, ['книгу', 'книги', 'книг'])} из вашей библиотеки мы уже учли. Отметьте ещё несколько — с них начнётся подборка.` : 'Отметьте несколько книг, которые вам нравятся, — с них начнётся подборка.'),
+    grid,
+    h('button', { class: 'link-btn fy-more', onclick: () => { REC.startPage++; recStart(box); } }, 'Показать другие'),
+    h('div', { class: 'fy-start-go' }, go, h('button', { class: 'link-btn', onclick: () => { REC.st.onboarded = true; recSave(); recPaint(box); } }, 'Пропустить'))));
+}
+function recTune(box) {
+  const d = REC.data;
+  const lib = state.books.filter((b) => !b.sample && !b.noFile);
+  const matched = lib.filter((b) => recMatch(b) >= 0).length;
+  const hidden = Object.values(REC.st.sw).filter((s) => s.a === 'nope').length;
+  let s;
+  const body = h('div', { class: 'detail fy-tune-body' },
+    h('div', { class: 'group menu-list' },
+      h('button', { onclick: () => { s.close(true); REC.startSel.clear(); recStart(box); } }, icon('plus'), 'Отметить любимые книги'),
+      hidden ? h('button', { onclick: () => { for (const [g, v] of Object.entries(REC.st.sw)) if (v.a === 'nope') delete REC.st.sw[g]; recSave(); s.close(true); recPaint(box); toast('Скрытые книги снова в подборке'); } }, icon('back'), `Вернуть скрытые книги · ${hidden}`) : null,
+      h('button', { class: 'danger', onclick: async () => { s.close(true); if (await confirmSheet({ title: 'Начать подборку заново?', text: 'Отметки «Не то», «Читал» и выбранные любимые книги забудутся. Книги на полках останутся.', ok: 'Начать заново', danger: true })) { REC.st = { v: 1, picks: [], sw: {}, onboarded: false }; REC.hist = []; recSave(); recPaint(box); } } }, icon('trash'), 'Начать заново')),
+    h('p', { class: 'muted fy-note' }, lib.length ? `Мы узнали ${matched} из ${lib.length} ${plural(lib.length, BOOKS)} вашей библиотеки. Остальных пока нет в каталоге — по ним подборка не строится.` : ''),
+    h('p', { class: 'muted fy-note' }, `В каталоге ${d.b.length.toLocaleString('ru')} книг. Связи между ними посчитаны по открытым оценкам читателей (Goodbooks-10k, CC BY-SA 4.0). Подборка считается на вашем устройстве — ничего никуда не отправляется.`));
+  s = openSheet({ title: 'Подборка', body });
+}
+
+/* ---------- books without a file ---------- */
+async function mergeIntoWish(book, res) {
+  const keep = { id: book.id, origin: 'recommendation', shelf: book.shelf, pos: book.pos, rating: book.rating, notes: book.notes, rec: book.rec, addedAt: book.addedAt, quotes: book.quotes || [] };
+  const wishAnnot = book.annotation;
+  const merged = Object.assign({}, book, res.book, keep);
+  if (!merged.annotation) merged.annotation = wishAnnot;
+  delete merged.noFile; delete merged.recPages;
+  if (merged.rating == null) delete merged.rating;
+  res.c
