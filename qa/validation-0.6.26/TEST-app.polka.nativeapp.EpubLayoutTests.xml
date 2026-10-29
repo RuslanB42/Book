@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.EpubLayoutTests" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:50:08" hostname="71325153-6c8" time="0.413">
+  <properties/>
+  <testcase name="paragraphStylesDoNotLeakIntoFollowingBlocks" classname="app.polka.nativeapp.EpubLayoutTests" time="0.029"/>
+  <testcase name="epubExportRetainsNavigationAndRewritesInternalLinks" classname="app.polka.nativeapp.EpubLayoutTests" time="0.085"/>
+  <testcase name="tableRowsSplitInsteadOfLosingLongCellText" classname="app.polka.nativeapp.EpubLayoutTests" time="0.033"/>
+  <testcase name="nativeRendererPreservesListsTablesAndAnchors" classname="app.polka.nativeapp.EpubLayoutTests" time="0.029"/>
+  <testcase name="renderStructuredReadingPreview" classname="app.polka.nativeapp.EpubLayoutTests" time="0.061"/>
+  <testcase name="svgBookResourceDecodesNatively" classname="app.polka.nativeapp.EpubLayoutTests" time="0.056"/>
+  <testcase name="epub3NestedNavigationAndSameFileAnchors" classname="app.polka.nativeapp.EpubLayoutTests" time="0.031"/>
+  <testcase name="epub2NcxHasTheSameHierarchy" classname="app.polka.nativeapp.EpubLayoutTests" time="0.055"/>
+  <testcase name="generatedCoverTypefaceMatchesReferenceWidth" classname="app.polka.nativeapp.EpubLayoutTests" time="0.033"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

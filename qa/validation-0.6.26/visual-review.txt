@@ -1,0 +1,7 @@
+FAIL detail-flight-shadow: cover full and no heading; existing outside-shadow regression fails, investigate before delivery.
+PASS launcher-dark: graphite background, five silver embossed spines and shelf, clean small-size silhouette, no lettering; adaptive safe-circle test passed.
+PASS restored-flame: original layered flame and streak number restored, fits Solar card and weekly row without clipping.
+PASS grid-close-160: full patterned cover and bottom board remain visible while returning; no visible detail heading, floating controls retained.
+PASS carousel-close-70: flying cover remains complete above sheet and crosses carousel card boundaries; only underlying grid is naturally occluded by moving panel.
+PASS detail-flight-shadow RECHECK: visibility guard included in compiled source; outside-shadow regression passes, earlier FAIL resolved.
+PASS boot-icon: centered new shelf symbol on graphite, no text placeholder; matching launcher artwork.

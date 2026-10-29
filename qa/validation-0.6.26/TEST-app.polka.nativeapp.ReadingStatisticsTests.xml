@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.ReadingStatisticsTests" tests="16" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:50:35" hostname="71325153-6c8" time="0.376">
+  <properties/>
+  <testcase name="completionUsesUserLocalDateNotUtcDate" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.04"/>
+  <testcase name="invalidFutureNegativeDaysAreNotUsed" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.029"/>
+  <testcase name="favoriteCountsBooksNotTimeOrDuplicateCoauthorNames" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.024"/>
+  <testcase name="countsRespectMonthYearAllAndUnknownDates" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.022"/>
+  <testcase name="targetsValidateAndDoNotClampUserInputSilently" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.021"/>
+  <testcase name="duplicateIdsCannotInflateCounts" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.022"/>
+  <testcase name="historicalStreakSurvivesNewThresholdAndCrossesYearBoundary" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.018"/>
+  <testcase name="futureAndMalformedTimestampsDoNotFabricateCalendarEntries" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.02"/>
+  <testcase name="midnightCreditsSplitAndConserveTotals" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.031"/>
+  <testcase name="emptyFavoriteIsNull" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.024"/>
+  <testcase name="yearlyPaceHandlesLeapYearAndFutureYear" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.023"/>
+  <testcase name="goalProgressCanExceedTargetWithoutLosingReadBooks" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.018"/>
+  <testcase name="completionAndGoalRoundTripInStandardBackup" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.019"/>
+  <testcase name="averageIncludesDaysWithoutReadingAndUsesCalendarBoundaries" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.023"/>
+  <testcase name="annualGoalEditsAreYearScopedAndPreserveLedger" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.021"/>
+  <testcase name="daylightSavingChangeConservesElapsedTime" classname="app.polka.nativeapp.ReadingStatisticsTests" time="0.02"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

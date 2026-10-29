@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.SurfaceMotionTests" tests="12" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:52:30" hostname="71325153-6c8" time="25.13">
+  <properties/>
+  <testcase name="closeWithNoVisibleDestinationFadesOnlyAtTheEndAndReleasesStage" classname="app.polka.nativeapp.SurfaceMotionTests" time="0.993"/>
+  <testcase name="retargetKeepsPositionAndVelocityInsteadOfRestarting" classname="app.polka.nativeapp.SurfaceMotionTests" time="0.498"/>
+  <testcase name="reducedMotionClosesImmediatelyAndKeepsSavedReadingPosition" classname="app.polka.nativeapp.SurfaceMotionTests" time="1.027"/>
+  <testcase name="lightAndDarkSolidScreensKeepTextAndTouchGeometry" classname="app.polka.nativeapp.SurfaceMotionTests" time="1.947"/>
+  <testcase name="lightReturnKeepsChromeAndCancellationRestoresTheSourceCover" classname="app.polka.nativeapp.SurfaceMotionTests" time="2.32"/>
+  <testcase name="tinyCoverSourceUsesFullProjectedTextureResolution" classname="app.polka.nativeapp.SurfaceMotionTests" time="0.532"/>
+  <testcase name="openingKeepsLibraryDuringPreparationAndNoSolidVeilAtStart" classname="app.polka.nativeapp.SurfaceMotionTests" time="2.695"/>
+  <testcase name="navigationKeepsInstanceAndRetargetsRapidChanges" classname="app.polka.nativeapp.SurfaceMotionTests" time="0.507"/>
+  <testcase name="reducedMotionOpensWithoutSceneOrTransitionOverlay" classname="app.polka.nativeapp.SurfaceMotionTests" time="4.802"/>
+  <testcase name="olderAndroidUsesSolidSurfaces" classname="app.polka.nativeapp.SurfaceMotionTests" time="1.333"/>
+  <testcase name="openingFromDetailKeepsSourceBeforeAsyncLoad" classname="app.polka.nativeapp.SurfaceMotionTests" time="4.285"/>
+  <testcase name="closeReversesLivePageWithoutReloadAndSavesPosition" classname="app.polka.nativeapp.SurfaceMotionTests" time="4.191"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+]]></system-err>
+</testsuite>

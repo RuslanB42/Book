@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.SwipeVisualTests" tests="17" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:52:55" hostname="71325153-6c8" time="20.754">
+  <properties/>
+  <testcase name="searchNoResultsExplainsAllSearchFieldsWithoutSubmitDialog" classname="app.polka.nativeapp.SwipeVisualTests" time="1.26"/>
+  <testcase name="liveSearchKeepsEditorFocusSelectionAndToolbarInstance" classname="app.polka.nativeapp.SwipeVisualTests" time="1.238"/>
+  <testcase name="launcherUsesAdaptiveIconOnOlderSamsungAndroid" classname="app.polka.nativeapp.SwipeVisualTests" time="1.402"/>
+  <testcase name="launcherSupportsThemedIconAndOpticallyCentredSafeGlyph" classname="app.polka.nativeapp.SwipeVisualTests" time="1.056"/>
+  <testcase name="exactWebFlightKeyframesAndDurations" classname="app.polka.nativeapp.SwipeVisualTests" time="0.996"/>
+  <testcase name="heldUpCardCrossesHeaderAndStatusZoneWithoutScrollingPage" classname="app.polka.nativeapp.SwipeVisualTests" time="1.28"/>
+  <testcase name="heldRightCardDrawsAcrossInternalRightBoundary" classname="app.polka.nativeapp.SwipeVisualTests" time="1.381"/>
+  <testcase name="keyboardInsetDoesNotRecreateOrDefocusSearch" classname="app.polka.nativeapp.SwipeVisualTests" time="1.229"/>
+  <testcase name="menuSitsAtSafeBoundaryWithoutExtraFourteenDp" classname="app.polka.nativeapp.SwipeVisualTests" time="1.206"/>
+  <testcase name="searchOpensInsideToolbarAndExplicitlyRequestsKeyboard" classname="app.polka.nativeapp.SwipeVisualTests" time="1.296"/>
+  <testcase name="heldLeftCardDrawsAcrossInternalLeftBoundary" classname="app.polka.nativeapp.SwipeVisualTests" time="1.308"/>
+  <testcase name="cancelledVerticalGestureReturnsWithoutVoteOrScroll" classname="app.polka.nativeapp.SwipeVisualTests" time="1.338"/>
+  <testcase name="nextBookIsPromotedWithoutDestroyingItsView" classname="app.polka.nativeapp.SwipeVisualTests" time="1.302"/>
+  <testcase name="tintForUpwardSwipeIsVerticalNotDiagonal" classname="app.polka.nativeapp.SwipeVisualTests" time="1.185"/>
+  <testcase name="searchMatchesSeriesAndShelfAcrossTabsRatherThanCurrentShelfOnly" classname="app.polka.nativeapp.SwipeVisualTests" time="0.992"/>
+  <testcase name="upwardReleaseOpensRatingWhileBookLeavesThroughScreenTop" classname="app.polka.nativeapp.SwipeVisualTests" time="1.266"/>
+  <testcase name="clearingSearchKeepsOpenFieldAndClosingRestoresOriginalTab" classname="app.polka.nativeapp.SwipeVisualTests" time="1.016"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+]]></system-err>
+</testsuite>

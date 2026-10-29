@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.TransferRegressionTests" tests="29" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:48:26" hostname="71325153-6c8" time="98.126">
+  <properties/>
+  <testcase name="s22InsetsNavigationAndKeyboardStayInsideSafeArea" classname="app.polka.nativeapp.TransferRegressionTests" time="21.459"/>
+  <testcase name="quotesAreGroupedAndReturnWithoutLosingBooks" classname="app.polka.nativeapp.TransferRegressionTests" time="8.403"/>
+  <testcase name="onboardingPagesMatchAllOriginalJavaScriptFixtures" classname="app.polka.nativeapp.TransferRegressionTests" time="1.161"/>
+  <testcase name="readerNavigationRestoresThreeTabsAndSearchWithoutLeavingBook" classname="app.polka.nativeapp.TransferRegressionTests" time="3.396"/>
+  <testcase name="nativeBookOpeningUsesLiveReaderAndMatchesOriginalTimeline" classname="app.polka.nativeapp.TransferRegressionTests" time="3.945"/>
+  <testcase name="normalOpeningWaitsForStableLayoutThenRestoresSameReader" classname="app.polka.nativeapp.TransferRegressionTests" time="1.846"/>
+  <testcase name="skippingStarterDoesNotCommitTemporarySelection" classname="app.polka.nativeapp.TransferRegressionTests" time="1.556"/>
+  <testcase name="detailCoverFlightAndCloseDoNotReplaceWindow" classname="app.polka.nativeapp.TransferRegressionTests" time="2.765"/>
+  <testcase name="inlineEditorFailureRollsBackAndLeavesDraftForRetry" classname="app.polka.nativeapp.TransferRegressionTests" time="1.777"/>
+  <testcase name="readerNotebookListsFiltersCopiesAndOpensQuoteInSameReader" classname="app.polka.nativeapp.TransferRegressionTests" time="2.475"/>
+  <testcase name="inlineEditorStartsWithOnlyTheVisiblePageAndKeepsSameReader" classname="app.polka.nativeapp.TransferRegressionTests" time="1.931"/>
+  <testcase name="readGestureWaitsForRatingAndSkipCreatesUnratedSignal" classname="app.polka.nativeapp.TransferRegressionTests" time="1.563"/>
+  <testcase name="redesignedDetailKeepsUnderlyingScreenAndSeparatesReadingQuotesAndMetadata" classname="app.polka.nativeapp.TransferRegressionTests" time="1.633"/>
+  <testcase name="gridKeepsThousandBooksBoundedToViewport" classname="app.polka.nativeapp.TransferRegressionTests" time="0.8"/>
+  <testcase name="openingKeyframesAndCancellationAreDeterministic" classname="app.polka.nativeapp.TransferRegressionTests" time="0.76"/>
+  <testcase name="quotesSwitchWithoutReplacingActivityChromeOrNavigation" classname="app.polka.nativeapp.TransferRegressionTests" time="1.694"/>
+  <testcase name="pageTurnWaitsForNewLayoutAndKeepsOutgoingBitmapAlive" classname="app.polka.nativeapp.TransferRegressionTests" time="2.288"/>
+  <testcase name="readerUsesCutoutSafeAreaWithoutSystemBarBandsAndRestoresLibrary" classname="app.polka.nativeapp.TransferRegressionTests" time="4.061"/>
+  <testcase name="readerPreparesOffMainAndTurningReusesPagination" classname="app.polka.nativeapp.TransferRegressionTests" time="4.066"/>
+  <testcase name="wishIsSavedToShelfAndUndoAfterMovingShelfRemovesOnlyItsNewCard" classname="app.polka.nativeapp.TransferRegressionTests" time="2.694"/>
+  <testcase name="samsungPreEdgeToEdgeReaderAlsoHidesSystemBars" classname="app.polka.nativeapp.TransferRegressionTests" time="6.139"/>
+  <testcase name="onboardingSelectionSurvivesPageChangeAndCommitsOnlyOnGo" classname="app.polka.nativeapp.TransferRegressionTests" time="1.702"/>
+  <testcase name="actualTouchCannotFocusTintPageOrOutgoingSnapshot[28]" classname="app.polka.nativeapp.TransferRegressionTests" time="3.649"/>
+  <testcase name="actualTouchCannotFocusTintPageOrOutgoingSnapshot" classname="app.polka.nativeapp.TransferRegressionTests" time="3.73"/>
+  <testcase name="backDoesNotDiscardDirtyInlinePage" classname="app.polka.nativeapp.TransferRegressionTests" time="1.493"/>
+  <testcase name="openingPhasesAreContinuousMonotonicAndExactlyReversible" classname="app.polka.nativeapp.TransferRegressionTests" time="0.775"/>
+  <testcase name="inlineEditorCommitsOnlyPageThenReopensWithSameText" classname="app.polka.nativeapp.TransferRegressionTests" time="4.03"/>
+  <testcase name="mergedTableRetainsImagesFormattingAndClickableLinks" classname="app.polka.nativeapp.TransferRegressionTests" time="0.775"/>
+  <testcase name="recommendationExpansionStaggerAndReturnAreDeterministic" classname="app.polka.nativeapp.TransferRegressionTests" time="5.546"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+]]></system-err>
+</testsuite>

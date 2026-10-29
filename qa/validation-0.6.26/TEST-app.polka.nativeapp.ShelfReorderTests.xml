@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.ShelfReorderTests" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:50:49" hostname="71325153-6c8" time="14.09">
+  <properties/>
+  <testcase name="lightHomeAndBookPanelStayInsideSystemZones" classname="app.polka.nativeapp.ShelfReorderTests" time="0.957"/>
+  <testcase name="reorderedSubsetReusesGlobalSlotsAndNormalizesMissingPositions" classname="app.polka.nativeapp.ShelfReorderTests" time="0.533"/>
+  <testcase name="scrimAndBookPanelFillFormerSystemBarGutters" classname="app.polka.nativeapp.ShelfReorderTests" time="0.849"/>
+  <testcase name="titleSortAlsoAllowsLongPressAndSwitchesToManual" classname="app.polka.nativeapp.ShelfReorderTests" time="0.929"/>
+  <testcase name="quickTapStillOpensBookAndEarlyScrollDoesNotLift" classname="app.polka.nativeapp.ShelfReorderTests" time="0.694"/>
+  <testcase name="cancelAndBackRestoreOriginalSlotsAndRemoveGhost" classname="app.polka.nativeapp.ShelfReorderTests" time="0.501"/>
+  <testcase name="holdMovesImmediatelyAndPersistsWithoutRebuildingOrOpeningDetail" classname="app.polka.nativeapp.ShelfReorderTests" time="1.595"/>
+  <testcase name="scrolledBooksReachBehindTransparentStatusBar" classname="app.polka.nativeapp.ShelfReorderTests" time="0.761"/>
+  <testcase name="animatedNeighboursLandAndNoPingPongAtSameFingerPosition" classname="app.polka.nativeapp.ShelfReorderTests" time="0.997"/>
+  <testcase name="wholeApplicationUsesCutoutGesturesKeyboardAndSideBars" classname="app.polka.nativeapp.ShelfReorderTests" time="3.335"/>
+  <testcase name="legacyBarsAndCutoutAreCombined" classname="app.polka.nativeapp.ShelfReorderTests" time="0.542"/>
+  <testcase name="backgroundCancelsUnfinishedReorderWithoutSaving" classname="app.polka.nativeapp.ShelfReorderTests" time="0.548"/>
+  <testcase name="sheetsReceiveOwnInsetsRatherThanAssumingActivityInsets" classname="app.polka.nativeapp.ShelfReorderTests" time="0.646"/>
+  <testcase name="legacyLightSystemBarsKeepReadableIcons" classname="app.polka.nativeapp.ShelfReorderTests" time="0.53"/>
+  <testcase name="autoscrollKeepsGhostAndVirtualizationBounded" classname="app.polka.nativeapp.ShelfReorderTests" time="0.672"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+]]></system-err>
+</testsuite>

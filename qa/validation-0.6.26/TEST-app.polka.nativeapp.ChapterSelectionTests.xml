@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.ChapterSelectionTests" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:50:08" hostname="71325153-6c8" time="0.001">
+  <properties/>
+  <testcase name="handlesCanCrossAndUnicodeWordsDoNotSplit" classname="app.polka.nativeapp.ChapterSelectionTests" time="0.001"/>
+  <testcase name="blankAndEdgeOffsetsAreSafe" classname="app.polka.nativeapp.ChapterSelectionTests" time="0.0"/>
+  <testcase name="rangesContainEveryCharacterAcrossPageBoundaries" classname="app.polka.nativeapp.ChapterSelectionTests" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

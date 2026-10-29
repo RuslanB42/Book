@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.PageHtmlPatchTests" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:50:13" hostname="71325153-6c8" time="0.651">
+  <properties/>
+  <testcase name="inlineFormattingPreservesOtherNodesAndAnchors" classname="app.polka.nativeapp.PageHtmlPatchTests" time="0.144"/>
+  <testcase name="repeatedTextUsesSourceLocationNotFirstMatch" classname="app.polka.nativeapp.PageHtmlPatchTests" time="0.028"/>
+  <testcase name="partialPagePreservesOutsideTextLinksIdsAndFormatting" classname="app.polka.nativeapp.PageHtmlPatchTests" time="0.042"/>
+  <testcase name="diffReconstructsRandomTextEditsIncludingEmptyStrings" classname="app.polka.nativeapp.PageHtmlPatchTests" time="0.059"/>
+  <testcase name="partialNativeTableCannotBeSilentlyDestroyed" classname="app.polka.nativeapp.PageHtmlPatchTests" time="0.227"/>
+  <testcase name="deletingParagraphBoundaryMergesWithoutLosingTailOrId" classname="app.polka.nativeapp.PageHtmlPatchTests" time="0.049"/>
+  <testcase name="separatedEditsDoNotFlattenUntouchedInlineMarkup" classname="app.polka.nativeapp.PageHtmlPatchTests" time="0.056"/>
+  <testcase name="rawWhitespaceUnicodeEntitiesAndInsertedNewlineRoundtrip" classname="app.polka.nativeapp.PageHtmlPatchTests" time="0.044"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

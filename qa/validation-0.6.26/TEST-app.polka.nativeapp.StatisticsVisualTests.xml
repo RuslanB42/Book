@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.StatisticsVisualTests" tests="26" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:51:03" hostname="71325153-6c8" time="26.373">
+  <properties/>
+  <testcase name="nextYearGoalStaysSelectedAfterSave" classname="app.polka.nativeapp.StatisticsVisualTests" time="1.123"/>
+  <testcase name="lightAndEmptyStatesHaveNoFakeNumbers" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.932"/>
+  <testcase name="calendarSavingUsesSystemDocumentPicker" classname="app.polka.nativeapp.StatisticsVisualTests" time="1.234"/>
+  <testcase name="fullscreenCalendarLandscapeScrollsAtReadableScale" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.672"/>
+  <testcase name="calendarKeepsFocusedMonthAcrossModesAndDoesNotExposeFutureMonths" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.657"/>
+  <testcase name="annualCalendarUsesCoverRowsAndOpensMonth" classname="app.polka.nativeapp.StatisticsVisualTests" time="1.161"/>
+  <testcase name="missingDatesCanBeEnteredWithoutChangingStatusOrReadingTime" classname="app.polka.nativeapp.StatisticsVisualTests" time="1.432"/>
+  <testcase name="phoneLandscapeRemainsScrollableAndInsideSafeArea" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.731"/>
+  <testcase name="calendarDayCellsAreLargeAndAccessibleWithExactMultiBookCount" classname="app.polka.nativeapp.StatisticsVisualTests" time="1.091"/>
+  <testcase name="lightAnnualCalendarAndPartialRangeKeepOnlyRealDates" classname="app.polka.nativeapp.StatisticsVisualTests" time="1.423"/>
+  <testcase name="periodSwitchAndBarSelectionDoNotRecreateScreen" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.688"/>
+  <testcase name="fullscreenCalendarMonthYearCustomRangeAndBack" classname="app.polka.nativeapp.StatisticsVisualTests" time="1.49"/>
+  <testcase name="olderAndroidDateWheelsUseLightThemeInLightMode" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.932"/>
+  <testcase name="calendarAndPageTitleAreRemovedWithoutChangingLedgers" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.63"/>
+  <testcase name="requestedMetricsOnlyAndDarkScreens" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.719"/>
+  <testcase name="targetInputValidationAndEditDoNotOverwriteLatestLedger" classname="app.polka.nativeapp.StatisticsVisualTests" time="1.572"/>
+  <testcase name="streakKeepsTheOriginalFlameEmblem" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.699"/>
+  <testcase name="calendarShareUsesContentUriAndReadOnlyGrant" classname="app.polka.nativeapp.StatisticsVisualTests" time="1.274"/>
+  <testcase name="smallPhoneSupportsLargeTextWithoutHorizontalOverflow" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.71"/>
+  <testcase name="infographicsAnimateOnlyWhenVisibleAndReducedMotionIsStatic" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.786"/>
+  <testcase name="partialSingleMonthShowsRangeAndExportWaitsForRasterCover" classname="app.polka.nativeapp.StatisticsVisualTests" time="1.495"/>
+  <testcase name="lightCalendarAndEmptyExportAreClean" classname="app.polka.nativeapp.StatisticsVisualTests" time="1.471"/>
+  <testcase name="tabletContentIsBoundedAndCalendarRemainsUsable" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.675"/>
+  <testcase name="streakThresholdIsInSettingsAndPersisted" classname="app.polka.nativeapp.StatisticsVisualTests" time="1.577"/>
+  <testcase name="statisticsHasNoExplanatoryWallOrThresholdButton" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.547"/>
+  <testcase name="fullscreenSmallPhoneDoesNotShrinkPosterToFitHeight" classname="app.polka.nativeapp.StatisticsVisualTests" time="0.649"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+]]></system-err>
+</testsuite>

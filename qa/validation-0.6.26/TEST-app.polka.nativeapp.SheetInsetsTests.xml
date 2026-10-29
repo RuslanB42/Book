@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.SheetInsetsTests" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:50:35" hostname="71325153-6c8" time="6.859">
+  <properties/>
+  <testcase name="keyboardMovesFormControlsButDoesNotCreateTransparentStrip" classname="app.polka.nativeapp.SheetInsetsTests" time="0.894"/>
+  <testcase name="tabletKeepsCenteredBoundedPanelInsideFullWindow" classname="app.polka.nativeapp.SheetInsetsTests" time="1.308"/>
+  <testcase name="gestureAndButtonInsetsDoNotFitTheWindowAboveNavigation" classname="app.polka.nativeapp.SheetInsetsTests" time="0.928"/>
+  <testcase name="tallSheetIsBoundedAndLastActionCanScrollAboveGestures" classname="app.polka.nativeapp.SheetInsetsTests" time="0.844"/>
+  <testcase name="landscapeSurfaceCoversSidesAndBottomWhileControlsAvoidCutout" classname="app.polka.nativeapp.SheetInsetsTests" time="0.749"/>
+  <testcase name="olderAndroidAlsoUsesNonFloatingFullWindow" classname="app.polka.nativeapp.SheetInsetsTests" time="0.803"/>
+  <testcase name="lightSheetAlsoPaintsUnderThreeButtonArea" classname="app.polka.nativeapp.SheetInsetsTests" time="0.724"/>
+  <testcase name="outsideTapClosesOnlyCancelableSheetAndSurfaceDoesNotClickThrough" classname="app.polka.nativeapp.SheetInsetsTests" time="0.609"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+]]></system-err>
+</testsuite>

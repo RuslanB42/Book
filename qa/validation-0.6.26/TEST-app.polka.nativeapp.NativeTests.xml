@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.NativeTests" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:50:08" hostname="71325153-6c8" time="4.138">
+  <properties/>
+  <testcase name="dataSurvivesClosingAndReopeningDatabase" classname="app.polka.nativeapp.NativeTests" time="2.679"/>
+  <testcase name="zipAndEpubParsers" classname="app.polka.nativeapp.NativeTests" time="0.056"/>
+  <testcase name="exportsUseUpdatedMetadataAndReadableChapters" classname="app.polka.nativeapp.NativeTests" time="0.147"/>
+  <testcase name="atomicRollbackKeepsLibraryUntouched" classname="app.polka.nativeapp.NativeTests" time="0.063"/>
+  <testcase name="streamingArchiveRoundTripAndAtomicFailure" classname="app.polka.nativeapp.NativeTests" time="0.128"/>
+  <testcase name="anchorsBridgeParagraphWhitespaceAndRepeatedText" classname="app.polka.nativeapp.NativeTests" time="0.035"/>
+  <testcase name="largeDatabaseValuesAreChunkedAndRestored" classname="app.polka.nativeapp.NativeTests" time="0.503"/>
+  <testcase name="backupRoundTripAndCorruptionRejected" classname="app.polka.nativeapp.NativeTests" time="0.073"/>
+  <testcase name="fb2ParsesRussianChapters" classname="app.polka.nativeapp.NativeTests" time="0.063"/>
+  <testcase name="originalWebBackupImports" classname="app.polka.nativeapp.NativeTests" time="0.065"/>
+  <testcase name="recommendationsUseEmbeddedRealCatalogue" classname="app.polka.nativeapp.NativeTests" time="0.127"/>
+  <testcase name="exportedBooksIncludeCurrentChapterEdits" classname="app.polka.nativeapp.NativeTests" time="0.057"/>
+  <testcase name="filterUsesOnlyCurrentShelfMembership" classname="app.polka.nativeapp.NativeTests" time="0.038"/>
+  <testcase name="recommendationUndoCanRemoveOnlyNewWishWithoutFile" classname="app.polka.nativeapp.NativeTests" time="0.101"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

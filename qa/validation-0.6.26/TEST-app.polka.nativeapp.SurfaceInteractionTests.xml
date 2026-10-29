@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.SurfaceInteractionTests" tests="44" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:51:30" hostname="71325153-6c8" time="60.564">
+  <properties/>
+  <testcase name="reducedMotionTabsHaveNoTransientSnapshotOrTranslation" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.602"/>
+  <testcase name="referenceStyleRedCoverHaloRendersInBothThemes" classname="app.polka.nativeapp.SurfaceInteractionTests" time="2.464"/>
+  <testcase name="bottomSheetNeverShowsRestingPoseOrFullScrimBeforeEntry" classname="app.polka.nativeapp.SurfaceInteractionTests" time="1.333"/>
+  <testcase name="deferredRefreshAfterDescriptionDoesNotRecreateOrRerankTheDeck" classname="app.polka.nativeapp.SurfaceInteractionTests" time="2.279"/>
+  <testcase name="sheetEdgeFadeHasSmoothEndpointsAndNoToolbarBoundary" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.525"/>
+  <testcase name="actualTabReturnDoesNotCreateAnAlphaLayerAtCarouselSideEdges" classname="app.polka.nativeapp.SurfaceInteractionTests" time="1.271"/>
+  <testcase name="landingHaloHasContinuousReversiblePositionBasedEnvelope" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.616"/>
+  <testcase name="landingLightIsGentleAtDisplayCadenceAndAttachedToMovingCover" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.579"/>
+  <testcase name="actualDetailOpeningRetainsHaloWhilePreparingThenFadesDuringApproach" classname="app.polka.nativeapp.SurfaceInteractionTests" time="1.992"/>
+  <testcase name="carouselRestoresSelectionBeforeFirstPaintAndReusesViewsOnTabReturn" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.595"/>
+  <testcase name="navigationCanBeScrubbedWithFinger" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.501"/>
+  <testcase name="softHaloHasZeroEdgesAndGradualPenumbra" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.53"/>
+  <testcase name="carouselViewportIsFullBleedAndHasNoFadingEdgeMasks" classname="app.polka.nativeapp.SurfaceInteractionTests" time="1.084"/>
+  <testcase name="reducedMotionRevealChangesImmediatelyWithoutTransparentInk" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.51"/>
+  <testcase name="labelledBackUsesSameChevronAndTouchSizeAsOtherBackControls" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.521"/>
+  <testcase name="downwardContentSwipeCancelsChildClickAndCommitsFromFingerPosition" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.662"/>
+  <testcase name="collapsedDetailQuotesAreTheSharedStackAndExpandOnTap" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.742"/>
+  <testcase name="tabsPushAsAdjacentPagesAndRapidRetargetKeepsPresentation" classname="app.polka.nativeapp.SurfaceInteractionTests" time="1.549"/>
+  <testcase name="rootSectionsDoNotRenderOversizedPageTitles" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.594"/>
+  <testcase name="aThousandQuotesNeverMountMoreThanThreeCards" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.699"/>
+  <testcase name="readingQueueIncludesEveryInProgressBookAndCarouselKeepsNextCardVisible" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.685"/>
+  <testcase name="bookDetailsHaveLiveQuotesExpandableDescriptionAndWrappingMetadata" classname="app.polka.nativeapp.SurfaceInteractionTests" time="2.186"/>
+  <testcase name="glowPaintOwnsOpacityAndPaddedBoundsContainTheEntirePenumbra" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.545"/>
+  <testcase name="openingLightDissolvesInsteadOfDisappearingAtSnapshotHandoff" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.564"/>
+  <testcase name="detailContentPassesBehindFloatingControlsToTheRealSheetEdge" classname="app.polka.nativeapp.SurfaceInteractionTests" time="3.004"/>
+  <testcase name="bookDetailFlightHasShadowOutsideCoverFromItsFirstMovingFrames" classname="app.polka.nativeapp.SurfaceInteractionTests" time="3.626"/>
+  <testcase name="swipeFlightFollowsFingerAndReleaseDoesNotResetThePose" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.714"/>
+  <testcase name="detailQuotesUseTheSameNativeComponentIncludingActionsAndNotes" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.534"/>
+  <testcase name="readerPanelBackgroundsReachScreenEdgesButButtonsKeepSafeInsets" classname="app.polka.nativeapp.SurfaceInteractionTests" time="4.086"/>
+  <testcase name="preparedHaloAppearsContinuouslyWithTheFinalCoverLanding" classname="app.polka.nativeapp.SurfaceInteractionTests" time="1.398"/>
+  <testcase name="brightHaloHasNoBottomStepWhenPartialAlphaBecomesFullAlpha" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.766"/>
+  <testcase name="glowIsPreparedBeforePresentationAndRepeatedOpenUsesSameRaster" classname="app.polka.nativeapp.SurfaceInteractionTests" time="1.422"/>
+  <testcase name="realArtworkGlowExistsOnlyInDetailsCachesAndStaysOutOfReadingSnapshots" classname="app.polka.nativeapp.SurfaceInteractionTests" time="2.148"/>
+  <testcase name="actionMenusUseRealVectorsAndPreserveActionCallbacks" classname="app.polka.nativeapp.SurfaceInteractionTests" time="1.01"/>
+  <testcase name="cachedCarouselCoverKeepsLoadedPixelsAfterGlobalCacheEviction" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.558"/>
+  <testcase name="realTouchDragAndCancelRestoresCoverWithoutJump" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.667"/>
+  <testcase name="sharedSurfacesCoverSheetsReaderSelectionAndEditorWithoutObscuringText" classname="app.polka.nativeapp.SurfaceInteractionTests" time="5.425"/>
+  <testcase name="recommendationCollapseStartsFromPresentationAndEndsWithIdenticalDeck" classname="app.polka.nativeapp.SurfaceInteractionTests" time="2.984"/>
+  <testcase name="quotesStackMorphsIntoCardsAndBackWithIntermediateHeights" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.885"/>
+  <testcase name="descriptionMorphsHeightAndCanReverseWithoutJump" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.847"/>
+  <testcase name="brightCoverLandingAndSwipeKeepTheSameUncroppedLightShape" classname="app.polka.nativeapp.SurfaceInteractionTests" time="2.831"/>
+  <testcase name="closingCoverKeepsItsBottomAndHandsOffWithoutAFlash" classname="app.polka.nativeapp.SurfaceInteractionTests" time="2.942"/>
+  <testcase name="glowRasterPreservesSpatialCoverColoursAndSmoothFalloff" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.563"/>
+  <testcase name="haloHasNaturalTopPenumbraNotAnOpaqueHeaderMask" classname="app.polka.nativeapp.SurfaceInteractionTests" time="0.513"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+]]></system-err>
+</testsuite>

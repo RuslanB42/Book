@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.ReaderCurlTests" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:50:17" hostname="71325153-6c8" time="17.502">
+  <properties/>
+  <testcase name="quoteHandleCrossesPageAndSavesExactChapterRange" classname="app.polka.nativeapp.ReaderCurlTests" time="2.146"/>
+  <testcase name="startHandleCanExtendOntoPreviousPageWithoutLosingEnd" classname="app.polka.nativeapp.ReaderCurlTests" time="1.592"/>
+  <testcase name="selectionEdgeDwellCanBeCancelledAndCannotCrossChapter" classname="app.polka.nativeapp.ReaderCurlTests" time="1.147"/>
+  <testcase name="backwardsCurlReturnsAndFirstPageCannotUnderflow" classname="app.polka.nativeapp.ReaderCurlTests" time="1.351"/>
+  <testcase name="fingerOwnsFoldAndCanReverseWithoutChangingPage" classname="app.polka.nativeapp.ReaderCurlTests" time="1.689"/>
+  <testcase name="chapterBoundaryCurlUsesWarmPreviewAndReturnsToLastPage" classname="app.polka.nativeapp.ReaderCurlTests" time="1.864"/>
+  <testcase name="realLongPressStartsChapterSelectionRatherThanTurning" classname="app.polka.nativeapp.ReaderCurlTests" time="1.305"/>
+  <testcase name="slowReleaseCommitsExactlyOnePageAndHandoffMatchesPreview" classname="app.polka.nativeapp.ReaderCurlTests" time="2.112"/>
+  <testcase name="reducedMotionAndNightPaperHaveNoSlideOrBlankFrame" classname="app.polka.nativeapp.ReaderCurlTests" time="1.707"/>
+  <testcase name="foldedPaperUsesPhysicalScreenBoundsWithoutMovingTextMargins" classname="app.polka.nativeapp.ReaderCurlTests" time="1.615"/>
+  <testcase name="opposingReleaseVelocityCancelsEvenPastThreshold" classname="app.polka.nativeapp.ReaderCurlTests" time="0.974"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+]]></system-err>
+</testsuite>

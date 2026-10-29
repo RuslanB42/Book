@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.OpaqueSurfaceTests" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:50:13" hostname="71325153-6c8" time="0.219">
+  <properties/>
+  <testcase name="oldAndroidUsesTheSameSolidMaterialWithoutAnyWarmUp" classname="app.polka.nativeapp.OpaqueSurfaceTests" time="0.082"/>
+  <testcase name="everyMaterialStateIsOpaqueAndIndependentOfTheBackdrop" classname="app.polka.nativeapp.OpaqueSurfaceTests" time="0.137"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Invalid ID 0x00000000.
+]]></system-err>
+</testsuite>

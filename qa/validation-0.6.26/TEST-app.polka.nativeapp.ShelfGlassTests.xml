@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.ShelfGlassTests" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:50:42" hostname="71325153-6c8" time="6.961">
+  <properties/>
+  <testcase name="glassSnapshotsCoverEmptyOneAndThreeInBothThemes" classname="app.polka.nativeapp.ShelfGlassTests" time="6.098"/>
+  <testcase name="transparentBlurKeepsCoverColourWithoutOpaqueBackground" classname="app.polka.nativeapp.ShelfGlassTests" time="0.019"/>
+  <testcase name="gaussianHasSameHorizontalAndVerticalProfile" classname="app.polka.nativeapp.ShelfGlassTests" time="0.029"/>
+  <testcase name="allFourScrewsHaveIndependentOpaqueMetalPaint" classname="app.polka.nativeapp.ShelfGlassTests" time="0.027"/>
+  <testcase name="firstDrawHasCompleteFrostAndReturningShelfUsesCachedIdenticalRaster" classname="app.polka.nativeapp.ShelfGlassTests" time="0.787"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Invalid ID 0x00000000.
+Invalid ID 0x00000000.
+]]></system-err>
+</testsuite>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.ShelfDetailsTests" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:50:42" hostname="71325153-6c8" time="0.034">
+  <properties/>
+  <testcase name="allFourScrewsHaveIndependentOpaqueMetalPaint" classname="app.polka.nativeapp.ShelfDetailsTests" time="0.034"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

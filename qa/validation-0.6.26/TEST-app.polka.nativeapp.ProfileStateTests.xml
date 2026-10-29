@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="app.polka.nativeapp.ProfileStateTests" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-10-29T18:50:13" hostname="71325153-6c8" time="3.727">
+  <properties/>
+  <testcase name="recommendationOrderMatchesOriginalJavaScriptForFixedSeed" classname="app.polka.nativeapp.ProfileStateTests" time="0.116"/>
+  <testcase name="rhythmIsEightWeekCalendarAverageNotAllTimeSum" classname="app.polka.nativeapp.ProfileStateTests" time="0.045"/>
+  <testcase name="historicalGoalsAndBestStreakSurviveGoalChange" classname="app.polka.nativeapp.ProfileStateTests" time="0.025"/>
+  <testcase name="replacingStateRemovesDeletedCoverAndKeepsIdentity" classname="app.polka.nativeapp.ProfileStateTests" time="0.039"/>
+  <testcase name="openBookDetailUpdatesWithoutReopeningAndObserverDetaches" classname="app.polka.nativeapp.ProfileStateTests" time="3.468"/>
+  <testcase name="originalStatisticsThresholdsAndRounding" classname="app.polka.nativeapp.ProfileStateTests" time="0.034"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[Invalid ID 0x00000000.
+]]></system-err>
+</testsuite>

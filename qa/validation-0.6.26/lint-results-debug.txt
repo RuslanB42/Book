@@ -1,0 +1,578 @@
+/data/polka-native/app/src/test/java/app/polka/nativeapp/SurfaceInteractionTests.kt:64: Warning: The result of intersect is not used. If the rectangles do not intersect, no change is made and the original rectangle is not modified. These methods return false to indicate that this has happened. [CheckResult]
+  a.prefs.put("motion","normal");a.detail(a.books.first());layout();val detail=a.bookDetailSheet!!;detail.freezeMotion();val glow=descendants(detail).filterIsInstance<BookGlowView>().single();assertTrue(glow.ready);detail.sampleMotion(460);val first=save("glow-first-complete");drain();val later=save("glow-after-wait");val bounds=Rect();glow.getGlobalVisibleRect(bounds);val rootAt=IntArray(2);a.root.getLocationOnScreen(rootAt);bounds.offset(-rootAt[0],-rootAt[1]);bounds.intersect(0,0,first.width,first.height);val firstLight=Bitmap.createBitmap(first,bounds.left,bounds.top,bounds.width(),bounds.height());val laterLight=Bitmap.createBitmap(later,bounds.left,bounds.top,bounds.width(),bounds.height());assertTrue("no independent delayed glow fade (exclude async chapter/stats below halo)",firstLight.sameAs(laterLight));firstLight.recycle();laterLight.recycle();first.recycle();later.recycle();detail.finish()
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "CheckResult":
+   Some methods have no side effects, and calling them without doing something
+   with the result is suspicious.
+
+/data/polka-native/app/build.gradle.kts:15: Warning: A newer version of androidx.room:room-runtime than 2.6.1 is available: 2.8.5 [GradleDependency]
+    implementation("androidx.room:room-runtime:2.6.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/build.gradle.kts:16: Warning: A newer version of androidx.core:core than 1.13.1 is available: 1.19.1 [GradleDependency]
+    implementation("androidx.core:core:1.13.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/build.gradle.kts:17: Warning: A newer version of androidx.room:room-compiler than 2.6.1 is available: 2.8.5 [GradleDependency]
+    kapt("androidx.room:room-compiler:2.6.1")
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/build.gradle.kts:22: Warning: A newer version of androidx.test:core than 1.6.1 is available: 1.7.0 [GradleDependency]
+    testImplementation("androidx.test:core:1.6.1")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+/data/polka-native/app/src/main/AndroidManifest.xml:2: Warning: The attribute android:dataExtractionRules only applies for Android 12 and higher; since minSdkVersion is API 26 you should also set android:fullBackupContent [DataExtractionRules]
+    <application android:theme="@style/AppTheme" android:label="Polka" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="true" android:usesCleartextTraffic="false">
+                                                                                                                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "DataExtractionRules":
+   Before Android 12, the attributes android:allowBackup and
+   android:fullBackupContent were used to configure all forms of backup,
+   including cloud backups, device-to-device transfers and adb backup.
+
+   In Android 12 and higher, these attributes have been deprecated and will
+   only apply to cloud backups. You should instead use the attribute
+   android:dataExtractionRules, specifying an @xml resource that configures
+   which files to back up, for cloud backups and for device-to-device
+   transfers, separately. If your minSdkVersion supports older versions,
+   you'll still want to specify an android:fullBackupContent resource if the
+   default behavior is not right for your app.
+
+   https://developer.android.com/about/versions/12/backup-restore#xml-changes
+   https://goo.gle/DataExtractionRules
+
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookOpening.kt:41: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+ override fun onDraw(c:Canvas){if(snapshot.scene.isRecycled)return;c.drawBitmap(snapshot.scene,null,RectF(0f,0f,width.toFloat(),height.toFloat()),p);snapshot.litScene?.takeUnless{it.isRecycled}?.let{c.drawBitmap(it,null,RectF(0f,0f,width.toFloat(),height.toFloat()),p)};BookCoverVolume.shadow(c,snapshot.rect,dark,true);c.drawBitmap(snapshot.cover,null,snapshot.rect,p)}
+                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookOpening.kt:41: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+ override fun onDraw(c:Canvas){if(snapshot.scene.isRecycled)return;c.drawBitmap(snapshot.scene,null,RectF(0f,0f,width.toFloat(),height.toFloat()),p);snapshot.litScene?.takeUnless{it.isRecycled}?.let{c.drawBitmap(it,null,RectF(0f,0f,width.toFloat(),height.toFloat()),p)};BookCoverVolume.shadow(c,snapshot.rect,dark,true);c.drawBitmap(snapshot.cover,null,snapshot.rect,p)}
+                                                                                                                                                                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/DetailReveal.kt:35: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+ override fun onDraw(c:Canvas){super.onDraw(c);old?.takeUnless{it.isRecycled}?.let{paint.alpha=(255*(1-progress/.22f).coerceIn(0f,1f)).toInt();val save=c.save();c.clipRect(0,0,width,height);c.drawBitmap(it,null,RectF(0f,0f,width.toFloat(),start.toFloat()),paint);c.restoreToCount(save)}}
+                                                                                                                                                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:30: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val bounds=RectF(0f,0f,width.toFloat(),height.toFloat())
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:79: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val a=context as? MainActivity; val density=resources.displayMetrics.density; val w=width.toFloat(); val h=height.toFloat(); val top=h*.46f; val radius=w*.045f; val p=Paint(Paint.ANTI_ALIAS_FLAG)
+                                                                                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:80: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val glass=RectF(0f,top,w,h); val background=if(light) 0xfff2f2f0.toInt() else 0xff161617.toInt()
+                  ~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:85: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        if(!add && books.isEmpty()) { p.color=if(light) 0x55808080 else 0x44777777; p.style=Paint.Style.STROKE; p.strokeWidth=density; p.pathEffect=DashPathEffect(floatArrayOf(5*density,4*density),0f); c.drawRoundRect(w*.27f,h*.90f-w*.69f,w*.73f,h*.90f,3*density,3*density,p); p.pathEffect=null; p.style=Paint.Style.FILL }
+                                                                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:85: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        if(!add && books.isEmpty()) { p.color=if(light) 0x55808080 else 0x44777777; p.style=Paint.Style.STROKE; p.strokeWidth=density; p.pathEffect=DashPathEffect(floatArrayOf(5*density,4*density),0f); c.drawRoundRect(w*.27f,h*.90f-w*.69f,w*.73f,h*.90f,3*density,3*density,p); p.pathEffect=null; p.style=Paint.Style.FILL }
+                                                                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:87: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        fun covers(canvas:Canvas) { books.indices.reversed().forEach { i -> val (book,bitmap)=books[i]; val x=left(i,books.size,w);val r=RectF(x,h*.90f-w*.69f,x+w*.46f,h*.90f)
+                                                                                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:102: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val outer=Path().apply { addRoundRect(glass,radius,radius,Path.Direction.CW) }
+                  ~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:107: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        c.drawRoundRect(RectF(density*.5f,top+density*.5f,w-density*.5f,h-density*.5f),edgeRadius,edgeRadius,p)
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:109: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val inner=RectF(density,top+density,w-density,h-density)
+                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:111: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        c.clipPath(Path().apply{addRoundRect(inner,innerRadius,innerRadius,Path.Direction.CW)})
+                   ~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:112: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        frost?.let { bitmap -> val matrix=ColorMatrix().apply { setSaturation(1.12f) }; val brightness=if(light) 1.05f else .82f; matrix.postConcat(ColorMatrix(floatArrayOf(brightness,0f,0f,0f,0f,0f,brightness,0f,0f,0f,0f,0f,brightness,0f,0f,0f,0f,0f,1f,0f))); p.colorFilter=ColorMatrixColorFilter(matrix); c.drawBitmap(bitmap,null,RectF(0f,0f,w,h),p); p.colorFilter=null }
+                                          ~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:112: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        frost?.let { bitmap -> val matrix=ColorMatrix().apply { setSaturation(1.12f) }; val brightness=if(light) 1.05f else .82f; matrix.postConcat(ColorMatrix(floatArrayOf(brightness,0f,0f,0f,0f,0f,brightness,0f,0f,0f,0f,0f,brightness,0f,0f,0f,0f,0f,1f,0f))); p.colorFilter=ColorMatrixColorFilter(matrix); c.drawBitmap(bitmap,null,RectF(0f,0f,w,h),p); p.colorFilter=null }
+                                                                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:112: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        frost?.let { bitmap -> val matrix=ColorMatrix().apply { setSaturation(1.12f) }; val brightness=if(light) 1.05f else .82f; matrix.postConcat(ColorMatrix(floatArrayOf(brightness,0f,0f,0f,0f,0f,brightness,0f,0f,0f,0f,0f,brightness,0f,0f,0f,0f,0f,1f,0f))); p.colorFilter=ColorMatrixColorFilter(matrix); c.drawBitmap(bitmap,null,RectF(0f,0f,w,h),p); p.colorFilter=null }
+                                                                                                                                                                                                                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:112: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        frost?.let { bitmap -> val matrix=ColorMatrix().apply { setSaturation(1.12f) }; val brightness=if(light) 1.05f else .82f; matrix.postConcat(ColorMatrix(floatArrayOf(brightness,0f,0f,0f,0f,0f,brightness,0f,0f,0f,0f,0f,brightness,0f,0f,0f,0f,0f,1f,0f))); p.colorFilter=ColorMatrixColorFilter(matrix); c.drawBitmap(bitmap,null,RectF(0f,0f,w,h),p); p.colorFilter=null }
+                                                                                                                                                                                                                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:112: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        frost?.let { bitmap -> val matrix=ColorMatrix().apply { setSaturation(1.12f) }; val brightness=if(light) 1.05f else .82f; matrix.postConcat(ColorMatrix(floatArrayOf(brightness,0f,0f,0f,0f,0f,brightness,0f,0f,0f,0f,0f,brightness,0f,0f,0f,0f,0f,1f,0f))); p.colorFilter=ColorMatrixColorFilter(matrix); c.drawBitmap(bitmap,null,RectF(0f,0f,w,h),p); p.colorFilter=null }
+                                                                                                                                                                                                                                                                                                                                            ~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:124: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val p=Paint(Paint.ANTI_ALIAS_FLAG).apply { color=ink; style=Paint.Style.STROKE; strokeWidth=1.6f; strokeCap=Paint.Cap.ROUND; strokeJoin=Paint.Join.ROUND }
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:125: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        fun line(vararg a:Float) { val path=Path(); path.moveTo(a[0],a[1]); for(i in 2 until a.size step 2) path.lineTo(a[i],a[i+1]); c.drawPath(path,p) }
+                                            ~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:147: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+    override fun onDraw(c:Canvas) { val p=Paint(Paint.ANTI_ALIAS_FLAG); val radius=height/2f; p.color=track; c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),radius,radius,p); p.color=foreground; c.drawRoundRect(0f,0f,(width*fraction).toFloat(),height.toFloat(),radius,radius,p) }
+                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PolkaMotion.kt:63: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val layer=object:View(a){val paint=Paint(Paint.FILTER_BITMAP_FLAG);override fun onDraw(c:Canvas){if(!image.isRecycled)c.drawBitmap(image,null,RectF(0f,0f,width.toFloat(),height.toFloat()),paint)};override fun onDetachedFromWindow(){if(!image.isRecycled)image.recycle();super.onDetachedFromWindow()}}.apply{importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS;isClickable=false}
+                                                                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:202: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val left=width-a.d(51).toFloat(); val top=(height-a.d(31))/2f; val radius=a.d(16).toFloat(); ink.color=android.animation.ArgbEvaluator().evaluate(fraction,if(a.light) 0xffd8d8d8.toInt() else 0xff353537.toInt(),0xff30ca5c.toInt()) as Int; c.drawRoundRect(left,top,width.toFloat(),top+a.d(31),radius,radius,ink)
+                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:202: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val left=width-a.d(51).toFloat(); val top=(height-a.d(31))/2f; val radius=a.d(16).toFloat(); ink.color=android.animation.ArgbEvaluator().evaluate(fraction,if(a.light) 0xffd8d8d8.toInt() else 0xff353537.toInt(),0xff30ca5c.toInt()) as Int; c.drawRoundRect(left,top,width.toFloat(),top+a.d(31),radius,radius,ink)
+                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:48: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+    override fun onDraw(c:Canvas) { val p=Paint(3); val w=width.toFloat(); val h=height.toFloat(); val track=if(a.light) 0xffddddda.toInt() else 0xff38383b.toInt()
+                                          ~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:50: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+            "spark"->{ if(values.isEmpty()) return; val max=max(1.0,values.maxOrNull() ?: 1.0); val path=Path(); val pts=values.mapIndexed { i,v -> (if(values.size>1) i*w/(values.size-1) else w/2) to (h-3-(v/max*(h-7)).toFloat()) }; path.moveTo(pts[0].first,pts[0].second); for(i in 1 until pts.size) { val prev=pts[i-1]; val next=pts[i]; val mid=(prev.first+next.first)/2; path.cubicTo(mid,prev.second,mid,next.second,next.first,next.second) }; c.save(); c.clipRect(0f,0f,w*phase,h); val area=Path(path); area.lineTo(w,h); area.lineTo(0f,h); area.close(); p.shader=LinearGradient(0f,0f,0f,h,intArrayOf((color and 0xffffff) or 0x52000000,color and 0xffffff),null,Shader.TileMode.CLAMP); c.drawPath(area,p); p.shader=null; p.color=color; p.style=Paint.Style.STROKE; p.strokeWidth=a.d(2).toFloat(); c.drawPath(path,p); c.restore() }
+                                                                                                         ~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:50: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+            "spark"->{ if(values.isEmpty()) return; val max=max(1.0,values.maxOrNull() ?: 1.0); val path=Path(); val pts=values.mapIndexed { i,v -> (if(values.size>1) i*w/(values.size-1) else w/2) to (h-3-(v/max*(h-7)).toFloat()) }; path.moveTo(pts[0].first,pts[0].second); for(i in 1 until pts.size) { val prev=pts[i-1]; val next=pts[i]; val mid=(prev.first+next.first)/2; path.cubicTo(mid,prev.second,mid,next.second,next.first,next.second) }; c.save(); c.clipRect(0f,0f,w*phase,h); val area=Path(path); area.lineTo(w,h); area.lineTo(0f,h); area.close(); p.shader=LinearGradient(0f,0f,0f,h,intArrayOf((color and 0xffffff) or 0x52000000,color and 0xffffff),null,Shader.TileMode.CLAMP); c.drawPath(area,p); p.shader=null; p.color=color; p.style=Paint.Style.STROKE; p.strokeWidth=a.d(2).toFloat(); c.drawPath(path,p); c.restore() }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:50: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+            "spark"->{ if(values.isEmpty()) return; val max=max(1.0,values.maxOrNull() ?: 1.0); val path=Path(); val pts=values.mapIndexed { i,v -> (if(values.size>1) i*w/(values.size-1) else w/2) to (h-3-(v/max*(h-7)).toFloat()) }; path.moveTo(pts[0].first,pts[0].second); for(i in 1 until pts.size) { val prev=pts[i-1]; val next=pts[i]; val mid=(prev.first+next.first)/2; path.cubicTo(mid,prev.second,mid,next.second,next.first,next.second) }; c.save(); c.clipRect(0f,0f,w*phase,h); val area=Path(path); area.lineTo(w,h); area.lineTo(0f,h); area.close(); p.shader=LinearGradient(0f,0f,0f,h,intArrayOf((color and 0xffffff) or 0x52000000,color and 0xffffff),null,Shader.TileMode.CLAMP); c.drawPath(area,p); p.shader=null; p.color=color; p.style=Paint.Style.STROKE; p.strokeWidth=a.d(2).toFloat(); c.drawPath(path,p); c.restore() }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:50: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+            "spark"->{ if(values.isEmpty()) return; val max=max(1.0,values.maxOrNull() ?: 1.0); val path=Path(); val pts=values.mapIndexed { i,v -> (if(values.size>1) i*w/(values.size-1) else w/2) to (h-3-(v/max*(h-7)).toFloat()) }; path.moveTo(pts[0].first,pts[0].second); for(i in 1 until pts.size) { val prev=pts[i-1]; val next=pts[i]; val mid=(prev.first+next.first)/2; path.cubicTo(mid,prev.second,mid,next.second,next.first,next.second) }; c.save(); c.clipRect(0f,0f,w*phase,h); val area=Path(path); area.lineTo(w,h); area.lineTo(0f,h); area.close(); p.shader=LinearGradient(0f,0f,0f,h,intArrayOf((color and 0xffffff) or 0x52000000,color and 0xffffff),null,Shader.TileMode.CLAMP); c.drawPath(area,p); p.shader=null; p.color=color; p.style=Paint.Style.STROKE; p.strokeWidth=a.d(2).toFloat(); c.drawPath(path,p); c.restore() }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:51: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+            "gauge"->{ val size=min(w,a.d(112).toFloat()); val unit=size/100; val x=(w-size)/2; val r=RectF(x+10*unit,h-46*unit,x+90*unit,h+34*unit); p.style=Paint.Style.STROKE; p.strokeWidth=9*unit; p.strokeCap=Paint.Cap.ROUND; p.color=track; c.drawArc(r,180f,180f,false,p); p.color=color; c.drawArc(r,180f,180f*values[0].toFloat()*phase,false,p); p.style=Paint.Style.FILL; p.color=a.fg; p.typeface=Typeface.create("sans-serif",Typeface.BOLD); p.textSize=15*unit; p.textAlign=Paint.Align.CENTER; c.drawText("${(values[0]*100).roundToInt()}%",w/2,h-8*unit,p) }
+                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:52: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+            "speed"->{ val top=a.d(7).toFloat(); p.shader=LinearGradient(0f,0f,w,0f,track,color,Shader.TileMode.CLAMP); c.drawRoundRect(0f,top,w,top+a.d(6),a.d(3).toFloat(),a.d(3).toFloat(),p); p.shader=null; p.color=a.muted; c.drawRect(w/2,top-a.d(4),w/2+a.d(1),top+a.d(10),p); if(values[0]>0) { p.color=a.fg; c.drawCircle((values[0]/400).coerceIn(.02,.98).toFloat()*w*phase,top+a.d(3),a.d(6).toFloat(),p) }; p.color=a.muted; p.textSize=a.d(10).toFloat(); listOf("0","ср. 200","400+").forEachIndexed { i,s -> p.textAlign=when(i) { 0->Paint.Align.LEFT; 1->Paint.Align.CENTER; else->Paint.Align.RIGHT }; c.drawText(s,w*i/2,h-2,p) } }
+                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:52: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+            "speed"->{ val top=a.d(7).toFloat(); p.shader=LinearGradient(0f,0f,w,0f,track,color,Shader.TileMode.CLAMP); c.drawRoundRect(0f,top,w,top+a.d(6),a.d(3).toFloat(),a.d(3).toFloat(),p); p.shader=null; p.color=a.muted; c.drawRect(w/2,top-a.d(4),w/2+a.d(1),top+a.d(10),p); if(values[0]>0) { p.color=a.fg; c.drawCircle((values[0]/400).coerceIn(.02,.98).toFloat()*w*phase,top+a.d(3),a.d(6).toFloat(),p) }; p.color=a.muted; p.textSize=a.d(10).toFloat(); listOf("0","ср. 200","400+").forEachIndexed { i,s -> p.textAlign=when(i) { 0->Paint.Align.LEFT; 1->Paint.Align.CENTER; else->Paint.Align.RIGHT }; c.drawText(s,w*i/2,h-2,p) } }
+                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:58: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+    override fun onDraw(c:Canvas) { val p=Paint(3); val x=width/2f; val y=height/2f; val radius=a.d(17).toFloat(); p.color=if(met) 0x29f28a2e else if(a.light) 0xffe8e8e5.toInt() else 0xff2c2c2e.toInt(); c.drawCircle(x,y,radius,p); p.style=Paint.Style.STROKE; p.strokeWidth=a.d(2).toFloat(); p.color=if(today && !met) a.muted else if(met || partial) igColors[0] else a.muted; if(today) c.drawCircle(x,y,a.d(18).toFloat(),p) else if(partial) { p.alpha=150; c.drawCircle(x,y,radius-1,p); p.alpha=255 }; if(met) { p.style=Paint.Style.FILL; c.drawBitmap(flame,x-flame.width/2f,y-flame.height/2f,p) } }
+                                          ~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:64: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+    override fun onDraw(c:Canvas) { val p=Paint(3); val w=width.toFloat(); val top=if(rhythm) a.d(22).toFloat() else a.d(5).toFloat(); val bottom=height-a.d(24).toFloat(); val maximum=maxOf(values.maxOrNull() ?: 0.0,goal*1.25,1.0); val cell=w/maxOf(1,values.size); val peak=values.indices.maxByOrNull { values[it] } ?: -1; val track=if(a.light) 0xffe2e2df.toInt() else 0xff303033.toInt()
+                                          ~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:65: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        if(!rhythm) { p.color=track; p.strokeWidth=1f; c.drawLine(0f,bottom,w,bottom,p); if(goal>0) { val y=bottom-((bottom-top)*goal/maximum).toFloat(); p.color=0xa6f28a2e.toInt(); p.pathEffect=DashPathEffect(floatArrayOf(a.d(4).toFloat(),a.d(4).toFloat()),0f); c.drawLine(0f,y,w,y,p); p.pathEffect=null; p.textSize=a.d(11).toFloat(); p.textAlign=Paint.Align.RIGHT; p.color=a.muted; c.drawText("цель ${goal.toInt()} мин",w,y-a.d(4),p) } }
+                                                                                                                                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:65: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        if(!rhythm) { p.color=track; p.strokeWidth=1f; c.drawLine(0f,bottom,w,bottom,p); if(goal>0) { val y=bottom-((bottom-top)*goal/maximum).toFloat(); p.color=0xa6f28a2e.toInt(); p.pathEffect=DashPathEffect(floatArrayOf(a.d(4).toFloat(),a.d(4).toFloat()),0f); c.drawLine(0f,y,w,y,p); p.pathEffect=null; p.textSize=a.d(11).toFloat(); p.textAlign=Paint.Align.RIGHT; p.color=a.muted; c.drawText("цель ${goal.toInt()} мин",w,y-a.d(4),p) } }
+                                                                                                                                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:70: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+            p.color=a.muted; if(active && v>0) p.shader=LinearGradient(0f,y,0f,bottom,0xffffb43b.toInt(),0xffe8562a.toInt(),Shader.TileMode.CLAMP)
+                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:70: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+            p.color=a.muted; if(active && v>0) p.shader=LinearGradient(0f,y,0f,bottom,0xffffb43b.toInt(),0xffe8562a.toInt(),Shader.TileMode.CLAMP)
+                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:75: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        if(!rhythm && selected in values.indices) { val label=if(values[selected]>0) duration((values[selected]*60000).toLong()) else "Не читали"; val detail=tipLabels.getOrElse(selected) { "" }; val cx=(cell*(selected+.5f)).coerceIn(a.d(55).toFloat(),(w-a.d(55)).coerceAtLeast(a.d(55).toFloat())); val rect=RectF(cx-a.d(52),0f,cx+a.d(52),a.d(46).toFloat()); p.color=if(a.light) Color.WHITE else 0xff343437.toInt(); p.setShadowLayer(a.d(6).toFloat(),0f,a.d(2).toFloat(),0x44000000); c.drawRoundRect(rect,a.d(9).toFloat(),a.d(9).toFloat(),p); p.clearShadowLayer(); p.textAlign=Paint.Align.CENTER; p.color=a.fg; p.typeface=Typeface.create("sans-serif",Typeface.BOLD); p.textSize=a.d(12).toFloat(); c.drawText(label,cx,a.d(18).toFloat(),p); p.typeface=Typeface.create("sans-serif",Typeface.NORMAL); p.textSize=a.d(11).toFloat(); p.color=a.muted; c.drawText(detail,cx,a.d(34).toFloat(),p) }
+                                                                                                                                                                                                                                                                                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:80: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+    override fun onDraw(c:Canvas) { val p=Paint(3).apply { style=Paint.Style.STROKE; strokeWidth=stroke*a.resources.displayMetrics.density }; val size=min(width,height)-p.strokeWidth; val r=RectF((width-size)/2f,(height-size)/2f,(width+size)/2f,(height+size)/2f); val total=values.sum(); p.color=if(a.light) 0xffddddda.toInt() else 0xff38383b.toInt(); c.drawOval(r,p); var angle=-90f; values.forEachIndexed { i,v -> val sweep=if(total>0) (v/total*360).toFloat() else 0f; p.color=colors[i%colors.size]; c.drawArc(r,angle,maxOf(0f,sweep-(if(values.size>1) 4.32f else 0f))*phase,false,p); angle+=sweep }; p.style=Paint.Style.FILL; p.color=a.fg; p.textSize=a.d(if(small) 10 else 26).toFloat(); p.typeface=if(small) Typeface.create("sans-serif",Typeface.BOLD) else PolkaFonts.serif(a,true); p.textAlign=Paint.Align.CENTER; val baseline=height/2f-(p.ascent()+p.descent())/2-if(subtitle.isNotBlank()) a.d(7) else 0; c.drawText(label,width/2f,baseline,p); if(subtitle.isNotBlank()) { p.typeface=Typeface.DEFAULT; p.textSize=a.d(11).toFloat(); p.color=a.muted; c.drawText(subtitle,width/2f,baseline+a.d(19),p) } }
+                                          ~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:80: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+    override fun onDraw(c:Canvas) { val p=Paint(3).apply { style=Paint.Style.STROKE; strokeWidth=stroke*a.resources.displayMetrics.density }; val size=min(width,height)-p.strokeWidth; val r=RectF((width-size)/2f,(height-size)/2f,(width+size)/2f,(height+size)/2f); val total=values.sum(); p.color=if(a.light) 0xffddddda.toInt() else 0xff38383b.toInt(); c.drawOval(r,p); var angle=-90f; values.forEachIndexed { i,v -> val sweep=if(total>0) (v/total*360).toFloat() else 0f; p.color=colors[i%colors.size]; c.drawArc(r,angle,maxOf(0f,sweep-(if(values.size>1) 4.32f else 0f))*phase,false,p); angle+=sweep }; p.style=Paint.Style.FILL; p.color=a.fg; p.textSize=a.d(if(small) 10 else 26).toFloat(); p.typeface=if(small) Typeface.create("sans-serif",Typeface.BOLD) else PolkaFonts.serif(a,true); p.textAlign=Paint.Align.CENTER; val baseline=height/2f-(p.ascent()+p.descent())/2-if(subtitle.isNotBlank()) a.d(7) else 0; c.drawText(label,width/2f,baseline,p); if(subtitle.isNotBlank()) { p.typeface=Typeface.DEFAULT; p.textSize=a.d(11).toFloat(); p.color=a.muted; c.drawText(subtitle,width/2f,baseline+a.d(19),p) } }
+                                                                                                                                                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:85: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val p=Paint(3); if(risk && active) { val matrix=ColorMatrix().apply { setSaturation(.7f); postConcat(ColorMatrix(floatArrayOf(.9f,0f,0f,0f,0f,0f,.9f,0f,0f,0f,0f,0f,.9f,0f,0f,0f,0f,0f,1f,0f))) }; p.colorFilter=ColorMatrixColorFilter(matrix) }
+              ~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:85: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val p=Paint(3); if(risk && active) { val matrix=ColorMatrix().apply { setSaturation(.7f); postConcat(ColorMatrix(floatArrayOf(.9f,0f,0f,0f,0f,0f,.9f,0f,0f,0f,0f,0f,.9f,0f,0f,0f,0f,0f,1f,0f))) }; p.colorFilter=ColorMatrixColorFilter(matrix) }
+                                                        ~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:85: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val p=Paint(3); if(risk && active) { val matrix=ColorMatrix().apply { setSaturation(.7f); postConcat(ColorMatrix(floatArrayOf(.9f,0f,0f,0f,0f,0f,.9f,0f,0f,0f,0f,0f,.9f,0f,0f,0f,0f,0f,1f,0f))) }; p.colorFilter=ColorMatrixColorFilter(matrix) }
+                                                                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:85: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val p=Paint(3); if(risk && active) { val matrix=ColorMatrix().apply { setSaturation(.7f); postConcat(ColorMatrix(floatArrayOf(.9f,0f,0f,0f,0f,0f,.9f,0f,0f,0f,0f,0f,.9f,0f,0f,0f,0f,0f,1f,0f))) }; p.colorFilter=ColorMatrixColorFilter(matrix) }
+                                                                                                                                                                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:85: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        val p=Paint(3); if(risk && active) { val matrix=ColorMatrix().apply { setSaturation(.7f); postConcat(ColorMatrix(floatArrayOf(.9f,0f,0f,0f,0f,0f,.9f,0f,0f,0f,0f,0f,.9f,0f,0f,0f,0f,0f,1f,0f))) }; p.colorFilter=ColorMatrixColorFilter(matrix) }
+                                                                                                                                                                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:89: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        paths.forEachIndexed { i,path -> val colors=(if(active) on else off)[i].map { Color.parseColor(it) }.toIntArray(); val stops=if(active) when(i) { 0->floatArrayOf(0f,.3f,.65f,1f); 1->floatArrayOf(0f,.48f,.8f,1f); else->floatArrayOf(0f,.55f,1f) } else when(i) { 0->floatArrayOf(0f,.55f,1f); 1->floatArrayOf(0f,.6f,1f); else->floatArrayOf(0f,1f) }; p.shader=LinearGradient(0f,if(i==0) 3f else if(i==1) 42f else 89f,0f,145f,colors,stops,Shader.TileMode.CLAMP); c.drawPath(androidx.core.graphics.PathParser.createPathFromPathData(path)!!,p) }
+                                                                                                                                                                                                                                                                                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:89: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        paths.forEachIndexed { i,path -> val colors=(if(active) on else off)[i].map { Color.parseColor(it) }.toIntArray(); val stops=if(active) when(i) { 0->floatArrayOf(0f,.3f,.65f,1f); 1->floatArrayOf(0f,.48f,.8f,1f); else->floatArrayOf(0f,.55f,1f) } else when(i) { 0->floatArrayOf(0f,.55f,1f); 1->floatArrayOf(0f,.6f,1f); else->floatArrayOf(0f,1f) }; p.shader=LinearGradient(0f,if(i==0) 3f else if(i==1) 42f else 89f,0f,145f,colors,stops,Shader.TileMode.CLAMP); c.drawPath(androidx.core.graphics.PathParser.createPathFromPathData(path)!!,p) }
+                                                                                                                                                                                                                                                                                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:90: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        if(!showNumber) { c.restore(); return }; p.shader=null; p.textSize=54f; p.typeface=Typeface.create("sans-serif-black",Typeface.BOLD); p.textAlign=Paint.Align.CENTER; p.strokeJoin=Paint.Join.ROUND; p.strokeWidth=11f; p.style=Paint.Style.STROKE; p.color=if(active) 0xffd63c0a.toInt() else 0xff5f5f64.toInt(); c.drawText(number.toString(),60f,160f,p); p.style=Paint.Style.FILL; p.shader=LinearGradient(0f,110f,0f,160f,Color.WHITE,0xfffff3e6.toInt(),Shader.TileMode.CLAMP); c.drawText(number.toString(),60f,160f,p); c.restore()
+                                                                                                                                                                                                                                                                                                                                                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:90: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+        if(!showNumber) { c.restore(); return }; p.shader=null; p.textSize=54f; p.typeface=Typeface.create("sans-serif-black",Typeface.BOLD); p.textAlign=Paint.Align.CENTER; p.strokeJoin=Paint.Join.ROUND; p.strokeWidth=11f; p.style=Paint.Style.STROKE; p.color=if(active) 0xffd63c0a.toInt() else 0xff5f5f64.toInt(); c.drawText(number.toString(),60f,160f,p); p.style=Paint.Style.FILL; p.shader=LinearGradient(0f,110f,0f,160f,Color.WHITE,0xfffff3e6.toInt(),Shader.TileMode.CLAMP); c.drawText(number.toString(),60f,160f,p); c.restore()
+                                                                                                                                                                                                                                                                                                                                                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:180: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+    override fun onDraw(c:Canvas){val p=Paint(3);val stroke=a.d(9).toFloat();val r=RectF(stroke,stroke,width-stroke,height-stroke);p.style=Paint.Style.STROKE;p.strokeWidth=stroke;p.strokeCap=Paint.Cap.ROUND;p.color=StatisticsPalette.tone(a.light,statMint).track;c.drawOval(r,p);p.shader=SweepGradient(width/2f,height/2f,if(a.light)intArrayOf(0xff078260.toInt(),0xff076c8e.toInt(),0xff078260.toInt())else intArrayOf(statMint,statCyan,statMint),null);c.drawArc(r,-90f,360f*min(1f,done.toFloat()/target)*phase,false,p);p.shader=null;p.style=Paint.Style.FILL;p.color=a.fg;p.textAlign=Paint.Align.CENTER;p.textSize=a.d(21).toFloat();p.typeface=Typeface.create("sans-serif",Typeface.BOLD);c.drawText("${(done*100.0/target).roundToInt()}%",width/2f,height/2f-(p.ascent()+p.descent())/2,p)}
+                                        ~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:180: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+    override fun onDraw(c:Canvas){val p=Paint(3);val stroke=a.d(9).toFloat();val r=RectF(stroke,stroke,width-stroke,height-stroke);p.style=Paint.Style.STROKE;p.strokeWidth=stroke;p.strokeCap=Paint.Cap.ROUND;p.color=StatisticsPalette.tone(a.light,statMint).track;c.drawOval(r,p);p.shader=SweepGradient(width/2f,height/2f,if(a.light)intArrayOf(0xff078260.toInt(),0xff076c8e.toInt(),0xff078260.toInt())else intArrayOf(statMint,statCyan,statMint),null);c.drawArc(r,-90f,360f*min(1f,done.toFloat()/target)*phase,false,p);p.shader=null;p.style=Paint.Style.FILL;p.color=a.fg;p.textAlign=Paint.Align.CENTER;p.textSize=a.d(21).toFloat();p.typeface=Typeface.create("sans-serif",Typeface.BOLD);c.drawText("${(done*100.0/target).roundToInt()}%",width/2f,height/2f-(p.ascent()+p.descent())/2,p)}
+                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:180: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+    override fun onDraw(c:Canvas){val p=Paint(3);val stroke=a.d(9).toFloat();val r=RectF(stroke,stroke,width-stroke,height-stroke);p.style=Paint.Style.STROKE;p.strokeWidth=stroke;p.strokeCap=Paint.Cap.ROUND;p.color=StatisticsPalette.tone(a.light,statMint).track;c.drawOval(r,p);p.shader=SweepGradient(width/2f,height/2f,if(a.light)intArrayOf(0xff078260.toInt(),0xff076c8e.toInt(),0xff078260.toInt())else intArrayOf(statMint,statCyan,statMint),null);c.drawArc(r,-90f,360f*min(1f,done.toFloat()/target)*phase,false,p);p.shader=null;p.style=Paint.Style.FILL;p.color=a.fg;p.textAlign=Paint.Align.CENTER;p.textSize=a.d(21).toFloat();p.typeface=Typeface.create("sans-serif",Typeface.BOLD);c.drawText("${(done*100.0/target).roundToInt()}%",width/2f,height/2f-(p.ascent()+p.descent())/2,p)}
+                                                                                                                                                                                                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:180: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+    override fun onDraw(c:Canvas){val p=Paint(3);val stroke=a.d(9).toFloat();val r=RectF(stroke,stroke,width-stroke,height-stroke);p.style=Paint.Style.STROKE;p.strokeWidth=stroke;p.strokeCap=Paint.Cap.ROUND;p.color=StatisticsPalette.tone(a.light,statMint).track;c.drawOval(r,p);p.shader=SweepGradient(width/2f,height/2f,if(a.light)intArrayOf(0xff078260.toInt(),0xff076c8e.toInt(),0xff078260.toInt())else intArrayOf(statMint,statCyan,statMint),null);c.drawArc(r,-90f,360f*min(1f,done.toFloat()/target)*phase,false,p);p.shader=null;p.style=Paint.Style.FILL;p.color=a.fg;p.textAlign=Paint.Align.CENTER;p.textSize=a.d(21).toFloat();p.typeface=Typeface.create("sans-serif",Typeface.BOLD);c.drawText("${(done*100.0/target).roundToInt()}%",width/2f,height/2f-(p.ascent()+p.descent())/2,p)}
+                                                                                                                                                                                                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:188: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+    override fun onDraw(c:Canvas){if(values.isEmpty())return;val p=Paint(3);val gap=a.d(3).toFloat();val cell=width.toFloat()/values.size;val track=StatisticsPalette.tone(a.light,if(speed!=null)statCyan else statBlue).track;val maximum=max(1.0,values.maxOrNull() ?: 1.0)
+                                                                   ~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:191: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+            if(active){p.shader=LinearGradient(0f,0f,0f,height.toFloat(),StatisticsPalette.graph(a.light,speed!=null),null,Shader.TileMode.CLAMP);c.drawRoundRect(x,height-h*phase,x+max(1f,cell-gap),height.toFloat(),radius,radius,p);p.shader=null};if(i==selected){p.color=a.fg;c.drawCircle(x+max(1f,cell-gap)/2,a.d(3).toFloat(),a.d(2).toFloat(),p)}}
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:191: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+            if(active){p.shader=LinearGradient(0f,0f,0f,height.toFloat(),StatisticsPalette.graph(a.light,speed!=null),null,Shader.TileMode.CLAMP);c.drawRoundRect(x,height-h*phase,x+max(1f,cell-gap),height.toFloat(),radius,radius,p);p.shader=null};if(i==selected){p.color=a.fg;c.drawCircle(x+max(1f,cell-gap)/2,a.d(3).toFloat(),a.d(2).toFloat(),p)}}
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatsDayMark.kt:5: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+ override fun onDraw(c:Canvas){val p=Paint(Paint.ANTI_ALIAS_FLAG);val cx=width/2f;val cy=height/2f;val r=width*.43f;p.color=if(met)0xff26180f.toInt()else 0x65ffffff;c.drawCircle(cx,cy,r,p)
+                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatsDayMark.kt:7: Warning: Avoid object allocations during draw/layout operations (preallocate and reuse instead) [DrawAllocation]
+  if(met){p.color=Color.WHITE;p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND;val path=Path();path.moveTo(width*.30f,height*.50f);path.lineTo(width*.44f,height*.64f);path.lineTo(width*.71f,height*.36f);c.drawPath(path,p)}else if(partial){p.color=0xff26180f.toInt();c.drawCircle(cx,cy,width*.10f,p)}
+                                                                                                                                                           ~~~~~~
+
+   Explanation for issues of type "DrawAllocation":
+   You should avoid allocating objects during a drawing or layout operation.
+   These are called frequently, so a smooth UI can be interrupted by garbage
+   collection pauses caused by the object allocations.
+
+   The way this is generally handled is to allocate the needed objects up
+   front and to reuse them for each drawing operation.
+
+   Some methods allocate memory on your behalf (such as Bitmap.create), and
+   these should be handled in the same way.
+
+/data/polka-native/app/src/main/res/mipmap-anydpi-v26: Warning: This folder configuration (v26) is unnecessary; minSdkVersion is 26. Merge all the resources in this folder into mipmap-anydpi. [ObsoleteSdkInt]
+
+   Explanation for issues of type "ObsoleteSdkInt":
+   This check flags version checks that are not necessary, because the
+   minSdkVersion (or surrounding known API level) is already at least as high
+   as the version checked for.
+
+   Similarly, it also looks for resources in -vNN folders, such as values-v14
+   where the version qualifier is less than or equal to the minSdkVersion,
+   where the contents should be merged into the best folder.
+
+/data/polka-native/app/build.gradle.kts:17: Warning: This library supports using KSP instead of kapt, which greatly improves performance. Learn more: https://developer.android.com/studio/build/migrate-to-ksp [KaptUsageInsteadOfKsp]
+    kapt("androidx.room:room-compiler:2.6.1")
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "KaptUsageInsteadOfKsp":
+   KSP is a more efficient replacement for kapt. For libraries that support
+   both, KSP should be used to improve build times.
+
+   https://developer.android.com/studio/build/migrate-to-ksp
+
+/data/polka-native/app/src/main/res/drawable/ic_launcher.xml:1: Warning: The resource R.drawable.ic_launcher appears to be unused [UnusedResources]
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+^
+
+   Explanation for issues of type "UnusedResources":
+   Unused resources make applications larger and slow down builds.
+
+
+   The unused resource check can ignore tests. If you want to include
+   resources that are only referenced from tests, consider packaging them in a
+   test source set instead.
+
+   You can include test sources in the unused resource check by setting the
+   system property lint.unused-resources.include-tests =true, and to exclude
+   them (usually for performance reasons), use
+   lint.unused-resources.exclude-tests =true.
+   ,
+
+/data/polka-native/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml:1: Warning: The application adaptive icon is missing a monochrome tag [MonochromeLauncherIcon]
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+^
+
+   Explanation for issues of type "MonochromeLauncherIcon":
+   If android:roundIcon and android:icon are both in your manifest, you must
+   either remove the reference to android:roundIcon if it is not needed; or,
+   supply the monochrome icon in the drawable defined by the android:roundIcon
+   and android:icon attribute.
+
+   For example, if android:roundIcon and android:icon are both in the
+   manifest, a launcher might choose to use android:roundIcon over
+   android:icon to display the adaptive app icon. Therefore, your themed
+   application iconwill not show if your monochrome attribute is not also
+   specified in android:roundIcon.
+
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeReader.kt:109: Warning: Prefer "SHOW_AS_ACTION_IF_ROOM" instead of "SHOW_AS_ACTION_ALWAYS" [AlwaysShowAction]
+            override fun onCreateActionMode(mode:ActionMode,menu:Menu):Boolean { menu.add(0,700,0,"Цитата").setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS); menu.add(0,701,1,"Заметка"); return true }
+                                                                                                                                     ~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeReader.kt:109: Warning: Prefer "SHOW_AS_ACTION_IF_ROOM" instead of "SHOW_AS_ACTION_ALWAYS" [AlwaysShowAction]
+            override fun onCreateActionMode(mode:ActionMode,menu:Menu):Boolean { menu.add(0,700,0,"Цитата").setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS); menu.add(0,701,1,"Заметка"); return true }
+                                                                                                                                     ~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "AlwaysShowAction":
+   Using showAsAction="always" in menu XML, or MenuItem.SHOW_AS_ACTION_ALWAYS
+   in Java code is usually a deviation from the user interface style guide.Use
+   ifRoom or the corresponding MenuItem.SHOW_AS_ACTION_IF_ROOM instead.
+
+   If always is used sparingly there are usually no problems and behavior is
+   roughly equivalent to ifRoom but with preference over other ifRoom items.
+   Using it more than twice in the same menu is a bad idea.
+
+   This check looks for menu XML files that contain more than two always
+   actions, or some always actions and no ifRoom actions. In Java code, it
+   looks for projects that contain references to
+   MenuItem.SHOW_AS_ACTION_ALWAYS and no references to
+   MenuItem.SHOW_AS_ACTION_IF_ROOM.
+
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookCalendar.kt:80: Warning: Custom view BookCalendarPoster is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class BookCalendarPoster(private val a:MainActivity,private val model:ReadingStatistics,private val period:CalendarPeriod,internal val months:List<YearMonth>):View(a) {
+               ~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:11: Warning: Custom view BookDetailSheet is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,private val source:View?):FrameLayout(a){
+      ~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookGlow.kt:44: Warning: Custom view BookGlowView is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class BookGlowView(private val a:MainActivity,private val cover:CoverView):View(a) {
+               ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookOpening.kt:37: Warning: Custom view BookOpeningHold is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class BookOpeningHold(a:MainActivity,private val snapshot:BookOpeningSnapshot):View(a){
+               ~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookOpening.kt:45: Warning: Custom view BookOpeningStage is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeningSnapshot,private val live:View,private val restoreLive:Boolean=true,private val ownedBitmap:Bitmap?=null,internal val returning:Boolean=false,private val motionReader:NativeReader?=null,private val completed:(()->Unit)?=null):ViewGroup(a) {
+      ~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ContinueReading.kt:13: Warning: Custom view ContinueReading is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):LinearLayout(a) {
+               ~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/DetailReveal.kt:10: Warning: Custom view DetailReveal is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class DetailReveal(private val a:MainActivity):FrameLayout(a){
+               ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/DetailTopFade.kt:7: Warning: Custom view DetailTopFade is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class DetailTopFade(private val a:MainActivity):View(a){
+               ~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/LibrarySearchBar.kt:12: Warning: Custom view LibrarySearchBar is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class LibrarySearchBar(private val a:MainActivity):LinearLayout(a) {
+               ~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:13: Warning: Custom view CoverView is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class CoverView(context: Context, private val book: JSONObject, private val image: Bitmap? = null) : View(context) {
+      ~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:71: Warning: Custom view ShelfArt is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class ShelfArt(context: Context, val previews: List<Pair<JSONObject, Bitmap?>>, val light: Boolean, val add: Boolean = false) : View(context) {
+      ~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:120: Warning: Custom view IconView is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class IconView(context: Context, private val kind: String, var ink: Int) : View(context) {
+      ~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeArt.kt:146: Warning: Custom view ThinProgress is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class ThinProgress(context:Context,val fraction:Double,val foreground:Int,val track:Int):View(context) {
+      ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeRating.kt:6: Warning: Custom view NativeRating is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class NativeRating(val a:MainActivity,initial:Int=0,val toggle:Boolean=true,val changed:(Int)->Unit):LinearLayout(a) {
+      ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PageCurlView.kt:11: Warning: Custom view PageCurlView is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBitmap:Bitmap,
+               ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:31: Warning: Custom view SlidingSegment is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class SlidingSegment(val a:MainActivity,selected:Int,val count:Int,private val trackColor:Int?=null,private val thumbColor:Int?=null):LinearLayout(a) {
+      ~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:151: Warning: Custom view PolkaSheetFrame is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class PolkaSheetFrame(private val a:MainActivity,internal val panel:LinearLayout,private val tall:Boolean,private val wide:Boolean):FrameLayout(a) {
+               ~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:189: Warning: Custom view PolkaSwitch is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class PolkaSwitch(private val a:MainActivity):Switch(a) {
+      ~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:212: Warning: Custom view PolkaNavigation is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
+      ~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:42: Warning: Custom view AnimatedProfileView is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+open class AnimatedProfileView(val a:MainActivity,val animatePlot:Boolean=true):View(a) {
+           ~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:47: Warning: Custom view MiniMetric is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class MiniMetric(a:MainActivity,val kind:String,val values:List<Double>,val color:Int,animate:Boolean=true):AnimatedProfileView(a,animate) {
+      ~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:56: Warning: Custom view WeekDot is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class WeekDot(val a:MainActivity,val met:Boolean,val partial:Boolean,val today:Boolean):View(a) {
+      ~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:60: Warning: Custom view ActivityBars is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class ActivityBars(a:MainActivity,val values:List<Double>,val labels:List<String>,val goal:Double,val rhythm:Boolean=false,animate:Boolean=true,val tipLabels:List<String> = labels):AnimatedProfileView(a,animate) {
+      ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:79: Warning: Custom view ShareRing is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class ShareRing(a:MainActivity,val values:List<Double>,val label:String,val subtitle:String="",val colors:List<Int> = igColors.toList(),val stroke:Float=16f,val small:Boolean=false,animate:Boolean=true):AnimatedProfileView(a,animate) {
+      ~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ProfileScreen.kt:82: Warning: Custom view FlameView is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class FlameView(val a:MainActivity,val number:Int,val active:Boolean,val risk:Boolean=false,val showNumber:Boolean=true):View(a) {
+      ~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/QuoteScreen.kt:39: Warning: Custom view QuoteStackLayer is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){private val p=Paint(3);init{setWillNotDraw(false);setPadding(0,0,0,a.d(if(count>2)15 else if(count>1)8 else 0))};override fun onDraw(c:Canvas){val bottom=height.toFloat();p.color=if(a.light)0xffe9e9e6.toInt() else 0xff2a2a2d.toInt();if(count>2){p.alpha=140;c.drawRoundRect(a.d(26).toFloat(),bottom-a.d(30),width-a.d(26).toFloat(),bottom,a.d(18).toFloat(),a.d(18).toFloat(),p)};if(count>1){p.alpha=255;val y=bottom-a.d(if(count>2)7 else 0);c.drawRoundRect(a.d(12).toFloat(),y-a.d(30),width-a.d(12).toFloat(),y,a.d(18).toFloat(),a.d(18).toFloat(),p)}}}
+               ~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/QuoteScreen.kt:40: Warning: Custom view QuoteStripe is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+private class QuoteStripe(val a:MainActivity):FrameLayout(a){private val p=Paint(3);init{setWillNotDraw(false)};override fun onDraw(c:Canvas){p.color=a.accentFill;c.drawRoundRect(0f,0f,a.d(3).toFloat(),height.toFloat(),a.d(1).toFloat(),a.d(1).toFloat(),p)}}
+              ~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ReaderQuoteSelection.kt:35: Warning: Custom view ReaderQuoteSelection is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class ReaderQuoteSelection(private val a:MainActivity,private val reader:NativeReader):FrameLayout(a) {
+               ~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ReaderRange.kt:6: Warning: Custom view ReaderRange is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class ReaderRange(private val a:MainActivity):SeekBar(a){
+               ~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/RecommendationViews.kt:12: Warning: Custom view SelectedRecommendation is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class SelectedRecommendation(val a:MainActivity,val book:JSONObject,selected:Boolean):FrameLayout(a) {
+      ~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/RecommendationViews.kt:20: Warning: Custom view RecommendationCard is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class RecommendationCard(val a:MainActivity,val book:JSONObject):FrameLayout(a) {
+      ~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:178: Warning: Custom view AnnualRing is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class AnnualRing(a:MainActivity,private val done:Int,private val target:Int,animate:Boolean):StatsAnimatedView(a,animate){
+               ~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:182: Warning: Custom view TimeRibbon is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class TimeRibbon(a:MainActivity,private val values:List<Double>,animate:Boolean,private val speed:Int?=null,private val onSelect:((Int)->Unit)?=null):StatsAnimatedView(a,animate){
+               ~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:195: Warning: Custom view StatsAnimatedView is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal open class StatsAnimatedView(a:MainActivity,private val motion:Boolean):AnimatedProfileView(a,false) {
+                    ~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatsDayMark.kt:4: Warning: Custom view StatsDayMark is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+internal class StatsDayMark(private val a:MainActivity,private val met:Boolean,private val partial:Boolean,private val today:Boolean):View(a){
+               ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/VirtualGrid.kt:8: Warning: Custom view VirtualGrid is missing constructor used by tools: (Context) or (Context,AttributeSet) or (Context,AttributeSet,int) [ViewConstructor]
+class VirtualGrid(context:Context,private val count:Int,private val columns:Int,private val gap:Int,private val rowGap:Int,private val rowHeight:(Int,Int)->Int,private val factory:(Int)->View):ViewGroup(context) {
+      ~~~~~~~~~~~
+
+   Explanation for issues of type "ViewConstructor":
+   Some layout tools (such as the Android layout editor) need to find a
+   constructor with one of the following signatures:
+   * View(Context context)
+   * View(Context context, AttributeSet attrs)
+   * View(Context context, AttributeSet attrs, int defStyle)
+
+   If your custom view needs to perform initialization which does not apply
+   when used in a layout editor, you can surround the given code with a check
+   to see if View#isInEditMode() is false, since that method will return false
+   at runtime but true within a user interface editor.
+
+/data/polka-native/app/build.gradle.kts:16: Information: Add suffix -ktx to enable the Kotlin extensions for this library [KtxExtensionAvailable]
+    implementation("androidx.core:core:1.13.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "KtxExtensionAvailable":
+   Android KTX extensions augment some libraries with support for modern
+   Kotlin language features like extension functions, extension properties,
+   lambdas, named parameters, coroutines, and more.
+
+   In Kotlin projects, use the KTX version of a library by replacing the
+   dependency in your build.gradle file. For example, you can replace
+   androidx.fragment:fragment with androidx.fragment:fragment-ktx.
+
+   https://developer.android.com/kotlin/ktx
+
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:171: Warning: Custom view DetailPanel overrides onTouchEvent but not performClick [ClickableViewAccessibility]
+  override fun onTouchEvent(e:MotionEvent):Boolean{
+               ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookOpening.kt:60: Warning: Custom view BookOpeningStage overrides onTouchEvent but not performClick [ClickableViewAccessibility]
+ override fun onTouchEvent(e:MotionEvent)=true
+              ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookOpening.kt:134: Warning: Custom view anonymous class overrides onTouchEvent but not performClick [ClickableViewAccessibility]
+ val hold=object:FrameLayout(this){override fun onInterceptTouchEvent(e:MotionEvent)=true;override fun onTouchEvent(e:MotionEvent)=true}.apply {
+                                                                                                       ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ContinueReading.kt:31: Warning: Custom view anonymous class overrides onTouchEvent but not performClick [ClickableViewAccessibility]
+  override fun onTouchEvent(e:android.view.MotionEvent):Boolean{if(e.actionMasked==MotionEvent.ACTION_DOWN)flung=false;val handled=super.onTouchEvent(e);if((e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)&&!flung)post{snap()};return handled}
+               ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeReader.kt:159: Warning: Custom view `TextView` has setOnTouchListener called on it but does not override performClick [ClickableViewAccessibility]
+        body.setOnTouchListener { _,e -> pageTouch(e) }
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeReader.kt:159: Warning: onTouch lambda should call View#performClick when a click is detected [ClickableViewAccessibility]
+        body.setOnTouchListener { _,e -> pageTouch(e) }
+                                ~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeReader.kt:160: Warning: Custom view `ReaderViewport` has setOnTouchListener called on it but does not override performClick [ClickableViewAccessibility]
+        scroll.setOnTouchListener { _,e -> pageTouch(e) }
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeReader.kt:160: Warning: onTouch lambda should call View#performClick when a click is detected [ClickableViewAccessibility]
+        scroll.setOnTouchListener { _,e -> pageTouch(e) }
+                                  ~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:44: Warning: onTouch lambda should call View#performClick when a click is detected [ClickableViewAccessibility]
+    v.setOnTouchListener { view,e -> view.background?.setHotspot(e.x,e.y);if(prefs.str("motion")=="reduced")return@setOnTouchListener false
+                         ^
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:138: Warning: onTouch lambda should call View#performClick when a click is detected [ClickableViewAccessibility]
+                val drag=View.OnTouchListener { _,e -> if(wide || !cancel) return@OnTouchListener false; when(e.actionMasked) {
+                                              ^
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:143: Warning: Custom view `FrameLayout` has setOnTouchListener called on it but does not override performClick [ClickableViewAccessibility]
+                handle.setOnTouchListener(drag); head.setOnTouchListener(drag);box.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){};override fun onViewDetachedFromWindow(v:View){motion?.stop()}})
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:143: Warning: Custom view `FrameLayout` has setOnTouchListener called on it but does not override performClick [ClickableViewAccessibility]
+                handle.setOnTouchListener(drag); head.setOnTouchListener(drag);box.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){};override fun onViewDetachedFromWindow(v:View){motion?.stop()}})
+                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:221: Warning: Custom view PolkaNavigation overrides onTouchEvent but not performClick [ClickableViewAccessibility]
+    override fun onTouchEvent(e:MotionEvent):Boolean{if(!dragging)return super.onTouchEvent(e);when(e.actionMasked){MotionEvent.ACTION_MOVE->{spring.snap((dragOrigin+e.x-dragStart).coerceIn(0f,a.d(168).toFloat()));};MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{if(e.actionMasked==MotionEvent.ACTION_UP)spring.snap((dragOrigin+e.x-dragStart).coerceIn(0f,a.d(168).toFloat()));val index=if(e.actionMasked==MotionEvent.ACTION_CANCEL)selected else kotlin.math.round(spring.value/a.d(56)).toInt().coerceIn(0,3);dragging=false;spring.to(a.d(index*56).toFloat());if(index!=selected)choose?.invoke(keys[index])}};return true}
+                 ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ReaderQuoteSelection.kt:86: Warning: Custom view ReaderQuoteSelection overrides onTouchEvent but not performClick [ClickableViewAccessibility]
+    override fun onTouchEvent(e:MotionEvent):Boolean {
+                 ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ReaderViewport.kt:17: Warning: Custom view ReaderViewport overrides onTouchEvent but not performClick [ClickableViewAccessibility]
+ override fun onTouchEvent(event:MotionEvent):Boolean=if(locked())false else super.onTouchEvent(event)
+              ~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/RecommendationDeck.kt:110: Warning: Custom view `RecommendationCard` has setOnTouchListener called on it but does not override performClick [ClickableViewAccessibility]
+        card.setOnTouchListener { v,e -> if(busy) return@setOnTouchListener true
+        ^
+/data/polka-native/app/src/main/java/app/polka/nativeapp/RecommendationViews.kt:87: Warning: Custom view `ScrollView` has setOnTouchListener called on it but does not override performClick [ClickableViewAccessibility]
+  scroller.setOnTouchListener{_,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->{down=e.y;pulling=scroller.scrollY<=0};MotionEvent.ACTION_MOVE->if(pulling&&scroller.scrollY<=0&&e.y>down){content.translationY=(e.y-down)*.45f;return@setOnTouchListener true};MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val dy=content.translationY/.45f;pulling=false;if(e.actionMasked==MotionEvent.ACTION_UP&&dy>a.d(110))dismiss()else content.animate().translationY(0f).setDuration(if(reduced())0 else 360).setInterpolator(PathInterpolator(.3f,1.3f,.5f,1f)).start()}};false}
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/RecommendationViews.kt:87: Warning: onTouch lambda should call View#performClick when a click is detected [ClickableViewAccessibility]
+  scroller.setOnTouchListener{_,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->{down=e.y;pulling=scroller.scrollY<=0};MotionEvent.ACTION_MOVE->if(pulling&&scroller.scrollY<=0&&e.y>down){content.translationY=(e.y-down)*.45f;return@setOnTouchListener true};MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val dy=content.translationY/.45f;pulling=false;if(e.actionMasked==MotionEvent.ACTION_UP&&dy>a.d(110))dismiss()else content.animate().translationY(0f).setDuration(if(reduced())0 else 360).setInterpolator(PathInterpolator(.3f,1.3f,.5f,1f)).start()}};false}
+                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/VirtualGrid.kt:27: Warning: Custom view VirtualGrid overrides onTouchEvent but not performClick [ClickableViewAccessibility]
+    override fun onTouchEvent(e:MotionEvent):Boolean=if(reorder?.touch(e)==true)true else super.onTouchEvent(e)
+                 ~~~~~~~~~~~~
+
+   Explanation for issues of type "ClickableViewAccessibility":
+   If a View that overrides onTouchEvent or uses an OnTouchListener does not
+   also implement performClick and call it when clicks are detected, the View
+   may not handle accessibility actions properly. Logic handling the click
+   actions should ideally be placed in View#performClick as some accessibility
+   services invoke performClick when a click action should occur.
+
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookCalendar.kt:69: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+    private fun rangeEditor(){var first=period.first;var last=period.last;val box=a.column();val fmt=DateTimeFormatter.ofPattern("d MMM yyyy",locale);val start=a.button("С ${first.format(fmt)}"){};val end=a.button("По ${last.format(fmt)}"){};start.setOnClickListener{a.pickCalendarDate(first){first=it;start.text="С ${it.format(fmt)}"}};end.setOnClickListener{a.pickCalendarDate(last){last=it;end.text="По ${it.format(fmt)}"}};box.addView(start);a.space(box,8);box.addView(end);val error=a.text("",14f,0xffbd4444.toInt()).apply{visibility=View.GONE};box.addView(error);a.space(box,16);lateinit var sheet:android.app.AlertDialog;box.addView(a.button("Показать",true){if(first>last){error.text="Начало должно быть раньше конца";error.visibility=View.VISIBLE}else{choosePeriod(first,last);sheet.dismiss()}});sheet=a.dialog().setTitle("Период календаря").setView(box).show()}
+                                                                                                                                                                                                                                                                                                                         ~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookCalendar.kt:69: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+    private fun rangeEditor(){var first=period.first;var last=period.last;val box=a.column();val fmt=DateTimeFormatter.ofPattern("d MMM yyyy",locale);val start=a.button("С ${first.format(fmt)}"){};val end=a.button("По ${last.format(fmt)}"){};start.setOnClickListener{a.pickCalendarDate(first){first=it;start.text="С ${it.format(fmt)}"}};end.setOnClickListener{a.pickCalendarDate(last){last=it;end.text="По ${it.format(fmt)}"}};box.addView(start);a.space(box,8);box.addView(end);val error=a.text("",14f,0xffbd4444.toInt()).apply{visibility=View.GONE};box.addView(error);a.space(box,16);lateinit var sheet:android.app.AlertDialog;box.addView(a.button("Показать",true){if(first>last){error.text="Начало должно быть раньше конца";error.visibility=View.VISIBLE}else{choosePeriod(first,last);sheet.dismiss()}});sheet=a.dialog().setTitle("Период календаря").setView(box).show()}
+                                                                                                                                                                                                                                                                                                                                                                                                                  ~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:77: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+   quoteHeading.text="Ваши цитаты"+if(quotes.isEmpty())"" else " · ${quotes.size}"
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookScreens.kt:53: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+    work({threshold=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")?.optInt("goal",10)} ?: 10}){flameSetting.text="Огонёк · $threshold мин в день";flameSetting.setOnClickListener{editStreakThreshold{goal->flameSetting.text="Огонёк · $goal мин в день"}}}
+                                                                                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/BookScreens.kt:53: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+    work({threshold=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")?.optInt("goal",10)} ?: 10}){flameSetting.text="Огонёк · $threshold мин в день";flameSetting.setOnClickListener{editStreakThreshold{goal->flameSetting.text="Огонёк · $goal мин в день"}}}
+                                                                                                                                                                                                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ChapterEditor.kt:72: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+  },failed={e->saving=false;editor.isEnabled=true;error.text="Не сохранено. Правки остались здесь: ${e.message?:"ошибка хранилища"}";error.visibility=View.VISIBLE},done={
+                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ContinueReading.kt:29: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+  override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(restoring){scrollTo(pendingIndex*stride,0);restoring=false;position.text="${pendingIndex+1} / ${readingBooks.size}"}}
+                                                                                                                                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ContinueReading.kt:29: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+  override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(restoring){scrollTo(pendingIndex*stride,0);restoring=false;position.text="${pendingIndex+1} / ${readingBooks.size}"}}
+                                                                                                                                                                                ~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ContinueReading.kt:33: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+  override fun onScrollChanged(x:Int,y:Int,ox:Int,oy:Int){super.onScrollChanged(x,y,ox,oy);if(restoring)return;val n=(x.toFloat()/stride).roundToInt().coerceIn(0,readingBooks.lastIndex.coerceAtLeast(0));position.text="${n+1} / ${readingBooks.size}";a.continueBookId=readingBooks.getOrNull(n)?.str("id")}
+                                                                                                                                                                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ContinueReading.kt:33: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+  override fun onScrollChanged(x:Int,y:Int,ox:Int,oy:Int){super.onScrollChanged(x,y,ox,oy);if(restoring)return;val n=(x.toFloat()/stride).roundToInt().coerceIn(0,readingBooks.lastIndex.coerceAtLeast(0));position.text="${n+1} / ${readingBooks.size}";a.continueBookId=readingBooks.getOrNull(n)?.str("id")}
+                                                                                                                                                                                                                            ~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/ContinueReading.kt:37: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+  val heading=a.line();heading.addView(a.text("Продолжить чтение",20f,bold=true,serif=true),LayoutParams(0,-2,1f));position.text="1 / ${readingBooks.size}";if(readingBooks.size>1)heading.addView(position);addView(heading);a.space(this,14)
+                                                                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeReader.kt:129: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+        slider.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener { override fun onProgressChanged(s:SeekBar?,v:Int,user:Boolean) { if(user) percent.text="${v/10}% от всей книги" }; override fun onStartTrackingTouch(s:SeekBar?) { scrubbing=true }; override fun onStopTrackingTouch(s:SeekBar?) { scrubbing=false; jumpProgress((s?.progress ?: 0)/1000.0) } }); bottom.addView(slider,LinearLayout.LayoutParams(-1,a.d(28)))
+                                                                                                                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/NativeReader.kt:215: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+    fun updateFooter() { folio.text=if(paged())"${pageIndex+1} из ${pageStarts.size}" else "";if(!scrubbing) slider.progress=(progress()*1000).toInt(); percent.text="${(progress()*100).toInt()}% от всей книги"; footer.text=chapters.getJSONObject(chapter).str("title");remaining.text=if(paged()){val left=pageStarts.size-pageIndex-1;if(left>0)"ещё $left стр" else "конец главы"}else "${(fraction()*100).toInt()}% главы" }
+                                                                                                                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/RecommendationDeck.kt:59: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+        fun updateGo() { go.text="Подобрать книги"+if(selection.isNotEmpty()) " · ${selection.size}" else "" }
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:108: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+            values.addView(TimeRibbon(a,series,animate,onSelect={i->hint.visibility=View.VISIBLE;hint.text="${chartLabels[i]} · ${duration((series[i]*60000).toLong())}"}),LinearLayout.LayoutParams(-1,a.d(92)));space(values,8)
+                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/data/polka-native/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:153: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+    box.addView(button("Сохранить цель",true){val n=input.text.toString().toIntOrNull();if(n==null || n !in 1..9999){error.text="Введите число от 1 до 9999";error.visibility=View.VISIBLE;input.requestFocus()}else{updateStatistics{changeAnnualGoal(it,year,n)};sheet.dismiss()}})
+                                                                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "SetTextI18n":
+   When calling TextView#setText
+   * Never call Number#toString() to format numbers; it will not handle
+   fraction separators and locale-specific digits properly. Consider using
+   String#format with proper format specifications (%d or %f) instead.
+   * Do not pass a string literal (e.g. "Hello") to display text. Hardcoded
+   text can not be properly translated to other languages. Consider using
+   Android resource strings instead.
+   * Do not build messages by concatenating text chunks. Such messages can not
+   be properly translated.
+
+   https://developer.android.com/guide/topics/resources/localization.html
+
+0 errors, 142 warnings
