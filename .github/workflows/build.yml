@@ -1,5 +1,7 @@
 name: Build APK
 on: [push, workflow_dispatch]
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -29,3 +31,9 @@ jobs:
         with:
           name: Polka-native-0.6.27
           path: app/build/outputs/apk/debug/*.apk
+      - name: Publish APK to apk-out branch
+        run: |
+          mkdir /tmp/out && cp app/build/outputs/apk/debug/*.apk /tmp/out/Polka-native-0.6.27.apk
+          cd /tmp/out && git init -q && git checkout -q -b apk-out && git add . 
+          git -c user.name=ci -c user.email=ci@example.com commit -qm "APK 0.6.27"
+          git push -f -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" apk-out
