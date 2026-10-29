@@ -107,7 +107,7 @@ class RecommendationExpansion(val a:MainActivity,val book:JSONObject,val source:
    big.translationX=mix(pose[0],fromX);big.translationY=mix(pose[1],fromY);big.scaleX=mix(pose[2],coverScale);big.scaleY=mix(pose.getOrElse(10){pose[2]},coverScaleY)
    backdrop.translationX=mix(pose[3],bgX);backdrop.translationY=mix(pose[4],bgY);backdrop.scaleX=mix(pose[5],bgScaleX);backdrop.scaleY=mix(pose[6],bgScaleY)
    fun smooth(x:Float)=x.coerceIn(0f,1f).let{it*it*(3-2*it)}
-   backdrop.alpha=pose[7]*(1-smooth((t-.08f)/.92f));glow.alpha=pose[8]*(1-smooth(t/.8f));back.alpha=pose[9]*(1-smooth(t/.65f))
+   backdrop.alpha=pose[7]*(1-smooth((t-.08f)/.92f));glow.alpha=pose[8]*(1-smooth(t));back.alpha=pose[9]*(1-smooth(t/.65f));followGlow()
    parts.forEachIndexed{i,v->v.alpha=(closeAlphas.getOrNull(i)?:1f)*(1-smooth(t/.7f))}
    // One physical cover all the way to the destination. Cross-fading two moving
    // silhouettes made both the book and its shadow flicker before the final frame.
@@ -123,9 +123,15 @@ class RecommendationExpansion(val a:MainActivity,val book:JSONObject,val source:
    return
   }
   val t=curve(if(closing)520 else 620);val remaining=if(closing)t else 1-t;big.translationX=fromX*remaining;big.translationY=fromY*remaining;big.scaleX=1+(coverScale-1)*remaining;big.scaleY=1+(coverScaleY-1)*remaining;backdrop.translationX=bgX*remaining;backdrop.translationY=bgY*remaining;backdrop.scaleX=1+(bgScaleX-1)*remaining;backdrop.scaleY=1+(bgScaleY-1)*remaining
-  glow.alpha=if(closing)1-curve(300,x1=0f,y1=0f,x2=.58f,y2=1f)else 1f;back.alpha=if(closing)1-(elapsed/140f).coerceIn(0f,1f)else ((elapsed-260)/300f).coerceIn(0f,1f)
+  glow.alpha=if(closing)1-curve(300,x1=0f,y1=0f,x2=.58f,y2=1f)else (((t-.3f)/.7f).coerceIn(0f,1f)).let{it*it*(3-2*it)};followGlow();back.alpha=if(closing)1-(elapsed/140f).coerceIn(0f,1f)else ((elapsed-260)/300f).coerceIn(0f,1f)
   parts.forEachIndexed{i,v->val q=if(closing)1-curve(160,x1=0f,y1=0f,x2=.58f,y2=1f)else curve(560,150+min(i,6)*45L,.22f,1f,.36f,1f);v.alpha=q;v.translationY=if(closing)0f else a.d(22)*(1-q)}
  }
+ /** The light belongs to the cover: it shares its centre and scale all the way, so it can never
+  * linger at the hero position (or pop in at full size) while the book is elsewhere. */
+ private fun followGlow(){if(big.width<=0)return;val w=big.width.toFloat();val h=big.height.toFloat()
+  glow.pivotX=big.left-glow.left+w*.5f;glow.pivotY=big.top-glow.top+h*.5f
+  glow.scaleX=big.scaleX;glow.scaleY=big.scaleY
+  glow.translationX=big.translationX+(big.scaleX-1f)*w*.5f;glow.translationY=big.translationY+(big.scaleY-1f)*h*.5f}
  fun freezeMotion(){cancelClock()}
  fun stopMotion(){if(shutting)finish()else{cancelClock();sampleMotion(1200)}}
  private fun finish(){if(finished)return;finished=true;cancelClock();restoreShadows();source.visibility=View.VISIBLE;source.alpha=1f;(panel.parent as? ViewGroup)?.removeView(panel);if(a.recommendationExpansion===this)a.recommendationExpansion=null;closed();a.flushDeferredRender()}

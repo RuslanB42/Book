@@ -11,6 +11,11 @@ jobs:
         with: {distribution: temurin, java-version: '17'}
       - name: Accept SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+      - name: Restore signing key
+        uses: actions/cache@v4
+        with:
+          path: signing/polka-local.keystore
+          key: polka-keystore-v1
       - name: Create debug keystore (original one is not in the repo)
         run: |
           mkdir -p signing
@@ -37,3 +42,17 @@ jobs:
           cd /tmp/out && git init -q && git checkout -q -b apk-out && git add . 
           git -c user.name=ci -c user.email=ci@example.com commit -qm "APK 0.6.27"
           git push -f -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" apk-out
+      - name: Unit tests
+        continue-on-error: true
+        timeout-minutes: 25
+        run: |
+          set +e
+          ./gradlew testDebugUnitTest --no-daemon --console=plain > test.log 2>&1
+          code=$?
+          if [ $code -ne 0 ]; then
+            msg=$(grep -i -B1 -A4 "FAILED\|What went wrong\|error:" test.log | head -40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=Tests::$msg"
+          else
+            echo "::notice title=Tests::all unit tests passed"
+          fi
+          exit $code
