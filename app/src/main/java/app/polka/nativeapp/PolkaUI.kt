@@ -28,14 +28,14 @@ fun MainActivity.segment(labels:List<String>,selected:Int,onSelect:(Int)->Unit):
     val box=SlidingSegment(this,selected,labels.size)
     labels.forEachIndexed { i,s -> box.addView(text(s,14f).apply { gravity=Gravity.CENTER; minHeight=d(36); isSelected=i==selected; press(this); setOnClickListener { box.choose(i); for(j in 0 until box.childCount) box.getChildAt(j).isSelected=j==i; onSelect(i) } },LinearLayout.LayoutParams(0,-2,1f)) }; return box
 }
-class SlidingSegment(val a:MainActivity,selected:Int,val count:Int,private val trackColor:Int?=null,private val thumbColor:Int?=null):LinearLayout(a) {
+class SlidingSegment(val a:MainActivity,selected:Int,val count:Int,private val trackColor:Int?=null,private val thumbColor:Int?=null,private val pillRadius:Int=10):LinearLayout(a) {
     private var index=selected.coerceAtLeast(0).toFloat()
     private val ink=android.graphics.Paint(3)
     private val segmentThumb=OpaqueSurface(a,9f,selected=true)
     private val spring=LiquidSpring{value,_->index=value;invalidate()}
-    init { orientation=HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; setPadding(a.d(2),a.d(2),a.d(2),a.d(2)); background=if(trackColor!=null)a.shape(trackColor,10)else a.controlSurface(this,12f); setWillNotDraw(false);spring.snap(index) }
+    init { orientation=HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; setPadding(a.d(2),a.d(2),a.d(2),a.d(2)); background=if(trackColor!=null)a.shape(trackColor,pillRadius)else a.controlSurface(this,12f); setWillNotDraw(false);spring.snap(index) }
     fun choose(value:Int) { val target=value.coerceIn(0,(count-1).coerceAtLeast(0)).toFloat();if(a.prefs.str("motion")=="reduced")spring.snap(target)else spring.to(target) }
-    override fun onDraw(c:android.graphics.Canvas) { super.onDraw(c); val pad=a.d(2).toFloat(); val cell=(width-pad*2)/count;if(thumbColor!=null){ink.color=thumbColor;c.drawRoundRect(pad+cell*index,pad,pad+cell*(index+1),height-pad,a.d(8).toFloat(),a.d(8).toFloat(),ink)}else{c.save();c.translate(pad+cell*index,pad);segmentThumb.setBounds(0,0,cell.toInt(),(height-pad*2).toInt());segmentThumb.draw(c);c.restore()} }
+    override fun onDraw(c:android.graphics.Canvas) { super.onDraw(c); val pad=a.d(2).toFloat(); val cell=(width-pad*2)/count;if(thumbColor!=null){ink.color=thumbColor;c.drawRoundRect(pad+cell*index,pad,pad+cell*(index+1),height-pad,a.d(pillRadius-2).toFloat(),a.d(pillRadius-2).toFloat(),ink)}else{c.save();c.translate(pad+cell*index,pad);segmentThumb.setBounds(0,0,cell.toInt(),(height-pad*2).toInt());segmentThumb.draw(c);c.restore()} }
     override fun onDetachedFromWindow() { spring.stop(); super.onDetachedFromWindow() }
 }
 fun MainActivity.press(v:View) {
@@ -66,6 +66,29 @@ class PolkaSheetBuilder(private val a:MainActivity) {
     fun setMultiChoiceItems(v:Array<out CharSequence>,checks:BooleanArray,callback:(DialogInterface,Int,Boolean)->Unit)=apply { items=v; checked=checks; onCheck=callback }
     fun setPositiveButton(s:CharSequence,callback:((DialogInterface,Int)->Unit)?)=apply { positive=s.toString() to callback }
     fun setNegativeButton(s:CharSequence,callback:((DialogInterface,Int)->Unit)?)=apply { negative=s.toString() to callback }
+    /**
+     * AlertDialog marks every window FLAG_ALT_FOCUSABLE_IM unless its OWN setView() holds a text field.
+     * This sheet installs a custom content view, so the flag stayed on and the window could never
+     * connect to the keyboard: the IME opened only by luck. Clear it for the sheet and, when the
+     * sheet is an input form, focus the first field and raise the keyboard once the window has focus.
+     */
+    private fun prepareKeyboard(sheet:AlertDialog) {
+        val w=sheet.window ?: return
+        fun fields(v:View):List<EditText> = if(v is EditText)listOf(v) else if(v is ViewGroup)(0 until v.childCount).flatMap{fields(v.getChildAt(it))} else emptyList()
+        w.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM)
+        val inputs=fields(w.decorView).filter{it.visibility==View.VISIBLE}
+        if(inputs.isEmpty()) return
+        w.setSoftInputMode(w.attributes.softInputMode or WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        // Long forms (several fields) should not grab the keyboard before the person picks a field.
+        if(inputs.size>2) return
+        val first=inputs.first(); first.requestFocus(); first.setSelection(first.text.length)
+        var shown=false
+        fun raise() { if(shown||!sheet.isShowing) return; shown=true; first.requestFocus(); androidx.core.view.WindowCompat.getInsetsController(w,first).show(androidx.core.view.WindowInsetsCompat.Type.ime())
+            (a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(first,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT) }
+        val focus=object:ViewTreeObserver.OnWindowFocusChangeListener { override fun onWindowFocusChanged(has:Boolean) { if(has){ first.post{raise()}; if(first.viewTreeObserver.isAlive) first.viewTreeObserver.removeOnWindowFocusChangeListener(this) } } }
+        if(first.hasWindowFocus()) first.post{raise()} else first.viewTreeObserver.addOnWindowFocusChangeListener(focus)
+        first.postDelayed({raise()},250)
+    }
     fun show():AlertDialog {
         val sheet=object:AlertDialog(a,R.style.PolkaSheetTheme) {
             private var panel:View?=null
@@ -143,7 +166,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 handle.setOnTouchListener(drag); head.setOnTouchListener(drag);box.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){};override fun onViewDetachedFromWindow(v:View){motion?.stop()}})
             }
         }
-        sheet.setCancelable(cancel); sheet.setCanceledOnTouchOutside(cancel); sheet.show(); if(a.reader!=null){ReaderWindow.configure(sheet.window!!,true,a.bg);sheet.setOnDismissListener{if(a.reader!=null)ReaderWindow.configure(a.window,true,a.bg)}}; return sheet
+        sheet.setCancelable(cancel); sheet.setCanceledOnTouchOutside(cancel); sheet.show(); prepareKeyboard(sheet); if(a.reader!=null){ReaderWindow.configure(sheet.window!!,true,a.bg);sheet.setOnDismissListener{if(a.reader!=null)ReaderWindow.configure(a.window,true,a.bg)}}; return sheet
     }
 }
 
