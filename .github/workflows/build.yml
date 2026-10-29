@@ -9,7 +9,18 @@ jobs:
         with: {distribution: temurin, java-version: '17'}
       - name: Accept SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-      - run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - name: Build
+        run: |
+          chmod +x gradlew
+          set +e
+          ./gradlew assembleDebug --no-daemon --console=plain > build.log 2>&1
+          code=$?
+          if [ $code -ne 0 ]; then
+            msg=$(grep -n -i -B1 -A3 "error:\|^e: \|FAILED\|What went wrong\|Could not" build.log | head -40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=Gradle::$msg"
+            tail -25 build.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | xargs -0 -I{} echo "::error title=tail::{}"
+          fi
+          exit $code
       - uses: actions/upload-artifact@v4
         with:
           name: Polka-native-0.6.27
