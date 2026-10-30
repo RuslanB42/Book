@@ -102,7 +102,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val week=a.line()
         for(i in 6 downTo 0){val date=today.minusDays(i.toLong());val isToday=date==today
             val cell=a.column().apply{gravity=Gravity.CENTER};cell.addView(StatsDayMark(a,model.met(date),model.ms(date)>0,isToday),LinearLayout.LayoutParams(a.d(36),a.d(36)));space(cell,8)
-            cell.addView(label(weekNames[date.dayOfWeek.value-1],13f,if(isToday)a.fg else captionInk,isToday))
+            cell.addView(label(weekNames[date.dayOfWeek.value-1],13f,if(isToday)a.fg else captionInk,isToday).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2))
             cell.contentDescription="${dayText(date)}: ${if(model.met(date))"серия поддержана" else "${duration(model.ms(date))} чтения"}"
             week.addView(cell,LinearLayout.LayoutParams(0,-2,1f))
         };box.addView(week);add(box)
@@ -120,12 +120,9 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             space(box,22);val target=model.target(goalYear);val done=model.countYear(goalYear)
             if(target==0){box.addView(label("Год для хороших книг",22f,a.fg,true));space(box,6);box.addView(label("Выберите, сколько книг хотите прочитать за $goalYear год. Темп — ваш.",14.5f));space(box,18);box.addView(action("Задать цель",true){a.annualGoalEditor(goalYear,model)})}
             else {
-                val expected=model.expected(goalYear,target)
                 box.addView(label("$done из $target",44f,a.fg,true));space(box,4);box.addView(label("книг за $goalYear год",14.5f));space(box,22)
-                val planned=goalYear==today.year&&expected>0&&expected<target
-                box.addView(ScaleRail(a,animate,false,(done.toFloat()/target).coerceIn(0f,1f),if(planned)expected.toFloat()/target else null,if(planned)"по плану $expected" else null,"0","$target",coral,amber,"Годовая цель: $done из $target книг, ${(done*100.0/target).roundToInt()} процентов"),LinearLayout.LayoutParams(-1,-2));space(box,16)
-                val status=when{done>=target->"Цель достигнута!";goalYear>today.year->"Старт — 1 января";done==expected->"В своём темпе";done>expected->"На ${done-expected} кн. впереди плана";else->"До плана — ${expected-done} кн."}
-                box.addView(label(status,14.5f,coral,true));space(box,18)
+                box.addView(ScaleRail(a,animate,false,(done.toFloat()/target).coerceIn(0f,1f),null,null,"0","$target",coral,amber,"Годовая цель: $done из $target книг, ${(done*100.0/target).roundToInt()} процентов"),LinearLayout.LayoutParams(-1,-2));space(box,16)
+                box.addView(label(if(done>=target)"Цель достигнута!" else "Осталось: ${MainActivity.countBooks(target-done)}",14.5f,coral,true));space(box,18)
                 box.addView(action("Изменить цель"){a.annualGoalEditor(goalYear,model)})
             }
         };bind();add(box)
