@@ -2,12 +2,12 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
     namespace = "app.polka.nativeapp"
     compileSdk = 35
-    defaultConfig { applicationId = "app.polka.nativeapp"; minSdk = 26; targetSdk = 35; versionCode = 39; versionName = "0.6.33" }
+    defaultConfig { applicationId = "app.polka.nativeapp"; minSdk = 26; targetSdk = 35; versionCode = 40; versionName = "0.6.34" }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     signingConfigs { create("localTest") { storeFile = rootProject.file("signing/polka-local.keystore"); storePassword = "android"; keyAlias = "androiddebugkey"; keyPassword = "android" } }
     buildTypes { debug { signingConfig = signingConfigs.getByName("localTest") }; release { isMinifyEnabled = false } }
-    testOptions { unitTests.isIncludeAndroidResources = true; unitTests.all { it.maxHeapSize = "1g"; it.systemProperty("openingReferenceFixture",rootProject.file("test-fixtures/opening-web-reference.json").absolutePath); it.systemProperty("recReferenceFixture",rootProject.file("test-fixtures/recommendations-reference.json").absolutePath); it.systemProperty("webBackupFixture", rootProject.file("test-fixtures/web-fixture.polka").absolutePath); it.systemProperty("qaOutputDir",rootProject.file("qa").absolutePath) } }
+    testOptions { unitTests.isIncludeAndroidResources = true; unitTests.all { it.maxHeapSize = "1g"; it.testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }; it.systemProperty("openingReferenceFixture",rootProject.file("test-fixtures/opening-web-reference.json").absolutePath); it.systemProperty("recReferenceFixture",rootProject.file("test-fixtures/recommendations-reference.json").absolutePath); it.systemProperty("webBackupFixture", rootProject.file("test-fixtures/web-fixture.polka").absolutePath); it.systemProperty("qaOutputDir",rootProject.file("qa").absolutePath) } }
     packaging { resources.excludes += setOf("META-INF/DEPENDENCIES", "META-INF/LICENSE*", "META-INF/NOTICE*") }
 }
 kapt { arguments { arg("room.schemaLocation", "$projectDir/schemas") } }
