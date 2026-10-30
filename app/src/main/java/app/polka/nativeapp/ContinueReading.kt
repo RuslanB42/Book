@@ -41,7 +41,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   readingBooks.forEachIndexed{i,book->
    val card=FrameLayout(a).apply{floating(this);isFocusable=true;contentDescription="Продолжить: ${book.str("title")}"}
    val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),a.d(16),a.d(14),a.d(16));clipChildren=false;clipToPadding=false}
-   card.addView(CoverBackdrop(a,a.cover(book)),FrameLayout.LayoutParams(-1,-1));card.addView(row,FrameLayout.LayoutParams(-1,-2))
+   card.addView(CoverBackdrop(a,book),FrameLayout.LayoutParams(-1,-1));card.addView(row,FrameLayout.LayoutParams(-1,-2))
    val cover=CoverView(a,book,a.cover(book));row.addView(cover,LayoutParams(a.d(64),a.d(96)))
    card.setOnClickListener{a.openBook(book,cover)};a.press(card)
    val words=a.column().apply{setPadding(a.d(14),0,0,0)}
@@ -68,17 +68,27 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
 }
 
 /** The book's own cover, softly blurred and veiled, as the card's background (not a CoverView: it is only a backdrop). */
-internal class CoverBackdrop(private val a:MainActivity,source:Bitmap?):View(a) {
+internal class CoverBackdrop(private val a:MainActivity,private val book:JSONObject):View(a) {
  private val radius=a.d(20).toFloat()
- private val blurred:Bitmap?=try{source?.takeIf{!it.isRecycled&&it.width>0&&it.height>0}?.let{src->ShelfFrost.prepared("backdrop:${System.identityHashCode(src)}"){
+ private var blurred:Bitmap?=null
+ private fun prepare(source:Bitmap?):Bitmap?=try{source?.takeIf{!it.isRecycled&&it.width>0&&it.height>0}?.let{src->ShelfFrost.prepared("backdrop:${System.identityHashCode(src)}"){
   val w=28;val h=(w*src.height/src.width.toFloat()).toInt().coerceIn(16,56);val small=Bitmap.createScaledBitmap(src,w,h,true)
   try{ShelfFrost.blur(small,2.4f)}finally{if(small!==src)small.recycle()}}}}catch(e:Exception){null}
+ private var requested=false
+ /** The cover may still be decoding when the card is built: ask for it and fade the backdrop in when it arrives. */
+ private fun ensure(){
+  if(blurred!=null)return
+  prepare(a.cover(book))?.let{blurred=it;return}
+  if(requested||book.optJSONObject("cover")==null)return;requested=true
+  a.requestCover(book){bmp->prepare(bmp)?.let{b->blurred=b;alpha=0f;invalidate();if(isAttachedToWindow&&a.prefs.str("motion")!="reduced")animate().alpha(1f).setDuration(320).start() else alpha=1f}}
+ }
+ override fun onAttachedToWindow(){super.onAttachedToWindow();ensure()}
  private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply{colorFilter=ColorMatrixColorFilter(ColorMatrix().apply{setSaturation(1.3f)})}
  private val clip=Path();private val src=Rect();private val dst=RectF()
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
  override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){clip.reset();clip.addRoundRect(0f,0f,w.toFloat(),h.toFloat(),radius,radius,Path.Direction.CW)}
  override fun onDraw(c:Canvas){
-  val b=blurred?:return;if(width<1||height<1)return
+  ensure();val b=blurred?:return;if(width<1||height<1)return
   c.save();c.clipPath(clip)
   // Centre-crop the blurred cover to the card, zoomed in a little so only soft colour remains.
   val aspect=width.toFloat()/height;val zoom=1.25f;var sw=b.width/zoom;var sh=sw/aspect;if(sh>b.height/zoom){sh=b.height/zoom;sw=sh*aspect}
