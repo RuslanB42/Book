@@ -234,9 +234,20 @@ class MainActivity : Activity() {
         val byShelf=books.groupBy{it.str("shelf")};val names=(prefs.optJSONArray("shelves")?.strings().orEmpty()+byShelf.keys.filter{it.isNotBlank()}+REC_SHELF).distinct()
         val manual=names.sortedWith(compareByDescending<String>{byShelf[it]?.size ?: 0}.thenBy{it})
         data class ShelfItem(val name:String,val list:List<JSONObject>,val add:Boolean=false,val action:()->Unit)
-        val items=manual.map{name->ShelfItem(name,byShelf[name].orEmpty()){pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;shelf=name;render(false,false)}}.toMutableList()
-        val status=books.groupBy{Library.status(it)};listOf("want","reading","done").forEach{key->items.add(ShelfItem(autoTitle(key),status[key].orEmpty()){pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;auto=key;render(false,false)})};items.add(ShelfItem("Новая полка",emptyList(),true){createShelf()})
-        val grid=VirtualGrid(this,items.size,columns(),d(if(resources.configuration.screenWidthDp>=680)28 else 18),d(if(resources.configuration.screenWidthDp>=680)40 else 30),{_,w->(w*.94f).toInt()+d(16)+(d(62)*resources.configuration.fontScale.coerceAtLeast(1f)).toInt()},{i->val item=items[i];shelfCell(item.name,item.list,item.add,item.action).apply{if(i<manual.size)setOnLongClickListener{shelfActions(item.name);true}}});page.addView(grid,LinearLayout.LayoutParams(-1,-2))
+        val all=manual.map{name->"s:$name" to ShelfItem(name,byShelf[name].orEmpty()){pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;shelf=name;render(false,false)}}+
+            listOf("want","reading","done").map{key->"a:$key" to ShelfItem(autoTitle(key),books.groupBy{Library.status(it)}[key].orEmpty()){pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;auto=key;render(false,false)}}
+        // Saved order first; shelves that were never placed keep their default position after the known ones.
+        val saved=prefs.optJSONArray("shelfOrder")?.strings().orEmpty()
+        val ordered=all.sortedBy{(k,_)->saved.indexOf(k).let{if(it<0)Int.MAX_VALUE else it}}
+        val byKey=ordered.toMap();val keys=ordered.map{it.first}.toMutableList()
+        val list=keys.map{JSONObject().put("id",it)}.toMutableList()
+        val addItem=ShelfItem("Новая полка",emptyList(),true){createShelf()}
+        val count=list.size+1
+        val grid=VirtualGrid(this,count,columns(),d(if(resources.configuration.screenWidthDp>=680)28 else 18),d(if(resources.configuration.screenWidthDp>=680)40 else 30),{_,w->(w*.94f).toInt()+d(16)+(d(62)*resources.configuration.fontScale.coerceAtLeast(1f)).toInt()},{i->
+            if(i>=list.size)shelfCell(addItem.name,addItem.list,true,addItem.action) else {val key=list[i].str("id");val item=byKey.getValue(key);shelfCell(item.name,item.list,false,item.action).apply{if(key.startsWith("s:"))setOnLongClickListener{shelfActions(item.name);true}}}})
+        grid.locked=1
+        grid.reorder=ShelfReorder(this,grid,list,{held->val key=held.str("id");if(key.startsWith("s:"))shelfActions(byKey.getValue(key).name)}){ordered->prefs.put("shelfOrder",JSONArray(ordered.map{it.str("id")}));savePreferences()}
+        page.addView(grid,LinearLayout.LayoutParams(-1,-2))
     }
     fun shelfCell(name:String,list:List<JSONObject>,add:Boolean,click:()->Unit):View {
         val width=(resources.configuration.screenWidthDp-40-(columns()-1)*20)/columns()

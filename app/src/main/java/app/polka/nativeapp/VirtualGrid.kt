@@ -10,6 +10,9 @@ class VirtualGrid(context:Context,private val count:Int,private val columns:Int,
     private var offsets=IntArray(0);private var sizes=IntArray(0);private var cellWidth=0;private var measuredWidthKey=-1
     internal var pinned:View?=null
     internal var reorder:ShelfReorder?=null
+    /** Trailing cells (e.g. the "new shelf" tile) that can neither be lifted nor be dropped onto. */
+    internal var locked=0
+    internal fun movable(i:Int)=i<count-locked
     val materializedCount get()=live.size
     private val scrollListener=ViewTreeObserver.OnScrollChangedListener { sync();invalidate() }
     init { clipChildren=false;clipToPadding=false }
@@ -43,7 +46,7 @@ class VirtualGrid(context:Context,private val count:Int,private val columns:Int,
     internal fun cellAt(x:Float,y:Float):Pair<Int,View>?=live.entries.firstOrNull{(_,v)->x>=v.left&&x<v.right&&y>=v.top&&y<v.bottom}?.let{it.key to it.value}
     internal fun slot(index:Int)=Rect((index%columns)*(cellWidth+gap),offsets[index/columns],(index%columns)*(cellWidth+gap)+cellWidth,offsets[index/columns]+sizes[index/columns])
     internal fun viewAt(index:Int)=live[index]
-    internal fun nearest(cx:Float,cy:Float,current:Int):Int {if(count==0)return current;fun distance(i:Int):Float{val r=slot(i);val dx=cx-r.exactCenterX();val dy=cy-(r.top+cellWidth*.75f);return kotlin.math.sqrt(dx*dx+dy*dy)};val best=(0 until count).minByOrNull(::distance)?:current;return if(distance(best)<distance(current)-cellWidth*.18f)best else current}
+    internal fun nearest(cx:Float,cy:Float,current:Int):Int {if(count==0)return current;fun distance(i:Int):Float{val r=slot(i);val dx=cx-r.exactCenterX();val dy=cy-(r.top+cellWidth*.75f);return kotlin.math.sqrt(dx*dx+dy*dy)};val best=(0 until count-locked).minByOrNull(::distance)?:current;return if(distance(best)<distance(current)-cellWidth*.18f)best else current}
     /** FLIP neighbours from their PRESENTATION position, never from the previous target. */
     internal fun move(from:Int,to:Int,mutate:()->Unit,animate:Boolean){if(from==to)return
         val before=live.values.associateWith{floatArrayOf(it.left+it.translationX,it.top+it.translationY)}
