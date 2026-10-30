@@ -47,7 +47,7 @@ class ProfileStateTests {
         val profile=a.profileOverlay!!; profile.measure(View.MeasureSpec.makeMeasureSpec(390,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(844,View.MeasureSpec.EXACTLY)); profile.layout(0,0,390,844)
         fun findLabel(v:View,label:String):TextView? { if(v is TextView && v.text.toString()==label) return v; if(v is ViewGroup) for(i in 0 until v.childCount) findLabel(v.getChildAt(i),label)?.let { return it }; return null }
         listOf("Лучшая серия","Рекорд за день","Дочитано книг","Библиотека","Время по книгам").forEach { label -> assertNull("Unrequested metric removed: $label",findLabel(profile,label)) }
-        listOf("Прочитано книг","Время чтения","Дни подряд","Любимый автор","Скорость чтения").forEach { label -> assertNotNull(label,findLabel(profile,label)) }
+        listOf("Прочитано книг","Время чтения","дней подряд","Любимый автор","Скорость","Цель на год").forEach { label -> assertNotNull(label,findLabel(profile,label)) }
         controller.pause().stop().destroy()
     }
 }
