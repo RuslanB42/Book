@@ -125,7 +125,8 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   if(amount>0f){
    val bounds=RectF(v.x,v.y,v.x+v.width*v.scaleX,v.y+v.height*v.scaleY)
    val clip=c.save();val radius=bounds.width()*.012f;c.clipPath(Path().apply{addRoundRect(bounds,radius,radius,Path.Direction.CW)})
-   flightFadeMatrix.setTranslate(0f,panel.y);flightFadePaint.shader.setLocalMatrix(flightFadeMatrix);flightFadePaint.alpha=(amount*255).toInt();c.drawRect(bounds,flightFadePaint);c.restoreToCount(clip)
+   // Anchor the fade to where the cover will REST in the sheet, not to the still-rising panel: mid-flight the cover must not pass through the dense top of the gradient.
+   flightFadeMatrix.setTranslate(0f,panel.top+(v.y-to.top));flightFadePaint.shader.setLocalMatrix(flightFadeMatrix);flightFadePaint.alpha=(amount*255).toInt();c.drawRect(bounds,flightFadePaint);c.restoreToCount(clip)
   }
  }
  private fun pct()=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
