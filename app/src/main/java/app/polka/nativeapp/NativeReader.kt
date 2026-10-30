@@ -44,6 +44,10 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun openingChrome(alpha:Float){topBar.alpha=if(calm)0f else alpha;bottom.alpha=if(calm)0f else alpha;folio.alpha=alpha}
     fun openingState(on:Boolean){ opening=on; lastCredit=System.currentTimeMillis(); activeAt=lastCredit;if(!on && openingReflowPending){openingReflowPending=false;handler.post(reflow)} }
     private var completed=false
+    /** Books that were already finished when opened never ask for a rating again. */
+    private val startedDone=Library.status(book)=="done"
+    private var promptArmed=false
+    private var ratingShown=false
     private var calm=false
     private var lastPosition=0
     private var creditedChars=0L
@@ -211,12 +215,31 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     fun pageBase()=if(paged()) pageStarts.getOrElse(pageIndex) { 0 } else 0
     fun fraction():Double = if(paged()) pageBase().toDouble()/maxOf(1,chapterRich.length) else if(body.height<=scroll.height) 0.0 else (scroll.scrollY.toDouble()/(body.height-scroll.height)).coerceIn(0.0,1.0)
-    fun progress():Double { val total=chapters.objects().sumOf { it.optInt("len") }.coerceAtLeast(1); val before=(0 until chapter).sumOf { chapters.getJSONObject(it).optInt("len") }; return ((before+chapters.getJSONObject(chapter).optInt("len")*fraction())/total).coerceIn(0.0,1.0) }
-    fun updateFooter() { folio.text=if(paged())"${pageIndex+1} из ${pageStarts.size}" else "";if(!scrubbing) slider.progress=(progress()*1000).toInt(); percent.text="${(progress()*100).toInt()}% от всей книги"; footer.text=chapters.getJSONObject(chapter).str("title");remaining.text=if(paged()){val left=pageStarts.size-pageIndex-1;if(left>0)"ещё $left стр" else "конец главы"}else "${(fraction()*100).toInt()}% главы" }
+    /**
+     * The last page of the last chapter IS the end of the book. Paged progress is measured from the START of the
+     * current page, so on the final page it used to stop at ~99% and the book could never become "read".
+     */
+    internal fun atEnd():Boolean {
+        if(disposed||preparing||restoring||opening||chapters.length()==0||chapter!=chapters.length()-1||chapterRich.isEmpty()||scroll.width<=0||scroll.height<=0)return false
+        return if(paged())pageStarts.isNotEmpty()&&pageIndex>=pageStarts.lastIndex else body.height<=scroll.height||scroll.scrollY>=body.height-scroll.height-a.d(4)
+    }
+    private fun checkFinished() {
+        if(!atEnd())return
+        if(!completed){completed=true;if(!startedDone)book.put("completedAt",System.currentTimeMillis());handler.post{if(!disposed)save()}}
+        if(!startedDone&&!ratingShown&&!promptArmed&&book.optInt("rating")==0){promptArmed=true;handler.postDelayed(promptTask,1300)}
+    }
+    private val promptTask=Runnable {
+        promptArmed=false
+        if(disposed||ratingShown||editorOpen||isTurning()||!atEnd()||a.ratingPrompt?.isShowing==true)return@Runnable
+        ratingShown=true
+        a.ratingPrompt=RatingPrompt(a,book){n->book.put("rating",n);a.saveBook(book){}}.also{it.show()}
+    }
+    fun progress():Double { if(atEnd())return 1.0; val total=chapters.objects().sumOf { it.optInt("len") }.coerceAtLeast(1); val before=(0 until chapter).sumOf { chapters.getJSONObject(it).optInt("len") }; return ((before+chapters.getJSONObject(chapter).optInt("len")*fraction())/total).coerceIn(0.0,1.0) }
+    fun updateFooter() { folio.text=if(paged())"${pageIndex+1} из ${pageStarts.size}" else "";if(!scrubbing) slider.progress=(progress()*1000).toInt(); percent.text="${(progress()*100).toInt()}% от всей книги"; footer.text=chapters.getJSONObject(chapter).str("title");remaining.text=if(paged()){val left=pageStarts.size-pageIndex-1;if(left>0)"ещё $left стр" else "конец главы"}else "${(fraction()*100).toInt()}% главы";checkFinished() }
     fun changeChapter(next:Int) { if(next !in 0 until chapters.length())return;quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=0;pendingFraction=null;paintChapter() }
     fun persist() { val snap=book.copyJson(); a.saveBook(snap) {} }
     fun pause() { save();paused=true;handler.removeCallbacks(heartbeat) }
-    fun dispose(){if(disposed)return;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
+    fun dispose(){if(disposed)return;a.ratingPrompt?.let{(it.parent as? ViewGroup)?.removeView(it)};a.ratingPrompt=null;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
     fun resume() { ReaderWindow.configure(a.window,true,readerBackground);a.root.requestApplyInsets();paused=false; activeAt=System.currentTimeMillis(); lastCredit=activeAt; handler.removeCallbacks(heartbeat); handler.postDelayed(heartbeat,5000) }
     fun save() {
         handler.removeCallbacks(saveTask)

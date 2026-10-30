@@ -240,7 +240,7 @@ class SurfaceInteractionTests {
   book.put("quotes",JSONArray((0..4).map{JSONObject().put("id","quote-$it").put("ch",0).put("start",it*20).put("text","Сохранённая цитата $it. Мы читали дальше, сохраняя в памяти этот свет.")}))
   for(theme in listOf("light","dark")){a.prefs.put("ui",theme);a.render(false,false);layout();a.detail(book.copyJson());layout();drain();val sheet=a.bookDetailSheet!!;sheet.freezeMotion();sheet.sampleMotion(460);layout()
    assertTrue(descendants(sheet).filterIsInstance<TextView>().any{it.text.toString()=="Ваши цитаты · 5"});assertEquals(0,descendants(sheet).count{it.contentDescription?.startsWith("Открыть цитату:")==true})
-   val labels=descendants(sheet).filterIsInstance<TextView>().map{it.text.toString()};assertTrue(labels.indexOf("Описание")<labels.indexOf("Ваши цитаты · 5"));assertTrue(labels.indexOf("Ваши цитаты · 5")<labels.indexOf("Впечатления"))
+   val labels=descendants(sheet).filterIsInstance<TextView>().map{it.text.toString()};assertTrue(labels.indexOf("Описание")<labels.indexOf("Ваши цитаты · 5"));assertTrue(labels.indexOf("Ваши цитаты · 5")<labels.indexOf("Оценка"))
    save("$theme-detail-redesign").recycle();descendants(sheet).first{it.contentDescription=="Показать цитаты"}.performClick();assertEquals(3,descendants(sheet).count{it.contentDescription?.startsWith("Открыть цитату:")==true})
    descendants(sheet).first{it.contentDescription=="Следующие цитаты"}.performClick();assertEquals(2,descendants(sheet).count{it.contentDescription?.startsWith("Открыть цитату:")==true})
    descendants(sheet).first{it.contentDescription=="Свернуть цитаты"}.performClick();assertEquals(0,descendants(sheet).count{it.contentDescription?.startsWith("Открыть цитату:")==true})
@@ -282,7 +282,7 @@ class SurfaceInteractionTests {
   for(theme in listOf("light","dark")){
    a.prefs.put("ui",theme);a.render(false,false);layout();a.bookActions(a.books.first());val dialog=org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();val decor=dialog.window!!.decorView
    decor.measure(View.MeasureSpec.makeMeasureSpec(a.d(360),View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(a.d(780),View.MeasureSpec.EXACTLY));decor.layout(0,0,a.d(360),a.d(780));decor.viewTreeObserver.dispatchOnPreDraw()
-   val labels=listOf("О книге","Изменить данные","Переместить на полку","Оценить","Мысли о книге","Прикрепить файл","Отметить прочитанной","Скачать FB2","Скачать EPUB","Удалить книгу")
+   val labels=listOf("О книге","Изменить данные","Переместить на полку","Оценить","Прикрепить файл","Отметить прочитанной","Скачать FB2","Скачать EPUB","Удалить книгу")
    val rows=labels.map{label->descendants(decor).filterIsInstance<TextView>().first{it.text.toString()==label}}
    rows.forEach{row->val icon=row.compoundDrawablesRelative[0];assertTrue("missing vector on ${row.text}",icon is ActionIconDrawable);assertTrue(row.height>=a.d(48));assertTrue(row.compoundDrawablePadding>=a.d(12));val raster=Bitmap.createBitmap(a.d(22),a.d(22),Bitmap.Config.ARGB_8888);icon.draw(Canvas(raster));val pixels=IntArray(raster.width*raster.height);raster.getPixels(pixels,0,raster.width,0,0,raster.width,raster.height);assertTrue("empty icon for ${row.text}",pixels.count{Color.alpha(it)>0}>20);raster.recycle()}
    val image=Bitmap.createBitmap(decor.width,decor.height,Bitmap.Config.ARGB_8888);decor.draw(Canvas(image));val dir=File(System.getProperty("qaOutputDir"),"surfaces-0.6.26").apply{mkdirs()};File(dir,"$theme-book-action-icons.png").outputStream().use{image.compress(Bitmap.CompressFormat.PNG,100,it)};image.recycle()

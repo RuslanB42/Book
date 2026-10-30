@@ -35,10 +35,10 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     sheet=dialog().setTitle("Данные книги").setView(box).show()
 }
 fun MainActivity.bookActions(book:JSONObject) {
-    val actions=mutableListOf("О книге","Изменить данные","Переместить на полку","Оценить","Мысли о книге","Прикрепить файл","Отметить прочитанной")
+    val actions=mutableListOf("О книге","Изменить данные","Переместить на полку","Оценить","Прикрепить файл","Отметить прочитанной")
     if(!book.optBoolean("noFile")) actions.addAll(listOf("Скачать FB2","Скачать EPUB")); actions.add("Удалить книгу")
-    dialog().setTitle(book.str("title")).setItemIcons(*(listOf("information","pen","move","star","notebook","paperclip","check")+if(!book.optBoolean("noFile"))listOf("download","download","trash")else listOf("trash")).toTypedArray()).setDestructiveItems(actions.lastIndex).setItems(actions.toTypedArray()) { _,i -> when(actions[i]) {
-        "О книге"->detail(book); "Изменить данные"->metadataEditor(book); "Переместить на полку"->moveBook(book); "Оценить"->dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().put("rating",it)) {} }).show(); "Мысли о книге"->editThought(book,book.optJSONArray("notes")?.objects().orEmpty().firstOrNull { it.str("scope")=="book" },"book")
+    dialog().setTitle(book.str("title")).setItemIcons(*(listOf("information","pen","move","star","paperclip","check")+if(!book.optBoolean("noFile"))listOf("download","download","trash")else listOf("trash")).toTypedArray()).setDestructiveItems(actions.lastIndex).setItems(actions.toTypedArray()) { _,i -> when(actions[i]) {
+        "О книге"->detail(book); "Изменить данные"->metadataEditor(book); "Переместить на полку"->moveBook(book); "Оценить"->dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().put("rating",it)) {} }).show()
         "Прикрепить файл" -> { attachId=book.str("id"); pickBooks(14) }; "Отметить прочитанной" -> saveBook(book.copyJson().put("progress",(book.optJSONObject("progress")?.copyJson() ?: JSONObject()).put("pct",1.0)).put("completedAt",System.currentTimeMillis()))
         "Скачать FB2"->exportBook(book,"fb2"); "Скачать EPUB"->exportBook(book,"epub")
         "Удалить книгу" -> confirm("Удалить книгу?","Текст, цитаты и заметки этой книги будут удалены из библиотеки.") { work({ ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); library.db.runInTransaction { library.dao.deleteBook(book.str("id")); library.dao.deleteContent(book.str("id")); library.pruneAssets(); library.updateMarker() } }) { reload() } }
