@@ -37,20 +37,20 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
     private fun begin(){val at=pending;val view=grid.viewAt(at)?:return;clearPending();if(!grid.isAttachedToWindow||view.width<=0||view.height<=0)return
         grid.cancelChildTouch()
         index=at;original=items.toList();grabbed=view;grid.pinned=view
-        moved=false;pad=a.d(22)
+        moved=false;pad=a.d(if(hasShelfArt(view))60 else 22) // shelf glass casts a 34dp blur + 18dp offset shadow; a smaller margin clips it into a black box
         val loc=IntArray(2);view.getLocationOnScreen(loc);gx=px-loc[0]+pad;gy=py-loc[1]+pad
         // The whole card (art AND caption) floats as one picture, so text can never lag behind or stay in the slot.
         val cover=(view as? ViewGroup)?.getChildAt(0)
         val w=view.width;val h=view.height
         image=Bitmap.createBitmap(w+pad*2,h+pad*2,Bitmap.Config.ARGB_8888).also{bmp->val c=Canvas(bmp)
-            if(cover!=null){val shadow=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=0xff000000.toInt();setShadowLayer(a.d(16).toFloat(),0f,a.d(9).toFloat(),0x66000000)};val r=RectF(pad+cover.left+a.d(2).toFloat(),pad+cover.top+a.d(2).toFloat(),pad+cover.right-a.d(2).toFloat(),pad+cover.bottom-a.d(2).toFloat());val shape=Path().apply{addRoundRect(r,a.d(6).toFloat(),a.d(6).toFloat(),Path.Direction.CW)};c.save();c.clipOutPath(shape);c.drawPath(shape,shadow);c.restore()}
-            c.translate(pad.toFloat(),pad.toFloat());val a0=view.alpha;view.alpha=1f;view.draw(c);view.alpha=a0}
+            if(cover!=null){c.translate(pad.toFloat(),pad.toFloat());val a0=view.alpha;view.alpha=1f;view.draw(c);view.alpha=a0}
         ghost=ImageView(a).apply{setImageBitmap(image);scaleType=ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false}
         a.root.overlay.add(ghost!!);ghost!!.measure(View.MeasureSpec.makeMeasureSpec(w+pad*2,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(h+pad*2,View.MeasureSpec.EXACTLY));ghost!!.layout(0,0,w+pad*2,h+pad*2);ghost!!.pivotX=(w+pad*2)/2f;ghost!!.pivotY=pad+(cover?.let{(it.top+it.bottom)/2f}?:h/2f)
         view.alpha=0f;grid.parent.requestDisallowInterceptTouchEvent(true);view.isPressed=false;view.cancelLongPress();view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
         if(!reduced()){ghost!!.alpha=.0f;ghost!!.scaleX=1f;ghost!!.scaleY=1f;ghost!!.animate().alpha(1f).scaleX(1.05f).scaleY(1.05f).setDuration(200).setInterpolator(MotionSpec.settle).start()}else ghost!!.alpha=1f
         a.shelfReorder=this;position();lastFrame=0;grid.postOnAnimation(frame)
     }
+    private fun hasShelfArt(v:View):Boolean=v is ShelfArt||(v is ViewGroup&&(0 until v.childCount).any{hasShelfArt(v.getChildAt(it))})
     private fun position(){if(hypot(px-sx,py-sy)>a.d(12))moved=true;val at=IntArray(2);a.root.getLocationOnScreen(at);ghost?.translationX=px-gx-at[0];ghost?.translationY=py-gy-at[1]}
     private fun hit(){if(!active)return;val at=IntArray(2);grid.getLocationOnScreen(at);val r=grid.slot(index);val target=grid.nearest(px-gx+pad-at[0]+r.width()/2f,py-gy+pad-at[1]+r.width()*.75f,index);if(target!=index){val from=index;index=target;grid.move(from,target,{items.add(target,items.removeAt(from))},!reduced())}}
     private fun finish(save:Boolean){if(!active)return;grid.removeCallbacks(frame);clearPending();val from=index
