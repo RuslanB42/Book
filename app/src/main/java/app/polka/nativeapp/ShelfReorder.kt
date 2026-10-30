@@ -43,7 +43,8 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         val cover=(view as? ViewGroup)?.getChildAt(0)
         val w=view.width;val h=view.height
         image=Bitmap.createBitmap(w+pad*2,h+pad*2,Bitmap.Config.ARGB_8888).also{bmp->val c=Canvas(bmp)
-            if(cover!=null){c.translate(pad.toFloat(),pad.toFloat());val a0=view.alpha;view.alpha=1f;view.draw(c);view.alpha=a0}
+            if(cover!=null){val shadow=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=0xff000000.toInt();setShadowLayer(a.d(16).toFloat(),0f,a.d(9).toFloat(),0x66000000)};val r=RectF(pad+cover.left+a.d(2).toFloat(),pad+cover.top+a.d(2).toFloat(),pad+cover.right-a.d(2).toFloat(),pad+cover.bottom-a.d(2).toFloat());val shape=Path().apply{addRoundRect(r,a.d(6).toFloat(),a.d(6).toFloat(),Path.Direction.CW)};c.save();c.clipOutPath(shape);c.drawPath(shape,shadow);c.restore()}
+            c.translate(pad.toFloat(),pad.toFloat());val a0=view.alpha;view.alpha=1f;view.draw(c);view.alpha=a0}
         ghost=ImageView(a).apply{setImageBitmap(image);scaleType=ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false}
         a.root.overlay.add(ghost!!);ghost!!.measure(View.MeasureSpec.makeMeasureSpec(w+pad*2,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(h+pad*2,View.MeasureSpec.EXACTLY));ghost!!.layout(0,0,w+pad*2,h+pad*2);ghost!!.pivotX=(w+pad*2)/2f;ghost!!.pivotY=pad+(cover?.let{(it.top+it.bottom)/2f}?:h/2f)
         view.alpha=0f;grid.parent.requestDisallowInterceptTouchEvent(true);view.isPressed=false;view.cancelLongPress();view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
