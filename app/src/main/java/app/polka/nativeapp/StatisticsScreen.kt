@@ -51,21 +51,35 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** White (dark: graphite) card with a hairline edge and a soft, wide shadow underneath so it hovers over the page. */
     private fun surface()=a.column().apply {
         tag="statistics-card"
-        val radius=a.d(28).toFloat()
+        val radius=a.d(24).toFloat()
         background=GradientDrawable().apply{setColor(cardColor);cornerRadius=radius;setStroke(a.d(1),if(light)0x08000000 else 0x14ffffff)}
-        setPadding(a.d(20),a.d(20),a.d(20),a.d(20));clipChildren=false;clipToPadding=false
-        elevation=a.d(if(light)9 else 12).toFloat()
+        setPadding(a.d(16),a.d(16),a.d(16),a.d(16));clipChildren=false;clipToPadding=false
+        elevation=a.d(if(light)8 else 10).toFloat()
         outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,radius)}}
         if(android.os.Build.VERSION.SDK_INT>=28){outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
     }
     private fun tile(kind:String,color:Int):View=FrameLayout(a).apply{
-        background=pill((color and 0xffffff) or ((if(light)0x26 else 0x33) shl 24),12);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
-        addView(IconView(a,kind,color),FrameLayout.LayoutParams(a.d(19),a.d(19),Gravity.CENTER))
+        background=pill((color and 0xffffff) or ((if(light)0x26 else 0x33) shl 24),11);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        addView(IconView(a,kind,color),FrameLayout.LayoutParams(a.d(17),a.d(17),Gravity.CENTER))
     }
-    private fun header(box:LinearLayout,title:String,kind:String,color:Int) {
-        val row=a.line();row.addView(tile(kind,color),LinearLayout.LayoutParams(a.d(40),a.d(40)).apply{rightMargin=a.d(14)})
-        row.addView(label(title,15.5f,titleInk),LinearLayout.LayoutParams(0,-2,1f));box.addView(row)
+    private fun header(box:LinearLayout,title:String,kind:String,color:Int,stacked:Boolean=false) {
+        if(stacked){box.addView(tile(kind,color),LinearLayout.LayoutParams(a.d(34),a.d(34)));space(box,8);box.addView(label(title,14.5f,titleInk));return}
+        val row=a.line();row.addView(tile(kind,color),LinearLayout.LayoutParams(a.d(34),a.d(34)).apply{rightMargin=a.d(12)})
+        row.addView(label(title,15f,titleInk),LinearLayout.LayoutParams(0,-2,1f));box.addView(row)
     }
+    private val motionOn get()=animate&&a.prefs.str("motion")!="reduced"
+    /** Big numeral that counts up once when its card first appears (plain text when motion is reduced). */
+    private fun count(end:Int,size:Float,format:(Int)->String={it.toString()}):TextView=a.text(format(end),size,a.fg,true).apply{
+        letterSpacing=-.02f;fontFeatureSettings="tnum"
+        if(motionOn&&end>0){
+            var anim:android.animation.ValueAnimator?=null
+            addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{
+                override fun onViewAttachedToWindow(v:View){if(anim!=null)return;text=format(0)
+                    anim=android.animation.ValueAnimator.ofInt(0,end).apply{startDelay=320;duration=900;interpolator=android.view.animation.PathInterpolator(.22f,1f,.36f,1f);addUpdateListener{text=format(it.animatedValue as Int)};start()}}
+                override fun onViewDetachedFromWindow(v:View){anim?.cancel();anim=null;text=format(end)}})
+        }
+    }
+    private val entrance=mutableListOf<View>()
     private fun action(s:String,primary:Boolean=false,click:()->Unit)=a.button(s,primary,click).apply {
         background=android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33808080),pill(if(primary)strong else quiet,26),null)
         setTextColor(if(primary)onStrong else a.fg)
@@ -73,10 +87,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun segment(labels:List<String>,selected:Int,onSelect:(Int)->Unit):LinearLayout {
         val box=SlidingSegment(a,selected,labels.size,quiet,thumb,24)
         fun update(index:Int){for(i in 0 until box.childCount)(box.getChildAt(i) as TextView).apply {isSelected=i==index;setTextColor(if(isSelected)a.fg else captionInk)}}
-        labels.forEachIndexed{i,s->box.addView(a.text(s,14f).apply{gravity=Gravity.CENTER;minHeight=a.d(38);setOnClickListener{box.choose(i);update(i);onSelect(i)}},LinearLayout.LayoutParams(0,-2,1f))}
+        labels.forEachIndexed{i,s->box.addView(a.text(s,14f).apply{gravity=Gravity.CENTER;minHeight=a.d(34);setOnClickListener{box.choose(i);update(i);onSelect(i)}},LinearLayout.LayoutParams(0,-2,1f))}
         update(selected);return box
     }
-    private fun add(card:View){content.addView(card,LinearLayout.LayoutParams(-1,-2));space(content,18)}
+    private fun add(card:View){entrance.add(card);content.addView(card,LinearLayout.LayoutParams(-1,-2));space(content,14)}
     private fun daysWord(n:Int)=if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
     private fun minutesGen(n:Int)=if(n%100 in 11..14)"минут" else if(n%10==1)"минуты" else "минут"
     fun show() {
@@ -84,83 +98,96 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         a.followInsets(content) { i->content.setPadding(a.d(16+extra)+i.left,a.d(8)+i.top,a.d(16+extra)+i.right,a.d(40)+i.bottom) }
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(View(a),LinearLayout.LayoutParams(0,1,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
-        space(content,14)
-        streak();annualGoal();booksRead();speed();readingTime();favorite()
-        if(animate && a.prefs.str("motion")!="reduced") { NativeMotion(scroll,MotionPose(.55f,y=a.d(12).toFloat(),scale=.99f),duration=420,curve=MotionSpec.settle).start() }
+        space(content,8)
+        streak();annualGoal();pair();readingTime();favorite()
+        if(motionOn) {
+            // Cards rise one after another over a page that only fades in.
+            val settle=android.view.animation.PathInterpolator(.22f,1f,.36f,1f)
+            entrance.forEachIndexed{i,v->v.alpha=0f;v.translationY=a.d(22).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(90L+i*65L).setDuration(560).setInterpolator(settle).start()}
+        }
+    }
+    /** Books read and reading speed sit side by side (stacked on narrow screens or large text). */
+    private fun pair() {
+        val row=LinearLayout(a).apply{orientation=if(compact)LinearLayout.VERTICAL else LinearLayout.HORIZONTAL;clipChildren=false;clipToPadding=false}
+        val books=booksRead();val pace=speed()
+        if(compact){row.addView(books,LinearLayout.LayoutParams(-1,-2));row.addView(pace,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})}
+        else{row.addView(books,LinearLayout.LayoutParams(0,-1,1f));row.addView(pace,LinearLayout.LayoutParams(0,-1,1f).apply{leftMargin=a.d(12)})}
+        add(row)
     }
     private fun streak() {
         val box=surface()
         val top=a.line().apply{gravity=Gravity.TOP}
-        top.addView(FlameView(a,model.streak,model.streak>0,model.streak>0&&!model.met(today),true).apply{contentDescription="Серия чтения: ${model.streak}";importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(a.d(92),a.d(132)).apply{rightMargin=a.d(16)})
-        val side=a.column().apply{setPadding(0,a.d(6),0,0)}
-        side.addView(a.text("${daysWord(model.streak)} подряд",26f,a.fg,true,serif=true).apply{cssLeading(1.1f)});space(side,8)
+        top.addView(FlameView(a,model.streak,model.streak>0,model.streak>0&&!model.met(today),true).apply{contentDescription="Серия чтения: ${model.streak}";importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(a.d(78),a.d(112)).apply{rightMargin=a.d(14)})
+        val side=a.column().apply{setPadding(0,a.d(2),0,0)}
+        side.addView(a.text("${daysWord(model.streak)} подряд",24f,a.fg,true,serif=true).apply{cssLeading(1.1f)});space(side,5)
         val minutes=(model.ms(today)/60000L).toInt();val left=ceil(max(0,model.dailyGoal*60000L-model.ms(today))/60000.0).toInt()
-        side.addView(label(when{model.met(today)->"Сегодня цель достигнута";model.streak>0->"Ещё $left ${minutesGen(left)} сегодня — и серия продолжится";else->"Огонёк загорится после ${model.dailyGoal} ${minutesGen(model.dailyGoal)} чтения за день"},15f,captionInk).apply{cssLeading(1.3f)});space(side,16)
+        side.addView(label(when{model.met(today)->"Сегодня цель достигнута";model.streak>0->"Ещё $left ${minutesGen(left)} сегодня — и серия продолжится";else->"Огонёк загорится после ${model.dailyGoal} ${minutesGen(model.dailyGoal)} чтения за день"},14f,captionInk).apply{cssLeading(1.25f)});space(side,12)
         val today1=a.line();today1.addView(label("Сегодня",13.5f),LinearLayout.LayoutParams(0,-2,1f));today1.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13.5f,if(model.met(today))strong else captionInk,model.met(today)));side.addView(today1);space(side,8)
-        side.addView(ProgressRail(a,animate,(model.ms(today).toFloat()/(model.dailyGoal*60000L)).coerceIn(0f,1f),amber,coral,"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(7)))
-        top.addView(side,LinearLayout.LayoutParams(0,-2,1f));box.addView(top);space(box,22)
+        side.addView(ProgressRail(a,animate,(model.ms(today).toFloat()/(model.dailyGoal*60000L)).coerceIn(0f,1f),amber,coral,"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)))
+        top.addView(side,LinearLayout.LayoutParams(0,-2,1f));box.addView(top);space(box,16)
         val week=a.line()
         for(i in 6 downTo 0){val date=today.minusDays(i.toLong());val isToday=date==today
-            val cell=a.column().apply{gravity=Gravity.CENTER};cell.addView(StatsDayMark(a,model.met(date),model.ms(date)>0,isToday),LinearLayout.LayoutParams(a.d(36),a.d(36)));space(cell,8)
+            val cell=a.column().apply{gravity=Gravity.CENTER};cell.addView(StatsDayMark(a,model.met(date),model.ms(date)>0,isToday),LinearLayout.LayoutParams(a.d(32),a.d(32)));space(cell,6)
             cell.addView(label(weekNames[date.dayOfWeek.value-1],13f,if(isToday)a.fg else captionInk,isToday).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2))
             cell.contentDescription="${dayText(date)}: ${if(model.met(date))"серия поддержана" else "${duration(model.ms(date))} чтения"}"
             week.addView(cell,LinearLayout.LayoutParams(0,-2,1f))
         };box.addView(week);add(box)
     }
-    private fun speed() {
-        val box=surface();header(box,"Скорость","bolt",blue);space(box,24)
-        box.addView(label(if(model.speed>0)"${model.speed}" else "—",44f,a.fg,true));space(box,4)
-        box.addView(label(if(model.speed>0)"слов в минуту" else "посчитаем после пары минут чтения",14.5f));space(box,22)
-        box.addView(ScaleRail(a,animate,true,if(model.speed>0)(model.speed/400f).coerceIn(0f,1f) else null,.5f,"ср. 200","0","400+",blue,blue,if(model.speed>0)"Скорость чтения: ${model.speed} слов в минуту, среднее около 200" else "Скорость чтения пока не посчитана"),LinearLayout.LayoutParams(-1,-2));add(box)
+    private fun speed():View {
+        val box=surface();header(box,"Скорость","bolt",blue,true);space(box,12)
+        box.addView(if(model.speed>0)count(model.speed,34f) else label("—",34f,a.fg,true));space(box,2)
+        box.addView(label(if(model.speed>0)"слов в минуту" else "после пары минут чтения",14f));space(box,14)
+        box.addView(ScaleRail(a,animate,true,if(model.speed>0)(model.speed/400f).coerceIn(0f,1f) else null,.5f,"ср. 200","0","400+",blue,blue,if(model.speed>0)"Скорость чтения: ${model.speed} слов в минуту, среднее около 200" else "Скорость чтения пока не посчитана"),LinearLayout.LayoutParams(-1,-2));return box
     }
     private fun annualGoal() {
         val box=surface()
-        fun bind(){box.removeAllViews();header(box,"Цель на год","target",coral);space(box,18)
-            box.addView(segment(listOf("Цель · ${today.year}","${today.year+1}"),if(goalYear==today.year)0 else 1){goalYear=today.year+it;a.statisticsGoalYear=goalYear;bind()}.apply{minimumHeight=a.d(44)})
-            space(box,22);val target=model.target(goalYear);val done=model.countYear(goalYear)
-            if(target==0){box.addView(label("Год для хороших книг",22f,a.fg,true));space(box,6);box.addView(label("Выберите, сколько книг хотите прочитать за $goalYear год. Темп — ваш.",14.5f));space(box,18);box.addView(action("Задать цель",true){a.annualGoalEditor(goalYear,model)})}
+        fun bind(){box.removeAllViews();header(box,"Цель на год","target",coral);space(box,12)
+            box.addView(segment(listOf("Цель · ${today.year}","${today.year+1}"),if(goalYear==today.year)0 else 1){goalYear=today.year+it;a.statisticsGoalYear=goalYear;bind()}.apply{minimumHeight=a.d(40)})
+            space(box,16);val target=model.target(goalYear);val done=model.countYear(goalYear)
+            if(target==0){box.addView(label("Год для хороших книг",22f,a.fg,true));space(box,6);box.addView(label("Выберите, сколько книг хотите прочитать за $goalYear год. Темп — ваш.",14f));space(box,14);box.addView(action("Задать цель",true){a.annualGoalEditor(goalYear,model)})}
             else {
-                box.addView(label("$done из $target",44f,a.fg,true));space(box,4);box.addView(label("книг за $goalYear год",14.5f));space(box,22)
-                box.addView(ScaleRail(a,animate,false,(done.toFloat()/target).coerceIn(0f,1f),null,null,"0","$target",coral,amber,"Годовая цель: $done из $target книг, ${(done*100.0/target).roundToInt()} процентов"),LinearLayout.LayoutParams(-1,-2));space(box,16)
-                box.addView(label(if(done>=target)"Цель достигнута!" else "Осталось: ${MainActivity.countBooks(target-done)}",14.5f,coral,true));space(box,18)
-                box.addView(action("Изменить цель"){a.annualGoalEditor(goalYear,model)})
+                box.addView(count(done,34f){"$it из $target"});space(box,2);box.addView(label("книг за $goalYear год",14f));space(box,14)
+                box.addView(ScaleRail(a,animate,false,(done.toFloat()/target).coerceIn(0f,1f),null,null,"0","$target",coral,amber,"Годовая цель: $done из $target книг, ${(done*100.0/target).roundToInt()} процентов"),LinearLayout.LayoutParams(-1,-2));space(box,12)
+                val foot=a.line();foot.addView(label(if(done>=target)"Цель достигнута!" else "Осталось: ${MainActivity.countBooks(target-done)}",14f,coral,true),LinearLayout.LayoutParams(0,-2,1f))
+                foot.addView(a.text("Изменить цель",13.5f,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);setPadding(a.d(16),a.d(6),a.d(16),a.d(6));background=android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33808080),pill(quiet,19),null);isClickable=true;isFocusable=true;setOnClickListener{a.annualGoalEditor(goalYear,model)}});box.addView(foot)
             }
         };bind();add(box)
     }
-    private fun booksRead() {
-        val box=surface();header(box,"Прочитано книг","book",mint);space(box,24)
-        box.addView(label("${model.countYear(today.year)}",44f,a.fg,true));space(box,4);box.addView(label("за этот год",14.5f));space(box,20)
+    private fun booksRead():View {
+        val box=surface();header(box,"Прочитано книг","book",mint,true);space(box,12)
+        box.addView(count(model.countYear(today.year),34f));space(box,2);box.addView(label("за этот год",14f));space(box,12)
         for((i,pair) in listOf("За месяц" to model.countMonth(YearMonth.from(today)),"За всё время" to model.finished.size).withIndex()){
             box.addView(View(a).apply{setBackgroundColor(if(light)0x0f000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,a.d(1)))
-            val row=a.line().apply{setPadding(0,a.d(13),0,a.d(if(i==1)0 else 13))};row.addView(label(pair.first,14.5f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${pair.second}",17f,a.fg,true));box.addView(row)
+            val row=a.line().apply{setPadding(0,a.d(10),0,a.d(if(i==1)0 else 10))};row.addView(label(pair.first,14f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${pair.second}",17f,a.fg,true));box.addView(row)
         }
         box.contentDescription="Прочитано книг: за месяц ${model.countMonth(YearMonth.from(today))}, за год ${model.countYear(today.year)}, за всё время ${model.finished.size}"
-        if(model.undated.isNotEmpty()){space(box,10);box.addView(label("Без даты: ${model.undated.size}",12.5f))};add(box)
+        if(model.undated.isNotEmpty()){space(box,10);box.addView(label("Без даты: ${model.undated.size}",12.5f))};return box
     }
     private fun readingTime() {
-        val box=surface();header(box,"Время чтения","clock",violet);space(box,20)
-        val values=a.column();fun bind(){values.removeAllViews();val total=model.total(period);val average=model.average(period)
+        val box=surface();header(box,"Время чтения","clock",violet);space(box,12)
+        val values=a.column();var firstBind=true;fun bind(){values.removeAllViews();val total=model.total(period);val average=model.average(period)
             val row=if(compact)a.column() else a.line().apply {gravity=Gravity.TOP}
-            fun metric(title:String,value:String):LinearLayout {val c=a.column();c.addView(label(value,30f,a.fg,true));space(c,4);c.addView(label(title,14.5f));return c}
+            fun metric(title:String,value:String):LinearLayout {val c=a.column();c.addView(label(value,26f,a.fg,true).apply{letterSpacing=-.02f});space(c,2);c.addView(label(title,14f));return c}
             row.addView(metric("Всего за период",duration(total)),if(compact)LinearLayout.LayoutParams(-1,-2)else LinearLayout.LayoutParams(0,-2,1f));if(compact)space(row,14)
-            row.addView(metric("В среднем в день",duration(average)),if(compact)LinearLayout.LayoutParams(-1,-2)else LinearLayout.LayoutParams(0,-2,1f));values.addView(row);space(values,22)
+            row.addView(metric("В среднем в день",duration(average)),if(compact)LinearLayout.LayoutParams(-1,-2)else LinearLayout.LayoutParams(0,-2,1f));values.addView(row);space(values,14)
             val plot=model.entries.filter { it.first>=model.start(period) };val n=if(period==0)today.dayOfMonth else if(period==1)today.monthValue else minOf(24,max(1,java.time.temporal.ChronoUnit.MONTHS.between(YearMonth.from(model.first ?: today),YearMonth.from(today)).toInt()+1))
             val series=when(period){0->(1..n).map { model.ms(today.withDayOfMonth(it))/60000.0 };1->(1..n).map { month->plot.filter {it.first.monthValue==month}.sumOf { max(0,it.second.optLong("ms")) }/60000.0 };else->(n-1 downTo 0).map { offset->val month=YearMonth.from(today).minusMonths(offset.toLong());plot.filter {YearMonth.from(it.first)==month}.sumOf { max(0,it.second.optLong("ms")) }/60000.0 }}
             val chartLabels=when(period){0->(1..n).map{today.withDayOfMonth(it).format(DateTimeFormatter.ofPattern("d MMMM",ru))};1->(1..n).map{today.withMonth(it).withDayOfMonth(1).format(DateTimeFormatter.ofPattern("LLLL",ru))};else->(n-1 downTo 0).map{YearMonth.from(today).minusMonths(it.toLong()).atDay(1).format(DateTimeFormatter.ofPattern("LLL yyyy",ru))}}
             val hint=label("",14.5f,a.fg,true).apply{visibility=View.GONE}
-            values.addView(TimeRibbon(a,series,animate,onSelect={i->hint.visibility=View.VISIBLE;hint.text="${chartLabels[i]} · ${duration((series[i]*60000).toLong())}"},accent=violet),LinearLayout.LayoutParams(-1,a.d(112)));space(values,10)
-            val axis=a.line();listOf(chartLabels.first(),chartLabels[chartLabels.size/2],chartLabels.last()).forEachIndexed{i,t->axis.addView(label(t,12f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;gravity=when(i){0->Gravity.START;1->Gravity.CENTER;else->Gravity.END}},LinearLayout.LayoutParams(0,-2,1f))};values.addView(axis);space(values,8)
+            values.addView(TimeRibbon(a,series,animate,onSelect={i->hint.visibility=View.VISIBLE;hint.text="${chartLabels[i]} · ${duration((series[i]*60000).toLong())}"},accent=violet),LinearLayout.LayoutParams(-1,a.d(88)));space(values,8)
+            val axis=a.line();listOf(chartLabels.first(),chartLabels[chartLabels.size/2],chartLabels.last()).forEachIndexed{i,t->axis.addView(label(t,12f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;gravity=when(i){0->Gravity.START;1->Gravity.CENTER;else->Gravity.END}},LinearLayout.LayoutParams(0,-2,1f))};values.addView(axis);space(values,6)
             values.addView(hint)
+            if(!firstBind&&motionOn){values.alpha=.3f;values.animate().alpha(1f).setDuration(240).start()};firstBind=false
         }
-        box.addView(segment(listOf("Месяц","Год","Всё время"),period){period=it;a.profileRange=it;bind()}.apply{minimumHeight=a.d(44)});space(box,22);box.addView(values);bind();add(box)
+        box.addView(segment(listOf("Месяц","Год","Всё время"),period){period=it;a.profileRange=it;bind()}.apply{minimumHeight=a.d(40)});space(box,14);box.addView(values);bind();add(box)
     }
     private fun favorite() {
-        val box=surface();header(box,"Любимый автор","user",rose);space(box,22)
+        val box=surface();header(box,"Любимый автор","user",rose);space(box,12)
         val author=model.favorite
         if(author==null)box.addView(label("Появится, когда вы дочитаете книгу с указанным автором.",14.5f))
         else {
-            box.addView(a.text(author.name,26f,a.fg,bold=true,serif=true).apply{cssLeading(1.15f)});space(box,6);box.addView(label("Прочитано: ${MainActivity.countBooks(author.count)}",14.5f,rose,true));space(box,20)
-            val covers=a.line();author.books.take(5).forEachIndexed { i,b ->val cover=CoverView(a,b,a.cover(b)).apply {contentDescription=b.str("title");setOnClickListener{a.detail(b)}};covers.addView(cover,LinearLayout.LayoutParams(a.d(46),a.d(69)).apply {if(i>0)leftMargin=a.d(10)})};box.addView(covers)
+            box.addView(a.text(author.name,22f,a.fg,bold=true,serif=true).apply{cssLeading(1.15f)});space(box,4);box.addView(label("Прочитано: ${MainActivity.countBooks(author.count)}",14f,rose,true));space(box,12)
+            val covers=a.line();author.books.take(5).forEachIndexed { i,b ->val cover=CoverView(a,b,a.cover(b)).apply {contentDescription=b.str("title");setOnClickListener{a.detail(b)}};covers.addView(cover,LinearLayout.LayoutParams(a.d(40),a.d(60)).apply {if(i>0)leftMargin=a.d(8)})};box.addView(covers)
         };add(box)
     }
 }
