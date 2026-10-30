@@ -69,13 +69,13 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     }
     private val motionOn get()=animate&&a.prefs.str("motion")!="reduced"
     /** Big numeral that counts up once when its card first appears (plain text when motion is reduced). */
-    private fun count(end:Int,size:Float,format:(Int)->String={it.toString()}):TextView=a.text(format(end),size,a.fg,true).apply{
+    private fun count(end:Int,size:Float,play:Boolean=true,format:(Int)->String={it.toString()}):TextView=a.text(format(end),size,a.fg,true).apply{
         letterSpacing=-.02f;fontFeatureSettings="tnum"
-        if(motionOn&&end>0){
+        if(play&&motionOn&&end>0){
             var anim:android.animation.ValueAnimator?=null
             addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{
                 override fun onViewAttachedToWindow(v:View){if(anim!=null)return;text=format(0)
-                    anim=android.animation.ValueAnimator.ofInt(0,end).apply{startDelay=320;duration=900;interpolator=android.view.animation.PathInterpolator(.22f,1f,.36f,1f);addUpdateListener{text=format(it.animatedValue as Int)};start()}}
+                    anim=android.animation.ValueAnimator.ofInt(0,end).apply{startDelay=120;duration=520;interpolator=android.view.animation.PathInterpolator(.22f,1f,.36f,1f);addUpdateListener{text=format(it.animatedValue as Int)};start()}}
                 override fun onViewDetachedFromWindow(v:View){anim?.cancel();anim=null;text=format(end)}})
         }
     }
@@ -99,7 +99,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(View(a),LinearLayout.LayoutParams(0,1,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
-        streak();annualGoal();pair();readingTime();favorite()
+        streak();annualGoal();pair();readingTime()
         if(motionOn) {
             // Cards rise one after another over a page that only fades in.
             val settle=android.view.animation.PathInterpolator(.22f,1f,.36f,1f)
@@ -140,18 +140,23 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         box.addView(ScaleRail(a,animate,true,if(model.speed>0)(model.speed/400f).coerceIn(0f,1f) else null,.5f,"ср. 200","0","400+",blue,blue,if(model.speed>0)"Скорость чтения: ${model.speed} слов в минуту, среднее около 200" else "Скорость чтения пока не посчитана"),LinearLayout.LayoutParams(-1,-2));return box
     }
     private fun annualGoal() {
-        val box=surface()
-        fun bind(){box.removeAllViews();header(box,"Цель на год","target",coral);space(box,12)
-            box.addView(segment(listOf("Цель · ${today.year}","${today.year+1}"),if(goalYear==today.year)0 else 1){goalYear=today.year+it;a.statisticsGoalYear=goalYear;bind()}.apply{minimumHeight=a.d(40)})
-            space(box,16);val target=model.target(goalYear);val done=model.countYear(goalYear)
-            if(target==0){box.addView(label("Год для хороших книг",22f,a.fg,true));space(box,6);box.addView(label("Выберите, сколько книг хотите прочитать за $goalYear год. Темп — ваш.",14f));space(box,14);box.addView(action("Задать цель",true){a.annualGoalEditor(goalYear,model)})}
+        val box=surface();header(box,"Цель на год","target",coral);space(box,12)
+        // Header and segment stay put so the thumb can slide; only the body below is swapped and animated.
+        val body=a.column().apply{clipChildren=false;clipToPadding=false}
+        fun bind(direction:Int){body.removeAllViews()
+            val target=model.target(goalYear);val done=model.countYear(goalYear);val first=direction==0
+            if(target==0){body.addView(label("Год для хороших книг",22f,a.fg,true));space(body,6);body.addView(label("Выберите, сколько книг хотите прочитать за $goalYear год. Темп — ваш.",14f));space(body,14);body.addView(action("Задать цель",true){a.annualGoalEditor(goalYear,model)})}
             else {
-                box.addView(count(done,34f){"$it из $target"});space(box,2);box.addView(label("книг за $goalYear год",14f));space(box,14)
-                box.addView(ScaleRail(a,animate,false,(done.toFloat()/target).coerceIn(0f,1f),null,null,"0","$target",coral,amber,"Годовая цель: $done из $target книг, ${(done*100.0/target).roundToInt()} процентов"),LinearLayout.LayoutParams(-1,-2));space(box,12)
+                body.addView(count(done,34f,play=first){"$it из $target"});space(body,2);body.addView(label("книг за $goalYear год",14f));space(body,14)
+                body.addView(ScaleRail(a,animate,false,(done.toFloat()/target).coerceIn(0f,1f),null,null,"0","$target",coral,amber,"Годовая цель: $done из $target книг, ${(done*100.0/target).roundToInt()} процентов"),LinearLayout.LayoutParams(-1,-2));space(body,12)
                 val foot=a.line();foot.addView(label(if(done>=target)"Цель достигнута!" else "Осталось: ${MainActivity.countBooks(target-done)}",14f,coral,true),LinearLayout.LayoutParams(0,-2,1f))
-                foot.addView(a.text("Изменить цель",13.5f,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);setPadding(a.d(16),a.d(6),a.d(16),a.d(6));background=android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33808080),pill(quiet,19),null);isClickable=true;isFocusable=true;setOnClickListener{a.annualGoalEditor(goalYear,model)}});box.addView(foot)
+                foot.addView(a.text("Изменить цель",13.5f,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);setPadding(a.d(16),a.d(6),a.d(16),a.d(6));background=android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33808080),pill(quiet,19),null);isClickable=true;isFocusable=true;setOnClickListener{a.annualGoalEditor(goalYear,model)}});body.addView(foot)
             }
-        };bind();add(box)
+            if(!first&&motionOn){body.animate().cancel();body.alpha=0f;body.translationX=direction*a.d(26).toFloat();body.animate().alpha(1f).translationX(0f).setDuration(340).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}
+            else{body.alpha=1f;body.translationX=0f}
+        }
+        box.addView(segment(listOf("Цель · ${today.year}","${today.year+1}"),if(goalYear==today.year)0 else 1){val next=today.year+it;val direction=if(next>=goalYear)1 else -1;goalYear=next;a.statisticsGoalYear=goalYear;bind(direction)}.apply{minimumHeight=a.d(40)})
+        space(box,16);box.addView(body);bind(0);add(box)
     }
     private fun booksRead():View {
         val box=surface();header(box,"Прочитано книг","book",mint,true);space(box,12)
@@ -180,15 +185,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             if(!firstBind&&motionOn){values.alpha=.3f;values.animate().alpha(1f).setDuration(240).start()};firstBind=false
         }
         box.addView(segment(listOf("Месяц","Год","Всё время"),period){period=it;a.profileRange=it;bind()}.apply{minimumHeight=a.d(40)});space(box,14);box.addView(values);bind();add(box)
-    }
-    private fun favorite() {
-        val box=surface();header(box,"Любимый автор","user",rose);space(box,12)
-        val author=model.favorite
-        if(author==null)box.addView(label("Появится, когда вы дочитаете книгу с указанным автором.",14.5f))
-        else {
-            box.addView(a.text(author.name,22f,a.fg,bold=true,serif=true).apply{cssLeading(1.15f)});space(box,4);box.addView(label("Прочитано: ${MainActivity.countBooks(author.count)}",14f,rose,true));space(box,12)
-            val covers=a.line();author.books.take(5).forEachIndexed { i,b ->val cover=CoverView(a,b,a.cover(b)).apply {contentDescription=b.str("title");setOnClickListener{a.detail(b)}};covers.addView(cover,LinearLayout.LayoutParams(a.d(40),a.d(60)).apply {if(i>0)leftMargin=a.d(8)})};box.addView(covers)
-        };add(box)
     }
 }
 
