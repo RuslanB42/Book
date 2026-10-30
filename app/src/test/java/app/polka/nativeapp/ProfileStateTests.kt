@@ -41,7 +41,7 @@ class ProfileStateTests {
         fun drain() { repeat(15) { Thread.sleep(60); Shadows.shadowOf(Looper.getMainLooper()).idle() } }
         fun texts(v:View):List<String> { val values=mutableListOf<String>(); if(v is TextView) values.add(v.text.toString()); if(v is ViewGroup) for(i in 0 until v.childCount) values.addAll(texts(v.getChildAt(i))); return values }
         drain(); a.detail(a.books.first()); val dialog=a.bookDetailSheet!!; val fresh=a.books.first().copyJson().put("title","После изменения").put("shelf","Новая полка").put("notes",JSONArray().put(JSONObject().put("scope","book").put("text","Новые мысли")))
-        a.saveBook(fresh); drain(); val labels=texts(dialog); assertTrue(dialog.isShowing); assertTrue(labels.contains("После изменения")); assertTrue(labels.contains("Новая полка")); assertTrue(labels.contains("Новые мысли")); assertFalse(labels.contains("До изменения"))
+        a.saveBook(fresh); drain(); val labels=texts(dialog); assertTrue(dialog.isShowing); assertTrue(labels.contains("После изменения")); assertTrue(labels.contains("Новая полка")); assertFalse("text reviews are no longer shown",labels.contains("Новые мысли")); assertFalse(labels.contains("До изменения"))
         dialog.finish(); a.showProfile(JSONObject().put("goal",10),7,false); val overlay=a.profileOverlay; a.render(true,false); assertSame(overlay,a.profileOverlay); assertNotNull(overlay?.parent)
         a.prefs.put("ui","light"); a.refreshProfile(); assertNotSame(overlay,a.profileOverlay); assertNotNull(a.profileOverlay?.parent)
         val profile=a.profileOverlay!!; profile.measure(View.MeasureSpec.makeMeasureSpec(390,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(844,View.MeasureSpec.EXACTLY)); profile.layout(0,0,390,844)
