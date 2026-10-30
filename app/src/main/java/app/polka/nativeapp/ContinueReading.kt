@@ -1,6 +1,7 @@
 package app.polka.nativeapp
 
 import android.graphics.*
+import android.os.Build
 import android.graphics.drawable.GradientDrawable
 import android.view.*
 import android.widget.*
@@ -38,7 +39,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   orientation=VERTICAL;clipChildren=false;clipToPadding=false
   val heading=a.line();heading.addView(a.text("Продолжить чтение",20f,bold=true,serif=true),LayoutParams(0,-2,1f));position.text="1 / ${readingBooks.size}";if(readingBooks.size>1)heading.addView(position);addView(heading);a.space(this,14)
   readingBooks.forEachIndexed{i,book->
-   val card=FrameLayout(a).apply{background=a.controlSurface(this,20f);clipChildren=false;clipToPadding=false;isFocusable=true;contentDescription="Продолжить: ${book.str("title")}"}
+   val card=FrameLayout(a).apply{floating(this);isFocusable=true;contentDescription="Продолжить: ${book.str("title")}"}
    val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),a.d(16),a.d(14),a.d(16));clipChildren=false;clipToPadding=false}
    card.addView(CoverBackdrop(a,a.cover(book)),FrameLayout.LayoutParams(-1,-1));card.addView(row,FrameLayout.LayoutParams(-1,-2))
    val cover=CoverView(a,book,a.cover(book));row.addView(cover,LayoutParams(a.d(64),a.d(96)))
@@ -49,13 +50,21 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    val buttons=a.line();buttons.addView(pill("Читать",true,"Читать: ${book.str("title")}"){a.openBook(book,cover)},LayoutParams(0,-2,1f));buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,cover)},LayoutParams(0,-2,1f).apply{marginStart=a.d(8)});words.addView(buttons)
    row.addView(words,LayoutParams(0,-2,1f));cards.add(card);strip.addView(card,LayoutParams(a.d(284),-2).apply{if(i>0)marginStart=a.d(12)})
   }
-  carousel.addView(strip,FrameLayout.LayoutParams(-2,-2));addView(carousel,LayoutParams(-1,-2).apply{marginStart=-a.d(20);marginEnd=-a.d(20)})
+  carousel.addView(strip,FrameLayout.LayoutParams(-2,-2));addView(carousel,LayoutParams(-1,-2).apply{marginStart=-a.d(20);marginEnd=-a.d(20);topMargin=-a.d(6);bottomMargin=-a.d(14)})
+ }
+ /** Same floating card as the statistics plates: no border, a wide soft shadow underneath. */
+ private fun floating(v:View){
+  val radius=a.d(20).toFloat()
+  v.background=GradientDrawable().apply{setColor(if(light)Color.WHITE else 0xff242426.toInt());cornerRadius=radius}
+  v.elevation=a.d(if(light)8 else 10).toFloat()
+  v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,radius)}}
+  if(Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();v.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
  }
  private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,13.5f,if(primary)a.bg else a.fg,true).apply{
   gravity=Gravity.CENTER;minHeight=a.d(38);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(10),0,a.d(10),0);contentDescription=description;isClickable=true;isFocusable=true
-  background=if(primary)a.shape(a.fg,19) else GradientDrawable().apply{setColor(if(light)0x73ffffff else 0x2effffff);setStroke(a.d(1),if(light)0x24000000 else 0x38ffffff);cornerRadius=a.d(19).toFloat()}
+  background=if(primary)a.shape(a.fg,19) else GradientDrawable().apply{setColor(if(light)0x99ffffff.toInt() else 0x33ffffff);cornerRadius=a.d(19).toFloat()}
   setOnClickListener{click()};a.press(this)}
- private fun resize(viewport:Int){if(viewport<=0||viewport==lastViewport)return;lastViewport=viewport;val content=(viewport-a.d(40)).coerceAtLeast(1);val width=if(cards.size<=1)content else (content*.9f).toInt();carousel.stride=width+a.d(12);cards.forEach{it.layoutParams=(it.layoutParams as LayoutParams).apply{this.width=width}};strip.setPadding(a.d(20),0,viewport-width-a.d(20),0);pendingIndex=readingBooks.indexOfFirst{it.str("id")==a.continueBookId}.coerceAtLeast(0);restoring=true}
+ private fun resize(viewport:Int){if(viewport<=0||viewport==lastViewport)return;lastViewport=viewport;val content=(viewport-a.d(40)).coerceAtLeast(1);val width=if(cards.size<=1)content else (content*.9f).toInt();carousel.stride=width+a.d(12);cards.forEach{it.layoutParams=(it.layoutParams as LayoutParams).apply{this.width=width}};strip.setPadding(a.d(20),a.d(6),viewport-width-a.d(20),a.d(26));pendingIndex=readingBooks.indexOfFirst{it.str("id")==a.continueBookId}.coerceAtLeast(0);restoring=true}
 }
 
 /** The book's own cover, softly blurred and veiled, as the card's background (not a CoverView: it is only a backdrop). */
@@ -76,7 +85,5 @@ internal class CoverBackdrop(private val a:MainActivity,source:Bitmap?):View(a) 
   val cx=b.width/2f;val cy=b.height/2f;src.set((cx-sw/2).toInt().coerceAtLeast(0),(cy-sh/2).toInt().coerceAtLeast(0),(cx+sw/2).toInt().coerceAtMost(b.width),(cy+sh/2).toInt().coerceAtMost(b.height))
   dst.set(0f,0f,width.toFloat(),height.toFloat());c.drawBitmap(b,src,dst,paint)
   c.drawColor(if(a.light)0xa8fbfaf7.toInt() else 0xb0121214.toInt());c.restore()
-  val edge=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=a.d(1).toFloat();color=if(a.light)0x14000000 else 0x24ffffff}
-  c.drawRoundRect(RectF(.5f,.5f,width-.5f,height-.5f),radius,radius,edge)
  }
 }
