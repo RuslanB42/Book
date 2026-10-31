@@ -23,7 +23,7 @@ fun MainActivity.openingSnapshot(id:String,explicit:View?=null,captureScene:Bool
  val was=source.visibility
  // Capture the clean scene separately; detail light is retained only for the initial fade-out.
  fun lights(v:View):List<BookGlowView> = (if(v is BookGlowView)listOf(v)else emptyList())+if(v is ViewGroup)(0 until v.childCount).flatMap{lights(v.getChildAt(it))}else emptyList()
- val hidden=if(captureScene)lights(root).map{it to it.visibility}else emptyList()
+ val hidden=emptyList<Pair<BookGlowView,Int>>()
  try{hidden.forEach{it.first.visibility=View.INVISIBLE};if(captureScene){source.visibility=View.INVISIBLE;val sceneCanvas=Canvas(scene);sceneCanvas.scale(sceneScale,sceneScale);root.draw(sceneCanvas)}}finally{source.visibility=was;hidden.forEach{it.first.visibility=it.second}}
  // Preserve detail light separately: the clean scene remains glow-free, while
  // the identical lit scene dissolves during the first approach, never disappearing at tap.
