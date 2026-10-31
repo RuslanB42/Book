@@ -301,16 +301,17 @@ class SurfaceInteractionTests {
   val book=a.books.first().copyJson().put("cover",JSONObject().put("__polkaBlob","return-probe")).put("openedAt",100).put("progress",JSONObject().put("pct",.3))
   a.books=listOf(book);a.render(false,false);layout()
   for(kind in listOf("carousel","grid")){
-   val covers=descendants(a.page).filterIsInstance<CoverView>();val origin=if(kind=="carousel")covers.first()else covers.last()
-   // The grid can start below the fold (the carousel is taller now): bring the origin cover on screen first.
-   run{val rect=android.graphics.Rect(0,0,origin.width,origin.height);a.page.offsetDescendantRectToMyCoords(origin,rect);a.scroll.scrollTo(0,(rect.bottom-a.scroll.height+a.d(120)).coerceAtLeast(0));layout()}
+   // The carousel is taller now, so the last grid cover can sit below the fold: use the last one fully on screen.
+   val covers=descendants(a.page).filterIsInstance<CoverView>()
+   fun onScreen(v:View):Boolean{val p=IntArray(2);v.getLocationOnScreen(p);val r=IntArray(2);a.root.getLocationOnScreen(r);return p[1]-r[1]>=0&&p[1]-r[1]+v.height<=a.root.height-a.d(120)}
+   val origin=if(kind=="carousel")covers.first()else covers.drop(1).last{onScreen(it)}
    a.prefs.put("motion","reduced");a.detail(book,origin);layout();val sheet=a.bookDetailSheet!!
    assertFalse("no visible detail heading",descendants(sheet).filterIsInstance<TextView>().any{it.text=="О книге"})
    a.prefs.put("motion","normal");sheet.dismiss();sheet.freezeMotion();assertEquals(View.INVISIBLE,origin.visibility)
    for(ms in listOf(0L,70L,160L,260L,390L,459L,460L)){
     sheet.sampleMotion(ms,true);layout();val flight=descendants(sheet).filterIsInstance<CoverView>().single{it.visibility==View.VISIBLE}
     val frame=save("$kind-close-$ms");val x=(flight.x+flight.width*flight.scaleX*.5f).toInt();val y=(flight.y+flight.height*flight.scaleY*.92f).toInt()
-    assertTrue("sample inside frame $kind/$ms: x=$x y=$y frame=${frame.width}x${frame.height} flight=${flight.x},${flight.y} ${flight.width}x${flight.height} s=${flight.scaleY} origin=${origin.top} pageScroll=${a.scroll.scrollY}",y in 0 until frame.height&&x in 0 until frame.width)
+    assertTrue("sample inside frame $kind/$ms: x=$x y=$y frame=${frame.width}x${frame.height} flight=${flight.x},${flight.y} ${flight.width}x${flight.height} s=${flight.scaleY} origin=${origin.top}",y in 0 until frame.height&&x in 0 until frame.width)
     assertTrue("bottom of cover remains visible at $kind/$ms",Color.blue(frame.getPixel(x,y))>120&&Color.red(frame.getPixel(x,y))<100);frame.recycle()
    }
    val last=save("$kind-close-before-handoff");sheet.finish();layout();val restored=save("$kind-close-after-handoff")
