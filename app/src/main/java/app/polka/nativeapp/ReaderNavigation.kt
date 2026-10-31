@@ -80,7 +80,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   notebookResults.removeAllViews()
   val rows=fields.flatMapIndexed{index,key->r.book.optJSONArray(key)?.objects().orEmpty().map{index to it}}.filter{(kind,item)->(filter==0||kind==filter-1)&&("${item.str("text")} ${fragment(kind,item)} ${r.chapterName(item.optInt("ch"))}").contains(query,true)}.sortedByDescending{it.second.optLong("updatedAt",it.second.optLong("at"))}
   if(rows.isEmpty()){
-   notebookResults.addView(a.text(if(query.isNotBlank())"Ничего не найдено" else if(counts.sum()==0)"Ваш книжный блокнот" else "Здесь пока нет записей",22f,bold=true,serif=true).apply{gravity=Gravity.CENTER;setPadding(0,a.d(24),0,a.d(12))})
+   notebookResults.addView(a.text(if(query.isNotBlank())"Ничего не найдено" else if(fields.all{(r.book.optJSONArray(it)?.length()?:0)==0})"Ваш книжный блокнот" else "Здесь пока нет записей",22f,bold=true,serif=true).apply{gravity=Gravity.CENTER;setPadding(0,a.d(24),0,a.d(12))})
    notebookResults.addView(a.text(if(query.isNotBlank())"Попробуйте другое слово или выберите «Все»." else "Сохраняйте цитаты, записывайте мысли к выделенному тексту или создайте отдельную заметку. Закладки тоже будут здесь.",15f,a.muted));fadeResults(animate);return
   }
   rows.forEach{(kind,item)->
