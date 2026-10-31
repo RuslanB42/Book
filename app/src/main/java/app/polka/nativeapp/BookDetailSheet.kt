@@ -72,7 +72,8 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   var collapseQuotes:(List<View>)->Unit={}
   fun renderQuotes(animated:Boolean=false,unfold:Boolean=false){
    val cards=mutableListOf<View>();val extras=mutableListOf<View>()
-   quoteReveal.change(animated,dissolveInk=!unfold){
+   val fan=unfold&&animated&&!reducedMotion()
+   quoteReveal.change(animated,dissolveInk=!unfold,crossfadeInk=fan,duration=if(fan)580L else 360L,clip=!fan,curve=if(fan)android.view.animation.PathInterpolator(.32f,.06f,.16f,1f) else MotionSpec.settle){
    quoteBody.removeAllViews()
    val quotes=book.optJSONArray("quotes")?.objects().orEmpty().sortedWith(compareBy<JSONObject>{it.optInt("ch")}.thenBy{it.optInt("start")})
    quoteSection.visibility=if(quotes.isEmpty())View.GONE else View.VISIBLE
@@ -84,22 +85,30 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
     val card=a.quoteCardNative(book,quote,open).apply{isFocusable=true;contentDescription="Открыть цитату: ${quote.str("text")}";setOnClickListener{open()}}
     quoteBody.addView(card,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(14)});cards.add(card)
    }
-   val controls=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+   val controls=a.column()
    fun round(icon:String,label:String,turn:Float,enabled:Boolean,fn:()->Unit)=a.icon(icon,label){fn()}.apply{background=a.shape(if(a.light)0xffefefec.toInt() else 0xff2c2c2f.toInt(),20);rotation=turn;isEnabled=enabled;alpha=if(enabled)1f else .35f}
-   if(pages>1){controls.addView(round("back","Предыдущие цитаты",0f,quotePage>0){quotePage--;renderQuotes(true)},LinearLayout.LayoutParams(a.d(40),a.d(40)));controls.addView(a.text("${quotePage+1} из $pages",13f,a.muted).apply{gravity=Gravity.CENTER;contentDescription="Страница цитат ${quotePage+1} из $pages"},LinearLayout.LayoutParams(a.d(64),-2))}
-   controls.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
-   controls.addView(round("next","Свернуть цитаты",-90f,true){collapseQuotes(cards)},LinearLayout.LayoutParams(a.d(40),a.d(40)))
-   if(pages>1){controls.addView(View(a),LinearLayout.LayoutParams(0,1,1f));controls.addView(a.text("",13f).apply{minWidth=a.d(64)});controls.addView(round("back","Следующие цитаты",180f,quotePage<pages-1){quotePage++;renderQuotes(true)},LinearLayout.LayoutParams(a.d(40),a.d(40)))}
+   if(pages>1){val pager=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+    pager.addView(round("back","Предыдущие цитаты",0f,quotePage>0){quotePage--;renderQuotes(true)},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+    pager.addView(a.text("${quotePage+1} из $pages",13f,a.muted).apply{gravity=Gravity.CENTER;contentDescription="Страница цитат ${quotePage+1} из $pages"},LinearLayout.LayoutParams(0,-2,1f))
+    pager.addView(round("back","Следующие цитаты",180f,quotePage<pages-1){quotePage++;renderQuotes(true)},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+    controls.addView(pager,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(12)})}
+   // Full width, like «Читать» and the plaques above it.
+   val fold=a.button("Свернуть"){collapseQuotes(cards)}.apply{contentDescription="Свернуть цитаты"}
+   controls.addView(fold,LinearLayout.LayoutParams(-1,a.d(48)))
    quoteBody.addView(controls,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(2)});extras.add(controls)
    }
-   if(unfold&&animated&&!reducedMotion()&&cards.isNotEmpty()){
-    // Fan out: every card starts piled under the first one (like the stack) and slides to its place.
-    quoteBody.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
-     if(quoteBody.viewTreeObserver.isAlive)quoteBody.viewTreeObserver.removeOnPreDrawListener(this)
-     cards.forEachIndexed{i,c->val k=minOf(i,2);c.translationY=-c.top.toFloat()+a.d(9)*k;c.scaleX=1f-.05f*k;c.scaleY=c.scaleX;c.alpha=if(i<3)1f else 0f;c.pivotY=0f
-      c.animate().translationY(0f).scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(40L+i*70L).setDuration(520).setInterpolator(ease).start()}
-     extras.forEach{e->e.alpha=0f;e.translationY=-a.d(10).toFloat();e.animate().alpha(1f).translationY(0f).setStartDelay(260).setDuration(320).setInterpolator(ease).start()}
-     return true}})
+   if(fan&&cards.isNotEmpty()){
+    // Fan-out in lockstep with the growing block: every frame (after layout, before draw) each card is placed
+    // between its spot in the pile (narrower, a few dp lower, behind the first) and its final spot.
+    val pile=a.d(9).toFloat();val inset=a.d(12).toFloat()
+    val driver=object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
+     val p=quoteReveal.progress
+     cards.forEachIndexed{i,c->if(c.width>0){val k=minOf(i,2);val t=((p-i*.07f)/(1f-.14f)).coerceIn(0f,1f)
+      c.pivotX=c.width/2f;c.pivotY=0f;c.translationY=(-c.top+pile*k)*(1f-t);val sx=(c.width-2*inset*k)/c.width;c.scaleX=sx+(1f-sx)*t;c.translationZ=-a.d(3)*k*(1f-t);c.alpha=if(i<3)1f else t}}
+     extras.forEach{e->val t=((p-.55f)/.45f).coerceIn(0f,1f);e.alpha=t;e.translationY=a.d(10)*(1f-t)}
+     if(p>=1f&&quoteBody.viewTreeObserver.isAlive)quoteBody.viewTreeObserver.removeOnPreDrawListener(this)
+     return true}}
+    quoteBody.viewTreeObserver.addOnPreDrawListener(driver)
    }
   }
   // Folding back: the cards dissolve while the block shrinks to the pile.
