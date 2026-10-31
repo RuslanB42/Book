@@ -296,21 +296,23 @@ class SurfaceInteractionTests {
   val standard=a.icon("back","Назад"){};standard.measure(View.MeasureSpec.makeMeasureSpec(a.d(44),View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(a.d(44),View.MeasureSpec.EXACTLY));standard.layout(0,0,a.d(44),a.d(44));val one=Bitmap.createBitmap(a.d(44),a.d(44),Bitmap.Config.ARGB_8888);val two=one.copy(Bitmap.Config.ARGB_8888,true);glyph.draw(Canvas(one));standard.draw(Canvas(two));assertTrue(one.sameAs(two));labelled.performClick();assertEquals(1,pressed);one.recycle();two.recycle()
  }
  private fun descendants(v:View):List<View> = listOf(v)+if(v is ViewGroup)(0 until v.childCount).flatMap{descendants(v.getChildAt(it))}else emptyList()
- // Taller screen: since the «Продолжить чтение» cards grew, the first grid row starts below a 780dp fold.
- @Test fun closingCoverKeepsItsBottomAndHandsOffWithoutAFlash(){screenH=960
+ @Test fun closingCoverKeepsItsBottomAndHandsOffWithoutAFlash(){
   val artwork=Bitmap.createBitmap(96,144,Bitmap.Config.ARGB_8888).apply{eraseColor(0xff184fd4.toInt());Canvas(this).drawRect(0f,0f,96f,48f,Paint().apply{color=0xffdf2438.toInt()})}
   a.covers.put("return-probe",artwork)
   val book=a.books.first().copyJson().put("cover",JSONObject().put("__polkaBlob","return-probe")).put("openedAt",100).put("progress",JSONObject().put("pct",.3))
   a.books=listOf(book);a.render(false,false);layout()
   for(kind in listOf("carousel","grid")){
    val covers=descendants(a.page).filterIsInstance<CoverView>();val origin=if(kind=="carousel")covers.first()else covers.last()
+   // The grid row starts below the fold under the taller «Продолжить чтение» cards: scroll its scroller so the origin is fully visible.
+   var scroller:android.view.ViewParent?=origin.parent;while(scroller!=null&&scroller !is ScrollView)scroller=scroller.parent
+   (scroller as? ScrollView)?.let{sv->val rect=android.graphics.Rect(0,0,origin.width,origin.height);(sv.getChildAt(0) as ViewGroup).offsetDescendantRectToMyCoords(origin,rect);sv.scrollTo(0,(rect.bottom-sv.height+a.d(140)).coerceAtLeast(0));layout()}
    a.prefs.put("motion","reduced");a.detail(book,origin);layout();val sheet=a.bookDetailSheet!!
    assertFalse("no visible detail heading",descendants(sheet).filterIsInstance<TextView>().any{it.text=="О книге"})
    a.prefs.put("motion","normal");sheet.dismiss();sheet.freezeMotion();assertEquals(View.INVISIBLE,origin.visibility)
    for(ms in listOf(0L,70L,160L,260L,390L,459L,460L)){
     sheet.sampleMotion(ms,true);layout();val flight=descendants(sheet).filterIsInstance<CoverView>().single{it.visibility==View.VISIBLE}
     val frame=save("$kind-close-$ms");val x=(flight.x+flight.width*flight.scaleX*.5f).toInt();val y=(flight.y+flight.height*flight.scaleY*.92f).toInt()
-    assertTrue("sample inside frame $kind/$ms: x=$x y=$y frame=${frame.width}x${frame.height} flight=${flight.x},${flight.y} ${flight.width}x${flight.height} s=${flight.scaleY} origin=${origin.top}",y in 0 until frame.height&&x in 0 until frame.width)
+    assertTrue("sample inside frame $kind/$ms: x=$x y=$y frame=${frame.width}x${frame.height} flight=${flight.x},${flight.y} ${flight.width}x${flight.height} s=${flight.scaleY} origin=${origin.top} scroller=${(scroller as? ScrollView)?.let{"${it.scrollY}/${it.height}/${it.getChildAt(0).height}"}}",y in 0 until frame.height&&x in 0 until frame.width)
     assertTrue("bottom of cover remains visible at $kind/$ms",Color.blue(frame.getPixel(x,y))>120&&Color.red(frame.getPixel(x,y))<100);frame.recycle()
    }
    val last=save("$kind-close-before-handoff");sheet.finish();layout();val restored=save("$kind-close-after-handoff")
