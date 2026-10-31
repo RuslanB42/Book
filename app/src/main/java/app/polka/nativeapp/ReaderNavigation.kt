@@ -21,41 +21,67 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private val fields=listOf("quotes","notes","bookmarks")
  fun show(){
   box.addView(tabs);a.space(box,16);box.addView(pane)
-  drawTab();panel=a.dialog().setTitle("${r.book.str("title")}").setView(box).setTall(true).show()
+  // One segment for the whole life of the sheet, so its thumb can slide; only the pane below is swapped.
+  tabs.addView(a.segment(listOf("Оглавление","Блокнот","Поиск"),selected){switchTo(it)})
+  fill();panel=a.dialog().setTitle("${r.book.str("title")}").setView(box).setTall(true).show()
   a.observeBook(box,r.book.str("id")){fresh->replaceJson(r.book,fresh);if(selected==1)drawNotebook()}
  }
- private fun close(){panel?.dismiss()}
- private fun drawTab(){
-  tabs.removeAllViews();tabs.addView(a.segment(listOf("Оглавление","Блокнот","Поиск"),selected){selected=it;drawTab()})
+ private fun close(){r.refreshBookmark();panel?.dismiss()}
+ private var transition=0
+ private fun reduced()=a.prefs.str("motion")=="reduced"
+ private fun switchTo(index:Int){
+  if(index==selected)return;val direction=if(index>selected)1 else -1;selected=index;val token=++transition
+  if(reduced()||!pane.isAttachedToWindow){pane.animate().cancel();pane.alpha=1f;pane.translationX=0f;fill();return}
+  val shift=a.d(18).toFloat();pane.animate().cancel()
+  pane.animate().alpha(0f).translationX(-direction*shift).setDuration(110).setInterpolator(android.view.animation.AccelerateInterpolator()).withEndAction{
+   if(token!=transition)return@withEndAction;fill();pane.translationX=direction*shift
+   pane.animate().alpha(1f).translationX(0f).setDuration(260).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()
+  }.start()
+ }
+ private fun fill(){
   pane.removeAllViews()
   when(selected){0->contents();1->notebook();2->search()}
  }
  private fun contents(){
   val toc=r.contents()
-  toc.forEach{item->pane.addView(a.text(item.str("title"),16f,if(item.optInt("ch")==r.chapter)a.accent else a.fg).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}})}
+  toc.forEach{item->val current=item.optInt("ch")==r.chapter;pane.addView(a.text(item.str("title"),16f,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),14);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}})}
  }
  private lateinit var notebookResults:LinearLayout
- private lateinit var filters:LinearLayout
+ private val chipViews=mutableListOf<TextView>()
+ private val chipAnimators=mutableMapOf<TextView,android.animation.ValueAnimator>()
+ private val chipLabels=listOf("Все","Цитаты","Заметки","Закладки")
+ private fun quiet()=if(a.light)0xffeeeeec.toInt() else 0xff2f2f31.toInt()
  private fun notebook(){
-  val input=a.edit(query,"Искать в блокноте").apply{contentDescription="Искать в блокноте";inputType=android.text.InputType.TYPE_CLASS_TEXT;imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH}
-  pane.addView(searchField(input));a.space(pane,16);filters=a.column();pane.addView(filters);a.space(pane,16)
-  val add=a.line().apply{background=a.controlSurface(this,24f);setPadding(a.d(16),0,a.d(16),0);minimumHeight=a.d(44);setOnClickListener{a.editThought(r.book)}}
-  add.addView(IconView(a,"pen",a.fg),LinearLayout.LayoutParams(a.d(20),a.d(20)));add.addView(a.text("Новая мысль",15f,bold=true).apply{setPadding(a.d(8),0,0,0)});pane.addView(add,LinearLayout.LayoutParams(-2,a.d(44)))
+  // Filter chips are built once; selecting one only recolours them (no rebuild), and the list below fades in.
+  chipViews.clear();val chips=a.line()
+  chipLabels.forEachIndexed{index,_->
+   val chip=a.text("",14f,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);maxLines=1;setPadding(a.d(16),0,a.d(16),0);tag=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(19).toFloat()};background=tag as android.graphics.drawable.Drawable;isClickable=true;isFocusable=true;setOnClickListener{selectFilter(index)};a.press(this)}
+   chipViews.add(chip);chips.addView(chip,LinearLayout.LayoutParams(-2,a.d(38)).apply{if(index>0)leftMargin=a.d(8)})
+  }
+  val strip=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(chips);setPadding(0,a.d(2),0,a.d(4))};pane.addView(strip)
   a.space(pane,16);notebookResults=a.column();pane.addView(notebookResults)
-  input.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){query=s.toString();drawNotebook()};override fun afterTextChanged(s:Editable?){} })
-  drawNotebook()
+  updateChips(false);drawNotebook()
  }
- private fun drawNotebook(){
+ private fun selectFilter(index:Int){if(index==filter)return;filter=index;updateChips(true);drawNotebook(true)}
+ private fun updateChips(animate:Boolean){
+  val counts=fields.map{r.book.optJSONArray(it)?.length()?:0};val all=listOf(counts.sum())+counts
+  chipViews.forEachIndexed{i,chip->
+   chip.text="${chipLabels[i]} ${all[i]}";val on=i==filter;chip.isSelected=on
+   val shape=chip.tag as android.graphics.drawable.GradientDrawable;val bg=if(on)a.fg else quiet();val ink=if(on)a.bg else a.fg
+   chipAnimators.remove(chip)?.cancel()
+   if(!animate||reduced()){shape.setColor(bg);chip.setTextColor(ink);continue}
+   val fromBg=(shape.color?.defaultColor)?:bg;val fromInk=chip.currentTextColor
+   chipAnimators[chip]=(android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=200;addUpdateListener{val t=it.animatedFraction;shape.setColor(android.animation.ArgbEvaluator().evaluate(t,fromBg,bg) as Int);chip.setTextColor(android.animation.ArgbEvaluator().evaluate(t,fromInk,ink) as Int)};start()})
+  }
+ }
+ private fun drawNotebook(animate:Boolean=false){
   if(!::notebookResults.isInitialized||selected!=1)return
-  val previous=(filters.getChildAt(0)as? HorizontalScrollView)?.scrollX?:0
-  filters.removeAllViews();val counts=fields.map{r.book.optJSONArray(it)?.length()?:0}
-  val chips=a.line();listOf("Все ${counts.sum()}","Цитаты ${counts[0]}","Заметки ${counts[1]}","Закладки ${counts[2]}").forEachIndexed{index,label->chips.addView(a.text(label,14f,if(index==filter)a.accent else a.fg).apply{minHeight=a.d(44);gravity=Gravity.CENTER;setPadding(a.d(12),0,a.d(12),0);background=a.controlSurface(this,22f,selected=index==filter);isSelected=index==filter;setOnClickListener{filter=index;drawNotebook()}},LinearLayout.LayoutParams(-2,a.d(44)).apply{if(index>0)leftMargin=a.d(6)})}
-  val strip=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;addView(chips);setPadding(0,a.d(2),0,a.d(4))};filters.addView(strip);strip.post{strip.scrollTo(previous,0)}
+  if(chipViews.isNotEmpty()&&!animate)updateChips(false)
   notebookResults.removeAllViews()
   val rows=fields.flatMapIndexed{index,key->r.book.optJSONArray(key)?.objects().orEmpty().map{index to it}}.filter{(kind,item)->(filter==0||kind==filter-1)&&("${item.str("text")} ${fragment(kind,item)} ${r.chapterName(item.optInt("ch"))}").contains(query,true)}.sortedByDescending{it.second.optLong("updatedAt",it.second.optLong("at"))}
   if(rows.isEmpty()){
    notebookResults.addView(a.text(if(query.isNotBlank())"Ничего не найдено" else if(counts.sum()==0)"Ваш книжный блокнот" else "Здесь пока нет записей",22f,bold=true,serif=true).apply{gravity=Gravity.CENTER;setPadding(0,a.d(24),0,a.d(12))})
-   notebookResults.addView(a.text(if(query.isNotBlank())"Попробуйте другое слово или выберите «Все»." else "Сохраняйте цитаты, записывайте мысли к выделенному тексту или создайте отдельную заметку. Закладки тоже будут здесь.",15f,a.muted));return
+   notebookResults.addView(a.text(if(query.isNotBlank())"Попробуйте другое слово или выберите «Все»." else "Сохраняйте цитаты, записывайте мысли к выделенному тексту или создайте отдельную заметку. Закладки тоже будут здесь.",15f,a.muted));fadeResults(animate);return
   }
   rows.forEach{(kind,item)->
    val card=a.column().apply{background=a.controlSurface(this,18f);setPadding(a.d(16),a.d(16),a.d(16),a.d(16));contentDescription="${listOf("Цитата","Заметка","Закладка")[kind]}: ${item.str("text")}"}
@@ -80,11 +106,18 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
    }
    icon("trash","Удалить ${listOf("цитату","мысль","закладку")[kind]}"){
     a.confirm("Удалить ${listOf("цитату","мысль","закладку")[kind]}?",if(kind==0)"Мысли к этому фрагменту останутся в блокноте." else "Удалить выбранную запись?"){
-     val field=fields[kind];r.book.put(field,JSONArray(r.book.optJSONArray(field)?.objects().orEmpty().filter{it.str("id")!=item.str("id")}));r.persist();if(kind==0)r.paginate();drawNotebook()
+     val field=fields[kind];r.book.put(field,JSONArray(r.book.optJSONArray(field)?.objects().orEmpty().filter{it.str("id")!=item.str("id")}));r.persist();if(kind==0)r.paginate();drawNotebook();r.refreshBookmark()
     }
    }
    card.addView(actions);notebookResults.addView(card);a.space(notebookResults,12)
   }
+  fadeResults(animate)
+ }
+ private fun fadeResults(animate:Boolean){
+  notebookResults.animate().cancel()
+  if(!animate||reduced()){notebookResults.alpha=1f;notebookResults.translationY=0f;return}
+  notebookResults.alpha=0f;notebookResults.translationY=a.d(8).toFloat()
+  notebookResults.animate().alpha(1f).translationY(0f).setDuration(240).setStartDelay(40).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()
  }
  private fun fragment(kind:Int,item:JSONObject):String=if(kind!=1)item.str("text")else r.book.optJSONArray("quotes")?.objects()?.firstOrNull{it.str("id")==item.str("quoteId")&&item.str("quoteId").isNotBlank()}?.str("text")?:item.str("quoteText",item.str("quote"))
  private fun search(){

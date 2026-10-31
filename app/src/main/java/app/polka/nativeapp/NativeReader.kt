@@ -19,6 +19,8 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     val view=FrameLayout(a).apply { setBackgroundColor(a.bg);clipToPadding=false }
     private lateinit var topBar:LinearLayout
     private val folio=TextView(a)
+    private val bookmarkIcon by lazy{BookmarkIcon(a,a.fg)}
+    private val ribbon by lazy{BookmarkRibbon(a)}
     val body=TextView(a)
     val scroll=ReaderViewport(a).apply{lockPage={paged()&&!editorOpen}}
     internal val quoteSelection by lazy { ReaderQuoteSelection(a,this) }
@@ -133,7 +135,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         slider.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener { override fun onProgressChanged(s:SeekBar?,v:Int,user:Boolean) { if(user) percent.text="${v/10}% от всей книги" }; override fun onStartTrackingTouch(s:SeekBar?) { scrubbing=true }; override fun onStopTrackingTouch(s:SeekBar?) { scrubbing=false; jumpProgress((s?.progress ?: 0)/1000.0) } }); bottom.addView(slider,LinearLayout.LayoutParams(-1,a.d(28)))
         percent.setTextColor(a.muted); percent.textSize=13f; percent.gravity=Gravity.CENTER; bottom.addView(percent)
         val tools=a.line().apply { gravity=Gravity.CENTER;setPadding(0,a.d(4),0,0) }
-        listOf("contents" to "Оглавление и заметки","bm" to "Добавить закладку","aa" to "Настройки текста","pen" to "Править текущую страницу").forEachIndexed { i,p -> tools.addView(IconView(a,p.first,a.fg).apply { chromeIcons.add(this);contentDescription=p.second; setOnClickListener { when(i) { 0->navigation(); 1->addBookmark(); 2->settings(); 3->editChapter() } }; a.press(this) },LinearLayout.LayoutParams(0,a.d(48),1f)) }; bottom.addView(tools);view.addView(bottom,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));folio.setTextColor(a.muted);folio.textSize=12f;folio.gravity=Gravity.CENTER;folio.importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;view.addView(folio,1,FrameLayout.LayoutParams(-1,a.d(16),Gravity.BOTTOM).apply{bottomMargin=a.d(14)});calm=paged()&&a.prefs.optBoolean("seenReader",false);setCalm(calm,false)
+        listOf("contents" to "Оглавление и заметки","bm" to "Добавить закладку","aa" to "Настройки текста","pen" to "Править текущую страницу").forEachIndexed { i,p -> tools.addView((if(p.first=="bm")bookmarkIcon else IconView(a,p.first,a.fg)).apply { chromeIcons.add(this);contentDescription=p.second; setOnClickListener { when(i) { 0->navigation(); 1->addBookmark(); 2->settings(); 3->editChapter() } }; a.press(this) },LinearLayout.LayoutParams(0,a.d(48),1f)) }; bottom.addView(tools);view.addView(bottom,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));folio.setTextColor(a.muted);folio.textSize=12f;folio.gravity=Gravity.CENTER;folio.importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;view.addView(folio,1,FrameLayout.LayoutParams(-1,a.d(16),Gravity.BOTTOM).apply{bottomMargin=a.d(14)});view.addView(ribbon,2,FrameLayout.LayoutParams(a.d(BookmarkRibbon.WIDTH_DP+6),a.d(BookmarkRibbon.PULL_DP+18),Gravity.TOP or Gravity.END).apply{rightMargin=a.d(18)});calm=paged()&&a.prefs.optBoolean("seenReader",false);setCalm(calm,false)
 
         val gestures=object:GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e:MotionEvent)=true
@@ -149,13 +151,15 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             if(!paged()||editorOpen)return false
             activeAt=System.currentTimeMillis()
             when(e.actionMasked){
-                MotionEvent.ACTION_DOWN->{if(isTurning())return true;lastTouchX=e.x;lastTouchY=e.y;touchHeld=false;touchDragging=false;touchDirection=0;velocity?.recycle();velocity=VelocityTracker.obtain();velocity?.addMovement(e);detector.onTouchEvent(e);return true}
+                MotionEvent.ACTION_DOWN->{if(isTurning())return true;lastTouchX=e.x;lastTouchY=e.y;pullZone=e.x>scroll.width-a.d(88)&&e.y<a.d(140);pulling=false;touchHeld=false;touchDragging=false;touchDirection=0;velocity?.recycle();velocity=VelocityTracker.obtain();velocity?.addMovement(e);detector.onTouchEvent(e);return true}
                 MotionEvent.ACTION_MOVE->{velocity?.addMovement(e);if(touchHeld){quoteSelection.continueHold(e);return true};if(quoteSelection.active)return true
                     val dx=e.x-lastTouchX;val dy=e.y-lastTouchY
+                    if(pulling){pullTo(dy);return true}
+                    if(pullZone&&!touchDragging&&dy>a.d(10)&&dy>abs(dx)*1.3f){val cancelTap=MotionEvent.obtain(e);cancelTap.action=MotionEvent.ACTION_CANCEL;detector.onTouchEvent(cancelTap);cancelTap.recycle();startPull();pullTo(dy);return true}
                     if(!touchDragging&&abs(dx)>a.d(10)&&abs(dx)>abs(dy)*1.1f){touchDragging=true;touchDirection=if(dx<0)1 else -1;body.cancelLongPress();val cancel=MotionEvent.obtain(e);cancel.action=MotionEvent.ACTION_CANCEL;detector.onTouchEvent(cancel);cancel.recycle();scroll.parent.requestDisallowInterceptTouchEvent(true);beginCurl(touchDirection,true,lastTouchY)}
                     if(touchDragging){dragProgress=(-dx*touchDirection/scroll.width.coerceAtLeast(1)).coerceIn(0f,1f);dragY=e.y;curl?.pose(dragProgress,dragY+scroll.top,lastTouchY+scroll.top)}else detector.onTouchEvent(e);return true}
-                MotionEvent.ACTION_POINTER_DOWN->{if(touchDragging)releaseCurl(false);touchDragging=false;touchHeld=true;scroll.parent.requestDisallowInterceptTouchEvent(false);val cancel=MotionEvent.obtain(e);cancel.action=MotionEvent.ACTION_CANCEL;detector.onTouchEvent(cancel);cancel.recycle();return true}
-                MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{velocity?.addMovement(e);velocity?.computeCurrentVelocity(1000);val vx=velocity?.xVelocity?:0f
+                MotionEvent.ACTION_POINTER_DOWN->{if(pulling)endPull(false);if(touchDragging)releaseCurl(false);touchDragging=false;touchHeld=true;scroll.parent.requestDisallowInterceptTouchEvent(false);val cancel=MotionEvent.obtain(e);cancel.action=MotionEvent.ACTION_CANCEL;detector.onTouchEvent(cancel);cancel.recycle();return true}
+                MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{if(pulling){endPull(e.actionMasked==MotionEvent.ACTION_UP);velocity?.recycle();velocity=null;scroll.parent.requestDisallowInterceptTouchEvent(false);return true};velocity?.addMovement(e);velocity?.computeCurrentVelocity(1000);val vx=velocity?.xVelocity?:0f
                     if(touchDragging){dragProgress=(-(e.x-lastTouchX)*touchDirection/scroll.width.coerceAtLeast(1)).coerceIn(0f,1f);dragY=e.y;curl?.pose(dragProgress,dragY+scroll.top,lastTouchY+scroll.top);val commit=e.actionMasked==MotionEvent.ACTION_UP && (if(abs(vx)>a.d(650)) -vx*touchDirection>0 else dragProgress>.32f);releaseCurl(commit,vx);scroll.parent.requestDisallowInterceptTouchEvent(false)}else if(touchHeld)quoteSelection.continueHold(e)else detector.onTouchEvent(e)
                     velocity?.recycle();velocity=null;touchDragging=false;return true}
             };return true
@@ -235,7 +239,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         a.ratingPrompt=RatingPrompt(a,book){n->book.put("rating",n);a.saveBook(book){}}.also{it.show()}
     }
     fun progress():Double { if(atEnd())return 1.0; val total=chapters.objects().sumOf { it.optInt("len") }.coerceAtLeast(1); val before=(0 until chapter).sumOf { chapters.getJSONObject(it).optInt("len") }; return ((before+chapters.getJSONObject(chapter).optInt("len")*fraction())/total).coerceIn(0.0,1.0) }
-    fun updateFooter() { folio.text=if(paged())"${pageIndex+1} из ${pageStarts.size}" else "";if(!scrubbing) slider.progress=(progress()*1000).toInt(); percent.text="${(progress()*100).toInt()}% от всей книги"; footer.text=chapters.getJSONObject(chapter).str("title");remaining.text=if(paged()){val left=pageStarts.size-pageIndex-1;if(left>0)"ещё $left стр" else "конец главы"}else "${(fraction()*100).toInt()}% главы";checkFinished() }
+    fun updateFooter() { syncBookmark(false);folio.text=if(paged())"${pageIndex+1} из ${pageStarts.size}" else "";if(!scrubbing) slider.progress=(progress()*1000).toInt(); percent.text="${(progress()*100).toInt()}% от всей книги"; footer.text=chapters.getJSONObject(chapter).str("title");remaining.text=if(paged()){val left=pageStarts.size-pageIndex-1;if(left>0)"ещё $left стр" else "конец главы"}else "${(fraction()*100).toInt()}% главы";checkFinished() }
     fun changeChapter(next:Int) { if(next !in 0 until chapters.length())return;quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=0;pendingFraction=null;paintChapter() }
     fun persist() { val snap=book.copyJson(); a.saveBook(snap) {} }
     fun pause() { save();paused=true;handler.removeCallbacks(heartbeat) }
@@ -261,7 +265,34 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     fun addQuote(start:Int,end:Int,text:String) { val quotes=book.optJSONArray("quotes") ?: JSONArray(); if(quotes.objects().none { it.optInt("ch")==chapter && it.str("text")==text }) quotes.put(JSONObject().put("id",uid()).put("ch",chapter).put("start",start).put("end",end).put("block",0).put("text",text).put("rawText",text).put("at",System.currentTimeMillis())); book.put("quotes",quotes); val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) }; persist() }
     fun addNote(selected:String="") { val input=EditText(a).apply { setTextColor(a.fg); setHintTextColor(a.muted); setPadding(a.d(24),a.d(16),a.d(24),a.d(16)); minLines=3; hint="Заметка" }; a.dialog().setTitle("Заметка").setView(input).setNegativeButton("Отмена",null).setPositiveButton("Сохранить") { _,_ -> if(input.text.isNotBlank()) { val notes=book.optJSONArray("notes") ?: JSONArray(); notes.put(JSONObject().put("id",uid()).put("ch",chapter).put("text",input.text.toString()).put("quote",selected).put("at",System.currentTimeMillis())); book.put("notes",notes); persist() } }.show() }
-    fun addBookmark() { val list=book.optJSONArray("bookmarks")?.objects().orEmpty().toMutableList(); val offset=if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0; val match=list.indexOfFirst { it.optInt("ch")==chapter && abs(it.optInt("nativeOffset",0)-offset)<100 }; if(match>=0) list.removeAt(match) else list.add(JSONObject().put("id",uid()).put("ch",chapter).put("block",0).put("nativeOffset",offset).put("text",chapters.getJSONObject(chapter).str("title")).put("nativeFraction",fraction()).put("at",System.currentTimeMillis())); book.put("bookmarks",JSONArray(list)); persist(); if(a.prefs.optBoolean("haptics",true)) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+    private var pulling=false;private var pullZone=false;private var pullReached=false
+    /** Dragging the ribbon down from the top-right corner: past the threshold the bookmark is added (or removed if the page already has one). */
+    private fun startPull(){pulling=true;pullReached=false;body.cancelLongPress();scroll.parent.requestDisallowInterceptTouchEvent(true)}
+    private fun pullTo(dy:Float){
+        val base=if(hasBookmark())ribbon.rest else 0f;val max=a.d(BookmarkRibbon.PULL_DP).toFloat();val raw=base+dy*.85f
+        val length=if(raw<=max)raw else max+(raw-max)*.15f;ribbon.set(length)
+        val reached=length>=a.d(BookmarkRibbon.THRESHOLD_DP)
+        if(reached!=pullReached){pullReached=reached;if(a.prefs.optBoolean("haptics",true))view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)}
+    }
+    private fun endPull(commit:Boolean){
+        pulling=false;val reached=pullReached;pullReached=false
+        if(commit&&reached)addBookmark() else ribbon.settle(if(hasBookmark())ribbon.rest else 0f,false,true)
+    }
+    /** Bookmarks that belong to the current page (paged: anywhere on the page; scroll mode: near the top line). */
+    private fun pageBookmarks(ch:Int,index:Int,starts:List<Int>):List<JSONObject> {
+        val start=starts.getOrElse(index){0};val end=starts.getOrElse(index+1){Int.MAX_VALUE}
+        return book.optJSONArray("bookmarks")?.objects().orEmpty().filter{it.optInt("ch")==ch&&it.optInt("nativeOffset",0) in start until end}
+    }
+    private fun currentBookmarks():List<JSONObject> = if(paged()) pageBookmarks(chapter,pageIndex,pageStarts) else { val offset=body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0; book.optJSONArray("bookmarks")?.objects().orEmpty().filter{ it.optInt("ch")==chapter && abs(it.optInt("nativeOffset",0)-offset)<100 } }
+    fun hasBookmark()=currentBookmarks().isNotEmpty()
+    fun refreshBookmark(){syncBookmark(false)}
+    /** Keeps the toolbar icon and the ribbon in step with the page being read. */
+    private fun syncBookmark(animate:Boolean) {
+        val on=hasBookmark();bookmarkIcon.mark(on,animate);bookmarkIcon.contentDescription=if(on)"Убрать закладку" else "Добавить закладку"
+        ribbon.visibility=if(paged()&&!editorOpen&&curl==null)View.VISIBLE else View.INVISIBLE
+        if(!pulling)ribbon.settle(if(on)ribbon.rest else 0f,on,animate)
+    }
+    fun addBookmark() { val list=book.optJSONArray("bookmarks")?.objects().orEmpty().toMutableList(); val offset=if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0; val existing=currentBookmarks().map{it.str("id")}.toSet(); if(existing.isNotEmpty()) list.removeAll{it.str("id") in existing} else list.add(JSONObject().put("id",uid()).put("ch",chapter).put("block",0).put("nativeOffset",offset).put("text",chapters.getJSONObject(chapter).str("title")).put("nativeFraction",fraction()).put("at",System.currentTimeMillis())); book.put("bookmarks",JSONArray(list)); persist(); syncBookmark(true); if(a.prefs.optBoolean("haptics",true)) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
     fun jumpProgress(pct:Double) { val total=chapters.objects().sumOf { it.optInt("len") }.coerceAtLeast(1); var at=(pct*total).toInt(); var next=0; while(next<chapters.length()-1 && at>=chapters.getJSONObject(next).optInt("len")) { at-=chapters.getJSONObject(next).optInt("len"); next++ }; changeChapter(next); val offset=at; body.post { jumpOffset(offset); save() } }
     fun navigation(tab:Int=0){ReaderNavigation(a,this,tab).show()}
     fun contents()=content.optJSONArray("toc")?.objects().orEmpty().ifEmpty{chapters.objects().mapIndexed{index,ch->ch.copyJson().put("ch",index)}}
@@ -306,7 +337,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun stopPageMotion(){
         curlToken++;pagePreDraw?.let{if(view.viewTreeObserver.isAlive)view.viewTreeObserver.removeOnPreDrawListener(it)};pagePreDraw=null
         turnClock?.removeAllListeners();turnClock?.cancel();turnClock=null;scroll.translationX=0f
-        curl?.let{view.removeView(it)};curl=null;pageSlidePending=false;targetPage=null;gestureTurn=false;released=null;dragProgress=0f;targetCommitted=false
+        val hadCurl=curl!=null;curl?.let{view.removeView(it)};curl=null;if(hadCurl)syncBookmark(false);pageSlidePending=false;targetPage=null;gestureTurn=false;released=null;dragProgress=0f;targetCommitted=false
         selectionTurnDone?.also{selectionTurnDone=null;it(false)}
     }
     private fun chapterKey(index:Int):String {
@@ -331,7 +362,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(!paged()||disposed||preparing||a.prefs.str("motion")=="reduced"||scroll.width<=0)return
         val fromChapter=chapter;val fromPage=pageIndex
         snapshotWarm=Runnable{if(!disposed&&!isTurning()&&chapter==fromChapter&&pageIndex==fromPage)findTarget(1){target->
-            if(target!=null&&!disposed&&!isTurning()&&chapter==fromChapter&&pageIndex==fromPage){val key=snapshotKey(target);if(cachedNext?.first!=key){activateLinks(target.rich);cachedNext=key to snapshot(pageText(target.rich,target.starts,target.index),folioLabel(target.index,target.starts.size))}}
+            if(target!=null&&!disposed&&!isTurning()&&chapter==fromChapter&&pageIndex==fromPage){val key=snapshotKey(target);if(cachedNext?.first!=key){activateLinks(target.rich);cachedNext=key to snapshot(pageText(target.rich,target.starts,target.index),folioLabel(target.index,target.starts.size),pageBookmarks(target.chapter,target.index,target.starts).isNotEmpty())}}
         }}.also{handler.postDelayed(it,72)}
     }
     private fun findTarget(direction:Int,done:(TurnPage?)->Unit){
@@ -340,6 +371,8 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val next=chapter+direction;if(next !in 0 until chapters.length()){done(null);return}
         preparePreview(next){data,key->done(TurnPage(next,if(direction>0)0 else data.starts.lastIndex,data.text,data.starts,data.anchors,key,data.worker))}
     }
+    /** A bookmarked page carries its ribbon, so it turns with the sheet. */
+    private fun drawRibbon(canvas:Canvas){if(ribbon.width<=0)return;canvas.save();canvas.translate(ribbon.left+a.d(3).toFloat(),ribbon.top.toFloat());BookmarkRibbon.draw(canvas,a,ribbon.rest);canvas.restore()}
     private fun folioLabel(index:Int,count:Int)=if(paged())"${index+1} из $count" else null
     /** The page number belongs to the sheet: it is drawn into the snapshot, so it turns with the page like printed folio. */
     private fun drawFolio(canvas:Canvas,label:String?){
@@ -348,7 +381,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         tv.measure(View.MeasureSpec.makeMeasureSpec(folio.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(folio.height,View.MeasureSpec.EXACTLY));tv.layout(0,0,folio.width,folio.height)
         canvas.save();canvas.translate(folio.left.toFloat(),folio.top.toFloat());tv.draw(canvas);canvas.restore()
     }
-    private fun snapshot(text:CharSequence?=null,label:String?=null):Bitmap {
+    private fun snapshot(text:CharSequence?=null,label:String?=null,marked:Boolean=false):Bitmap {
         // Paper occupies the whole physical reader, including safe-area bands. Text keeps its
         // existing viewport/padding; only the sheet geometry extends to the screen edges.
         val b=Bitmap.createBitmap(view.width,view.height,Bitmap.Config.ARGB_8888);val canvas=Canvas(b);canvas.drawColor(readerBackground)
@@ -357,20 +390,20 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(text==null)scroll.draw(canvas)else{
             val preview=TextView(a);preview.paint.set(body.paint);preview.setTextColor(body.currentTextColor);preview.typeface=body.typeface;preview.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,body.textSize);preview.includeFontPadding=body.includeFontPadding;preview.setLineSpacing(0f,1f);preview.breakStrategy=body.breakStrategy;preview.hyphenationFrequency=body.hyphenationFrequency;preview.justificationMode=body.justificationMode;preview.textDirection=body.textDirection;preview.setPadding(body.paddingLeft,body.paddingTop,body.paddingRight,body.paddingBottom);preview.text=text
             preview.measure(View.MeasureSpec.makeMeasureSpec(scroll.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));preview.layout(0,0,scroll.width,preview.measuredHeight);preview.draw(canvas)
-        };canvas.restore();drawFolio(canvas,label);return b
+        };canvas.restore();drawFolio(canvas,label);if(marked&&paged())drawRibbon(canvas);return b
     }
     private fun beginCurl(direction:Int,interactive:Boolean,y:Float):Boolean {
         if(preparing||disposed||editorOpen||isTurning()||!paged()||scroll.width<=0||scroll.height<=0)return false
         val next=pageIndex+direction;if(next<0&&chapter==0||next>pageStarts.lastIndex&&chapter==chapters.length()-1)return false
         if(direction>0&&!calm&&selectionTurnDone==null)setCalm(true,true)
         pageSlidePending=true;gestureTurn=interactive;released=null;targetCommitted=false;dragProgress=0f;dragY=y
-        val token=++curlToken;val source=snapshot(null,folioLabel(pageIndex,pageStarts.size))
+        val token=++curlToken;val source=snapshot(null,folioLabel(pageIndex,pageStarts.size),hasBookmark())
         findTarget(direction){target->if(token!=curlToken||disposed)return@findTarget;if(target==null){stopPageMotion();return@findTarget};targetPage=target;activateLinks(target.rich)
-            val upcoming=cachedNext?.takeIf{it.first==snapshotKey(target)}?.second ?: snapshot(pageText(target.rich,target.starts,target.index),folioLabel(target.index,target.starts.size))
+            val upcoming=cachedNext?.takeIf{it.first==snapshotKey(target)}?.second ?: snapshot(pageText(target.rich,target.starts,target.index),folioLabel(target.index,target.starts.size),pageBookmarks(target.chapter,target.index,target.starts).isNotEmpty())
             val overlay=PageCurlView(a,source,upcoming,direction,readerBackground,a.prefs.str("motion")=="reduced");curl=overlay
             view.clipToPadding=false
-            view.addView(overlay,(view.indexOfChild(folio)+1).coerceAtLeast(1),FrameLayout.LayoutParams(view.width,view.height).apply{leftMargin=-view.paddingLeft;topMargin=-view.paddingTop})
-            overlay.measure(View.MeasureSpec.makeMeasureSpec(view.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(view.height,View.MeasureSpec.EXACTLY));overlay.layout(0,0,view.width,view.height);overlay.pose(dragProgress,dragY+scroll.top,y+scroll.top)
+            view.addView(overlay,(view.indexOfChild(ribbon)+1).coerceAtLeast(1),FrameLayout.LayoutParams(view.width,view.height).apply{leftMargin=-view.paddingLeft;topMargin=-view.paddingTop})
+            overlay.measure(View.MeasureSpec.makeMeasureSpec(view.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(view.height,View.MeasureSpec.EXACTLY));overlay.layout(0,0,view.width,view.height);ribbon.visibility=View.INVISIBLE;overlay.pose(dragProgress,dragY+scroll.top,y+scroll.top)
             if(!interactive){commitTarget();revealPage()}else{pageSlidePending=false;released?.let{releaseCurl(it,releaseVelocity)}}
         };return true
     }

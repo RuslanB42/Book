@@ -120,7 +120,7 @@ class ShelfArt(context: Context, val previews: List<Pair<JSONObject, Bitmap?>>, 
     }
     override fun onDetachedFromWindow() { pendingKey="";frost=null;frostKey="";super.onDetachedFromWindow() }
 }
-class IconView(context: Context, private val kind: String, var ink: Int) : View(context) {
+open class IconView(context: Context, private val kind: String, var ink: Int) : View(context) {
     override fun onDraw(c: Canvas) {
         super.onDraw(c); c.save(); val size=(if(kind=="plus") 26f else if(minOf(width,height)<=context.resources.displayMetrics.density*30f) 16f else if(minOf(width,height)<=context.resources.displayMetrics.density*44.5f) 22f else 24f)*context.resources.displayMetrics.density; c.translate((width-size)/2,(height-size)/2); c.scale(size/24,size/24)
         if(OriginalIcons.draw(context,c,kind,ink)) { c.restore(); return }
