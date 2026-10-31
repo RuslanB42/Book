@@ -66,7 +66,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private var pageIndex=0
     private val heartbeat=object:Runnable { override fun run() { if(!paused) { save(); handler.postDelayed(this,5000) } } }
     private val saveTask=Runnable { save() }
-    private val engine=ReaderLayoutEngine()
+    private val engine=ReaderLayoutEngine.shared
     private var layoutJob:java.util.concurrent.Future<*>?=null
     private var layoutGeneration=0
     private var preparing=false
@@ -95,7 +95,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private var targetPage:TurnPage?=null;private var curlToken=0;private var targetCommitted=false
     private var selectionTurnDone:((Boolean)->Unit)?=null
     private data class TurnPage(val chapter:Int,val index:Int,val rich:CharSequence,val starts:List<Int>,val anchors:Map<String,Int>,val key:String,val worker:String)
-    private val previewEngine=ReaderLayoutEngine()
+    private val previewEngine=ReaderLayoutEngine.preview
     private val previewPages=mutableMapOf<Int,Pair<String,ReaderLayoutEngine.PageData>>()
     private val previewJobs=mutableMapOf<Int,java.util.concurrent.Future<*>>()
     private var previewGeneration=0

@@ -74,7 +74,7 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
  private var area=reader?.openingArea()?:RectF(0f,0f,live.width.toFloat(),live.height.toFloat())
  /** Started on tap with a blank page; the reader is adopted as soon as its first page is laid out. */
  private var waiting=false
- private val gate=.2f
+ private val gate=OpeningTimeline.GATE
  var progress=if(returning)1f else 0f;private set
  init{isClickable=true;elevation=a.d(80).toFloat();if(returning)snapshot.sourceView?.visibility=View.INVISIBLE;clipChildren=false;clipToPadding=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS;contentDescription=if(returning)"Закрытие книги" else "Открытие книги";(live.parent as? ViewGroup)?.removeView(live);addView(live);if(!returning)reader?.openingState(true);setWillNotDraw(false)}
  override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h);if(boardShadow==null && w>0 && h>0){val dp=resources.displayMetrics.density;val bw=minOf(264f,w/dp*.4f,h/dp*.285f);val bh=bw*1.5f;boardShadow=Bitmap.createBitmap(ceil(bw*2).toInt(),ceil(bh*1.667f).toInt(),Bitmap.Config.ARGB_8888).also{val canvas=Canvas(it);BookCoverVolume.shadow(canvas,RectF(bw*.5f,bh*.267f,bw*1.5f,bh*1.267f),!a.light,true)}};live.measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))}
@@ -87,6 +87,9 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
  /** Starts the moment the book is tapped. If the reader is not ready yet, the book rests at a calm point of the
   * travel (most of the flight done, cover just lifting) and continues from there without restarting. */
  fun startEarly(){waiting=true;start()}
+ private var gateAction:(()->Unit)?=null
+ /** Runs [action] once the book has come to rest at the gate (or right away if it is already there). */
+ fun atGate(action:()->Unit){if(finishing||released||animator==null||progress>=gate-.0001f)post(action) else gateAction=action}
  fun adopt(view:View,r:NativeReader){
   if(finishing||released)return
   removeView(live);(view.parent as? ViewGroup)?.removeView(view);live=view;reader=r;addView(view)
@@ -95,7 +98,7 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
   view.alpha=0f;view.animate().alpha(1f).setDuration(140).start()
   waiting=false;animator?.let{if(it.isPaused)it.resume()}
  }
- fun start(){animator=ValueAnimator.ofFloat(if(returning)1f else 0f,if(returning)0f else 1f).apply{duration=if(returning)OpeningTimeline.CLOSE_DURATION else OpeningTimeline.DURATION;interpolator=if(returning)android.view.animation.DecelerateInterpolator(1f) else android.view.animation.LinearInterpolator();addUpdateListener{val v=it.animatedValue as Float;if(waiting&&!returning&&v>=gate){frame(gate);it.pause()}else frame(v)};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(animation:Animator){finish()}});start()}}
+ fun start(){animator=ValueAnimator.ofFloat(if(returning)1f else 0f,if(returning)0f else 1f).apply{duration=if(returning)OpeningTimeline.CLOSE_DURATION else OpeningTimeline.DURATION;interpolator=if(returning)android.view.animation.DecelerateInterpolator(1f) else android.view.animation.LinearInterpolator();addUpdateListener{val v=it.animatedValue as Float;if(waiting&&!returning&&v>=gate){frame(gate);it.pause();gateAction?.let{g->gateAction=null;post(g)}}else frame(v)};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(animation:Animator){finish()}});start()}}
  fun finish(){if(finishing||released)return;finishing=true;animator?.removeAllListeners();animator?.cancel();animator=null;removeView(live);if(returning)snapshot.sourceView?.visibility=View.VISIBLE;val host=parent as? ViewGroup;host?.removeView(this);reader?.openingChrome(1f);if(!returning)reader?.openingState(false);if(restoreLive && a.reader?.view===live && !a.isDestroyed && live.parent==null)a.root.addView(live,0,FrameLayout.LayoutParams(-1,-1));release();completed?.invoke()}
  private fun release(){if(released)return;released=true;boardShadow?.takeUnless{it.isRecycled}?.recycle();boardShadow=null;snapshot.release();ownedBitmap?.takeUnless{it.isRecycled}?.recycle()}
  override fun onDetachedFromWindow(){if(returning)snapshot.sourceView?.visibility=View.VISIBLE;animator?.removeAllListeners();animator?.cancel();animator=null;if(!finishing){reader?.openingChrome(1f);if(!returning)reader?.openingState(false);completed?.invoke()};release();super.onDetachedFromWindow()}
@@ -107,7 +110,7 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
   val W=width.toFloat();val H=height.toFloat();val dp=resources.displayMetrics.density;val w=minOf(264*dp,W*.4f,H*.285f);val h=w*1.5f
   gradients(w,h)
   val f=OpeningTimeline.sample(progress,W,H,w,h,OpeningTimeline.Pose(snapshot.rect.left,snapshot.rect.top,snapshot.rect.width()/w,snapshot.rect.height()/h,0f,0f),dp)
-  val dissolve=((progress-.04f)/.56f).coerceIn(0f,1f).let{it*it*(3-2*it)}
+  val dissolve=((progress-.02f)/.34f).coerceIn(0f,1f).let{it*it*(3-2*it)}
   paint.shader=null
   if(returning){
    // The full-resolution destination is already alive beneath this overlay. Never cross-fade

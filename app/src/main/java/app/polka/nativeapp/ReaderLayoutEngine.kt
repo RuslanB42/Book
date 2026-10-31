@@ -5,6 +5,8 @@ import org.json.JSONObject
 
 /** Only called on the CPU executor. Keeps full chapters out of TextView in paged mode. */
 class ReaderLayoutEngine {
+ /** Process-wide: reopening a book (same chapter, typography and screen) reuses its pages instead of laying them out again. */
+ companion object { val shared=ReaderLayoutEngine(); val preview=ReaderLayoutEngine() }
  data class PageData(val text:SpannableStringBuilder,val anchors:Map<String,Int>,val starts:List<Int>,val worker:String)
  private val cache=object:LinkedHashMap<String,PageData>(4,.75f,true){override fun removeEldestEntry(eldest:MutableMap.MutableEntry<String,PageData>?)=size>3}
  var builds=0;private set
