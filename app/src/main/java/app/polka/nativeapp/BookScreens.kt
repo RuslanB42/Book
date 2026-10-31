@@ -76,22 +76,73 @@ fun MainActivity.bookActions(book:JSONObject) {
         "Удалить книгу" -> confirm("Удалить книгу?","Текст, цитаты и заметки этой книги будут удалены из библиотеки.") { work({ ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); library.db.runInTransaction { library.dao.deleteBook(book.str("id")); library.dao.deleteContent(book.str("id")); library.pruneAssets(); library.updateMarker() } }) { reload() } }
     } }.show()
 }
+/** «Настройки»: grouped rows on floating cards — appearance, reading, behaviour, backups. */
 fun MainActivity.settings() {
-    val box=column(); var sheet:AlertDialog?=null
-    label("Оформление",box); box.addView(segment(listOf("Тёмное","Светлое","Как в системе"),listOf("dark","light","system").indexOf(prefs.str("ui",prefs.str("theme","dark"))).coerceAtLeast(0)) { i -> prefs.put("ui",listOf("dark","light","system")[i]); savePreferences(); sheet?.dismiss(); render(true,false); if(profileOverlay!=null) refreshProfile(); settings() })
-    label("Чтение",box)
-    val flameSetting=button("Огонёк"){editStreakThreshold()};box.addView(flameSetting)
+    val box=column().apply{clipChildren=false;clipToPadding=false;setPadding(0,0,0,d(8))}; var sheet:AlertDialog?=null
+    fun section(title:String){space(box,18);box.addView(text(title.uppercase(),12f,muted,true).apply{letterSpacing=.06f;setPadding(d(4),0,0,0)});space(box,8)}
+    fun card()=column().apply{floatCard(this,20);setPadding(d(16),0,d(16),0)}
+    fun divider(parent:LinearLayout){parent.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,1))}
+    fun row(parent:LinearLayout,title:String,subtitle:String?=null,value:String?=null,tint:Int=fg,chevron:Boolean=true,onClick:(()->Unit)?=null):TextView{
+        val r=line().apply{minimumHeight=d(54);setPadding(0,d(10),0,d(10))}
+        val texts=column();texts.addView(text(title,16f,tint,tint!=fg));subtitle?.let{texts.addView(text(it,13f,muted).apply{setPadding(0,d(2),0,0)})};r.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
+        val v=text(value.orEmpty(),15f,muted).apply{visibility=if(value==null)View.GONE else View.VISIBLE;setPadding(d(10),0,d(4),0)};r.addView(v)
+        if(chevron&&onClick!=null)r.addView(IconView(this,"next",muted).apply{alpha=.7f},LinearLayout.LayoutParams(d(16),d(16)))
+        if(onClick!=null){r.isClickable=true;r.isFocusable=true;r.contentDescription=title;r.setOnClickListener{onClick()};press(r)}
+        parent.addView(r,LinearLayout.LayoutParams(-1,-2));return v
+    }
+    fun toggle(parent:LinearLayout,title:String,subtitle:String,on:Boolean,change:(Boolean)->Unit){
+        val r=line().apply{minimumHeight=d(58);setPadding(0,d(10),0,d(10))}
+        val texts=column();texts.addView(text(title,16f));texts.addView(text(subtitle,13f,muted).apply{setPadding(0,d(2),0,0)});r.addView(texts,LinearLayout.LayoutParams(0,-2,1f).apply{rightMargin=d(12)})
+        val sw=PolkaSwitch(this).apply{isChecked=on;contentDescription=title;setOnCheckedChangeListener{_,v->change(v)}};r.addView(sw);r.setOnClickListener{sw.isChecked=!sw.isChecked}
+        parent.addView(r,LinearLayout.LayoutParams(-1,-2))
+    }
+    section("Оформление")
+    val themes=listOf("dark" to "Тёмное","light" to "Светлое","system" to "Системное");val current=prefs.str("ui",prefs.str("theme","dark")).let{if(it in themes.map{t->t.first})it else "dark"}
+    val themeRow=line().apply{gravity=Gravity.CENTER}
+    themes.forEachIndexed{i,(key,name)->
+        val col=column().apply{gravity=Gravity.CENTER_HORIZONTAL;isClickable=true;isFocusable=true;contentDescription="Оформление: $name"}
+        col.addView(ThemePreview(this,key,key==current),LinearLayout.LayoutParams(d(74),d(98)));space(col,8)
+        col.addView(text(name,13f,if(key==current)fg else muted,key==current).apply{gravity=Gravity.CENTER})
+        col.setOnClickListener{if(key!=current){prefs.put("ui",key);savePreferences();sheet?.dismiss();render(true,false);if(profileOverlay!=null)refreshProfile();settings()}}
+        press(col);themeRow.addView(col,LinearLayout.LayoutParams(0,-2,1f))
+    }
+    box.addView(themeRow)
+    section("Чтение")
+    val reading=card();val flame=row(reading,"Огонёк","Сколько минут в день продлевают серию","…"){editStreakThreshold{goal->}};box.addView(reading)
     var threshold=10
-    work({threshold=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")?.optInt("goal",10)} ?: 10}){flameSetting.text="Огонёк · $threshold мин в день";flameSetting.setOnClickListener{editStreakThreshold{goal->flameSetting.text="Огонёк · $goal мин в день"}}}
-    label("Поведение",box)
-    box.addView(PolkaSwitch(this).apply { text="Тактильный отклик"; setTextColor(fg); minHeight=d(48); isChecked=prefs.optBoolean("haptics",true); setOnCheckedChangeListener { _,on -> prefs.put("haptics",on); savePreferences() } })
-    box.addView(PolkaSwitch(this).apply { text="Уменьшить движение"; setTextColor(fg); minHeight=d(48); isChecked=prefs.str("motion")=="reduced"; setOnCheckedChangeListener { _,on -> prefs.put("motion",if(on) "reduced" else "full"); savePreferences() } })
-    label("Хранение и резервные копии",box)
-    box.addView(text("Книги и тексты хранятся в локальной базе SQLite на устройстве.",14f,muted)); space(box,16)
-    box.addView(button("Создать внешнюю копию .polka",true) { exportBackup() }); space(box,10); box.addView(button("Восстановить из файла") { pickBackup() }); space(box,10); box.addView(button("Локальные точки восстановления") { localRecovery() })
-    label("Каталог",box); box.addView(button("Загрузить каталог рекомендаций") { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE) },13) })
-    space(box,16); val time=getSharedPreferences("health",0).getLong("exportedAt",0); box.addView(text("Внешняя копия: ${if(time==0L) "ещё не сохранялась" else java.text.DateFormat.getDateTimeInstance().format(java.util.Date(time))}",14f,muted))
-    sheet=dialog().setTitle("Настройки").setView(box).show()
+    work({threshold=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")?.optInt("goal",10)} ?: 10}){flame.text="$threshold мин";(flame.parent as View).setOnClickListener{editStreakThreshold{goal->flame.text="$goal мин"}}}
+    section("Поведение")
+    val behaviour=card()
+    toggle(behaviour,"Тактильный отклик","Лёгкая вибрация при действиях",prefs.optBoolean("haptics",true)){on->prefs.put("haptics",on);savePreferences()}
+    divider(behaviour)
+    toggle(behaviour,"Уменьшить движение","Меньше анимаций в интерфейсе",prefs.str("motion")=="reduced"){on->prefs.put("motion",if(on) "reduced" else "full");savePreferences()}
+    box.addView(behaviour)
+    section("Резервные копии")
+    val backup=card();val time=getSharedPreferences("health",0).getLong("exportedAt",0)
+    row(backup,"Последняя копия",null,if(time==0L)"ещё не было" else java.text.SimpleDateFormat("d MMM, HH:mm",java.util.Locale("ru")).format(java.util.Date(time)),chevron=false)
+    divider(backup);row(backup,"Создать копию .polka",tint=accent){exportBackup()}
+    divider(backup);row(backup,"Восстановить из файла"){pickBackup()}
+    divider(backup);row(backup,"Точки восстановления","Автоматические копии на устройстве"){localRecovery()}
+    box.addView(backup)
+    space(box,12);box.addView(text("Книги и тексты хранятся только на этом устройстве.",13f,muted).apply{setPadding(d(4),0,d(4),0)})
+    sheet=dialog().setTitle("Настройки").setView(box).setTall(true).show()
+}
+/** Small page mock for the appearance choice; «Системное» is split light/dark. */
+internal class ThemePreview(private val a:MainActivity,private val kind:String,private val selected:Boolean):View(a){
+    private val p=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    override fun onDraw(c:android.graphics.Canvas){
+        val pad=a.d(4).toFloat();val r=a.d(14).toFloat();val rect=android.graphics.RectF(pad,pad,width-pad,height-pad)
+        val dark=0xff1c1c1e.toInt();val lightBg=0xfff7f7f5.toInt();val darkInk=0x55ffffff;val lightInk=0x33000000
+        fun page(bg:Int,ink:Int,clip:android.graphics.RectF?){val save=c.save();clip?.let{c.clipRect(it)};p.style=android.graphics.Paint.Style.FILL;p.color=bg;c.drawRoundRect(rect,r,r,p);p.color=ink
+            val x=rect.left+a.d(10);val w=rect.width()-a.d(20);var y=rect.top+a.d(14);val h=a.d(5).toFloat()
+            c.drawRoundRect(x,y,x+w*.62f,y+h,h/2,h/2,p);y+=a.d(12)
+            for(k in 0 until 4){c.drawRoundRect(x,y,x+w*(if(k==3).55f else 1f),y+a.d(3),a.d(2).toFloat(),a.d(2).toFloat(),p);y+=a.d(8)}
+            c.restoreToCount(save)}
+        when(kind){"light"->page(lightBg,lightInk,null);"system"->{page(lightBg,lightInk,android.graphics.RectF(0f,0f,width/2f,height.toFloat()));page(dark,darkInk,android.graphics.RectF(width/2f,0f,width.toFloat(),height.toFloat()))};else->page(dark,darkInk,null)}
+        p.style=android.graphics.Paint.Style.STROKE
+        if(selected){p.strokeWidth=a.d(2).toFloat();p.color=a.accent;c.drawRoundRect(rect.left-a.d(2)+1,rect.top-a.d(2)+1,rect.right+a.d(2)-1,rect.bottom+a.d(2)-1,r+a.d(2),r+a.d(2),p)}
+        else{p.strokeWidth=1f;p.color=if(a.light)0x1f000000 else 0x29ffffff;c.drawRoundRect(rect,r,r,p)}
+    }
 }
 /** Commit order without rebuilding the grid or moving the scroll position. */
 fun MainActivity.saveGridOrder(ordered:List<JSONObject>) {
