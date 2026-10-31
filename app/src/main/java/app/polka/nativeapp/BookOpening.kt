@@ -42,15 +42,30 @@ internal class BookOpeningHold(a:MainActivity,private val snapshot:BookOpeningSn
 }
 
 /** Hosts the actual, already laid-out native reader. No reader screenshots or last-frame substitution. */
-class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeningSnapshot,private val live:View,private val restoreLive:Boolean=true,private val ownedBitmap:Bitmap?=null,internal val returning:Boolean=false,private val motionReader:NativeReader?=null,private val completed:(()->Unit)?=null):ViewGroup(a) {
+class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeningSnapshot,private var live:View,private val restoreLive:Boolean=true,private val ownedBitmap:Bitmap?=null,internal val returning:Boolean=false,private val motionReader:NativeReader?=null,private val completed:(()->Unit)?=null):ViewGroup(a) {
  constructor(a:MainActivity,snapshot:BookOpeningSnapshot,readerBitmap:Bitmap):this(a,snapshot,ImageView(a).apply{setImageBitmap(readerBitmap);scaleType=ImageView.ScaleType.FIT_XY},false,readerBitmap)
  private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
  private val textureMatrix=Matrix();private val src=FloatArray(8);private val dst=FloatArray(8)
  private var boardShadow:Bitmap?=null
+ // Gradients live in face-local coordinates that never change during a run: build once, no per-frame allocation.
+ private var gw=0f;private var gh=0f
+ private lateinit var gutterShade:Shader;private lateinit var innerShade:Shader;private lateinit var innerLightShade:Shader;private lateinit var foreShade:Shader;private lateinit var headShade:Shader;private lateinit var hingeShade:Shader
+ private fun gradients(w:Float,h:Float){if(w==gw&&h==gh)return;gw=w;gh=h
+  gutterShade=LinearGradient(0f,0f,w*.11f,0f,intArrayOf(0x99000000.toInt(),Color.TRANSPARENT),null,Shader.TileMode.CLAMP)
+  innerShade=LinearGradient(0f,0f,w,0f,intArrayOf(0x33000000,Color.TRANSPARENT,0x05ffffff,0x11000000),floatArrayOf(0f,.05f,.5f,1f),Shader.TileMode.CLAMP)
+  innerLightShade=LinearGradient(0f,0f,w,h*.27f,intArrayOf(0x18ffffff,Color.TRANSPARENT,0x33000000),floatArrayOf(0f,.4f,1f),Shader.TileMode.CLAMP)
+  foreShade=LinearGradient(0f,0f,w/14*1.8f,0f,intArrayOf(0xffc4bbaa.toInt(),0xffe6dfd0.toInt(),0xffc4bbaa.toInt(),0xffeee7d9.toInt()),floatArrayOf(0f,.36f,.67f,1f),Shader.TileMode.REPEAT)
+  headShade=LinearGradient(0f,0f,0f,h/14*1.9f,intArrayOf(0xffc4bbaa.toInt(),0xffe6dfd0.toInt(),0xffc4bbaa.toInt(),0xffeee7d9.toInt()),floatArrayOf(0f,.36f,.67f,1f),Shader.TileMode.REPEAT)
+  // Hardcover joint: a soft groove a little in from the spine, where the board bends.
+  hingeShade=LinearGradient(0f,0f,w*.12f,0f,intArrayOf(0x22000000,0x00000000,0x30000000,0x1affffff,0x00000000),floatArrayOf(0f,.25f,.5f,.62f,1f),Shader.TileMode.CLAMP)
+ }
  private var animator:ValueAnimator?=null;private var released=false;private var finishing=false
- private val reader=motionReader?:a.reader?.takeIf{it.view===live}
+ private var reader=motionReader?:a.reader?.takeIf{it.view===live}
  private val paper=(live.background as? android.graphics.drawable.ColorDrawable)?.color?:a.bg
- private val area=reader?.openingArea()?:RectF(0f,0f,live.width.toFloat(),live.height.toFloat())
+ private var area=reader?.openingArea()?:RectF(0f,0f,live.width.toFloat(),live.height.toFloat())
+ /** Started on tap with a blank page; the reader is adopted as soon as its first page is laid out. */
+ private var waiting=false
+ private val gate=.2f
  var progress=if(returning)1f else 0f;private set
  init{isClickable=true;elevation=a.d(80).toFloat();if(returning)snapshot.sourceView?.visibility=View.INVISIBLE;clipChildren=false;clipToPadding=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS;contentDescription=if(returning)"Закрытие книги" else "Открытие книги";(live.parent as? ViewGroup)?.removeView(live);addView(live);if(!returning)reader?.openingState(true);setWillNotDraw(false)}
  override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws);val h=MeasureSpec.getSize(hs);setMeasuredDimension(w,h);if(boardShadow==null && w>0 && h>0){val dp=resources.displayMetrics.density;val bw=minOf(264f,w/dp*.4f,h/dp*.285f);val bh=bw*1.5f;boardShadow=Bitmap.createBitmap(ceil(bw*2).toInt(),ceil(bh*1.667f).toInt(),Bitmap.Config.ARGB_8888).also{val canvas=Canvas(it);BookCoverVolume.shadow(canvas,RectF(bw*.5f,bh*.267f,bw*1.5f,bh*1.267f),!a.light,true)}};live.measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))}
@@ -60,15 +75,28 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
  override fun onTouchEvent(e:MotionEvent)=true
  fun frame(value:Float){progress=value.coerceIn(0f,1f);reader?.openingChrome(OpeningTimeline.chrome(progress));alpha=if(returning&&!snapshot.hasTarget)(progress/.16f).coerceIn(0f,1f) else 1f;invalidate()}
  internal fun freezeMotion(){animator?.removeAllListeners();animator?.cancel();animator=null}
- fun start(){animator=ValueAnimator.ofFloat(if(returning)1f else 0f,if(returning)0f else 1f).apply{duration=if(returning)OpeningTimeline.CLOSE_DURATION else OpeningTimeline.DURATION;interpolator=if(returning)android.view.animation.DecelerateInterpolator(1f) else android.view.animation.LinearInterpolator();addUpdateListener{frame(it.animatedValue as Float)};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(animation:Animator){finish()}});start()}}
+ /** Starts the moment the book is tapped. If the reader is not ready yet, the book rests at a calm point of the
+  * travel (most of the flight done, cover just lifting) and continues from there without restarting. */
+ fun startEarly(){waiting=true;start()}
+ fun adopt(view:View,r:NativeReader){
+  if(finishing||released)return
+  removeView(live);(view.parent as? ViewGroup)?.removeView(view);live=view;reader=r;addView(view)
+  view.measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(height,MeasureSpec.EXACTLY));view.layout(0,0,width,height)
+  area=r.openingArea();r.openingState(true);r.openingChrome(OpeningTimeline.chrome(progress))
+  view.alpha=0f;view.animate().alpha(1f).setDuration(140).start()
+  waiting=false;animator?.let{if(it.isPaused)it.resume()}
+ }
+ fun start(){animator=ValueAnimator.ofFloat(if(returning)1f else 0f,if(returning)0f else 1f).apply{duration=if(returning)OpeningTimeline.CLOSE_DURATION else OpeningTimeline.DURATION;interpolator=if(returning)android.view.animation.DecelerateInterpolator(1f) else android.view.animation.LinearInterpolator();addUpdateListener{val v=it.animatedValue as Float;if(waiting&&!returning&&v>=gate){frame(gate);it.pause()}else frame(v)};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(animation:Animator){finish()}});start()}}
  fun finish(){if(finishing||released)return;finishing=true;animator?.removeAllListeners();animator?.cancel();animator=null;removeView(live);if(returning)snapshot.sourceView?.visibility=View.VISIBLE;val host=parent as? ViewGroup;host?.removeView(this);reader?.openingChrome(1f);if(!returning)reader?.openingState(false);if(restoreLive && a.reader?.view===live && !a.isDestroyed && live.parent==null)a.root.addView(live,0,FrameLayout.LayoutParams(-1,-1));release();completed?.invoke()}
  private fun release(){if(released)return;released=true;boardShadow?.takeUnless{it.isRecycled}?.recycle();boardShadow=null;snapshot.release();ownedBitmap?.takeUnless{it.isRecycled}?.recycle()}
  override fun onDetachedFromWindow(){if(returning)snapshot.sourceView?.visibility=View.VISIBLE;animator?.removeAllListeners();animator?.cancel();animator=null;if(!finishing){reader?.openingChrome(1f);if(!returning)reader?.openingState(false);completed?.invoke()};release();super.onDetachedFromWindow()}
+ private fun darker(c:Int,k:Float)=Color.argb(Color.alpha(c),(Color.red(c)*k).toInt(),(Color.green(c)*k).toInt(),(Color.blue(c)*k).toInt())
  private data class V(val x:Float,val y:Float,val z:Float)
  private data class Face(val points:List<V>,val kind:Int,val color:Int,val opacity:Float=1f)
  override fun dispatchDraw(c:Canvas){
   if(released || width<=0 || height<=0)return
   val W=width.toFloat();val H=height.toFloat();val dp=resources.displayMetrics.density;val w=minOf(264*dp,W*.4f,H*.285f);val h=w*1.5f
+  gradients(w,h)
   val f=OpeningTimeline.sample(progress,W,H,w,h,OpeningTimeline.Pose(snapshot.rect.left,snapshot.rect.top,snapshot.rect.width()/w,snapshot.rect.height()/h,0f,0f),dp)
   val dissolve=((progress-.04f)/.56f).coerceIn(0f,1f).let{it*it*(3-2*it)}
   paint.shader=null
@@ -97,9 +125,10 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
   faces.add(Face(rect(2.5f*dp,true),2,snapshot.binding,f.volume))
   faces.add(Face(rect(-2.5f*dp,true,true),3,snapshot.binding,f.volume))
   val thick=2.5f*dp
-  side(listOf(V(w,0f,thick),V(w,0f,-thick),V(w,h,-thick),V(w,h,thick)),snapshot.binding,true)
-  side(listOf(V(0f,0f,-thick),V(w,0f,-thick),V(w,0f,thick),V(0f,0f,thick)),snapshot.binding,true)
-  side(listOf(V(0f,h,thick),V(w,h,thick),V(w,h,-thick),V(0f,h,-thick)),snapshot.binding,true)
+  val edge=darker(snapshot.binding,.78f)
+  side(listOf(V(w,0f,thick),V(w,0f,-thick),V(w,h,-thick),V(w,h,thick)),edge,true)
+  side(listOf(V(0f,0f,-thick),V(w,0f,-thick),V(w,0f,thick),V(0f,0f,thick)),darker(snapshot.binding,.9f),true)
+  side(listOf(V(0f,h,thick),V(w,h,thick),V(w,h,-thick),V(0f,h,-thick)),darker(snapshot.binding,.66f),true)
   val perspective=1700*dp;val ox=W*.5f;val oy=H*.48f
   for(face in faces.sortedBy{it.points.sumOf{p->p.z.toDouble()}}){
    if(face.opacity<=0)continue
@@ -111,11 +140,17 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
    when(face.kind){
     1->{paint.alpha=255;c.drawRect(0f,0f,w,h,paint);val initial=w*.86f/area.width().coerceAtLeast(1f);val tx=w*.07f-area.left*initial;val ty=h*.08f-maxOf(0f,area.top)*initial;val total=initial+(1-initial)*f.zoom
       c.save();c.translate(tx*(1-f.zoom)/f.pose.sx,ty*(1-f.zoom)/f.pose.sy);c.scale(total/f.pose.sx,total/f.pose.sy);drawChild(c,live,drawingTime);c.restore()
-      paint.shader=LinearGradient(0f,0f,w*.11f,0f,intArrayOf(0x99000000.toInt(),Color.TRANSPARENT),null,Shader.TileMode.CLAMP);paint.alpha=(f.gutter*255).toInt();c.drawRect(0f,0f,w*.11f,h,paint);paint.shader=null}
-    2->{c.drawBitmap(snapshot.cover,null,RectF(0f,0f,w,h),paint);paint.color=Color.BLACK;paint.alpha=(f.shade*f.volume*255).toInt();c.drawRect(0f,0f,w,h,paint)}
-    3->{c.drawRect(0f,0f,w,h,paint);paint.shader=LinearGradient(0f,0f,w,0f,intArrayOf(0x33000000,Color.TRANSPARENT,0x05ffffff,0x11000000),floatArrayOf(0f,.05f,.5f,1f),Shader.TileMode.CLAMP);paint.alpha=(f.volume*255).toInt();c.drawRect(0f,0f,w,h,paint);paint.shader=null;paint.style=Paint.Style.STROKE;paint.strokeWidth=.6f*dp;paint.color=0x19ffffff;c.drawRect(2*dp,2*dp,w-2*dp,h-2*dp,paint);paint.style=Paint.Style.FILL;paint.shader=LinearGradient(0f,0f,w,h*.27f,intArrayOf(0x18ffffff,Color.TRANSPARENT,0x33000000),floatArrayOf(0f,.4f,1f),Shader.TileMode.CLAMP);paint.alpha=(f.innerLight*255).toInt();c.drawRect(0f,0f,w,h,paint);paint.shader=null}
+      paint.shader=gutterShade;paint.alpha=(f.gutter*255).toInt();c.drawRect(0f,0f,w*.11f,h,paint);paint.shader=null}
+    2->{c.drawBitmap(snapshot.cover,null,RectF(0f,0f,w,h),paint)
+      val turn=Math.toRadians(-f.swing.toDouble()).coerceIn(0.0,Math.PI/2);val facing=cos(turn).toFloat()
+      paint.shader=hingeShade;paint.alpha=(f.volume*255).toInt();c.drawRect(0f,0f,w*.12f,h,paint);paint.shader=null
+      val sheen=(turn/(Math.PI/2)).toFloat();if(sheen>0f&&sheen<1f){val x=w*(-.3f+1.6f*sheen);paint.shader=LinearGradient(x-w*.35f,0f,x+w*.35f,0f,intArrayOf(0x00ffffff,0x24ffffff,0x00ffffff),null,Shader.TileMode.CLAMP);paint.alpha=(255*kotlin.math.sin(sheen*Math.PI).toFloat()*f.volume).toInt();c.drawRect(0f,0f,w,h,paint);paint.shader=null}
+      paint.color=Color.BLACK;paint.alpha=(((1f-facing)*.62f)*f.volume*255).toInt();c.drawRect(0f,0f,w,h,paint)}
+    3->{c.drawRect(0f,0f,w,h,paint);paint.shader=innerShade;paint.alpha=(f.volume*255).toInt();c.drawRect(0f,0f,w,h,paint);paint.shader=null;paint.style=Paint.Style.STROKE;paint.strokeWidth=.6f*dp;paint.color=0x19ffffff;c.drawRect(2*dp,2*dp,w-2*dp,h-2*dp,paint);paint.style=Paint.Style.FILL;paint.shader=innerLightShade;paint.alpha=(f.innerLight*255).toInt();c.drawRect(0f,0f,w,h,paint);paint.shader=null
+      // The inside of the board brightens as it turns toward the reader (it is edge-on, i.e. darkest, at 90°).
+      val inward=(-cos(Math.toRadians(-f.swing.toDouble()))).toFloat().coerceIn(0f,1f);paint.color=Color.BLACK;paint.alpha=((1f-inward)*.55f*f.volume*255).toInt();c.drawRect(0f,0f,w,h,paint)}
     6->{boardShadow?.let{c.drawBitmap(it,null,RectF(-w*.5f,-h*.267f,w*1.5f,h*1.4f),paint)}}
-    4,5->{paint.shader=LinearGradient(0f,0f,if(face.kind==4)w/14*1.8f else 0f,if(face.kind==5)h/14*1.9f else 0f,intArrayOf(0xffc4bbaa.toInt(),0xffe6dfd0.toInt(),0xffc4bbaa.toInt(),0xffeee7d9.toInt()),floatArrayOf(0f,.36f,.67f,1f),Shader.TileMode.REPEAT);c.drawRect(0f,0f,w,h,paint);paint.shader=null}
+    4,5->{paint.shader=if(face.kind==4)foreShade else headShade;c.drawRect(0f,0f,w,h,paint);paint.shader=null}
     else->c.drawRect(0f,0f,w,h,paint)
    };c.restore()
   };paint.shader=null;paint.alpha=255
@@ -183,3 +218,6 @@ private fun openingCoverTexture(source:View,windowWidth:Int,windowHeight:Int):Bi
   val canvas=Canvas(it);canvas.scale(width.toFloat()/source.width,height.toFloat()/source.height);source.draw(canvas)
  }
 }
+
+/** The page colour the reader will use, so the blank page shown while the book loads is already the right paper. */
+internal fun MainActivity.readerPaper():Int=when(prefs.str("rt")){"black"->0xff000000.toInt();"sepia"->0xfff3ead8.toInt();"paper"->0xfffbfaf7.toInt();"night"->0xff18181a.toInt();else->bg}
