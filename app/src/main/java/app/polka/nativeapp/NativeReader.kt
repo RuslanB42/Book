@@ -153,10 +153,10 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
                 MotionEvent.ACTION_MOVE->{velocity?.addMovement(e);if(touchHeld){quoteSelection.continueHold(e);return true};if(quoteSelection.active)return true
                     val dx=e.x-lastTouchX;val dy=e.y-lastTouchY
                     if(!touchDragging&&abs(dx)>a.d(10)&&abs(dx)>abs(dy)*1.1f){touchDragging=true;touchDirection=if(dx<0)1 else -1;body.cancelLongPress();val cancel=MotionEvent.obtain(e);cancel.action=MotionEvent.ACTION_CANCEL;detector.onTouchEvent(cancel);cancel.recycle();scroll.parent.requestDisallowInterceptTouchEvent(true);beginCurl(touchDirection,true,lastTouchY)}
-                    if(touchDragging){dragProgress=(-dx*touchDirection/scroll.width.coerceAtLeast(1)).coerceIn(0f,1f);dragY=e.y;curl?.pose(dragProgress,dragY+scroll.top,lastTouchY>scroll.height*.5f)}else detector.onTouchEvent(e);return true}
+                    if(touchDragging){dragProgress=(-dx*touchDirection/scroll.width.coerceAtLeast(1)).coerceIn(0f,1f);dragY=e.y;curl?.pose(dragProgress,dragY+scroll.top,lastTouchY+scroll.top)}else detector.onTouchEvent(e);return true}
                 MotionEvent.ACTION_POINTER_DOWN->{if(touchDragging)releaseCurl(false);touchDragging=false;touchHeld=true;scroll.parent.requestDisallowInterceptTouchEvent(false);val cancel=MotionEvent.obtain(e);cancel.action=MotionEvent.ACTION_CANCEL;detector.onTouchEvent(cancel);cancel.recycle();return true}
                 MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{velocity?.addMovement(e);velocity?.computeCurrentVelocity(1000);val vx=velocity?.xVelocity?:0f
-                    if(touchDragging){dragProgress=(-(e.x-lastTouchX)*touchDirection/scroll.width.coerceAtLeast(1)).coerceIn(0f,1f);dragY=e.y;curl?.pose(dragProgress,dragY+scroll.top,lastTouchY>scroll.height*.5f);val commit=e.actionMasked==MotionEvent.ACTION_UP && (if(abs(vx)>a.d(650)) -vx*touchDirection>0 else dragProgress>.32f);releaseCurl(commit,vx);scroll.parent.requestDisallowInterceptTouchEvent(false)}else if(touchHeld)quoteSelection.continueHold(e)else detector.onTouchEvent(e)
+                    if(touchDragging){dragProgress=(-(e.x-lastTouchX)*touchDirection/scroll.width.coerceAtLeast(1)).coerceIn(0f,1f);dragY=e.y;curl?.pose(dragProgress,dragY+scroll.top,lastTouchY+scroll.top);val commit=e.actionMasked==MotionEvent.ACTION_UP && (if(abs(vx)>a.d(650)) -vx*touchDirection>0 else dragProgress>.32f);releaseCurl(commit,vx);scroll.parent.requestDisallowInterceptTouchEvent(false)}else if(touchHeld)quoteSelection.continueHold(e)else detector.onTouchEvent(e)
                     velocity?.recycle();velocity=null;touchDragging=false;return true}
             };return true
         }
@@ -303,10 +303,17 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     internal val outgoingPage get()=curl
     internal fun samplePageMotion(ms:Long){turnClock?.let{it.pause();if(ms>=it.duration)it.end()else it.currentPlayTime=ms}}
     private fun isTurning()=pageSlidePending||turnClock!=null||curl!=null
+    private var folioFrom="";private var folioAlpha=1f;private var folioTurning=false
+    /** The page counter follows the hand: the old number fades out, the new one fades in as the sheet passes half way. */
+    private fun turnFolio(p:Float){val t=targetPage?:return;if(!paged())return;folioTurning=true
+        val text=if(p>=.5f)"${t.index+1} из ${t.starts.size}" else folioFrom
+        if(folio.text.toString()!=text)folio.text=text
+        folio.alpha=folioAlpha*(.35f+.65f*abs(2f*p-1f))}
+    private fun restoreFolio(){if(folioTurning){folioTurning=false;folio.alpha=folioAlpha};updateFooter()}
     fun stopPageMotion(){
         curlToken++;pagePreDraw?.let{if(view.viewTreeObserver.isAlive)view.viewTreeObserver.removeOnPreDrawListener(it)};pagePreDraw=null
         turnClock?.removeAllListeners();turnClock?.cancel();turnClock=null;scroll.translationX=0f
-        curl?.let{view.removeView(it)};curl=null;pageSlidePending=false;targetPage=null;gestureTurn=false;released=null;dragProgress=0f;targetCommitted=false
+        curl?.let{view.removeView(it)};if(curl!=null)restoreFolio();curl=null;pageSlidePending=false;targetPage=null;gestureTurn=false;released=null;dragProgress=0f;targetCommitted=false
         selectionTurnDone?.also{selectionTurnDone=null;it(false)}
     }
     private fun chapterKey(index:Int):String {
@@ -362,7 +369,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             val overlay=PageCurlView(a,source,upcoming,direction,readerBackground,a.prefs.str("motion")=="reduced");curl=overlay
             view.clipToPadding=false
             view.addView(overlay,1,FrameLayout.LayoutParams(view.width,view.height).apply{leftMargin=-view.paddingLeft;topMargin=-view.paddingTop})
-            overlay.measure(View.MeasureSpec.makeMeasureSpec(view.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(view.height,View.MeasureSpec.EXACTLY));overlay.layout(0,0,view.width,view.height);overlay.pose(dragProgress,dragY+scroll.top,y>scroll.height*.5f)
+            overlay.measure(View.MeasureSpec.makeMeasureSpec(view.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(view.height,View.MeasureSpec.EXACTLY));overlay.layout(0,0,view.width,view.height);folioFrom=folio.text.toString();folioAlpha=folio.alpha;overlay.onPose={turnFolio(it)};overlay.pose(dragProgress,dragY+scroll.top,y+scroll.top)
             if(!interactive){commitTarget();revealPage()}else{pageSlidePending=false;released?.let{releaseCurl(it,releaseVelocity)}}
         };return true
     }
