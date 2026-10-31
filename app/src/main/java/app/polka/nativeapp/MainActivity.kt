@@ -297,13 +297,29 @@ class MainActivity : Activity() {
     fun confirm(title:String,message:String,action:()->Unit) { dialog().setTitle(title).setMessage(message).setNegativeButton("Отмена",null).setPositiveButton("Продолжить") { _,_ -> action() }.show() }
     fun moveBook(book:JSONObject) { val names=(listOf("Без полки")+prefs.optJSONArray("shelves")?.strings().orEmpty()+books.map { it.str("shelf") }.filter { it.isNotBlank() }+REC_SHELF).distinct(); dialog().setTitle("Переместить на полку").setItemIcons(*names.map{"shelves"}.toTypedArray()).setItems(names.toTypedArray()) { _,i -> saveBook(book.copyJson().put("shelf",if(i==0) "" else names[i])) }.show() }
     private var loadingReader=false
+    /** Parsed text of recently opened/likely-to-open books. Reading the whole book from the database and parsing
+     *  it is the slow part of opening, so it is done ahead of time (detail card, «Продолжить чтение») and reused. */
+    private val openedContent=object:LinkedHashMap<String,Pair<JSONObject,MutableMap<String,ByteArray>>>(4,.75f,true){override fun removeEldestEntry(e:MutableMap.MutableEntry<String,Pair<JSONObject,MutableMap<String,ByteArray>>>?)=size>2}
+    private fun contentKey(book:JSONObject)="${book.str("id")}:${book.optLong("size")}:${book.optInt("edits")}:${book.optInt("chars")}:${book.str("format")}"
+    private fun loadContent(book:JSONObject):Pair<JSONObject,MutableMap<String,ByteArray>> {
+        val key=contentKey(book);synchronized(openedContent){openedContent[key]}?.let{return it}
+        val content=library.dao.content(book.getString("id")) ?: error("Текст книги не найден"); val parsed=JSONObject(content.json); val images=mutableMapOf<String,ByteArray>()
+        parsed.optJSONObject("images")?.let { refs -> refs.keys().forEach { k -> refs.optJSONObject(k)?.str("__polkaBlob")?.let { id -> library.dao.asset(id)?.let { images[k]=it.bytes } } } }
+        return (parsed to images).also{synchronized(openedContent){openedContent[key]=it}}
+    }
+    private val prefetching=mutableSetOf<String>()
+    fun prefetchContent(book:JSONObject){
+        if(book.optBoolean("noFile")||reader!=null)return;val key=contentKey(book)
+        if(synchronized(openedContent){openedContent.containsKey(key)}||!prefetching.add(key))return
+        work({runCatching{loadContent(book)}},failed={prefetching.remove(key)}){prefetching.remove(key)}
+    }
     fun openBook(book:JSONObject,source:View?=null) {
         if(reader!=null || loadingReader || bookClosing)return
         if(book.optBoolean("noFile")) { bookActions(book); return }
         loadingReader=true
         val snapshot=openingSnapshot(book.str("id"),source)
         val preparing=snapshot?.let{BookOpeningHold(this,it).also{hold->hold.elevation=d(60).toFloat();root.addView(hold,FrameLayout.LayoutParams(-1,-1))}}
-        work({ val content=library.dao.content(book.getString("id")) ?: error("Текст книги не найден"); val parsed=JSONObject(content.json); val images=mutableMapOf<String,ByteArray>(); parsed.optJSONObject("images")?.let { refs -> refs.keys().forEach { key -> refs.optJSONObject(key)?.str("__polkaBlob")?.let { id -> library.dao.asset(id)?.let { images[key]=it.bytes } } } }; runOnUiThread { loadingReader=false;if(isFinishing || isDestroyed) { preparing?.let{(it.parent as? ViewGroup)?.removeView(it)};snapshot?.release(); return@runOnUiThread }; val r=NativeReader(this,book.copyJson(),parsed,images); reader=r; ReaderWindow.configure(window,true,bg);root.setPadding(0,0,0,0);root.requestApplyInsets(); root.removeAllViews(); root.addView(r.view,FrameLayout.LayoutParams(-1,-1)); r.start(); if(snapshot!=null){r.view.alpha=0f;val hold=preparing?:BookOpeningHold(this,snapshot);root.addView(hold,FrameLayout.LayoutParams(-1,-1));var stable=0;var signature="";var handedOff=false;val observer=r.view.viewTreeObserver
+        work({ val (parsed,images)=loadContent(book); runOnUiThread { loadingReader=false;if(isFinishing || isDestroyed) { preparing?.let{(it.parent as? ViewGroup)?.removeView(it)};snapshot?.release(); return@runOnUiThread }; val r=NativeReader(this,book.copyJson(),parsed,images); reader=r; ReaderWindow.configure(window,true,bg);root.setPadding(0,0,0,0);root.requestApplyInsets(); root.removeAllViews(); root.addView(r.view,FrameLayout.LayoutParams(-1,-1)); r.start(); if(snapshot!=null){r.view.alpha=0f;val hold=preparing?:BookOpeningHold(this,snapshot);root.addView(hold,FrameLayout.LayoutParams(-1,-1));var stable=0;var signature="";var handedOff=false;val observer=r.view.viewTreeObserver
                 val detached=object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){};override fun onViewDetachedFromWindow(v:View){if(!handedOff)snapshot.release();v.removeOnAttachStateChangeListener(this)}};r.view.addOnAttachStateChangeListener(detached)
                 observer.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener {override fun onPreDraw():Boolean{val next="${r.view.width}:${r.view.height}:${r.body.text.hashCode()}:${r.pageBase()}";if(!r.openingReady() || next!=signature){signature=next;stable=0;r.view.postInvalidateOnAnimation();return true};if(++stable<2){r.view.postInvalidateOnAnimation();return true};if(observer.isAlive)observer.removeOnPreDrawListener(this);handedOff=true;r.view.removeOnAttachStateChangeListener(detached);r.view.alpha=1f;root.removeView(hold);revealNativeBook(snapshot,r.view);return true}})} } }, failed={ loadingReader=false;preparing?.let{(it.parent as? ViewGroup)?.removeView(it)};snapshot?.release() })
     }

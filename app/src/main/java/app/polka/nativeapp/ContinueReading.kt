@@ -15,6 +15,8 @@ internal object ReadingQueue {
 /** Native scrolling, no animation loop or automatic page changes. The next book remains visible. */
 internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):LinearLayout(a) {
  val readingBooks=ReadingQueue.books(all)
+ // The book on the visible card is the likeliest next open: get its text ready in the background.
+ private val warm=(readingBooks.firstOrNull{it.str("id")==a.continueBookId}?:readingBooks.firstOrNull())?.also{a.prefetchContent(it)}
  private val signature=readingBooks.joinToString{it.toString()}
  private val light=a.light
  private val fontScale=resources.configuration.fontScale
@@ -36,7 +38,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   override fun fling(velocityX:Int){flung=true;val dir=if(velocityX>0)1 else if(velocityX<0)-1 else 0;val page=(startPage+dir).coerceIn(0,last());if(a.prefs.str("motion")=="reduced")scrollTo(page*stride,0)else smoothScrollTo(page*stride,0)}
   override fun onTouchEvent(e:android.view.MotionEvent):Boolean{if(e.actionMasked==MotionEvent.ACTION_DOWN)flung=false;val handled=super.onTouchEvent(e);if((e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)&&!flung)post{snap()};return handled}
   fun snap(){val n=(scrollX.toFloat()/stride).roundToInt().coerceIn((startPage-1).coerceAtLeast(0),(startPage+1).coerceAtMost(last()));if(a.prefs.str("motion")=="reduced")scrollTo(n*stride,0)else smoothScrollTo(n*stride,0)}
-  override fun onScrollChanged(x:Int,y:Int,ox:Int,oy:Int){super.onScrollChanged(x,y,ox,oy);if(restoring)return;val n=(x.toFloat()/stride).roundToInt().coerceIn(0,readingBooks.lastIndex.coerceAtLeast(0));position.text="${n+1} / ${readingBooks.size}";a.continueBookId=readingBooks.getOrNull(n)?.str("id")}
+  override fun onScrollChanged(x:Int,y:Int,ox:Int,oy:Int){super.onScrollChanged(x,y,ox,oy);if(restoring)return;val n=(x.toFloat()/stride).roundToInt().coerceIn(0,readingBooks.lastIndex.coerceAtLeast(0));position.text="${n+1} / ${readingBooks.size}";if(a.continueBookId!=readingBooks.getOrNull(n)?.str("id"))readingBooks.getOrNull(n)?.let{a.prefetchContent(it)};a.continueBookId=readingBooks.getOrNull(n)?.str("id")}
  }
  init{
   orientation=VERTICAL;clipChildren=false;clipToPadding=false
