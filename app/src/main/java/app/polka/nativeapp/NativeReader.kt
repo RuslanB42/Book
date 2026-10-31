@@ -110,7 +110,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         action("Закрыть книгу","chevdown") { a.closeReader() }
         val metadata=a.column();metadata.addView(a.text(book.str("title"),15f,bold=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});metadata.addView(a.text(MainActivity.authors(book),13f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});bar.addView(metadata,LinearLayout.LayoutParams(0,-2,1f))
          action("Меню книги","more") { readerMenu() }; view.addView(bar,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
-        body.setTextColor(a.fg); body.setTextSize(a.prefs.optDouble("size",a.prefs.optDouble("fontSize",19.0)).toFloat()); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; body.setPadding(a.d(24),a.d(22),a.d(24),a.d(42)); body.breakStrategy=android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY; body.hyphenationFrequency=android.text.Layout.HYPHENATION_FREQUENCY_NORMAL; body.setTextIsSelectable(true); body.defaultFocusHighlightEnabled=false; body.background=null; body.foreground=null; body.linksClickable=true; body.movementMethod=android.text.method.LinkMovementMethod.getInstance()
+        body.setTextColor(a.fg); body.setTextSize(a.prefs.optDouble("size",a.prefs.optDouble("fontSize",19.0)).toFloat()); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; body.setPadding(margin(),a.d(22),margin(),a.d(42)); body.breakStrategy=android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY; applySpacing(); body.setTextIsSelectable(true); body.defaultFocusHighlightEnabled=false; body.background=null; body.foreground=null; body.linksClickable=true; body.movementMethod=android.text.method.LinkMovementMethod.getInstance()
         body.customSelectionActionModeCallback=object:ActionMode.Callback {
             override fun onCreateActionMode(mode:ActionMode,menu:Menu):Boolean { menu.add(0,700,0,"Цитата").setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS); menu.add(0,701,1,"Заметка"); return true }
             override fun onPrepareActionMode(mode:ActionMode,menu:Menu)=false
@@ -191,21 +191,21 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     /** Parse + image/table preparation + whole-chapter line breaking run off the main looper. */
     fun paintChapter() {
         if(disposed || editorOpen)return
-        val top=if(paged())22 else 84;val bottomInset=if(paged())42 else 110;if(body.paddingTop!=a.d(top)||body.paddingBottom!=a.d(bottomInset))body.setPadding(a.d(24),a.d(top),a.d(24),a.d(bottomInset))
+        val top=if(paged())22 else 84;val bottomInset=if(paged())42 else 110;if(body.paddingTop!=a.d(top)||body.paddingBottom!=a.d(bottomInset)||body.paddingLeft!=margin()||body.paddingRight!=margin())body.setPadding(margin(),a.d(top),margin(),a.d(bottomInset))
         val width=(scroll.width-body.paddingLeft-body.paddingRight).takeIf{it>0}?: (a.resources.displayMetrics.widthPixels-a.d(48))
         val height=(scroll.height-body.paddingTop-body.paddingBottom-a.d(6)).takeIf{it>a.d(100)}?: (a.resources.displayMetrics.heightPixels-a.d(230))
-        val html=chapters.getJSONObject(chapter).str("html");val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val paint=android.text.TextPaint(body.paint);val justify=body.justificationMode
-        val quoteSnapshot=book.optJSONArray("quotes")?.toString()?:"[]";val key="$chapter:$width:$height:$size:$ink:$leading:${a.prefs.str("font")}:$justify:${paged()}:${html.hashCode()}:${quoteSnapshot.hashCode()}"
+        val html=chapters.getJSONObject(chapter).str("html");val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val paint=android.text.TextPaint(body.paint);val justify=body.justificationMode;val trim=trimEmpty();val hyph=hyphenFreq()
+        val quoteSnapshot=book.optJSONArray("quotes")?.toString()?:"[]";val key="$chapter:$width:$height:$size:$ink:$leading:${a.prefs.str("font")}:$justify:${paged()}:${html.hashCode()}:${quoteSnapshot.hashCode()}:${typoKey()}"
         if(key==requestKey && preparing)return
         if(key==committedKey && loadedChapter==chapter){val offset=pendingAnchor?.let{chapterAnchors[it]} ?: pendingOffset;pendingAnchor=null;pendingOffset=null;pendingFraction=null;if(offset!=null)jumpOffset(offset);return}
         if(!preparing && loadedChapter==chapter && pendingOffset==null && pendingFraction==null)pendingOffset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0
         layoutJob?.cancel(true);val generation=++layoutGeneration;requestKey=key;preparing=true;lastCredit=System.currentTimeMillis();footer.text="Подготовка главы…"
         val targetChapter=chapter;val quotes=JSONArray(quoteSnapshot).objects();val maxImage=(height-size*3).toInt().coerceAtLeast(a.d(80))
         layoutJob=a.compute({engine.prepare(key,{
-            val rendered=ReadingText(a,size,width,maxImage,images,ink,leading).render(html);val rich=rendered.text
+            val rendered=ReadingText(a,size,width,maxImage,images,ink,leading,trimEmpty=trim).render(html);val rich=rendered.text
             quotes.filter{it.optInt("ch")==targetChapter}.forEach{q->val raw=q.str("rawText",q.str("text"));val range=TextAnchors.locate(rich.toString(),raw,q.optInt("start"));if(range!=null)rich.setSpan(android.text.style.BackgroundColorSpan(0x44f0a742),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
             rendered
-        },paint,width,height,justify)},failed={if(generation==layoutGeneration){preparing=false;view.alpha=1f}},done={result->
+        },paint,width,height,justify,hyph)},failed={if(generation==layoutGeneration){preparing=false;view.alpha=1f}},done={result->
             if(!disposed && generation==layoutGeneration && chapter==targetChapter){
                 chapterRich=android.text.SpannableStringBuilder(result.text);chapterAnchors=result.anchors;pageStarts=result.starts;lastLayoutWorker=result.worker;committedKey=key;loadedChapter=chapter
                 val rich=chapterRich as android.text.SpannableStringBuilder
@@ -243,7 +243,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun changeChapter(next:Int) { if(next !in 0 until chapters.length())return;quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=0;pendingFraction=null;paintChapter() }
     fun persist() { val snap=book.copyJson(); a.saveBook(snap) {} }
     fun pause() { save();paused=true;handler.removeCallbacks(heartbeat) }
-    fun dispose(){if(disposed)return;a.ratingPrompt?.let{(it.parent as? ViewGroup)?.removeView(it)};a.ratingPrompt=null;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
+    fun dispose(){if(disposed)return;a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};a.ratingPrompt?.let{(it.parent as? ViewGroup)?.removeView(it)};a.ratingPrompt=null;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
     fun resume() { ReaderWindow.configure(a.window,true,readerBackground);a.root.requestApplyInsets();paused=false; activeAt=System.currentTimeMillis(); lastCredit=activeAt; handler.removeCallbacks(heartbeat); handler.postDelayed(heartbeat,5000) }
     fun save() {
         handler.removeCallbacks(saveTask)
@@ -314,12 +314,14 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             full.getSpans(start,end,android.text.style.LeadingMarginSpan::class.java).forEach { margin -> if(full.getSpanStart(margin)<start) { page.removeSpan(margin); page.setSpan(android.text.style.LeadingMarginSpan.Standard(margin.getLeadingMargin(false)),0,(full.getSpanEnd(margin)-start).coerceIn(0,page.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) } }
             full.getSpans(start,end,ParagraphSpace::class.java).forEach { spacing -> val from=full.getSpanStart(spacing); val spanEnd=full.getSpanEnd(spacing); val trimBefore=(from < start); val trimAfter=(spanEnd > end); if(trimBefore || trimAfter) { page.removeSpan(spacing); page.setSpan(spacing.continuation(trimBefore,trimAfter),(from-start).coerceIn(0,page.length),(spanEnd-start).coerceIn(0,page.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) } }
         }
+        // A word broken across the page edge keeps its hyphen, as in print.
+        if(end in 1 until rich.length&&rich[end-1].isLetter()&&rich[end].isLetter()&&hyphenFreq()!=android.text.Layout.HYPHENATION_FREQUENCY_NONE)page.append("-")
         return page
     }
     fun paintPage() {body.text=pageText(chapterRich,pageStarts,pageIndex);scroll.scrollTo(0,0);updateFooter();positionSelection();quoteSelection.invalidate();warmPages();warmSnapshot()}
     internal fun selectionFullText()=chapterRich
     internal fun pageLimit()=pageStarts.getOrElse(pageIndex+1){chapterRich.length}
-    internal fun selectionOffset(x:Float,y:Float):Int {val layout=body.layout?:return pageBase();val line=layout.getLineForVertical((y-body.paddingTop).toInt());return pageBase()+layout.getOffsetForHorizontal(line,x-body.paddingLeft).coerceIn(0,body.length())}
+    internal fun selectionOffset(x:Float,y:Float):Int {val layout=body.layout?:return pageBase();val line=layout.getLineForVertical((y-body.paddingTop).toInt());return (pageBase()+layout.getOffsetForHorizontal(line,x-body.paddingLeft).coerceIn(0,body.length())).coerceAtMost(pageLimit())}
     private fun positionSelection(){if(quoteSelection.parent!=view)return;quoteSelection.layoutParams=(quoteSelection.layoutParams as FrameLayout.LayoutParams).apply{width=scroll.width; height=scroll.height;leftMargin=scroll.left-view.paddingLeft;topMargin=scroll.top-view.paddingTop}}
     private fun openPageLink(x:Float,y:Float):Boolean {
         val layout=body.layout?:return false;val sp=body.text as? android.text.Spanned?:return false
@@ -330,7 +332,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     private fun jumpAnchor(id:String){if(preparing){pendingAnchor=id;pendingOffset=null}else jumpOffset(chapterAnchors[id]?:0)}
     fun jumpOffset(offset:Int) { if(preparing || loadedChapter!=chapter){pendingOffset=offset;pendingFraction=null;return};if(paged()) { pageIndex=pageStarts.indexOfLast { it<=offset }.coerceAtLeast(0); paintPage() } else { val layout=body.layout ?: return; val at=offset.coerceIn(0,body.text.length); scroll.scrollTo(0,layout.getLineTop(layout.getLineForOffset(at))) }; lastPosition=position() }
-    fun lineHeight()=when(a.prefs.str("lh","normal")) { "tight"->1.42f; "loose"->1.82f; else->1.6f }
+    fun lineHeight()=if(a.prefs.has("lhv"))a.prefs.optDouble("lhv",1.6).toFloat() else when(a.prefs.str("lh","normal")) { "tight"->1.42f; "loose"->1.82f; else->1.6f }
     internal val pageMotionPending get()=pageSlidePending
     internal val pageMotionRunning get()=turnClock!=null
     internal val outgoingPage get()=curl
@@ -344,18 +346,18 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     private fun chapterKey(index:Int):String {
         val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(1);val height=(scroll.height-body.paddingTop-body.paddingBottom-a.d(6)).coerceAtLeast(1)
-        return "$index:${view.width}:${view.height}:${scroll.left}:${scroll.top}:$width:$height:${body.textSize}:${body.currentTextColor}:${lineHeight()}:${a.prefs.str("font")}:${body.justificationMode}:${paged()}:${chapters.getJSONObject(index).str("html").hashCode()}:${(book.optJSONArray("quotes")?.toString()?:"[]").hashCode()}"
+        return "$index:${view.width}:${view.height}:${scroll.left}:${scroll.top}:$width:$height:${body.textSize}:${body.currentTextColor}:${lineHeight()}:${a.prefs.str("font")}:${body.justificationMode}:${paged()}:${chapters.getJSONObject(index).str("html").hashCode()}:${(book.optJSONArray("quotes")?.toString()?:"[]").hashCode()}:${typoKey()}"
     }
     private fun preparePreview(index:Int,done:(ReaderLayoutEngine.PageData,String)->Unit={_,_->}){
         if(index !in 0 until chapters.length()||disposed)return
         val key=chapterKey(index);previewPages[index]?.takeIf{it.first==key}?.let{done(it.second,key);return}
         val generation=previewGeneration;val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(1);val height=(scroll.height-body.paddingTop-body.paddingBottom-a.d(6)).coerceAtLeast(1)
-        val paint=android.text.TextPaint(body.paint);val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val justify=body.justificationMode;val html=chapters.getJSONObject(index).str("html");val quotes=book.optJSONArray("quotes")?.toString()?:"[]"
+        val paint=android.text.TextPaint(body.paint);val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val justify=body.justificationMode;val html=chapters.getJSONObject(index).str("html");val quotes=book.optJSONArray("quotes")?.toString()?:"[]";val trim=trimEmpty();val hyph=hyphenFreq()
         // Warm jobs can share the engine cache; completion is keyed by geometry,
         // theme, chapter content and quote revision, never by page index alone.
         previewJobs[index]=a.compute({previewEngine.prepare(key,{
-            ReadingText(a,size,width,(height-size*3).toInt().coerceAtLeast(a.d(80)),images,ink,leading).render(html).also{rendered->JSONArray(quotes).objects().filter{it.optInt("ch")==index}.forEach{q->TextAnchors.locate(rendered.text.toString(),q.str("rawText",q.str("text")),q.optInt("start"))?.let{range->rendered.text.setSpan(android.text.style.BackgroundColorSpan(0x44f0a742),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}}}
-        },paint,width,height,justify)},failed={previewJobs.remove(index);if(isTurning())stopPageMotion()},done={data->previewJobs.remove(index);if(!disposed&&generation==previewGeneration&&chapterKey(index)==key){previewPages[index]=key to data;previewPages.keys.filter{abs(it-chapter)>1}.toList().forEach{previewPages.remove(it)};done(data,key)}})
+            ReadingText(a,size,width,(height-size*3).toInt().coerceAtLeast(a.d(80)),images,ink,leading,trimEmpty=trim).render(html).also{rendered->JSONArray(quotes).objects().filter{it.optInt("ch")==index}.forEach{q->TextAnchors.locate(rendered.text.toString(),q.str("rawText",q.str("text")),q.optInt("start"))?.let{range->rendered.text.setSpan(android.text.style.BackgroundColorSpan(0x44f0a742),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}}}
+        },paint,width,height,justify,hyph)},failed={previewJobs.remove(index);if(isTurning())stopPageMotion()},done={data->previewJobs.remove(index);if(!disposed&&generation==previewGeneration&&chapterKey(index)==key){previewPages[index]=key to data;previewPages.keys.filter{abs(it-chapter)>1}.toList().forEach{previewPages.remove(it)};done(data,key)}})
     }
     private fun warmPages(){if(!paged()||scroll.width<=0)return;if(pageIndex==0&&chapter>0&&!previewJobs.containsKey(chapter-1))preparePreview(chapter-1);if(pageIndex==pageStarts.lastIndex&&chapter<chapters.length()-1&&!previewJobs.containsKey(chapter+1))preparePreview(chapter+1)}
     private fun snapshotKey(target:TurnPage)="${chapterKey(target.chapter)}:${target.index}"
@@ -461,30 +463,28 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         quoteSelection.clear();stopPageMotion();cachedNext=null;snapshotWarm?.let{handler.removeCallbacks(it)};previewGeneration++;previewPages.clear();previewJobs.values.forEach{it.cancel(true)};previewJobs.clear()
         val savedOffset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0
         val pair=when(a.prefs.str("rt")) { "black"->0xff000000.toInt() to 0xffc9c7c1.toInt(); "sepia"->0xfff3ead8.toInt() to 0xff3a2e22.toInt(); "paper"->0xfffbfaf7.toInt() to 0xff1e1d1b.toInt(); "night"->0xff18181a.toInt() to 0xffdedcd6.toInt(); else->a.bg to a.fg }
-        readerBackground=pair.first;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{themeLight=android.graphics.Color.red(pair.first)>128;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};footer.setTextColor(pair.second);body.setTextColor(pair.second); body.textSize=a.prefs.optDouble("size",19.0).toFloat(); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; body.justificationMode=if(a.prefs.optBoolean("justify",true)) android.text.Layout.JUSTIFICATION_MODE_INTER_WORD else android.text.Layout.JUSTIFICATION_MODE_NONE; if(chapterRich.isNotEmpty()){pendingOffset=savedOffset;handler.removeCallbacks(reflow);handler.postDelayed(reflow,120)} 
+        readerBackground=pair.first;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{themeLight=android.graphics.Color.red(pair.first)>128;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};footer.setTextColor(pair.second);body.setTextColor(pair.second); body.textSize=a.prefs.optDouble("size",19.0).toFloat(); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; body.justificationMode=if(a.prefs.optBoolean("justify",true)) android.text.Layout.JUSTIFICATION_MODE_INTER_WORD else android.text.Layout.JUSTIFICATION_MODE_NONE; applySpacing(); if(body.paddingLeft!=margin())body.setPadding(margin(),body.paddingTop,margin(),body.paddingBottom); applyBrightness(); if(chapterRich.isNotEmpty()){pendingOffset=savedOffset;handler.removeCallbacks(reflow);handler.postDelayed(reflow,120)} 
     }
-    fun settings() {
-        val box=a.column(); var panel:AlertDialog?=null
-        a.label("Размер текста",box)
-        box.addView(SeekBar(a).apply { min=14; max=30; progress=a.prefs.optInt("size",19); progressTintList=android.content.res.ColorStateList.valueOf(a.accent); setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener { override fun onProgressChanged(s:SeekBar?,v:Int,u:Boolean) { if(u) { a.prefs.put("size",v); applyTypography() } }; override fun onStartTrackingTouch(s:SeekBar?) {}; override fun onStopTrackingTouch(s:SeekBar?) { a.savePreferences() } }) })
-        a.label("Шрифт",box); box.addView(a.segment(listOf("Literata","PT Serif","Без засечек"),listOf("literata","ptserif","sans").indexOf(a.prefs.str("font","literata"))) { i -> a.prefs.put("font",listOf("literata","ptserif","sans")[i]); a.savePreferences(); applyTypography() })
-        a.label("Межстрочный интервал",box); box.addView(a.segment(listOf("Плотно","Обычно","Свободно"),listOf("tight","normal","loose").indexOf(a.prefs.str("lh","normal"))) { i -> a.prefs.put("lh",listOf("tight","normal","loose")[i]); a.savePreferences(); applyTypography() })
-        a.label("Режим чтения",box); box.addView(a.segment(listOf("Страницы","Прокрутка"),if(paged()) 0 else 1) { i -> val offset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0; a.prefs.put("mode",if(i==0) "paged" else "scroll"); a.savePreferences(); pendingOffset=offset; pendingFraction=null; setCalm(false,false); paintChapter() })
-        a.label("Тема страницы",box); box.addView(a.segment(listOf("Ночь","Чёрная","Сепия","Бумага"),listOf("night","black","sepia","paper").indexOf(a.prefs.str("rt","night"))) { i -> a.prefs.put("rt",listOf("night","black","sepia","paper")[i]); a.savePreferences(); applyTypography() })
-        box.addView(PolkaSwitch(a).apply { text="По ширине"; setTextColor(a.fg); minHeight=a.d(48); isChecked=a.prefs.optBoolean("justify",true); setOnCheckedChangeListener { _,on -> a.prefs.put("justify",on); a.savePreferences(); applyTypography() } })
-        panel=a.dialog().setTitle("Оформление чтения").setView(box).show()
-    }
+    fun settings()=ReaderSettings(a,this).show()
+    internal fun setReadingMode(pagedMode:Boolean){if(pagedMode==paged())return;val offset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0; a.prefs.put("mode",if(pagedMode) "paged" else "scroll"); a.savePreferences(); pendingOffset=offset; pendingFraction=null; setCalm(false,false); paintChapter()}
+    internal fun margin()=a.d(a.prefs.optInt("margin",24))
+    internal fun hyphenFreq()=if(a.prefs.optBoolean("hyph",true))android.text.Layout.HYPHENATION_FREQUENCY_NORMAL else android.text.Layout.HYPHENATION_FREQUENCY_NONE
+    internal fun trimEmpty()=a.prefs.optBoolean("trimEmpty",false)
+    private fun typoKey()="${a.prefs.optDouble("ls",0.0)}:${a.prefs.optDouble("ws",0.0)}:${hyphenFreq()}:${trimEmpty()}:${margin()}"
+    /** Letter and word spacing plus hyphenation, all carried by the body paint so layout, snapshots and previews agree. */
+    internal fun applySpacing(){body.letterSpacing=a.prefs.optDouble("ls",0.0).toFloat();if(android.os.Build.VERSION.SDK_INT>=29)body.paint.wordSpacing=a.prefs.optDouble("ws",0.0).toFloat()*body.textSize;body.hyphenationFrequency=hyphenFreq()}
+    internal fun applyBrightness(){val v=a.prefs.optDouble("bright",-1.0).toFloat();a.window.attributes=a.window.attributes.apply{screenBrightness=if(v<0f)android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE else v.coerceIn(.01f,1f)}}
     fun readerMenu() { a.dialog().setTitle(book.str("title")).setItemIcons("search","notebook","pen","download").setItems(arrayOf("Поиск по книге","Блокнот: цитаты и мысли","Данные книги","Скачать файл")) { _,i -> when(i) { 0->navigation(2); 1->notebook(); 2->a.metadataEditor(book); 3->a.dialog().setTitle("Скачать файл").setItemIcons("download","download").setItems(arrayOf("FB2","EPUB")){_,type->a.exportBook(book,if(type==0)"fb2" else "epub")}.show() } }.show() }
     fun fullSearch() {
         val input=a.edit("","Слово или фраза")
         a.dialog().setTitle("Поиск по книге").setView(input).setPositiveButton("Найти") { _,_ ->
             val term=input.text.toString().trim(); if(term.isBlank()) return@setPositiveButton
-            val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(a.d(100)); val height=(scroll.height-body.paddingTop-body.paddingBottom-body.textSize*3f).toInt().coerceAtLeast(a.d(80)); val fontSize=body.textSize; val ink=body.currentTextColor; val leading=lineHeight()
+            val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(a.d(100)); val height=(scroll.height-body.paddingTop-body.paddingBottom-body.textSize*3f).toInt().coerceAtLeast(a.d(80)); val fontSize=body.textSize; val ink=body.currentTextColor; val leading=lineHeight(); val trim=trimEmpty()
             val results=mutableListOf<Triple<Int,Int,String>>()
             a.work({
                 for((index,ch) in chapters.objects().withIndex()) {
                     if(results.size>=500) break
-                    val text=ReadingText(a,fontSize,width,height,images,ink,leading,true).render(ch.str("html")).text.toString(); var offset=0
+                    val text=ReadingText(a,fontSize,width,height,images,ink,leading,true,trim).render(ch.str("html")).text.toString(); var offset=0
                     while(results.size<500) { val at=text.indexOf(term,offset,true); if(at<0) break; results.add(Triple(index,at,ch.str("title")+"\n…"+text.substring(maxOf(0,at-35),minOf(text.length,at+term.length+70)).replace('\n',' ')+"…")); offset=at+term.length }
                 }
             }) { a.dialog().setTitle("Найдено: ${results.size}").setItems(results.map { it.third }.toTypedArray()) { _,index -> val result=results[index]; changeChapter(result.first); body.post { jumpOffset(result.second) } }.show() }
@@ -492,12 +492,12 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     fun notebook()=navigation(1)
     fun searchEntries(term:String,done:(List<Triple<Int,Int,String>>)->Unit){
-        val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(a.d(100));val height=(scroll.height-body.paddingTop-body.paddingBottom-body.textSize*3f).toInt().coerceAtLeast(a.d(80));val fontSize=body.textSize;val ink=body.currentTextColor;val leading=lineHeight()
+        val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(a.d(100));val height=(scroll.height-body.paddingTop-body.paddingBottom-body.textSize*3f).toInt().coerceAtLeast(a.d(80));val fontSize=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val trim=trimEmpty()
         a.compute({
             val results=mutableListOf<Triple<Int,Int,String>>()
             for((index,ch) in chapters.objects().withIndex()){
                 if(results.size>=500)break
-                val text=ReadingText(a,fontSize,width,height,images,ink,leading,true).render(ch.str("html")).text.toString();var offset=0
+                val text=ReadingText(a,fontSize,width,height,images,ink,leading,true,trim).render(ch.str("html")).text.toString();var offset=0
                 while(results.size<500){val at=text.indexOf(term,offset,true);if(at<0)break;results.add(Triple(index,at,ch.str("title")+"\n…"+text.substring(maxOf(0,at-35),minOf(text.length,at+term.length+70)).replace('\n',' ')+"…"));offset=at+term.length}
             };results.toList()
         },done={if(!disposed)done(it)})

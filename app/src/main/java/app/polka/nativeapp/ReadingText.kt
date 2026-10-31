@@ -9,7 +9,7 @@ import org.jsoup.nodes.*
 import kotlin.math.ceil
 
 /** Native reading styles from .r-content, not arbitrary publisher CSS. */
-class ReadingText(private val a:MainActivity,private val textSize:Float,private val width:Int,private val maxImageHeight:Int,private val images:Map<String,ByteArray>,private val ink:Int=a.fg,private val leading:Float=1.6f,private val metricsOnly:Boolean=false) {
+class ReadingText(private val a:MainActivity,private val textSize:Float,private val width:Int,private val maxImageHeight:Int,private val images:Map<String,ByteArray>,private val ink:Int=a.fg,private val leading:Float=1.6f,private val metricsOnly:Boolean=false,private val trimEmpty:Boolean=false) {
     data class Result(val text:SpannableStringBuilder,val anchors:Map<String,Int>)
     private val out=SpannableStringBuilder(); private val anchors=linkedMapOf<String,Int>()
     private val px=textSize
@@ -31,7 +31,7 @@ class ReadingText(private val a:MainActivity,private val textSize:Float,private 
         }
         val el=node as? Element ?: return; val tag=el.tagName().substringAfter(':').lowercase()
         if(el.id().isNotBlank()) anchors[el.id()]=out.length
-        if(tag=="br") { val start=out.length;out.append('\n');span(SourceBreak(sourcePath(el),false),start);return }
+        if(tag=="br") { if(trimEmpty&&(out.isEmpty()||out.last()=='\n'))return; val start=out.length;out.append('\n');span(SourceBreak(sourcePath(el),false),start);return }
         if(tag in listOf("img","image","svg")) { val start=out.length;image(el);span(SourceAtomic(sourcePath(el)),start);return }
         if(tag=="table") { val start=out.length;table(el);span(SourceAtomic(sourcePath(el)),start);return }
         if(tag in listOf("script","style","iframe","object","embed","form","noscript")) return
@@ -44,7 +44,10 @@ class ReadingText(private val a:MainActivity,private val textSize:Float,private 
             out.append(if(parent?.tagName()=="ol") "$number. " else "• ")
         }
         el.childNodes().forEach { visit(it,pre || tag=="pre") }
-        if(block) { if(el.hasClass("empty") && out.length==start) out.append('\u00a0'); newline(el) }
+        if(block) {
+            // Badly typeset books stack empty paragraphs and <br> runs; optionally keep only real text.
+            if(trimEmpty && (start until out.length).all{out[it].isWhitespace()||out[it]=='\u00a0'}) { out.delete(start,out.length); return }
+            if(el.hasClass("empty") && out.length==start) out.append('\u00a0'); newline(el) }
         val end=out.length
         when(tag) {
             "strong","b" -> span(StyleSpan(Typeface.BOLD),start)
