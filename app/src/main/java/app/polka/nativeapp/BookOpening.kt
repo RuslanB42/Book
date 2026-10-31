@@ -60,7 +60,7 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
  override fun onTouchEvent(e:MotionEvent)=true
  fun frame(value:Float){progress=value.coerceIn(0f,1f);reader?.openingChrome(OpeningTimeline.chrome(progress));alpha=if(returning&&!snapshot.hasTarget)(progress/.16f).coerceIn(0f,1f) else 1f;invalidate()}
  internal fun freezeMotion(){animator?.removeAllListeners();animator?.cancel();animator=null}
- fun start(){animator=ValueAnimator.ofFloat(if(returning)1f else 0f,if(returning)0f else 1f).apply{duration=if(returning)OpeningTimeline.CLOSE_DURATION else OpeningTimeline.DURATION;interpolator=android.view.animation.LinearInterpolator();addUpdateListener{frame(it.animatedValue as Float)};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(animation:Animator){finish()}});start()}}
+ fun start(){animator=ValueAnimator.ofFloat(if(returning)1f else 0f,if(returning)0f else 1f).apply{duration=if(returning)OpeningTimeline.CLOSE_DURATION else OpeningTimeline.DURATION;interpolator=if(returning)android.view.animation.DecelerateInterpolator(1f) else android.view.animation.LinearInterpolator();addUpdateListener{frame(it.animatedValue as Float)};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(animation:Animator){finish()}});start()}}
  fun finish(){if(finishing||released)return;finishing=true;animator?.removeAllListeners();animator?.cancel();animator=null;removeView(live);if(returning)snapshot.sourceView?.visibility=View.VISIBLE;val host=parent as? ViewGroup;host?.removeView(this);reader?.openingChrome(1f);if(!returning)reader?.openingState(false);if(restoreLive && a.reader?.view===live && !a.isDestroyed && live.parent==null)a.root.addView(live,0,FrameLayout.LayoutParams(-1,-1));release();completed?.invoke()}
  private fun release(){if(released)return;released=true;boardShadow?.takeUnless{it.isRecycled}?.recycle();boardShadow=null;snapshot.release();ownedBitmap?.takeUnless{it.isRecycled}?.recycle()}
  override fun onDetachedFromWindow(){if(returning)snapshot.sourceView?.visibility=View.VISIBLE;animator?.removeAllListeners();animator?.cancel();animator=null;if(!finishing){reader?.openingChrome(1f);if(!returning)reader?.openingState(false);completed?.invoke()};release();super.onDetachedFromWindow()}
@@ -70,7 +70,7 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
   if(released || width<=0 || height<=0)return
   val W=width.toFloat();val H=height.toFloat();val dp=resources.displayMetrics.density;val w=minOf(264*dp,W*.4f,H*.285f);val h=w*1.5f
   val f=OpeningTimeline.sample(progress,W,H,w,h,OpeningTimeline.Pose(snapshot.rect.left,snapshot.rect.top,snapshot.rect.width()/w,snapshot.rect.height()/h,0f,0f),dp)
-  val dissolve=((progress-.10f)/.70f).coerceIn(0f,1f).let{it*it*(3-2*it)}
+  val dissolve=((progress-.04f)/.56f).coerceIn(0f,1f).let{it*it*(3-2*it)}
   paint.shader=null
   if(returning){
    // The full-resolution destination is already alive beneath this overlay. Never cross-fade
