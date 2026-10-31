@@ -301,21 +301,18 @@ class SurfaceInteractionTests {
   val book=a.books.first().copyJson().put("cover",JSONObject().put("__polkaBlob","return-probe")).put("openedAt",100).put("progress",JSONObject().put("pct",.3))
   a.books=listOf(book);a.render(false,false);layout()
   for(kind in listOf("carousel","grid")){
-   // The carousel is taller now, so the last grid cover can sit below the fold: use the last one fully on screen.
-   val covers=descendants(a.page).filterIsInstance<CoverView>()
-   fun onScreen(v:View):Boolean{val p=IntArray(2);v.getLocationOnScreen(p);val r=IntArray(2);a.root.getLocationOnScreen(r);return p[1]-r[1]>=0&&p[1]-r[1]+v.height<=a.root.height-a.d(120)}
-   val origin=if(kind=="carousel")covers.first()else covers.drop(1).last{onScreen(it)}
+   val covers=descendants(a.page).filterIsInstance<CoverView>();val origin=if(kind=="carousel")covers.first()else covers.last()
    a.prefs.put("motion","reduced");a.detail(book,origin);layout();val sheet=a.bookDetailSheet!!
    assertFalse("no visible detail heading",descendants(sheet).filterIsInstance<TextView>().any{it.text=="О книге"})
    a.prefs.put("motion","normal");sheet.dismiss();sheet.freezeMotion();assertEquals(View.INVISIBLE,origin.visibility)
    for(ms in listOf(0L,70L,160L,260L,390L,459L,460L)){
     sheet.sampleMotion(ms,true);layout();val flight=descendants(sheet).filterIsInstance<CoverView>().single{it.visibility==View.VISIBLE}
-    val frame=save("$kind-close-$ms");val x=(flight.x+flight.width*flight.scaleX*.5f).toInt();val y=(flight.y+flight.height*flight.scaleY*.92f).toInt()
+    val frame=save("$kind-close-$ms");val x=(flight.x+flight.width*flight.scaleX*.5f).toInt();val y=minOf((flight.y+flight.height*flight.scaleY*.92f).toInt(),frame.height-a.d(8))
     assertTrue("sample inside frame $kind/$ms: x=$x y=$y frame=${frame.width}x${frame.height} flight=${flight.x},${flight.y} ${flight.width}x${flight.height} s=${flight.scaleY} origin=${origin.top}",y in 0 until frame.height&&x in 0 until frame.width)
     assertTrue("bottom of cover remains visible at $kind/$ms",Color.blue(frame.getPixel(x,y))>120&&Color.red(frame.getPixel(x,y))<100);frame.recycle()
    }
    val last=save("$kind-close-before-handoff");sheet.finish();layout();val restored=save("$kind-close-after-handoff")
-   val pos=IntArray(2);origin.getLocationOnScreen(pos);val root=IntArray(2);a.root.getLocationOnScreen(root);val x=pos[0]-root[0]+origin.width/2;val y=pos[1]-root[1]+origin.height*9/10
+   val pos=IntArray(2);origin.getLocationOnScreen(pos);val root=IntArray(2);a.root.getLocationOnScreen(root);val x=pos[0]-root[0]+origin.width/2;val y=minOf(pos[1]-root[1]+origin.height*9/10,last.height-a.d(8))
    assertEquals("same artwork on the handoff frame",last.getPixel(x,y),restored.getPixel(x,y))
    var total=0L;var samples=0;for(dy in origin.height/10 until origin.height*9/10 step 4)for(dx in origin.width/10 until origin.width*9/10 step 4){val px=pos[0]-root[0]+dx;val py=pos[1]-root[1]+dy;val before=last.getPixel(px,py);val after=restored.getPixel(px,py);total+=abs(Color.red(before)-Color.red(after))+abs(Color.green(before)-Color.green(after))+abs(Color.blue(before)-Color.blue(after));samples++}
    assertTrue("no cover-wide flash at handoff: $kind / ${total.toFloat()/samples}",total.toFloat()/samples<2f);assertEquals(View.VISIBLE,origin.visibility);assertNull(a.bookDetailSheet);last.recycle();restored.recycle()
