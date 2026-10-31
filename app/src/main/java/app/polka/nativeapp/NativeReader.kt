@@ -151,7 +151,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             if(!paged()||editorOpen)return false
             activeAt=System.currentTimeMillis()
             when(e.actionMasked){
-                MotionEvent.ACTION_DOWN->{if(isTurning())return true;lastTouchX=e.x;lastTouchY=e.y;pullZone=e.x>scroll.width-a.d(88)&&e.y<a.d(140);pulling=false;touchHeld=false;touchDragging=false;touchDirection=0;velocity?.recycle();velocity=VelocityTracker.obtain();velocity?.addMovement(e);detector.onTouchEvent(e);return true}
+                MotionEvent.ACTION_DOWN->{if(isTurning())return true;lastTouchX=e.x;lastTouchY=e.y;pullZone=true;pulling=false;touchHeld=false;touchDragging=false;touchDirection=0;velocity?.recycle();velocity=VelocityTracker.obtain();velocity?.addMovement(e);detector.onTouchEvent(e);return true}
                 MotionEvent.ACTION_MOVE->{velocity?.addMovement(e);if(touchHeld){quoteSelection.continueHold(e);return true};if(quoteSelection.active)return true
                     val dx=e.x-lastTouchX;val dy=e.y-lastTouchY
                     if(pulling){pullTo(dy);return true}

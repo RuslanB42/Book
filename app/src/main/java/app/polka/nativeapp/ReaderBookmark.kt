@@ -16,16 +16,15 @@ internal class BookmarkIcon(private val a:MainActivity,ink:Int):IconView(a,"book
         if(value==on&&anim==null&&fill==(if(value)1f else 0f))return
         on=value;anim?.cancel();anim=null;val target=if(value)1f else 0f
         if(!animate||a.prefs.str("motion")=="reduced"){fill=target;invalidate();return}
-        anim=ValueAnimator.ofFloat(fill,target).apply{duration=if(value)380L else 200L;interpolator=if(value)OvershootInterpolator(1.8f) else DecelerateInterpolator();addUpdateListener{fill=it.animatedValue as Float;invalidate()};start()}
+        anim=ValueAnimator.ofFloat(fill,target).apply{duration=if(value)320L else 220L;interpolator=PathInterpolator(.33f,0f,.2f,1f);addUpdateListener{fill=it.animatedValue as Float;invalidate()};start()}
     }
     override fun onDetachedFromWindow(){anim?.cancel();anim=null;super.onDetachedFromWindow()}
     override fun onDraw(c:Canvas){
         val size=22f*resources.displayMetrics.density;val k=size/24f;val f=fill.coerceIn(0f,1f)
         c.save();c.translate((width-size)/2f,(height-size)/2f);c.scale(k,k)
-        // The ribbon "drops": its height follows the (overshooting) fill value, pinned to the top edge.
-        c.translate(0f,3f);c.scale(1f,(.62f+.38f*fill).coerceAtLeast(.3f));c.translate(0f,-3f)
+        // Fixed shape; the accent pours in from the top and the outline takes the same colour.
         val accent=a.accent
-        paint.style=Paint.Style.FILL;paint.color=(accent and 0xffffff) or ((255*f).toInt() shl 24);c.drawPath(path,paint)
+        if(f>0f){c.save();c.clipRect(0f,0f,24f,3f+19f*f);paint.style=Paint.Style.FILL;paint.color=accent;c.drawPath(path,paint);c.restore()}
         paint.style=Paint.Style.STROKE;paint.strokeWidth=1.6f;paint.strokeJoin=Paint.Join.ROUND;paint.strokeCap=Paint.Cap.ROUND
         paint.color=ColorUtils.blend(ink,accent,f);c.drawPath(path,paint);c.restore()
     }
