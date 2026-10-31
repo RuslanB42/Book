@@ -50,7 +50,7 @@ jobs:
           ./gradlew testDebugUnitTest --no-daemon --console=plain > test.log 2>&1
           code=$?
           if [ $code -ne 0 ]; then
-            msg=$(grep -i -B1 -A4 "FAILED\|What went wrong\|error:" test.log | head -40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            msg=$(grep -i -B1 -A9 "FAILED\|What went wrong\|error:" test.log | head -90 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::error title=Tests::$msg"
           else
             echo "::notice title=Tests::all unit tests passed"
