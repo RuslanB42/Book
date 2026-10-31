@@ -22,9 +22,16 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  fun show(){
   box.addView(tabs);a.space(box,16);box.addView(pane)
   // One segment for the whole life of the sheet, so its thumb can slide; only the pane below is swapped.
-  tabs.addView(a.segment(listOf("Оглавление","Блокнот","Поиск"),selected){switchTo(it)})
+  tabs.addView(roundTabs(listOf("Оглавление","Блокнот","Поиск")))
   fill();panel=a.dialog().setTitle("${r.book.str("title")}").setView(box).setTall(true).show()
   a.observeBook(box,r.book.str("id")){fresh->replaceJson(r.book,fresh);if(selected==1)drawNotebook()}
+ }
+ // Fully round track and thumb, matching the pills used across the app.
+ private fun roundTabs(labels:List<String>):LinearLayout{
+  val box=SlidingSegment(a,selected,labels.size,quiet(),if(a.light)android.graphics.Color.WHITE else 0xff48484c.toInt(),24)
+  fun tint(index:Int){for(i in 0 until box.childCount)(box.getChildAt(i) as TextView).apply{isSelected=i==index;setTextColor(if(isSelected)a.fg else a.muted)}}
+  labels.forEachIndexed{i,s->box.addView(a.text(s,14f).apply{gravity=Gravity.CENTER;minHeight=a.d(38);a.press(this);setOnClickListener{if(i!=selected){box.choose(i);tint(i);switchTo(i)}}},LinearLayout.LayoutParams(0,-2,1f))}
+  tint(selected);return box
  }
  private fun close(){r.refreshBookmark();panel?.dismiss()}
  private var transition=0
