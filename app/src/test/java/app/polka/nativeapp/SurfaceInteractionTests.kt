@@ -25,7 +25,8 @@ class SurfaceInteractionTests {
  private lateinit var a:MainActivity
  private fun advance(ms:Long){repeat(((ms+15)/16).toInt()){Shadows.shadowOf(Looper.getMainLooper()).idleFor(16,TimeUnit.MILLISECONDS)}}
  private fun drain(){repeat(12){Thread.sleep(35);advance(80)}}
- private fun layout(){repeat(3){a.root.measure(View.MeasureSpec.makeMeasureSpec(a.d(360),View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(a.d(780),View.MeasureSpec.EXACTLY));a.root.layout(0,0,a.d(360),a.d(780));a.root.viewTreeObserver.dispatchOnPreDraw();a.root.awaitGlowRaster();advance(16)}}
+ private var screenH=780
+ private fun layout(){repeat(3){a.root.measure(View.MeasureSpec.makeMeasureSpec(a.d(360),View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(a.d(screenH),View.MeasureSpec.EXACTLY));a.root.layout(0,0,a.d(360),a.d(screenH));a.root.viewTreeObserver.dispatchOnPreDraw();a.root.awaitGlowRaster();advance(16)}}
  private fun save(name:String):Bitmap{val b=Bitmap.createBitmap(a.root.width,a.root.height,Bitmap.Config.ARGB_8888);a.root.draw(Canvas(b));val dir=File(System.getProperty("qaOutputDir"),"surfaces-0.6.26").apply{mkdirs()};File(dir,"$name.png").outputStream().use{b.compress(Bitmap.CompressFormat.PNG,100,it)};return b}
  @Before fun setup(){val c=ApplicationProvider.getApplicationContext<Context>();c.deleteDatabase("polka.sqlite");val db=Room.databaseBuilder(c,LibraryDb::class.java,"polka.sqlite").allowMainThreadQueries().build();val lib=Library(db);lib.initialize();lib.savePrefs(lib.prefs().put("motion","reduced").put("seenReader",true));val text=(0..70).joinToString(""){"<p>Вечер $it. Над морем зажёгся маяк. Тихие волны касались берега. Мы читали дальше, сохраняя в памяти этот свет.</p>"};lib.importBooks(listOf(BookParser.parse("<FictionBook><description><title-info><book-title>Смотритель маяка</book-title><author><first-name>Полка</first-name></author></title-info></description><body><section><title><p>У моря</p></title>$text</section></body></FictionBook>".toByteArray(),"glass.fb2")));db.close();controller=Robolectric.buildActivity(MainActivity::class.java).setup();a=controller.get();drain();layout();org.robolectric.shadows.ShadowChoreographer.setPaused(true)}
  @After fun close(){a.root.childrenOpening()?.finish();a.reader?.dispose();controller.pause().stop().destroy();org.robolectric.shadows.ShadowChoreographer.setPaused(false)}
@@ -296,7 +297,7 @@ class SurfaceInteractionTests {
  }
  private fun descendants(v:View):List<View> = listOf(v)+if(v is ViewGroup)(0 until v.childCount).flatMap{descendants(v.getChildAt(it))}else emptyList()
  // Taller screen: since the «Продолжить чтение» cards grew, the first grid row starts below a 780dp fold.
- @Test @Config(qualifiers="w360dp-h960dp-xxhdpi") fun closingCoverKeepsItsBottomAndHandsOffWithoutAFlash(){
+ @Test fun closingCoverKeepsItsBottomAndHandsOffWithoutAFlash(){screenH=960
   val artwork=Bitmap.createBitmap(96,144,Bitmap.Config.ARGB_8888).apply{eraseColor(0xff184fd4.toInt());Canvas(this).drawRect(0f,0f,96f,48f,Paint().apply{color=0xffdf2438.toInt()})}
   a.covers.put("return-probe",artwork)
   val book=a.books.first().copyJson().put("cover",JSONObject().put("__polkaBlob","return-probe")).put("openedAt",100).put("progress",JSONObject().put("pct",.3))
