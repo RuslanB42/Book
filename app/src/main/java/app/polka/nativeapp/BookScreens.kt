@@ -20,19 +20,51 @@ fun MainActivity.editThought(book:JSONObject,note:JSONObject?=null,scope:String=
         book.put("notes",JSONArray(list)); saveBook(book) {}
     }.show()
 }
+/** «Данные книги»: a live cover preview on top, grouped borderless fields on floating cards, one primary action. */
 fun MainActivity.metadataEditor(book:JSONObject) {
-    val box=column(); val fields=linkedMapOf<String,EditText>()
-    val c=CoverView(this,book,cover(book)); coverEditorBook=book; coverEditorView=c; box.addView(c,LinearLayout.LayoutParams(d(92),d(138)).apply { gravity=Gravity.CENTER_HORIZONTAL }); space(box,12)
-    box.addView(button("Выбрать обложку") { coverTarget=book.str("id"); startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="image/*"; addCategory(Intent.CATEGORY_OPENABLE) },15) }); space(box,8)
-    box.addView(button("Убрать обложку") { book.remove("cover"); book.remove("coverThumb"); book.put("coverChanged",true); saveBook(book) {} ; c.invalidate() })
-    listOf("title" to "Название","authors" to "Авторы","series" to "Серия","seriesNo" to "Номер в серии","shelf" to "Полка","genres" to "Жанры","lang" to "Язык","annotation" to "Описание").forEach { (key,name) -> label(name,box); val value=when(key) { "authors"->MainActivity.authors(book); "genres"->book.optJSONArray(key)?.strings()?.joinToString(", ").orEmpty(); else->book.str(key) }; val field=edit(value,name,key=="annotation"); fields[key]=field; box.addView(field) }
-    val error=text("",14f,0xffff6b61.toInt()); box.addView(error)
+    val box=column().apply{clipChildren=false;clipToPadding=false;setPadding(0,d(4),0,d(8))}; val fields=linkedMapOf<String,EditText>()
+    // The preview is a copy: typing changes the typeset cover instantly, nothing is stored until «Сохранить».
+    val preview=book.copyJson()
+    val coverBox=FrameLayout(this).apply{clipChildren=false;clipToPadding=false}
+    val c=CoverView(this,preview,cover(book)).apply{softShadow=true}; coverEditorBook=preview; coverEditorView=c
+    coverBox.addView(c,FrameLayout.LayoutParams(d(104),d(156),Gravity.CENTER_HORIZONTAL))
+    box.addView(coverBox,LinearLayout.LayoutParams(-1,d(168))); space(box,10)
+    val coverActions=line().apply{gravity=Gravity.CENTER}
+    fun chip(label:String,fn:()->Unit)=text(label,14f,fg,true).apply{gravity=Gravity.CENTER;minHeight=d(38);setPadding(d(16),0,d(16),0);background=shape(if(light)0xffefefec.toInt() else 0xff2c2c2f.toInt(),19);press(this);setOnClickListener{fn()}}
+    val pick=chip("Сменить обложку"){ coverTarget=book.str("id"); startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="image/*"; addCategory(Intent.CATEGORY_OPENABLE) },15) }
+    lateinit var drop:TextView
+    drop=chip("Убрать"){ preview.remove("cover"); preview.remove("coverThumb"); book.remove("cover"); book.remove("coverThumb"); book.put("coverChanged",true); saveBook(book) {}; c.invalidate(); drop.visibility=View.GONE }
+    drop.visibility=if(book.optJSONObject("cover")!=null)View.VISIBLE else View.GONE
+    coverActions.addView(pick); coverActions.addView(drop,LinearLayout.LayoutParams(-2,-2).apply{leftMargin=d(8)}); box.addView(coverActions)
+    fun card()=column().apply{floatCard(this,20);setPadding(d(16),d(4),d(16),d(4))}
+    fun divider(parent:LinearLayout){parent.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,1))}
+    fun value(key:String)=when(key) { "authors"->MainActivity.authors(book); "genres"->book.optJSONArray(key)?.strings()?.joinToString(", ").orEmpty(); "seriesNo"->book.optDouble(key,0.0).let{if(it<=0)"" else if(it%1==0.0)it.toInt().toString() else it.toString()}; else->book.str(key) }
+    fun field(parent:LinearLayout,key:String,name:String,hint:String,multi:Boolean=false,lp:LinearLayout.LayoutParams=LinearLayout.LayoutParams(-1,-2)):EditText{
+        val cell=column().apply{setPadding(0,d(10),0,d(8))}
+        cell.addView(text(name,12f,muted))
+        val input=EditText(this).apply{setText(value(key));setHint(hint);setTextColor(fg);setHintTextColor((muted and 0x00ffffff) or 0x88000000.toInt());textSize=16f;background=null;setPadding(0,d(4),0,d(2));isSingleLine=!multi;if(multi){minLines=3;maxLines=12;gravity=Gravity.TOP};imeOptions=if(multi)android.view.inputmethod.EditorInfo.IME_ACTION_NONE else android.view.inputmethod.EditorInfo.IME_ACTION_NEXT;if(key=="seriesNo")inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL}
+        if(key=="title"||key=="authors")input.addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){};override fun afterTextChanged(s:android.text.Editable?){val v=s?.toString().orEmpty();if(key=="title")preview.put("title",v) else preview.put("authors",JSONArray(v.split(Regex("[,;]")).map{it.trim()}.filter{it.isNotBlank()}));c.invalidate()}})
+        cell.addView(input);parent.addView(cell,lp);fields[key]=input;return input
+    }
+    fun section(title:String){space(box,20);box.addView(text(title.uppercase(),12f,muted,true).apply{letterSpacing=.06f;setPadding(d(4),0,0,0)});space(box,8)}
+    section("Книга")
+    val main=card();field(main,"title","Название","Как называется книга");divider(main);field(main,"authors","Авторы","Через запятую");box.addView(main)
+    section("Серия")
+    val serie=card();val row=line().apply{gravity=Gravity.TOP};field(row,"series","Серия","Название серии",lp=LinearLayout.LayoutParams(0,-2,1f));row.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(1,-1).apply{setMargins(d(12),d(10),d(12),d(10))});field(row,"seriesNo","Номер","—",lp=LinearLayout.LayoutParams(d(72),-2));serie.addView(row);box.addView(serie)
+    section("Подробности")
+    val more=card();field(more,"shelf","Полка","Без полки");divider(more);field(more,"genres","Жанры","Через запятую");divider(more);field(more,"lang","Язык","ru, en…");box.addView(more)
+    section("Описание")
+    val about=card();field(about,"annotation","Аннотация","О чём эта книга",true);box.addView(about)
+    val error=text("",13f,0xffe5534b.toInt()).apply{visibility=View.GONE;setPadding(d(4),d(10),0,0)}; box.addView(error)
     var sheet:AlertDialog?=null
+    space(box,20)
     box.addView(button("Сохранить",true) {
-        if(fields.getValue("title").text.isBlank()) { error.text="Укажите название"; return@button }
-        val updated=book.copyJson(); fields.forEach { (k,f) -> val v=f.text.toString().trim(); when(k) { "authors","genres" -> updated.put(k,JSONArray(v.split(Regex("[,;]")).map { it.trim() }.filter { it.isNotBlank() })); "seriesNo" -> updated.put(k,v.toDoubleOrNull() ?: 0.0); else->updated.put(k,v) } }; updated.put("modifiedAt",System.currentTimeMillis()); saveBook(updated) { sheet?.dismiss(); reload() }
-    })
-    sheet=dialog().setTitle("Данные книги").setView(box).show()
+        if(fields.getValue("title").text.isBlank()) { error.text="Укажите название"; error.visibility=View.VISIBLE; fields.getValue("title").requestFocus(); return@button }
+        val updated=book.copyJson(); fields.forEach { (k,f) -> val v=f.text.toString().trim(); when(k) { "authors","genres" -> updated.put(k,JSONArray(v.split(Regex("[,;]")).map { it.trim() }.filter { it.isNotBlank() })); "seriesNo" -> updated.put(k,v.replace(',','.').toDoubleOrNull() ?: 0.0); else->updated.put(k,v) } }
+        preview.optJSONObject("cover")?.let{ if(it.toString()!=book.optJSONObject("cover")?.toString()) updated.put("cover",it).put("coverChanged",true) }
+        updated.put("modifiedAt",System.currentTimeMillis()); saveBook(updated) { sheet?.dismiss() }
+    },LinearLayout.LayoutParams(-1,d(52)))
+    sheet=dialog().setTitle("Данные книги").setView(box).setTall(true).show()
 }
 fun MainActivity.bookActions(book:JSONObject) {
     val actions=mutableListOf("О книге","Изменить данные","Переместить на полку","Оценить","Прикрепить файл","Отметить прочитанной")

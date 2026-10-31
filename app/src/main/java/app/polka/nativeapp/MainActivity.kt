@@ -82,6 +82,12 @@ class MainActivity : Activity() {
         reader?.book?.takeIf { it.str("id")==saved.str("id") && it!==saved }?.let { replaceJson(it,saved) }
         bookObservers.values.toList().filter { it.first==saved.str("id") }.forEach { it.second(saved.copyJson()) }
     }
+    /** After a file or cover changed in the database: decode the new cover first, then update every open view of the book at once. */
+    fun refreshBookViews(id:String?,then:()->Unit={}) {
+        val fresh=books.firstOrNull { it.str("id")==id }
+        fun publish() { if(fresh!=null){ bookObservers.values.toList().filter { it.first==fresh.str("id") }.forEach { it.second(fresh.copyJson()) }; coverEditorBook?.takeIf { it.str("id")==fresh.str("id") }?.let { e-> fresh.optJSONObject("cover")?.let { e.put("cover",it) } ?: e.remove("cover"); coverEditorView?.invalidate() } }; then() }
+        if(fresh?.optJSONObject("cover")?.str("__polkaBlob").isNullOrBlank()) publish() else requestCover(fresh!!) { publish() }
+    }
     fun refreshProfile() { val data=profileStats ?: return; val y=(profileOverlay as? ScrollView)?.scrollY ?: 0; profileOverlay?.let { root.removeView(it) }; showProfile(data,profileRange,false); profileOverlay?.post { (profileOverlay as? ScrollView)?.scrollTo(0,y) } }
     var coverTarget:String?=null
     var coverEditorBook:JSONObject?=null
@@ -322,7 +328,7 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode,resultCode,data); if(resultCode!=RESULT_OK || data==null) return; if(!bootFinished) { pendingActivityResult=Triple(requestCode,resultCode,data); return }
         when(requestCode) {
             17 -> data.data?.let { uri -> val file=pendingCalendarImage ?: return;work({contentResolver.openOutputStream(uri,"wt")!!.use{out->file.inputStream().use{it.copyTo(out)}}}) }
-            15 -> data.data?.let { uri -> val id=coverTarget ?: return; work({ val bytes=readLimited(uri); require(BitmapFactory.decodeByteArray(bytes,0,bytes.size)!=null) { "Неверный формат изображения" }; val asset=uid(); library.db.runInTransaction { library.dao.putAsset(AssetRow(asset,contentResolver.getType(uri) ?: "image/jpeg",bytes)); val b=JSONObject(library.dao.book(id)!!.json).put("cover",JSONObject().put("__polkaBlob",asset)).put("coverChanged",true); library.save(b) }; loadData() }) { books.firstOrNull { it.str("id")==id }?.let { fresh -> coverEditorBook?.takeIf { it.str("id")==id }?.put("cover",fresh.get("cover"))?.put("coverChanged",true); coverEditorView?.invalidate() }; render() } }
+            15 -> data.data?.let { uri -> val id=coverTarget ?: return; work({ val bytes=readLimited(uri); require(BitmapFactory.decodeByteArray(bytes,0,bytes.size)!=null) { "Неверный формат изображения" }; val asset=uid(); library.db.runInTransaction { library.dao.putAsset(AssetRow(asset,contentResolver.getType(uri) ?: "image/jpeg",bytes)); val b=JSONObject(library.dao.book(id)!!.json).put("cover",JSONObject().put("__polkaBlob",asset)).put("coverChanged",true); library.save(b) }; loadData() }) { refreshBookViews(id) { render() } } }
             16 -> data.data?.let { uri -> val spec=pendingExport ?: return; work({ val bytes=BookExport.build(library,spec.first,spec.second); contentResolver.openOutputStream(uri,"wt")!!.use { it.write(bytes) } }) }
             10,14 -> {
                 val uris=if(data.clipData!=null) (0 until data.clipData!!.itemCount).map { data.clipData!!.getItemAt(it).uri } else listOfNotNull(data.data)
@@ -345,7 +351,7 @@ class MainActivity : Activity() {
                     runOnUiThread {
                         importDialog?.dismiss(); importDialog=null
                         fun commit() { work({ if(target!=null && parsed.isNotEmpty()) ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); if(parsed.isNotEmpty()) library.importBooks(parsed); loadData() }) {
-                            reader=null; render(); val resultNotice=ImportNotice(this,"Добавлено книг: ${parsed.size}",false); android.os.Handler(mainLooper).postDelayed({ resultNotice.dismiss() },2400); checkpointSoon()
+                            reader=null; refreshBookViews(target) { render() }; val resultNotice=ImportNotice(this,if(target!=null&&parsed.isNotEmpty())"Файл прикреплён" else "Добавлено книг: ${parsed.size}",false); android.os.Handler(mainLooper).postDelayed({ resultNotice.dismiss() },2400); checkpointSoon()
                             if(errors.isNotEmpty()) dialog().setTitle("Не добавлены файлы").setMessage(errors.joinToString("\n\n")).setPositiveButton("Закрыть",null).show()
                         } }
                         if(mismatch.isNotBlank()) confirm("Данные книги отличаются",mismatch) { commit() } else commit()

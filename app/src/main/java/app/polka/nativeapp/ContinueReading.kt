@@ -26,13 +26,16 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  private val strip=a.line().apply{clipChildren=false;clipToPadding=false}
  private val position=a.text("",12f,a.muted)
  private val carousel=object:HorizontalScrollView(a){
-  var stride=1;private var flung=false
+  var stride=1;private var flung=false;private var startPage=0
+  private fun last()=readingBooks.lastIndex.coerceAtLeast(0)
+  // One gesture moves at most one card: the target is always next to the card where the finger went down.
+  override fun dispatchTouchEvent(e:android.view.MotionEvent):Boolean{if(e.actionMasked==MotionEvent.ACTION_DOWN){startPage=(scrollX.toFloat()/stride).roundToInt().coerceIn(0,last());flung=false};return super.dispatchTouchEvent(e)}
   init{isHorizontalScrollBarEnabled=false;isHorizontalFadingEdgeEnabled=false;isVerticalFadingEdgeEnabled=false;setFadingEdgeLength(0);overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;contentDescription="Книги в процессе чтения"}
   override fun onMeasure(w:Int,h:Int){resize(MeasureSpec.getSize(w));super.onMeasure(w,h)}
   override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(restoring){scrollTo(pendingIndex*stride,0);restoring=false;position.text="${pendingIndex+1} / ${readingBooks.size}"}}
-  override fun fling(velocityX:Int){flung=true;val page=(scrollX.toFloat()/stride+velocityX/5000f).roundToInt().coerceIn(0,readingBooks.lastIndex.coerceAtLeast(0));smoothScrollTo(page*stride,0)}
+  override fun fling(velocityX:Int){flung=true;val dir=if(velocityX>0)1 else if(velocityX<0)-1 else 0;val page=(startPage+dir).coerceIn(0,last());if(a.prefs.str("motion")=="reduced")scrollTo(page*stride,0)else smoothScrollTo(page*stride,0)}
   override fun onTouchEvent(e:android.view.MotionEvent):Boolean{if(e.actionMasked==MotionEvent.ACTION_DOWN)flung=false;val handled=super.onTouchEvent(e);if((e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)&&!flung)post{snap()};return handled}
-  fun snap(){val n=(scrollX.toFloat()/stride).roundToInt().coerceIn(0,readingBooks.lastIndex.coerceAtLeast(0));if(a.prefs.str("motion")=="reduced")scrollTo(n*stride,0)else smoothScrollTo(n*stride,0)}
+  fun snap(){val n=(scrollX.toFloat()/stride).roundToInt().coerceIn((startPage-1).coerceAtLeast(0),(startPage+1).coerceAtMost(last()));if(a.prefs.str("motion")=="reduced")scrollTo(n*stride,0)else smoothScrollTo(n*stride,0)}
   override fun onScrollChanged(x:Int,y:Int,ox:Int,oy:Int){super.onScrollChanged(x,y,ox,oy);if(restoring)return;val n=(x.toFloat()/stride).roundToInt().coerceIn(0,readingBooks.lastIndex.coerceAtLeast(0));position.text="${n+1} / ${readingBooks.size}";a.continueBookId=readingBooks.getOrNull(n)?.str("id")}
  }
  init{
