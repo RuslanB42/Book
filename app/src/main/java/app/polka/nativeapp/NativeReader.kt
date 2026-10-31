@@ -266,11 +266,13 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun addQuote(start:Int,end:Int,text:String) { val quotes=book.optJSONArray("quotes") ?: JSONArray(); if(quotes.objects().none { it.optInt("ch")==chapter && it.str("text")==text }) quotes.put(JSONObject().put("id",uid()).put("ch",chapter).put("start",start).put("end",end).put("block",0).put("text",text).put("rawText",text).put("at",System.currentTimeMillis())); book.put("quotes",quotes); val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) }; persist() }
     fun addNote(selected:String="") { val input=EditText(a).apply { setTextColor(a.fg); setHintTextColor(a.muted); setPadding(a.d(24),a.d(16),a.d(24),a.d(16)); minLines=3; hint="Заметка" }; a.dialog().setTitle("Заметка").setView(input).setNegativeButton("Отмена",null).setPositiveButton("Сохранить") { _,_ -> if(input.text.isNotBlank()) { val notes=book.optJSONArray("notes") ?: JSONArray(); notes.put(JSONObject().put("id",uid()).put("ch",chapter).put("text",input.text.toString()).put("quote",selected).put("at",System.currentTimeMillis())); book.put("notes",notes); persist() } }.show() }
     private var pulling=false;private var pullZone=false;private var pullReached=false
-    /** Pulling down anywhere on the page: past the threshold the bookmark is added (or removed if the page already has one). */
+    /** Pulling down anywhere on the page draws the ribbon out on the right: past the threshold the bookmark is added (or removed if the page already has one). */
     private fun startPull(){pulling=true;pullReached=false;body.cancelLongPress();scroll.parent.requestDisallowInterceptTouchEvent(true)}
-    /** The ribbon hangs from the top of the screen down to the finger and moves with it. */
+    /** The ribbon slides out of the top of the screen at its own place on the right, following the pull with a limited, springy length. */
     private fun pullTo(dy:Float,e:MotionEvent){
-        ribbon.set(e.y+scroll.top-ribbon.top,e.x+scroll.left-ribbon.left)
+        val base=if(hasBookmark())ribbon.rest else ribbon.insetTop.toFloat();val span=a.d(BookmarkRibbon.PULL_DP).toFloat()
+        val raw=(dy*.7f).coerceAtLeast(0f);val extra=if(raw<=span)raw else span+(raw-span)*.12f
+        ribbon.set(base+extra,ribbon.restX())
         val reached=dy>=a.d(BookmarkRibbon.THRESHOLD_DP)
         if(reached!=pullReached){pullReached=reached;if(a.prefs.optBoolean("haptics",true))view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)}
     }

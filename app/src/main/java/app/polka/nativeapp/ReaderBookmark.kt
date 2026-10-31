@@ -34,10 +34,10 @@ private object ColorUtils {
     fun blend(x:Int,y:Int,t:Float):Int = Color.argb(m(Color.alpha(x),Color.alpha(y),t),m(Color.red(x),Color.red(y),t),m(Color.green(x),Color.green(y),t),m(Color.blue(x),Color.blue(y),t))
 }
 
-/** A ribbon hanging from the very top of the screen: it rests on a bookmarked page and follows the finger while one is pulled down. */
+/** A ribbon hanging from the very top of the screen at the right: it rests on a bookmarked page and is drawn out a limited length while one is pulled down. */
 internal class BookmarkRibbon(private val a:MainActivity):View(a) {
     companion object {
-        const val WIDTH_DP=22;const val REST_DP=20;const val THRESHOLD_DP=72;const val RIGHT_DP=18
+        const val WIDTH_DP=22;const val REST_DP=20;const val PULL_DP=56;const val THRESHOLD_DP=72;const val RIGHT_DP=18
         /** The same drawing is used live and baked into page snapshots, so it turns with the sheet. */
         fun draw(c:Canvas,a:MainActivity,length:Float){
             if(length<=.5f)return;val w=a.d(WIDTH_DP).toFloat();val notch=min(w*.4f,length*.45f)
