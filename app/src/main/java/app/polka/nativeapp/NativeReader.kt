@@ -545,11 +545,13 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     internal fun unmountEditor(editor:EditText,toolbar:View,draft:PageDraft,changed:Boolean){
         fun restore(){
-            view.removeView(toolbar);scroll.removeView(editor);scroll.layoutParams=(scroll.layoutParams as FrameLayout.LayoutParams).apply{topMargin=0;bottomMargin=0};scroll.addView(body,FrameLayout.LayoutParams(-1,-2));editorOpen=false;scroll.scrollTo(0,0);pageEditor=null;lastCredit=System.currentTimeMillis();activeAt=lastCredit
+            scroll.removeView(editor);scroll.layoutParams=(scroll.layoutParams as FrameLayout.LayoutParams).apply{topMargin=0;bottomMargin=0};scroll.addView(body,FrameLayout.LayoutParams(-1,-2));editorOpen=false;scroll.scrollTo(0,0);pageEditor=null;lastCredit=System.currentTimeMillis();activeAt=lastCredit
             setCalm(draft.calm,true);if(changed){committedKey="";pendingOffset=draft.start;paintChapter()}else if(paged())paintPage()else body.post{jumpOffset(draft.start)}
             syncBookmark(false)
         }
-        if(a.prefs.str("motion")=="reduced"||!toolbar.isAttachedToWindow)restore() else toolbar.animate().alpha(0f).translationY(a.d(20).toFloat()).setStartDelay(0).setDuration(200).withEndAction{restore()}.start()
+        // Reader state is restored at once (Back, close and turns work immediately); only the panel fades out on its own.
+        restore()
+        if(a.prefs.str("motion")=="reduced"||!toolbar.isAttachedToWindow)view.removeView(toolbar) else{toolbar.isEnabled=false;toolbar.animate().alpha(0f).translationY(a.d(20).toFloat()).setStartDelay(0).setDuration(200).withEndAction{view.removeView(toolbar)}.start()}
     }
     fun requestClose():Boolean {val edit=pageEditor?:return true;edit.cancel();return false}
 }

@@ -303,14 +303,14 @@ class SurfaceInteractionTests {
   for(kind in listOf("carousel","grid")){
    val covers=descendants(a.page).filterIsInstance<CoverView>();val origin=if(kind=="carousel")covers.first()else covers.last()
    // The grid can start below the fold (the carousel is taller now): bring the origin cover on screen first.
-   origin.requestRectangleOnScreen(android.graphics.Rect(0,0,origin.width,origin.height),true);layout()
+   run{val rect=android.graphics.Rect(0,0,origin.width,origin.height);a.page.offsetDescendantRectToMyCoords(origin,rect);a.scroll.scrollTo(0,(rect.bottom-a.scroll.height+a.d(120)).coerceAtLeast(0));layout()}
    a.prefs.put("motion","reduced");a.detail(book,origin);layout();val sheet=a.bookDetailSheet!!
    assertFalse("no visible detail heading",descendants(sheet).filterIsInstance<TextView>().any{it.text=="О книге"})
    a.prefs.put("motion","normal");sheet.dismiss();sheet.freezeMotion();assertEquals(View.INVISIBLE,origin.visibility)
    for(ms in listOf(0L,70L,160L,260L,390L,459L,460L)){
     sheet.sampleMotion(ms,true);layout();val flight=descendants(sheet).filterIsInstance<CoverView>().single{it.visibility==View.VISIBLE}
     val frame=save("$kind-close-$ms");val x=(flight.x+flight.width*flight.scaleX*.5f).toInt();val y=(flight.y+flight.height*flight.scaleY*.92f).toInt()
-    assertTrue("sample inside frame $kind/$ms: x=$x y=$y frame=${frame.width}x${frame.height} flight=${flight.x},${flight.y} ${flight.width}x${flight.height} s=${flight.scaleY} origin=${origin.top} pageScroll=${(a.page.parent as? View)?.scrollY}",y in 0 until frame.height&&x in 0 until frame.width)
+    assertTrue("sample inside frame $kind/$ms: x=$x y=$y frame=${frame.width}x${frame.height} flight=${flight.x},${flight.y} ${flight.width}x${flight.height} s=${flight.scaleY} origin=${origin.top} pageScroll=${a.scroll.scrollY}",y in 0 until frame.height&&x in 0 until frame.width)
     assertTrue("bottom of cover remains visible at $kind/$ms",Color.blue(frame.getPixel(x,y))>120&&Color.red(frame.getPixel(x,y))<100);frame.recycle()
    }
    val last=save("$kind-close-before-handoff");sheet.finish();layout();val restored=save("$kind-close-after-handoff")
