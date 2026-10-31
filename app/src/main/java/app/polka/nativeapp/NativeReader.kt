@@ -309,7 +309,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val text=if(p>=.5f)"${t.index+1} из ${t.starts.size}" else folioFrom
         if(folio.text.toString()!=text)folio.text=text
         folio.alpha=folioAlpha*(.35f+.65f*abs(2f*p-1f))}
-    private fun restoreFolio(){folio.translationZ=0f;if(folioTurning){folioTurning=false;folio.alpha=folioAlpha};updateFooter()}
+    private fun restoreFolio(){if(folioTurning){folioTurning=false;folio.alpha=folioAlpha};updateFooter()}
     fun stopPageMotion(){
         curlToken++;pagePreDraw?.let{if(view.viewTreeObserver.isAlive)view.viewTreeObserver.removeOnPreDrawListener(it)};pagePreDraw=null
         turnClock?.removeAllListeners();turnClock?.cancel();turnClock=null;scroll.translationX=0f
@@ -368,8 +368,8 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             val upcoming=cachedNext?.takeIf{it.first==snapshotKey(target)}?.second ?: snapshot(pageText(target.rich,target.starts,target.index))
             val overlay=PageCurlView(a,source,upcoming,direction,readerBackground,a.prefs.str("motion")=="reduced");curl=overlay
             view.clipToPadding=false
-            view.addView(overlay,1,FrameLayout.LayoutParams(view.width,view.height).apply{leftMargin=-view.paddingLeft;topMargin=-view.paddingTop})
-            overlay.measure(View.MeasureSpec.makeMeasureSpec(view.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(view.height,View.MeasureSpec.EXACTLY));overlay.layout(0,0,view.width,view.height);folioFrom=folio.text.toString();folioAlpha=folio.alpha;folio.translationZ=a.d(1).toFloat();overlay.onPose={turnFolio(it)};overlay.pose(dragProgress,dragY+scroll.top,y+scroll.top)
+            view.addView(overlay,(view.indexOfChild(folio)+1).coerceAtLeast(1),FrameLayout.LayoutParams(view.width,view.height).apply{leftMargin=-view.paddingLeft;topMargin=-view.paddingTop})
+            overlay.measure(View.MeasureSpec.makeMeasureSpec(view.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(view.height,View.MeasureSpec.EXACTLY));overlay.layout(0,0,view.width,view.height);folioFrom=folio.text.toString();folioAlpha=folio.alpha;overlay.onPose={turnFolio(it)};overlay.pose(dragProgress,dragY+scroll.top,y+scroll.top)
             if(!interactive){commitTarget();revealPage()}else{pageSlidePending=false;released?.let{releaseCurl(it,releaseVelocity)}}
         };return true
     }
