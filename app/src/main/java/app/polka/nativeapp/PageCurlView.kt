@@ -14,7 +14,6 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     var touchY=sourceBitmap.height*.8f;private set
     /** Where on the page edge the hand grabbed (overlay y). Near a corner the fold is diagonal; mid-edge it is almost straight. */
     private var anchorY=sourceBitmap.height.toFloat()
-    var onPose:((Float)->Unit)?=null
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val frontPath=Path();private val backPath=Path();private val shadowPath=Path()
     private val reflection=Matrix();private val matrixValues=FloatArray(9)
@@ -36,7 +35,7 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     private var mx=0f;private var my=0f;private var nx=1f;private var ny=0f
     private var band=1f
     init { importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false;setWillNotDraw(false) }
-    fun pose(p:Float,y:Float,anchor:Float=anchorY){progress=p.coerceIn(0f,1f);touchY=y.coerceIn(0f,sourceBitmap.height.toFloat());anchorY=snapAnchor(anchor);invalidate();onPose?.invoke(progress)}
+    fun pose(p:Float,y:Float,anchor:Float=anchorY){progress=p.coerceIn(0f,1f);touchY=y.coerceIn(0f,sourceBitmap.height.toFloat());anchorY=snapAnchor(anchor);invalidate()}
     /** Within ~30% of a corner the grab point is pulled into that corner (the classic diagonal curl); elsewhere it stays where the finger landed. */
     private fun snapAnchor(y:Float):Float{val h=sourceBitmap.height.toFloat();if(h<=0f)return y;val v=y.coerceIn(0f,h);val rel=v/h;val k=(1f-min(rel,1f-rel)/.3f).coerceIn(0f,1f);return v+((if(rel<.5f)0f else h)-v)*k*k}
     private fun polygon(turned:Boolean,path:Path,reflect:Boolean=false){

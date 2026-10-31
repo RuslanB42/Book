@@ -303,17 +303,10 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     internal val outgoingPage get()=curl
     internal fun samplePageMotion(ms:Long){turnClock?.let{it.pause();if(ms>=it.duration)it.end()else it.currentPlayTime=ms}}
     private fun isTurning()=pageSlidePending||turnClock!=null||curl!=null
-    private var folioFrom="";private var folioAlpha=1f;private var folioTurning=false
-    /** The page counter follows the hand: the old number fades out, the new one fades in as the sheet passes half way. */
-    private fun turnFolio(p:Float){val t=targetPage?:return;if(!paged())return;folioTurning=true
-        val text=if(p>=.5f)"${t.index+1} из ${t.starts.size}" else folioFrom
-        if(folio.text.toString()!=text)folio.text=text
-        folio.alpha=folioAlpha*(.35f+.65f*abs(2f*p-1f))}
-    private fun restoreFolio(){if(folioTurning){folioTurning=false;folio.alpha=folioAlpha};updateFooter()}
     fun stopPageMotion(){
         curlToken++;pagePreDraw?.let{if(view.viewTreeObserver.isAlive)view.viewTreeObserver.removeOnPreDrawListener(it)};pagePreDraw=null
         turnClock?.removeAllListeners();turnClock?.cancel();turnClock=null;scroll.translationX=0f
-        curl?.let{view.removeView(it)};if(curl!=null)restoreFolio();curl=null;pageSlidePending=false;targetPage=null;gestureTurn=false;released=null;dragProgress=0f;targetCommitted=false
+        curl?.let{view.removeView(it)};curl=null;pageSlidePending=false;targetPage=null;gestureTurn=false;released=null;dragProgress=0f;targetCommitted=false
         selectionTurnDone?.also{selectionTurnDone=null;it(false)}
     }
     private fun chapterKey(index:Int):String {
@@ -338,7 +331,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(!paged()||disposed||preparing||a.prefs.str("motion")=="reduced"||scroll.width<=0)return
         val fromChapter=chapter;val fromPage=pageIndex
         snapshotWarm=Runnable{if(!disposed&&!isTurning()&&chapter==fromChapter&&pageIndex==fromPage)findTarget(1){target->
-            if(target!=null&&!disposed&&!isTurning()&&chapter==fromChapter&&pageIndex==fromPage){val key=snapshotKey(target);if(cachedNext?.first!=key){activateLinks(target.rich);cachedNext=key to snapshot(pageText(target.rich,target.starts,target.index))}}
+            if(target!=null&&!disposed&&!isTurning()&&chapter==fromChapter&&pageIndex==fromPage){val key=snapshotKey(target);if(cachedNext?.first!=key){activateLinks(target.rich);cachedNext=key to snapshot(pageText(target.rich,target.starts,target.index),folioLabel(target.index,target.starts.size))}}
         }}.also{handler.postDelayed(it,72)}
     }
     private fun findTarget(direction:Int,done:(TurnPage?)->Unit){
@@ -347,7 +340,15 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val next=chapter+direction;if(next !in 0 until chapters.length()){done(null);return}
         preparePreview(next){data,key->done(TurnPage(next,if(direction>0)0 else data.starts.lastIndex,data.text,data.starts,data.anchors,key,data.worker))}
     }
-    private fun snapshot(text:CharSequence?=null):Bitmap {
+    private fun folioLabel(index:Int,count:Int)=if(paged())"${index+1} из $count" else null
+    /** The page number belongs to the sheet: it is drawn into the snapshot, so it turns with the page like printed folio. */
+    private fun drawFolio(canvas:Canvas,label:String?){
+        if(label==null||folio.width<=0||folio.height<=0)return
+        val tv=TextView(a).apply{text=label;setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,folio.textSize);typeface=folio.typeface;gravity=folio.gravity;includeFontPadding=folio.includeFontPadding;setTextColor((folio.currentTextColor and 0xffffff) or ((Color.alpha(folio.currentTextColor)*folio.alpha).toInt() shl 24))}
+        tv.measure(View.MeasureSpec.makeMeasureSpec(folio.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(folio.height,View.MeasureSpec.EXACTLY));tv.layout(0,0,folio.width,folio.height)
+        canvas.save();canvas.translate(folio.left.toFloat(),folio.top.toFloat());tv.draw(canvas);canvas.restore()
+    }
+    private fun snapshot(text:CharSequence?=null,label:String?=null):Bitmap {
         // Paper occupies the whole physical reader, including safe-area bands. Text keeps its
         // existing viewport/padding; only the sheet geometry extends to the screen edges.
         val b=Bitmap.createBitmap(view.width,view.height,Bitmap.Config.ARGB_8888);val canvas=Canvas(b);canvas.drawColor(readerBackground)
@@ -356,20 +357,20 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(text==null)scroll.draw(canvas)else{
             val preview=TextView(a);preview.paint.set(body.paint);preview.setTextColor(body.currentTextColor);preview.typeface=body.typeface;preview.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,body.textSize);preview.includeFontPadding=body.includeFontPadding;preview.setLineSpacing(0f,1f);preview.breakStrategy=body.breakStrategy;preview.hyphenationFrequency=body.hyphenationFrequency;preview.justificationMode=body.justificationMode;preview.textDirection=body.textDirection;preview.setPadding(body.paddingLeft,body.paddingTop,body.paddingRight,body.paddingBottom);preview.text=text
             preview.measure(View.MeasureSpec.makeMeasureSpec(scroll.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));preview.layout(0,0,scroll.width,preview.measuredHeight);preview.draw(canvas)
-        };canvas.restore();return b
+        };canvas.restore();drawFolio(canvas,label);return b
     }
     private fun beginCurl(direction:Int,interactive:Boolean,y:Float):Boolean {
         if(preparing||disposed||editorOpen||isTurning()||!paged()||scroll.width<=0||scroll.height<=0)return false
         val next=pageIndex+direction;if(next<0&&chapter==0||next>pageStarts.lastIndex&&chapter==chapters.length()-1)return false
         if(direction>0&&!calm&&selectionTurnDone==null)setCalm(true,true)
         pageSlidePending=true;gestureTurn=interactive;released=null;targetCommitted=false;dragProgress=0f;dragY=y
-        val token=++curlToken;val source=snapshot()
+        val token=++curlToken;val source=snapshot(null,folioLabel(pageIndex,pageStarts.size))
         findTarget(direction){target->if(token!=curlToken||disposed)return@findTarget;if(target==null){stopPageMotion();return@findTarget};targetPage=target;activateLinks(target.rich)
-            val upcoming=cachedNext?.takeIf{it.first==snapshotKey(target)}?.second ?: snapshot(pageText(target.rich,target.starts,target.index))
+            val upcoming=cachedNext?.takeIf{it.first==snapshotKey(target)}?.second ?: snapshot(pageText(target.rich,target.starts,target.index),folioLabel(target.index,target.starts.size))
             val overlay=PageCurlView(a,source,upcoming,direction,readerBackground,a.prefs.str("motion")=="reduced");curl=overlay
             view.clipToPadding=false
             view.addView(overlay,(view.indexOfChild(folio)+1).coerceAtLeast(1),FrameLayout.LayoutParams(view.width,view.height).apply{leftMargin=-view.paddingLeft;topMargin=-view.paddingTop})
-            overlay.measure(View.MeasureSpec.makeMeasureSpec(view.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(view.height,View.MeasureSpec.EXACTLY));overlay.layout(0,0,view.width,view.height);folioFrom=folio.text.toString();folioAlpha=folio.alpha;overlay.onPose={turnFolio(it)};overlay.pose(dragProgress,dragY+scroll.top,y+scroll.top)
+            overlay.measure(View.MeasureSpec.makeMeasureSpec(view.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(view.height,View.MeasureSpec.EXACTLY));overlay.layout(0,0,view.width,view.height);overlay.pose(dragProgress,dragY+scroll.top,y+scroll.top)
             if(!interactive){commitTarget();revealPage()}else{pageSlidePending=false;released?.let{releaseCurl(it,releaseVelocity)}}
         };return true
     }
