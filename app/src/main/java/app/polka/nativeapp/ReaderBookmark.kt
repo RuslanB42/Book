@@ -34,10 +34,10 @@ private object ColorUtils {
     fun blend(x:Int,y:Int,t:Float):Int = Color.argb(m(Color.alpha(x),Color.alpha(y),t),m(Color.red(x),Color.red(y),t),m(Color.green(x),Color.green(y),t),m(Color.blue(x),Color.blue(y),t))
 }
 
-/** A ribbon hanging from the top edge of the page: visible on a bookmarked page, and pulled down by hand to add or remove one. */
+/** A ribbon hanging from the very top of the screen: it rests on a bookmarked page and follows the finger while one is pulled down. */
 internal class BookmarkRibbon(private val a:MainActivity):View(a) {
     companion object {
-        const val WIDTH_DP=22;const val REST_DP=20;const val PULL_DP=64;const val THRESHOLD_DP=62
+        const val WIDTH_DP=22;const val REST_DP=20;const val THRESHOLD_DP=72;const val RIGHT_DP=18
         /** The same drawing is used live and baked into page snapshots, so it turns with the sheet. */
         fun draw(c:Canvas,a:MainActivity,length:Float){
             if(length<=.5f)return;val w=a.d(WIDTH_DP).toFloat();val notch=min(w*.4f,length*.45f)
@@ -46,16 +46,26 @@ internal class BookmarkRibbon(private val a:MainActivity):View(a) {
         }
     }
     var length=0f;private set
+    /** Centre of the ribbon in this view's coordinates; NaN means "at its resting place". */
+    private var cx=Float.NaN
+    var insetTop=0;var insetRight=0
     private var anim:ValueAnimator?=null
-    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false}
-    val rest get()=a.d(REST_DP).toFloat()
-    fun set(value:Float){anim?.cancel();anim=null;length=value.coerceIn(0f,a.d(PULL_DP+14).toFloat());invalidate()}
-    /** Animate to a resting length; [drop] gives the ribbon a small overshoot when it appears. */
+    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false;isFocusable=false}
+    val rest get()=insetTop+a.d(REST_DP).toFloat()
+    /** Resting centre: near the right edge, clear of the safe area. */
+    fun restX(w:Int=width)=w-insetRight-a.d(RIGHT_DP)-a.d(WIDTH_DP)/2f
+    private fun x()=if(cx.isNaN())restX() else cx
+    fun set(value:Float,x:Float){anim?.cancel();anim=null;length=value.coerceAtLeast(0f);val half=a.d(WIDTH_DP)/2f;cx=x.coerceIn(half,(width-half).coerceAtLeast(half));invalidate()}
+    /** Animate to a resting length; a visible ribbon also glides back to its place, a vanishing one retracts where it is. */
     fun settle(target:Float,drop:Boolean,animate:Boolean=true){
         anim?.cancel();anim=null
-        if(!animate||a.prefs.str("motion")=="reduced"||!isAttachedToWindow){length=target;invalidate();return}
-        anim=ValueAnimator.ofFloat(length,target).apply{duration=if(drop)420L else 240L;interpolator=if(drop)OvershootInterpolator(1.5f) else PathInterpolator(.22f,1f,.36f,1f);addUpdateListener{length=(it.animatedValue as Float).coerceAtLeast(0f);invalidate()};start()}
+        val fromX=x();val toX=if(target>0f)restX() else fromX
+        if(!animate||a.prefs.str("motion")=="reduced"||!isAttachedToWindow){length=target;cx=if(target>0f)Float.NaN else fromX;invalidate();return}
+        val from=length;val grow=from<target
+        anim=ValueAnimator.ofFloat(0f,1f).apply{duration=if(drop&&grow)420L else 300L;interpolator=if(drop&&grow)OvershootInterpolator(1.5f) else PathInterpolator(.22f,1f,.36f,1f)
+            addUpdateListener{val t=it.animatedValue as Float;length=(from+(target-from)*t).coerceAtLeast(0f);cx=fromX+(toX-fromX)*t.coerceIn(0f,1f);invalidate()}
+            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(anim===x&&target>0f){cx=Float.NaN;invalidate()}}});start()}
     }
     override fun onDetachedFromWindow(){anim?.cancel();anim=null;super.onDetachedFromWindow()}
-    override fun onDraw(c:Canvas){c.save();c.translate(a.d(3).toFloat(),0f);draw(c,a,length);c.restore()}
+    override fun onDraw(c:Canvas){c.save();c.translate(x()-a.d(WIDTH_DP)/2f,0f);draw(c,a,length);c.restore()}
 }
