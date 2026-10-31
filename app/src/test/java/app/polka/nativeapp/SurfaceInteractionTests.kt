@@ -295,7 +295,8 @@ class SurfaceInteractionTests {
   val standard=a.icon("back","Назад"){};standard.measure(View.MeasureSpec.makeMeasureSpec(a.d(44),View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(a.d(44),View.MeasureSpec.EXACTLY));standard.layout(0,0,a.d(44),a.d(44));val one=Bitmap.createBitmap(a.d(44),a.d(44),Bitmap.Config.ARGB_8888);val two=one.copy(Bitmap.Config.ARGB_8888,true);glyph.draw(Canvas(one));standard.draw(Canvas(two));assertTrue(one.sameAs(two));labelled.performClick();assertEquals(1,pressed);one.recycle();two.recycle()
  }
  private fun descendants(v:View):List<View> = listOf(v)+if(v is ViewGroup)(0 until v.childCount).flatMap{descendants(v.getChildAt(it))}else emptyList()
- @Test fun closingCoverKeepsItsBottomAndHandsOffWithoutAFlash(){
+ // Taller screen: since the «Продолжить чтение» cards grew, the first grid row starts below a 780dp fold.
+ @Test @Config(qualifiers="w360dp-h960dp-xxhdpi") fun closingCoverKeepsItsBottomAndHandsOffWithoutAFlash(){
   val artwork=Bitmap.createBitmap(96,144,Bitmap.Config.ARGB_8888).apply{eraseColor(0xff184fd4.toInt());Canvas(this).drawRect(0f,0f,96f,48f,Paint().apply{color=0xffdf2438.toInt()})}
   a.covers.put("return-probe",artwork)
   val book=a.books.first().copyJson().put("cover",JSONObject().put("__polkaBlob","return-probe")).put("openedAt",100).put("progress",JSONObject().put("pct",.3))
@@ -307,12 +308,12 @@ class SurfaceInteractionTests {
    a.prefs.put("motion","normal");sheet.dismiss();sheet.freezeMotion();assertEquals(View.INVISIBLE,origin.visibility)
    for(ms in listOf(0L,70L,160L,260L,390L,459L,460L)){
     sheet.sampleMotion(ms,true);layout();val flight=descendants(sheet).filterIsInstance<CoverView>().single{it.visibility==View.VISIBLE}
-    val frame=save("$kind-close-$ms");val x=(flight.x+flight.width*flight.scaleX*.5f).toInt();val y=minOf((flight.y+flight.height*flight.scaleY*.92f).toInt(),frame.height-a.d(8))
+    val frame=save("$kind-close-$ms");val x=(flight.x+flight.width*flight.scaleX*.5f).toInt();val y=(flight.y+flight.height*flight.scaleY*.92f).toInt()
     assertTrue("sample inside frame $kind/$ms: x=$x y=$y frame=${frame.width}x${frame.height} flight=${flight.x},${flight.y} ${flight.width}x${flight.height} s=${flight.scaleY} origin=${origin.top}",y in 0 until frame.height&&x in 0 until frame.width)
     assertTrue("bottom of cover remains visible at $kind/$ms",Color.blue(frame.getPixel(x,y))>120&&Color.red(frame.getPixel(x,y))<100);frame.recycle()
    }
    val last=save("$kind-close-before-handoff");sheet.finish();layout();val restored=save("$kind-close-after-handoff")
-   val pos=IntArray(2);origin.getLocationOnScreen(pos);val root=IntArray(2);a.root.getLocationOnScreen(root);val x=pos[0]-root[0]+origin.width/2;val y=minOf(pos[1]-root[1]+origin.height*9/10,last.height-a.d(8))
+   val pos=IntArray(2);origin.getLocationOnScreen(pos);val root=IntArray(2);a.root.getLocationOnScreen(root);val x=pos[0]-root[0]+origin.width/2;val y=pos[1]-root[1]+origin.height*9/10
    assertEquals("same artwork on the handoff frame",last.getPixel(x,y),restored.getPixel(x,y))
    var total=0L;var samples=0;for(dy in origin.height/10 until origin.height*9/10 step 4)for(dx in origin.width/10 until origin.width*9/10 step 4){val px=pos[0]-root[0]+dx;val py=pos[1]-root[1]+dy;val before=last.getPixel(px,py);val after=restored.getPixel(px,py);total+=abs(Color.red(before)-Color.red(after))+abs(Color.green(before)-Color.green(after))+abs(Color.blue(before)-Color.blue(after));samples++}
    assertTrue("no cover-wide flash at handoff: $kind / ${total.toFloat()/samples}",total.toFloat()/samples<2f);assertEquals(View.VISIBLE,origin.visibility);assertNull(a.bookDetailSheet);last.recycle();restored.recycle()
