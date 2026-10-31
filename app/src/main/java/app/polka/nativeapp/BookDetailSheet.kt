@@ -113,21 +113,24 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
     quoteBody.viewTreeObserver.addOnPreDrawListener(driver)
    }
   }
-  // Folding back mirrors the fan-out: the cards slide up into the pile while the block shrinks to the pile's height,
-  // then the pile quietly crossfades in over them.
+  // Folding back: the cards slide up into the pile and fade, the block shrinks to the pile's height (content never spills
+  // over the plaques below), and a picture of the pile fades in on top; at the end the real pile replaces its picture.
   fun collapseQuotesImpl(cards:List<View>){
    if(folding)return
    val quotes=book.optJSONArray("quotes")?.objects().orEmpty()
    if(reducedMotion()||cards.isEmpty()||quotes.isEmpty()||!quoteReveal.isLaidOut||quoteBody.width<=0){quotesOpen=false;quotePage=0;renderQuotes(true);return}
-   val probe=a.quoteStack(book,quotes){};probe.measure(View.MeasureSpec.makeMeasureSpec(quoteBody.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
+   val w=quoteBody.width;val probe=a.quoteStack(book,quotes){};probe.measure(View.MeasureSpec.makeMeasureSpec(w,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));probe.layout(0,0,w,probe.measuredHeight)
+   val picture=android.graphics.Bitmap.createBitmap(w,probe.measuredHeight.coerceAtLeast(1),android.graphics.Bitmap.Config.ARGB_8888);probe.draw(android.graphics.Canvas(picture))
    val pile=a.d(9).toFloat();val inset=a.d(12).toFloat();val extras=(0 until quoteBody.childCount).map{quoteBody.getChildAt(it)}.filter{it !in cards}
-   cards.forEach{it.setLayerType(View.LAYER_TYPE_HARDWARE,null);it.animate().cancel()}
-   folding=true
-   quoteReveal.animateHeight(probe.measuredHeight,420L,android.view.animation.PathInterpolator(.4f,0f,.2f,1f),{p->
-    cards.forEachIndexed{i,c->if(c.width>0){val k=minOf(i,2);val back=cards.size-1-i;val q=((p-back*.06f)/(1f-.12f)).coerceIn(0f,1f)
-     c.pivotX=c.width/2f;c.pivotY=0f;c.translationY=(-c.top+pile*k)*q;val sx=(c.width-2*inset*k)/c.width;c.scaleX=1f+(sx-1f)*q;c.translationZ=-a.d(3)*k*q;c.alpha=if(i<3)1f else 1f-q}}
-    extras.forEach{e->e.alpha=(1f-p/.35f).coerceIn(0f,1f)}
-   }){cards.forEach{it.setLayerType(View.LAYER_TYPE_NONE,null)};quotesOpen=false;quotePage=0;renderQuotes(true,settle=true)}
+   folding=true;cards.forEach{it.animate().cancel();it.setLayerType(View.LAYER_TYPE_HARDWARE,null)}
+   quoteReveal.overlay=picture;quoteReveal.overlayAlpha=0f
+   quoteReveal.animateHeight(probe.measuredHeight,440L,android.view.animation.PathInterpolator(.33f,0f,.2f,1f),{p->
+    cards.forEachIndexed{i,c->if(c.width>0){val k=minOf(i,2);val back=cards.size-1-i;val q=((p-back*.05f)/(1f-.1f)).coerceIn(0f,1f)
+     c.pivotX=c.width/2f;c.pivotY=0f;c.translationY=(-c.top+pile*k)*q;val sx=(c.width-2*inset*k)/c.width;c.scaleX=1f+(sx-1f)*q;c.translationZ=-a.d(3)*k*q
+     c.alpha=1f-((q-.55f)/.45f).coerceIn(0f,1f)}}
+    extras.forEach{e->e.alpha=(1f-p/.3f).coerceIn(0f,1f)}
+    quoteReveal.overlayAlpha=((p-.45f)/.5f).coerceIn(0f,1f)
+   }){cards.forEach{it.setLayerType(View.LAYER_TYPE_NONE,null)};quotesOpen=false;quotePage=0;renderQuotes()}
   }
   collapseQuotes={cards->collapseQuotesImpl(cards)}
   updates.add{val key=(book.optJSONArray("quotes")?.toString()?:"[]")+(book.optJSONArray("notes")?.toString()?:"[]");if(key!=quoteKey){quoteKey=key;renderQuotes()}}
