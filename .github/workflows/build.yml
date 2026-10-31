@@ -64,3 +64,9 @@ jobs:
           path: qa/
           retention-days: 3
           if-no-files-found: ignore
+      - name: Publish QA screenshots to qa-out branch
+        if: always()
+        run: |
+          [ -d qa ] || exit 0
+          mkdir -p /tmp/qa && find qa -name "*.png" -size -900k | head -400 | while read f; do mkdir -p "/tmp/qa/$(dirname "$f")"; cp "$f" "/tmp/qa/$f"; done
+          cd /tmp/qa && git init -q && git checkout -q -b qa-out && git add -A && git -c user.name=ci -c user.email=ci@local commit -q -m "qa screens" && git push -f -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" qa-out
