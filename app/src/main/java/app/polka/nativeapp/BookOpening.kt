@@ -47,18 +47,6 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
  private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
  private val textureMatrix=Matrix();private val src=FloatArray(8);private val dst=FloatArray(8)
  private var boardShadow:Bitmap?=null
- // Gradients live in face-local coordinates that never change during a run: build once, no per-frame allocation.
- private var gw=0f;private var gh=0f
- private lateinit var gutterShade:Shader;private lateinit var innerShade:Shader;private lateinit var innerLightShade:Shader;private lateinit var foreShade:Shader;private lateinit var headShade:Shader;private lateinit var hingeShade:Shader
- private fun gradients(w:Float,h:Float){if(w==gw&&h==gh)return;gw=w;gh=h
-  gutterShade=LinearGradient(0f,0f,w*.11f,0f,intArrayOf(0x99000000.toInt(),Color.TRANSPARENT),null,Shader.TileMode.CLAMP)
-  innerShade=LinearGradient(0f,0f,w,0f,intArrayOf(0x33000000,Color.TRANSPARENT,0x05ffffff,0x11000000),floatArrayOf(0f,.05f,.5f,1f),Shader.TileMode.CLAMP)
-  innerLightShade=LinearGradient(0f,0f,w,h*.27f,intArrayOf(0x18ffffff,Color.TRANSPARENT,0x33000000),floatArrayOf(0f,.4f,1f),Shader.TileMode.CLAMP)
-  foreShade=LinearGradient(0f,0f,w/14*1.8f,0f,intArrayOf(0xffc4bbaa.toInt(),0xffe6dfd0.toInt(),0xffc4bbaa.toInt(),0xffeee7d9.toInt()),floatArrayOf(0f,.36f,.67f,1f),Shader.TileMode.REPEAT)
-  headShade=LinearGradient(0f,0f,0f,h/14*1.9f,intArrayOf(0xffc4bbaa.toInt(),0xffe6dfd0.toInt(),0xffc4bbaa.toInt(),0xffeee7d9.toInt()),floatArrayOf(0f,.36f,.67f,1f),Shader.TileMode.REPEAT)
-  hingeShade=LinearGradient(0f,0f,w*.12f,0f,intArrayOf(0x22000000,0x00000000,0x30000000,0x1affffff,0x00000000),floatArrayOf(0f,.25f,.5f,.62f,1f),Shader.TileMode.CLAMP)
- }
- private fun darker(c:Int,k:Float)=Color.argb(Color.alpha(c),(Color.red(c)*k).toInt().coerceIn(0,255),(Color.green(c)*k).toInt().coerceIn(0,255),(Color.blue(c)*k).toInt().coerceIn(0,255))
  private var animator:ValueAnimator?=null;private var released=false;private var finishing=false
  private val reader=motionReader?:a.reader?.takeIf{it.view===live}
  private val paper=(live.background as? android.graphics.drawable.ColorDrawable)?.color?:a.bg
@@ -81,7 +69,6 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
  override fun dispatchDraw(c:Canvas){
   if(released || width<=0 || height<=0)return
   val W=width.toFloat();val H=height.toFloat();val dp=resources.displayMetrics.density;val w=minOf(264*dp,W*.4f,H*.285f);val h=w*1.5f
-  gradients(w,h)
   val f=OpeningTimeline.sample(progress,W,H,w,h,OpeningTimeline.Pose(snapshot.rect.left,snapshot.rect.top,snapshot.rect.width()/w,snapshot.rect.height()/h,0f,0f),dp)
   val dissolve=((progress-.10f)/.70f).coerceIn(0f,1f).let{it*it*(3-2*it)}
   paint.shader=null
@@ -98,26 +85,21 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
   fun world(v:V,hinged:Boolean=false):V {val q=if(hinged)rotate(v,0f,f.swing).let{V(it.x,it.y,it.z+2*dp)}else v;val p=f.pose;val rotated=rotate(V((q.x-w/2)*p.sx,(q.y-h/2)*p.sy,q.z),p.rx,p.ry);return V(p.x+w*p.sx/2+rotated.x,p.y+h*p.sy/2+rotated.y,rotated.z)}
   fun rect(z:Float,hinged:Boolean=false,back:Boolean=false):List<V> {val points=if(back)listOf(V(w,0f,z),V(0f,0f,z),V(0f,h,z),V(w,h,z))else listOf(V(0f,0f,z),V(w,0f,z),V(w,h,z),V(0f,h,z));return points.map{world(it,hinged)}}
   val faces=ArrayList<Face>(12)
-  faces.add(Face(rect(-20*dp),6,snapshot.binding,f.volume))
+  faces.add(Face(rect(-15*dp),6,snapshot.binding,f.volume))
   // Actual recessed page-block sides, never an offset decorative paper rectangle.
-  val fore=w-2*dp;val head=2*dp;val tail=h-2*dp;val left=3*dp;val z1=-dp;val z2=-20*dp
+  val fore=w-dp;val head=dp;val tail=h-dp;val left=2*dp;val z1=-dp;val z2=-15*dp
   fun side(points:List<V>,color:Int,hinged:Boolean=false,kind:Int=0){faces.add(Face(points.map{world(it,hinged)},kind,color,f.volume))}
   side(listOf(V(fore,head,z1),V(fore,head,z2),V(fore,tail,z2),V(fore,tail,z1)),0xffd3cebd.toInt(),kind=4)
   side(listOf(V(left,head,z2),V(fore,head,z2),V(fore,head,z1),V(left,head,z1)),0xffe2ddcd.toInt(),kind=5)
   side(listOf(V(left,tail,z1),V(fore,tail,z1),V(fore,tail,z2),V(left,tail,z2)),0xffb4af9f.toInt(),kind=5)
-  // Rounded spine: a shallow half-cylinder from the front board to the back board, shaded per strip.
-  run{val zf=3*dp;val zb=-23*dp;val zc=(zf+zb)/2;val r=(zf-zb)/2;val bulge=r*.42f;val n=6
-   for(i in 0 until n){val a0=-Math.PI/2+Math.PI*i/n;val a1=-Math.PI/2+Math.PI*(i+1)/n
-    val p0x=(-bulge*cos(a0)).toFloat();val p0z=(zc+r*sin(a0)).toFloat();val p1x=(-bulge*cos(a1)).toFloat();val p1z=(zc+r*sin(a1)).toFloat()
-    val light=(.62+.38*cos((a0+a1)/2-.5)).toFloat()
-    side(listOf(V(p0x,0f,p0z),V(p1x,0f,p1z),V(p1x,h,p1z),V(p0x,h,p0z)),darker(snapshot.binding,light))}}
+  side(listOf(V(0f,dp,2*dp),V(0f,dp,-15*dp),V(0f,h-dp,-15*dp),V(0f,h-dp,2*dp)),snapshot.binding)
   faces.add(Face(rect(0f),1,paper))
-  faces.add(Face(rect(3f*dp,true),2,snapshot.binding,f.volume))
-  faces.add(Face(rect(-3f*dp,true,true),3,snapshot.binding,f.volume))
-  val thick=3f*dp
-  side(listOf(V(w,0f,thick),V(w,0f,-thick),V(w,h,-thick),V(w,h,thick)),darker(snapshot.binding,.78f),true)
-  side(listOf(V(0f,0f,-thick),V(w,0f,-thick),V(w,0f,thick),V(0f,0f,thick)),darker(snapshot.binding,.9f),true)
-  side(listOf(V(0f,h,thick),V(w,h,thick),V(w,h,-thick),V(0f,h,-thick)),darker(snapshot.binding,.66f),true)
+  faces.add(Face(rect(2.5f*dp,true),2,snapshot.binding,f.volume))
+  faces.add(Face(rect(-2.5f*dp,true,true),3,snapshot.binding,f.volume))
+  val thick=2.5f*dp
+  side(listOf(V(w,0f,thick),V(w,0f,-thick),V(w,h,-thick),V(w,h,thick)),snapshot.binding,true)
+  side(listOf(V(0f,0f,-thick),V(w,0f,-thick),V(w,0f,thick),V(0f,0f,thick)),snapshot.binding,true)
+  side(listOf(V(0f,h,thick),V(w,h,thick),V(w,h,-thick),V(0f,h,-thick)),snapshot.binding,true)
   val perspective=1700*dp;val ox=W*.5f;val oy=H*.48f
   for(face in faces.sortedBy{it.points.sumOf{p->p.z.toDouble()}}){
    if(face.opacity<=0)continue
@@ -129,15 +111,11 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
    when(face.kind){
     1->{paint.alpha=255;c.drawRect(0f,0f,w,h,paint);val initial=w*.86f/area.width().coerceAtLeast(1f);val tx=w*.07f-area.left*initial;val ty=h*.08f-maxOf(0f,area.top)*initial;val total=initial+(1-initial)*f.zoom
       c.save();c.translate(tx*(1-f.zoom)/f.pose.sx,ty*(1-f.zoom)/f.pose.sy);c.scale(total/f.pose.sx,total/f.pose.sy);drawChild(c,live,drawingTime);c.restore()
-      paint.shader=gutterShade;paint.alpha=(f.gutter*255).toInt();c.drawRect(0f,0f,w*.11f,h,paint);paint.shader=null}
-    2->{c.drawBitmap(snapshot.cover,null,RectF(0f,0f,w,h),paint)
-      val turn=Math.toRadians(-f.swing.toDouble()).coerceIn(0.0,Math.PI/2);val facing=cos(turn).toFloat()
-      paint.shader=hingeShade;paint.alpha=(f.volume*255).toInt();c.drawRect(0f,0f,w*.12f,h,paint);paint.shader=null
-      paint.color=Color.BLACK;paint.alpha=(((1f-facing)*.55f+f.shade*.4f)*f.volume*255).toInt().coerceIn(0,255);c.drawRect(0f,0f,w,h,paint)}
-    3->{c.drawRect(0f,0f,w,h,paint);paint.shader=innerShade;paint.alpha=(f.volume*255).toInt();c.drawRect(0f,0f,w,h,paint);paint.shader=null;paint.style=Paint.Style.STROKE;paint.strokeWidth=.6f*dp;paint.color=0x19ffffff;c.drawRect(2*dp,2*dp,w-2*dp,h-2*dp,paint);paint.style=Paint.Style.FILL;paint.shader=innerLightShade;paint.alpha=(f.innerLight*255).toInt();c.drawRect(0f,0f,w,h,paint);paint.shader=null
-      val inward=(-cos(Math.toRadians(-f.swing.toDouble()))).toFloat().coerceIn(0f,1f);paint.color=Color.BLACK;paint.alpha=((1f-inward)*.5f*f.volume*255).toInt();c.drawRect(0f,0f,w,h,paint)}
+      paint.shader=LinearGradient(0f,0f,w*.11f,0f,intArrayOf(0x99000000.toInt(),Color.TRANSPARENT),null,Shader.TileMode.CLAMP);paint.alpha=(f.gutter*255).toInt();c.drawRect(0f,0f,w*.11f,h,paint);paint.shader=null}
+    2->{c.drawBitmap(snapshot.cover,null,RectF(0f,0f,w,h),paint);paint.color=Color.BLACK;paint.alpha=(f.shade*f.volume*255).toInt();c.drawRect(0f,0f,w,h,paint)}
+    3->{c.drawRect(0f,0f,w,h,paint);paint.shader=LinearGradient(0f,0f,w,0f,intArrayOf(0x33000000,Color.TRANSPARENT,0x05ffffff,0x11000000),floatArrayOf(0f,.05f,.5f,1f),Shader.TileMode.CLAMP);paint.alpha=(f.volume*255).toInt();c.drawRect(0f,0f,w,h,paint);paint.shader=null;paint.style=Paint.Style.STROKE;paint.strokeWidth=.6f*dp;paint.color=0x19ffffff;c.drawRect(2*dp,2*dp,w-2*dp,h-2*dp,paint);paint.style=Paint.Style.FILL;paint.shader=LinearGradient(0f,0f,w,h*.27f,intArrayOf(0x18ffffff,Color.TRANSPARENT,0x33000000),floatArrayOf(0f,.4f,1f),Shader.TileMode.CLAMP);paint.alpha=(f.innerLight*255).toInt();c.drawRect(0f,0f,w,h,paint);paint.shader=null}
     6->{boardShadow?.let{c.drawBitmap(it,null,RectF(-w*.5f,-h*.267f,w*1.5f,h*1.4f),paint)}}
-    4,5->{paint.shader=if(face.kind==4)foreShade else headShade;c.drawRect(0f,0f,w,h,paint);paint.shader=null}
+    4,5->{paint.shader=LinearGradient(0f,0f,if(face.kind==4)w/14*1.8f else 0f,if(face.kind==5)h/14*1.9f else 0f,intArrayOf(0xffc4bbaa.toInt(),0xffe6dfd0.toInt(),0xffc4bbaa.toInt(),0xffeee7d9.toInt()),floatArrayOf(0f,.36f,.67f,1f),Shader.TileMode.REPEAT);c.drawRect(0f,0f,w,h,paint);paint.shader=null}
     else->c.drawRect(0f,0f,w,h,paint)
    };c.restore()
   };paint.shader=null;paint.alpha=255
