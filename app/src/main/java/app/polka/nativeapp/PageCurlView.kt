@@ -21,7 +21,7 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     private val frontColors=IntArray((COLS+1)*(ROWS+1));private val backColors=IntArray((COLS+1)*(ROWS+1))
     private fun gray(g:Float):Int{val v=(g.coerceIn(0f,1f)*255).toInt();return Color.argb(255,v,v,v)}
     private val paperTile:Bitmap=Bitmap.createBitmap(1,1,Bitmap.Config.ARGB_8888).also{it.setPixel(0,0,paper or 0xff000000.toInt())}
-    private companion object{const val COLS=36;const val ROWS=48;const val ARC=40;const val MAXS=ARC+8}
+    private companion object{const val COLS=36;const val ROWS=48;const val USE_STRIPS=false;const val ARC=40;const val MAXS=ARC+8}
     private val shaderMatrix=Matrix()
     private val shaderValues=FloatArray(9)
     private val cast=LinearGradient(0f,0f,1f,0f,intArrayOf(0x00000000,0x3b000000,0x65000000),floatArrayOf(0f,.72f,1f),Shader.TileMode.CLAMP)
@@ -157,7 +157,7 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
         // cylinder of radius r (arc length pi*r), then lies flat again, reversed. Foreshortening
         // is a pure function of d, so ink compresses smoothly and stationary text stays pixel-exact.
         val r=w*(.012f+.06f*sin(Math.PI*fold).toFloat());val half=(PI*r/2).toFloat();val apex=-half+r
-        if(android.os.Build.VERSION.SDK_INT>=29)drawStrips(c,sheet,w,h,r,half,apex) else drawMesh(c,sheet,r,half,apex)
+        if(USE_STRIPS&&android.os.Build.VERSION.SDK_INT>=29)drawStrips(c,sheet,w,h,r,half,apex) else drawMesh(c,sheet,r,half,apex)
         val lightPaper=Color.luminance(paper)>.4
         paint.color=if(lightPaper)0x3fffffff else 0x25ffffff;paint.style=Paint.Style.STROKE;paint.strokeWidth=resources.displayMetrics.density*.65f;c.drawPath(backPath,paint);paint.style=Paint.Style.FILL
         c.restore()
