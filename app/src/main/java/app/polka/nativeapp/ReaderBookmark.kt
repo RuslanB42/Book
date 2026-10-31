@@ -30,7 +30,10 @@ internal class BookmarkIcon(private val a:MainActivity,ink:Int):IconView(a,"book
         paint.color=ColorUtils.blend(ink,accent,f);c.drawPath(path,paint);c.restore()
     }
 }
-private object ColorUtils{fun blend(x:Int,y:Int,t:Float):Int{fun m(p:Int,q:Int)=(p+(q-p)*t).toInt().coerceIn(0,255);return Color.argb(m(Color.alpha(x),Color.alpha(y)),m(Color.red(x),Color.red(y)),m(Color.green(x),Color.green(y)),m(Color.blue(x),Color.blue(y)))}}
+private object ColorUtils {
+    private fun m(p:Int,q:Int,t:Float):Int = (p+(q-p)*t).toInt().coerceIn(0,255)
+    fun blend(x:Int,y:Int,t:Float):Int = Color.argb(m(Color.alpha(x),Color.alpha(y),t),m(Color.red(x),Color.red(y),t),m(Color.green(x),Color.green(y),t),m(Color.blue(x),Color.blue(y),t))
+}
 
 /** A ribbon hanging from the top edge of the page: visible on a bookmarked page, and pulled down by hand to add or remove one. */
 internal class BookmarkRibbon(private val a:MainActivity):View(a) {
