@@ -405,10 +405,12 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val next=pageIndex+direction;if(next<0&&chapter==0||next>pageStarts.lastIndex&&chapter==chapters.length()-1)return false
         if(direction>0&&!calm&&selectionTurnDone==null)setCalm(true,true)
         pageSlidePending=true;gestureTurn=interactive;released=null;targetCommitted=false;dragProgress=0f;dragY=y
-        val token=++curlToken;val source=snapshot(null,folioLabel(pageIndex,pageStarts.size),hasBookmark())
+        val token=++curlToken;val currentKey="${chapterKey(chapter)}:$pageIndex:${hasBookmark()}"
+        val source=cachedCurrent?.takeIf{it.first==currentKey}?.second ?: snapshot(null,folioLabel(pageIndex,pageStarts.size),hasBookmark())
         findTarget(direction){target->if(token!=curlToken||disposed)return@findTarget;if(target==null){stopPageMotion();return@findTarget};targetPage=target;activateLinks(target.rich)
             val upcoming=cachedNext?.takeIf{it.first==snapshotKey(target)}?.second ?: snapshot(pageText(target.rich,target.starts,target.index),folioLabel(target.index,target.starts.size),pageBookmarks(target.chapter,target.index,target.starts).isNotEmpty())
             val overlay=PageCurlView(a,source,upcoming,direction,readerBackground,a.prefs.str("motion")=="reduced");curl=overlay
+            arrivingKey="${snapshotKey(target)}:${pageBookmarks(target.chapter,target.index,target.starts).isNotEmpty()}" to upcoming
             view.clipToPadding=false
             view.addView(overlay,(view.indexOfChild(ribbon)+1).coerceAtLeast(1),FrameLayout.LayoutParams(view.width,view.height).apply{leftMargin=-view.paddingLeft;topMargin=-view.paddingTop})
             overlay.measure(View.MeasureSpec.makeMeasureSpec(view.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(view.height,View.MeasureSpec.EXACTLY));overlay.layout(0,0,view.width,view.height);ribbon.visibility=View.INVISIBLE;overlay.pose(dragProgress,dragY+scroll.top,y+scroll.top)
@@ -439,11 +441,15 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val start=overlay.progress;val end=if(commit)1f else 0f
         if(a.prefs.str("motion")=="reduced"){overlay.pose(end,dragY);completeCurl(commit);return}
         val remaining=abs(end-start)
-        turnClock=android.animation.ValueAnimator.ofFloat(start,end).apply{duration=if(gestureTurn)(180+remaining*360).toLong()else 620L;interpolator=android.view.animation.PathInterpolator(.2f,.7f,.25f,1f)
+        // A release keeps the finger's speed (no slow-down or jump after letting go); a tap turns in one even, hand-like stroke.
+        val speed=abs(releaseVelocity).coerceAtLeast(scroll.width*1.4f)
+        val flight=(remaining*scroll.width*1.15f/speed*1000f).toLong().coerceIn(150L,380L)
+        turnClock=android.animation.ValueAnimator.ofFloat(start,end).apply{duration=if(gestureTurn)flight else 520L;interpolator=if(gestureTurn)android.view.animation.PathInterpolator(.18f,.62f,.26f,1f) else android.view.animation.PathInterpolator(.42f,0f,.16f,1f)
             addUpdateListener{overlay.pose(it.animatedValue as Float,dragY)}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(anim:android.animation.Animator){completeCurl(commit)}});start()}
     }
-    private fun completeCurl(commit:Boolean){val done=selectionTurnDone;selectionTurnDone=null;stopPageMotion();if(commit){handler.removeCallbacks(saveTask);handler.post(saveTask)};warmSnapshot();done?.invoke(commit)}
+    private var cachedCurrent:Pair<String,android.graphics.Bitmap>?=null;private var arrivingKey:Pair<String,android.graphics.Bitmap>?=null
+    private fun completeCurl(commit:Boolean){if(commit)cachedCurrent=arrivingKey;arrivingKey=null;val done=selectionTurnDone;selectionTurnDone=null;stopPageMotion();if(commit){handler.removeCallbacks(saveTask);handler.post(saveTask)};warmSnapshot();done?.invoke(commit)}
     internal fun turnWithSelection(direction:Int,done:(Boolean)->Unit){
         if(pageIndex+direction !in pageStarts.indices||isTurning()){done(false);return}
         selectionTurnDone=done
@@ -464,7 +470,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun toggleChrome(){if(!editorOpen)setCalm(!calm,true)}
     private fun setCalm(value:Boolean,animate:Boolean){calm=value;val reduced=!animate||a.prefs.str("motion")=="reduced";listOf(topBar to -1,bottom to 1).forEach{(v,sign)->v.animate().cancel();if(reduced){v.alpha=if(value)0f else 1f;v.translationY=if(value)sign*v.height.toFloat() else 0f;v.visibility=if(value)View.INVISIBLE else View.VISIBLE;if(value)v.post{if(calm&&v.visibility==View.INVISIBLE)v.translationY=sign*v.height.toFloat()}}else{v.visibility=View.VISIBLE;v.animate().alpha(if(value)0f else 1f).translationY(if(value)sign*v.height.toFloat() else 0f).setDuration(360).setInterpolator(MotionSpec.settle).withEndAction{if(calm)v.visibility=View.INVISIBLE}.start()}};folio.visibility=if(paged()&&value)View.VISIBLE else View.INVISIBLE}
     fun applyTypography() {
-        quoteSelection.clear();stopPageMotion();cachedNext=null;snapshotWarm?.let{handler.removeCallbacks(it)};previewGeneration++;previewPages.clear();previewJobs.values.forEach{it.cancel(true)};previewJobs.clear()
+        quoteSelection.clear();stopPageMotion();cachedNext=null;cachedCurrent=null;snapshotWarm?.let{handler.removeCallbacks(it)};previewGeneration++;previewPages.clear();previewJobs.values.forEach{it.cancel(true)};previewJobs.clear()
         val savedOffset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0
         val pair=when(a.prefs.str("rt")) { "black"->0xff000000.toInt() to 0xffc9c7c1.toInt(); "sepia"->0xfff3ead8.toInt() to 0xff3a2e22.toInt(); "paper"->0xfffbfaf7.toInt() to 0xff1e1d1b.toInt(); "night"->0xff18181a.toInt() to 0xffdedcd6.toInt(); else->a.bg to a.fg }
         readerBackground=pair.first;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{themeLight=android.graphics.Color.red(pair.first)>128;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};footer.setTextColor(pair.second);body.setTextColor(pair.second); body.textSize=a.prefs.optDouble("size",19.0).toFloat(); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; body.justificationMode=if(a.prefs.optBoolean("justify",true)) android.text.Layout.JUSTIFICATION_MODE_INTER_WORD else android.text.Layout.JUSTIFICATION_MODE_NONE; applySpacing(); if(body.paddingLeft!=margin())body.setPadding(margin(),body.paddingTop,margin(),body.paddingBottom); applyBrightness(); if(chapterRich.isNotEmpty()){pendingOffset=savedOffset;handler.removeCallbacks(reflow);handler.postDelayed(reflow,120)} 

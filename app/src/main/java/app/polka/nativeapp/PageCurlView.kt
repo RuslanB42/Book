@@ -15,6 +15,8 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     /** Where on the page edge the hand grabbed (overlay y). Near a corner the fold is diagonal; mid-edge it is almost straight. */
     private var anchorY=sourceBitmap.height.toFloat()
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val lift=Paint(Paint.ANTI_ALIAS_FLAG)
+    private val dp=context.resources.displayMetrics.density
     private val frontPath=Path();private val backPath=Path();private val shadowPath=Path()
     private val reflection=Matrix();private val matrixValues=FloatArray(9)
     private val xs=FloatArray(8);private val ys=FloatArray(8);private var points=0
@@ -82,6 +84,11 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
         c.drawBitmapMesh(sheet,24,32,mesh,0,null,0,paint)
         // Narrow cylindrical bend on the front surface, no full-screen grey fill.
         paint.shader=shade(frontShade,-band,0f);c.drawRect(0f,0f,w,h,paint);paint.shader=null;c.restore()
+        // The lifted flap floats above the flat part of the page: a soft shadow under its silhouette, only on that page,
+        // strongest mid-turn and gone at both ends (no pop at the bitmap→live handoff).
+        val lightPaper0=Color.luminance(paper)>.4
+        if(android.os.Build.VERSION.SDK_INT>=28){val k=sin(Math.PI*fold).toFloat()
+            if(k>.02f){c.save();c.clipPath(frontPath);lift.color=paper;lift.setShadowLayer(band*.55f+3*dp,-nx*band*.12f,-ny*band*.12f+dp,((if(lightPaper0)0x46 else 0x80)*k).toInt() shl 24);c.drawPath(backPath,lift);lift.clearShadowLayer();c.restore()}}
         c.save();c.clipPath(backPath)
         paint.color=paper;c.drawPath(backPath,paint)
         // The reverse carries faint mirrored ink through the paper, not a second
