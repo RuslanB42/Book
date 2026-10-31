@@ -302,6 +302,8 @@ class SurfaceInteractionTests {
   a.books=listOf(book);a.render(false,false);layout()
   for(kind in listOf("carousel","grid")){
    val covers=descendants(a.page).filterIsInstance<CoverView>();val origin=if(kind=="carousel")covers.first()else covers.last()
+   // The grid can start below the fold (the carousel is taller now): bring the origin cover on screen first.
+   origin.requestRectangleOnScreen(android.graphics.Rect(0,0,origin.width,origin.height),true);layout()
    a.prefs.put("motion","reduced");a.detail(book,origin);layout();val sheet=a.bookDetailSheet!!
    assertFalse("no visible detail heading",descendants(sheet).filterIsInstance<TextView>().any{it.text=="О книге"})
    a.prefs.put("motion","normal");sheet.dismiss();sheet.freezeMotion();assertEquals(View.INVISIBLE,origin.visibility)
