@@ -69,7 +69,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
    chip.text="${chipLabels[i]} ${all[i]}";val on=i==filter;chip.isSelected=on
    val shape=chip.tag as android.graphics.drawable.GradientDrawable;val bg=if(on)a.fg else quiet();val ink=if(on)a.bg else a.fg
    chipAnimators.remove(chip)?.cancel()
-   if(!animate||reduced()){shape.setColor(bg);chip.setTextColor(ink);continue}
+   if(!animate||reduced()){shape.setColor(bg);chip.setTextColor(ink);return@forEachIndexed}
    val fromBg=(shape.color?.defaultColor)?:bg;val fromInk=chip.currentTextColor
    chipAnimators[chip]=(android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=200;addUpdateListener{val t=it.animatedFraction;shape.setColor(android.animation.ArgbEvaluator().evaluate(t,fromBg,bg) as Int);chip.setTextColor(android.animation.ArgbEvaluator().evaluate(t,fromInk,ink) as Int)};start()})
   }
