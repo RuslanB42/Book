@@ -7,8 +7,8 @@ object OpeningTimeline {
 
  // One continuous gesture, like opening a real notebook: travel, hinge and page zoom overlap instead of
  // running as three separate acts; short enough to feel immediate, long enough to read as a book.
- const val DURATION=780L
- const val CLOSE_DURATION=660L
+ const val DURATION=940L
+ const val CLOSE_DURATION=780L
  data class Pose(val x:Float,val y:Float,val sx:Float,val sy:Float,val rx:Float,val ry:Float)
  data class Frame(val pose:Pose,val swing:Float,val zoom:Float,val volume:Float,val chrome:Float,val shade:Float,val gutter:Float,val light:Float,val innerLight:Float)
  fun bezier(t:Float,x1:Float,y1:Float,x2:Float,y2:Float):Float {

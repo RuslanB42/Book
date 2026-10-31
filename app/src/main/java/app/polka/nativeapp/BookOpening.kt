@@ -18,7 +18,7 @@ fun MainActivity.openingSnapshot(id:String,explicit:View?=null,captureScene:Bool
  val x=(at[0]-origin[0]-root.paddingLeft).toFloat();val y=(at[1]-origin[1]-root.paddingTop).toFloat();val rect=RectF(x,y,x+source.width,y+source.height)
  if(rect.bottom<0 || rect.top>root.height)return null
  // Capture once, without the moving cover. Keep the library visible while pagination prepares.
- val sceneScale=minOf(1f,720f/root.width)
+ val sceneScale=minOf(1f,560f/root.width)
  val scene=Bitmap.createBitmap((if(captureScene)root.width*sceneScale else 1f).roundToInt().coerceAtLeast(1),(if(captureScene)root.height*sceneScale else 1f).roundToInt().coerceAtLeast(1),Bitmap.Config.ARGB_8888)
  val was=source.visibility
  // Capture the clean scene separately; detail light is retained only for the initial fade-out.
@@ -34,10 +34,19 @@ fun MainActivity.openingSnapshot(id:String,explicit:View?=null,captureScene:Bool
 }
 
 /** A frozen source scene covers async reader preparation, so no background-only frame can escape. */
-internal class BookOpeningHold(a:MainActivity,private val snapshot:BookOpeningSnapshot):View(a){
+internal class BookOpeningHold(private val a:MainActivity,private val snapshot:BookOpeningSnapshot):View(a){
  private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
  private val dark=!a.light
+ // Immediate answer to the tap: the book rises a little (scale + deeper shadow) while the text is prepared.
+ // The opening flight starts from exactly this lifted rectangle, so there is no step between the two.
+ private val base=RectF(snapshot.rect)
+ var settled=false;private set
+ private val rise=ValueAnimator.ofFloat(0f,1f).apply{duration=170;interpolator=android.view.animation.PathInterpolator(.2f,.8f,.3f,1f)
+  addUpdateListener{val k=1f+.035f*(it.animatedValue as Float);snapshot.rect.set(base.centerX()-base.width()*k/2,base.centerY()-base.height()*k/2,base.centerX()+base.width()*k/2,base.centerY()+base.height()*k/2);invalidate()}
+  addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(animation:Animator){settled=true}})}
  init{isClickable=true;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS;contentDescription="Открываю книгу"}
+ override fun onAttachedToWindow(){super.onAttachedToWindow();if(a.prefs.str("motion")=="reduced"){settled=true}else rise.start()}
+ override fun onDetachedFromWindow(){rise.removeAllListeners();rise.cancel();settled=true;super.onDetachedFromWindow()}
  override fun onDraw(c:Canvas){if(snapshot.scene.isRecycled)return;c.drawBitmap(snapshot.scene,null,RectF(0f,0f,width.toFloat(),height.toFloat()),p);snapshot.litScene?.takeUnless{it.isRecycled}?.let{c.drawBitmap(it,null,RectF(0f,0f,width.toFloat(),height.toFloat()),p)};BookCoverVolume.shadow(c,snapshot.rect,dark,true);c.drawBitmap(snapshot.cover,null,snapshot.rect,p)}
 }
 
