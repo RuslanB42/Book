@@ -523,21 +523,33 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         save();stopPageMotion();val full=android.text.SpannableStringBuilder(chapterRich)
         val start=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0
         val end=if(paged())pageStarts.getOrElse(pageIndex+1){full.length}else body.layout?.let{it.getLineEnd(it.getLineForVertical(scroll.scrollY+scroll.height-body.paddingTop-body.paddingBottom))}?:full.length
-        val draft=PageDraft(chapter,start,end,android.text.SpannableStringBuilder(body.text,if(paged())0 else start,if(paged())body.text.length else end),full,images,calm)
+        // The page view may end with a typographic hyphen that is not part of the book text.
+        val draft=PageDraft(chapter,start,end,android.text.SpannableStringBuilder(body.text,if(paged())0 else start,if(paged())minOf(body.text.length,end-start) else end),full,images,calm)
+        editShift=if(paged())0 else body.layout?.let{scroll.scrollY-it.getLineTop(it.getLineForVertical(scroll.scrollY))}?:0
         editorOpen=true;handler.removeCallbacks(reflow);pageEditor=ChapterEditor(a,this,book,content,draft).also{it.show()}
     }
-    internal fun mountEditor(editor:EditText,header:View,toolbar:View){
-        topBar.animate().cancel();bottom.animate().cancel();topBar.visibility=View.INVISIBLE;bottom.visibility=View.INVISIBLE;folio.visibility=View.INVISIBLE
-        scroll.layoutParams=(scroll.layoutParams as FrameLayout.LayoutParams).apply{topMargin=a.d(52);bottomMargin=a.d(80)}
-        scroll.removeView(body);scroll.addView(editor,FrameLayout.LayoutParams(-1,-2));scroll.scrollTo(0,0)
-        toolbar.addOnLayoutChangeListener{_,_,_,_,_,_,_,_,_->val lp=scroll.layoutParams as FrameLayout.LayoutParams;val inset=toolbar.height+a.d(24);if(lp.bottomMargin!=inset){lp.bottomMargin=inset;scroll.layoutParams=lp}}
-        // The editable viewport reserves chrome space; the keyboard/caret cannot
-        // push text underneath either bar.
-        view.addView(header,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP));view.addView(toolbar,FrameLayout.LayoutParams(a.d(260),-2,Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply{bottomMargin=a.d(12)})
+    private var editShift=0
+    /** Edit mode swaps the page for its editable twin in place; only the chrome changes, with a soft crossfade. */
+    internal fun mountEditor(editor:EditText,toolbar:View){
+        val reduced=a.prefs.str("motion")=="reduced"
+        listOf(topBar,bottom,folio).forEach{v->v.animate().cancel();if(v.visibility!=View.VISIBLE||reduced){v.visibility=View.INVISIBLE}else v.animate().alpha(0f).setDuration(180).withEndAction{v.visibility=View.INVISIBLE;v.alpha=1f}.start()}
+        ribbon.visibility=View.INVISIBLE
+        val y=scroll.scrollY
+        scroll.removeView(body);scroll.addView(editor,FrameLayout.LayoutParams(-1,-2));scroll.scrollTo(0,if(paged())0 else editShift)
+        if(!paged())editor.post{scroll.scrollTo(0,editShift)}
+        view.addView(toolbar,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{leftMargin=a.d(12);rightMargin=a.d(12);bottomMargin=a.d(12)})
+        // Reserve the panel's height so the caret is never hidden under it; the width never changes, so lines never re-break.
+        toolbar.addOnLayoutChangeListener{_,_,_,_,_,_,_,_,_->val lp=scroll.layoutParams as FrameLayout.LayoutParams;val inset=toolbar.height+a.d(20);if(lp.bottomMargin!=inset){lp.bottomMargin=inset;scroll.layoutParams=lp}}
+        if(!reduced){toolbar.alpha=0f;toolbar.translationY=a.d(28).toFloat();toolbar.animate().alpha(1f).translationY(0f).setStartDelay(60).setDuration(320).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}
+        if(y<0)scroll.scrollTo(0,0)
     }
-    internal fun unmountEditor(editor:EditText,header:View,toolbar:View,draft:PageDraft,changed:Boolean){
-        view.removeView(header);view.removeView(toolbar);scroll.removeView(editor);scroll.layoutParams=(scroll.layoutParams as FrameLayout.LayoutParams).apply{topMargin=0;bottomMargin=0};scroll.addView(body,FrameLayout.LayoutParams(-1,-2));editorOpen=false;scroll.scrollTo(0,0);pageEditor=null;lastCredit=System.currentTimeMillis();activeAt=lastCredit
-        setCalm(draft.calm,false);if(changed){committedKey="";pendingOffset=draft.start;paintChapter()}else if(paged())paintPage()else body.post{jumpOffset(draft.start)}
+    internal fun unmountEditor(editor:EditText,toolbar:View,draft:PageDraft,changed:Boolean){
+        fun restore(){
+            view.removeView(toolbar);scroll.removeView(editor);scroll.layoutParams=(scroll.layoutParams as FrameLayout.LayoutParams).apply{topMargin=0;bottomMargin=0};scroll.addView(body,FrameLayout.LayoutParams(-1,-2));editorOpen=false;scroll.scrollTo(0,0);pageEditor=null;lastCredit=System.currentTimeMillis();activeAt=lastCredit
+            setCalm(draft.calm,true);if(changed){committedKey="";pendingOffset=draft.start;paintChapter()}else if(paged())paintPage()else body.post{jumpOffset(draft.start)}
+            syncBookmark(false)
+        }
+        if(a.prefs.str("motion")=="reduced"||!toolbar.isAttachedToWindow)restore() else toolbar.animate().alpha(0f).translationY(a.d(20).toFloat()).setStartDelay(0).setDuration(200).withEndAction{restore()}.start()
     }
     fun requestClose():Boolean {val edit=pageEditor?:return true;edit.cancel();return false}
 }

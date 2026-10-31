@@ -12,7 +12,6 @@ import org.json.*
 /** Inline page editing: the same reader, ScrollView, typography and location. No dialog. */
 class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,private val book:JSONObject,private val content:JSONObject,private val draft:NativeReader.PageDraft) {
  val editor=EditText(a)
- private val header=LinearLayout(a)
  private val toolbar=LinearLayout(a)
  private val error=TextView(a)
  private val undo=java.util.ArrayDeque<SpannableStringBuilder>()
@@ -28,29 +27,43 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
  fun dirty()=editor.text.toString()!=draft.text.toString() || editor.text.getSpans(0,editor.length(),PageFormat::class.java).isNotEmpty()
  @android.annotation.SuppressLint("WrongConstant") // API-23 Layout constants alias LineBreaker values on API29+.
  fun show(){
-  val body=reader.body
-  val lightPage=android.graphics.Color.luminance(reader.backgroundColor)>.5f;val accent=if(lightPage)0xff9b5a00.toInt()else 0xfff3b35a.toInt()
+  val body=reader.body;val ink=body.currentTextColor;val pageBg=reader.backgroundColor
+  val lightPage=android.graphics.Color.luminance(pageBg)>.5f
+  // The editor is a twin of the page: same metrics, paddings, spacing, hyphenation and justification,
+  // so entering edit mode leaves every word exactly where it was.
   editor.apply{
-   background=null;defaultFocusHighlightEnabled=false;setTextColor(body.currentTextColor);setHintTextColor(a.muted);textSize=body.textSize/a.resources.displayMetrics.scaledDensity;typeface=body.typeface;setLineSpacing(0f,1f);includeFontPadding=false;breakStrategy=body.breakStrategy;hyphenationFrequency=body.hyphenationFrequency;justificationMode=body.justificationMode;gravity=Gravity.TOP;setPadding(body.paddingLeft,a.d(22),body.paddingRight,a.d(22));setHorizontallyScrolling(false);inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;imeOptions=android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI;setText(draft.text);setSelection(0);contentDescription="Текст текущей страницы";minHeight=0
+   background=null;defaultFocusHighlightEnabled=false;setTextColor(ink);setHintTextColor(a.muted);highlightColor=(a.accent and 0x00ffffff) or 0x55000000
+   inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+   imeOptions=android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
+   setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,body.textSize);typeface=body.typeface;letterSpacing=body.letterSpacing
+   setLineSpacing(0f,1f);includeFontPadding=body.includeFontPadding;gravity=Gravity.TOP;textDirection=body.textDirection
+   setPadding(body.paddingLeft,body.paddingTop,body.paddingRight,body.paddingBottom);setHorizontallyScrolling(false);minHeight=0;minimumHeight=0
+   breakStrategy=body.breakStrategy;hyphenationFrequency=body.hyphenationFrequency;justificationMode=body.justificationMode
+   if(android.os.Build.VERSION.SDK_INT>=29)paint.wordSpacing=body.paint.wordSpacing
+   setText(draft.text);contentDescription="Текст текущей страницы"
   }
-  // EditText uses DynamicLayout, not the static justified page layout. Apply
-  // editable line-breaking AFTER inputType (which can reset text metrics).
-  editor.typeface=body.typeface;editor.breakStrategy=Layout.BREAK_STRATEGY_SIMPLE;editor.hyphenationFrequency=Layout.HYPHENATION_FREQUENCY_NONE;editor.justificationMode=Layout.JUSTIFICATION_MODE_NONE
-  // Remove read-only quote highlights and clickable links, but retain book typography/media.
+  // Quote highlights are read-only decoration; links keep their colour but stop being clickable.
   editor.text.getSpans(0,editor.length(),BackgroundColorSpan::class.java).forEach{editor.text.removeSpan(it)}
-  editor.text.getSpans(0,editor.length(),ClickableSpan::class.java).forEach{editor.text.removeSpan(it)}
-  header.gravity=Gravity.CENTER_VERTICAL;header.setPadding(a.d(8),0,a.d(8),0);a.controlSurface(header,22f,sheet=true)
-  header.addView(a.text("Отмена",14f,body.currentTextColor).apply{gravity=Gravity.CENTER;contentDescription="Отменить правки страницы";setOnClickListener{cancel()}},LinearLayout.LayoutParams(a.d(72),a.d(48)))
-  header.addView(a.text("Правка страницы",15f,body.currentTextColor,true),LinearLayout.LayoutParams(0,-2,1f))
-  header.addView(a.text("Сохранить",14f,accent,true).apply{gravity=Gravity.CENTER;contentDescription="Сохранить страницу";setOnClickListener{save()}},LinearLayout.LayoutParams(a.d(104),a.d(48)))
-  toolbar.orientation=LinearLayout.VERTICAL;toolbar.setPadding(a.d(8),a.d(4),a.d(8),a.d(8));a.controlSurface(toolbar,22f,sheet=true)
+  editor.text.getSpans(0,editor.length(),ClickableSpan::class.java).forEach{span->val from=editor.text.getSpanStart(span);val to=editor.text.getSpanEnd(span);editor.text.removeSpan(span);if(to>from)editor.text.setSpan(ForegroundColorSpan(a.accent),from,to,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
+  toolbar.orientation=LinearLayout.VERTICAL;toolbar.setPadding(a.d(10),a.d(8),a.d(10),a.d(10))
+  a.controlSurface(toolbar,26f,sheet=true).apply{themeLight=lightPage;refresh()}
+  toolbar.elevation=a.d(12).toFloat();toolbar.isClickable=true
   val actions=a.line()
-  fun action(label:String,description:String,icon:String?=null,fn:()->Unit){val control=if(icon!=null)IconView(a,icon,body.currentTextColor)else a.text(label,18f,body.currentTextColor,true).apply{gravity=Gravity.CENTER;if(label=="К")typeface=Typeface.create(typeface,Typeface.ITALIC)};a.press(control);control.contentDescription=description;control.setOnClickListener{if(!saving)fn()};actions.addView(control,LinearLayout.LayoutParams(0,a.d(44),1f))}
-  action("","Отменить действие","undo"){undo()};action("","Повторить действие","redo"){redo()};action("Ж","Полужирный"){format("bold")};action("К","Курсив"){format("italic")};action("","Заголовок","head"){format("heading")}
-  toolbar.addView(actions);error.textSize=12f;error.setTextColor(if(lightPage)0xffa52820.toInt()else 0xffff8a75.toInt());error.visibility=View.GONE;toolbar.addView(error)
-  reader.mountEditor(editor,header,toolbar)
+  fun action(label:String,description:String,icon:String?=null,fn:()->Unit){val control=if(icon!=null)IconView(a,icon,ink)else a.text(label,18f,ink,true,serif=true).apply{gravity=Gravity.CENTER;if(label=="К")typeface=Typeface.create(typeface,Typeface.ITALIC)};a.press(control);control.contentDescription=description;control.setOnClickListener{if(!saving)fn()};actions.addView(control,LinearLayout.LayoutParams(0,a.d(44),1f))}
+  action("","Отменить действие","undo"){undo()};action("","Повторить действие","redo"){redo()}
+  actions.addView(View(a).apply{setBackgroundColor((ink and 0x00ffffff) or 0x22000000)},LinearLayout.LayoutParams(1,a.d(22)))
+  action("Ж","Полужирный"){format("bold")};action("К","Курсив"){format("italic")};action("","Заголовок","head"){format("heading")}
+  toolbar.addView(actions)
+  error.textSize=12f;error.setTextColor(if(lightPage)0xffa52820.toInt()else 0xffff8a75.toInt());error.visibility=View.GONE;error.setPadding(a.d(6),a.d(4),a.d(6),0);toolbar.addView(error)
+  val buttons=a.line().apply{setPadding(0,a.d(8),0,0)}
+  fun pill(label:String,filled:Boolean,description:String,fn:()->Unit)=a.text(label,15f,if(filled)pageBg else ink,filled).apply{gravity=Gravity.CENTER;background=a.shape(if(filled)ink else (ink and 0x00ffffff) or 0x1a000000,22);contentDescription=description;a.press(this);setOnClickListener{fn()}}
+  buttons.addView(pill("Отмена",false,"Отменить правки страницы"){cancel()},LinearLayout.LayoutParams(0,a.d(44),1f).apply{rightMargin=a.d(5)})
+  buttons.addView(pill("Сохранить",true,"Сохранить страницу"){save()},LinearLayout.LayoutParams(0,a.d(44),1f).apply{leftMargin=a.d(5)})
+  toolbar.addView(buttons)
+  reader.mountEditor(editor,toolbar)
   editor.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){if(recording)remember()};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){};override fun afterTextChanged(s:Editable?){error.visibility=View.GONE}})
-  editor.requestFocus();editor.setSelection(0);editor.post{if(!closed)(a.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(editor,InputMethodManager.SHOW_IMPLICIT)}
+  // No caret jump and no keyboard yet: the reader taps the word that needs fixing.
+  editor.isFocusableInTouchMode=true
  }
  private fun restore(value:SpannableStringBuilder){recording=false;editor.setText(value);editor.setSelection(minOf(value.length,editor.length()));recording=true}
  fun undo(){if(undo.isNotEmpty()&&!saving){redo.addLast(snapshot());restore(undo.removeLast())}}
@@ -74,6 +87,6 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
   })
  }
  fun cancel(){if(saving||closed)return;if(dirty())a.confirm("Отменить правки?","Изменения текущей страницы не сохранятся."){finish(false)}else finish(false)}
- private fun finish(changed:Boolean){if(closed)return;closed=true;(a.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(editor.windowToken,0);editor.clearFocus();reader.unmountEditor(editor,header,toolbar,draft,changed)}
+ private fun finish(changed:Boolean){if(closed)return;closed=true;(a.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(editor.windowToken,0);editor.clearFocus();reader.unmountEditor(editor,toolbar,draft,changed)}
  fun detach(){closed=true}
 }
