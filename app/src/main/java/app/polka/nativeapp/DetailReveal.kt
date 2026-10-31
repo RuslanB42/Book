@@ -31,8 +31,16 @@ internal class DetailReveal(private val a:MainActivity):FrameLayout(a){
  }
  internal fun sample(value:Float){progress=value.coerceIn(0f,1f);shown=(start+(target-start)*progress).roundToInt();body.alpha=if(crossfade)(progress/.2f).coerceIn(0f,1f) else if(dissolve)((progress-.22f)/.58f).coerceIn(0f,1f)else 1f;onProgress?.invoke(progress);body.translationY=if(dissolve)a.d(6)*(1-progress)else 0f;requestLayout();invalidate()}
  internal fun freeze(){stop()}
+ /** Moves only the visible height (content untouched) and reports eased progress; the height then stays held for the next change. */
+ fun animateHeight(to:Int,duration:Long,curve:android.animation.TimeInterpolator,frame:(Float)->Unit,end:()->Unit){
+  stop();old?.recycle();old=null;val from=height;crossfade=false;dissolve=false;body.alpha=1f;body.translationY=0f;clipChildren=false
+  clock=ValueAnimator.ofFloat(0f,1f).apply{this.duration=duration;interpolator=curve
+   addUpdateListener{val p=it.animatedValue as Float;shown=(from+(to-from)*p).roundToInt();frame(p);requestLayout();invalidate()}
+   addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(animation:Animator){if(clock===animation){clock=null;shown=to;end()}}});start()}
+ }
  private fun complete(){clipChildren=false;onProgress?.invoke(1f);onProgress=null;shown=null;progress=1f;body.alpha=1f;body.translationY=0f;old?.recycle();old=null;clock=null;requestLayout();invalidate()}
- override fun onMeasure(ws:Int,hs:Int){body.measure(ws,MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));setMeasuredDimension(MeasureSpec.getSize(ws),shown?:if(body.visibility==GONE)0 else body.measuredHeight)}
+ private var lastWs=0
+ override fun onMeasure(ws:Int,hs:Int){if(!(shown!=null&&ws==lastWs&&body.measuredWidth>0&&!body.isLayoutRequested))body.measure(ws,MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));lastWs=ws;setMeasuredDimension(MeasureSpec.getSize(ws),shown?:if(body.visibility==GONE)0 else body.measuredHeight)}
  override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){body.layout(0,0,r-l,body.measuredHeight)}
  override fun onDraw(c:Canvas){super.onDraw(c);old?.takeUnless{it.isRecycled}?.let{paint.alpha=(255*(1-progress/(if(crossfade).2f else .22f)).coerceIn(0f,1f)).toInt();val save=c.save();c.clipRect(0,0,width,height);c.drawBitmap(it,null,RectF(0f,0f,width.toFloat(),start.toFloat()),paint);c.restoreToCount(save)}}
  override fun onDetachedFromWindow(){stop();complete();super.onDetachedFromWindow()}

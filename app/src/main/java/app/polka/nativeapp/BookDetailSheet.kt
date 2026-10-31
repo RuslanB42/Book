@@ -70,10 +70,11 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val ease=android.view.animation.PathInterpolator(.2f,1f,.3f,1f)
   fun reducedMotion()=a.prefs.str("motion")=="reduced"
   var collapseQuotes:(List<View>)->Unit={}
-  fun renderQuotes(animated:Boolean=false,unfold:Boolean=false){
-   val cards=mutableListOf<View>();val extras=mutableListOf<View>()
+  var folding=false
+  fun renderQuotes(animated:Boolean=false,unfold:Boolean=false,settle:Boolean=false){
+   folding=false;val cards=mutableListOf<View>();val extras=mutableListOf<View>()
    val fan=unfold&&animated&&!reducedMotion()
-   quoteReveal.change(animated,dissolveInk=!unfold,crossfadeInk=fan,duration=if(fan)580L else 360L,clip=!fan,curve=if(fan)android.view.animation.PathInterpolator(.32f,.06f,.16f,1f) else MotionSpec.settle){
+   quoteReveal.change(animated,dissolveInk=!unfold&&!settle,crossfadeInk=fan||settle,duration=if(fan)580L else if(settle)200L else 360L,clip=!(fan||settle),curve=if(fan)android.view.animation.PathInterpolator(.32f,.06f,.16f,1f) else MotionSpec.settle){
    quoteBody.removeAllViews()
    val quotes=book.optJSONArray("quotes")?.objects().orEmpty().sortedWith(compareBy<JSONObject>{it.optInt("ch")}.thenBy{it.optInt("start")})
    quoteSection.visibility=if(quotes.isEmpty())View.GONE else View.VISIBLE
@@ -101,18 +102,33 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
     // Fan-out in lockstep with the growing block: every frame (after layout, before draw) each card is placed
     // between its spot in the pile (narrower, a few dp lower, behind the first) and its final spot.
     val pile=a.d(9).toFloat();val inset=a.d(12).toFloat()
+    cards.forEach{it.setLayerType(View.LAYER_TYPE_HARDWARE,null)}
     val driver=object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
      val p=quoteReveal.progress
      cards.forEachIndexed{i,c->if(c.width>0){val k=minOf(i,2);val t=((p-i*.07f)/(1f-.14f)).coerceIn(0f,1f)
       c.pivotX=c.width/2f;c.pivotY=0f;c.translationY=(-c.top+pile*k)*(1f-t);val sx=(c.width-2*inset*k)/c.width;c.scaleX=sx+(1f-sx)*t;c.translationZ=-a.d(3)*k*(1f-t);c.alpha=if(i<3)1f else t}}
      extras.forEach{e->val t=((p-.55f)/.45f).coerceIn(0f,1f);e.alpha=t;e.translationY=a.d(10)*(1f-t)}
-     if(p>=1f&&quoteBody.viewTreeObserver.isAlive)quoteBody.viewTreeObserver.removeOnPreDrawListener(this)
+     if(p>=1f){cards.forEach{it.setLayerType(View.LAYER_TYPE_NONE,null)};if(quoteBody.viewTreeObserver.isAlive)quoteBody.viewTreeObserver.removeOnPreDrawListener(this)}
      return true}}
     quoteBody.viewTreeObserver.addOnPreDrawListener(driver)
    }
   }
-  // Folding back: the cards dissolve while the block shrinks to the pile.
-  fun collapseQuotesImpl(@Suppress("UNUSED_PARAMETER") cards:List<View>){quotesOpen=false;quotePage=0;renderQuotes(true)}
+  // Folding back mirrors the fan-out: the cards slide up into the pile while the block shrinks to the pile's height,
+  // then the pile quietly crossfades in over them.
+  fun collapseQuotesImpl(cards:List<View>){
+   if(folding)return
+   val quotes=book.optJSONArray("quotes")?.objects().orEmpty()
+   if(reducedMotion()||cards.isEmpty()||quotes.isEmpty()||!quoteReveal.isLaidOut||quoteBody.width<=0){quotesOpen=false;quotePage=0;renderQuotes(true);return}
+   val probe=a.quoteStack(book,quotes){};probe.measure(View.MeasureSpec.makeMeasureSpec(quoteBody.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
+   val pile=a.d(9).toFloat();val inset=a.d(12).toFloat();val extras=(0 until quoteBody.childCount).map{quoteBody.getChildAt(it)}.filter{it !in cards}
+   cards.forEach{it.setLayerType(View.LAYER_TYPE_HARDWARE,null);it.animate().cancel()}
+   folding=true
+   quoteReveal.animateHeight(probe.measuredHeight,420L,android.view.animation.PathInterpolator(.4f,0f,.2f,1f),{p->
+    cards.forEachIndexed{i,c->if(c.width>0){val k=minOf(i,2);val back=cards.size-1-i;val q=((p-back*.06f)/(1f-.12f)).coerceIn(0f,1f)
+     c.pivotX=c.width/2f;c.pivotY=0f;c.translationY=(-c.top+pile*k)*q;val sx=(c.width-2*inset*k)/c.width;c.scaleX=1f+(sx-1f)*q;c.translationZ=-a.d(3)*k*q;c.alpha=if(i<3)1f else 1f-q}}
+    extras.forEach{e->e.alpha=(1f-p/.35f).coerceIn(0f,1f)}
+   }){cards.forEach{it.setLayerType(View.LAYER_TYPE_NONE,null)};quotesOpen=false;quotePage=0;renderQuotes(true,settle=true)}
+  }
   collapseQuotes={cards->collapseQuotesImpl(cards)}
   updates.add{val key=(book.optJSONArray("quotes")?.toString()?:"[]")+(book.optJSONArray("notes")?.toString()?:"[]");if(key!=quoteKey){quoteKey=key;renderQuotes()}}
   val feedback=section(18);val feedbackBody=insetCard();feedback.addView(feedbackBody);var feedbackKey=""
