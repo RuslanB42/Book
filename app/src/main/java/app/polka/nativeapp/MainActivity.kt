@@ -201,7 +201,7 @@ class MainActivity : Activity() {
         when {
             query.isNotBlank() -> {val found=searchBooks();if(found.isEmpty()){page.addView(text("Ничего не нашлось по запросу «${query.trim()}». Поиск идёт по названию, автору, серии и полке.",15f,muted))}else{val row=line();row.addView(text("Найдено",20f,bold=true),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(countBooks(found.size),14f,muted));page.addView(row);space(page,14);bookGrid(found)}}
             shelf!=null || auto!=null -> { backAndCount(); val list=currentBooks(); if(list.isEmpty()) emptyState(if(auto=="reading") "Пока ничего не читаете" else "На полке пока пусто") else bookGrid(list) }
-            tab=="shelves" && query.isBlank() -> shelfGrid()
+            tab=="shelves" && query.isBlank() -> shelfRows()
             tab=="quotes" -> quotes()
             tab=="foryou" -> recommendations()
             else -> {

@@ -93,7 +93,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    val s=1f-.08f*k;h.pivotX=if(d>0)0f else h.width.toFloat();h.pivotY=h.height/2f;h.scaleX=s;h.scaleY=s;h.alpha=1f-.42f*k
    // the card in focus floats higher (deeper shadow); the others sink a little
    cards[i].translationZ=a.d(8)*(1f-k)
-   if(Build.VERSION.SDK_INT>=31){val blur=a.d(2.5f)*k;h.setRenderEffect(if(blur<.5f)null else android.graphics.RenderEffect.createBlurEffect(blur,blur,Shader.TileMode.DECAL))}}}
+   if(Build.VERSION.SDK_INT>=31)h.setRenderEffect(null)}}
 }
 
 /** The book's own cover, softly blurred and veiled, as the card's background (not a CoverView: it is only a backdrop). */
@@ -136,10 +136,11 @@ internal class SheenProgress(private val a:MainActivity,private val fraction:Flo
         p.reset();p.isAntiAlias=true
         p.color=(ink and 0xffffff) or ((if(a.light)0x1a else 0x24) shl 24);c.drawRoundRect(0f,cy-r,w,cy+r,r,r,p)
         if(fraction<=0f)return;val x=(w*fraction).coerceIn(h,w)
-        // soft glow under the filled part, strongest at its end
-        val glow=if(a.light)0xffffa63a.toInt() else 0xfffff0c8.toInt()
-        p.color=(glow and 0xffffff) or ((if(a.light)0x55 else 0x66) shl 24);p.maskFilter=BlurMaskFilter(a.d(4).toFloat(),BlurMaskFilter.Blur.NORMAL)
-        c.drawRoundRect((x-a.d(40)).coerceAtLeast(0f),cy-r,x,cy+r,r,r,p);p.maskFilter=null
+        // soft round glow at the end of the fill (an ellipse fading to nothing — no edges)
+        val glow=if(a.light)0xffffa63a.toInt() else 0xfffff0c8.toInt();val gx=a.d(16).toFloat()
+        c.save();c.translate(x-r,cy);c.scale(1f,.55f)
+        p.shader=RadialGradient(0f,0f,gx,intArrayOf((glow and 0xffffff) or ((if(a.light)0x70 else 0x80) shl 24),(glow and 0xffffff) or ((if(a.light)0x22 else 0x28) shl 24),glow and 0xffffff),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP)
+        c.drawCircle(0f,0f,gx,p);p.shader=null;c.restore()
         // the fill itself: solid, brightening toward the end
         p.color=(ink and 0xffffff) or 0xb3000000.toInt();c.drawRoundRect(0f,cy-r,x,cy+r,r,r,p)
         p.shader=LinearGradient((x-a.d(48)).coerceAtLeast(0f),0f,x,0f,(ink and 0xffffff),(if(a.light)ink else 0xfffffaf0.toInt()),Shader.TileMode.CLAMP);c.drawRoundRect(0f,cy-r,x,cy+r,r,r,p);p.shader=null}
