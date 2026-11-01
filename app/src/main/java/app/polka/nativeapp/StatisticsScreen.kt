@@ -171,7 +171,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             if(!first&&motionOn){body.animate().cancel();body.alpha=0f;body.translationX=direction*a.d(26).toFloat();body.animate().alpha(1f).translationX(0f).setDuration(340).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}
             else{body.alpha=1f;body.translationX=0f}
         }
-        box.addView(segment(listOf("Цель · ${today.year}","${today.year+1}"),if(goalYear==today.year)0 else 1){val next=today.year+it;val direction=if(next>=goalYear)1 else -1;goalYear=next;a.statisticsGoalYear=goalYear;bind(direction)}.apply{minimumHeight=a.d(40)})
+        box.addView(segment(listOf("${today.year}","${today.year+1}"),if(goalYear==today.year)0 else 1){val next=today.year+it;val direction=if(next>=goalYear)1 else -1;goalYear=next;a.statisticsGoalYear=goalYear;bind(direction)}.apply{minimumHeight=a.d(40)})
         space(box,16);box.addView(body);bind(0);add(box)
     }
     private fun booksRead():View {
@@ -191,15 +191,13 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             fun metric(title:String,value:String):LinearLayout {val c=a.column();c.addView(Odometer(a,value,26f,a.fg,true).apply{if(motionOn)set(value,null,true,delay=160)});space(c,2);c.addView(label(title,14f));return c}
             row.addView(metric("Всего за период",duration(total)),if(compact)LinearLayout.LayoutParams(-1,-2)else LinearLayout.LayoutParams(0,-2,1f));if(compact)space(row,14)
             row.addView(metric("В среднем в день",duration(average)),if(compact)LinearLayout.LayoutParams(-1,-2)else LinearLayout.LayoutParams(0,-2,1f));values.addView(row)
-            val todayMinutes=(model.ms(today)/60000L).toInt();if(firstBind&&todayMinutes>0){space(values,10);values.addView(delta("↑ $todayMinutes ${minutesShort(todayMinutes)} сегодня"),LinearLayout.LayoutParams(-2,-2))}
             space(values,14)
             val plot=model.entries.filter { it.first>=model.start(period) };val n=if(period==0)today.dayOfMonth else if(period==1)today.monthValue else minOf(24,max(1,java.time.temporal.ChronoUnit.MONTHS.between(YearMonth.from(model.first ?: today),YearMonth.from(today)).toInt()+1))
             val series=when(period){0->(1..n).map { model.ms(today.withDayOfMonth(it))/60000.0 };1->(1..n).map { month->plot.filter {it.first.monthValue==month}.sumOf { max(0,it.second.optLong("ms")) }/60000.0 };else->(n-1 downTo 0).map { offset->val month=YearMonth.from(today).minusMonths(offset.toLong());plot.filter {YearMonth.from(it.first)==month}.sumOf { max(0,it.second.optLong("ms")) }/60000.0 }}
             val chartLabels=when(period){0->(1..n).map{today.withDayOfMonth(it).format(DateTimeFormatter.ofPattern("d MMMM",ru))};1->(1..n).map{today.withMonth(it).withDayOfMonth(1).format(DateTimeFormatter.ofPattern("LLLL",ru))};else->(n-1 downTo 0).map{YearMonth.from(today).minusMonths(it.toLong()).atDay(1).format(DateTimeFormatter.ofPattern("LLL yyyy",ru))}}
-            val hint=label("",14.5f,a.fg,true).apply{visibility=View.GONE}
-            values.addView(TimeRibbon(a,series,animate,onSelect={i->hint.visibility=View.VISIBLE;hint.text="${chartLabels[i]} · ${duration((series[i]*60000).toLong())}"},accent=violet),LinearLayout.LayoutParams(-1,a.d(88)));space(values,8)
+            // Press and hold a bar: a small bubble with its date and time floats above it; slide to scrub.
+            values.addView(TimeRibbon(a,series,animate,onSelect={},accent=violet,tips=series.indices.map{chartLabels[it] to duration((series[it]*60000).toLong())}),LinearLayout.LayoutParams(-1,a.d(88)));space(values,8)
             val axis=a.line();listOf(chartLabels.first(),chartLabels[chartLabels.size/2],chartLabels.last()).forEachIndexed{i,t->axis.addView(label(t,12f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;gravity=when(i){0->Gravity.START;1->Gravity.CENTER;else->Gravity.END}},LinearLayout.LayoutParams(0,-2,1f))};values.addView(axis);space(values,6)
-            values.addView(hint)
             if(!firstBind&&motionOn){values.alpha=.3f;values.animate().alpha(1f).setDuration(240).start()};firstBind=false
         }
         box.addView(segment(listOf("Месяц","Год","Всё время"),period){period=it;a.profileRange=it;bind()}.apply{minimumHeight=a.d(40)});space(box,14);box.addView(values);bind();add(box)
@@ -270,13 +268,34 @@ internal class ProgressRail(a:MainActivity,animate:Boolean,private val fraction:
     override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val r=h/2f;p.shader=null;p.color=if(a.light)0xffe6e6ea.toInt()else 0xff3a3a3d.toInt();c.drawRoundRect(0f,0f,w,h,r,r,p)
         val f=(fraction*phase).coerceIn(0f,1f);if(f>0f){p.shader=LinearGradient(0f,0f,w,0f,intArrayOf(accent,accent2),null,Shader.TileMode.CLAMP);c.drawRoundRect(0f,0f,max(h,w*f),h,r,r,p);p.shader=null}}
 }
-/** Thin rounded bars: muted for data, one solid accent bar for the selected (or latest) value. */
-internal class TimeRibbon(a:MainActivity,private val values:List<Double>,animate:Boolean,private val speed:Int?=null,private val onSelect:((Int)->Unit)?=null,private val accent:Int?=null):StatsAnimatedView(a,animate){
+/** Thin rounded bars: muted for data, one solid accent bar for the selected (or latest) value.
+ *  With [tips]: press and hold a bar to see a small floating bubble with its label above it; slide to scrub. */
+internal class TimeRibbon(a:MainActivity,private val values:List<Double>,animate:Boolean,private val speed:Int?=null,private val onSelect:((Int)->Unit)?=null,private val accent:Int?=null,private val tips:List<Pair<String,String>>?=null):StatsAnimatedView(a,animate){
     private var selected=-1
     private var touched=-1
-    init{if(onSelect!=null){isClickable=true;isFocusable=true};contentDescription=if(speed==null)values.joinToString("; "){duration((it*60000).toLong())}else "Приблизительная скорость: $speed слов в минуту"}
-    override fun onTouchEvent(e:MotionEvent):Boolean {if(onSelect==null)return super.onTouchEvent(e);if(e.actionMasked==MotionEvent.ACTION_UP){touched=(e.x/width*values.size).toInt().coerceIn(0,values.lastIndex);performClick()};return true}
-    override fun performClick():Boolean {super.performClick();if(values.isNotEmpty()&&onSelect!=null){selected=if(touched>=0)touched else (selected+1)%values.size;touched=-1;onSelect.invoke(selected);invalidate()};return true}
+    private var held=false
+    private var bubble=0f;private var bubbleX=-1f
+    private var bubbleAnim:android.animation.ValueAnimator?=null
+    private var downX=0f;private var downY=0f
+    private val holdTask=Runnable{if(tips!=null&&values.isNotEmpty()){held=true;parent?.requestDisallowInterceptTouchEvent(true);pick(downX,true);showBubble(true)}}
+    private val hideTask=Runnable{showBubble(false)}
+    init{if(onSelect!=null||tips!=null){isClickable=true;isFocusable=true};contentDescription=if(speed==null)values.joinToString("; "){duration((it*60000).toLong())}else "Приблизительная скорость: $speed слов в минуту"}
+    private fun indexAt(x:Float)=(x/width*values.size).toInt().coerceIn(0,values.lastIndex)
+    private fun pick(x:Float,first:Boolean){val i=indexAt(x);if(i!=selected||first){selected=i;if(a.prefs.optBoolean("haptics",true))performHapticFeedback(if(first)HapticFeedbackConstants.LONG_PRESS else HapticFeedbackConstants.CLOCK_TICK);invalidate()}}
+    private fun showBubble(on:Boolean){bubbleAnim?.cancel();val from=bubble;val to=if(on)1f else 0f
+        if(a.prefs.str("motion")=="reduced"){bubble=to;if(!on)selected=-1;invalidate();return}
+        bubbleAnim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=if(on)200 else 220;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{bubble=it.animatedValue as Float;invalidate()};addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(!on){selected=-1;bubbleX=-1f;invalidate()}}});start()}}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(tips!=null){var p=parent as? ViewGroup;var n=0;while(p!=null&&n<4){p.clipChildren=false;p.clipToPadding=false;p=p.parent as? ViewGroup;n++}}}
+    override fun onDetachedFromWindow(){removeCallbacks(holdTask);removeCallbacks(hideTask);bubbleAnim?.cancel();super.onDetachedFromWindow()}
+    override fun onTouchEvent(e:MotionEvent):Boolean {
+        if(tips!=null){when(e.actionMasked){
+            MotionEvent.ACTION_DOWN->{downX=e.x;downY=e.y;removeCallbacks(hideTask);postDelayed(holdTask,(ViewConfiguration.getLongPressTimeout()*.55f).toLong())}
+            MotionEvent.ACTION_MOVE->if(held)pick(e.x,false) else if(kotlin.math.abs(e.x-downX)>a.d(10)||kotlin.math.abs(e.y-downY)>a.d(10))removeCallbacks(holdTask)
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{removeCallbacks(holdTask);if(held){held=false;parent?.requestDisallowInterceptTouchEvent(false);postDelayed(hideTask,1100)}}
+        };return true}
+        if(onSelect==null)return super.onTouchEvent(e);if(e.actionMasked==MotionEvent.ACTION_UP){touched=(e.x/width*values.size).toInt().coerceIn(0,values.lastIndex);performClick()};return true}
+    override fun performClick():Boolean {super.performClick();if(tips==null&&values.isNotEmpty()&&onSelect!=null){selected=if(touched>=0)touched else (selected+1)%values.size;touched=-1;onSelect.invoke(selected);invalidate()};return true}
+    private val tipPaint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c:Canvas){if(values.isEmpty())return;val p=Paint(Paint.ANTI_ALIAS_FLAG);val cell=width.toFloat()/values.size;val maximum=max(1.0,values.maxOrNull() ?: 1.0)
         val ink=accent ?: if(a.light)0xff161617.toInt()else 0xfff3f2ef.toInt();val track=if(a.light)0x16161617 else 0x24ffffff;val data=if(a.light)0x59161617 else 0x73ffffff
         val highlight=if(speed!=null)-1 else if(selected>=0)selected else values.indexOfLast{it>0}
@@ -286,7 +305,25 @@ internal class TimeRibbon(a:MainActivity,private val values:List<Double>,animate
             p.color=track;c.drawRoundRect(x,height-h,x+bar,height.toFloat(),radius,radius,p)
             val active=speed?.let{it>0 && i.toDouble()/values.size<(it/400.0).coerceIn(0.0,1.0)} ?: (v>0)
             if(active){p.color=if(speed!=null||i==highlight)ink else data;c.drawRoundRect(x,height-h*phase,x+bar,height.toFloat(),radius,radius,p)}
+            else if(i==selected&&bubble>0f){p.color=ink;p.alpha=(90*bubble).toInt();c.drawRoundRect(x,height-h,x+bar,height.toFloat(),radius,radius,p);p.alpha=255}
         }
+        // Floating bubble above the held bar.
+        if(tips!=null&&selected in tips.indices&&bubble>0f){val (title,value)=tips[selected];val cx=selected*cell+cell/2f
+            bubbleX=if(bubbleX<0f)cx else bubbleX+(cx-bubbleX)*.45f;if(kotlin.math.abs(bubbleX-cx)>.5f)postInvalidateOnAnimation()
+            tipPaint.textSize=a.d(13).toFloat();tipPaint.typeface=Typeface.create("sans-serif",Typeface.BOLD);val w1=tipPaint.measureText(value)
+            tipPaint.textSize=a.d(11).toFloat();tipPaint.typeface=Typeface.DEFAULT;val w2=tipPaint.measureText(title)
+            val bw=max(w1,w2)+a.d(24);val bh=a.d(44).toFloat();val bx=(bubbleX-bw/2).coerceIn(0f,width-bw);val v=values[selected];val barTop=height-max(a.d(5).toFloat(),(v/maximum*height).toFloat())
+            val by=barTop-bh-a.d(10)
+            c.save();c.translate(0f,a.d(6)*(1f-bubble));val s=.92f+.08f*bubble;c.scale(s,s,bubbleX,by+bh)
+            tipPaint.alpha=255;tipPaint.color=if(a.light)Color.WHITE else 0xff343438.toInt();tipPaint.alpha=(255*bubble).toInt()
+            tipPaint.setShadowLayer(a.d(8).toFloat(),0f,a.d(3).toFloat(),if(a.light)(0x33*bubble).toInt() shl 24 else (0x99*bubble).toInt() shl 24)
+            c.drawRoundRect(bx,by,bx+bw,by+bh,a.d(12).toFloat(),a.d(12).toFloat(),tipPaint);tipPaint.clearShadowLayer()
+            // a small pointer down to the bar
+            val tip=Path();tip.moveTo(bubbleX-a.d(6),by+bh-1);tip.lineTo(bubbleX,by+bh+a.d(6));tip.lineTo(bubbleX+a.d(6),by+bh-1);tip.close();c.drawPath(tip,tipPaint)
+            tipPaint.textAlign=Paint.Align.CENTER;val mid=bx+bw/2
+            tipPaint.color=a.fg;tipPaint.alpha=(255*bubble).toInt();tipPaint.textSize=a.d(13).toFloat();tipPaint.typeface=Typeface.create("sans-serif",Typeface.BOLD);c.drawText(value,mid,by+a.d(19),tipPaint)
+            tipPaint.color=a.muted;tipPaint.alpha=(255*bubble).toInt();tipPaint.textSize=a.d(11).toFloat();tipPaint.typeface=Typeface.DEFAULT;c.drawText(title,mid,by+a.d(35),tipPaint)
+            c.restore()}
     }
 }
 /** Each infographic starts when scrolled into view, once; no looping shimmer or offscreen work. */

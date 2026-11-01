@@ -28,7 +28,7 @@ fun MainActivity.quotes() {
     val group=groups.firstOrNull{it.book.str("id")==quoteBookId};if(quoteBookId!=null && group==null)quoteBookId=null
     val sec=line().apply{tag="quote-header"}
     if(group==null){space(page,8)
-        groups.forEach{g->page.addView(quoteStack(g.book,g.quotes).apply{tag="quote-item"});space(page,22)}
+        groups.forEach{g->page.addView(QuoteFan(this,g.book,g.quotes).apply{tag="quote-item"},LinearLayout.LayoutParams(-1,-2));space(page,22)}
     }else{
         val back=backControl("Цитаты","Назад к цитатам"){openQuoteGroup(null)};sec.addView(back,LinearLayout.LayoutParams(0,d(44),1f));sec.addView(text("${group.quotes.size} ${quoteWord(group.quotes.size)}",14f,muted));page.addView(sec);space(page,16)
         val h=line().apply{tag="quote-header";setOnClickListener{detail(group.book)}};h.addView(CoverView(this,group.book),LinearLayout.LayoutParams(d(52),d(78)));val meta=column().apply{setPadding(d(14),0,0,0)};meta.addView(text(group.book.str("title"),20f,bold=true,serif=true));space(meta,2);meta.addView(text(MainActivity.authors(group.book),14f,muted));h.addView(meta,LinearLayout.LayoutParams(0,-2,1f));page.addView(h);space(page,18)
@@ -45,14 +45,13 @@ internal fun MainActivity.pillSurface(v:View){
     v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,view.height/2f)}}
     if(android.os.Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x22000000 else 0x99000000.toInt();v.outlineSpotShadowColor=if(light)0x33000000 else 0xcc000000.toInt()}
 }
-/** Notice pill with volume: a faint top-lit gradient, a hairline edge and a deep, wide, soft shadow. */
+/** Notice pill in the app's own card colour (the same surface as statistics and quote cards), with a hairline edge and a soft wide shadow. */
 internal fun MainActivity.noticeSurface(v:View){
     v.setPadding(d(10),d(10),d(24),d(10));v.minimumHeight=d(62)
-    val top=if(light)Color.WHITE else 0xff34343a.toInt();val bottom=if(light)0xfff4f4f2.toInt() else 0xff28282c.toInt()
-    v.background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(top,bottom)).apply{cornerRadius=d(200).toFloat();setStroke(d(1),if(light)0x12000000 else 0x1effffff)}
-    v.elevation=d(22).toFloat()
+    v.background=android.graphics.drawable.GradientDrawable().apply{setColor(if(light)Color.WHITE else 0xff242426.toInt());cornerRadius=d(200).toFloat();setStroke(d(1),if(light)0x08000000 else 0x14ffffff)}
+    v.elevation=d(16).toFloat()
     v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,view.height/2f)}}
-    if(android.os.Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x2a000000 else 0xb0000000.toInt();v.outlineSpotShadowColor=if(light)0x3a000000 else 0xdd000000.toInt()}
+    if(android.os.Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();v.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
 }
 internal fun MainActivity.floatCard(v:View,radiusDp:Int=20,color:Int=if(light)Color.WHITE else 0xff242426.toInt(),lift:Int=if(light)8 else 10){
     val r=d(radiusDp).toFloat();v.background=android.graphics.drawable.GradientDrawable().apply{setColor(color);cornerRadius=r};v.elevation=d(lift).toFloat()

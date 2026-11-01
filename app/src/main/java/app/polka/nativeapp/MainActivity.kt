@@ -18,6 +18,8 @@ class MainActivity : Activity() {
     private val cpu=Executors.newFixedThreadPool(2)
     val screenMotion by lazy { ScreenMotion(this) }
     var quoteBookId:String?=null
+    /** Books whose quote piles are open on the «Цитаты» tab (kept across re-renders). */
+    internal val openQuoteStacks=mutableSetOf<String>()
     private var pendingMotion:Pair<MotionPose,Long>?=null
     private val tabScroll=mutableMapOf<String,Int>()
     private val io = Executors.newSingleThreadScheduledExecutor()

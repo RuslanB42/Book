@@ -23,6 +23,7 @@ class ImportNotice(val a:MainActivity,label:String,loading:Boolean=true,kind:Str
     val caption=a.text(label,if(centered)15f else 15f,a.fg,true)
     private val detail=a.text(subtitle,13f,a.muted).apply{visibility=if(subtitle.isBlank())View.GONE else View.VISIBLE;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
     private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val smooth=PathInterpolator(.2f,0f,0f,1f)
     /** Lives above the page (in the window frame), so rebuilding the library underneath never cuts it off. */
     private val host=a.window.decorView as FrameLayout
     init {
@@ -43,10 +44,11 @@ class ImportNotice(val a:MainActivity,label:String,loading:Boolean=true,kind:Str
             val texts=a.column();texts.addView(caption);texts.addView(detail);row.addView(texts,LinearLayout.LayoutParams(-2,-2))
             host.addView(row,FrameLayout.LayoutParams(-2,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{topMargin=a.appInsets.top+a.d(12);leftMargin=a.d(20);rightMargin=a.d(20)})
             if(reduced){row.alpha=1f}else{
-                row.alpha=0f;row.translationY=-a.d(36).toFloat();row.scaleX=.92f;row.scaleY=.92f
-                row.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(520).setInterpolator(OvershootInterpolator(1.15f)).start()
-                badge.scaleX=.4f;badge.scaleY=.4f;badge.animate().scaleX(1f).scaleY(1f).setStartDelay(120).setDuration(480).setInterpolator(OvershootInterpolator(2.4f)).start()
-                if(kind!="loading"){check.progress=0f;check.draw(220)}
+                // One calm settle: slides down a little and grows from 96%, no bounce.
+                row.alpha=0f;row.translationY=-a.d(18).toFloat();row.scaleX=.96f;row.scaleY=.96f
+                row.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(460).setInterpolator(smooth).start()
+                badge.alpha=0f;badge.scaleX=.7f;badge.scaleY=.7f;badge.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(90).setDuration(420).setInterpolator(smooth).start()
+                if(kind!="loading"){check.progress=0f;check.draw(360,220)}
             }
         }
     }
@@ -57,18 +59,30 @@ class ImportNotice(val a:MainActivity,label:String,loading:Boolean=true,kind:Str
         val s=spines ?: run{then();dismiss();return}
         s.merge {
             then()
-            caption.text=result;setDetail(subtitle)
+            if(centered){caption.text=result;setDetail(subtitle)}
             if(centered){row.animate().alpha(0f).translationY(-a.d(14).toFloat()).setStartDelay(260).setDuration(320).withEndAction{(row.parent as? android.view.ViewGroup)?.removeView(row)}.start();return@merge}
-            if(reduced){s.visibility=View.INVISIBLE;disc.setColor(green);check.progress=1f}
-            else{s.animate().alpha(0f).scaleX(.2f).scaleY(.2f).setDuration(180).start()
-                ValueAnimator.ofObject(ArgbEvaluator(),(amber and 0xffffff) or 0x2e000000,green).apply{duration=260;addUpdateListener{disc.setColor(it.animatedValue as Int)};start()}
-                badge.animate().scaleX(1.12f).scaleY(1.12f).setDuration(140).withEndAction{badge.animate().scaleX(1f).scaleY(1f).setDuration(320).setInterpolator(OvershootInterpolator(2f)).start()}.start()
-                check.draw(320,120)}
-            row.postDelayed({dismiss()},1900)
+            if(reduced){s.visibility=View.INVISIBLE;disc.setColor(green);check.progress=1f;caption.text=result;setDetail(subtitle)}
+            else{s.animate().alpha(0f).scaleX(.24f).scaleY(.24f).setDuration(240).setInterpolator(smooth).start()
+                ValueAnimator.ofObject(ArgbEvaluator(),(amber and 0xffffff) or 0x2e000000,green).apply{duration=360;interpolator=smooth;addUpdateListener{disc.setColor(it.animatedValue as Int)};start()}
+                check.draw(380,160)
+                morphText(result,subtitle)}
+            row.postDelayed({dismiss()},2100)
         }
     }
+    /** Text changes melt: the old words fade, the pill eases to its new width, the new words fade in. */
+    private fun morphText(title:String,sub:String){
+        val texts=listOf<View>(caption,detail)
+        texts.forEach{it.animate().alpha(0f).setDuration(150).setInterpolator(smooth).start()}
+        row.postDelayed({
+            if(row.parent==null)return@postDelayed
+            val from=row.width;caption.text=title;setDetail(sub)
+            row.measure(View.MeasureSpec.makeMeasureSpec(host.width,View.MeasureSpec.AT_MOST),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));val to=row.measuredWidth
+            if(from>0&&to>0&&from!=to)ValueAnimator.ofInt(from,to).apply{duration=320;interpolator=smooth;addUpdateListener{row.layoutParams=row.layoutParams.apply{width=it.animatedValue as Int}};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){row.layoutParams=row.layoutParams.apply{width=FrameLayout.LayoutParams.WRAP_CONTENT}}});start()}
+            texts.forEach{it.alpha=0f;it.animate().alpha(1f).setStartDelay(90).setDuration(260).setInterpolator(smooth).start()}
+        },150)
+    }
     fun dismiss() { covers?.let{c->if(c.scatter>0f&&c.isAttachedToWindow)ValueAnimator.ofFloat(c.scatter,0f).apply{duration=420;addUpdateListener{c.scatter=it.animatedValue as Float};start()}}
-        if(reduced)(row.parent as? android.view.ViewGroup)?.removeView(row)else row.animate().alpha(0f).translationY(if(centered)a.d(8).toFloat() else -a.d(24).toFloat()).scaleX(.96f).scaleY(.96f).setDuration(240).setInterpolator(AccelerateInterpolator(1.3f)).withEndAction{(row.parent as? android.view.ViewGroup)?.removeView(row)}.start() }
+        if(reduced)(row.parent as? android.view.ViewGroup)?.removeView(row)else row.animate().alpha(0f).translationY(if(centered)a.d(8).toFloat() else -a.d(14).toFloat()).scaleX(.97f).scaleY(.97f).setDuration(320).setInterpolator(PathInterpolator(.4f,0f,.6f,1f)).withEndAction{(row.parent as? android.view.ViewGroup)?.removeView(row)}.start() }
 }
 
 internal object GradientDrawableCompat { fun circle(color:Int)=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(color)} }

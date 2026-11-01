@@ -24,7 +24,7 @@ internal class LibrarySearchBar(private val a:MainActivity):LinearLayout(a) {
  private val reveal=LiquidSpring{value,_->val f=value.coerceIn(0f,1f);field.alpha=f;field.pivotX=field.width.toFloat();field.scaleX=.94f+.06f*f;revealRect.set((field.width*(1-f)).toInt(),0,field.width,field.height);field.clipBounds=if(f>=.999f)null else revealRect;field.visibility=if(f<=.001f&&!a.searchOpen)View.INVISIBLE else View.VISIBLE}
  private var onToggleChanged:(()->Unit)?=null
  /** On «Мои книги», «Полки» and «Цитаты» the field is always there: a rounded search line fills the top bar. */
- private val persistent=a.tab in setOf("home","shelves","quotes")&&a.shelf==null&&a.auto==null
+ private val persistent=a.tab in setOf("home","shelves","quotes","foryou")&&a.shelf==null&&a.auto==null
  init {
   orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false
   addView(a.icon("user","Профиль"){a.profile()},LayoutParams(a.d(44),a.d(44)))
