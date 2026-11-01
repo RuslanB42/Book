@@ -453,7 +453,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     private fun releaseCurl(commit:Boolean,vx:Float=0f){
         released=commit;releaseVelocity=vx;if(curl==null)return
-        if(commit){commitTarget();revealPage()}else animateCurl(false)
+        if(commit){commitTarget();animateCurl(true)}else animateCurl(false)
     }
     private fun revealPage(){
         if(curl==null)return
@@ -468,13 +468,22 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val overlay=curl?:return;turnClock?.removeAllListeners();turnClock?.cancel()
         val start=overlay.progress;val end=if(commit)1f else 0f
         if(a.prefs.str("motion")=="reduced"){overlay.pose(end,dragY+scroll.top);completeCurl(commit);return}
-        val remaining=abs(end-start)
-        // A release keeps the finger's speed (no slow-down or jump after letting go); a tap turns in one even, hand-like stroke.
-        val speed=abs(releaseVelocity).coerceIn(scroll.width*1.2f,scroll.width*2.6f)
-        val flight=(remaining*scroll.width*1.2f/speed*1000f).toLong().coerceIn(if(commit)260L else 220L,440L)
-        turnClock=android.animation.ValueAnimator.ofFloat(start,end).apply{duration=if(gestureTurn)flight else 520L;interpolator=if(gestureTurn)android.view.animation.PathInterpolator(.25f,.46f,.3f,1f) else android.view.animation.PathInterpolator(.42f,0f,.16f,1f)
+        val remaining=abs(end-start).coerceAtLeast(.001f)
+        // After a release the sheet must leave at exactly the finger's speed and then settle: a cubic whose start slope
+        // equals the release velocity (in page-widths per second) and whose end slope is zero. No jump, no stall.
+        val towardEnd=((-releaseVelocity*touchDirection/scroll.width.coerceAtLeast(1))*(if(commit)1f else -1f)).coerceAtLeast(0f)
+        val flight=if(towardEnd>0f)(1.6f*remaining/towardEnd*1000f).toLong().coerceIn(200L,520L) else (remaining*560f).toLong().coerceIn(220L,480L)
+        val slope=(towardEnd*flight/1000f/remaining).coerceIn(0f,2.6f)
+        turnClock=android.animation.ValueAnimator.ofFloat(start,end).apply{duration=if(gestureTurn)flight else 520L;interpolator=if(gestureTurn)android.animation.TimeInterpolator{u->slope*u+(3f-2f*slope)*u*u+(slope-2f)*u*u*u} else android.view.animation.PathInterpolator(.42f,0f,.16f,1f)
             addUpdateListener{overlay.pose(it.animatedValue as Float,dragY+scroll.top)}
-            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(anim:android.animation.Animator){completeCurl(commit)}});start()}
+            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(anim:android.animation.Animator){whenPageReady{completeCurl(commit)}}});start()}
+    }
+    private fun whenPageReady(done:()->Unit){
+        if(!body.isLayoutRequested&&body.layout!=null&&body.layout.text.toString()==body.text.toString()){done();return}
+        val o=view.viewTreeObserver;o.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
+            if(disposed){if(o.isAlive)o.removeOnPreDrawListener(this);return true}
+            if(body.isLayoutRequested||body.layout==null){view.postInvalidateOnAnimation();return true}
+            if(o.isAlive)o.removeOnPreDrawListener(this);done();return true}});view.postInvalidateOnAnimation()
     }
     private var cachedCurrent:Pair<String,android.graphics.Bitmap>?=null;private var arrivingKey:Pair<String,android.graphics.Bitmap>?=null
     private fun completeCurl(commit:Boolean){if(commit)cachedCurrent=arrivingKey;arrivingKey=null;val done=selectionTurnDone;selectionTurnDone=null;stopPageMotion();if(commit){handler.removeCallbacks(saveTask);handler.post(saveTask)};warmSnapshot();done?.invoke(commit)}
