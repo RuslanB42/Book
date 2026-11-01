@@ -168,8 +168,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     }
     private fun booksRead():View {
         val box=surface();header(box,"Прочитано книг","book",mint,true);space(box,12)
-        box.addView(count(model.countYear(today.year),34f));space(box,2);box.addView(label("за этот год",14f))
-        model.countMonth(YearMonth.from(today)).let{if(it>0){space(box,8);box.addView(delta("+$it за месяц"),LinearLayout.LayoutParams(-2,-2))}};space(box,12)
+        box.addView(count(model.countYear(today.year),34f));space(box,2);box.addView(label("за этот год",14f));space(box,12)
         for((i,pair) in listOf("За месяц" to model.countMonth(YearMonth.from(today)),"За всё время" to model.finished.size).withIndex()){
             box.addView(View(a).apply{setBackgroundColor(if(light)0x0f000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,a.d(1)))
             val row=a.line().apply{setPadding(0,a.d(10),0,a.d(if(i==1)0 else 10))};row.addView(label(pair.first,14f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${pair.second}",17f,a.fg,true));box.addView(row)

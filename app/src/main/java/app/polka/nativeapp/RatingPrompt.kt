@@ -62,9 +62,7 @@ internal class RatingPrompt(private val a:MainActivity,private val book:JSONObje
     private fun choose(n:Int) {
         rated(n);removeCallbacks(closeTask)
         hint.text=when{n>=5->"Великолепно!";n==4->"Здорово, спасибо!";n==3->"Спасибо за оценку";else->"Спасибо, учтём"}
-        if(!reduced)for(i in 0 until n){val s=stars.getChildAt(i)
-            s.animate().cancel();s.animate().scaleX(1.28f).scaleY(1.28f).setStartDelay(i*70L).setDuration(140).withEndAction{s.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(220).start()}.start()}
-        postDelayed(closeTask,if(reduced)350L else 1000L)
+        postDelayed(closeTask,if(reduced)350L else 1200L)
     }
 
     fun dismiss() {

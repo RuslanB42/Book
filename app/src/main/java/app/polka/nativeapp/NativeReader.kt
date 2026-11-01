@@ -158,6 +158,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             override fun onSingleTapConfirmed(e:MotionEvent):Boolean {
                 if(touchHeld||quoteSelection.active)return true
                 if(openPageLink(e.x,e.y))return true
+                if(e.x in body.width*.25f..body.width*.75f&&!isTurning()){quoteAt(selectionOffset(e.x,e.y))?.let{quoteSelection.select(it.second);return true}}
                 if(e.x<body.width*.25f)turn(-1)else if(e.x>body.width*.75f)turn(1)else toggleChrome();return true
             }
         }
@@ -290,7 +291,23 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     /** The day's goal was just reached: celebrate it on top of the page, clear of the status bar. */
     private fun showStreak(n:Int,week:BooleanArray,today:Int){a.streakCelebration?.dismiss();StreakCelebration(a,view,n,week,today).show()}
-    fun addQuote(start:Int,end:Int,text:String) { val quotes=book.optJSONArray("quotes") ?: JSONArray(); if(quotes.objects().none { it.optInt("ch")==chapter && it.str("text")==text }) quotes.put(JSONObject().put("id",uid()).put("ch",chapter).put("start",start).put("end",end).put("block",0).put("text",text).put("rawText",text).put("at",System.currentTimeMillis())); book.put("quotes",quotes); val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) }; persist() }
+    private val quoteInk=0x44f0a742
+    /** Saved quotes of the current chapter with where they sit in its text. */
+    internal fun quoteRanges():List<Pair<JSONObject,IntRange>> { val text=chapterRich.toString(); return book.optJSONArray("quotes")?.objects().orEmpty().filter { it.optInt("ch")==chapter }.mapNotNull { q -> TextAnchors.locate(text,q.str("rawText",q.str("text")),q.optInt("start"))?.let { q to it } } }
+    internal fun quoteAt(offset:Int)=quoteRanges().firstOrNull { offset in it.second }
+    /** The saved quote that the selection mostly covers (or that covers it), if any. */
+    internal fun quoteOverlapping(start:Int,end:Int):Pair<JSONObject,IntRange>? = quoteRanges().map { it to (minOf(end,it.second.last+1)-maxOf(start,it.second.first)) }.filter { it.second>0 && it.second*2>=minOf(end-start,it.first.second.last+1-it.first.second.first) }.maxByOrNull { it.second }?.first
+    /** Marks the quote in place: the page's text, line breaks and position stay exactly as they are. */
+    fun addQuote(start:Int,end:Int,text:String) { val quotes=book.optJSONArray("quotes") ?: JSONArray(); if(quotes.objects().none { it.optInt("ch")==chapter && it.str("text")==text }) quotes.put(JSONObject().put("id",uid()).put("ch",chapter).put("start",start).put("end",end).put("block",0).put("text",text).put("rawText",text).put("at",System.currentTimeMillis())); book.put("quotes",quotes)
+        val rich=chapterRich as? android.text.Spannable
+        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.setSpan(android.text.style.BackgroundColorSpan(quoteInk),start.coerceIn(0,rich.length),end.coerceIn(0,rich.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); repaintMarks() }
+        persist() }
+    fun removeQuote(quote:JSONObject,range:IntRange) { val quotes=book.optJSONArray("quotes")?.objects().orEmpty().filterNot { it.str("id")==quote.str("id") }; book.put("quotes",JSONArray(quotes))
+        val rich=chapterRich as? android.text.Spannable
+        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.getSpans(range.first,range.last+1,android.text.style.BackgroundColorSpan::class.java).filter { rich.getSpanStart(it)==range.first && rich.getSpanEnd(it)==range.last+1 }.forEach { rich.removeSpan(it) }; repaintMarks() }
+        persist() }
+    /** Same page, same breaks: only the page text is re-set so the new marks show; stale page pictures are dropped. */
+    private fun repaintMarks() { cachedCurrent=null; cachedNext=null; previewPages.clear(); body.text=pageText(chapterRich,pageStarts,pageIndex); quoteSelection.invalidate(); warmSnapshot() }
     fun addNote(selected:String="") { val input=EditText(a).apply { setTextColor(a.fg); setHintTextColor(a.muted); setPadding(a.d(24),a.d(16),a.d(24),a.d(16)); minLines=3; hint="Заметка" }; a.dialog().setTitle("Заметка").setView(input).setNegativeButton("Отмена",null).setPositiveButton("Сохранить") { _,_ -> if(input.text.isNotBlank()) { val notes=book.optJSONArray("notes") ?: JSONArray(); notes.put(JSONObject().put("id",uid()).put("ch",chapter).put("text",input.text.toString()).put("quote",selected).put("at",System.currentTimeMillis())); book.put("notes",notes); persist() } }.show() }
     private var pulling=false;private var pullZone=false;private var pullReached=false
     /** Pulling down anywhere on the page draws the ribbon out on the right: past the threshold the bookmark is added (or removed if the page already has one). */

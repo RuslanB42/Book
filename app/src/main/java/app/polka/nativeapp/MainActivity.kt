@@ -65,7 +65,8 @@ class MainActivity : Activity() {
     internal var streakCelebration:StreakCelebration?=null
     internal var freshBookIds=mutableSetOf<String>()
     internal var floatingCovers:FloatingCovers?=null
-    private var freshPop=0
+    /** Set by add/delete: the next render animates the grid from its old layout. */
+    internal var gridMotion=false
     internal var bookCalendar:BookCalendarDialog?=null
     var pendingCalendarImage:File?=null
     var profileOverlay:View?=null
@@ -172,6 +173,7 @@ class MainActivity : Activity() {
         if(shelfReorder!=null || recommendationExpansion?.isShowing==true || bookDetailSheet?.isShowing==true){renderDeferred=true;return}
         renderDeferred=false
         val oldY=if(preservePosition && ::scroll.isInitialized) scroll.scrollY else 0
+        val gridSnap=if(gridMotion && ::scroll.isInitialized && root.width>0) { gridMotion=false; captureGrid(books.map { it.str("id") }.toSet()) } else { gridMotion=false; null }
         val overlay=profileOverlay
         screenMotion.stop(); root.removeAllViews(); root.setBackgroundColor(bg)
         if(!preparingBookReturn){ReaderWindow.configure(window,false,bg); root.requestApplyInsets()}
@@ -184,7 +186,7 @@ class MainActivity : Activity() {
         space(page,20)
         page=col().apply{clipChildren=false;clipToPadding=false};wrapper.addView(page,LinearLayout.LayoutParams(-1,-2))
         renderLibraryResults()
-        navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; if(preservePosition) scroll.post { scroll.scrollTo(0,oldY) }; val motion=pendingMotion;pendingMotion=null;if(motion!=null)screenMotion.play(page,motion.first,motion.second) else if(animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),450,curve=MotionSpec.settle)
+        navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; if(preservePosition) scroll.post { scroll.scrollTo(0,oldY) }; gridSnap?.let { playGrid(it,if(preservePosition) oldY else null) }; val motion=pendingMotion;pendingMotion=null;if(gridSnap==null){if(motion!=null)screenMotion.play(page,motion.first,motion.second) else if(animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),450,curve=MotionSpec.settle)}
     }
     internal fun searchBooks():List<JSONObject> {val q=query.trim();return (if(tab=="home")homeBooks()else books).filter{(it.str("title")+" "+authors(it)+" "+it.str("series")+" "+it.str("shelf")).contains(q,true)}.sortedByDescending{maxOf(it.optLong("openedAt"),it.optLong("addedAt"))}}
     internal fun renderLibraryResults(){
@@ -234,9 +236,7 @@ class MainActivity : Activity() {
             clipChildren=false;clipToPadding=false
             addView(CoverView(this@MainActivity,book,cover(book)),LinearLayout.LayoutParams(-1,-2))
             space(this,16); addView(text(book.str("title"),15f).apply { maxLines=2; ellipsize=android.text.TextUtils.TruncateAt.END }); space(this,4); addView(text(authors(book),14f,muted).apply { maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END }); if((book.optJSONObject("progress")?.optDouble("pct") ?: 0.0)>0) { space(this,12); progressRow(this,book,true) }
-            setOnClickListener { detail(book,this) }; contentDescription="${book.str("title")}, ${authors(book)}"
-            if(freshBookIds.remove(book.str("id")) && prefs.str("motion")!="reduced") { val order=freshPop++; alpha=0f; scaleX=.82f; scaleY=.82f; translationY=d(18).toFloat(); pivotY=0f
-                animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setStartDelay(140L+order*70L).setDuration(560).setInterpolator(android.view.animation.PathInterpolator(.2f,1.25f,.36f,1f)).withEndAction{ freshPop=0 }.start() }
+            setOnClickListener { detail(book,this) }; contentDescription="${book.str("title")}, ${authors(book)}"; tag="grid:"+book.str("id")
         } }
         val cols=columns();val gap=d(24);val paint=android.text.TextPaint().apply { textSize=15*resources.displayMetrics.scaledDensity;typeface=Typeface.DEFAULT }
         val virtual=VirtualGrid(this,list.size,cols,gap,d(30),{ row,w -> val batch=list.subList(row*cols,minOf(list.size,(row+1)*cols)); val lines=batch.maxOfOrNull { if(paint.measureText(it.str("title"))>w)2 else 1 } ?: 1
@@ -393,12 +393,12 @@ class MainActivity : Activity() {
             16 -> data.data?.let { uri -> val spec=pendingExport ?: return; work({ val bytes=BookExport.build(library,spec.first,spec.second); contentResolver.openOutputStream(uri,"wt")!!.use { it.write(bytes) } }) }
             10,14 -> {
                 val uris=if(data.clipData!=null) (0 until data.clipData!!.itemCount).map { data.clipData!!.getItemAt(it).uri } else listOfNotNull(data.data)
-                importDialog=ImportNotice(this,"Добавляю книгу…")
+                importDialog=ImportNotice(this,if(requestCode==14) "Прикрепляю файл…" else "Добавляю книгу…")
                 val target=if(requestCode==14) attachId else null
                 work({
                     val parsed=mutableListOf<Imported>(); val errors=mutableListOf<String>(); val existing=library.allBooks(); var mismatch=""
                     uris.forEachIndexed { i,uri -> try {
-                        runOnUiThread { importDialog?.setMessage(if(uris.size==1) "Добавляю книгу…" else "Добавляю книги"); if(uris.size>1) importDialog?.setDetail("${i+1} из ${uris.size}") }
+                        runOnUiThread { if(requestCode!=14) importDialog?.setMessage(if(uris.size==1) "Добавляю книгу…" else "Добавляю книги"); if(uris.size>1) importDialog?.setDetail("${i+1} из ${uris.size}") }
                         val name=fileName(uri); var item=BookParser.parse(readLimited(uri),name)
                         val old=if(target!=null) existing.firstOrNull { it.str("id")==target } else existing.firstOrNull { it.optBoolean("noFile") && it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) }
                         if(old!=null) {
@@ -414,7 +414,7 @@ class MainActivity : Activity() {
                         fun commit(loader:ImportNotice?) { work({ if(target!=null && parsed.isNotEmpty()) ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); if(parsed.isNotEmpty()) library.importBooks(parsed); loadData() },{ loader?.dismiss() }) {
                             val result=if(target!=null&&parsed.isNotEmpty())"Файл прикреплён" else if(parsed.isEmpty()) "Книги не добавлены" else "Добавлено книг: ${parsed.size}"
                             if(target==null) freshBookIds.addAll(parsed.map { it.book.str("id") })
-                            val show={ reader=null; refreshBookViews(target) { render() }; root.postDelayed({ freshBookIds.clear() },1500); checkpointSoon()
+                            val show={ reader=null; gridMotion=true; refreshBookViews(target) { render(true,false) }; root.postDelayed({ freshBookIds.clear() },1500); checkpointSoon()
                                 if(errors.isNotEmpty()) dialog().setTitle("Не добавлены файлы").setMessage(errors.joinToString("\n\n")).setPositiveButton("Закрыть",null).show() }
                             if(loader!=null) loader.finish(result) { show() } else { show(); val resultNotice=ImportNotice(this,result,false); android.os.Handler(mainLooper).postDelayed({ resultNotice.dismiss() },2400) }
                         } }

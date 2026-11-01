@@ -18,15 +18,19 @@ class ImportNotice(val a:MainActivity,label:String,loading:Boolean=true) {
     val caption=a.text(label,if(centered)15f else 14f,a.fg,centered)
     private val detail=a.text("",13f,a.muted).apply{visibility=View.GONE}
     private val reduced get()=a.prefs.str("motion")=="reduced"
+    /** Lives above the page (in the window frame), so rebuilding the library underneath never cuts it off. */
+    private val host=a.window.decorView as FrameLayout
     init {
         spines?.let{if(centered){row.addView(it);a.space(row,18)}else{it.scaleX=.42f;it.scaleY=.42f;row.addView(FrameLayout(a).apply{clipChildren=false;addView(it,FrameLayout.LayoutParams(-2,-2,Gravity.CENTER))},LinearLayout.LayoutParams(a.d(56),a.d(34)).apply{marginEnd=a.d(8)})}}
         val texts=if(centered)row else a.column().also{row.addView(it)}
         texts.addView(caption);if(centered){caption.gravity=Gravity.CENTER;a.space(texts,4)};texts.addView(detail)
-        if(centered){val c=covers!!;val at=IntArray(2);val rootAt=IntArray(2);c.getLocationInWindow(at);a.root.getLocationInWindow(rootAt)
-            a.root.addView(row,FrameLayout.LayoutParams(-1,-2,Gravity.TOP).apply{topMargin=at[1]-rootAt[1]+c.height/2-a.d(60)})
+        if(centered){val c=covers!!;val at=IntArray(2);val rootAt=IntArray(2);c.getLocationInWindow(at);host.getLocationInWindow(rootAt)
+            host.addView(row,FrameLayout.LayoutParams(-1,-2,Gravity.TOP).apply{topMargin=at[1]-rootAt[1]+c.height/2-a.d(60)})
             if(reduced)c.scatter=1f else android.animation.ValueAnimator.ofFloat(c.scatter,1f).apply{duration=560;interpolator=PathInterpolator(.3f,0f,.2f,1f);addUpdateListener{c.scatter=it.animatedValue as Float};start()}}
-        else a.root.addView(row,FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin=a.d(90) })
-        row.alpha=0f;if(!centered)row.translationY=a.d(10).toFloat();row.animate().alpha(1f).translationY(0f).setStartDelay(if(centered)180L else 0L).setDuration(if(centered)360L else 260L).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
+        // At the top, clear of the status bar and well away from the bottom navigation.
+        else host.addView(row,FrameLayout.LayoutParams(-2,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin=a.appInsets.top+a.d(10) })
+        row.elevation=a.d(30).toFloat()
+        row.alpha=0f;if(!centered)row.translationY=-a.d(24).toFloat();row.animate().alpha(1f).translationY(0f).setStartDelay(if(centered)180L else 0L).setDuration(if(centered)360L else 260L).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
     }
     fun setMessage(value:String) { caption.text=value }
     fun setDetail(value:String) { detail.text=value; detail.visibility=if(value.isBlank())View.GONE else View.VISIBLE }
@@ -41,5 +45,5 @@ class ImportNotice(val a:MainActivity,label:String,loading:Boolean=true) {
         }
     }
     fun dismiss() { covers?.let{c->if(c.scatter>0f&&c.isAttachedToWindow)android.animation.ValueAnimator.ofFloat(c.scatter,0f).apply{duration=420;addUpdateListener{c.scatter=it.animatedValue as Float};start()}}
-        if(reduced)(row.parent as? android.view.ViewGroup)?.removeView(row)else row.animate().alpha(0f).translationY(a.d(8).toFloat()).setDuration(180).withEndAction{(row.parent as? android.view.ViewGroup)?.removeView(row)}.start() }
+        if(reduced)(row.parent as? android.view.ViewGroup)?.removeView(row)else row.animate().alpha(0f).translationY(if(centered)a.d(8).toFloat() else -a.d(20).toFloat()).setDuration(220).withEndAction{(row.parent as? android.view.ViewGroup)?.removeView(row)}.start() }
 }

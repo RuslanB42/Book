@@ -135,12 +135,17 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   collapseQuotes={cards->collapseQuotesImpl(cards)}
   updates.add{val key=(book.optJSONArray("quotes")?.toString()?:"[]")+(book.optJSONArray("notes")?.toString()?:"[]");if(key!=quoteKey){quoteKey=key;renderQuotes()}}
   val feedback=section(18);val feedbackBody=insetCard();feedback.addView(feedbackBody);var feedbackKey=""
-  updates.add{val key="${book.optInt("rating")}";if(key!=feedbackKey){feedbackKey=key;feedbackBody.removeAllViews();feedbackBody.addView(a.text("Ваша оценка",12f,a.muted));feedbackBody.addView(a.ratingStars(book){n->book.put("rating",n);a.saveBook(book){}})}}
+  updates.add{val key="${book.optInt("rating")}";if(key!=feedbackKey){feedbackKey=key;feedbackBody.removeAllViews();feedbackBody.addView(a.text("Ваша оценка",12f,a.muted));feedbackBody.addView(a.ratingStars(book){n->book.put("rating",n);feedbackKey="$n";a.saveBook(book){}})}}
   val info=section(18);val infoBody=insetCard();info.addView(infoBody);var infoKey=""
   updates.add{val rows=mutableListOf<Pair<String,String>>();if(book.str("series").isNotBlank())rows.add("Серия" to (book.str("series")+if(book.optDouble("seriesNo",0.0)>0)" · ${book.str("seriesNo")}" else ""));book.optJSONArray("genres")?.strings()?.takeIf{it.isNotEmpty()}?.let{rows.add("Жанры" to it.joinToString(", "))};if(book.optInt("year")!=0)rows.add("Год" to book.optInt("year").toString());if(book.str("lang").isNotBlank())rows.add("Язык" to when(book.str("lang")){"ru"->"Русский";"en"->"Английский";else->book.str("lang").uppercase()});rows.add("Файл" to if(book.optBoolean("noFile"))"Ещё не добавлен" else book.str("format").uppercase()+if(book.optLong("size")>0)" · ${book.optLong("size")/1024} КБ" else "");if(book.optLong("addedAt")>0)rows.add("Добавлена" to java.text.SimpleDateFormat("d MMM yyyy",java.util.Locale("ru")).format(java.util.Date(book.optLong("addedAt"))));if(book.optInt("edits")>0)rows.add("Правки текста" to "${book.optInt("edits")} сохранений");val key=rows.toString();if(key!=infoKey){infoKey=key;infoBody.removeAllViews();rows.forEachIndexed{i,(label,value)->if(i>0)divider(infoBody);val row=a.line();row.addView(a.text(label,13f,a.muted),LinearLayout.LayoutParams(0,-2,.35f));row.addView(a.text(value,14f).apply{gravity=Gravity.END;setPadding(a.d(12),0,0,0)},LinearLayout.LayoutParams(0,-2,.65f));infoBody.addView(row)}}}
   a.followInsets(this){i->panel.layoutParams=(panel.layoutParams as LayoutParams).apply{topMargin=a.d(48)+i.top};content.setPadding(0,0,0,a.d(28)+i.bottom);top.setPadding(a.d(12)+i.left,a.d(18),a.d(12)+i.right,0);main.setPadding(a.d(20)+i.left,0,a.d(20)+i.right,0)}
   a.prefetchContent(book)
-  updates.forEach{it()};a.observeBook(this,book.str("id")){fresh->replaceJson(book,fresh);updates.forEach{it()};heroCover.invalidate();heroGlow.refresh()}
+  updates.forEach{it()};a.observeBook(this,book.str("id")){fresh->val coverChanged=book.optJSONObject("cover")?.toString()!=fresh.optJSONObject("cover")?.toString()
+   // Sections that appear, disappear or change height move smoothly instead of snapping.
+   if(!reduced()&&isShowing&&!closing)android.transition.TransitionManager.beginDelayedTransition(content,android.transition.AutoTransition().apply{duration=360;interpolator=PathInterpolator(.2f,0f,0f,1f);ordering=android.transition.TransitionSet.ORDERING_TOGETHER})
+   replaceJson(book,fresh);updates.forEach{it()}
+   if(coverChanged&&!reduced()&&isShowing){heroCover.animate().cancel();heroCover.animate().alpha(.25f).scaleX(.96f).scaleY(.96f).setDuration(140).withEndAction{heroCover.invalidate();heroGlow.refresh();heroCover.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(380).setInterpolator(android.view.animation.OvershootInterpolator(1.4f)).start()}.start()}
+   else{heroCover.invalidate();heroGlow.refresh()}}
   val id=book.str("id");val chIndex=book.optJSONObject("progress")?.optInt("ch")?:0;var detailStats=Triple(0L,190.0,Pair(0,""))
   a.work({val stats=a.library.dao.meta("stats")?.let{JSONObject(it.json).optJSONObject("data")};val total=stats?.optJSONObject("books")?.optJSONObject(id)?.optLong("ms")?:0;val days=stats?.optJSONObject("days");var ms=0L;var chars=0L;days?.keys()?.forEach{k->val d=days.optJSONObject(k);ms+=d?.optLong("ms")?:0;chars+=d?.optLong("chars")?:0};val speed=if(ms>0)chars/5.0/(ms/60000.0)else 190.0;val chapters=a.chapterIndex(book);detailStats=Triple(total,if(speed in 60.0..900.0)speed else 190.0,Pair(chapters?.objects()?.sumOf{it.optInt("len")}?:0,chapters?.optJSONObject(chIndex)?.str("title").orEmpty()))}){if(isShowing){spent=detailStats.first;readSpeed=detailStats.second;if(detailStats.third.first>0)book.put("chars",detailStats.third.first);chapterTitle=detailStats.third.second;updates.forEach{it()}}}
  }
@@ -215,6 +220,12 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  }
  private fun clearFlight(){heroGlow.alpha=1f;heroGlow.translationX=0f;heroGlow.translationY=0f;heroGlow.scaleX=1f;heroGlow.scaleY=1f;flight?.let{removeView(it)};flight=null;originCover?.visibility=View.VISIBLE;heroCover.visibility=View.VISIBLE}
  fun dismiss(){if(closing||ended)return;closing=true;freezeMotion();if(reduced()||!begun){finish();return};if(flight==null)setupFlight();animateTo(0f)}
+ val bookId get()=book.str("id")
+ /** The book is gone (deleted): no cover flight back to the grid; the sheet sinks away, the cover shrinks out with it. */
+ fun discard(){if(closing||ended)return;closing=true;freezeMotion();clearFlight();if(reduced()){finish();return}
+  val start=presentation;clock=ValueAnimator.ofFloat(0f,1f).apply{duration=380;interpolator=PathInterpolator(.4f,0f,.2f,1f)
+   addUpdateListener{val t=it.animatedValue as Float;panel.translationY=panel.height*(1-start*(1-t));scrim.alpha=start*(1-t);heroCover.alpha=1f-t;heroCover.scaleX=1f-.2f*t;heroCover.scaleY=heroCover.scaleX}
+   addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){finish()}});start()}}
  fun finish(){if(ended)return;ended=true;freezeMotion();clearFlight();(parent as? ViewGroup)?.removeView(this);if(a.bookDetailSheet===this)a.bookDetailSheet=null;a.flushDeferredRender()}
  override fun onDetachedFromWindow(){freezeMotion();clearFlight();if(a.bookDetailSheet===this)a.bookDetailSheet=null;super.onDetachedFromWindow()}
 }
