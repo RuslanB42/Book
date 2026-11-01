@@ -41,7 +41,9 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         synchronized(ch){if(!ch.has("html")){ch.put("html",ChapterStore.html(a.filesDir,book.str("id"),i)?:run{fillAllFromDatabase();ch.optString("html")})};return ch.str("html")}
     }
     private fun fillAllFromDatabase(){
-        val all=a.library.dao.content(book.str("id"))?.let{JSONObject(it.json).optJSONArray("chapters")}?:return
+        // The database refuses main-thread queries; this rare fallback (copy missing) reads on a worker and waits.
+        val read={a.library.dao.content(book.str("id"))?.let{JSONObject(it.json).optJSONArray("chapters")}}
+        val all=(if(Looper.myLooper()==Looper.getMainLooper())runCatching{java.util.concurrent.CompletableFuture.supplyAsync(read).get()}.getOrNull() else read())?:return
         for(k in 0 until minOf(all.length(),chapters.length())){val ch=chapters.getJSONObject(k);if(!ch.has("html"))ch.put("html",all.getJSONObject(k).str("html"))}
     }
     /** Before writing the whole text back (page edit), every chapter must be in memory. */
