@@ -87,7 +87,8 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
         c.save();c.translate(nx*band*.25f,ny*band*.25f);c.clipPath(backPath);paint.shader=shade(cast,-band*2,band);c.drawRect(0f,0f,w,h,paint);paint.shader=null;c.restore()
         var v=0
         for(row in 0..ROWS)for(col in 0..COLS){val x=w*col/COLS;val y=h*row/ROWS;val d=(x-ax)*nx+(y-ay)*ny
-            fun place(dd:Float,out:FloatArray){val off=when{dd<=0f->0f;r<1f->-2*dd;dd<2*half->-dd+r*sin(dd/r);else->-(2*dd-2*half)};out[v]=x+nx*off;out[v+1]=y+ny*off}
+            // proj: where a point at roll-distance dd ends up along n (flat front, around the roll, then lying flat on its back)
+            fun place(dd:Float,out:FloatArray){val proj=when{dd<=0f->dd;r<1f->-dd;dd<2*half->r*sin(dd/r);else->2*half-dd};val off=-d+proj;out[v]=x+nx*off;out[v+1]=y+ny*off}
             val dF=min(d,half);place(dF,mesh);val dB=max(d,half);place(dB,backMesh)
             val vi=v/2
             // light: the front darkens as it turns away toward the top of the roll; the back is grey on the roll, bright when flat
