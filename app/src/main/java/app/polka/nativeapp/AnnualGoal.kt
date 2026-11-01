@@ -31,12 +31,11 @@ internal class GoalGlowBar(a:MainActivity,animate:Boolean,private val fraction:F
         p.style=Paint.Style.FILL;c.restore()
         val f=(fraction*phase).coerceIn(0f,1f);if(f<=0f)return
         val right=x0+(w*f).coerceAtLeast(barH*1.4f).coerceAtMost(w)
-        // the card's own icon colour: deeper at the start, lighter toward the head
-        val c1=androidx.core.graphics.ColorUtils.blendARGB(tint,Color.BLACK,.18f);val c3=androidx.core.graphics.ColorUtils.blendARGB(tint,Color.WHITE,.35f)
-        // a wide, soft glow (diffuse, not a hot halo)
-        p.color=(tint and 0xffffff) or ((if(light)0x40 else 0x5c) shl 24);p.maskFilter=BlurMaskFilter(a.d(15).toFloat(),BlurMaskFilter.Blur.NORMAL)
-        c.drawRoundRect(x0+a.d(4),top+a.d(1),right-a.d(2),bottom+a.d(3),r,r,p);p.maskFilter=null
-        p.shader=LinearGradient(x0,0f,right,0f,intArrayOf(c1,tint,c3),floatArrayOf(0f,.6f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(x0,top,right,bottom,r,r,p)
+        // exactly the icon's colour, brightening toward the head — vivid, not dimmed
+        val head=androidx.core.graphics.ColorUtils.blendARGB(tint,Color.WHITE,.28f)
+        p.color=(tint and 0xffffff) or ((if(light)0x60 else 0x8c) shl 24);p.maskFilter=BlurMaskFilter(a.d(12).toFloat(),BlurMaskFilter.Blur.NORMAL)
+        c.drawRoundRect(x0+a.d(3),top,right-a.d(1),bottom+a.d(2),r,r,p);p.maskFilter=null
+        p.shader=LinearGradient(x0,0f,right,0f,intArrayOf(tint,tint,head),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(x0,top,right,bottom,r,r,p)
         // glossy top light and a hot spot at the head
         p.shader=LinearGradient(0f,top,0f,bottom,intArrayOf(0x66ffffff,0x18ffffff,0x00ffffff),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(x0+a.d(2),top+a.d(1.5f),right-a.d(2),top+barH*.58f,r*.7f,r*.7f,p)
         p.shader=RadialGradient(right-r,top+r,r*1.6f,intArrayOf(0x70fff6ee,0x00fff6ee),null,Shader.TileMode.CLAMP);c.drawCircle(right-r,top+r,r*1.6f,p)
@@ -63,7 +62,7 @@ internal class YearBooks(private val a:MainActivity,private val books:List<Pair<
     private fun cover(book:JSONObject):View{val box=AspectBox(a);val rating=book.optInt("rating")
         fun put(b:Bitmap?){box.removeAllViews();box.addView(CoverView(a,book,b).apply{softShadow=true},FrameLayout.LayoutParams(-1,-1))
             // your rating as a small medal pinned to the cover's corner
-            if(rating>0)box.addView(RatingMedal(a,rating),FrameLayout.LayoutParams(a.d(34),a.d(34),Gravity.BOTTOM or Gravity.END).apply{rightMargin=-a.d(8);bottomMargin=-a.d(6)})}
+            if(rating>0)box.addView(RatingMedal(a,rating),FrameLayout.LayoutParams(-2,-2,Gravity.TOP or Gravity.END).apply{rightMargin=a.d(5);topMargin=a.d(5)})}
         put(a.cover(book));if(a.cover(book)==null&&book.optJSONObject("cover")!=null)a.requestCover(book){b->if(b!=null)put(b)};return box}
     private fun stars(n:Int,size:Int=11)=object:View(a){val p=Paint(Paint.ANTI_ALIAS_FLAG);val path=androidx.core.graphics.PathParser.createPathFromPathData("M12 2.8l2.85 5.77 6.37 .93-4.61 4.49 1.09 6.34L12 17.34l-5.7 2.99 1.09-6.34-4.61-4.49 6.37-.93Z")!!
         override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(size*5+8),a.d(size+1))
@@ -111,16 +110,15 @@ internal class AspectBox(a:MainActivity):FrameLayout(a){
     override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws);val h=(w*1.5f).toInt();super.onMeasure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))}
 }
 
-/** A round medal with the rating: warm metal gradient, a white rim, a star and the number, with a soft shadow. */
+/** Your rating as a small chip in the cover's top-right corner: dark glass, a gold star and the number (like ratings on posters). */
 internal class RatingMedal(private val a:MainActivity,private val rating:Int):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     private val star=androidx.core.graphics.PathParser.createPathFromPathData("M12 2.8l2.85 5.77 6.37 .93-4.61 4.49 1.09 6.34L12 17.34l-5.7 2.99 1.09-6.34-4.61-4.49 6.37-.93Z")!!
-    init{setLayerType(LAYER_TYPE_SOFTWARE,null);contentDescription="Оценка $rating из 5";elevation=a.d(4).toFloat()}
-    override fun onDraw(c:Canvas){val cx=width/2f;val cy=height/2f;val r=min(width,height)/2f-a.d(3)
-        p.reset();p.isAntiAlias=true;p.color=0xffffffff.toInt();p.setShadowLayer(a.d(3).toFloat(),0f,a.d(1.5f),0x66000000);c.drawCircle(cx,cy,r,p);p.clearShadowLayer()
-        p.shader=LinearGradient(cx-r,cy-r,cx+r,cy+r,intArrayOf(0xffffd56b.toInt(),0xfff5a623.toInt(),0xffd9821a.toInt()),null,Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r-a.d(2),p)
-        p.shader=RadialGradient(cx-r*.35f,cy-r*.45f,r,intArrayOf(0x66ffffff,0x00ffffff),null,Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r-a.d(2),p);p.shader=null
-        // star above, number below
-        val s=r*.62f;c.save();c.translate(cx-s/2,cy-r*.62f);c.scale(s/24,s/24);p.color=Color.WHITE;c.drawPath(star,p);c.restore()
-        p.color=Color.WHITE;p.textAlign=Paint.Align.CENTER;p.typeface=Typeface.create("sans-serif",Typeface.BOLD);p.textSize=r*.78f;c.drawText("$rating",cx,cy+r*.62f,p)}
+    init{contentDescription="Оценка $rating из 5"}
+    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(30),a.d(18))
+    override fun onDraw(c:Canvas){val h=height.toFloat();val r=h/2
+        p.reset();p.isAntiAlias=true;p.color=0xb3141416.toInt();c.drawRoundRect(0f,0f,width.toFloat(),h,r,r,p)
+        p.style=Paint.Style.STROKE;p.strokeWidth=a.d(1).toFloat()*.75f;p.color=0x33ffffff;c.drawRoundRect(.5f,.5f,width-.5f,h-.5f,r,r,p);p.style=Paint.Style.FILL
+        val s=a.d(10).toFloat();c.save();c.translate(a.d(5).toFloat(),(h-s)/2);c.scale(s/24,s/24);p.color=0xffffc23d.toInt();c.drawPath(star,p);c.restore()
+        p.color=Color.WHITE;p.typeface=Typeface.create("sans-serif",Typeface.BOLD);p.textSize=a.d(11).toFloat();p.textAlign=Paint.Align.LEFT;c.drawText("$rating",a.d(18).toFloat(),h/2-(p.ascent()+p.descent())/2,p)}
 }

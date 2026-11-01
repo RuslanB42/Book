@@ -24,6 +24,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  private var restoring=true
  private var pendingIndex=readingBooks.indexOfFirst{it.str("id")==a.continueBookId}.coerceAtLeast(0)
  private val cards=mutableListOf<View>()
+ private val holders=mutableListOf<FrameLayout>()
  private var lastViewport=0
  private val strip=a.line().apply{clipChildren=false;clipToPadding=false}
  private val position=a.text("",12f,a.muted)
@@ -57,7 +58,10 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    val chars=book.optInt("chars",0);val left=if(chars>0)(chars*(1-pct)/5.0/190.0*60000).toLong() else 0L
    words.addView(a.text("${(pct*100).roundToInt()}%"+if(left>0)" · ≈ ${duration(left)}" else "",12f,a.muted));a.space(words,12)
    val buttons=a.line();buttons.addView(pill("Читать",true,"Читать: ${book.str("title")}"){a.openBook(book,cover)},LayoutParams(0,-2,1f));buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,cover)},LayoutParams(0,-2,1f).apply{marginStart=a.d(8)});words.addView(buttons)
-   row.addView(words,LayoutParams(0,-2,1f));cards.add(card);strip.addView(card,LayoutParams(a.d(284),-2).apply{if(i>0)marginStart=a.d(12)})
+   row.addView(words,LayoutParams(0,-2,1f));cards.add(card)
+   // The focus transform lives on a holder, so the press feedback on the card never fights it.
+   val holder=FrameLayout(a).apply{clipChildren=false;clipToPadding=false};holder.addView(card,FrameLayout.LayoutParams(a.d(284),-2));holders.add(holder)
+   strip.addView(holder,LayoutParams(-2,-2).apply{if(i>0)marginStart=a.d(12)})
   }
   carousel.addView(strip,FrameLayout.LayoutParams(-2,-2));addView(carousel,LayoutParams(-1,-2).apply{marginStart=-a.d(20);marginEnd=-a.d(20);topMargin=-a.d(6);bottomMargin=-a.d(14)})
  }
@@ -76,14 +80,16 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  private fun resize(viewport:Int){if(viewport<=0||viewport==lastViewport)return;lastViewport=viewport;val content=(viewport-a.d(40)).coerceAtLeast(1)
   // Several books: the focused card sits in the middle, its neighbours peek out on both sides.
   val width=if(cards.size<=1)content else (content*.84f).toInt();val gap=a.d(6);carousel.stride=width+gap
-  cards.forEachIndexed{i,c->c.layoutParams=(c.layoutParams as LayoutParams).apply{this.width=width;marginStart=if(i>0)gap else 0}}
+  cards.forEach{c->c.layoutParams=(c.layoutParams as FrameLayout.LayoutParams).apply{this.width=width}}
+  holders.forEachIndexed{i,h->h.layoutParams=(h.layoutParams as LayoutParams).apply{marginStart=if(i>0)gap else 0}}
   val side=if(cards.size<=1)a.d(20) else (viewport-width)/2;strip.setPadding(side,a.d(6),side,a.d(26))
   pendingIndex=readingBooks.indexOfFirst{it.str("id")==a.continueBookId}.coerceAtLeast(0);restoring=true}
- /** The card in focus is full size; the others shrink and dim with their distance from it, continuously while scrolling. */
- private fun focus(x:Int){if(cards.size<=1)return;val stride=carousel.stride.toFloat().coerceAtLeast(1f)
-  cards.forEachIndexed{i,c->val d=kotlin.math.abs(x/stride-i).coerceAtMost(1.5f);val k=d.coerceAtMost(1f)
-   val s=1f-.12f*k;c.scaleX=s;c.scaleY=s;c.pivotY=c.height/2f;c.pivotX=if(x/stride>i)c.width.toFloat() else 0f
-   c.alpha=1f-.45f*k;c.translationZ=-a.d(6)*k}}
+ /** The card in focus is full size; neighbours are a little smaller and dimmer, sliding toward it so the gap stays even.
+  *  Computed from each card's real centre against the viewport centre on every scroll frame. */
+ private fun focus(x:Int){if(holders.size<=1)return;val stride=carousel.stride.toFloat().coerceAtLeast(1f);val mid=x+carousel.width/2f
+  holders.forEach{h->if(h.width<=0)return@forEach;val d=((h.left+h.width/2f)-mid)/stride;val k=kotlin.math.abs(d).coerceAtMost(1f)
+   val s=1f-.1f*k;h.pivotX=h.width/2f;h.pivotY=h.height/2f;h.scaleX=s;h.scaleY=s
+   h.translationX=-kotlin.math.sign(d)*h.width*(1f-s)/2f;h.alpha=1f-.35f*k}}
 }
 
 /** The book's own cover, softly blurred and veiled, as the card's background (not a CoverView: it is only a backdrop). */
