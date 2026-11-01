@@ -122,9 +122,9 @@ internal class SheenProgress(private val a:MainActivity,private val fraction:Flo
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     init{setLayerType(LAYER_TYPE_SOFTWARE,null);importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     override fun onDraw(c:Canvas){val h=a.d(4).toFloat();val cy=height/2f;val w=width.toFloat();val r=h/2;val ink=a.fg
-        p.reset();p.isAntiAlias=true;p.color=(ink and 0xffffff) or ((if(a.light)0x1c else 0x22) shl 24);c.drawRoundRect(0f,cy-r,w,cy+r,r,r,p)
+        p.reset();p.isAntiAlias=true;p.color=(ink and 0xffffff) or ((if(a.light)0x18 else 0x1c) shl 24);c.drawRoundRect(0f,cy-r,w,cy+r,r,r,p)
         if(fraction<=0f)return;val x=(w*fraction).coerceAtLeast(h)
-        p.shader=LinearGradient(0f,0f,x,0f,intArrayOf((ink and 0xffffff) or 0x66000000,(ink and 0xffffff) or 0xee000000.toInt()),null,Shader.TileMode.CLAMP);c.drawRoundRect(0f,cy-r,x,cy+r,r,r,p);p.shader=null
+        p.color=(ink and 0xffffff) or ((if(a.light)0xcc else 0xd9) shl 24);c.drawRoundRect(0f,cy-r,x,cy+r,r,r,p)
         // glowing head
         val glow=if(a.light)0xffffb340.toInt() else 0xfffff1c2.toInt()
         p.shader=RadialGradient(x-r,cy,a.d(10).toFloat(),intArrayOf((glow and 0xffffff) or 0xaa000000.toInt(),(glow and 0xffffff) or 0x33000000,glow and 0xffffff),floatArrayOf(0f,.4f,1f),Shader.TileMode.CLAMP);c.drawCircle(x-r,cy,a.d(10).toFloat(),p);p.shader=null
