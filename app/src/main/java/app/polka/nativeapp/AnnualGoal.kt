@@ -111,54 +111,52 @@ internal class AspectBox(a:MainActivity):FrameLayout(a){
 }
 
 /** Your rating as a small chip in the cover's top-right corner: dark glass, a gold star and the number (like ratings on posters). */
-/** A cloisonné enamel award, in the spirit of activity-app badges: a polished gold rim, two tones of one coral enamel
- *  divided by thin gold wires, a glassy highlight, and the rating as a raised gold numeral. Shape and colours grow
- *  with the rating — 1–2 a round coin, 3 a shield, 4–5 a hexagon. */
+/** Rating medal: one hexagonal badge for every score; the material climbs with it —
+ *  1 bronze, 2 silver, 3 gold, 4 platinum (pearly), 5 diamond (icy, with sparkles). A polished rim, a faceted
+ *  field in the tier's own two tones, a glassy highlight and a raised numeral of the same metal. */
 internal class RatingMedal(private val a:MainActivity,private val rating:Int):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    private class Look(val base:Int,val band:Int,val third:Int?)
-    // One enamel for every medal — the goal card's coral in two tones; rating reads from the numeral and the shape.
-    private val look=Look(0xffc4482c.toInt(),0xfff07a5c.toInt(),null)
+    private class Tier(val rim:IntArray,val dark:Int,val light:Int,val numeral:IntArray)
+    private fun i(vararg c:Long)=IntArray(c.size){c[it].toInt()}
+    private val tier=when(rating.coerceIn(1,5)){
+        1->Tier(i(0xfff6c79a,0xffb06a35,0xff6e3a17,0xffe0a06a,0xff8a4b22,0xfff2c08f),0xff8a4a22.toInt(),0xffc27a45.toInt(),i(0xffffe0bf,0xffc98450,0xff7a3f18,0xffe8aa75))
+        2->Tier(i(0xffffffff,0xffb9bec6,0xff6d737c,0xffe3e7ec,0xff8d939c,0xfff5f7fa),0xff5e6670.toInt(),0xffa3abb5.toInt(),i(0xffffffff,0xffc9ced5,0xff7b828c,0xffe6e9ee))
+        3->Tier(i(0xfffff4c2,0xffe8b84e,0xff9c6b1d,0xfff6d37c,0xffb8862a,0xfffff0b0),0xffa8741c.toInt(),0xffe2ad44.toInt(),i(0xfffff6cf,0xfff0c35a,0xffa8731f,0xfff3d07a))
+        4->Tier(i(0xffffffff,0xffded8f2,0xff8d86a8,0xfff6f3ff,0xffaea7c8,0xffffffff),0xff7f7a9e.toInt(),0xffd9d4f0.toInt(),i(0xffffffff,0xffe8e4f8,0xff8f88ad,0xfff4f1ff))
+        else->Tier(i(0xffffffff,0xffbff3ff,0xff5fb9d6,0xffe9fbff,0xff86d4ea,0xffffffff),0xff2f8fb8.toInt(),0xff9fe6fb.toInt(),i(0xffffffff,0xffd6f7ff,0xff6cc3df,0xfff0fdff))}
     init{contentDescription="Оценка $rating из 5";setLayerType(LAYER_TYPE_SOFTWARE,null)}
-    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(38),a.d(40))
-    /** The outline in a 100×100 box. */
-    private fun shape():Path=Path().apply{when(rating.coerceIn(1,5)){
-        1,2->addCircle(50f,50f,45f,Path.Direction.CW)
-        3->{moveTo(14f,8f);lineTo(86f,8f);quadTo(92f,8f,92f,14f);lineTo(92f,48f);cubicTo(92f,74f,72f,88f,50f,97f);cubicTo(28f,88f,8f,74f,8f,48f);lineTo(8f,14f);quadTo(8f,8f,14f,8f);close()}
-        else->{val pts=(0 until 6).map{i->val t=Math.toRadians(-90.0+60*i);(50+47*Math.cos(t)).toFloat() to (51+47*Math.sin(t)).toFloat()}
-            // rounded hexagon: cut each corner with a quadratic through the vertex
-            for(i in 0 until 6){val (x,y)=pts[i];val (px,py)=pts[(i+5)%6];val (nx,ny)=pts[(i+1)%6];val k=.16f
-                val ax=x+(px-x)*k;val ay=y+(py-y)*k;val bx=x+(nx-x)*k;val by=y+(ny-y)*k
-                if(i==0)moveTo(ax,ay) else lineTo(ax,ay);quadTo(x,y,bx,by)};close()}}}
-    private val gold=intArrayOf(0xfffff4c2.toInt(),0xffe8b84e.toInt(),0xff9c6b1d.toInt(),0xfff6d37c.toInt(),0xffb8862a.toInt(),0xfffff0b0.toInt())
+    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(36),a.d(38))
+    private fun corner(r:Float,i:Int):Pair<Float,Float>{val t=Math.toRadians(-90.0+60*i);return (50+r*Math.cos(t)).toFloat() to (51+r*Math.sin(t)).toFloat()}
+    /** Rounded hexagon in a 100×100 box. */
+    private val outline=Path().apply{val pts=(0 until 6).map{corner(47f,it)}
+        for(i in 0 until 6){val (x,y)=pts[i];val (px,py)=pts[(i+5)%6];val (nx,ny)=pts[(i+1)%6];val k=.16f
+            val ax=x+(px-x)*k;val ay=y+(py-y)*k;val bx=x+(nx-x)*k;val by=y+(ny-y)*k
+            if(i==0)moveTo(ax,ay) else lineTo(ax,ay);quadTo(x,y,bx,by)};close()}
     override fun onDraw(c:Canvas){val s=minOf(width,height)/100f;c.save();c.translate((width-100*s)/2,(height-100*s)/2);c.scale(s,s)
-        val outline=shape();val dp=a.d(1)/s
-        // drop shadow under the whole badge
-        p.reset();p.isAntiAlias=true;p.color=Color.BLACK;p.setShadowLayer(4f*dp,0f,2.2f*dp,0x80000000.toInt());c.drawPath(outline,p);p.clearShadowLayer()
-        // enamel fields, clipped to the inside of the rim
+        val dp=a.d(1)/s;val t=tier
+        p.reset();p.isAntiAlias=true;p.color=Color.BLACK;p.setShadowLayer(4f*dp,0f,2f*dp,0x80000000.toInt());c.drawPath(outline,p);p.clearShadowLayer()
         c.save();c.clipPath(outline)
-        p.shader=RadialGradient(42f,38f,70f,lighten(look.base,.22f),look.base,Shader.TileMode.CLAMP);c.drawRect(0f,0f,100f,100f,p);p.shader=null
-        p.style=Paint.Style.FILL;p.color=look.band;p.shader=RadialGradient(10f,100f,70f,lighten(look.band,.2f),look.band,Shader.TileMode.CLAMP);c.drawCircle(10f,100f,58f,p);p.shader=null
-        wire(c){it.addCircle(10f,100f,58f,Path.Direction.CW)}
-        look.third?.let{t->p.style=Paint.Style.FILL;p.shader=RadialGradient(90f,6f,36f,lighten(t,.2f),t,Shader.TileMode.CLAMP);c.drawCircle(90f,6f,34f,p);p.shader=null
-            wire(c){it.addCircle(90f,6f,34f,Path.Direction.CW)}}
-        // glassy enamel highlight, upper-left
-        p.style=Paint.Style.FILL;p.shader=RadialGradient(30f,22f,46f,0x55ffffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRect(0f,0f,100f,100f,p);p.shader=null
+        // faceted field: six triangles from the centre, lit from the upper left
+        val shades=floatArrayOf(1f,.55f,.25f,0f,.3f,.75f)
+        for(k in 0 until 6){val (x0,y0)=corner(52f,k);val (x1,y1)=corner(52f,(k+1)%6);val f=Path().apply{moveTo(50f,51f);lineTo(x0,y0);lineTo(x1,y1);close()}
+            p.style=Paint.Style.FILL;p.shader=LinearGradient(x0,y0,50f,51f,mix(t.dark,t.light,shades[k]),mix(t.dark,t.light,minOf(1f,shades[k]+.25f)),Shader.TileMode.CLAMP);c.drawPath(f,p);p.shader=null
+            p.style=Paint.Style.STROKE;p.strokeWidth=.8f;p.color=0x2effffff;c.drawPath(f,p)}
+        p.style=Paint.Style.FILL
+        if(rating>=5)for((x,y,r) in listOf(Triple(28f,30f,5f),Triple(72f,70f,3.5f),Triple(66f,28f,2.5f))){p.color=0xf2ffffff.toInt()
+            c.drawPath(Path().apply{moveTo(x,y-r*2);quadTo(x,y,x+r*2,y);quadTo(x,y,x,y+r*2);quadTo(x,y,x-r*2,y);quadTo(x,y,x,y-r*2);close()},p)}
+        p.shader=RadialGradient(30f,22f,50f,0x59ffffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRect(0f,0f,100f,100f,p);p.shader=null
         c.restore()
-        // polished gold rim: thick sweep, thin dark inner bevel, bright outer lip
+        // polished rim of the same metal
         p.style=Paint.Style.STROKE;p.strokeJoin=Paint.Join.ROUND
-        p.strokeWidth=9f;p.shader=SweepGradient(50f,50f,gold,null).apply{setLocalMatrix(Matrix().apply{setRotate(-120f,50f,50f)})};c.drawPath(outline,p);p.shader=null
-        p.strokeWidth=1.4f;p.color=0x66402a08;c.save();c.scale(.905f,.905f,50f,51f);c.drawPath(outline,p);c.restore()
-        p.strokeWidth=1.1f;p.color=0x99fff6d8.toInt();c.drawPath(outline,p)
-        // raised gold numeral
-        p.style=Paint.Style.FILL;p.typeface=Typeface.create(Typeface.SERIF,Typeface.BOLD);p.textSize=58f;p.textAlign=Paint.Align.CENTER
-        val ty=56f-(p.ascent()+p.descent())/2
-        p.style=Paint.Style.STROKE;p.strokeWidth=7f;p.color=0xcc3a2405.toInt();c.drawText("$rating",50f,ty,p)
-        p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,ty-44f,0f,ty+4f,intArrayOf(0xfffff6cf.toInt(),0xfff0c35a.toInt(),0xffa8731f.toInt(),0xfff3d07a.toInt()),floatArrayOf(0f,.4f,.75f,1f),Shader.TileMode.CLAMP);c.drawText("$rating",50f,ty,p);p.shader=null
-        p.style=Paint.Style.STROKE;p.strokeWidth=1.2f;p.color=0x88fff8e0.toInt();c.drawText("$rating",50f,ty,p);p.style=Paint.Style.FILL
+        p.strokeWidth=9f;p.shader=SweepGradient(50f,50f,t.rim,null).apply{setLocalMatrix(Matrix().apply{setRotate(-120f,50f,50f)})};c.drawPath(outline,p);p.shader=null
+        p.strokeWidth=1.4f;p.color=0x59000000;c.save();c.scale(.905f,.905f,50f,51f);c.drawPath(outline,p);c.restore()
+        p.strokeWidth=1.1f;p.color=0x8cffffff.toInt();c.drawPath(outline,p)
+        // raised numeral
+        p.typeface=Typeface.create(Typeface.SERIF,Typeface.BOLD);p.textSize=56f;p.textAlign=Paint.Align.CENTER
+        val ty=57f-(p.ascent()+p.descent())/2
+        p.style=Paint.Style.STROKE;p.strokeWidth=6f;p.color=0x8c000000.toInt();c.drawText("$rating",50f,ty,p)
+        p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,ty-44f,0f,ty+4f,t.numeral,floatArrayOf(0f,.4f,.75f,1f),Shader.TileMode.CLAMP);c.drawText("$rating",50f,ty,p);p.shader=null
+        p.style=Paint.Style.STROKE;p.strokeWidth=1.1f;p.color=0x80ffffff.toInt();c.drawText("$rating",50f,ty,p);p.style=Paint.Style.FILL
         c.restore()}
-    /** A thin gold cloisonné wire along a path. */
-    private fun wire(c:Canvas,build:(Path)->Unit){val path=Path().also(build);p.style=Paint.Style.STROKE;p.shader=null
-        p.strokeWidth=3.4f;p.color=0xff8a5d17.toInt();c.drawPath(path,p);p.strokeWidth=2.2f;p.color=0xfff0c860.toInt();c.drawPath(path,p);p.style=Paint.Style.FILL}
-    private fun lighten(c:Int,t:Float)=Color.rgb((Color.red(c)+(255-Color.red(c))*t).toInt(),(Color.green(c)+(255-Color.green(c))*t).toInt(),(Color.blue(c)+(255-Color.blue(c))*t).toInt())
+    private fun mix(x:Int,y:Int,f:Float)=Color.rgb((Color.red(x)+(Color.red(y)-Color.red(x))*f).toInt(),(Color.green(x)+(Color.green(y)-Color.green(x))*f).toInt(),(Color.blue(x)+(Color.blue(y)-Color.blue(x))*f).toInt())
 }
