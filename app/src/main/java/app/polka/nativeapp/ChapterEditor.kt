@@ -64,6 +64,9 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
   editor.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){if(recording)remember()};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){};override fun afterTextChanged(s:Editable?){error.visibility=View.GONE}})
   // No caret jump and no keyboard yet: the reader taps the word that needs fixing.
   editor.isFocusableInTouchMode=true
+  // Gaining focus would put the caret at the end of the page and scroll there, moving the text under the finger,
+  // so the tap (and the next Backspace) landed in the wrong word. The caret goes where the finger is before focus moves.
+  editor.setOnTouchListener{v,e->if(e.actionMasked==MotionEvent.ACTION_DOWN&&!editor.hasFocus()&&editor.layout!=null){val off=editor.getOffsetForPosition(e.x,e.y);if(off>=0)editor.setSelection(off.coerceIn(0,editor.length()))};false}
  }
  private fun restore(value:SpannableStringBuilder){recording=false;editor.setText(value);editor.setSelection(minOf(value.length,editor.length()));recording=true}
  fun undo(){if(undo.isNotEmpty()&&!saving){redo.addLast(snapshot());restore(undo.removeLast())}}

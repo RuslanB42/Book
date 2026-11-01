@@ -41,25 +41,28 @@ class EditorDeviceCheck {
             Thread.sleep(1200)
             var editor:EditText?=null;scenario.onActivity{editor=find(reader!!.view)}
             val e=editor;if(e==null){report.append("$name: editor not found\n");continue}
-            var misses=0;var delMisses=0;var checks=0;val notes=mutableListOf<String>()
+            val pristine=android.text.SpannableStringBuilder(e.text);var misses=0;var delMisses=0;var checks=0;val notes=mutableListOf<String>()
             // Pick word-internal offsets spread over the page.
             val targets=mutableListOf<Int>();scenario.onActivity{val t=e.text;var i=40;while(i<t.length-5&&targets.size<10){if(t[i].isLetter()&&t[i-1].isLetter())targets.add(i);i+=t.length/11}}
-            for(off in targets){
+            for((n,off) in targets.withIndex()){
+                // Every other tap starts from an unfocused editor, the way a person first taps into the page.
+                if(n%2==0){scenario.onActivity{e.clearFocus()};Thread.sleep(300)}
                 var x=0f;var y=0f;var expectChar=' ';var before=""
                 scenario.onActivity{val l=e.layout;val line=l.getLineForOffset(off);val at=IntArray(2);e.getLocationOnScreen(at)
                     x=at[0]+e.totalPaddingLeft+l.getPrimaryHorizontal(off);y=at[1]+e.totalPaddingTop+(l.getLineTop(line)+l.getLineBottom(line))/2f-e.scrollY;expectChar=e.text[off-1];before=e.text.toString()}
                 val t0=SystemClock.uptimeMillis()
                 inst.sendPointerSync(MotionEvent.obtain(t0,t0,MotionEvent.ACTION_DOWN,x,y,0));inst.sendPointerSync(MotionEvent.obtain(t0,t0+60,MotionEvent.ACTION_UP,x,y,0))
                 Thread.sleep(700)
+                var scrolled=0;scenario.onActivity{scrolled=(e.parent as View).scrollY}
                 var sel=-1;var hitTest=-1;scenario.onActivity{sel=e.selectionStart;val l=e.layout;hitTest=l.getOffsetForHorizontal(l.getLineForOffset(off),l.getPrimaryHorizontal(off))}
                 checks++
-                if(sel!=off){misses++;if(notes.size<8)notes.add("tap@$off→caret $sel (hitTest $hitTest) «${before.substring(maxOf(0,off-6),minOf(before.length,off+6))}»")}
+                if(sel!=off){misses++;if(notes.size<8)notes.add("tap@$off→caret $sel (hitTest $hitTest, scroll $scrolled, unfocusedStart=${n%2==0}) «${before.substring(maxOf(0,off-6),minOf(before.length,off+6))}»")}
                 if(sel<=0){var info="";scenario.onActivity{val root=e.rootView;fun top(v:View,px:Float,py:Float):String{val r=android.graphics.Rect();if(!v.isShown||!v.getGlobalVisibleRect(r)||!r.contains(px.toInt(),py.toInt()))return "";if(v is ViewGroup)for(i in v.childCount-1 downTo 0){val t=top(v.getChildAt(i),px,py);if(t.isNotEmpty())return t};return v.javaClass.simpleName+"#"+v.hashCode()};info="under=${top(root,x,y)} focused=${e.isFocused} hasWindowFocus=${e.hasWindowFocus()} enabled=${e.isEnabled} editorAt=${IntArray(2).also{e.getLocationOnScreen(it)}.toList()} x=$x y=$y"};notes.add("tap@$off no caret: $info");continue}
                 inst.sendKeyDownUpSync(KeyEvent.KEYCODE_DEL);Thread.sleep(300)
                 var after="";scenario.onActivity{after=e.text.toString()}
                 val expected=before.removeRange(sel-1,sel)
                 if(sel>0&&after!=expected){delMisses++;if(notes.size<12)notes.add("del@$sel removed wrong: «${before.substring(maxOf(0,sel-6),minOf(before.length,sel+6))}» → «${after.substring(maxOf(0,sel-7),minOf(after.length,sel+5))}» expected char «${before[sel-1]}» (tapped «$expectChar»)")}
-                scenario.onActivity{e.setText(before)}
+                scenario.onActivity{e.text.replace(0,e.length(),pristine)}
                 Thread.sleep(200)
             }
             var info="";scenario.onActivity{info="justify=${e.justificationMode} ws=${if(android.os.Build.VERSION.SDK_INT>=29)e.paint.wordSpacing else 0f} ls=${e.letterSpacing} hyph=${e.hyphenationFrequency} spans=${e.text.getSpans(0,e.length(),Any::class.java).map{it.javaClass.simpleName}.groupingBy{it}.eachCount()}"}
