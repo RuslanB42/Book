@@ -56,12 +56,9 @@ internal class YearBooks(private val a:MainActivity,private val books:List<Pair<
     private val cols=3
     private var chevron:View?=null
     init{run apply@{orientation=VERTICAL;clipChildren=false;clipToPadding=false
-        if(books.isEmpty()){addView(a.text("Здесь появятся книги, прочитанные за этот год",13.5f,a.muted));return@apply}
-        // Collapsed: only a quiet line; the books themselves appear when the card is opened.
-        val hint=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(36)}
-        hint.addView(a.text("Прочитанные книги",14f,a.fg,true));hint.addView(a.text("  ${books.size}",14f,a.muted),LayoutParams(0,-2,1f))
-        val chev=IconView(a,"chevdown",a.muted);hint.addView(chev,LayoutParams(a.d(20),a.d(20)));chevron=chev
-        addView(hint,LayoutParams(-1,-2));addView(grid,LayoutParams(-1,-2))}}
+        if(books.isEmpty())return@apply
+        // Collapsed: nothing here; the books appear only when the card is opened.
+        addView(grid,LayoutParams(-1,-2))}}
     private fun cover(book:JSONObject):View{val box=AspectBox(a)
         fun put(b:Bitmap?){box.removeAllViews();box.addView(CoverView(a,book,b).apply{softShadow=true},FrameLayout.LayoutParams(-1,-1))}
         put(a.cover(book));if(a.cover(book)==null&&book.optJSONObject("cover")!=null)a.requestCover(book){b->if(b!=null)put(b)};return box}
