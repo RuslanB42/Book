@@ -20,7 +20,7 @@ class ImportNotice(val a:MainActivity,label:String,loading:Boolean=true,kind:Str
     private val badge=FrameLayout(a).apply{clipChildren=false}
     private val disc=GradientDrawableCompat.circle(when(kind){"loading"->(amber and 0xffffff) or 0x2e000000;"deleted"->coral;else->green})
     private val check=CheckMark(a)
-    val caption=a.text(label,if(centered)15f else 15f,a.fg,true)
+    val caption=a.text(label,15f,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
     private val detail=a.text(subtitle,13f,a.muted).apply{visibility=if(subtitle.isBlank())View.GONE else View.VISIBLE;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private val smooth=PathInterpolator(.2f,0f,0f,1f)
@@ -69,17 +69,23 @@ class ImportNotice(val a:MainActivity,label:String,loading:Boolean=true,kind:Str
             row.postDelayed({dismiss()},2100)
         }
     }
-    /** Text changes melt: the old words fade, the pill eases to its new width, the new words fade in. */
+    /** Text changes melt: the old words fade, the pill eases to its new size (width and height together, from the size it
+     *  has right now, so it never snaps), and the new words drift in. */
     private fun morphText(title:String,sub:String){
         val texts=listOf<View>(caption,detail)
-        texts.forEach{it.animate().alpha(0f).setDuration(150).setInterpolator(smooth).start()}
+        texts.forEach{it.animate().cancel();it.animate().alpha(0f).translationY(-a.d(3).toFloat()).setDuration(180).setInterpolator(smooth).start()}
         row.postDelayed({
             if(row.parent==null)return@postDelayed
-            val from=row.width;caption.text=title;setDetail(sub)
-            row.measure(View.MeasureSpec.makeMeasureSpec(host.width,View.MeasureSpec.AT_MOST),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));val to=row.measuredWidth
-            if(from>0&&to>0&&from!=to)ValueAnimator.ofInt(from,to).apply{duration=320;interpolator=smooth;addUpdateListener{row.layoutParams=row.layoutParams.apply{width=it.animatedValue as Int}};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){row.layoutParams=row.layoutParams.apply{width=FrameLayout.LayoutParams.WRAP_CONTENT}}});start()}
-            texts.forEach{it.alpha=0f;it.animate().alpha(1f).setStartDelay(90).setDuration(260).setInterpolator(smooth).start()}
-        },150)
+            val w0=row.width;val h0=row.height
+            row.layoutParams=row.layoutParams.apply{width=w0;height=h0}      // hold the current size first
+            caption.text=title;setDetail(sub)
+            row.measure(View.MeasureSpec.makeMeasureSpec(host.width-a.d(40),View.MeasureSpec.AT_MOST),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
+            val w1=maxOf(row.measuredWidth,row.minimumWidth);val h1=maxOf(row.measuredHeight,row.minimumHeight)
+            ValueAnimator.ofFloat(0f,1f).apply{duration=420;interpolator=PathInterpolator(.25f,.1f,.25f,1f)
+                addUpdateListener{val t=it.animatedValue as Float;row.layoutParams=row.layoutParams.apply{width=(w0+(w1-w0)*t).toInt();height=(h0+(h1-h0)*t).toInt()}}
+                addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){row.layoutParams=row.layoutParams.apply{width=FrameLayout.LayoutParams.WRAP_CONTENT;height=FrameLayout.LayoutParams.WRAP_CONTENT}}});start()}
+            texts.forEachIndexed{i,v->v.alpha=0f;v.translationY=a.d(5).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(400L+i*70L).setDuration(360).setInterpolator(smooth).start()}
+        },180)
     }
     fun dismiss() { covers?.let{c->if(c.scatter>0f&&c.isAttachedToWindow)ValueAnimator.ofFloat(c.scatter,0f).apply{duration=420;addUpdateListener{c.scatter=it.animatedValue as Float};start()}}
         if(reduced)(row.parent as? android.view.ViewGroup)?.removeView(row)else row.animate().alpha(0f).translationY(if(centered)a.d(8).toFloat() else -a.d(14).toFloat()).scaleX(.97f).scaleY(.97f).setDuration(320).setInterpolator(PathInterpolator(.4f,0f,.6f,1f)).withEndAction{(row.parent as? android.view.ViewGroup)?.removeView(row)}.start() }
