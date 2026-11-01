@@ -168,6 +168,6 @@ internal fun MainActivity.deleteBook(book:JSONObject) {
     gridMotion=true
     val sheet=bookDetailSheet?.takeIf { it.isShowing && it.bookId==id }
     render(true,false); sheet?.discard()
-    val notice=ImportNotice(this,"Книга удалена",false); android.os.Handler(mainLooper).postDelayed({ notice.dismiss() },1800)
+    val notice=ImportNotice(this,"Книга удалена",false,"deleted",book.str("title")); android.os.Handler(mainLooper).postDelayed({ notice.dismiss() },2200)
     work({ ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); ChapterStore.drop(filesDir,id); PageImages.drop(this,id); library.db.runInTransaction { library.dao.deleteBook(id); library.dao.deleteContent(id); library.pruneAssets(); library.updateMarker() } },{ reload() }) { if(profileOverlay!=null) refreshProfile(); checkpointSoon() }
 }

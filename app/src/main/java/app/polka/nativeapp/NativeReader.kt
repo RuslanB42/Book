@@ -365,11 +365,11 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun paintPage() {body.text=pageText(chapterRich,pageStarts,pageIndex);scroll.scrollTo(0,0);updateFooter();positionSelection();quoteSelection.invalidate();warmPages();warmSnapshot()}
     internal fun selectionFullText()=chapterRich
     internal fun pageLimit()=pageStarts.getOrElse(pageIndex+1){chapterRich.length}
-    internal fun selectionOffset(x:Float,y:Float):Int {val layout=body.layout?:return pageBase();val line=layout.getLineForVertical((y-body.paddingTop).toInt());return (pageBase()+layout.getOffsetForHorizontal(line,x-body.paddingLeft).coerceIn(0,body.length())).coerceAtMost(pageLimit())}
+    internal fun selectionOffset(x:Float,y:Float):Int {val layout=body.layout?:return pageBase();val line=layout.getLineForVertical((y-body.paddingTop).toInt());return (pageBase()+JustifiedGeometry.offset(body,layout,line,x-body.paddingLeft).coerceIn(0,body.length())).coerceAtMost(pageLimit())}
     private fun positionSelection(){if(quoteSelection.parent!=view)return;quoteSelection.layoutParams=(quoteSelection.layoutParams as FrameLayout.LayoutParams).apply{width=scroll.width; height=scroll.height;leftMargin=scroll.left-view.paddingLeft;topMargin=scroll.top-view.paddingTop}}
     private fun openPageLink(x:Float,y:Float):Boolean {
         val layout=body.layout?:return false;val sp=body.text as? android.text.Spanned?:return false
-        val localY=y-body.totalPaddingTop+body.scrollY;val localX=x-body.totalPaddingLeft+body.scrollX;val line=layout.getLineForVertical(localY.toInt());val offset=layout.getOffsetForHorizontal(line,localX).coerceIn(0,sp.length)
+        val localY=y-body.totalPaddingTop+body.scrollY;val localX=x-body.totalPaddingLeft+body.scrollX;val line=layout.getLineForVertical(localY.toInt());val offset=JustifiedGeometry.offset(body,layout,line,localX).coerceIn(0,sp.length)
         sp.getSpans(offset,minOf(sp.length,offset+1),android.text.style.ClickableSpan::class.java).firstOrNull()?.let{it.onClick(body);return true}
         val first=layout.getLineStart(line);val table=sp.getSpans(first,minOf(sp.length,first+1),TableRowSpan::class.java).firstOrNull()
         if(table!=null){val bottom=layout.getLineBaseline(line)+body.paint.fontMetricsInt.descent.coerceAtLeast(0);table.linkAt(localX-layout.getLineLeft(line),localY-(bottom-table.sliceHeight))?.let{openLink(it);return true}};return false
@@ -597,10 +597,20 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     private var editShift=0
     /** Edit mode swaps the page for its editable twin in place; only the chrome changes, with a soft crossfade. */
+    /** Picture of the page as it is now, laid over it and faded out, so swapping page ↔ editor (spacing changes) melts instead of snapping. */
+    private fun crossfadePage(){
+        if(scroll.width<=0||scroll.height<=0)return
+        val bmp=runCatching{android.graphics.Bitmap.createBitmap(scroll.width,scroll.height,android.graphics.Bitmap.Config.ARGB_8888)}.getOrNull()?:return
+        val c=android.graphics.Canvas(bmp);c.drawColor(readerBackground);c.translate(-scroll.scrollX.toFloat(),-scroll.scrollY.toFloat());scroll.draw(c)
+        val ghost=android.widget.ImageView(a).apply{setImageBitmap(bmp);isClickable=false;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
+        view.addView(ghost,view.indexOfChild(scroll)+1,FrameLayout.LayoutParams(scroll.width,scroll.height).apply{leftMargin=scroll.left-view.paddingLeft;topMargin=scroll.top-view.paddingTop})
+        ghost.animate().alpha(0f).setStartDelay(40).setDuration(300).setInterpolator(android.view.animation.DecelerateInterpolator()).withEndAction{view.removeView(ghost);bmp.recycle()}.start()
+    }
     internal fun mountEditor(editor:EditText,toolbar:View){
         val reduced=a.prefs.str("motion")=="reduced"
         listOf(topBar,bottom,folio).forEach{v->v.animate().cancel();if(v.visibility!=View.VISIBLE||reduced){v.visibility=View.INVISIBLE}else v.animate().alpha(0f).setDuration(180).withEndAction{v.visibility=View.INVISIBLE;v.alpha=1f}.start()}
         ribbon.visibility=View.INVISIBLE
+        if(!reduced)crossfadePage()
         val y=scroll.scrollY
         scroll.removeView(body);scroll.addView(editor,FrameLayout.LayoutParams(-1,-2));scroll.scrollTo(0,if(paged())0 else editShift)
         if(!paged())editor.post{scroll.scrollTo(0,editShift)}
@@ -612,6 +622,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     internal fun unmountEditor(editor:EditText,toolbar:View,draft:PageDraft,changed:Boolean){
         fun restore(){
+            if(a.prefs.str("motion")!="reduced")crossfadePage()
             scroll.removeView(editor);scroll.layoutParams=(scroll.layoutParams as FrameLayout.LayoutParams).apply{topMargin=0;bottomMargin=0};scroll.addView(body,FrameLayout.LayoutParams(-1,-2));editorOpen=false;scroll.scrollTo(0,0);pageEditor=null;lastCredit=System.currentTimeMillis();activeAt=lastCredit
             setCalm(draft.calm,true);if(changed){committedKey="";pendingOffset=draft.start;paintChapter()}else if(paged())paintPage()else body.post{jumpOffset(draft.start)}
             syncBookmark(false)

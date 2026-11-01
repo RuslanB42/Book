@@ -417,7 +417,7 @@ class MainActivity : Activity() {
                             if(target==null) freshBookIds.addAll(parsed.map { it.book.str("id") })
                             val show={ reader=null; gridMotion=true; refreshBookViews(target) { render(true,false) }; root.postDelayed({ freshBookIds.clear() },1500); checkpointSoon()
                                 if(errors.isNotEmpty()) dialog().setTitle("Не добавлены файлы").setMessage(errors.joinToString("\n\n")).setPositiveButton("Закрыть",null).show() }
-                            if(loader!=null) loader.finish(result) { show() } else { show(); val resultNotice=ImportNotice(this,result,false); android.os.Handler(mainLooper).postDelayed({ resultNotice.dismiss() },2400) }
+                            val names=parsed.joinToString(", ") { it.book.str("title") }; if(loader!=null) loader.finish(result,names) { show() } else { show(); val resultNotice=ImportNotice(this,result,false,"done",names); android.os.Handler(mainLooper).postDelayed({ resultNotice.dismiss() },2400) }
                         } }
                         if(mismatch.isNotBlank()) { loader?.dismiss(); confirm("Данные книги отличаются",mismatch) { commit(ImportNotice(this,"Прикрепляю файл…")) } } else commit(loader)
                     }

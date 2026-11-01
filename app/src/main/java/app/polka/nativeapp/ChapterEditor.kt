@@ -38,7 +38,10 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
    setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,body.textSize);typeface=body.typeface;letterSpacing=body.letterSpacing;textLocale=body.textLocale
    setLineSpacing(0f,1f);includeFontPadding=body.includeFontPadding;gravity=Gravity.TOP;textDirection=body.textDirection
    setPadding(body.paddingLeft,body.paddingTop,body.paddingRight,body.paddingBottom);setHorizontallyScrolling(false);minHeight=0;minimumHeight=0
-   breakStrategy=body.breakStrategy;hyphenationFrequency=body.hyphenationFrequency;justificationMode=body.justificationMode
+   breakStrategy=body.breakStrategy;hyphenationFrequency=body.hyphenationFrequency
+   // Not justified while editing: Android reports caret and touch positions of the unjustified line, so on a
+   // justified line the caret, taps and Backspace land beside the word you see. Line breaks stay the same.
+   justificationMode=Layout.JUSTIFICATION_MODE_NONE
    if(android.os.Build.VERSION.SDK_INT>=29)paint.wordSpacing=body.paint.wordSpacing
    setText(draft.text);contentDescription="Текст текущей страницы"
   }

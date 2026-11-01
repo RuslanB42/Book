@@ -45,6 +45,15 @@ internal fun MainActivity.pillSurface(v:View){
     v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,view.height/2f)}}
     if(android.os.Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x22000000 else 0x99000000.toInt();v.outlineSpotShadowColor=if(light)0x33000000 else 0xcc000000.toInt()}
 }
+/** Notice pill with volume: a faint top-lit gradient, a hairline edge and a deep, wide, soft shadow. */
+internal fun MainActivity.noticeSurface(v:View){
+    v.setPadding(d(10),d(10),d(24),d(10));v.minimumHeight=d(62)
+    val top=if(light)Color.WHITE else 0xff34343a.toInt();val bottom=if(light)0xfff4f4f2.toInt() else 0xff28282c.toInt()
+    v.background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(top,bottom)).apply{cornerRadius=d(200).toFloat();setStroke(d(1),if(light)0x12000000 else 0x1effffff)}
+    v.elevation=d(22).toFloat()
+    v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,view.height/2f)}}
+    if(android.os.Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x2a000000 else 0xb0000000.toInt();v.outlineSpotShadowColor=if(light)0x3a000000 else 0xdd000000.toInt()}
+}
 internal fun MainActivity.floatCard(v:View,radiusDp:Int=20,color:Int=if(light)Color.WHITE else 0xff242426.toInt(),lift:Int=if(light)8 else 10){
     val r=d(radiusDp).toFloat();v.background=android.graphics.drawable.GradientDrawable().apply{setColor(color);cornerRadius=r};v.elevation=d(lift).toFloat()
     v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,r)}}

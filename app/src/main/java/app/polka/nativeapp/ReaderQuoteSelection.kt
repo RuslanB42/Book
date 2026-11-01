@@ -67,7 +67,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     /** Offset under the finger with a little hysteresis between lines, so a finger resting on a line edge doesn't flicker between two lines. */
     private fun offsetAt(px:Float,py:Float):Int{val l=reader.body.layout?:return reader.pageBase();val ly=py-reader.body.paddingTop;var line=l.getLineForVertical(ly.toInt())
         if(dragLine in 0 until l.lineCount&&line!=dragLine){val top=l.getLineTop(dragLine);val bot=l.getLineBottom(dragLine);val slack=(bot-top)*.3f;if(ly>top-slack&&ly<bot+slack)line=dragLine}
-        dragLine=line;return (reader.pageBase()+l.getOffsetForHorizontal(line,px-reader.body.paddingLeft).coerceIn(0,reader.body.length())).coerceAtMost(reader.pageLimit())}
+        dragLine=line;return (reader.pageBase()+JustifiedGeometry.offset(reader.body,l,line,px-reader.body.paddingLeft).coerceIn(0,reader.body.length())).coerceAtMost(reader.pageLimit())}
     private var appear=1f
     private var settling=false;private var settleColor=0;private var settleStart=0;private var settleEnd=0;private var settle:android.animation.ValueAnimator?=null
     private lateinit var primary:TextView
@@ -115,20 +115,22 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private fun point(offset:Int,end:Boolean,p:PointF):Boolean {
         val layout=reader.body.layout?:return false;val base=reader.pageBase();val limit=reader.pageLimit()
         if(offset<base || offset>limit || (end&&offset==base)||(!end&&offset==limit))return false
-        val local=(offset-base).coerceIn(0,reader.body.length());val line=layout.getLineForOffset(local)
-        p.set(reader.body.paddingLeft+layout.getPrimaryHorizontal(local),reader.body.paddingTop+layout.getLineBottom(line).toFloat());return true
+        val local=(offset-base).coerceIn(0,reader.body.length())
+        // The end handle belongs to the line of the last selected character, not to the next line.
+        val line=layout.getLineForOffset(if(end&&local>0)local-1 else local)
+        p.set(reader.body.paddingLeft+JustifiedGeometry.x(reader.body,layout,line,local),reader.body.paddingTop+JustifiedGeometry.band(reader.body,layout,line).second);return true
     }
     override fun onDraw(c:Canvas){
         super.onDraw(c)
         if(settling){val layout=reader.body.layout?:return;val base=reader.pageBase();val s=(settleStart-base).coerceIn(0,reader.body.length());val e=(settleEnd-base).coerceIn(0,reader.body.length())
-            highlight.rewind();if(e>s){layout.getSelectionPath(s,e,highlight);c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=settleColor;c.drawPath(highlight,marker);c.restore()}}
+            highlight.rewind();if(e>s){JustifiedGeometry.path(reader.body,layout,s,e,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=settleColor;c.drawPath(highlight,marker);c.restore()}}
         if(!active||edgeLocked)return
         val layout=reader.body.layout?:return;val base=reader.pageBase();val s=(range.start-base).coerceIn(0,reader.body.length());val e=(range.end-base).coerceIn(0,reader.body.length())
-        highlight.rewind();if(e>s){layout.getSelectionPath(s,e,highlight);c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=0x65e7ac48;marker.alpha=(0x65*appear).toInt();c.drawPath(highlight,marker);c.restore()}
+        highlight.rewind();if(e>s){JustifiedGeometry.path(reader.body,layout,s,e,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=0x65e7ac48;marker.alpha=(0x65*appear).toInt();c.drawPath(highlight,marker);c.restore()}
         marker.alpha=255
         startVisible=point(range.start,false,startHandle);endVisible=point(range.end,true,endHandle)
         marker.color=if(Color.luminance(reader.backgroundColor)>.4)0xff9b5c12.toInt()else 0xffefbd70.toInt();marker.strokeWidth=a.d(2).toFloat()
-        marker.alpha=(255*appear).toInt();for((p,visible)in listOf(startHandle to startVisible,endHandle to endVisible)){if(visible){c.drawLine(p.x,p.y-a.d(20),p.x,p.y+a.d(5),marker);c.drawCircle(p.x,p.y+a.d(9),a.d(6)*(.6f+.4f*appear),marker)}};marker.alpha=255
+        marker.alpha=(255*appear).toInt();for((p,visible)in listOf(startHandle to startVisible,endHandle to endVisible)){if(visible){val lh=reader.body.paint.fontMetrics.let{it.descent*1.25f-it.ascent*1.02f};c.drawLine(p.x,p.y-lh,p.x,p.y+a.d(3),marker);c.drawCircle(p.x,p.y+a.d(8),a.d(6)*(.6f+.4f*appear),marker)}};marker.alpha=255
         if(edge!=0){marker.color=0xa6e7ac48.toInt();val cx=if(edge>0)width-a.d(13).toFloat()else a.d(13).toFloat();c.drawCircle(cx,y.coerceIn(a.d(30).toFloat(),height-a.d(30).toFloat()),a.d(11).toFloat(),marker)}
     }
     private fun positionMenu(){
@@ -145,9 +147,9 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     override fun onTouchEvent(e:MotionEvent):Boolean {
         if(!active)return false
         when(e.actionMasked){
-            MotionEvent.ACTION_DOWN->{dragLine=-1;lastOff=-1;startVisible=point(range.start,false,startHandle);endVisible=point(range.end,true,endHandle);x=e.x;y=e.y;val ds=if(startVisible)hypot(x-startHandle.x,y-startHandle.y-a.d(9))else Float.MAX_VALUE;val de=if(endVisible)hypot(x-endHandle.x,y-endHandle.y-a.d(9))else Float.MAX_VALUE
-                if(min(ds,de)>a.d(32)){clear();return true};atStart=ds<de;dragging=true
-                val h=if(atStart)startHandle else endHandle;val lh=reader.body.layout?.let{l->val local=((if(atStart)range.start else range.end)-reader.pageBase()).coerceIn(0,reader.body.length());val line=l.getLineForOffset(if(!atStart&&local>0)local-1 else local);(l.getLineBottom(line)-l.getLineTop(line)).toFloat()}?:a.d(24).toFloat()
+            MotionEvent.ACTION_DOWN->{dragLine=-1;lastOff=-1;startVisible=point(range.start,false,startHandle);endVisible=point(range.end,true,endHandle);x=e.x;y=e.y;val ds=if(startVisible)hypot(x-startHandle.x,y-startHandle.y-a.d(4))else Float.MAX_VALUE;val de=if(endVisible)hypot(x-endHandle.x,y-endHandle.y-a.d(4))else Float.MAX_VALUE
+                if(min(ds,de)>a.d(36)){clear();return true};atStart=ds<de;dragging=true
+                val h=if(atStart)startHandle else endHandle;val lh=reader.body.paint.fontMetrics.let{it.descent*1.25f-it.ascent*1.02f}
                 grabDx=h.x-x;grabDy=(h.y-lh/2f)-y;menu.visibility=INVISIBLE;parent.requestDisallowInterceptTouchEvent(true);return true}
             MotionEvent.ACTION_MOVE->{if(!dragging)return true;x=e.x;y=e.y;if(!edgeLocked){val dir=when{!atStart&&(x>width-reader.body.paddingRight+a.d(1)||y>height-reader.body.paddingBottom+a.d(8))->1;atStart&&(x<reader.body.paddingLeft-a.d(1)||y<reader.body.paddingTop-a.d(8))->-1;else->0};if(dir==0){val off=offsetAt(x+grabDx,y+grabDy);if(off!=lastOff){lastOff=off;atStart=range.drag(off,atStart)}};if(dir!=edge){timer.removeCallbacks(pageTimer);edge=dir;if(dir!=0)timer.postDelayed(pageTimer,340)};invalidate()};return true}
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{dragging=false;edge=0;lastOff=-1;timer.removeCallbacks(pageTimer);parent.requestDisallowInterceptTouchEvent(false);range.snap(reader.selectionFullText());contentDescription="Выделено: ${range.text(reader.selectionFullText())}";showMenu();invalidate();return true}
