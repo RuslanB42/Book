@@ -53,7 +53,7 @@ class EditorDeviceCheck {
                 val t0=SystemClock.uptimeMillis()
                 inst.sendPointerSync(MotionEvent.obtain(t0,t0,MotionEvent.ACTION_DOWN,x,y,0));inst.sendPointerSync(MotionEvent.obtain(t0,t0+60,MotionEvent.ACTION_UP,x,y,0))
                 Thread.sleep(700)
-                var scrolled=0;scenario.onActivity{scrolled=(e.parent as View).scrollY}
+                var scrolled=0;scenario.onActivity{scrolled=(e.parent as? View)?.scrollY?:-1;if(e.parent==null)android.util.Log.w("POLKA_QA","editor detached after tap@$off readerAttached=${reader?.view?.isAttachedToWindow}")}
                 var sel=-1;var hitTest=-1;scenario.onActivity{sel=e.selectionStart;val l=e.layout;hitTest=l.getOffsetForHorizontal(l.getLineForOffset(off),l.getPrimaryHorizontal(off))}
                 checks++
                 if(sel!=off){misses++;if(notes.size<8)notes.add("tap@$off→caret $sel (hitTest $hitTest, scroll $scrolled, unfocusedStart=${n%2==0}) «${before.substring(maxOf(0,off-6),minOf(before.length,off+6))}»")}

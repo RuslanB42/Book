@@ -176,6 +176,7 @@ class MainActivity : Activity() {
         val oldY=if(preservePosition && ::scroll.isInitialized) scroll.scrollY else 0
         val gridSnap=if(gridMotion && ::scroll.isInitialized && root.width>0) { gridMotion=false; captureGrid(books.map { it.str("id") }.toSet()) } else { gridMotion=false; null }
         val overlay=profileOverlay
+        android.util.Log.w("POLKA_QA","render removeAllViews",Throwable())
         screenMotion.stop(); root.removeAllViews(); root.setBackgroundColor(bg)
         if(!preparingBookReturn){ReaderWindow.configure(window,false,bg); root.requestApplyInsets()}
         if(!preparingBookReturn&&Build.VERSION.SDK_INT>=30) window.insetsController?.setSystemBarsAppearance(if(light) WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS else 0,WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS)
