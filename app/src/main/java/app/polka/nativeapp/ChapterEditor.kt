@@ -100,6 +100,6 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
   })
  }
  fun cancel(){if(saving||closed)return;if(dirty())a.confirm("Отменить правки?","Изменения текущей страницы не сохранятся."){finish(false)}else finish(false)}
- private fun finish(changed:Boolean){if(closed)return;android.util.Log.w("POLKA_QA","editor finish changed=$changed",Throwable());closed=true;(a.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(editor.windowToken,0);editor.clearFocus();reader.unmountEditor(editor,toolbar,draft,changed)}
+ private fun finish(changed:Boolean){if(closed)return;closed=true;(a.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(editor.windowToken,0);editor.clearFocus();reader.unmountEditor(editor,toolbar,draft,changed)}
  fun detach(){closed=true}
 }
