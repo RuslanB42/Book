@@ -317,11 +317,27 @@ class MainActivity : Activity() {
         if(reader!=null || loadingReader || bookClosing)return
         if(book.optBoolean("noFile")) { bookActions(book); return }
         loadingReader=true
-        val snapshot=openingSnapshot(book.str("id"),source)
-        val preparing=snapshot?.let{BookOpeningHold(this,it).also{hold->hold.elevation=d(60).toFloat();root.addView(hold,FrameLayout.LayoutParams(-1,-1))}}
-        work({ val (parsed,images)=loadContent(book); runOnUiThread { loadingReader=false;if(isFinishing || isDestroyed) { preparing?.let{(it.parent as? ViewGroup)?.removeView(it)};snapshot?.release(); return@runOnUiThread }; val r=NativeReader(this,book.copyJson(),parsed,images); reader=r; ReaderWindow.configure(window,true,bg);root.setPadding(0,0,0,0);root.requestApplyInsets(); root.removeAllViews(); root.addView(r.view,FrameLayout.LayoutParams(-1,-1)); r.start(); if(snapshot!=null){r.view.alpha=0f;val hold=preparing?:BookOpeningHold(this,snapshot);root.addView(hold,FrameLayout.LayoutParams(-1,-1));var stable=0;var signature="";var handedOff=false;val observer=r.view.viewTreeObserver
-                val detached=object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){};override fun onViewDetachedFromWindow(v:View){if(!handedOff)snapshot.release();v.removeOnAttachStateChangeListener(this)}};r.view.addOnAttachStateChangeListener(detached)
-                observer.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener {override fun onPreDraw():Boolean{val next="${r.view.width}:${r.view.height}:${r.body.text.hashCode()}:${r.pageBase()}";if(!r.openingReady() || next!=signature){signature=next;stable=0;r.view.postInvalidateOnAnimation();return true};if(++stable<2){r.view.postInvalidateOnAnimation();return true};if(observer.isAlive)observer.removeOnPreDrawListener(this);handedOff=true;r.view.removeOnAttachStateChangeListener(detached);r.view.alpha=1f;root.removeView(hold);revealNativeBook(snapshot,r.view);return true}})} } }, failed={ loadingReader=false;preparing?.let{(it.parent as? ViewGroup)?.removeView(it)};snapshot?.release() })
+        val veil=if(prefs.str("motion")=="reduced") null else fadeVeil().also{root.addView(it,FrameLayout.LayoutParams(-1,-1))}
+        var loaded:Pair<JSONObject,MutableMap<String,ByteArray>>?=null;var dark=veil==null;var built=false
+        fun build(){
+            val content=loaded?:return;if(!dark||built)return;built=true;loadingReader=false
+            if(isFinishing||isDestroyed){veil?.let{root.removeView(it)};return}
+            val r=NativeReader(this,book.copyJson(),content.first,content.second);reader=r;ReaderWindow.configure(window,true,bg);root.setPadding(0,0,0,0);root.requestApplyInsets()
+            (0 until root.childCount).map{root.getChildAt(it)}.filter{it!==veil}.forEach{root.removeView(it)}
+            root.addView(r.view,0,FrameLayout.LayoutParams(-1,-1));r.start()
+            if(veil==null)return
+            // Lift the dark only when the first page is laid out and stable.
+            var stable=0;var signature="";val observer=r.view.viewTreeObserver
+            observer.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
+                if(veil.parent==null){if(observer.isAlive)observer.removeOnPreDrawListener(this);return true}
+                val next="${r.view.width}:${r.view.height}:${r.body.text.hashCode()}:${r.pageBase()}"
+                if(!r.openingReady()||next!=signature){signature=next;stable=0;r.view.postInvalidateOnAnimation();return true}
+                if(++stable<2){r.view.postInvalidateOnAnimation();return true}
+                if(observer.isAlive)observer.removeOnPreDrawListener(this)
+                veil.animate().alpha(0f).setDuration(320).setInterpolator(fadeOut).withEndAction{root.removeView(veil)}.start();return true}})
+        }
+        veil?.animate()?.alpha(1f)?.setDuration(240)?.setInterpolator(fadeIn)?.withEndAction{dark=true;build()}?.start()
+        work({ loaded=loadContent(book) }, failed={ loadingReader=false;veil?.let{v->v.animate().cancel();root.removeView(v)};flushDeferredRender() }) { build() }
     }
     fun closeReader() {
         if(bookClosing)return
@@ -332,7 +348,7 @@ class MainActivity : Activity() {
         val updated=r.book.copyJson();books=books.map{if(it.str("id")==updated.str("id"))updated else it}
         reader=null
         if(prefs.str("motion")=="reduced" || r.view.width<=0 || isFinishing || isDestroyed){ReaderWindow.configure(window,false,bg);root.requestApplyInsets();render(true,false);return}
-        returnNativeBook(r)
+        closeWithFade(r)
     }
     internal fun waitingForReturnDeck()=tab=="foryou"&&recommendationDeck==null
     internal fun finishBookReturn(){bookClosing=false;renderDeferred=false;ReaderWindow.configure(window,false,bg);root.requestApplyInsets()}
