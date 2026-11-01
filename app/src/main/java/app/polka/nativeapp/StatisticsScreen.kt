@@ -158,7 +158,8 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun annualGoal() {
         val box=surface();header(box,"Цель на год","target",coral);space(box,12)
         // Header and segment stay put so the thumb can slide; only the body below is swapped and animated.
-        val body=a.column().apply{clipChildren=false;clipToPadding=false}
+        // No offscreen layer while it fades: such a layer is cut to the body's bounds and chopped the bar's glow.
+        val body=object:LinearLayout(a){override fun hasOverlappingRendering()=false}.apply{orientation=LinearLayout.VERTICAL;clipChildren=false;clipToPadding=false}
         var books:YearBooks?=null
         fun bind(direction:Int){body.removeAllViews()
             val target=model.target(goalYear);val done=model.countYear(goalYear);val first=direction==0

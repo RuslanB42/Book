@@ -15,10 +15,10 @@ import kotlin.math.*
  *  softly instead of being cut; the empty part of the track is a recessed groove with an inner shadow. */
 internal class GoalGlowBar(a:MainActivity,animate:Boolean,private val fraction:Float,private val tint:Int,description:String):StatsAnimatedView(a,animate){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    val glow get()=a.d(20)
+    val glow get()=a.d(14)
     private val barH get()=a.d(14).toFloat()
     init{contentDescription=description;setLayerType(LAYER_TYPE_SOFTWARE,null)}
-    private val vpad get()=a.d(10).toFloat()
+    private val vpad get()=a.d(12).toFloat()
     override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(MeasureSpec.getSize(w),(barH+vpad*2).toInt())
     override fun onDraw(c:Canvas){
         val g=glow.toFloat();val x0=g;val x1=width-g;val w=x1-x0;val top=vpad;val bottom=top+barH;val r=barH/2;val light=a.light
@@ -34,8 +34,8 @@ internal class GoalGlowBar(a:MainActivity,animate:Boolean,private val fraction:F
         val right=x0+(w*f).coerceAtLeast(barH*1.4f).coerceAtMost(w)
         // exactly the icon's colour, brightening toward the head — vivid, not dimmed
         val head=androidx.core.graphics.ColorUtils.blendARGB(tint,0xffffd0a0.toInt(),.35f)
-        p.color=(tint and 0xffffff) or ((if(light)0x60 else 0x8c) shl 24);p.maskFilter=BlurMaskFilter(a.d(9).toFloat(),BlurMaskFilter.Blur.NORMAL)
-        c.drawRoundRect(x0+a.d(3),top,right-a.d(1),bottom+a.d(2),r,r,p);p.maskFilter=null
+        p.color=(tint and 0xffffff) or ((if(light)0x60 else 0x8c) shl 24);p.maskFilter=BlurMaskFilter(a.d(8).toFloat(),BlurMaskFilter.Blur.NORMAL)
+        c.drawRoundRect(x0+a.d(4),top+a.d(1),right-a.d(2),bottom+a.d(1),r,r,p);p.maskFilter=null
         p.shader=LinearGradient(x0,0f,right,0f,intArrayOf(tint,tint,head),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(x0,top,right,bottom,r,r,p)
         // glossy top light and a hot spot at the head
         p.shader=LinearGradient(0f,top,0f,bottom,intArrayOf(0x2affffff,0x0affffff,0x00ffffff),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(x0+a.d(2),top+a.d(1.5f),right-a.d(2),top+barH*.58f,r*.7f,r*.7f,p)
