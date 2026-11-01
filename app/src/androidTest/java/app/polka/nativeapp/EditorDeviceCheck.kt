@@ -43,7 +43,9 @@ class EditorDeviceCheck {
             val e=editor;if(e==null){report.append("$name: editor not found\n");continue}
             val pristine=android.text.SpannableStringBuilder(e.text);var misses=0;var delMisses=0;var checks=0;val notes=mutableListOf<String>()
             // Pick word-internal offsets spread over the page.
-            val targets=mutableListOf<Int>();scenario.onActivity{val t=e.text;var i=40;while(i<t.length-5&&targets.size<10){if(t[i].isLetter()&&t[i-1].isLetter())targets.add(i);i+=t.length/11}}
+            // Only words that are actually on screen above the editing panel.
+            val targets=mutableListOf<Int>();scenario.onActivity{val t=e.text;val l=e.layout;val host=e.parent as View;val hr=android.graphics.Rect();host.getGlobalVisibleRect(hr);val at=IntArray(2);e.getLocationOnScreen(at)
+                var i=20;while(i<t.length-5&&targets.size<10){val line=l.getLineForOffset(i);val y=at[1]+e.totalPaddingTop+(l.getLineTop(line)+l.getLineBottom(line))/2f;if(t[i].isLetter()&&t[i-1].isLetter()&&y>hr.top+10&&y<hr.bottom-10)targets.add(i);i+=t.length/14}}
             for((n,off) in targets.withIndex()){
                 // Every other tap starts from an unfocused editor, the way a person first taps into the page.
                 if(n%2==0){scenario.onActivity{e.clearFocus()};Thread.sleep(300)}

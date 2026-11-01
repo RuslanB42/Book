@@ -66,7 +66,16 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
   editor.isFocusableInTouchMode=true
   // Gaining focus would put the caret at the end of the page and scroll there, moving the text under the finger,
   // so the tap (and the next Backspace) landed in the wrong word. The caret goes where the finger is before focus moves.
-  editor.setOnTouchListener{v,e->if(e.actionMasked==MotionEvent.ACTION_DOWN&&!editor.hasFocus()&&editor.layout!=null){val off=editor.getOffsetForPosition(e.x,e.y);if(off>=0)editor.setSelection(off.coerceIn(0,editor.length()))};false}
+  // A short tap always ends with the caret exactly under the finger (the stock handling could leave it where it was).
+  val slop=ViewConfiguration.get(a).scaledTouchSlop;var downX=0f;var downY=0f;var downAt=0L;var moved=false
+  editor.setOnTouchListener{_,e->
+   when(e.actionMasked){
+    MotionEvent.ACTION_DOWN->{downX=e.x;downY=e.y;downAt=e.eventTime;moved=false
+     if(!editor.hasFocus()&&editor.layout!=null){val off=editor.getOffsetForPosition(e.x,e.y);if(off>=0)editor.setSelection(off.coerceIn(0,editor.length()))}}
+    MotionEvent.ACTION_MOVE->if(kotlin.math.abs(e.x-downX)>slop||kotlin.math.abs(e.y-downY)>slop)moved=true
+    MotionEvent.ACTION_UP->if(!moved&&e.eventTime-downAt<ViewConfiguration.getLongPressTimeout()&&editor.layout!=null){val off=editor.getOffsetForPosition(e.x,e.y).coerceIn(0,editor.length())
+     editor.post{if(!editor.hasSelection()&&editor.selectionStart!=off){editor.setSelection(off)}}}
+   };false}
  }
  private fun restore(value:SpannableStringBuilder){recording=false;editor.setText(value);editor.setSelection(minOf(value.length,editor.length()));recording=true}
  fun undo(){if(undo.isNotEmpty()&&!saving){redo.addLast(snapshot());restore(undo.removeLast())}}
