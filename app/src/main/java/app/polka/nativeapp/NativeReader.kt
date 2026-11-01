@@ -470,9 +470,9 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(a.prefs.str("motion")=="reduced"){overlay.pose(end,dragY);completeCurl(commit);return}
         val remaining=abs(end-start)
         // A release keeps the finger's speed (no slow-down or jump after letting go); a tap turns in one even, hand-like stroke.
-        val speed=abs(releaseVelocity).coerceAtLeast(scroll.width*1.4f)
-        val flight=(remaining*scroll.width*1.15f/speed*1000f).toLong().coerceIn(150L,380L)
-        turnClock=android.animation.ValueAnimator.ofFloat(start,end).apply{duration=if(gestureTurn)flight else 520L;interpolator=if(gestureTurn)android.view.animation.PathInterpolator(.18f,.62f,.26f,1f) else android.view.animation.PathInterpolator(.42f,0f,.16f,1f)
+        val speed=abs(releaseVelocity).coerceIn(scroll.width*1.2f,scroll.width*2.6f)
+        val flight=(remaining*scroll.width*1.2f/speed*1000f).toLong().coerceIn(if(commit)260L else 220L,440L)
+        turnClock=android.animation.ValueAnimator.ofFloat(start,end).apply{duration=if(gestureTurn)flight else 520L;interpolator=if(gestureTurn)android.view.animation.PathInterpolator(.25f,.46f,.3f,1f) else android.view.animation.PathInterpolator(.42f,0f,.16f,1f)
             addUpdateListener{overlay.pose(it.animatedValue as Float,dragY)}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(anim:android.animation.Animator){completeCurl(commit)}});start()}
     }

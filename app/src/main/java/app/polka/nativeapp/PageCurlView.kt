@@ -84,11 +84,6 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
         c.drawBitmapMesh(sheet,24,32,mesh,0,null,0,paint)
         // Narrow cylindrical bend on the front surface, no full-screen grey fill.
         paint.shader=shade(frontShade,-band,0f);c.drawRect(0f,0f,w,h,paint);paint.shader=null;c.restore()
-        // The lifted flap floats above the flat part of the page: a soft shadow under its silhouette, only on that page,
-        // strongest mid-turn and gone at both ends (no pop at the bitmap→live handoff).
-        val lightPaper0=Color.luminance(paper)>.4
-        if(android.os.Build.VERSION.SDK_INT>=28){val k=sin(Math.PI*fold).toFloat()
-            if(k>.02f){c.save();c.clipPath(frontPath);lift.color=paper;lift.setShadowLayer(band*.55f+3*dp,-nx*band*.12f,-ny*band*.12f+dp,((if(lightPaper0)0x46 else 0x80)*k).toInt() shl 24);c.drawPath(backPath,lift);lift.clearShadowLayer();c.restore()}}
         c.save();c.clipPath(backPath)
         paint.color=paper;c.drawPath(backPath,paint)
         // The reverse carries faint mirrored ink through the paper, not a second

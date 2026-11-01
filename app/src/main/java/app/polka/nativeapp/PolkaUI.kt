@@ -213,6 +213,7 @@ class PolkaSwitch(private val a:MainActivity):Switch(a) {
     private val ink=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
     private var fraction=if(isChecked) 1f else 0f
     private var animator:android.animation.ValueAnimator?=null
+    init { background=null; defaultFocusHighlightEnabled=false }
     override fun setChecked(checked:Boolean) { val changed=checked!=isChecked; super.setChecked(checked); if(!changed) return; animator?.cancel(); val next=if(checked) 1f else 0f; if(!isAttachedToWindow || a.prefs.str("motion")=="reduced") { fraction=next; invalidate() } else animator=android.animation.ValueAnimator.ofFloat(fraction,next).apply { duration=220; interpolator=PathInterpolator(.2f,.8f,.2f,1f); addUpdateListener { fraction=it.animatedValue as Float; invalidate() }; start() } }
     override fun onDetachedFromWindow() { animator?.cancel(); super.onDetachedFromWindow() }
     override fun onMeasure(ws:Int,hs:Int) {
