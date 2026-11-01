@@ -24,7 +24,8 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     private val backMesh=FloatArray((COLS+1)*(ROWS+1)*2)
     private val frontColors=IntArray((COLS+1)*(ROWS+1))
     private val backColors=IntArray((COLS+1)*(ROWS+1))
-    private val blank=Bitmap.createBitmap(4,4,Bitmap.Config.ARGB_8888).apply{eraseColor(Color.WHITE)}
+    /** The sheet washed with paper colour: drawn on the back, its ink reads as text seen faintly through the paper. */
+    private var inkBack:Bitmap?=null
     private val paper2=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val tube=LinearGradient(0f,0f,1f,0f,intArrayOf(0x40000000,0x14000000,0x00000000),floatArrayOf(0f,.35f,1f),Shader.TileMode.CLAMP)
     private fun grey(l:Float):Int{val g=(255*l.coerceIn(0f,1f)).toInt();return Color.rgb(g,g,g)}
@@ -44,6 +45,7 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     }
     private var mx=0f;private var my=0f;private var nx=1f;private var ny=0f
     private var band=1f
+    override fun onDetachedFromWindow(){inkBack?.recycle();inkBack=null;super.onDetachedFromWindow()}
     init { importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false;setWillNotDraw(false) }
     /** The raw grab point is kept and snapped once per pose, so animation frames that reuse it never drift it further into the corner. */
     private var grabY=sourceBitmap.height.toFloat()
@@ -77,7 +79,7 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
         mx=(w+tx)*.5f;my=(cy+ty)*.5f
         val len=hypot(w-tx,cy-ty).coerceAtLeast(.01f);nx=(w-tx)/len;ny=(cy-ty)/len
         band=(w*.075f*sin(Math.PI*fold).toFloat()).coerceAtLeast(w*.008f)
-        val r=(w*.085f*sin(Math.PI*fold).toFloat().pow(.6f)).coerceAtMost(len*.45f)
+        val r=(w*.11f*sin(Math.PI*fold).toFloat().pow(.6f)).coerceAtMost(len*.45f)
         val half=(Math.PI*r/2).toFloat()
         val ax=mx-nx*half;val ay=my-ny*half
         c.drawBitmap(below,0f,0f,paint)
@@ -92,16 +94,18 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
             val dF=min(d,half);place(dF,mesh);val dB=max(d,half);place(dB,backMesh)
             val vi=v/2
             // light: the front darkens as it turns away toward the top of the roll; the back is grey on the roll, bright when flat
-            frontColors[vi]=if(d<=0f||r<1f)WHITE else grey(1f-.42f*sin(dF/r).pow(1.6f))
-            backColors[vi]=if(r<1f||dB>=2*half)grey(.97f) else grey(.66f+.31f*(-cos(dB/r)).coerceAtLeast(0f))
+            frontColors[vi]=if(d<=0f||r<1f)WHITE else grey(1f-.26f*sin(dF/r).pow(2.2f))
+            backColors[vi]=if(r<1f||dB>=2*half)grey(.985f) else grey(.80f+.185f*(-cos(dB/r)).coerceAtLeast(0f).pow(.7f))
             v+=2}
         // front side of the sheet (the flat part and the lower half of the roll)
         c.drawBitmapMesh(sheet,COLS,ROWS,mesh,0,frontColors,0,paint)
         // back side: translucent paper (the page beneath shows faintly through), with the ink seen mirrored through it
         val lightPaper=Color.luminance(paper)>.4
-        paper2.colorFilter=PorterDuffColorFilter(paper,PorterDuff.Mode.MULTIPLY);paper2.alpha=if(lightPaper)236 else 228
-        c.drawBitmapMesh(blank,COLS,ROWS,backMesh,0,backColors,0,paper2)
-        paint.alpha=if(lightPaper)26 else 34;c.drawBitmapMesh(sheet,COLS,ROWS,backMesh,0,null,0,paint);paint.alpha=255
+        // (alpha baked into the texture: a paint's alpha is not applied to meshes on every renderer)
+        if(inkBack==null)inkBack=Bitmap.createBitmap(sheet.width,sheet.height,Bitmap.Config.ARGB_8888).also{b->val cv=Canvas(b)
+            cv.drawColor((paper and 0xffffff) or ((if(lightPaper)0xee else 0xe8) shl 24),PorterDuff.Mode.SRC)
+            cv.drawBitmap(sheet,0f,0f,Paint(Paint.FILTER_BITMAP_FLAG).apply{alpha=if(lightPaper)0x1e else 0x2a})}
+        c.drawBitmapMesh(inkBack!!,COLS,ROWS,backMesh,0,backColors,0,paint)
         c.restore()
     }
 }
