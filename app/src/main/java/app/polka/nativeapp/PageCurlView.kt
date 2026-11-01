@@ -27,7 +27,7 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     /** The sheet washed with paper colour: drawn on the back, its ink reads as text seen faintly through the paper. */
     private var inkBack:Bitmap?=null
     private val paper2=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val tube=LinearGradient(0f,0f,1f,0f,intArrayOf(0x40000000,0x14000000,0x00000000),floatArrayOf(0f,.35f,1f),Shader.TileMode.CLAMP)
+    private val tube=LinearGradient(0f,0f,1f,0f,intArrayOf(0x38000000,0x16000000,0x05000000,0x00000000),floatArrayOf(0f,.25f,.6f,1f),Shader.TileMode.CLAMP)
     private fun grey(l:Float):Int{val g=(255*l.coerceIn(0f,1f)).toInt();return Color.rgb(g,g,g)}
     companion object{const val COLS=36;const val ROWS=48;val WHITE=Color.WHITE}
     private val shaderMatrix=Matrix()
@@ -85,8 +85,6 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
         c.drawBitmap(below,0f,0f,paint)
         // Soft shadow of the roll on the page below, just outside the roll's silhouette.
         if(r>1f){paint.shader=shade(tube,r-half,r-half+r*2.4f);c.drawRect(0f,0f,w,h,paint);paint.shader=null}
-        polygon(true,backPath,true)
-        c.save();c.translate(nx*band*.25f,ny*band*.25f);c.clipPath(backPath);paint.shader=shade(cast,-band*2,band);c.drawRect(0f,0f,w,h,paint);paint.shader=null;c.restore()
         var v=0
         for(row in 0..ROWS)for(col in 0..COLS){val x=w*col/COLS;val y=h*row/ROWS;val d=(x-ax)*nx+(y-ay)*ny
             // proj: where a point at roll-distance dd ends up along n (flat front, around the roll, then lying flat on its back)
