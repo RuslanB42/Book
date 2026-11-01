@@ -13,9 +13,9 @@ import kotlin.math.*
 
 /** Slim, bright glowing progress bar. The view reaches [glow] beyond its column on each side, so the glow fades out
  *  softly instead of being cut; the empty part of the track is a recessed groove with an inner shadow. */
-internal class GoalGlowBar(a:MainActivity,animate:Boolean,private val fraction:Float,description:String):StatsAnimatedView(a,animate){
+internal class GoalGlowBar(a:MainActivity,animate:Boolean,private val fraction:Float,private val tint:Int,description:String):StatsAnimatedView(a,animate){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    val glow get()=a.d(14)
+    val glow get()=a.d(20)
     private val barH get()=a.d(14).toFloat()
     init{contentDescription=description;setLayerType(LAYER_TYPE_SOFTWARE,null)}
     override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(MeasureSpec.getSize(w),(barH+glow*2).toInt())
@@ -27,18 +27,19 @@ internal class GoalGlowBar(a:MainActivity,animate:Boolean,private val fraction:F
         c.save();val groove=Path().apply{addRoundRect(x0,top,x1,bottom,r,r,Path.Direction.CW)};c.clipPath(groove)
         p.color=if(light)0x40000000 else 0xb0000000.toInt();p.style=Paint.Style.STROKE;p.strokeWidth=a.d(4).toFloat();p.maskFilter=BlurMaskFilter(a.d(3).toFloat(),BlurMaskFilter.Blur.NORMAL)
         c.drawRoundRect(x0-a.d(1),top+a.d(1),x1+a.d(1),bottom+a.d(3),r,r,p)
-        p.color=if(light)0x30ffffff else 0x14ffffff;p.strokeWidth=a.d(1).toFloat();p.maskFilter=null;c.drawLine(x0+r,bottom-a.d(1)*.5f,x1-r,bottom-a.d(1)*.5f,p)
+        p.maskFilter=null
         p.style=Paint.Style.FILL;c.restore()
         val f=(fraction*phase).coerceIn(0f,1f);if(f<=0f)return
         val right=x0+(w*f).coerceAtLeast(barH*1.4f).coerceAtMost(w)
-        val c1=0xffff5a2c.toInt();val c2=0xffffb22e.toInt();val c3=0xffffd76a.toInt()
-        // bright glow around the fill, fading out well inside the view
-        p.color=(0xff8a2a and 0xffffff) or ((if(light)0x88 else 0xcc) shl 24);p.maskFilter=BlurMaskFilter(a.d(9).toFloat(),BlurMaskFilter.Blur.NORMAL)
-        c.drawRoundRect(x0+a.d(2),top,right-a.d(1),bottom+a.d(2),r,r,p);p.maskFilter=null
-        p.shader=LinearGradient(x0,0f,right,0f,intArrayOf(c1,0xffff7f2a.toInt(),c2,c3),floatArrayOf(0f,.4f,.85f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(x0,top,right,bottom,r,r,p)
+        // the card's own icon colour: deeper at the start, lighter toward the head
+        val c1=androidx.core.graphics.ColorUtils.blendARGB(tint,Color.BLACK,.18f);val c3=androidx.core.graphics.ColorUtils.blendARGB(tint,Color.WHITE,.35f)
+        // a wide, soft glow (diffuse, not a hot halo)
+        p.color=(tint and 0xffffff) or ((if(light)0x40 else 0x5c) shl 24);p.maskFilter=BlurMaskFilter(a.d(15).toFloat(),BlurMaskFilter.Blur.NORMAL)
+        c.drawRoundRect(x0+a.d(4),top+a.d(1),right-a.d(2),bottom+a.d(3),r,r,p);p.maskFilter=null
+        p.shader=LinearGradient(x0,0f,right,0f,intArrayOf(c1,tint,c3),floatArrayOf(0f,.6f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(x0,top,right,bottom,r,r,p)
         // glossy top light and a hot spot at the head
-        p.shader=LinearGradient(0f,top,0f,bottom,intArrayOf(0x88ffffff.toInt(),0x22ffffff,0x00ffffff),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(x0+a.d(2),top+a.d(1.5f),right-a.d(2),top+barH*.58f,r*.7f,r*.7f,p)
-        p.shader=RadialGradient(right-r,top+r,r*1.8f,intArrayOf(0xb0fff6dc.toInt(),0x00fff6dc),null,Shader.TileMode.CLAMP);c.drawCircle(right-r,top+r,r*1.8f,p)
+        p.shader=LinearGradient(0f,top,0f,bottom,intArrayOf(0x66ffffff,0x18ffffff,0x00ffffff),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(x0+a.d(2),top+a.d(1.5f),right-a.d(2),top+barH*.58f,r*.7f,r*.7f,p)
+        p.shader=RadialGradient(right-r,top+r,r*1.6f,intArrayOf(0x70fff6ee,0x00fff6ee),null,Shader.TileMode.CLAMP);c.drawCircle(right-r,top+r,r*1.6f,p)
         p.shader=null
     }
 }
@@ -59,8 +60,10 @@ internal class YearBooks(private val a:MainActivity,private val books:List<Pair<
         if(books.isEmpty())return@apply
         // Collapsed: nothing here; the books appear only when the card is opened.
         addView(grid,LayoutParams(-1,-2))}}
-    private fun cover(book:JSONObject):View{val box=AspectBox(a)
-        fun put(b:Bitmap?){box.removeAllViews();box.addView(CoverView(a,book,b).apply{softShadow=true},FrameLayout.LayoutParams(-1,-1))}
+    private fun cover(book:JSONObject):View{val box=AspectBox(a);val rating=book.optInt("rating")
+        fun put(b:Bitmap?){box.removeAllViews();box.addView(CoverView(a,book,b).apply{softShadow=true},FrameLayout.LayoutParams(-1,-1))
+            // your rating as a small medal pinned to the cover's corner
+            if(rating>0)box.addView(RatingMedal(a,rating),FrameLayout.LayoutParams(a.d(34),a.d(34),Gravity.BOTTOM or Gravity.END).apply{rightMargin=-a.d(8);bottomMargin=-a.d(6)})}
         put(a.cover(book));if(a.cover(book)==null&&book.optJSONObject("cover")!=null)a.requestCover(book){b->if(b!=null)put(b)};return box}
     private fun stars(n:Int,size:Int=11)=object:View(a){val p=Paint(Paint.ANTI_ALIAS_FLAG);val path=androidx.core.graphics.PathParser.createPathFromPathData("M12 2.8l2.85 5.77 6.37 .93-4.61 4.49 1.09 6.34L12 17.34l-5.7 2.99 1.09-6.34-4.61-4.49 6.37-.93Z")!!
         override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(size*5+8),a.d(size+1))
@@ -70,12 +73,11 @@ internal class YearBooks(private val a:MainActivity,private val books:List<Pair<
         r.addView(cover(b),LayoutParams(a.d(64),-2))
         val m=a.column().apply{setPadding(a.d(16),0,0,0)};m.addView(a.text(b.str("title"),16f,a.fg,true).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END})
         m.addView(a.text(MainActivity.authors(b),13f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
-        if(b.optInt("rating")>0){a.space(m,8);m.addView(stars(b.optInt("rating"),13))};if(d!=null){a.space(m,6);m.addView(a.text("Прочитана ${date(d)}",12.5f,a.muted))}
+if(d!=null){a.space(m,6);m.addView(a.text("Прочитана ${date(d)}",12.5f,a.muted))}
         r.addView(m,LayoutParams(0,-2,1f));return r}
     private fun cell(b:JSONObject,d:LocalDate?,i:Int):View{val cell=a.column().apply{clipChildren=false;isClickable=true;setOnClickListener{a.detail(b)};a.press(this)}
         cell.addView(cover(b),LayoutParams(-1,-2));a.space(cell,8)
         cell.addView(a.text(b.str("title"),12.5f,a.fg,true).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END})
-        val rating=b.optInt("rating");if(rating>0){a.space(cell,4);cell.addView(stars(rating))}
         if(motion){cell.alpha=0f;cell.translationY=a.d(12).toFloat();cell.animate().alpha(1f).translationY(0f).setStartDelay(160L+min(i,8)*50L).setDuration(460).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
         return cell}
     private fun row(items:List<Pair<JSONObject,LocalDate?>>,more:Int,offset:Int=0):LinearLayout{val line=a.line().apply{gravity=Gravity.TOP;clipChildren=false}
@@ -107,4 +109,18 @@ internal class YearBooks(private val a:MainActivity,private val books:List<Pair<
 internal class AspectBox(a:MainActivity):FrameLayout(a){
     init{clipChildren=false}
     override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws);val h=(w*1.5f).toInt();super.onMeasure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))}
+}
+
+/** A round medal with the rating: warm metal gradient, a white rim, a star and the number, with a soft shadow. */
+internal class RatingMedal(private val a:MainActivity,private val rating:Int):View(a){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    private val star=androidx.core.graphics.PathParser.createPathFromPathData("M12 2.8l2.85 5.77 6.37 .93-4.61 4.49 1.09 6.34L12 17.34l-5.7 2.99 1.09-6.34-4.61-4.49 6.37-.93Z")!!
+    init{setLayerType(LAYER_TYPE_SOFTWARE,null);contentDescription="Оценка $rating из 5";elevation=a.d(4).toFloat()}
+    override fun onDraw(c:Canvas){val cx=width/2f;val cy=height/2f;val r=min(width,height)/2f-a.d(3)
+        p.reset();p.isAntiAlias=true;p.color=0xffffffff.toInt();p.setShadowLayer(a.d(3).toFloat(),0f,a.d(1.5f),0x66000000);c.drawCircle(cx,cy,r,p);p.clearShadowLayer()
+        p.shader=LinearGradient(cx-r,cy-r,cx+r,cy+r,intArrayOf(0xffffd56b.toInt(),0xfff5a623.toInt(),0xffd9821a.toInt()),null,Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r-a.d(2),p)
+        p.shader=RadialGradient(cx-r*.35f,cy-r*.45f,r,intArrayOf(0x66ffffff,0x00ffffff),null,Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r-a.d(2),p);p.shader=null
+        // star above, number below
+        val s=r*.62f;c.save();c.translate(cx-s/2,cy-r*.62f);c.scale(s/24,s/24);p.color=Color.WHITE;c.drawPath(star,p);c.restore()
+        p.color=Color.WHITE;p.textAlign=Paint.Align.CENTER;p.typeface=Typeface.create("sans-serif",Typeface.BOLD);p.textSize=r*.78f;c.drawText("$rating",cx,cy+r*.62f,p)}
 }

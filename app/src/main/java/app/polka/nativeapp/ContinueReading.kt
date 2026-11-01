@@ -34,11 +34,11 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   override fun dispatchTouchEvent(e:android.view.MotionEvent):Boolean{if(e.actionMasked==MotionEvent.ACTION_DOWN){startPage=(scrollX.toFloat()/stride).roundToInt().coerceIn(0,last());flung=false};return super.dispatchTouchEvent(e)}
   init{isHorizontalScrollBarEnabled=false;isHorizontalFadingEdgeEnabled=false;isVerticalFadingEdgeEnabled=false;setFadingEdgeLength(0);overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;contentDescription="Книги в процессе чтения"}
   override fun onMeasure(w:Int,h:Int){resize(MeasureSpec.getSize(w));super.onMeasure(w,h)}
-  override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(restoring){scrollTo(pendingIndex*stride,0);restoring=false;position.text="${pendingIndex+1} / ${readingBooks.size}"}}
+  override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(restoring){scrollTo(pendingIndex*stride,0);restoring=false;position.text="${pendingIndex+1} / ${readingBooks.size}"};focus(scrollX)}
   override fun fling(velocityX:Int){flung=true;val dir=if(velocityX>0)1 else if(velocityX<0)-1 else 0;val page=(startPage+dir).coerceIn(0,last());if(a.prefs.str("motion")=="reduced")scrollTo(page*stride,0)else smoothScrollTo(page*stride,0)}
   override fun onTouchEvent(e:android.view.MotionEvent):Boolean{if(e.actionMasked==MotionEvent.ACTION_DOWN)flung=false;val handled=super.onTouchEvent(e);if((e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)&&!flung)post{snap()};return handled}
   fun snap(){val n=(scrollX.toFloat()/stride).roundToInt().coerceIn((startPage-1).coerceAtLeast(0),(startPage+1).coerceAtMost(last()));if(a.prefs.str("motion")=="reduced")scrollTo(n*stride,0)else smoothScrollTo(n*stride,0)}
-  override fun onScrollChanged(x:Int,y:Int,ox:Int,oy:Int){super.onScrollChanged(x,y,ox,oy);if(restoring)return;val n=(x.toFloat()/stride).roundToInt().coerceIn(0,readingBooks.lastIndex.coerceAtLeast(0));position.text="${n+1} / ${readingBooks.size}";if(a.continueBookId!=readingBooks.getOrNull(n)?.str("id"))readingBooks.getOrNull(n)?.let{a.prefetchContent(it)};a.continueBookId=readingBooks.getOrNull(n)?.str("id")}
+  override fun onScrollChanged(x:Int,y:Int,ox:Int,oy:Int){super.onScrollChanged(x,y,ox,oy);focus(x);if(restoring)return;val n=(x.toFloat()/stride).roundToInt().coerceIn(0,readingBooks.lastIndex.coerceAtLeast(0));position.text="${n+1} / ${readingBooks.size}";if(a.continueBookId!=readingBooks.getOrNull(n)?.str("id"))readingBooks.getOrNull(n)?.let{a.prefetchContent(it)};a.continueBookId=readingBooks.getOrNull(n)?.str("id")}
  }
  init{
   orientation=VERTICAL;clipChildren=false;clipToPadding=false
@@ -51,7 +51,11 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    card.setOnClickListener{a.openBook(book,cover)};a.press(card)
    val words=a.column().apply{setPadding(a.d(14),0,0,0)}
    words.addView(a.text(book.str("title"),17f,bold=true,serif=true).apply{maxLines=2;ellipsize=TextUtils.TruncateAt.END})
-   a.space(words,4);words.addView(a.text(MainActivity.authors(book),12f,a.muted).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END});a.space(words,12);a.progressRow(words,book);a.space(words,12)
+   a.space(words,4);words.addView(a.text(MainActivity.authors(book),12f,a.muted).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END});a.space(words,14)
+   val pct=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
+   words.addView(SheenProgress(a,pct),LayoutParams(-1,a.d(10)));a.space(words,6)
+   val chars=book.optInt("chars",0);val left=if(chars>0)(chars*(1-pct)/5.0/190.0*60000).toLong() else 0L
+   words.addView(a.text("${(pct*100).roundToInt()}%"+if(left>0)" · ≈ ${duration(left)}" else "",12f,a.muted));a.space(words,12)
    val buttons=a.line();buttons.addView(pill("Читать",true,"Читать: ${book.str("title")}"){a.openBook(book,cover)},LayoutParams(0,-2,1f));buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,cover)},LayoutParams(0,-2,1f).apply{marginStart=a.d(8)});words.addView(buttons)
    row.addView(words,LayoutParams(0,-2,1f));cards.add(card);strip.addView(card,LayoutParams(a.d(284),-2).apply{if(i>0)marginStart=a.d(12)})
   }
@@ -69,7 +73,17 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   gravity=Gravity.CENTER;minHeight=a.d(38);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(10),0,a.d(10),0);contentDescription=description;isClickable=true;isFocusable=true
   background=if(primary)a.shape(a.fg,19) else GradientDrawable().apply{setColor(if(light)0x99ffffff.toInt() else 0x33ffffff);cornerRadius=a.d(19).toFloat()}
   setOnClickListener{click()};a.press(this)}
- private fun resize(viewport:Int){if(viewport<=0||viewport==lastViewport)return;lastViewport=viewport;val content=(viewport-a.d(40)).coerceAtLeast(1);val width=if(cards.size<=1)content else (content*.9f).toInt();carousel.stride=width+a.d(12);cards.forEach{it.layoutParams=(it.layoutParams as LayoutParams).apply{this.width=width}};strip.setPadding(a.d(20),a.d(6),viewport-width-a.d(20),a.d(26));pendingIndex=readingBooks.indexOfFirst{it.str("id")==a.continueBookId}.coerceAtLeast(0);restoring=true}
+ private fun resize(viewport:Int){if(viewport<=0||viewport==lastViewport)return;lastViewport=viewport;val content=(viewport-a.d(40)).coerceAtLeast(1)
+  // Several books: the focused card sits in the middle, its neighbours peek out on both sides.
+  val width=if(cards.size<=1)content else (content*.84f).toInt();val gap=a.d(6);carousel.stride=width+gap
+  cards.forEachIndexed{i,c->c.layoutParams=(c.layoutParams as LayoutParams).apply{this.width=width;marginStart=if(i>0)gap else 0}}
+  val side=if(cards.size<=1)a.d(20) else (viewport-width)/2;strip.setPadding(side,a.d(6),side,a.d(26))
+  pendingIndex=readingBooks.indexOfFirst{it.str("id")==a.continueBookId}.coerceAtLeast(0);restoring=true}
+ /** The card in focus is full size; the others shrink and dim with their distance from it, continuously while scrolling. */
+ private fun focus(x:Int){if(cards.size<=1)return;val stride=carousel.stride.toFloat().coerceAtLeast(1f)
+  cards.forEachIndexed{i,c->val d=kotlin.math.abs(x/stride-i).coerceAtMost(1.5f);val k=d.coerceAtMost(1f)
+   val s=1f-.12f*k;c.scaleX=s;c.scaleY=s;c.pivotY=c.height/2f;c.pivotX=if(x/stride>i)c.width.toFloat() else 0f
+   c.alpha=1f-.45f*k;c.translationZ=-a.d(6)*k}}
 }
 
 /** The book's own cover, softly blurred and veiled, as the card's background (not a CoverView: it is only a backdrop). */
@@ -101,4 +115,18 @@ internal class CoverBackdrop(private val a:MainActivity,private val book:JSONObj
   dst.set(0f,0f,width.toFloat(),height.toFloat());c.drawBitmap(b,src,dst,paint)
   c.drawColor(if(a.light)0xa8fbfaf7.toInt() else 0xb0121214.toInt());c.restore()
  }
+}
+
+/** Thin bar with a light, glowing head (as in streaming apps): faint track, a fill that brightens toward its end. */
+internal class SheenProgress(private val a:MainActivity,private val fraction:Float):View(a){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    init{setLayerType(LAYER_TYPE_SOFTWARE,null);importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
+    override fun onDraw(c:Canvas){val h=a.d(4).toFloat();val cy=height/2f;val w=width.toFloat();val r=h/2;val ink=a.fg
+        p.reset();p.isAntiAlias=true;p.color=(ink and 0xffffff) or ((if(a.light)0x1c else 0x22) shl 24);c.drawRoundRect(0f,cy-r,w,cy+r,r,r,p)
+        if(fraction<=0f)return;val x=(w*fraction).coerceAtLeast(h)
+        p.shader=LinearGradient(0f,0f,x,0f,intArrayOf((ink and 0xffffff) or 0x66000000,(ink and 0xffffff) or 0xee000000.toInt()),null,Shader.TileMode.CLAMP);c.drawRoundRect(0f,cy-r,x,cy+r,r,r,p);p.shader=null
+        // glowing head
+        val glow=if(a.light)0xffffb340.toInt() else 0xfffff1c2.toInt()
+        p.shader=RadialGradient(x-r,cy,a.d(10).toFloat(),intArrayOf((glow and 0xffffff) or 0xaa000000.toInt(),(glow and 0xffffff) or 0x33000000,glow and 0xffffff),floatArrayOf(0f,.4f,1f),Shader.TileMode.CLAMP);c.drawCircle(x-r,cy,a.d(10).toFloat(),p);p.shader=null
+        p.color=if(a.light)ink else 0xfffffbf0.toInt();c.drawRoundRect((x-a.d(10)).coerceAtLeast(0f),cy-r,x,cy+r,r,r,p)}
 }
