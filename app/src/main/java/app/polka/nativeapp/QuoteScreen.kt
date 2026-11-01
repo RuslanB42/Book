@@ -28,7 +28,7 @@ fun MainActivity.quotes() {
     val group=groups.firstOrNull{it.book.str("id")==quoteBookId};if(quoteBookId!=null && group==null)quoteBookId=null
     val sec=line().apply{tag="quote-header"}
     if(group==null){space(page,8)
-        groups.forEach{g->page.addView(QuoteFan(this,g.book,g.quotes).apply{tag="quote-item"},LinearLayout.LayoutParams(-1,-2));space(page,22)}
+        groups.forEach{g->page.addView(QuoteDeck(this,g.book,g.quotes).apply{tag="quote-item"},LinearLayout.LayoutParams(-1,-2));space(page,30)}
     }else{
         val back=backControl("Цитаты","Назад к цитатам"){openQuoteGroup(null)};sec.addView(back,LinearLayout.LayoutParams(0,d(44),1f));sec.addView(text("${group.quotes.size} ${quoteWord(group.quotes.size)}",14f,muted));page.addView(sec);space(page,16)
         val h=line().apply{tag="quote-header";setOnClickListener{detail(group.book)}};h.addView(CoverView(this,group.book),LinearLayout.LayoutParams(d(52),d(78)));val meta=column().apply{setPadding(d(14),0,0,0)};meta.addView(text(group.book.str("title"),20f,bold=true,serif=true));space(meta,2);meta.addView(text(MainActivity.authors(group.book),14f,muted));h.addView(meta,LinearLayout.LayoutParams(0,-2,1f));page.addView(h);space(page,18)

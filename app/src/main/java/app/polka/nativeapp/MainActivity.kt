@@ -20,6 +20,8 @@ class MainActivity : Activity() {
     var quoteBookId:String?=null
     /** Books whose quote piles are open on the «Цитаты» tab (kept across re-renders). */
     internal val openQuoteStacks=mutableSetOf<String>()
+    /** Which quote is on top of each book's deck on the «Цитаты» tab. */
+    internal val quoteDeckIndex=mutableMapOf<String,Int>()
     private var pendingMotion:Pair<MotionPose,Long>?=null
     private val tabScroll=mutableMapOf<String,Int>()
     private val io = Executors.newSingleThreadScheduledExecutor()
