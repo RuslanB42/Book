@@ -297,6 +297,8 @@ class MainActivity : Activity() {
     fun confirm(title:String,message:String,action:()->Unit) { dialog().setTitle(title).setMessage(message).setNegativeButton("Отмена",null).setPositiveButton("Продолжить") { _,_ -> action() }.show() }
     fun moveBook(book:JSONObject) { val names=(listOf("Без полки")+prefs.optJSONArray("shelves")?.strings().orEmpty()+books.map { it.str("shelf") }.filter { it.isNotBlank() }+REC_SHELF).distinct(); dialog().setTitle("Переместить на полку").setItemIcons(*names.map{"shelves"}.toTypedArray()).setItems(names.toTypedArray()) { _,i -> saveBook(book.copyJson().put("shelf",if(i==0) "" else names[i])) }.show() }
     private var loadingReader=false
+    /** Book whose card the reader was opened from; closing the book returns to that card. */
+    var returnDetailId:String?=null
     /** Parsed text of recently opened/likely-to-open books. Reading the whole book from the database and parsing
      *  it is the slow part of opening, so it is done ahead of time (detail card, «Продолжить чтение») and reused. */
     private val openedContent=object:LinkedHashMap<String,Pair<JSONObject,MutableMap<String,ByteArray>>>(4,.75f,true){override fun removeEldestEntry(e:MutableMap.MutableEntry<String,Pair<JSONObject,MutableMap<String,ByteArray>>>?)=size>2}
@@ -316,6 +318,7 @@ class MainActivity : Activity() {
     fun openBook(book:JSONObject,source:View?=null) {
         if(reader!=null || loadingReader || bookClosing)return
         if(book.optBoolean("noFile")) { bookActions(book); return }
+        if(bookDetailSheet==null)returnDetailId=null
         loadingReader=true
         val veil=if(prefs.str("motion")=="reduced") null else fadeVeil().also{root.addView(it,FrameLayout.LayoutParams(-1,-1))}
         var loaded:Pair<JSONObject,MutableMap<String,ByteArray>>?=null;var dark=veil==null;var built=false
