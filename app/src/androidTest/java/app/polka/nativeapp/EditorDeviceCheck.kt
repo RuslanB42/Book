@@ -54,6 +54,7 @@ class EditorDeviceCheck {
                 var sel=-1;var hitTest=-1;scenario.onActivity{sel=e.selectionStart;val l=e.layout;hitTest=l.getOffsetForHorizontal(l.getLineForOffset(off),l.getPrimaryHorizontal(off))}
                 checks++
                 if(sel!=off){misses++;if(notes.size<8)notes.add("tap@$off→caret $sel (hitTest $hitTest) «${before.substring(maxOf(0,off-6),minOf(before.length,off+6))}»")}
+                if(sel<=0){var info="";scenario.onActivity{val root=e.rootView;fun top(v:View,px:Float,py:Float):String{val r=android.graphics.Rect();if(!v.isShown||!v.getGlobalVisibleRect(r)||!r.contains(px.toInt(),py.toInt()))return "";if(v is ViewGroup)for(i in v.childCount-1 downTo 0){val t=top(v.getChildAt(i),px,py);if(t.isNotEmpty())return t};return v.javaClass.simpleName+"#"+v.hashCode()};info="under=${top(root,x,y)} focused=${e.isFocused} hasWindowFocus=${e.hasWindowFocus()} enabled=${e.isEnabled} editorAt=${IntArray(2).also{e.getLocationOnScreen(it)}.toList()} x=$x y=$y"};notes.add("tap@$off no caret: $info");continue}
                 inst.sendKeyDownUpSync(KeyEvent.KEYCODE_DEL);Thread.sleep(300)
                 var after="";scenario.onActivity{after=e.text.toString()}
                 val expected=before.removeRange(sel-1,sel)
