@@ -31,9 +31,9 @@ class QuoteGeometryCheck {
             while(!ready&&waited<15000){Thread.sleep(250);waited+=250;scenario.onActivity{ready=reader?.openingReady()==true&&reader?.body?.layout!=null}}
             Thread.sleep(800)
             // Ground truth: where words are actually drawn, from the ink of the rendered lines.
-            scenario.onActivity{a->val r=reader!!;val l=r.body.layout;val bw=l.width;val bh=l.height;val bmp=Bitmap.createBitmap(bw,bh,Bitmap.Config.ARGB_8888);val c=Canvas(bmp);r.body.paint.color=android.graphics.Color.BLACK;l.draw(c);val sb=StringBuilder("$name api=${android.os.Build.VERSION.SDK_INT}\n")
+            scenario.onActivity{a->val r=reader!!;val l=r.body.layout;val bw=l.width;val bh=l.height;val full=Bitmap.createBitmap(r.body.width,r.body.height,Bitmap.Config.ARGB_8888);r.body.draw(Canvas(full));val bmp=Bitmap.createBitmap(full,r.body.paddingLeft,r.body.paddingTop,bw,minOf(bh,r.body.height-r.body.paddingTop));full.recycle();val c=Canvas(bmp);val sb=StringBuilder("$name api=${android.os.Build.VERSION.SDK_INT}\n")
                 val sp=r.body.paint.measureText(" ")
-                for(line in 0 until minOf(6,l.lineCount)){val fm=r.body.paint.fontMetrics;val base=l.getLineBaseline(line);val y0=(base+fm.ascent*.7f).toInt().coerceAtLeast(0);val y1=(base+fm.descent*.3f).toInt().coerceAtMost(bh-1)
+                for(line in 0 until minOf(6,l.lineCount)){val fm=r.body.paint.fontMetrics;val base=l.getLineBaseline(line);val y0=(base+fm.ascent*.7f).toInt().coerceAtLeast(0);val y1=(base+fm.descent*.3f).toInt().coerceAtMost(bmp.height-1)
                     val ink=BooleanArray(bw){x->(y0..y1).any{y->android.graphics.Color.alpha(bmp.getPixel(x,y))>40}}
                     val starts=mutableListOf<Int>();var gap=999;for(x in 0 until bw){if(ink[x]){if(gap>sp*.55f)starts.add(x);gap=0}else gap++}
                     val t=l.text;val ls=l.getLineStart(line);val le=l.getLineEnd(line);val wordStarts=(ls until le).filter{i->!t[i].isWhitespace()&&(i==ls||t[i-1]==' ')}
