@@ -294,7 +294,8 @@ internal class TimeRibbon(a:MainActivity,private val values:List<Double>,animate
     private fun showBubble(on:Boolean){bubbleAnim?.cancel();val from=bubble;val to=if(on)1f else 0f
         if(a.prefs.str("motion")=="reduced"){bubble=to;if(!on)selected=-1;invalidate();return}
         bubbleAnim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=if(on)200 else 220;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{bubble=it.animatedValue as Float;invalidate()};addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(!on){selected=-1;bubbleX=-1f;invalidate()}}});start()}}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(tips!=null){var p=parent as? ViewGroup;var n=0;while(p!=null&&n<4){p.clipChildren=false;p.clipToPadding=false;p=p.parent as? ViewGroup;n++}}}
+    // Room for the bubble above the bars: unclip only up to the card itself — never the scrolling page, which must keep clipping.
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(tips!=null){var p=parent as? ViewGroup;while(p!=null&&p !is ScrollView){p.clipChildren=false;p.clipToPadding=false;if(p.tag=="statistics-card")break;p=p.parent as? ViewGroup}}}
     override fun onDetachedFromWindow(){removeCallbacks(holdTask);removeCallbacks(hideTask);bubbleAnim?.cancel();super.onDetachedFromWindow()}
     override fun onTouchEvent(e:MotionEvent):Boolean {
         if(tips!=null){when(e.actionMasked){

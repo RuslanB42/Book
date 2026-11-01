@@ -35,7 +35,11 @@ internal class LibrarySearchBar(private val a:MainActivity):LinearLayout(a) {
   if(persistent){
    input.background=OpaqueSurface(a,22f);input.setPadding(a.d(42),0,a.d(36),0);input.hint=if(a.tab=="quotes")"Поиск по книгам" else "Поиск книг"
    field.addView(IconView(a,"search",a.muted).apply{importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false;elevation=input.elevation+1f},FrameLayout.LayoutParams(a.d(40),a.d(44),Gravity.START))
-   input.setOnFocusChangeListener{_,has->if(has&&!a.searchOpen){a.searchOpen=true}else if(!has&&input.text.isEmpty()&&a.searchOpen){a.searchOpen=false}}
+   // The field never takes focus by itself (Android hands focus to the first text field — a blinking caret and a
+   // keyboard popping up on other screens). It becomes focusable only when tapped, and lets go again when left empty.
+   if(a.query.isEmpty()){input.isFocusable=false;input.isFocusableInTouchMode=false}
+   input.setOnTouchListener{_,e->if(e.actionMasked==MotionEvent.ACTION_UP&&!input.isFocusableInTouchMode){input.isFocusable=true;input.isFocusableInTouchMode=true;input.requestFocus();showKeyboard()};false}
+   input.setOnFocusChangeListener{_,has->if(has&&!a.searchOpen){a.searchOpen=true}else if(!has&&input.text.isEmpty()){a.searchOpen=false;input.isFocusable=false;input.isFocusableInTouchMode=false}}
    controls.addView(a.icon("filter","Фильтры и сортировка"){a.filters()},LayoutParams(a.d(44),a.d(44)))
   }else{paintToggle();controls.addView(View(a),LayoutParams(a.d(8),1));controls.addView(a.icon("filter","Фильтры и сортировка"){a.filters()},LayoutParams(a.d(44),a.d(44)))}
   a.searchOpen=a.searchOpen||a.query.isNotEmpty();field.visibility=if(a.searchOpen||persistent)View.VISIBLE else View.INVISIBLE;clear.visibility=if(a.query.isEmpty())View.GONE else View.VISIBLE
@@ -46,7 +50,7 @@ internal class LibrarySearchBar(private val a:MainActivity):LinearLayout(a) {
  }
  fun toggle(){if(a.searchOpen)close()else open()}
  fun open(){a.searchOpen=true;field.visibility=View.VISIBLE;onToggleChanged?.invoke();a.scroll.scrollTo(0,0);input.requestFocus();input.setSelection(input.length());if(a.prefs.str("motion")=="reduced")reveal.snap(1f)else reveal.to(1f);showKeyboard()}
- fun close(refresh:Boolean=true){pending?.let{removeCallbacks(it)};a.searchOpen=false;a.query="";hideKeyboard();input.clearFocus();input.setText("");pending?.let{removeCallbacks(it)};onToggleChanged?.invoke();if(!persistent){if(a.prefs.str("motion")=="reduced")reveal.snap(0f)else reveal.to(0f)};if(refresh)a.renderLibraryResults()}
+ fun close(refresh:Boolean=true){pending?.let{removeCallbacks(it)};a.searchOpen=false;a.query="";hideKeyboard();input.clearFocus();input.setText("");pending?.let{removeCallbacks(it)};onToggleChanged?.invoke();if(!persistent){if(a.prefs.str("motion")=="reduced")reveal.snap(0f)else reveal.to(0f)}else{input.isFocusable=false;input.isFocusableInTouchMode=false};if(refresh)a.renderLibraryResults()}
 
  private fun showKeyboard(){input.post{if(a.searchOpen&&isAttachedToWindow){input.requestFocus();(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input,InputMethodManager.SHOW_IMPLICIT);WindowCompat.getInsetsController(a.window,input).show(WindowInsetsCompat.Type.ime())}}}
  private fun hideKeyboard(){(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(input.windowToken,0);WindowCompat.getInsetsController(a.window,input).hide(WindowInsetsCompat.Type.ime())}
