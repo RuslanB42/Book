@@ -219,7 +219,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val quickPaint=android.text.TextPaint(paint)
         val early:((ReadingText.Result)->Unit)?=if(quickFrom==null&&quickFraction==null)null else {rendered->
             val text=rendered.text;val from=(quickFrom?:((quickFraction?:0.0)*text.length).toInt()).coerceIn(0,text.length)
-            if(quickFraction==null||from==0){val end=ReaderLayoutEngine.pageEnd(text,from,quickPaint,width,height,justify,hyph);val page=pageText(text,listOf(from,end),0)
+            if(quickFraction==null||from==0){val end=engine.pageEnd(text,from,quickPaint,width,height,justify,hyph);val page=pageText(text,listOf(from,end),0)
                 handler.post{if(!disposed&&generation==layoutGeneration&&preparing&&chapter==targetChapter){body.text=page;scroll.scrollTo(0,0);quickShown=true;view.postInvalidateOnAnimation()}}}
         }
         layoutJob=a.compute({engine.prepare(key,{
