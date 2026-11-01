@@ -37,6 +37,14 @@ fun MainActivity.quotes() {
 }
 private fun quoteWord(n:Int)=if(n%100 in 11..14)"цитат" else when(n%10){1->"цитата";2,3,4->"цитаты";else->"цитат"}
 /** A floating card: soft ambient + key shadow following the rounded outline, as on the statistics screen. */
+/** Fully rounded floating pill with a soft, wide shadow that lifts it off the page. */
+internal fun MainActivity.pillSurface(v:View){
+    v.setPadding(d(14),d(10),d(22),d(10));v.minimumHeight=d(52)
+    v.background=android.graphics.drawable.GradientDrawable().apply{setColor(if(light)Color.WHITE else 0xff2c2c2f.toInt());cornerRadius=d(200).toFloat()}
+    v.elevation=d(18).toFloat();v.translationZ=0f
+    v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,view.height/2f)}}
+    if(android.os.Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x22000000 else 0x99000000.toInt();v.outlineSpotShadowColor=if(light)0x33000000 else 0xcc000000.toInt()}
+}
 internal fun MainActivity.floatCard(v:View,radiusDp:Int=20,color:Int=if(light)Color.WHITE else 0xff242426.toInt(),lift:Int=if(light)8 else 10){
     val r=d(radiusDp).toFloat();v.background=android.graphics.drawable.GradientDrawable().apply{setColor(color);cornerRadius=r};v.elevation=d(lift).toFloat()
     v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,r)}}

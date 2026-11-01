@@ -30,6 +30,21 @@ internal class ChapterSelection {
         else {if(word.last+1>start){end=word.last+1;false}else{end=start;start=word.first;true}}
     }
     fun set(s:Int,e:Int){start=s;end=e}
+    /** Character-precise drag: the dragged end sits exactly at [offset]; crossing the other end swaps roles. Returns whether the start is being dragged. */
+    fun drag(offset:Int,atStart:Boolean):Boolean {
+        return if(atStart){if(offset<end){start=offset;true}else{start=end;end=maxOf(offset,start+1);false}}
+        else {if(offset>start){end=offset;false}else{end=start;start=minOf(offset,end-1).coerceAtLeast(0);true}}
+    }
+    /** After release: ends grow to whole words and never start or end on a space. */
+    fun snap(text:CharSequence){
+        if(text.isEmpty())return
+        var s=start.coerceIn(0,text.length);var e=end.coerceIn(0,text.length)
+        while(s<e&&text[s].isWhitespace())s++;while(e>s&&text[e-1].isWhitespace())e--
+        if(e<=s)return
+        word(text,s)?.let{if(it.first<s&&!text[s-1].isWhitespace())s=it.first}
+        word(text,e-1)?.let{if(it.last+1>e&&e<text.length&&!text[e].isWhitespace())e=it.last+1}
+        start=s;end=e
+    }
     fun text(full:CharSequence)=full.subSequence(start.coerceIn(0,full.length),end.coerceIn(0,full.length)).toString()
 }
 
@@ -47,6 +62,12 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private var startVisible=false;private var endVisible=false
     /** Offset from the finger to the text under the dragged handle, so the handle moves with the finger instead of jumping a line down. */
     private var grabDx=0f;private var grabDy=0f
+    private var lastOff=-1
+    private var dragLine=-1
+    /** Offset under the finger with a little hysteresis between lines, so a finger resting on a line edge doesn't flicker between two lines. */
+    private fun offsetAt(px:Float,py:Float):Int{val l=reader.body.layout?:return reader.pageBase();val ly=py-reader.body.paddingTop;var line=l.getLineForVertical(ly.toInt())
+        if(dragLine in 0 until l.lineCount&&line!=dragLine){val top=l.getLineTop(dragLine);val bot=l.getLineBottom(dragLine);val slack=(bot-top)*.3f;if(ly>top-slack&&ly<bot+slack)line=dragLine}
+        dragLine=line;return (reader.pageBase()+l.getOffsetForHorizontal(line,px-reader.body.paddingLeft).coerceIn(0,reader.body.length())).coerceAtMost(reader.pageLimit())}
     private var appear=1f
     private var settling=false;private var settleColor=0;private var settleStart=0;private var settleEnd=0;private var settle:android.animation.ValueAnimator?=null
     private lateinit var primary:TextView
@@ -124,14 +145,14 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     override fun onTouchEvent(e:MotionEvent):Boolean {
         if(!active)return false
         when(e.actionMasked){
-            MotionEvent.ACTION_DOWN->{startVisible=point(range.start,false,startHandle);endVisible=point(range.end,true,endHandle);x=e.x;y=e.y;val ds=if(startVisible)hypot(x-startHandle.x,y-startHandle.y-a.d(9))else Float.MAX_VALUE;val de=if(endVisible)hypot(x-endHandle.x,y-endHandle.y-a.d(9))else Float.MAX_VALUE
+            MotionEvent.ACTION_DOWN->{dragLine=-1;lastOff=-1;startVisible=point(range.start,false,startHandle);endVisible=point(range.end,true,endHandle);x=e.x;y=e.y;val ds=if(startVisible)hypot(x-startHandle.x,y-startHandle.y-a.d(9))else Float.MAX_VALUE;val de=if(endVisible)hypot(x-endHandle.x,y-endHandle.y-a.d(9))else Float.MAX_VALUE
                 if(min(ds,de)>a.d(32)){clear();return true};atStart=ds<de;dragging=true
                 val h=if(atStart)startHandle else endHandle;val lh=reader.body.layout?.let{l->val local=((if(atStart)range.start else range.end)-reader.pageBase()).coerceIn(0,reader.body.length());val line=l.getLineForOffset(if(!atStart&&local>0)local-1 else local);(l.getLineBottom(line)-l.getLineTop(line)).toFloat()}?:a.d(24).toFloat()
                 grabDx=h.x-x;grabDy=(h.y-lh/2f)-y;menu.visibility=INVISIBLE;parent.requestDisallowInterceptTouchEvent(true);return true}
-            MotionEvent.ACTION_MOVE->{if(!dragging)return true;x=e.x;y=e.y;if(!edgeLocked){val dir=when{!atStart&&(x>width-reader.body.paddingRight+a.d(1)||y>height-reader.body.paddingBottom+a.d(8))->1;atStart&&(x<reader.body.paddingLeft-a.d(1)||y<reader.body.paddingTop-a.d(8))->-1;else->0};if(dir==0)atStart=range.move(reader.selectionFullText(),reader.selectionOffset(x+grabDx,y+grabDy),atStart);if(dir!=edge){timer.removeCallbacks(pageTimer);edge=dir;if(dir!=0)timer.postDelayed(pageTimer,340)};invalidate()};return true}
-            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{dragging=false;edge=0;timer.removeCallbacks(pageTimer);parent.requestDisallowInterceptTouchEvent(false);contentDescription="Выделено: ${range.text(reader.selectionFullText())}";showMenu();invalidate();return true}
+            MotionEvent.ACTION_MOVE->{if(!dragging)return true;x=e.x;y=e.y;if(!edgeLocked){val dir=when{!atStart&&(x>width-reader.body.paddingRight+a.d(1)||y>height-reader.body.paddingBottom+a.d(8))->1;atStart&&(x<reader.body.paddingLeft-a.d(1)||y<reader.body.paddingTop-a.d(8))->-1;else->0};if(dir==0){val off=offsetAt(x+grabDx,y+grabDy);if(off!=lastOff){lastOff=off;atStart=range.drag(off,atStart)}};if(dir!=edge){timer.removeCallbacks(pageTimer);edge=dir;if(dir!=0)timer.postDelayed(pageTimer,340)};invalidate()};return true}
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{dragging=false;edge=0;lastOff=-1;timer.removeCallbacks(pageTimer);parent.requestDisallowInterceptTouchEvent(false);range.snap(reader.selectionFullText());contentDescription="Выделено: ${range.text(reader.selectionFullText())}";showMenu();invalidate();return true}
         };return true
     }
-    fun continueHold(e:MotionEvent){if(!active)return;if(e.actionMasked==MotionEvent.ACTION_MOVE&&!dragging){dragging=true;atStart=false;grabDx=0f;grabDy=0f;menu.visibility=INVISIBLE;parent.requestDisallowInterceptTouchEvent(true)};if(dragging)onTouchEvent(e)}
+    fun continueHold(e:MotionEvent){if(!active)return;if(e.actionMasked==MotionEvent.ACTION_MOVE&&!dragging){dragging=true;atStart=false;grabDx=0f;grabDy=0f;dragLine=-1;lastOff=-1;menu.visibility=INVISIBLE;parent.requestDisallowInterceptTouchEvent(true)};if(dragging)onTouchEvent(e)}
     internal fun handlePoint(start:Boolean):PointF {point(if(start)range.start else range.end,!start,if(start)startHandle else endHandle);return PointF(if(start)startHandle.x else endHandle.x,(if(start)startHandle.y else endHandle.y)+a.d(9))}
 }

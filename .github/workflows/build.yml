@@ -34,13 +34,13 @@ jobs:
           exit $code
       - uses: actions/upload-artifact@v4
         with:
-          name: Polka-native-0.6.81
+          name: Polka-native-0.6.82
           path: app/build/outputs/apk/debug/*.apk
       - name: Publish APK to apk-out branch
         run: |
-          mkdir /tmp/out && cp app/build/outputs/apk/debug/*.apk /tmp/out/Polka-native-0.6.81.apk
+          mkdir /tmp/out && cp app/build/outputs/apk/debug/*.apk /tmp/out/Polka-native-0.6.82.apk
           cd /tmp/out && git init -q && git checkout -q -b apk-out && git add . 
-          git -c user.name=ci -c user.email=ci@example.com commit -qm "APK 0.6.81"
+          git -c user.name=ci -c user.email=ci@example.com commit -qm "APK 0.6.82"
           git push -f -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" apk-out
       - name: Unit tests
         continue-on-error: true
@@ -99,7 +99,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
           script: |
             chmod +x gradlew
-            ./gradlew connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --no-daemon --console=plain > device.log 2>&1 || true
+            timeout 840 ./gradlew connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --no-daemon --console=plain > device.log 2>&1 || true
             mkdir -p device-qa
             adb exec-out run-as app.polka.nativeapp tar cf - -C files/qa . > device-qa/qa.tar || true
             tar xf device-qa/qa.tar -C device-qa || true

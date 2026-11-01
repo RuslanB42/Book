@@ -420,7 +420,7 @@ class MainActivity : Activity() {
                                 if(errors.isNotEmpty()) dialog().setTitle("Не добавлены файлы").setMessage(errors.joinToString("\n\n")).setPositiveButton("Закрыть",null).show() }
                             if(loader!=null) loader.finish(result) { show() } else { show(); val resultNotice=ImportNotice(this,result,false); android.os.Handler(mainLooper).postDelayed({ resultNotice.dismiss() },2400) }
                         } }
-                        if(mismatch.isNotBlank()) { loader?.dismiss(); confirm("Данные книги отличаются",mismatch) { commit(null) } } else commit(loader)
+                        if(mismatch.isNotBlank()) { loader?.dismiss(); confirm("Данные книги отличаются",mismatch) { commit(ImportNotice(this,"Прикрепляю файл…")) } } else commit(loader)
                     }
                 })
             }

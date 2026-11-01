@@ -13,7 +13,7 @@ class ImportNotice(val a:MainActivity,label:String,loading:Boolean=true) {
     private val covers=a.floatingCovers?.takeIf{loading&&it.isAttachedToWindow&&it.isShown}
     private val centered=covers!=null
     val row=(if(centered)a.column().apply{gravity=Gravity.CENTER_HORIZONTAL} else a.line().apply{gravity=Gravity.CENTER_VERTICAL}).apply{
-        if(!centered){setPadding(a.d(16),a.d(12),a.d(18),a.d(12));background=a.controlSurface(this,18f,sheet=true);elevation=a.d(12).toFloat()}}
+        if(!centered)a.pillSurface(this)}
     private val spines=if(loading)SpineLoader(a) else null
     val caption=a.text(label,if(centered)15f else 14f,a.fg,centered)
     private val detail=a.text("",13f,a.muted).apply{visibility=View.GONE}
@@ -29,7 +29,6 @@ class ImportNotice(val a:MainActivity,label:String,loading:Boolean=true) {
             if(reduced)c.scatter=1f else android.animation.ValueAnimator.ofFloat(c.scatter,1f).apply{duration=560;interpolator=PathInterpolator(.3f,0f,.2f,1f);addUpdateListener{c.scatter=it.animatedValue as Float};start()}}
         // At the top, clear of the status bar and well away from the bottom navigation.
         else host.addView(row,FrameLayout.LayoutParams(-2,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin=a.appInsets.top+a.d(10) })
-        row.elevation=a.d(30).toFloat()
         row.alpha=0f;if(!centered)row.translationY=-a.d(24).toFloat();row.animate().alpha(1f).translationY(0f).setStartDelay(if(centered)180L else 0L).setDuration(if(centered)360L else 260L).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
     }
     fun setMessage(value:String) { caption.text=value }

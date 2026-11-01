@@ -73,7 +73,7 @@ fun MainActivity.bookActions(book:JSONObject) {
         "О книге"->detail(book); "Изменить данные"->metadataEditor(book); "Переместить на полку"->moveBook(book); "Оценить"->dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().put("rating",it)) {} }).show()
         "Прикрепить файл" -> { attachId=book.str("id"); pickBooks(14) }; "Отметить прочитанной" -> saveBook(book.copyJson().put("progress",(book.optJSONObject("progress")?.copyJson() ?: JSONObject()).put("pct",1.0)).put("completedAt",System.currentTimeMillis()))
         "Скачать FB2"->exportBook(book,"fb2"); "Скачать EPUB"->exportBook(book,"epub")
-        "Удалить книгу" -> confirm("Удалить книгу?","Текст, цитаты и заметки этой книги будут удалены из библиотеки.") { work({ ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); ChapterStore.drop(filesDir,book.str("id")); library.db.runInTransaction { library.dao.deleteBook(book.str("id")); library.dao.deleteContent(book.str("id")); library.pruneAssets(); library.updateMarker() }; loadData() }) { gridMotion=true; val sheet=bookDetailSheet?.takeIf { it.isShowing && it.bookId==book.str("id") }; render(true,false); sheet?.discard(); if(profileOverlay!=null) refreshProfile(); checkpointSoon() } }
+        "Удалить книгу" -> confirm("Удалить книгу?","Текст, цитаты и заметки этой книги будут удалены из библиотеки.") { deleteBook(book) }
     } }.show()
 }
 /** «Настройки»: grouped rows on floating cards — appearance, reading, behaviour, backups. */
@@ -160,3 +160,14 @@ fun MainActivity.recoveryScreen(error:Throwable) {
     root.removeAllViews(); val box=column().apply { setPadding(d(24),d(40),d(24),d(40)); setBackgroundColor(bg) }; root.addView(box,FrameLayout.LayoutParams(-1,-1)); box.addView(text("Библиотека не загружена",28f,bold=true,serif=true)); space(box,16); box.addView(text("Запись остановлена. Прежние данные и локальные копии не заменяются пустой библиотекой.",16f,muted)); space(box,12); box.addView(text(error.message ?: error.javaClass.simpleName,14f,muted)); space(box,24); box.addView(button("Локальные точки восстановления",true) { localRecovery() }); space(box,10); box.addView(button("Восстановить из .polka") { pickBackup() }); space(box,10); box.addView(button("Попробовать создать внешнюю копию") { exportBackup() })
 }
 
+
+/** The book leaves the screen at once (the card sinks, the grid closes the gap); the database work and the safety copy follow in the background. */
+internal fun MainActivity.deleteBook(book:JSONObject) {
+    val id=book.str("id")
+    books=books.filterNot { it.str("id")==id }
+    gridMotion=true
+    val sheet=bookDetailSheet?.takeIf { it.isShowing && it.bookId==id }
+    render(true,false); sheet?.discard()
+    val notice=ImportNotice(this,"Книга удалена",false); android.os.Handler(mainLooper).postDelayed({ notice.dismiss() },1800)
+    work({ ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); ChapterStore.drop(filesDir,id); PageImages.drop(this,id); library.db.runInTransaction { library.dao.deleteBook(id); library.dao.deleteContent(id); library.pruneAssets(); library.updateMarker() } },{ reload() }) { if(profileOverlay!=null) refreshProfile(); checkpointSoon() }
+}
