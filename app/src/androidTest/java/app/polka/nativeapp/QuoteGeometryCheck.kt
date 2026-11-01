@@ -37,7 +37,7 @@ class QuoteGeometryCheck {
                     val ink=BooleanArray(bw){x->(y0..y1).any{y->android.graphics.Color.alpha(bmp.getPixel(x,y))>40}}
                     val starts=mutableListOf<Int>();var gap=999;for(x in 0 until bw){if(ink[x]){if(gap>sp*.55f)starts.add(x);gap=0}else gap++}
                     val t=l.text;val ls=l.getLineStart(line);val le=l.getLineEnd(line);val wordStarts=(ls until le).filter{i->!t[i].isWhitespace()&&(i==ls||t[i-1]==' ')}
-                    sb.append("L$line justified=${le<t.length&&t[le-1]!='\n'} ink=${starts.take(8)} nat=${wordStarts.take(8).map{l.getPrimaryHorizontal(it).toInt()}} mine=${wordStarts.take(8).map{JustifiedGeometry.x(r.body,l,line,it).toInt()}}\n")}
+                    sb.append("L$line justified=${le<t.length&&t[le-1]!='\n'} ink=${starts.take(8)} nat=${wordStarts.take(8).map{l.getPrimaryHorizontal(it).toInt()}} mine=${wordStarts.take(8).map{JustifiedGeometry.x(r.body,l,line,it).toInt()}} text=«${t.subSequence(ls,le).toString().map{if(it=='\u00a0')'⍽' else if(it=='\n')'¶' else it}.joinToString("")}» codes=${t.subSequence(ls,le).filter{!it.isLetterOrDigit()}.map{Integer.toHexString(it.code)}} pr=${l.getParagraphRight(line)} lr=${l.getLineRight(line).toInt()} lmax=${l.getLineMax(line).toInt()} w=${l.width} desired=${android.text.Layout.getDesiredWidth(t,ls,le,r.body.paint).toInt()}\n")}
                 android.util.Log.i("POLKA_QA",sb.toString());bmp.recycle()}
             scenario.onActivity{val r=reader!!;val t=r.selectionFullText().toString();val s=t.indexOf("Обронит");val e=t.indexOf("всадит.")+7;r.quoteSelection.select(s until e)}
             Thread.sleep(900)
