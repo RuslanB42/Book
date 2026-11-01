@@ -14,12 +14,16 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
     val bookId get()=book.str("id")
     var softShadow=true
     var stackShadow=false
+    /** Large views (book card, cover editor, recommendation): swap to the original-resolution cover once loaded. */
+    var hiRes=false
+    private var full:Bitmap?=null
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(hiRes&&full==null){val expected=book.optJSONObject("cover")?.toString().orEmpty();(context as? MainActivity)?.requestFullCover(book){b->if(b!=null&&expected==book.optJSONObject("cover")?.toString().orEmpty()){full=b;invalidate();artworkChanged?.invoke()}}}}
     /** 0..1 multiplier for the cast shadow only (cover pixels untouched). Lets two covers hand a shadow over without a pop or a clipped alpha layer. */
     var shadowFade=1f
         set(v){val n=v.coerceIn(0f,1f);if(n!=field){field=n;invalidate()}}
     private var retainedArtwork:Bitmap?=image
     private var retainedKey=book.optJSONObject("cover")?.toString().orEmpty()
-    init { elevation=0f; outlineProvider=object:android.view.ViewOutlineProvider() { override fun getOutline(v:View,o:android.graphics.Outline) { o.setRoundRect(0,0,v.width,v.height,v.width*.012f) } } }
+    init { elevation=0f; outlineProvider=object:android.view.ViewOutlineProvider() { override fun getOutline(v:View,o:android.graphics.Outline) { o.setRoundRect(0,0,v.width,v.height,BookCoverVolume.radius(v.width.toFloat())) } } }
     override fun onMeasure(widthMeasureSpec:Int,heightMeasureSpec:Int) { if(layoutParams?.height==android.view.ViewGroup.LayoutParams.WRAP_CONTENT) { val w=MeasureSpec.getSize(widthMeasureSpec); setMeasuredDimension(w,(w*1.5f).toInt()) } else super.onMeasure(widthMeasureSpec,heightMeasureSpec) }
     override fun performClick():Boolean { super.performClick(); return true }
     private val palette=listOf("#2f3e46" to "#ebe5d6","#6b2737" to "#f3e6d6","#1f3a5f" to "#e8edf3","#3d4a2f" to "#ece6d2","#7a4b1e" to "#f6ead7","#2d2a32" to "#e6dccb","#8c3b2b" to "#f4e9dc","#e3d8c3" to "#2a2622","#c9d4cf" to "#1d2a26","#4a3b5c" to "#efe7f5","#0f4c4a" to "#e3f0ec")
@@ -37,6 +41,7 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
     internal var artworkChanged:(()->Unit)?=null
     private fun currentArtwork():Bitmap? {
         val ref=book.optJSONObject("cover")
+        full?.let{f->if(!f.isRecycled)return f}
         val cached=if(ref!=null)(context as? MainActivity)?.cover(book) else null
         if(cached!=null){retainedArtwork=cached;retainedKey=ref?.toString().orEmpty()}
         return cached?:retainedArtwork?.takeIf{retainedKey==ref?.toString().orEmpty()}
@@ -51,7 +56,7 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
     internal fun glowArtwork():Bitmap = Bitmap.createBitmap(96,144,Bitmap.Config.ARGB_8888).also{drawCover(Canvas(it),RectF(0f,0f,96f,144f),book,currentArtwork())}
     fun drawCover(canvas: Canvas, bounds: RectF, b: JSONObject, bitmap: Bitmap? = null, shelf:Boolean=false) {
         val r=BookCoverVolume.boards(canvas,bounds,BookCoverVolume.binding(bitmap,colors(b).first))
-        canvas.save(); val path = Path().apply { if(shelf){val d=resources.displayMetrics.density;addRoundRect(r,floatArrayOf(2*d,2*d,4*d,4*d,4*d,4*d,2*d,2*d),Path.Direction.CW)}else addRoundRect(r,r.width()*.012f,r.width()*.012f,Path.Direction.CW) }; canvas.clipPath(path)
+        canvas.save(); val path = Path().apply { BookCoverVolume.radius(r.width()).let{rr->addRoundRect(r,rr,rr,Path.Direction.CW)} }; canvas.clipPath(path)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         if (bitmap != null) {
             val scale = maxOf(r.width() / bitmap.width, r.height() / bitmap.height); val w = bitmap.width * scale; val h = bitmap.height * scale

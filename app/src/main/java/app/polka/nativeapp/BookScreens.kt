@@ -26,7 +26,7 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     // The preview is a copy: typing changes the typeset cover instantly, nothing is stored until «Сохранить».
     val preview=book.copyJson()
     val coverBox=FrameLayout(this).apply{clipChildren=false;clipToPadding=false}
-    val c=CoverView(this,preview,cover(book)).apply{softShadow=true}; coverEditorBook=preview; coverEditorView=c
+    val c=CoverView(this,preview,cover(book)).apply{softShadow=true;hiRes=true}; coverEditorBook=preview; coverEditorView=c
     coverBox.addView(c,FrameLayout.LayoutParams(d(104),d(156),Gravity.CENTER_HORIZONTAL))
     box.addView(coverBox,LinearLayout.LayoutParams(-1,d(168))); space(box,10)
     val coverActions=line().apply{gravity=Gravity.CENTER}

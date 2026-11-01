@@ -59,26 +59,22 @@ internal object BookCoverVolume {
         val w=r.width();val h=r.height();ink.shader=null;ink.color=Color.WHITE;ink.alpha=(255*fade.coerceAtMost(1f)).toInt()
         c.drawBitmap(shadow(dark,soft,stack),null,if(stack)RectF(r.left-w,r.top-h*.6f,r.right+w,r.bottom+h*(264f/360f))else if(soft)RectF(r.left-w*.5f,r.top-h*(96f/360f),r.right+w*.5f,r.bottom+h*.4f)else RectF(r.left-w*.25f,r.top-h*(48f/360f),r.right+w*.25f,r.bottom+h*.20f),ink)
     }
-    /** Thickness stays inside the established cover/hit bounds; paper is recessed under both boards. */
-    @Synchronized fun boards(c:Canvas,r:RectF,color:Int):RectF {
-        val d=r.width()*.021f;val face=RectF(r.left,r.top,r.right-d,r.bottom-d*.42f)
-        ink.shader=null;ink.color=blend(color,Color.BLACK,.24f);c.drawRoundRect(r,r.width()*.012f,r.width()*.012f,ink)
-        val paper=RectF(face.right-d*.35f,r.top+d*1.15f,r.right-d*.28f,r.bottom-d*.40f)
-        ink.shader=LinearGradient(paper.left,0f,paper.right,0f,intArrayOf(0xffa6a294.toInt(),0xffe0dbcc.toInt(),0xffb9b5a8.toInt()),null,Shader.TileMode.CLAMP);c.drawRoundRect(paper,d*.18f,d*.18f,ink)
-        ink.shader=null;ink.color=0x3d615c4e;ink.strokeWidth=(r.width()*.0013f).coerceAtLeast(.35f)
-        for(i in 1..3){val x=paper.left+paper.width()*i/4;c.drawLine(x,paper.top+d*.2f,x,paper.bottom,ink)}
-        ink.color=0xffb0ab9d.toInt();c.drawRect(r.left+d*1.6f,face.bottom-d*.1f,paper.right,r.bottom-d*.20f,ink)
-        ink.color=0x55000000;ink.strokeWidth=d*.16f;c.drawLine(r.left+d,face.bottom,r.right-d*.4f,face.bottom,ink)
-        ink.shader=null;return face
-    }
+    /** Apple Books style: a flat cover, no board thickness or page block — the face is the whole bounds. */
+    @Synchronized fun boards(c:Canvas,r:RectF,color:Int):RectF = RectF(r)
+    /** The corner radius of a cover of this width. */
+    fun radius(w:Float)=w*.022f
+    /** A soft binding crease near the left edge and a hairline rim, as on Apple Books covers. */
     @Synchronized fun material(c:Canvas,r:RectF) {
         c.save();c.translate(r.left,r.top);c.scale(r.width()/400f,r.height()/600f)
         ink.color=Color.WHITE;ink.alpha=255
-        ink.shader=face;c.drawRect(0f,0f,400f,600f,ink)
-        ink.shader=spine;c.drawRect(0f,0f,42f,600f,ink)
-        ink.shader=fore;c.drawRect(385f,0f,400f,600f,ink)
-        ink.shader=ends;c.drawRect(0f,0f,400f,600f,ink)
-        ink.shader=null;ink.style=Paint.Style.STROKE;ink.strokeWidth=.7f;ink.color=0x0effffff;c.drawRoundRect(.55f,.55f,399.45f,599.45f,4.4f,4.4f,ink);ink.style=Paint.Style.FILL;c.restore()
+        ink.shader=crease;c.drawRect(0f,0f,30f,600f,ink)
+        ink.shader=null;c.restore()
+        val rr=radius(r.width());val hair=(r.width()*.004f).coerceAtLeast(.75f)
+        ink.style=Paint.Style.STROKE;ink.strokeWidth=hair;ink.color=0x26000000
+        c.drawRoundRect(r.left+hair/2,r.top+hair/2,r.right-hair/2,r.bottom-hair/2,rr,rr,ink);ink.style=Paint.Style.FILL
     }
+    private val crease=LinearGradient(0f,0f,30f,0f,
+        intArrayOf(0x33000000,0x0a000000,0x2effffff,0x14000000,0x24000000,0x08ffffff,Color.TRANSPARENT),
+        floatArrayOf(0f,.12f,.24f,.40f,.52f,.70f,1f),Shader.TileMode.CLAMP)
     private fun blend(a:Int,b:Int,t:Float)=Color.rgb((Color.red(a)*(1-t)+Color.red(b)*t).toInt(),(Color.green(a)*(1-t)+Color.green(b)*t).toInt(),(Color.blue(a)*(1-t)+Color.blue(b)*t).toInt())
 }

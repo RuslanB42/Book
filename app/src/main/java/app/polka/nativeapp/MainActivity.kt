@@ -30,7 +30,7 @@ class MainActivity : Activity() {
     private var bootFinished = false
     var prefs = JSONObject()
     var books = listOf<JSONObject>()
-    val covers = object:android.util.LruCache<String,Bitmap>(16*1024) { override fun sizeOf(key:String,value:Bitmap)=value.allocationByteCount/1024 }
+    val covers = object:android.util.LruCache<String,Bitmap>((Runtime.getRuntime().maxMemory()/1024/6).toInt().coerceAtLeast(16*1024)) { override fun sizeOf(key:String,value:Bitmap)=value.allocationByteCount/1024 }
     lateinit var root: FrameLayout
     lateinit var page: LinearLayout
     internal lateinit var scroll: ScrollView
@@ -145,12 +145,19 @@ class MainActivity : Activity() {
         covers.get(id)?.let { done(it); return }
         work({
             val bytes=library.dao.asset(id)?.bytes
-            val bitmap=bytes?.let { BookImages.decode(it,700) }
+            val bitmap=bytes?.let { BookImages.decode(it,900) }
             if(bitmap!=null) covers.put(id,bitmap)
             runOnUiThread { if(!isDestroyed) done(bitmap) }
         })
     }
 
+    /** The cover in its original resolution (up to 2400 px) for large views; a tiny cache of its own. */
+    private val fullCovers = object:android.util.LruCache<String,Bitmap>(3) {}
+    fun requestFullCover(book:JSONObject,done:(Bitmap?)->Unit) {
+        val id=book.optJSONObject("cover")?.str("__polkaBlob")?.takeIf { it.isNotBlank() } ?: return
+        fullCovers.get(id)?.let { done(it); return }
+        work({ val bitmap=library.dao.asset(id)?.bytes?.let { BookImages.decode(it,2400) }; if(bitmap!=null) fullCovers.put(id,bitmap); runOnUiThread { if(!isDestroyed) done(bitmap) } })
+    }
     fun cover(book:JSONObject): Bitmap? = book.optJSONObject("cover")?.str("__polkaBlob")?.let { covers.get(it) }
     fun <T> compute(action:()->T,failed:((Exception)->Unit)?=null,done:(T)->Unit):java.util.concurrent.Future<*> = cpu.submit { try { val result=action();runOnUiThread { if(!isFinishing && !isDestroyed)done(result) } }catch(e:Exception){if(e !is InterruptedException && !Thread.currentThread().isInterrupted)runOnUiThread { if(!isFinishing && !isDestroyed){failed?.invoke(e);errorDialog(e)} }} }
     fun work(action:()->Unit, failed:((Exception)->Unit)?=null, done:()->Unit={}) { io.execute { try { action(); runOnUiThread { if(!isFinishing && !isDestroyed) done() } } catch(e:Exception) { runOnUiThread { importDialog?.dismiss(); importDialog=null; if(!isFinishing && !isDestroyed) { failed?.invoke(e); if(!initialized) { bootFinished=true; recoveryScreen(e) } else errorDialog(e) } } } } }

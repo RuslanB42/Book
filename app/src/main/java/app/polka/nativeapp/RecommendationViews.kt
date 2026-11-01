@@ -69,7 +69,7 @@ class RecommendationExpansion(val a:MainActivity,val book:JSONObject,val source:
   panel=FrameLayout(a).apply{clipChildren=false;clipToPadding=false;elevation=a.d(40).toFloat();alpha=0f;setBackgroundColor(Color.TRANSPARENT)}
   backdrop=FrameLayout(a).apply{a.controlSurface(this,30f,sheet=true);pivotX=0f;pivotY=0f};panel.addView(backdrop,FrameLayout.LayoutParams(-1,-1))
   content=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(a.d(24),a.d(64),a.d(24),a.d(40));clipChildren=false;clipToPadding=false}
-  val coverWidth=min(a.d(170),(a.resources.displayMetrics.widthPixels*.44f).toInt());big=CoverView(a,book).apply{softShadow=true;pivotX=0f;pivotY=0f}
+  val coverWidth=min(a.d(170),(a.resources.displayMetrics.widthPixels*.44f).toInt());big=CoverView(a,book).apply{softShadow=true;hiRes=true;pivotX=0f;pivotY=0f}
   val hero=FrameLayout(a).apply{clipChildren=false;clipToPadding=false};glow=BookGlowView(a,big).apply{alpha=0f};hero.addView(glow,glow.haloLayout(coverWidth,(coverWidth*1.5f).toInt()));hero.addView(big,FrameLayout.LayoutParams(coverWidth,(coverWidth*1.5f).toInt(),Gravity.TOP or Gravity.CENTER_HORIZONTAL));content.addView(hero,LinearLayout.LayoutParams(-1,(coverWidth*1.5f).toInt()));a.space(content,26)
   fun part(v:View){parts.add(v);content.addView(v,LinearLayout.LayoutParams(-1,-2))}
   part(a.text(book.str("title"),27f,bold=true,serif=true).apply{gravity=Gravity.CENTER;cssLeading(1.18f)});a.space(content,5);part(a.text(MainActivity.authors(book),14f,a.muted).apply{gravity=Gravity.CENTER;cssLeading(1.4f)})

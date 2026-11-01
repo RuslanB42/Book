@@ -38,7 +38,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   top.addView(a.icon("more","Ещё"){a.bookActions(book)},LinearLayout.LayoutParams(a.d(40),a.d(40)))
   panel.addView(top,LayoutParams(-1,a.d(68),Gravity.TOP))
   a.space(content,78)
-  val hero=FrameLayout(a).apply{clipChildren=false;clipToPadding=false};heroCover=CoverView(a,book,a.cover(book)).apply{softShadow=true}
+  val hero=FrameLayout(a).apply{clipChildren=false;clipToPadding=false};heroCover=CoverView(a,book,a.cover(book)).apply{softShadow=true;hiRes=true}
   heroGlow=BookGlowView(a,heroCover).apply{alpha=0f};hero.addView(heroGlow,heroGlow.haloLayout(a.d(132),a.d(198),a.d(8)))
   hero.addView(heroCover,LayoutParams(a.d(132),a.d(198),Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{topMargin=a.d(8)})
   content.addView(hero,LinearLayout.LayoutParams(-1,a.d(234)))

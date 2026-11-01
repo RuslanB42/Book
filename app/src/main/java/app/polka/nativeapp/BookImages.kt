@@ -15,7 +15,11 @@ object BookImages {
             Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888).also { svg.setDocumentWidth(width.toFloat()); svg.setDocumentHeight(height.toFloat()); svg.renderToCanvas(Canvas(it)) }
         } catch(_:Exception) { null }
         val bounds=BitmapFactory.Options().apply { inJustDecodeBounds=true }; BitmapFactory.decodeByteArray(bytes,0,bytes.size,bounds)
-        var sample=1; while(maxOf(bounds.outWidth,bounds.outHeight)/sample>maxSide) sample*=2
-        return BitmapFactory.decodeByteArray(bytes,0,bytes.size,BitmapFactory.Options().apply { inSampleSize=sample })
+        // Largest power-of-two sample that still keeps at least maxSide, then an exact filtered
+        // downscale — a 1500 px cover is no longer decoded at 375 px.
+        var sample=1; while(maxOf(bounds.outWidth,bounds.outHeight)/(sample*2)>=maxSide) sample*=2
+        val raw=BitmapFactory.decodeByteArray(bytes,0,bytes.size,BitmapFactory.Options().apply { inSampleSize=sample }) ?: return null
+        val long=maxOf(raw.width,raw.height); if(long<=maxSide) return raw
+        val k=maxSide.toFloat()/long; return Bitmap.createScaledBitmap(raw,(raw.width*k).toInt().coerceAtLeast(1),(raw.height*k).toInt().coerceAtLeast(1),true).also { if(it!==raw) raw.recycle() }
     }
 }

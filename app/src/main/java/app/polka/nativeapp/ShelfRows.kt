@@ -44,7 +44,12 @@ internal class ShelfRow(private val a:MainActivity,private val title:String,priv
         private var frost:Bitmap?=null;private var frostTop=0f;private var generation=0;private var queued=false
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         /** Covers changed: re-blur the whole row once (off the UI thread). Scrolling only shifts the ready frost. */
-        fun refresh(){if(queued)return;queued=true;post{queued=false;capture()}}
+        fun refresh(){if(queued)return;queued=true;postDelayed(settle,120)}
+        // A cover that has just been swapped in is not laid out yet; capturing then drew empty boxes
+        // and the glass showed only the first book. Wait until every cover in the row has its size.
+        private val settle=object:Runnable{override fun run(){if(!isAttachedToWindow){queued=false;return}
+            if(row.isLayoutRequested||row.width<1||(0 until row.childCount).any{i->val v=row.getChildAt(i);v.isLayoutRequested||((v as? ViewGroup)?.getChildAt(0)?.let{c->c.isLayoutRequested||c.width<1}==true)}){postDelayed(this,48);return}
+            queued=false;capture()}}
         fun scrolled()=invalidate()
         override fun onTouchEvent(e:MotionEvent)=false
         override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(changed)refresh()}
