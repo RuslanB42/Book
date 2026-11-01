@@ -12,7 +12,7 @@ import kotlin.math.*
  * (left → next, right → previous, round and round); the sheet behind rises into its place while you drag, and the new
  * quote settles on top. Above it — which book the quotes are from and where you are in the deck.
  */
-internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,quotes:List<JSONObject>):LinearLayout(a){
+internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,quotes:List<JSONObject>,private val showHead:Boolean=true,private val onOpen:((JSONObject)->Unit)?=null):LinearLayout(a){
     private val list=quotes.sortedWith(compareBy<JSONObject>{it.optInt("ch")}.thenBy{it.optInt("start")})
     private var index=(a.quoteDeckIndex[book.str("id")]?:0).coerceIn(0,(list.size-1).coerceAtLeast(0))
     private val counter=a.text("",12.5f,a.muted)
@@ -27,10 +27,14 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
         meta.addView(a.text(book.str("title"),15f,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
         meta.addView(a.text(MainActivity.authors(book).ifBlank{"Автор не указан"},12.5f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
         head.addView(meta,LayoutParams(0,-2,1f));head.addView(counter)
-        addView(head,LayoutParams(-1,-2));addView(deck,LayoutParams(-1,-2));updateCounter()
+        if(showHead)addView(head,LayoutParams(-1,-2))
+        addView(deck,LayoutParams(-1,-2))
+        // Without the book line (on the book's own card) the position sits under the deck.
+        if(!showHead&&list.size>1){(counter.parent as? ViewGroup)?.removeView(counter);counter.gravity=Gravity.CENTER;addView(counter,LayoutParams(-1,-2).apply{topMargin=a.d(10)})}
+        updateCounter()
     }
     private fun updateCounter(){counter.text=if(list.size>1)"${index+1} из ${list.size}" else "1 ${word(1)}"}
-    private fun card(i:Int):View=a.quoteCardNative(book,list[i]).apply{(this as? TextView)?.maxLines=8}
+    private fun card(i:Int):View=a.quoteCardNative(book,list[i],onOpen?.let{f->{f(list[i])}})
 
     private inner class Deck:FrameLayout(a){
         private val step=a.d(9).toFloat();private val inset=a.d(12).toFloat()
