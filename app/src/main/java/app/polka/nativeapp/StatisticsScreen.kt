@@ -159,20 +159,30 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val box=surface();header(box,"Цель на год","target",coral);space(box,12)
         // Header and segment stay put so the thumb can slide; only the body below is swapped and animated.
         val body=a.column().apply{clipChildren=false;clipToPadding=false}
+        var books:YearBooks?=null
         fun bind(direction:Int){body.removeAllViews()
             val target=model.target(goalYear);val done=model.countYear(goalYear);val first=direction==0
-            if(target==0){body.addView(label("Год для хороших книг",22f,a.fg,true));space(body,6);body.addView(label("Выберите, сколько книг хотите прочитать за $goalYear год. Темп — ваш.",14f));space(body,14);body.addView(action("Задать цель",true){a.annualGoalEditor(goalYear,model)})}
+            val read=model.finished.filter{it.date?.year==goalYear}.sortedByDescending{it.date}.map{it.book to it.date}
+            if(target==0){body.addView(label("Год для хороших книг",22f,a.fg,true));space(body,6);body.addView(label("Цель на $goalYear год задаётся в настройках: «Чтение» → «Цель на год».",14f));space(body,16)}
             else {
-                body.addView(count(done,34f,play=first){"$it из $target"});space(body,2);body.addView(label("книг за $goalYear год",14f));space(body,14)
-                body.addView(ScaleRail(a,animate,false,(done.toFloat()/target).coerceIn(0f,1f),null,null,"0","$target",coral,amber,"Годовая цель: $done из $target книг, ${(done*100.0/target).roundToInt()} процентов"),LinearLayout.LayoutParams(-1,-2));space(body,12)
-                val foot=a.line();foot.addView(label(if(done>=target)"Цель достигнута!" else "Осталось: ${MainActivity.countBooks(target-done)}",14f,coral,true),LinearLayout.LayoutParams(0,-2,1f))
-                foot.addView(a.text("Изменить цель",13.5f,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);setPadding(a.d(16),a.d(6),a.d(16),a.d(6));background=android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33808080),pill(quiet,19),null);isClickable=true;isFocusable=true;setOnClickListener{a.annualGoalEditor(goalYear,model)}});body.addView(foot)
+                // big count and the percentage, then the glowing bar with today's pace
+                val top=a.line().apply{gravity=Gravity.BOTTOM}
+                top.addView(count(done,34f,play=first){"$it из $target"},LinearLayout.LayoutParams(-2,-2))
+                top.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
+                top.addView(label("${(done*100.0/target).roundToInt().coerceAtMost(999)}%",17f,if(done>=target)a.accentFill else captionInk,true).apply{setPadding(0,0,0,a.d(4))})
+                body.addView(top);space(body,2);body.addView(label(if(done>=target)"Цель достигнута — книг за $goalYear год" else "книг за $goalYear год",14f));space(body,12)
+                val pace=if(goalYear==today.year)(model.expected(goalYear,target).toFloat()/target).coerceIn(0f,1f) else null
+                body.addView(GoalGlowBar(a,animate,(done.toFloat()/target).coerceIn(0f,1f),pace,"0","$target","Годовая цель: $done из $target книг"),LinearLayout.LayoutParams(-1,-2));space(body,16)
             }
+            val shelf=YearBooks(a,read,motionOn);books=shelf;body.addView(shelf,LinearLayout.LayoutParams(-1,-2))
             if(!first&&motionOn){body.animate().cancel();body.alpha=0f;body.translationX=direction*a.d(26).toFloat();body.animate().alpha(1f).translationX(0f).setDuration(340).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}
             else{body.alpha=1f;body.translationX=0f}
         }
         box.addView(segment(listOf("${today.year}","${today.year+1}"),if(goalYear==today.year)0 else 1){val next=today.year+it;val direction=if(next>=goalYear)1 else -1;goalYear=next;a.statisticsGoalYear=goalYear;bind(direction)}.apply{minimumHeight=a.d(40)})
-        space(box,16);box.addView(body);bind(0);add(box)
+        space(box,16);box.addView(body);bind(0)
+        // Tap the card: all books read that year open below, with covers, stars and dates.
+        box.isClickable=true;box.setOnClickListener{books?.toggle()};a.press(box)
+        add(box)
     }
     private fun booksRead():View {
         val box=surface();header(box,"Прочитано книг","book",mint,true);space(box,12)
@@ -208,14 +218,14 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
 internal fun MainActivity.updateStatistics(change:(JSONObject)->Unit) {
     var fresh=JSONObject();work({library.db.runInTransaction{val meta=library.dao.meta("stats")?.let{JSONObject(it.json)} ?: JSONObject().put("id","stats");fresh=meta.optJSONObject("data") ?: JSONObject();change(fresh);meta.put("data",fresh);library.dao.putMeta(MetaRow("stats",meta.toString()))}}){if(profileOverlay!=null){profileStats=fresh;refreshProfile()};checkpointSoon()}
 }
-internal fun MainActivity.annualGoalEditor(year:Int,model:ReadingStatistics) {
+internal fun MainActivity.annualGoalEditor(year:Int,model:ReadingStatistics,saved:(Int?)->Unit={}) {
     val box=column();box.addView(text("Сколько книг прочитаете за $year год? Уже дочитанные в этом году книги с датой завершения засчитаются автоматически.",16f,muted));space(box,16)
     val input=edit(if(model.target(year)>0)"${model.target(year)}" else "","Например, 24").apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER;filters=arrayOf(android.text.InputFilter.LengthFilter(4));contentDescription="Количество книг на год"};box.addView(input)
     space(box,12);val presets=line();listOf(12,24,52).forEach{n->presets.addView(button("$n"){input.setText("$n");input.setSelection(input.length())},LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(d(2),0,d(2),0)})};box.addView(presets);space(box,16)
     val error=text("",14f,if(light)0xffad3131.toInt()else 0xffff918c.toInt());error.visibility=View.GONE;box.addView(error)
     lateinit var sheet:android.app.AlertDialog
-    box.addView(button("Сохранить цель",true){val n=input.text.toString().toIntOrNull();if(n==null || n !in 1..9999){error.text="Введите число от 1 до 9999";error.visibility=View.VISIBLE;input.requestFocus()}else{updateStatistics{changeAnnualGoal(it,year,n)};sheet.dismiss()}})
-    if(model.target(year)>0){space(box,8);box.addView(button("Убрать цель"){confirm("Убрать цель на $year год?","Книги, даты и время чтения сохранятся."){updateStatistics{changeAnnualGoal(it,year,null)};sheet.dismiss()}})}
+    box.addView(button("Сохранить цель",true){val n=input.text.toString().toIntOrNull();if(n==null || n !in 1..9999){error.text="Введите число от 1 до 9999";error.visibility=View.VISIBLE;input.requestFocus()}else{updateStatistics{changeAnnualGoal(it,year,n)};saved(n);sheet.dismiss()}})
+    if(model.target(year)>0){space(box,8);box.addView(button("Убрать цель"){confirm("Убрать цель на $year год?","Книги, даты и время чтения сохранятся."){updateStatistics{changeAnnualGoal(it,year,null)};saved(null);sheet.dismiss()}})}
     sheet=dialog().setTitle("Цель на $year год").setView(box).show()
 }
 internal fun MainActivity.wheel(min:Int,max:Int,value:Int,description:String)=NumberPicker(if(android.os.Build.VERSION.SDK_INT<29 && light)android.view.ContextThemeWrapper(this,android.R.style.Theme_Material_Light)else this).apply {

@@ -110,7 +110,13 @@ fun MainActivity.settings() {
     section("Чтение")
     val reading=card();val flame=row(reading,"Огонёк","Сколько минут в день продлевают серию","…"){editStreakThreshold{goal->}};box.addView(reading)
     var threshold=10
-    work({threshold=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")?.optInt("goal",10)} ?: 10}){flame.text="$threshold мин";(flame.parent as View).setOnClickListener{editStreakThreshold{goal->flame.text="$goal мин"}}}
+    // The year's book goal is set only here.
+    val year=java.time.LocalDate.now().year
+    val goal=row(reading,"Цель на год","Сколько книг прочитать за $year год","…"){}
+    var stats=JSONObject()
+    work({stats=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")}?:JSONObject();threshold=stats.optInt("goal",10)}){flame.text="$threshold мин";(flame.parent as View).setOnClickListener{editStreakThreshold{goal->flame.text="$goal мин"}}
+        val model=ReadingStatistics(stats,books);fun show(n:Int)=if(n>0)MainActivity.countBooks(n) else "Не задана";goal.text=show(model.target(year))
+        (goal.parent as View).setOnClickListener{annualGoalEditor(year,ReadingStatistics(stats,books)){n->if(n==null)stats.optJSONObject("annualGoals")?.remove("$year") else (stats.optJSONObject("annualGoals")?:JSONObject().also{stats.put("annualGoals",it)}).put("$year",n);goal.text=show(n?:0)}}}
     section("Поведение")
     val behaviour=card()
     toggle(behaviour,"Тактильный отклик","Лёгкая вибрация при действиях",prefs.optBoolean("haptics",true)){on->prefs.put("haptics",on);savePreferences()}
