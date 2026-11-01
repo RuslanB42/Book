@@ -21,7 +21,7 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
  private var closed=false
  private val chapter=draft.chapter
  private val sourceHtml=content.getJSONArray("chapters").getJSONObject(chapter).str("html")
- internal var commit:(JSONObject,JSONObject)->Unit={updated,next->ChapterStore.drop(a.filesDir,book.str("id"));a.library.db.runInTransaction { a.library.dao.putContent(ContentRow(book.str("id"),updated.toString()));a.library.save(next) }}
+ internal var commit:(JSONObject,JSONObject)->Unit={updated,next->ChapterStore.drop(a.filesDir,book.str("id"));PageImages.drop(a,book.str("id"));a.library.db.runInTransaction { a.library.dao.putContent(ContentRow(book.str("id"),updated.toString()));a.library.save(next) }}
  private fun snapshot()=SpannableStringBuilder(editor.text)
  private fun remember(){if(undo.size>=60)undo.removeFirst();undo.addLast(snapshot());redo.clear()}
  fun dirty()=editor.text.toString()!=draft.text.toString() || editor.text.getSpans(0,editor.length(),PageFormat::class.java).isNotEmpty()

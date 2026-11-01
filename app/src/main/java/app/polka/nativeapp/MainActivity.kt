@@ -335,32 +335,37 @@ class MainActivity : Activity() {
         if(bookDetailSheet==null)returnDetailId=null
         loadingReader=true
         val veil=if(prefs.str("motion")=="reduced") null else fadeVeil().also{root.addView(it,FrameLayout.LayoutParams(-1,-1))}
-        var loaded:Pair<JSONObject,Map<String,ByteArray>>?=null;var dark=veil==null;var built=false
+        var loaded:Pair<JSONObject,Map<String,ByteArray>>?=null;var dark=veil==null;var built=false;var picture:android.graphics.Bitmap?=null
+        val pictureKey=PageImages.signature(this,root.width,root.height,book.optJSONObject("progress")?.optInt("ch",0)?:0,book.optJSONObject("progress")?.optInt("nativeOffset",-1)?:-1)
         fun build(){
             val content=loaded?:return;if(!dark||built)return;built=true;loadingReader=false
             if(isFinishing||isDestroyed){veil?.let{root.removeView(it)};return}
             val r=NativeReader(this,book.copyJson(),content.first,content.second);reader=r;ReaderWindow.configure(window,true,bg);root.setPadding(0,0,0,0);root.requestApplyInsets()
             (0 until root.childCount).map{root.getChildAt(it)}.filter{it!==veil}.forEach{root.removeView(it)}
             root.addView(r.view,0,FrameLayout.LayoutParams(-1,-1));r.start()
-            if(veil==null)return
+            if(veil==null){picture?.recycle();return}
+            // The page as it was left: visible the moment the fade lifts; the live page replaces it when ready.
+            val still=picture?.let{bmp->android.widget.ImageView(this).apply{setImageBitmap(bmp);scaleType=android.widget.ImageView.ScaleType.FIT_XY;isClickable=true;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}}
+            still?.let{root.addView(it,1,FrameLayout.LayoutParams(-1,-1));veil.animate().alpha(0f).setDuration(260).setInterpolator(fadeOut).withEndAction{root.removeView(veil)}.start()}
             // Lift the dark only when the first page is laid out and stable.
             var stable=0;var signature="";val observer=r.view.viewTreeObserver
             observer.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
-                if(veil.parent==null){if(observer.isAlive)observer.removeOnPreDrawListener(this);return true}
+                if(veil.parent==null&&still==null){if(observer.isAlive)observer.removeOnPreDrawListener(this);return true}
                 val next="${r.view.width}:${r.view.height}:${r.body.text.hashCode()}:${r.pageBase()}"
                 if(!r.openingReady()||next!=signature){signature=next;stable=0;r.view.postInvalidateOnAnimation();return true}
                 if(++stable<2){r.view.postInvalidateOnAnimation();return true}
                 if(observer.isAlive)observer.removeOnPreDrawListener(this)
-                veil.animate().alpha(0f).setDuration(320).setInterpolator(fadeOut).withEndAction{root.removeView(veil)}.start();return true}})
+                if(still!=null){root.removeView(still);picture?.recycle()}else veil.animate().alpha(0f).setDuration(320).setInterpolator(fadeOut).withEndAction{root.removeView(veil)}.start();return true}})
         }
         veil?.animate()?.alpha(1f)?.setDuration(240)?.setInterpolator(fadeIn)?.withEndAction{dark=true;build()}?.start()
-        work({ loaded=loadContent(book) }, failed={ loadingReader=false;veil?.let{v->v.animate().cancel();root.removeView(v)};flushDeferredRender() }) { build() }
+        work({ loaded=loadContent(book);if(veil!=null)picture=PageImages.load(this,book.str("id"),pictureKey) }, failed={ loadingReader=false;veil?.let{v->v.animate().cancel();root.removeView(v)};flushDeferredRender() }) { build() }
     }
     fun closeReader() {
         if(bookClosing)return
         val r=reader?:return
         if(!r.requestClose())return
         root.childrenOpening()?.finish()
+        if(prefs.str("motion")!="reduced")r.pageImage()?.let{(key,image)->PageImages.save(this,r.book.str("id"),key,image)}
         r.dispose() // Save the final position once, before any reverse-motion time is credited.
         val updated=r.book.copyJson();books=books.map{if(it.str("id")==updated.str("id"))updated else it}
         reader=null

@@ -52,7 +52,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private var paused=false
     private var opening=false
     private var openingReflowPending=false
-    fun openingReady()=!preparing && chapterRich.isNotEmpty() && scroll.width>0 && scroll.height>0 && !view.isLayoutRequested && !body.isLayoutRequested && !scroll.isLayoutRequested
+    fun openingReady()=(quickShown || (!preparing && chapterRich.isNotEmpty())) && scroll.width>0 && scroll.height>0 && !view.isLayoutRequested && !body.isLayoutRequested && !scroll.isLayoutRequested
     fun openingArea():RectF { val r=Rect(); scroll.getDrawingRect(r); view.offsetDescendantRectToMyCoords(scroll,r); return RectF((r.left+body.paddingLeft).toFloat(),(r.top+body.paddingTop).toFloat(),(r.right-body.paddingRight).toFloat(),(r.bottom-body.paddingBottom).toFloat()) }
     fun openingChrome(alpha:Float){topBar.alpha=if(calm)0f else alpha;bottom.alpha=if(calm)0f else alpha;folio.alpha=alpha}
     fun openingState(on:Boolean){ opening=on; lastCredit=System.currentTimeMillis(); activeAt=lastCredit;if(!on && openingReflowPending){openingReflowPending=false;handler.post(reflow)} }
@@ -81,6 +81,8 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private var layoutJob:java.util.concurrent.Future<*>?=null
     private var layoutGeneration=0
     private var preparing=false
+    /** The page being opened is already on screen (laid out on its own) while the rest of the chapter is paginated. */
+    private var quickShown=false
     private var disposed=false
     private var requestKey=""
     private var committedKey=""
@@ -212,11 +214,19 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(!preparing && loadedChapter==chapter && pendingOffset==null && pendingFraction==null)pendingOffset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0
         layoutJob?.cancel(true);val generation=++layoutGeneration;requestKey=key;preparing=true;lastCredit=System.currentTimeMillis();footer.text="Подготовка главы…"
         val targetChapter=chapter;val quotes=JSONArray(quoteSnapshot).objects();val maxImage=(height-size*3).toInt().coerceAtLeast(a.d(80))
+        // First open of a chapter in page mode: show the page the reader stopped on as soon as the chapter text is parsed.
+        val quickFrom=if(paged()&&chapterRich.isEmpty()&&!pendingLastPage&&pendingAnchor==null)pendingOffset else null;val quickFraction=if(quickFrom==null&&paged()&&chapterRich.isEmpty()&&!pendingLastPage&&pendingAnchor==null)pendingFraction else null
+        val quickPaint=android.text.TextPaint(paint)
+        val early:((ReadingText.Result)->Unit)?=if(quickFrom==null&&quickFraction==null)null else {rendered->
+            val text=rendered.text;val from=(quickFrom?:((quickFraction?:0.0)*text.length).toInt()).coerceIn(0,text.length)
+            if(quickFraction==null||from==0){val end=ReaderLayoutEngine.pageEnd(text,from,quickPaint,width,height,justify,hyph);val page=pageText(text,listOf(from,end),0)
+                handler.post{if(!disposed&&generation==layoutGeneration&&preparing&&chapter==targetChapter){body.text=page;scroll.scrollTo(0,0);quickShown=true;view.postInvalidateOnAnimation()}}}
+        }
         layoutJob=a.compute({engine.prepare(key,{
             val rendered=ReadingText(a,size,width,maxImage,images,ink,leading,trimEmpty=trim).render(html);val rich=rendered.text
             quotes.filter{it.optInt("ch")==targetChapter}.forEach{q->val raw=q.str("rawText",q.str("text"));val range=TextAnchors.locate(rich.toString(),raw,q.optInt("start"));if(range!=null)rich.setSpan(android.text.style.BackgroundColorSpan(0x44f0a742),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
             rendered
-        },paint,width,height,justify,hyph)},failed={if(generation==layoutGeneration){preparing=false;view.alpha=1f}},done={result->
+        },paint,width,height,justify,hyph,early)},failed={if(generation==layoutGeneration){preparing=false;view.alpha=1f}},done={result->
             if(!disposed && generation==layoutGeneration && chapter==targetChapter){
                 chapterRich=android.text.SpannableStringBuilder(result.text);chapterAnchors=result.anchors;pageStarts=result.starts;lastLayoutWorker=result.worker;committedKey=key;loadedChapter=chapter
                 val rich=chapterRich as android.text.SpannableStringBuilder
@@ -392,6 +402,11 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     /** A bookmarked page carries its ribbon, so it turns with the sheet. */
     private fun drawRibbon(canvas:Canvas){if(ribbon.width<=0)return;canvas.save();canvas.translate(ribbon.left+ribbon.restX()-a.d(BookmarkRibbon.WIDTH_DP)/2f,ribbon.top.toFloat());BookmarkRibbon.draw(canvas,a,ribbon.rest);canvas.restore()}
+    /** Picture of the current page exactly as shown with the bars hidden, for an instant reopen. */
+    internal fun pageImage():Pair<String,Bitmap>?{
+        if(!paged()||preparing||editorOpen||chapterRich.isEmpty()||view.width<=0||view.height<=0)return null
+        return runCatching{PageImages.signature(a,view.width,view.height,chapter,pageBase()) to snapshot(null,folioLabel(pageIndex,pageStarts.size),hasBookmark())}.getOrNull()
+    }
     private fun folioLabel(index:Int,count:Int)=if(paged())"${index+1} из $count" else null
     /** The page number belongs to the sheet: it is drawn into the snapshot, so it turns with the page like printed folio. */
     private fun drawFolio(canvas:Canvas,label:String?){

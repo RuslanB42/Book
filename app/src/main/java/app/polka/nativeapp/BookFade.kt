@@ -28,3 +28,18 @@ internal fun MainActivity.closeWithFade(r:NativeReader){
             return true}})
     }.start()
 }
+
+/** The last page a book was left on, kept as a picture so reopening can show it at once while the live text is
+ *  prepared. Used only when the screen size, position and every text setting are exactly the same. */
+internal object PageImages {
+    private fun file(a:MainActivity,id:String)=java.io.File(java.io.File(a.cacheDir,"pages"),id.replace(Regex("[^A-Za-z0-9_-]"),"_")+".webp")
+    private fun meta(a:MainActivity,id:String)=java.io.File(java.io.File(a.cacheDir,"pages"),id.replace(Regex("[^A-Za-z0-9_-]"),"_")+".key")
+    fun signature(a:MainActivity,w:Int,h:Int,ch:Int,offset:Int):String{val p=a.prefs
+        return listOf(w,h,ch,offset,p.str("font"),p.optDouble("size",19.0),p.optDouble("lhv",-1.0),p.str("lh"),p.optDouble("ls",0.0),p.optDouble("ws",0.0),p.optInt("margin",24),p.optBoolean("hyph",true),p.optBoolean("justify",true),p.optBoolean("trimEmpty",false),p.str("rt"),p.str("ui"),p.str("mode","paged"),a.light).joinToString("|")}
+    fun save(a:MainActivity,id:String,key:String,image:android.graphics.Bitmap){
+        val f=file(a,id);val m=meta(a,id)
+        a.work({f.parentFile?.mkdirs();val tmp=java.io.File(f.path+".tmp");tmp.outputStream().use{image.compress(if(android.os.Build.VERSION.SDK_INT>=30)android.graphics.Bitmap.CompressFormat.WEBP_LOSSY else @Suppress("DEPRECATION") android.graphics.Bitmap.CompressFormat.WEBP,92,it)};tmp.renameTo(f);m.writeText(key);image.recycle()})
+    }
+    fun load(a:MainActivity,id:String,key:String):android.graphics.Bitmap?=runCatching{if(meta(a,id).readText()!=key)null else android.graphics.BitmapFactory.decodeFile(file(a,id).path)}.getOrNull()
+    fun drop(a:MainActivity,id:String){runCatching{file(a,id).delete();meta(a,id).delete()}}
+}
