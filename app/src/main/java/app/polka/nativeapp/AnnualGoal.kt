@@ -62,7 +62,7 @@ internal class YearBooks(private val a:MainActivity,private val books:List<Pair<
     private fun cover(book:JSONObject):View{val box=AspectBox(a);val rating=book.optInt("rating")
         fun put(b:Bitmap?){box.removeAllViews();box.addView(CoverView(a,book,b).apply{softShadow=true},FrameLayout.LayoutParams(-1,-1))
             // your rating as a small medal pinned to the cover's corner
-            if(rating>0)box.addView(RatingMedal(a,rating),FrameLayout.LayoutParams(-2,-2,Gravity.TOP or Gravity.END).apply{rightMargin=a.d(5);topMargin=a.d(5)})}
+            if(rating>0)box.addView(RatingMedal(a,rating),FrameLayout.LayoutParams(-2,-2,Gravity.TOP or Gravity.END).apply{rightMargin=a.d(3);topMargin=a.d(3)})}
         put(a.cover(book));if(a.cover(book)==null&&book.optJSONObject("cover")!=null)a.requestCover(book){b->if(b!=null)put(b)};return box}
     private fun stars(n:Int,size:Int=11)=object:View(a){val p=Paint(Paint.ANTI_ALIAS_FLAG);val path=androidx.core.graphics.PathParser.createPathFromPathData("M12 2.8l2.85 5.77 6.37 .93-4.61 4.49 1.09 6.34L12 17.34l-5.7 2.99 1.09-6.34-4.61-4.49 6.37-.93Z")!!
         override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(size*5+8),a.d(size+1))
@@ -111,14 +111,58 @@ internal class AspectBox(a:MainActivity):FrameLayout(a){
 }
 
 /** Your rating as a small chip in the cover's top-right corner: dark glass, a gold star and the number (like ratings on posters). */
+/** A cloisonné enamel award, in the spirit of activity-app badges: a polished gold rim, two or three enamel fields
+ *  divided by thin gold wires, a glassy highlight, and the rating as a raised gold numeral. Shape and colours grow
+ *  with the rating — 1–2 a round coin, 3 a shield, 4–5 a hexagon. */
 internal class RatingMedal(private val a:MainActivity,private val rating:Int):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    private val star=androidx.core.graphics.PathParser.createPathFromPathData("M12 2.8l2.85 5.77 6.37 .93-4.61 4.49 1.09 6.34L12 17.34l-5.7 2.99 1.09-6.34-4.61-4.49 6.37-.93Z")!!
-    init{contentDescription="Оценка $rating из 5"}
-    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(30),a.d(18))
-    override fun onDraw(c:Canvas){val h=height.toFloat();val r=h/2
-        p.reset();p.isAntiAlias=true;p.color=0xb3141416.toInt();c.drawRoundRect(0f,0f,width.toFloat(),h,r,r,p)
-        p.style=Paint.Style.STROKE;p.strokeWidth=a.d(1).toFloat()*.75f;p.color=0x33ffffff;c.drawRoundRect(.5f,.5f,width-.5f,h-.5f,r,r,p);p.style=Paint.Style.FILL
-        val s=a.d(10).toFloat();c.save();c.translate(a.d(5).toFloat(),(h-s)/2);c.scale(s/24,s/24);p.color=0xffffc23d.toInt();c.drawPath(star,p);c.restore()
-        p.color=Color.WHITE;p.typeface=Typeface.create("sans-serif",Typeface.BOLD);p.textSize=a.d(11).toFloat();p.textAlign=Paint.Align.LEFT;c.drawText("$rating",a.d(18).toFloat(),h/2-(p.ascent()+p.descent())/2,p)}
+    private class Look(val base:Int,val band:Int,val third:Int?)
+    private val look=when(rating.coerceIn(1,5)){
+        1->Look(0xff33415f.toInt(),0xff7d9fd6.toInt(),null)
+        2->Look(0xff15806f.toInt(),0xff9be15d.toInt(),null)
+        3->Look(0xfff2862c.toInt(),0xffffd84a.toInt(),null)
+        4->Look(0xff2463d8.toInt(),0xff3fd3e8.toInt(),0xffb8f53a.toInt())
+        else->Look(0xffff3d7f.toInt(),0xffb8f53a.toInt(),0xffff9b2b.toInt())}
+    init{contentDescription="Оценка $rating из 5";setLayerType(LAYER_TYPE_SOFTWARE,null)}
+    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(38),a.d(40))
+    /** The outline in a 100×100 box. */
+    private fun shape():Path=Path().apply{when(rating.coerceIn(1,5)){
+        1,2->addCircle(50f,50f,45f,Path.Direction.CW)
+        3->{moveTo(14f,8f);lineTo(86f,8f);quadTo(92f,8f,92f,14f);lineTo(92f,48f);cubicTo(92f,74f,72f,88f,50f,97f);cubicTo(28f,88f,8f,74f,8f,48f);lineTo(8f,14f);quadTo(8f,8f,14f,8f);close()}
+        else->{val pts=(0 until 6).map{i->val t=Math.toRadians(-90.0+60*i);(50+47*Math.cos(t)).toFloat() to (51+47*Math.sin(t)).toFloat()}
+            // rounded hexagon: cut each corner with a quadratic through the vertex
+            for(i in 0 until 6){val (x,y)=pts[i];val (px,py)=pts[(i+5)%6];val (nx,ny)=pts[(i+1)%6];val k=.16f
+                val ax=x+(px-x)*k;val ay=y+(py-y)*k;val bx=x+(nx-x)*k;val by=y+(ny-y)*k
+                if(i==0)moveTo(ax,ay) else lineTo(ax,ay);quadTo(x,y,bx,by)};close()}}}
+    private val gold=intArrayOf(0xfffff4c2.toInt(),0xffe8b84e.toInt(),0xff9c6b1d.toInt(),0xfff6d37c.toInt(),0xffb8862a.toInt(),0xfffff0b0.toInt())
+    override fun onDraw(c:Canvas){val s=minOf(width,height)/100f;c.save();c.translate((width-100*s)/2,(height-100*s)/2);c.scale(s,s)
+        val outline=shape();val dp=a.d(1)/s
+        // drop shadow under the whole badge
+        p.reset();p.isAntiAlias=true;p.color=Color.BLACK;p.setShadowLayer(4f*dp,0f,2.2f*dp,0x80000000.toInt());c.drawPath(outline,p);p.clearShadowLayer()
+        // enamel fields, clipped to the inside of the rim
+        c.save();c.clipPath(outline)
+        p.shader=RadialGradient(42f,38f,70f,lighten(look.base,.22f),look.base,Shader.TileMode.CLAMP);c.drawRect(0f,0f,100f,100f,p);p.shader=null
+        p.style=Paint.Style.FILL;p.color=look.band;p.shader=RadialGradient(10f,100f,70f,lighten(look.band,.2f),look.band,Shader.TileMode.CLAMP);c.drawCircle(10f,100f,58f,p);p.shader=null
+        wire(c){it.addCircle(10f,100f,58f,Path.Direction.CW)}
+        look.third?.let{t->p.style=Paint.Style.FILL;p.shader=RadialGradient(90f,6f,36f,lighten(t,.2f),t,Shader.TileMode.CLAMP);c.drawCircle(90f,6f,34f,p);p.shader=null
+            wire(c){it.addCircle(90f,6f,34f,Path.Direction.CW)}}
+        // glassy enamel highlight, upper-left
+        p.style=Paint.Style.FILL;p.shader=RadialGradient(30f,22f,46f,0x55ffffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRect(0f,0f,100f,100f,p);p.shader=null
+        c.restore()
+        // polished gold rim: thick sweep, thin dark inner bevel, bright outer lip
+        p.style=Paint.Style.STROKE;p.strokeJoin=Paint.Join.ROUND
+        p.strokeWidth=9f;p.shader=SweepGradient(50f,50f,gold,null).apply{setLocalMatrix(Matrix().apply{setRotate(-120f,50f,50f)})};c.drawPath(outline,p);p.shader=null
+        p.strokeWidth=1.4f;p.color=0x66402a08;c.save();c.scale(.905f,.905f,50f,51f);c.drawPath(outline,p);c.restore()
+        p.strokeWidth=1.1f;p.color=0x99fff6d8.toInt();c.drawPath(outline,p)
+        // raised gold numeral
+        p.style=Paint.Style.FILL;p.typeface=Typeface.create(Typeface.SERIF,Typeface.BOLD);p.textSize=58f;p.textAlign=Paint.Align.CENTER
+        val ty=56f-(p.ascent()+p.descent())/2
+        p.style=Paint.Style.STROKE;p.strokeWidth=7f;p.color=0xcc3a2405.toInt();c.drawText("$rating",50f,ty,p)
+        p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,ty-44f,0f,ty+4f,intArrayOf(0xfffff6cf.toInt(),0xfff0c35a.toInt(),0xffa8731f.toInt(),0xfff3d07a.toInt()),floatArrayOf(0f,.4f,.75f,1f),Shader.TileMode.CLAMP);c.drawText("$rating",50f,ty,p);p.shader=null
+        p.style=Paint.Style.STROKE;p.strokeWidth=1.2f;p.color=0x88fff8e0.toInt();c.drawText("$rating",50f,ty,p);p.style=Paint.Style.FILL
+        c.restore()}
+    /** A thin gold cloisonné wire along a path. */
+    private fun wire(c:Canvas,build:(Path)->Unit){val path=Path().also(build);p.style=Paint.Style.STROKE;p.shader=null
+        p.strokeWidth=3.4f;p.color=0xff8a5d17.toInt();c.drawPath(path,p);p.strokeWidth=2.2f;p.color=0xfff0c860.toInt();c.drawPath(path,p);p.style=Paint.Style.FILL}
+    private fun lighten(c:Int,t:Float)=Color.rgb((Color.red(c)+(255-Color.red(c))*t).toInt(),(Color.green(c)+(255-Color.green(c))*t).toInt(),(Color.blue(c)+(255-Color.blue(c))*t).toInt())
 }

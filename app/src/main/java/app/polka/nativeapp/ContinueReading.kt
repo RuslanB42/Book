@@ -51,8 +51,8 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    val cover=CoverView(a,book,a.cover(book));row.addView(cover,LayoutParams(a.d(64),a.d(96)))
    card.setOnClickListener{a.openBook(book,cover)};a.press(card)
    val words=a.column().apply{setPadding(a.d(14),0,0,0)}
-   words.addView(a.text(book.str("title"),17f,bold=true,serif=true).apply{maxLines=2;ellipsize=TextUtils.TruncateAt.END;minLines=2})
-   a.space(words,4);words.addView(a.text(MainActivity.authors(book),12f,a.muted).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END});a.space(words,14)
+   words.addView(a.text(book.str("title"),17f,bold=true,serif=true).apply{maxLines=1;isSingleLine=true;ellipsize=TextUtils.TruncateAt.END})
+   a.space(words,2);words.addView(a.text(MainActivity.authors(book),12f,a.muted).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END});a.space(words,14)
    val pct=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
    words.addView(SheenProgress(a,pct),LayoutParams(-1,a.d(10)));a.space(words,6)
    words.addView(a.text("${(pct*100).roundToInt()}%",12f,a.muted));a.space(words,12)
@@ -113,7 +113,7 @@ internal class CoverBackdrop(private val a:MainActivity,private val book:JSONObj
  }
  override fun onAttachedToWindow(){super.onAttachedToWindow();ensure()}
  private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply{colorFilter=ColorMatrixColorFilter(ColorMatrix().apply{setSaturation(1.3f)})}
- private val clip=Path();private val src=Rect();private val dst=RectF()
+ private val clip=Path();private val src=Rect();private val dst=RectF();private val veil=Paint()
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
  override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){clip.reset();clip.addRoundRect(0f,0f,w.toFloat(),h.toFloat(),radius,radius,Path.Direction.CW)}
  override fun onDraw(c:Canvas){
@@ -123,7 +123,10 @@ internal class CoverBackdrop(private val a:MainActivity,private val book:JSONObj
   val aspect=width.toFloat()/height;val zoom=1.25f;var sw=b.width/zoom;var sh=sw/aspect;if(sh>b.height/zoom){sh=b.height/zoom;sw=sh*aspect}
   val cx=b.width/2f;val cy=b.height/2f;src.set((cx-sw/2).toInt().coerceAtLeast(0),(cy-sh/2).toInt().coerceAtLeast(0),(cx+sw/2).toInt().coerceAtMost(b.width),(cy+sh/2).toInt().coerceAtMost(b.height))
   dst.set(0f,0f,width.toFloat(),height.toFloat());c.drawBitmap(b,src,dst,paint)
-  c.drawColor(if(a.light)0xa8fbfaf7.toInt() else 0xb0121214.toInt());c.restore()
+  // Cover colours on the left melting into the app's usual card grey on the right.
+  val base=if(a.light)0xffffffff.toInt() else 0xff242426.toInt();val rgb=base and 0xffffff
+  veil.shader=LinearGradient(0f,0f,width.toFloat(),height*.35f,intArrayOf(rgb or ((if(a.light)0x55 else 0x4d) shl 24),rgb or (0xb0 shl 24),base),floatArrayOf(0f,.42f,.82f),Shader.TileMode.CLAMP)
+  c.drawRect(0f,0f,width.toFloat(),height.toFloat(),veil);c.restore()
  }
 }
 
