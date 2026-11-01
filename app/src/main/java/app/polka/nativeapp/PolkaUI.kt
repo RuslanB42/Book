@@ -238,6 +238,18 @@ class PolkaSwitch(private val a:MainActivity):Switch(a) {
 fun replaceJson(target:org.json.JSONObject,source:org.json.JSONObject) { if(target===source) return; val copy=source.copyJson(); target.keys().asSequence().toList().forEach { target.remove(it) }; copy.keys().forEach { target.put(it,copy.get(it)) } }
 
 /** Persistent native indicator; content updates do not restart its transition. */
+/** The active tab's pill with a clearly visible soft shadow beneath it (drawn, so it shows on a dark bar too). */
+internal class LiftedPill(private val a:MainActivity,private val fill:Int):android.graphics.drawable.Drawable(){
+    private val shadow=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    private val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply{color=fill}
+    override fun draw(c:android.graphics.Canvas){val b=android.graphics.RectF(bounds);val r=b.height()/2f
+        shadow.color=if(a.light)0x55000000 else 0xff000000.toInt();shadow.maskFilter=android.graphics.BlurMaskFilter(a.d(7).toFloat(),android.graphics.BlurMaskFilter.Blur.NORMAL)
+        c.drawRoundRect(b.left+a.d(2),b.top+a.d(5),b.right-a.d(2),b.bottom+a.d(5),r,r,shadow)
+        c.drawRoundRect(b,r,r,paint)}
+    override fun setAlpha(alpha:Int){paint.alpha=alpha}
+    override fun setColorFilter(f:android.graphics.ColorFilter?){paint.colorFilter=f}
+    @Deprecated("Deprecated in Java") override fun getOpacity()=android.graphics.PixelFormat.TRANSLUCENT
+}
 class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
     private val pill=View(a)
     private val buttons=mutableListOf<IconView>()
@@ -256,13 +268,11 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
         background=material;elevation=a.d(3).toFloat();clipChildren=false;clipToPadding=false
         addView(pill,LayoutParams(a.d(52),a.d(48)).apply { leftMargin=a.d(5); topMargin=a.d(5) })
         // The active tab's pill floats: a soft shadow under it; icons sit above it.
-        pill.elevation=a.d(6).toFloat();pill.outlineProvider=object:android.view.ViewOutlineProvider(){override fun getOutline(v:View,o:android.graphics.Outline){o.setRoundRect(0,0,v.width,v.height,a.d(24).toFloat())}}
-        if(android.os.Build.VERSION.SDK_INT>=28){pill.outlineAmbientShadowColor=0x66000000;pill.outlineSpotShadowColor=0x99000000.toInt()}
-        val row=a.line();row.elevation=a.d(7).toFloat();keys.forEachIndexed { i,key->val button=IconView(a,key,a.muted).apply{contentDescription=listOf("Мои книги","Полки","Цитаты","Для вас")[i];isClickable=true;isFocusable=true;a.press(this)};buttons.add(button);row.addView(button,LinearLayout.LayoutParams(a.d(52),a.d(48)).apply{if(i>0)marginStart=a.d(4)}) };addView(row,LayoutParams(-2,a.d(48)).apply{leftMargin=a.d(5);topMargin=a.d(5)})
+        val row=a.line();keys.forEachIndexed { i,key->val button=IconView(a,key,a.muted).apply{contentDescription=listOf("Мои книги","Полки","Цитаты","Для вас")[i];isClickable=true;isFocusable=true;a.press(this)};buttons.add(button);row.addView(button,LinearLayout.LayoutParams(a.d(52),a.d(48)).apply{if(i>0)marginStart=a.d(4)}) };addView(row,LayoutParams(-2,a.d(48)).apply{leftMargin=a.d(5);topMargin=a.d(5)})
     }
     fun bind(tab:String,onSelect:(String)->Unit) {
         choose=onSelect;
-        if(theme!=a.light){theme=a.light;material.refresh();pill.background=a.shape(a.fg,24)}
+        if(theme!=a.light){theme=a.light;material.refresh();pill.background=LiftedPill(a,a.fg)}
         val index=keys.indexOf(tab).coerceAtLeast(0);val x=a.d(index*56).toFloat()
         if(selected<0||a.prefs.str("motion")=="reduced")spring.snap(x)else if(selected!=index)spring.to(x);selected=index
         buttons.forEachIndexed{i,b->b.ink=if(i==index)a.bg else a.muted;b.isSelected=i==index;b.invalidate();b.setOnClickListener{onSelect(keys[i])}}

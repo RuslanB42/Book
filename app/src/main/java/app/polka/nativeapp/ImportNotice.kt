@@ -15,7 +15,7 @@ class ImportNotice(val a:MainActivity,label:String,loading:Boolean=true,kind:Str
     private val covers=a.floatingCovers?.takeIf{loading&&it.isAttachedToWindow&&it.isShown}
     private val centered=covers!=null
     private val green=0xff34b866.toInt(); private val coral=0xffef5b4c.toInt(); private val amber=a.accentFill
-    val row=(if(centered)a.column().apply{gravity=Gravity.CENTER_HORIZONTAL} else a.line().apply{gravity=Gravity.CENTER_VERTICAL}).apply{ if(!centered) a.noticeSurface(this) }
+    val row=(if(centered)a.column().apply{gravity=Gravity.CENTER_HORIZONTAL} else a.line().apply{gravity=Gravity.CENTER_VERTICAL}).apply{ clipChildren=false;clipToPadding=false;if(!centered) a.noticeSurface(this) }
     private val spines=if(loading)SpineLoader(a) else null
     private val badge=FrameLayout(a).apply{clipChildren=false}
     private val disc=GradientDrawableCompat.circle(when(kind){"loading"->(amber and 0xffffff) or 0x2e000000;"deleted"->coral;else->green})
