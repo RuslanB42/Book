@@ -21,7 +21,7 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
  private var closed=false
  private val chapter=draft.chapter
  private val sourceHtml=content.getJSONArray("chapters").getJSONObject(chapter).str("html")
- internal var commit:(JSONObject,JSONObject)->Unit={updated,next->a.library.db.runInTransaction { a.library.dao.putContent(ContentRow(book.str("id"),updated.toString()));a.library.save(next) }}
+ internal var commit:(JSONObject,JSONObject)->Unit={updated,next->ChapterStore.drop(a.filesDir,book.str("id"));a.library.db.runInTransaction { a.library.dao.putContent(ContentRow(book.str("id"),updated.toString()));a.library.save(next) }}
  private fun snapshot()=SpannableStringBuilder(editor.text)
  private fun remember(){if(undo.size>=60)undo.removeFirst();undo.addLast(snapshot());redo.clear()}
  fun dirty()=editor.text.toString()!=draft.text.toString() || editor.text.getSpans(0,editor.length(),PageFormat::class.java).isNotEmpty()
@@ -70,6 +70,7 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
  fun redo(){if(redo.isNotEmpty()&&!saving){undo.addLast(snapshot());restore(redo.removeLast())}}
  fun format(kind:String){var from=minOf(editor.selectionStart,editor.selectionEnd).coerceAtLeast(0);var to=maxOf(editor.selectionStart,editor.selectionEnd).coerceAtLeast(0);if(kind=="heading"||kind=="quote"){from=editor.text.lastIndexOf('\n',maxOf(0,from-1))+1;to=editor.text.indexOf('\n',to).takeIf{it>=0}?:editor.length()};if(to<=from)return;remember();editor.text.setSpan(PageFormat(kind),from,to,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);val style:Any=when(kind){"bold"->StyleSpan(Typeface.BOLD);"italic"->StyleSpan(Typeface.ITALIC);"heading"->RelativeSizeSpan(1.2f);else->QuoteSpan(a.accent)};editor.text.setSpan(style,from,to,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
  fun save(){if(saving||closed)return;if(!dirty()){finish(false);return}
+  reader.ensureAllHtml()
   saving=true;editor.isEnabled=false;error.visibility=View.GONE;val edited=snapshot();val formats=edited.getSpans(0,edited.length,PageFormat::class.java).map{PageHtmlPatch.Format(draft.start+edited.getSpanStart(it),draft.start+edited.getSpanEnd(it),it.kind)};val updated=content.copyJson();val next=book.copyJson()
   a.work({
    check(content.getJSONArray("chapters").getJSONObject(chapter).str("html")==sourceHtml){"Текст изменился. Правки остались в редакторе."}

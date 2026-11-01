@@ -35,6 +35,17 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private var restoring=false
     var chapter=book.optJSONObject("progress")?.optInt("ch",0) ?: 0
     val chapters=content.getJSONArray("chapters")
+    /** Chapter html, read from the per-chapter copy the first time it is needed (only the current one is loaded on open). */
+    internal fun chapterHtml(i:Int):String{
+        val ch=chapters.getJSONObject(i)
+        synchronized(ch){if(!ch.has("html")){ch.put("html",ChapterStore.html(a.filesDir,book.str("id"),i)?:run{fillAllFromDatabase();ch.optString("html")})};return ch.str("html")}
+    }
+    private fun fillAllFromDatabase(){
+        val all=a.library.dao.content(book.str("id"))?.let{JSONObject(it.json).optJSONArray("chapters")}?:return
+        for(k in 0 until minOf(all.length(),chapters.length())){val ch=chapters.getJSONObject(k);if(!ch.has("html"))ch.put("html",all.getJSONObject(k).str("html"))}
+    }
+    /** Before writing the whole text back (page edit), every chapter must be in memory. */
+    internal fun ensureAllHtml(){for(i in 0 until chapters.length())chapterHtml(i)}
     private var openedAt=System.currentTimeMillis()
     private var activeAt=openedAt
     private var lastCredit=openedAt
@@ -194,7 +205,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val top=if(paged())22 else 84;val bottomInset=if(paged())42 else 110;if(body.paddingTop!=a.d(top)||body.paddingBottom!=a.d(bottomInset)||body.paddingLeft!=margin()||body.paddingRight!=margin())body.setPadding(margin(),a.d(top),margin(),a.d(bottomInset))
         val width=(scroll.width-body.paddingLeft-body.paddingRight).takeIf{it>0}?: (a.resources.displayMetrics.widthPixels-a.d(48))
         val height=(scroll.height-body.paddingTop-body.paddingBottom-a.d(6)).takeIf{it>a.d(100)}?: (a.resources.displayMetrics.heightPixels-a.d(230))
-        val html=chapters.getJSONObject(chapter).str("html");val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val paint=android.text.TextPaint(body.paint);val justify=body.justificationMode;val trim=trimEmpty();val hyph=hyphenFreq()
+        val html=chapterHtml(chapter);val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val paint=android.text.TextPaint(body.paint);val justify=body.justificationMode;val trim=trimEmpty();val hyph=hyphenFreq()
         val quoteSnapshot=book.optJSONArray("quotes")?.toString()?:"[]";val key="$chapter:$width:$height:$size:$ink:$leading:${a.prefs.str("font")}:$justify:${paged()}:${html.hashCode()}:${quoteSnapshot.hashCode()}:${typoKey()}"
         if(key==requestKey && preparing)return
         if(key==committedKey && loadedChapter==chapter){val offset=pendingAnchor?.let{chapterAnchors[it]} ?: pendingOffset;pendingAnchor=null;pendingOffset=null;pendingFraction=null;if(offset!=null)jumpOffset(offset);return}
@@ -350,13 +361,13 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     private fun chapterKey(index:Int):String {
         val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(1);val height=(scroll.height-body.paddingTop-body.paddingBottom-a.d(6)).coerceAtLeast(1)
-        return "$index:${view.width}:${view.height}:${scroll.left}:${scroll.top}:$width:$height:${body.textSize}:${body.currentTextColor}:${lineHeight()}:${a.prefs.str("font")}:${body.justificationMode}:${paged()}:${chapters.getJSONObject(index).str("html").hashCode()}:${(book.optJSONArray("quotes")?.toString()?:"[]").hashCode()}:${typoKey()}"
+        return "$index:${view.width}:${view.height}:${scroll.left}:${scroll.top}:$width:$height:${body.textSize}:${body.currentTextColor}:${lineHeight()}:${a.prefs.str("font")}:${body.justificationMode}:${paged()}:${chapterHtml(index).hashCode()}:${(book.optJSONArray("quotes")?.toString()?:"[]").hashCode()}:${typoKey()}"
     }
     private fun preparePreview(index:Int,done:(ReaderLayoutEngine.PageData,String)->Unit={_,_->}){
         if(index !in 0 until chapters.length()||disposed)return
         val key=chapterKey(index);previewPages[index]?.takeIf{it.first==key}?.let{done(it.second,key);return}
         val generation=previewGeneration;val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(1);val height=(scroll.height-body.paddingTop-body.paddingBottom-a.d(6)).coerceAtLeast(1)
-        val paint=android.text.TextPaint(body.paint);val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val justify=body.justificationMode;val html=chapters.getJSONObject(index).str("html");val quotes=book.optJSONArray("quotes")?.toString()?:"[]";val trim=trimEmpty();val hyph=hyphenFreq()
+        val paint=android.text.TextPaint(body.paint);val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val justify=body.justificationMode;val html=chapterHtml(index);val quotes=book.optJSONArray("quotes")?.toString()?:"[]";val trim=trimEmpty();val hyph=hyphenFreq()
         // Warm jobs can share the engine cache; completion is keyed by geometry,
         // theme, chapter content and quote revision, never by page index alone.
         previewJobs[index]=a.compute({previewEngine.prepare(key,{
@@ -494,7 +505,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             a.work({
                 for((index,ch) in chapters.objects().withIndex()) {
                     if(results.size>=500) break
-                    val text=ReadingText(a,fontSize,width,height,images,ink,leading,true,trim).render(ch.str("html")).text.toString(); var offset=0
+                    val text=ReadingText(a,fontSize,width,height,images,ink,leading,true,trim).render(chapterHtml(index)).text.toString(); var offset=0
                     while(results.size<500) { val at=text.indexOf(term,offset,true); if(at<0) break; results.add(Triple(index,at,ch.str("title")+"\n…"+text.substring(maxOf(0,at-35),minOf(text.length,at+term.length+70)).replace('\n',' ')+"…")); offset=at+term.length }
                 }
             }) { a.dialog().setTitle("Найдено: ${results.size}").setItems(results.map { it.third }.toTypedArray()) { _,index -> val result=results[index]; changeChapter(result.first); body.post { jumpOffset(result.second) } }.show() }
@@ -507,7 +518,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             val results=mutableListOf<Triple<Int,Int,String>>()
             for((index,ch) in chapters.objects().withIndex()){
                 if(results.size>=500)break
-                val text=ReadingText(a,fontSize,width,height,images,ink,leading,true,trim).render(ch.str("html")).text.toString();var offset=0
+                val text=ReadingText(a,fontSize,width,height,images,ink,leading,true,trim).render(chapterHtml(index)).text.toString();var offset=0
                 while(results.size<500){val at=text.indexOf(term,offset,true);if(at<0)break;results.add(Triple(index,at,ch.str("title")+"\n…"+text.substring(maxOf(0,at-35),minOf(text.length,at+term.length+70)).replace('\n',' ')+"…"));offset=at+term.length}
             };results.toList()
         },done={if(!disposed)done(it)})
@@ -517,7 +528,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             val path=href.substringBefore('#'); val id=href.substringAfter('#',"")
             val candidates=chapters.objects().mapIndexedNotNull { index,ch ->
                 if(path.isNotBlank() && ch.str("path").isNotBlank() && ch.str("path")!=path) return@mapIndexedNotNull null
-                val element=if(id.isNotBlank()) Jsoup.parse(ch.str("html")).getElementById(id) else null
+                val element=if(id.isNotBlank()) Jsoup.parse(chapterHtml(index)).getElementById(id) else null
                 val saved=ch.optJSONObject("anchors")?.str(id)
                 if(element!=null) Triple(index,element.text(),element.attr("epub:type").contains("note") || element.attr("role")=="doc-footnote" || ch.optBoolean("notes"))
                 else if(!saved.isNullOrBlank()) Triple(index,saved,ch.optBoolean("notes"))

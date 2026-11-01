@@ -301,13 +301,27 @@ class MainActivity : Activity() {
     var returnDetailId:String?=null
     /** Parsed text of recently opened/likely-to-open books. Reading the whole book from the database and parsing
      *  it is the slow part of opening, so it is done ahead of time (detail card, «Продолжить чтение») and reused. */
-    private val openedContent=object:LinkedHashMap<String,Pair<JSONObject,MutableMap<String,ByteArray>>>(4,.75f,true){override fun removeEldestEntry(e:MutableMap.MutableEntry<String,Pair<JSONObject,MutableMap<String,ByteArray>>>?)=size>2}
+    private val openedContent=object:LinkedHashMap<String,Pair<JSONObject,Map<String,ByteArray>>>(4,.75f,true){override fun removeEldestEntry(e:MutableMap.MutableEntry<String,Pair<JSONObject,Map<String,ByteArray>>>?)=size>2}
     private fun contentKey(book:JSONObject)="${book.str("id")}:${book.optLong("size")}:${book.optInt("edits")}:${book.optInt("chars")}:${book.str("format")}"
-    private fun loadContent(book:JSONObject):Pair<JSONObject,MutableMap<String,ByteArray>> {
+    private fun loadContent(book:JSONObject):Pair<JSONObject,Map<String,ByteArray>> {
         val key=contentKey(book);synchronized(openedContent){openedContent[key]}?.let{return it}
-        val content=library.dao.content(book.getString("id")) ?: error("Текст книги не найден"); val parsed=JSONObject(content.json); val images=mutableMapOf<String,ByteArray>()
-        parsed.optJSONObject("images")?.let { refs -> refs.keys().forEach { k -> refs.optJSONObject(k)?.str("__polkaBlob")?.let { id -> library.dao.asset(id)?.let { images[k]=it.bytes } } } }
-        return (parsed to images).also{synchronized(openedContent){openedContent[key]=it}}
+        val id=book.getString("id");val current=book.optJSONObject("progress")?.optInt("ch",0)?:0
+        // Fast path: small index + only the chapter being read. Images are fetched when a page needs them.
+        ChapterStore.read(filesDir,id,key,current)?.let{index->
+            return (index to (LazyImages(library,index.optJSONObject("images")) as Map<String,ByteArray>)).also{synchronized(openedContent){openedContent[key]=it}}
+        }
+        val content=library.dao.content(id) ?: error("Текст книги не найден"); val parsed=JSONObject(content.json)
+        val result:Pair<JSONObject,Map<String,ByteArray>> =parsed to LazyImages(library,parsed.optJSONObject("images"))
+        synchronized(openedContent){openedContent[key]=result}
+        // Next time this book opens from the per-chapter copy.
+        io.execute{ChapterStore.write(filesDir,id,key,parsed)}
+        return result
+    }
+    /** Chapter titles/lengths for a book without parsing its whole text when avoidable. */
+    fun chapterIndex(book:JSONObject):org.json.JSONArray? {
+        val key=contentKey(book);synchronized(openedContent){openedContent[key]}?.let{return it.first.optJSONArray("chapters")}
+        ChapterStore.index(filesDir,book.str("id"),key)?.let{return it.optJSONArray("chapters")}
+        return library.dao.content(book.str("id"))?.let{JSONObject(it.json).optJSONArray("chapters")}
     }
     private val prefetching=mutableSetOf<String>()
     fun prefetchContent(book:JSONObject){
@@ -321,7 +335,7 @@ class MainActivity : Activity() {
         if(bookDetailSheet==null)returnDetailId=null
         loadingReader=true
         val veil=if(prefs.str("motion")=="reduced") null else fadeVeil().also{root.addView(it,FrameLayout.LayoutParams(-1,-1))}
-        var loaded:Pair<JSONObject,MutableMap<String,ByteArray>>?=null;var dark=veil==null;var built=false
+        var loaded:Pair<JSONObject,Map<String,ByteArray>>?=null;var dark=veil==null;var built=false
         fun build(){
             val content=loaded?:return;if(!dark||built)return;built=true;loadingReader=false
             if(isFinishing||isDestroyed){veil?.let{root.removeView(it)};return}
