@@ -103,7 +103,7 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
         val lightPaper=Color.luminance(paper)>.4
         // (alpha baked into the texture: a paint's alpha is not applied to meshes on every renderer)
         if(inkBack==null)inkBack=Bitmap.createBitmap(sheet.width,sheet.height,Bitmap.Config.ARGB_8888).also{b->val cv=Canvas(b)
-            cv.drawColor((paper and 0xffffff) or ((if(lightPaper)0xee else 0xe8) shl 24),PorterDuff.Mode.SRC)
+            cv.drawColor(paper or 0xff000000.toInt(),PorterDuff.Mode.SRC)
             cv.drawBitmap(sheet,0f,0f,Paint(Paint.FILTER_BITMAP_FLAG).apply{alpha=if(lightPaper)0x1e else 0x2a})}
         c.drawBitmapMesh(inkBack!!,COLS,ROWS,backMesh,0,backColors,0,paint)
         c.restore()
