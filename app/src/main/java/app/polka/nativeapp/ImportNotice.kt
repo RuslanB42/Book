@@ -26,7 +26,7 @@ class ImportNotice(val a:MainActivity,label:String,loading:Boolean=true) {
             a.root.addView(row,FrameLayout.LayoutParams(-1,-2,Gravity.TOP).apply{topMargin=at[1]-rootAt[1]+c.height/2-a.d(60)})
             if(reduced)c.scatter=1f else android.animation.ValueAnimator.ofFloat(c.scatter,1f).apply{duration=560;interpolator=PathInterpolator(.3f,0f,.2f,1f);addUpdateListener{c.scatter=it.animatedValue as Float};start()}}
         else a.root.addView(row,FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin=a.d(90) })
-        row.alpha=0f;if(!centered)row.translationY=a.d(10).toFloat();row.animate().alpha(1f).translationY(0f).setStartDelay(if(centered)180 else 0).setDuration(if(centered)360 else 260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
+        row.alpha=0f;if(!centered)row.translationY=a.d(10).toFloat();row.animate().alpha(1f).translationY(0f).setStartDelay(if(centered)180L else 0L).setDuration(if(centered)360L else 260L).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
     }
     fun setMessage(value:String) { caption.text=value }
     fun setDetail(value:String) { detail.text=value; detail.visibility=if(value.isBlank())View.GONE else View.VISIBLE }

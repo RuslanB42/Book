@@ -55,14 +55,14 @@ private fun MainActivity.goalSheet(initial:Int,saved:(Int)->Unit){
         glow.level=.55f+.45f*(v-min)/(max-min).toFloat()
         desc.text=lvl.text
         if(lvl.color!=shownColor){val from=shownColor;shownColor=lvl.color;colorAnim?.cancel()
-            colorAnim=ValueAnimator.ofObject(ArgbEvaluator(),from,lvl.color).apply{duration=if(reduced)0 else 320;addUpdateListener{val c=it.animatedValue as Int;saveBg.setColor(c);slider.color=c;unit.setTextColor(ink(c))};start()}}
+            colorAnim=ValueAnimator.ofObject(ArgbEvaluator(),from,lvl.color).apply{duration=if(reduced)0L else 320L;addUpdateListener{val c=it.animatedValue as Int;saveBg.setColor(c);slider.color=c;unit.setTextColor(ink(c))};start()}}
     }
     val sheet=dialog().setTitle("Огонёк").setView(box).show()
     save.setOnClickListener{val v=value;updateStatistics{it.put("goal",v)};saved(v);sheet.dismiss()}
 }
 
 /** Rail with snapping ticks: the thumb follows the finger, the value snaps to steps (with a light tick), on release the thumb glides onto the step. */
-internal class GoalSlider(private val a:MainActivity,private val min:Int,private val max:Int,private val step:Int,initial:Int):View(a){
+internal class GoalSlider(private val a:MainActivity,private val lo:Int,private val hi:Int,private val step:Int,initial:Int):View(a){
     var onChange:(Int)->Unit={}
     var color=Color.WHITE; set(v){field=v;invalidate()}
     var value=initial; private set
@@ -73,10 +73,10 @@ internal class GoalSlider(private val a:MainActivity,private val min:Int,private
     private val labels=setOf(15,30,45,60,90)
     private var glide:ValueAnimator?=null
     init{isClickable=true;isFocusable=true;contentDescription="Минут в день: $initial";p.textSize=11*a.resources.displayMetrics.scaledDensity}
-    private fun frac(v:Int)=(v-min)/(max-min).toFloat()
+    private fun frac(v:Int)=(v-lo)/(hi-lo).toFloat()
     private val pad get()=a.d(16).toFloat()
     override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(MeasureSpec.getSize(w),a.d(66))
-    private fun valueAt(x:Float):Int{val f=((x-pad)/(width-2*pad)).coerceIn(0f,1f);return min+((f*(max-min)/step).roundToInt()*step)}
+    private fun valueAt(x:Float):Int{val f=((x-pad)/(width-2*pad)).coerceIn(0f,1f);return lo+((f*(hi-lo)/step).roundToInt()*step)}
     override fun onTouchEvent(e:MotionEvent):Boolean{
         when(e.actionMasked){
             MotionEvent.ACTION_DOWN->{parent?.requestDisallowInterceptTouchEvent(true);dragging=true;glide?.cancel();animatePress(1f);move(e.x)}
@@ -92,7 +92,7 @@ internal class GoalSlider(private val a:MainActivity,private val min:Int,private
         p.color=if(a.light)0xffe8e8ea.toInt() else 0xff333336.toInt();c.drawRoundRect(pad,cy-rh/2,pad+w,cy+rh/2,rh/2,rh/2,p)
         p.color=color;c.drawRoundRect(pad,cy-rh/2,max(pad+rh,pad+w*thumb),cy+rh/2,rh/2,rh/2,p)
         p.textAlign=Paint.Align.CENTER
-        var v=min;while(v<=max){val x=pad+w*frac(v);val big=v in labels;p.color=if(a.light)0x33000000 else 0x33ffffff;val th=a.d(if(big)7 else 4).toFloat()
+        var v=lo;while(v<=hi){val x=pad+w*frac(v);val big=v in labels;p.color=if(a.light)0x33000000 else 0x33ffffff;val th=a.d(if(big)7 else 4).toFloat()
             c.drawRoundRect(x-a.d(1),cy+a.d(10),x+a.d(1),cy+a.d(10)+th,a.d(1).toFloat(),a.d(1).toFloat(),p)
             if(big){p.color=if(v==value)a.fg else a.muted;c.drawText("$v",x,cy+a.d(34),p)}
             v+=step}
