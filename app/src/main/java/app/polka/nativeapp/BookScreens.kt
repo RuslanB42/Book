@@ -160,8 +160,3 @@ fun MainActivity.recoveryScreen(error:Throwable) {
     root.removeAllViews(); val box=column().apply { setPadding(d(24),d(40),d(24),d(40)); setBackgroundColor(bg) }; root.addView(box,FrameLayout.LayoutParams(-1,-1)); box.addView(text("Библиотека не загружена",28f,bold=true,serif=true)); space(box,16); box.addView(text("Запись остановлена. Прежние данные и локальные копии не заменяются пустой библиотекой.",16f,muted)); space(box,12); box.addView(text(error.message ?: error.javaClass.simpleName,14f,muted)); space(box,24); box.addView(button("Локальные точки восстановления",true) { localRecovery() }); space(box,10); box.addView(button("Восстановить из .polka") { pickBackup() }); space(box,10); box.addView(button("Попробовать создать внешнюю копию") { exportBackup() })
 }
 
-/** Threshold is configured in settings, never advertised as a statistics-card action. */
-internal fun MainActivity.editStreakThreshold(saved:(Int)->Unit={}) {
-    val values=listOf(5,10,15,30,60)
-    dialog().setTitle("Огонёк: минут в день").setItems(values.map{"$it минут"}.toTypedArray()){_,i->updateStatistics{it.put("goal",values[i])};saved(values[i])}.show()
-}

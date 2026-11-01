@@ -266,7 +266,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun changeChapter(next:Int) { if(next !in 0 until chapters.length())return;quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=0;pendingFraction=null;paintChapter() }
     fun persist() { val snap=book.copyJson(); a.saveBook(snap) {} }
     fun pause() { save();paused=true;handler.removeCallbacks(heartbeat) }
-    fun dispose(){if(disposed)return;if(a.window.attributes.screenBrightness!=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};a.ratingPrompt?.let{(it.parent as? ViewGroup)?.removeView(it)};a.ratingPrompt=null;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
+    fun dispose(){if(disposed)return;if(a.window.attributes.screenBrightness!=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};a.ratingPrompt?.let{(it.parent as? ViewGroup)?.removeView(it)};a.ratingPrompt=null;a.streakCelebration=null;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
     fun resume() { ReaderWindow.configure(a.window,true,readerBackground);a.root.requestApplyInsets();paused=false; activeAt=System.currentTimeMillis(); lastCredit=activeAt; handler.removeCallbacks(heartbeat); handler.postDelayed(heartbeat,5000) }
     fun save() {
         handler.removeCallbacks(saveTask)
@@ -275,7 +275,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val now=System.currentTimeMillis(); val elapsed=if(!paused && now-activeAt<120000) (now-lastCredit).coerceIn(0,120000) else 0; lastCredit=now
         val pos=position(); val delta=pos-lastPosition; val chars=if(delta in 1 until 12000) delta.toLong() else 0L; lastPosition=pos; val credit=if(elapsed>0) chars else 0L
         val newSession=!sessionRecorded; sessionRecorded=true
-        val snap=book.copyJson();var streakUp=0
+        val snap=book.copyJson();var streakUp=0;var streakWeek=BooleanArray(7);var streakToday=0
         a.work({
             a.library.db.runInTransaction {
                 a.library.save(snap)
@@ -283,13 +283,13 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
                 val meta=JSONObject(raw.json); val data=meta.getJSONObject("data"); val id=snap.getString("id")
                 val metBefore=ReadingStatistics(data,emptyList()).let{it.met(it.today)}
                 creditReading(data,id,now,elapsed,credit)
-                ReadingStatistics(data,emptyList()).let{if(!metBefore&&it.met(it.today))streakUp=it.streak}
+                ReadingStatistics(data,emptyList()).let{if(!metBefore&&it.met(it.today)){streakUp=it.streak;val monday=it.today.minusDays(it.today.dayOfWeek.value-1L);streakToday=it.today.dayOfWeek.value-1;streakWeek=BooleanArray(7){d->it.met(monday.plusDays(d.toLong()))}}}
                 val records=data.optJSONObject("books") ?: JSONObject().also { data.put("books",it) }; val b=records.optJSONObject(id) ?: JSONObject().put("sessions",0).put("first",openedAt).put("chars",0).also { records.put(id,it) }; b.put("ms",b.optLong("ms")+elapsed).put("chars",b.optLong("chars")+credit).put("sessions",b.optInt("sessions")+if(newSession) 1 else 0).put("total",chapters.objects().sumOf { it.optInt("len") }).put("last",now).put("title",snap.str("title")); a.library.dao.putMeta(MetaRow("stats",meta.toString()))
             }
-        }) { a.checkpointSoon(); if(streakUp>0&&!disposed)showStreak(streakUp) }
+        }) { a.checkpointSoon(); if(streakUp>0&&!disposed)showStreak(streakUp,streakWeek,streakToday) }
     }
     /** The day's goal was just reached: celebrate it on top of the page, clear of the status bar. */
-    private fun showStreak(n:Int){val toast=StreakToast(a,n);view.addView(toast,FrameLayout.LayoutParams(-1,-2,Gravity.TOP).apply{topMargin=a.d(10)});toast.elevation=a.d(30).toFloat();toast.post{toast.show()}}
+    private fun showStreak(n:Int,week:BooleanArray,today:Int){a.streakCelebration?.dismiss();StreakCelebration(a,view,n,week,today).show()}
     fun addQuote(start:Int,end:Int,text:String) { val quotes=book.optJSONArray("quotes") ?: JSONArray(); if(quotes.objects().none { it.optInt("ch")==chapter && it.str("text")==text }) quotes.put(JSONObject().put("id",uid()).put("ch",chapter).put("start",start).put("end",end).put("block",0).put("text",text).put("rawText",text).put("at",System.currentTimeMillis())); book.put("quotes",quotes); val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) }; persist() }
     fun addNote(selected:String="") { val input=EditText(a).apply { setTextColor(a.fg); setHintTextColor(a.muted); setPadding(a.d(24),a.d(16),a.d(24),a.d(16)); minLines=3; hint="Заметка" }; a.dialog().setTitle("Заметка").setView(input).setNegativeButton("Отмена",null).setPositiveButton("Сохранить") { _,_ -> if(input.text.isNotBlank()) { val notes=book.optJSONArray("notes") ?: JSONArray(); notes.put(JSONObject().put("id",uid()).put("ch",chapter).put("text",input.text.toString()).put("quote",selected).put("at",System.currentTimeMillis())); book.put("notes",notes); persist() } }.show() }
     private var pulling=false;private var pullZone=false;private var pullReached=false

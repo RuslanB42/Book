@@ -69,15 +69,17 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     }
     private val motionOn get()=animate&&a.prefs.str("motion")!="reduced"
     /** Big numeral that counts up once when its card first appears (plain text when motion is reduced). */
-    private fun count(end:Int,size:Float,play:Boolean=true,format:(Int)->String={it.toString()}):TextView=a.text(format(end),size,a.fg,true).apply{
-        letterSpacing=-.02f;fontFeatureSettings="tnum"
-        if(play&&motionOn&&end>0){
-            var anim:android.animation.ValueAnimator?=null
-            addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{
-                override fun onViewAttachedToWindow(v:View){if(anim!=null)return;text=format(0)
-                    anim=android.animation.ValueAnimator.ofInt(0,end).apply{startDelay=120;duration=520;interpolator=android.view.animation.PathInterpolator(.22f,1f,.36f,1f);addUpdateListener{text=format(it.animatedValue as Int)};start()}}
-                override fun onViewDetachedFromWindow(v:View){anim?.cancel();anim=null;text=format(end)}})
-        }
+    private fun count(end:Int,size:Float,play:Boolean=true,format:(Int)->String={it.toString()}):View=Odometer(a,format(end),size,a.fg,true).apply{
+        if(play&&motionOn&&end>0)addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false
+            override fun onViewAttachedToWindow(v:View){if(done)return;done=true;set(format(end),format(0),rollAll=false,delay=200)}
+            override fun onViewDetachedFromWindow(v:View){}})
+    }
+    /** Small green «what changed» chip that pops in after the numbers have rolled. */
+    private fun delta(s:String):View=label(s,12f,mint,true).apply{
+        background=pill((mint and 0xffffff) or ((if(light)0x1c else 0x24) shl 24),12);setPadding(a.d(9),a.d(4),a.d(9),a.d(4))
+        if(motionOn){alpha=0f;addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false
+            override fun onViewAttachedToWindow(v:View){if(done)return;done=true;translationY=a.d(6).toFloat();scaleX=.9f;scaleY=.9f;animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setStartDelay(820).setDuration(460).setInterpolator(android.view.animation.OvershootInterpolator(2f)).start()}
+            override fun onViewDetachedFromWindow(v:View){animate().cancel();alpha=1f;translationY=0f;scaleX=1f;scaleY=1f}})}
     }
     private val entrance=mutableListOf<View>()
     private fun action(s:String,primary:Boolean=false,click:()->Unit)=a.button(s,primary,click).apply {
@@ -92,6 +94,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     }
     private fun add(card:View){entrance.add(card);content.addView(card,LinearLayout.LayoutParams(-1,-2));space(content,14)}
     private fun daysWord(n:Int)=if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
+    private fun minutesShort(n:Int)="мин"
     private fun minutesGen(n:Int)=if(n%100 in 11..14)"минут" else if(n%10==1)"минуты" else "минут"
     fun show() {
         val extra=max(0,(a.resources.configuration.screenWidthDp-640)/2)
@@ -117,7 +120,11 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun streak() {
         val box=surface()
         val top=a.line().apply{gravity=Gravity.TOP}
-        top.addView(FlameView(a,model.streak,model.streak>0,model.streak>0&&!model.met(today),true).apply{contentDescription="Серия чтения: ${model.streak}";importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(a.d(78),a.d(112)).apply{rightMargin=a.d(14)})
+        top.clipChildren=false;top.clipToPadding=false
+        val flameBox=FrameLayout(a).apply{clipChildren=false;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
+        if(model.streak>0)flameBox.addView(BreathGlow(a,0xffff7a1e.toInt(),if(light).2f else .3f,motionOn),FrameLayout.LayoutParams(a.d(110),a.d(110),Gravity.CENTER))
+        flameBox.addView(FlameView(a,model.streak,model.streak>0,model.streak>0&&!model.met(today),true).apply{contentDescription="Серия чтения: ${model.streak}";importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},FrameLayout.LayoutParams(-1,-1))
+        top.addView(flameBox,LinearLayout.LayoutParams(a.d(78),a.d(112)).apply{rightMargin=a.d(14)})
         val side=a.column().apply{setPadding(0,a.d(2),0,0)}
         side.addView(a.text("${daysWord(model.streak)} подряд",24f,a.fg,true,serif=true).apply{cssLeading(1.1f)});space(side,5)
         val minutes=(model.ms(today)/60000L).toInt();val left=ceil(max(0,model.dailyGoal*60000L-model.ms(today))/60000.0).toInt()
@@ -125,13 +132,14 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val today1=a.line();today1.addView(label("Сегодня",13.5f),LinearLayout.LayoutParams(0,-2,1f));today1.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13.5f,if(model.met(today))strong else captionInk,model.met(today)));side.addView(today1);space(side,8)
         side.addView(ProgressRail(a,animate,(model.ms(today).toFloat()/(model.dailyGoal*60000L)).coerceIn(0f,1f),amber,coral,"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)))
         top.addView(side,LinearLayout.LayoutParams(0,-2,1f));box.addView(top);space(box,16)
-        val week=a.line()
-        for(i in 6 downTo 0){val date=today.minusDays(i.toLong());val isToday=date==today
-            val cell=a.column().apply{gravity=Gravity.CENTER};cell.addView(StatsDayMark(a,model.met(date),model.ms(date)>0,isToday),LinearLayout.LayoutParams(a.d(32),a.d(32)));space(cell,6)
-            cell.addView(label(weekNames[date.dayOfWeek.value-1],13f,if(isToday)a.fg else captionInk,isToday).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2))
-            cell.contentDescription="${dayText(date)}: ${if(model.met(date))"серия поддержана" else "${duration(model.ms(date))} чтения"}"
-            week.addView(cell,LinearLayout.LayoutParams(0,-2,1f))
-        };box.addView(week);add(box)
+        val dates=(6 downTo 0).map{today.minusDays(it.toLong())}
+        val capsule=WeekCapsule(a,BooleanArray(7){model.met(dates[it])},6)
+        capsule.contentDescription=dates.joinToString("; "){date->"${dayText(date)}: ${if(model.met(date))"серия поддержана" else "${duration(model.ms(date))} чтения"}"}
+        box.addView(capsule,LinearLayout.LayoutParams(-1,-2));space(box,8)
+        val names=a.line();dates.forEach{date->val isToday=date==today;names.addView(label(weekNames[date.dayOfWeek.value-1],13f,if(isToday)a.fg else captionInk,isToday).apply{gravity=Gravity.CENTER;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(0,-2,1f))}
+        box.addView(names)
+        if(motionOn)capsule.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false;override fun onViewAttachedToWindow(v:View){if(!done){done=true;capsule.grow(380)}};override fun onViewDetachedFromWindow(v:View){}})
+        add(box)
     }
     private fun speed():View {
         val box=surface();header(box,"Скорость","bolt",blue,true);space(box,12)
@@ -160,7 +168,8 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     }
     private fun booksRead():View {
         val box=surface();header(box,"Прочитано книг","book",mint,true);space(box,12)
-        box.addView(count(model.countYear(today.year),34f));space(box,2);box.addView(label("за этот год",14f));space(box,12)
+        box.addView(count(model.countYear(today.year),34f));space(box,2);box.addView(label("за этот год",14f))
+        model.countMonth(YearMonth.from(today)).let{if(it>0){space(box,8);box.addView(delta("+$it за месяц"),LinearLayout.LayoutParams(-2,-2))}};space(box,12)
         for((i,pair) in listOf("За месяц" to model.countMonth(YearMonth.from(today)),"За всё время" to model.finished.size).withIndex()){
             box.addView(View(a).apply{setBackgroundColor(if(light)0x0f000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,a.d(1)))
             val row=a.line().apply{setPadding(0,a.d(10),0,a.d(if(i==1)0 else 10))};row.addView(label(pair.first,14f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${pair.second}",17f,a.fg,true));box.addView(row)
@@ -172,9 +181,11 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val box=surface();header(box,"Время чтения","clock",violet);space(box,12)
         val values=a.column();var firstBind=true;fun bind(){values.removeAllViews();val total=model.total(period);val average=model.average(period)
             val row=if(compact)a.column() else a.line().apply {gravity=Gravity.TOP}
-            fun metric(title:String,value:String):LinearLayout {val c=a.column();c.addView(label(value,26f,a.fg,true).apply{letterSpacing=-.02f});space(c,2);c.addView(label(title,14f));return c}
+            fun metric(title:String,value:String):LinearLayout {val c=a.column();c.addView(Odometer(a,value,26f,a.fg,true).apply{if(motionOn)set(value,null,true,delay=160)});space(c,2);c.addView(label(title,14f));return c}
             row.addView(metric("Всего за период",duration(total)),if(compact)LinearLayout.LayoutParams(-1,-2)else LinearLayout.LayoutParams(0,-2,1f));if(compact)space(row,14)
-            row.addView(metric("В среднем в день",duration(average)),if(compact)LinearLayout.LayoutParams(-1,-2)else LinearLayout.LayoutParams(0,-2,1f));values.addView(row);space(values,14)
+            row.addView(metric("В среднем в день",duration(average)),if(compact)LinearLayout.LayoutParams(-1,-2)else LinearLayout.LayoutParams(0,-2,1f));values.addView(row)
+            val todayMinutes=(model.ms(today)/60000L).toInt();if(firstBind&&todayMinutes>0){space(values,10);values.addView(delta("↑ $todayMinutes ${minutesShort(todayMinutes)} сегодня"),LinearLayout.LayoutParams(-2,-2))}
+            space(values,14)
             val plot=model.entries.filter { it.first>=model.start(period) };val n=if(period==0)today.dayOfMonth else if(period==1)today.monthValue else minOf(24,max(1,java.time.temporal.ChronoUnit.MONTHS.between(YearMonth.from(model.first ?: today),YearMonth.from(today)).toInt()+1))
             val series=when(period){0->(1..n).map { model.ms(today.withDayOfMonth(it))/60000.0 };1->(1..n).map { month->plot.filter {it.first.monthValue==month}.sumOf { max(0,it.second.optLong("ms")) }/60000.0 };else->(n-1 downTo 0).map { offset->val month=YearMonth.from(today).minusMonths(offset.toLong());plot.filter {YearMonth.from(it.first)==month}.sumOf { max(0,it.second.optLong("ms")) }/60000.0 }}
             val chartLabels=when(period){0->(1..n).map{today.withDayOfMonth(it).format(DateTimeFormatter.ofPattern("d MMMM",ru))};1->(1..n).map{today.withMonth(it).withDayOfMonth(1).format(DateTimeFormatter.ofPattern("LLLL",ru))};else->(n-1 downTo 0).map{YearMonth.from(today).minusMonths(it.toLong()).atDay(1).format(DateTimeFormatter.ofPattern("LLL yyyy",ru))}}

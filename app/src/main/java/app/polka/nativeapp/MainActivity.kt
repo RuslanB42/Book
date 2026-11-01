@@ -62,6 +62,10 @@ class MainActivity : Activity() {
     var sort = "manual"
     var attachId: String? = null
     private var importDialog: ImportNotice? = null
+    internal var streakCelebration:StreakCelebration?=null
+    internal var freshBookIds=mutableSetOf<String>()
+    internal var floatingCovers:FloatingCovers?=null
+    private var freshPop=0
     internal var bookCalendar:BookCalendarDialog?=null
     var pendingCalendarImage:File?=null
     var profileOverlay:View?=null
@@ -203,7 +207,7 @@ class MainActivity : Activity() {
     }
     fun countRow(n:Int) { val r=row(); r.addView(text(countBooks(n),20f,bold=true),LinearLayout.LayoutParams(0,-2,1f)); r.addView(text(sortName(),14f,muted).apply { sortControl=this; setPadding(d(8),0,0,0); gravity=Gravity.CENTER_VERTICAL; minHeight=d(36); setOnClickListener { filters() } }); page.addView(r,LinearLayout.LayoutParams(-1,d(36))); space(page,14) }
     fun backAndCount() { val r=row(); r.addView(backControl("Полки","Назад к полкам") { pendingMotion=MotionPose(.4f,x=-d(18).toFloat()) to MotionSpec.SHELF;shelf=null;auto=null;query="";tab="shelves";render(false,false) },LinearLayout.LayoutParams(0,d(44),1f)); r.addView(text(countBooks(currentBooks().size),14f,muted)); addIcon(r,"more","Действия с полкой") { if(shelf!=null) shelfActions(shelf!!) else filters() }; page.addView(r); space(page,18) }
-    fun emptyState(label:String) { space(page,40); page.addView(ShelfArt(this,emptyList(),light),LinearLayout.LayoutParams(d(180),d(160)).apply { gravity=Gravity.CENTER_HORIZONTAL }); space(page,24); page.addView(text(label,25f,bold=true,serif=true).apply { gravity=Gravity.CENTER }); space(page,24) }
+    fun emptyState(label:String) { space(page,12); val covers=FloatingCovers(this); floatingCovers=covers; page.addView(covers,LinearLayout.LayoutParams(-1,d(240))); space(page,16); page.addView(text(label,25f,bold=true,serif=true).apply { gravity=Gravity.CENTER }); space(page,24) }
     internal var continueBookId:String?=null
     private var continueCarousel:ContinueReading?=null
     fun continueCard() {
@@ -231,6 +235,8 @@ class MainActivity : Activity() {
             addView(CoverView(this@MainActivity,book,cover(book)),LinearLayout.LayoutParams(-1,-2))
             space(this,16); addView(text(book.str("title"),15f).apply { maxLines=2; ellipsize=android.text.TextUtils.TruncateAt.END }); space(this,4); addView(text(authors(book),14f,muted).apply { maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END }); if((book.optJSONObject("progress")?.optDouble("pct") ?: 0.0)>0) { space(this,12); progressRow(this,book,true) }
             setOnClickListener { detail(book,this) }; contentDescription="${book.str("title")}, ${authors(book)}"
+            if(freshBookIds.remove(book.str("id")) && prefs.str("motion")!="reduced") { val order=freshPop++; alpha=0f; scaleX=.82f; scaleY=.82f; translationY=d(18).toFloat(); pivotY=0f
+                animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setStartDelay(140L+order*70L).setDuration(560).setInterpolator(android.view.animation.PathInterpolator(.2f,1.25f,.36f,1f)).withEndAction{ freshPop=0 }.start() }
         } }
         val cols=columns();val gap=d(24);val paint=android.text.TextPaint().apply { textSize=15*resources.displayMetrics.scaledDensity;typeface=Typeface.DEFAULT }
         val virtual=VirtualGrid(this,list.size,cols,gap,d(30),{ row,w -> val batch=list.subList(row*cols,minOf(list.size,(row+1)*cols)); val lines=batch.maxOfOrNull { if(paint.measureText(it.str("title"))>w)2 else 1 } ?: 1
@@ -387,12 +393,12 @@ class MainActivity : Activity() {
             16 -> data.data?.let { uri -> val spec=pendingExport ?: return; work({ val bytes=BookExport.build(library,spec.first,spec.second); contentResolver.openOutputStream(uri,"wt")!!.use { it.write(bytes) } }) }
             10,14 -> {
                 val uris=if(data.clipData!=null) (0 until data.clipData!!.itemCount).map { data.clipData!!.getItemAt(it).uri } else listOfNotNull(data.data)
-                importDialog=ImportNotice(this,"Добавляю файл…")
+                importDialog=ImportNotice(this,"Добавляю книгу…")
                 val target=if(requestCode==14) attachId else null
                 work({
                     val parsed=mutableListOf<Imported>(); val errors=mutableListOf<String>(); val existing=library.allBooks(); var mismatch=""
                     uris.forEachIndexed { i,uri -> try {
-                        runOnUiThread { importDialog?.setMessage(if(uris.size==1) "Добавляю файл…" else "Добавляю файл ${i+1} из ${uris.size}…") }
+                        runOnUiThread { importDialog?.setMessage(if(uris.size==1) "Добавляю книгу…" else "Добавляю книги"); if(uris.size>1) importDialog?.setDetail("${i+1} из ${uris.size}") }
                         val name=fileName(uri); var item=BookParser.parse(readLimited(uri),name)
                         val old=if(target!=null) existing.firstOrNull { it.str("id")==target } else existing.firstOrNull { it.optBoolean("noFile") && it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) }
                         if(old!=null) {
@@ -404,12 +410,15 @@ class MainActivity : Activity() {
                         if(old==null && (existing+parsed.map { it.book }).any { it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) && !it.optBoolean("noFile") }) errors.add("$name: уже добавлена") else parsed.add(item)
                     } catch(e:Exception) { errors.add("${fileName(uri)}: ${e.message}") } }
                     runOnUiThread {
-                        importDialog?.dismiss(); importDialog=null
-                        fun commit() { work({ if(target!=null && parsed.isNotEmpty()) ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); if(parsed.isNotEmpty()) library.importBooks(parsed); loadData() }) {
-                            reader=null; refreshBookViews(target) { render() }; val resultNotice=ImportNotice(this,if(target!=null&&parsed.isNotEmpty())"Файл прикреплён" else "Добавлено книг: ${parsed.size}",false); android.os.Handler(mainLooper).postDelayed({ resultNotice.dismiss() },2400); checkpointSoon()
-                            if(errors.isNotEmpty()) dialog().setTitle("Не добавлены файлы").setMessage(errors.joinToString("\n\n")).setPositiveButton("Закрыть",null).show()
+                        val loader=importDialog; importDialog=null
+                        fun commit(loader:ImportNotice?) { work({ if(target!=null && parsed.isNotEmpty()) ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); if(parsed.isNotEmpty()) library.importBooks(parsed); loadData() },{ loader?.dismiss() }) {
+                            val result=if(target!=null&&parsed.isNotEmpty())"Файл прикреплён" else if(parsed.isEmpty()) "Книги не добавлены" else "Добавлено книг: ${parsed.size}"
+                            if(target==null) freshBookIds.addAll(parsed.map { it.book.str("id") })
+                            val show={ reader=null; refreshBookViews(target) { render() }; root.postDelayed({ freshBookIds.clear() },1500); checkpointSoon()
+                                if(errors.isNotEmpty()) dialog().setTitle("Не добавлены файлы").setMessage(errors.joinToString("\n\n")).setPositiveButton("Закрыть",null).show() }
+                            if(loader!=null) loader.finish(result) { show() } else { show(); val resultNotice=ImportNotice(this,result,false); android.os.Handler(mainLooper).postDelayed({ resultNotice.dismiss() },2400) }
                         } }
-                        if(mismatch.isNotBlank()) confirm("Данные книги отличаются",mismatch) { commit() } else commit()
+                        if(mismatch.isNotBlank()) { loader?.dismiss(); confirm("Данные книги отличаются",mismatch) { commit(null) } } else commit(loader)
                     }
                 })
             }
@@ -425,7 +434,7 @@ class MainActivity : Activity() {
         val labels=files.map { (when(it.nameWithoutExtension) { "latest"->"Последняя"; "previous"->"Предыдущая"; else->"Перед изменением" })+" · "+java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it.lastModified())) }
         dialog().setTitle("Локальные копии").setItemIcons(*(files.map{"undo"}+"plus").toTypedArray()).setItems((labels+"Создать точку сейчас").toTypedArray()) { _,i -> if(i==files.size) work({ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"))}); else confirm("Восстановить точку?","Текущая библиотека будет заменена.") { work({ val source=File(cacheDir,"recovery-input.polka"); try { files[i].copyTo(source,true); ArchiveIO.restore(applicationContext,library,source) { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety") }; loadData() } finally { source.delete() } }) { initialized=true; reader=null; shelf=null; auto=null; render(); checkpointSoon() } } }.setNegativeButton("Закрыть",null).show()
     }
-    @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; ratingPrompt?.isShowing==true -> ratingPrompt?.dismiss(); bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() }; recommendationExpansion?.isShowing==true -> recommendationExpansion?.dismiss();bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();quoteBookId!=null && reader==null -> openQuoteGroup(null); profileOverlay!=null -> dismissProfile(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> { shelf=null; auto=null; tab="shelves"; render() }; query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
+    @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; ratingPrompt?.isShowing==true -> ratingPrompt?.dismiss(); bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() }; recommendationExpansion?.isShowing==true -> recommendationExpansion?.dismiss();bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();quoteBookId!=null && reader==null -> openQuoteGroup(null); profileOverlay!=null -> dismissProfile(); streakCelebration!=null && reader!=null -> streakCelebration?.dismiss(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> { shelf=null; auto=null; tab="shelves"; render() }; query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
     override fun onSaveInstanceState(out:Bundle) { reader?.save(); out.putString("calendarImage",pendingCalendarImage?.name); out.putString("attachId",attachId); out.putString("coverTarget",coverTarget); pendingExport?.let { out.putString("exportId",it.first.str("id")); out.putString("exportFormat",it.second) }; out.putString("tab",tab); out.putString("shelf",shelf); out.putString("auto",auto); out.putString("query",query); out.putBoolean("searchOpen",searchOpen); reader?.let { out.putString("readerId",it.book.str("id")) }; super.onSaveInstanceState(out) }
     override fun onPause() { shelfReorder?.cancel();screenMotion.stop();root.childrenOpening()?.finish();reader?.pause(); super.onPause() }
     override fun onResume() { super.onResume(); if(reader!=null)reader?.resume() else if(::root.isInitialized){ReaderWindow.configure(window,false,bg);root.requestApplyInsets()} }
