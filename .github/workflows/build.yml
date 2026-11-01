@@ -104,6 +104,8 @@ jobs:
             adb exec-out run-as app.polka.nativeapp tar cf - -C files/qa . > device-qa/qa.tar || true
             tar xf device-qa/qa.tar -C device-qa || true
             adb logcat -d -s POLKA_QA:I > device-qa/logcat.txt || true
+            adb logcat -d -s TestRunner:* AndroidRuntime:E System.err:W > device-qa/runner.txt || true
+            cp device.log device-qa/device.log || true
       - name: Report
         if: always()
         run: |
