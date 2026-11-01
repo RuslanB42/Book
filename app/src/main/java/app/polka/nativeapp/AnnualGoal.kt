@@ -111,18 +111,14 @@ internal class AspectBox(a:MainActivity):FrameLayout(a){
 }
 
 /** Your rating as a small chip in the cover's top-right corner: dark glass, a gold star and the number (like ratings on posters). */
-/** A cloisonné enamel award, in the spirit of activity-app badges: a polished gold rim, two or three enamel fields
+/** A cloisonné enamel award, in the spirit of activity-app badges: a polished gold rim, two tones of one coral enamel
  *  divided by thin gold wires, a glassy highlight, and the rating as a raised gold numeral. Shape and colours grow
  *  with the rating — 1–2 a round coin, 3 a shield, 4–5 a hexagon. */
 internal class RatingMedal(private val a:MainActivity,private val rating:Int):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     private class Look(val base:Int,val band:Int,val third:Int?)
-    private val look=when(rating.coerceIn(1,5)){
-        1->Look(0xff33415f.toInt(),0xff7d9fd6.toInt(),null)
-        2->Look(0xff15806f.toInt(),0xff9be15d.toInt(),null)
-        3->Look(0xfff2862c.toInt(),0xffffd84a.toInt(),null)
-        4->Look(0xff2463d8.toInt(),0xff3fd3e8.toInt(),0xffb8f53a.toInt())
-        else->Look(0xffff3d7f.toInt(),0xffb8f53a.toInt(),0xffff9b2b.toInt())}
+    // One enamel for every medal — the goal card's coral in two tones; rating reads from the numeral and the shape.
+    private val look=Look(0xffc4482c.toInt(),0xfff07a5c.toInt(),null)
     init{contentDescription="Оценка $rating из 5";setLayerType(LAYER_TYPE_SOFTWARE,null)}
     override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(38),a.d(40))
     /** The outline in a 100×100 box. */
