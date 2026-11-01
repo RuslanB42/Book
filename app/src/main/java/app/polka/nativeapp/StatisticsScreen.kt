@@ -171,7 +171,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 top.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
                 top.addView(label("${(done*100.0/target).roundToInt().coerceAtMost(999)}%",17f,if(done>=target)a.accentFill else captionInk,true).apply{setPadding(0,0,0,a.d(4))})
                 body.addView(top);space(body,2);body.addView(label(if(done>=target)"Цель достигнута — книг за $goalYear год" else "книг за $goalYear год",14f));space(body,6)
-                body.addView(GoalGlowBar(a,animate,(done.toFloat()/target).coerceIn(0f,1f),"Годовая цель: $done из $target книг"),LinearLayout.LayoutParams(-1,-2));space(body,14)
+                GoalGlowBar(a,animate,(done.toFloat()/target).coerceIn(0f,1f),"Годовая цель: $done из $target книг").let{bar->body.addView(bar,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=-bar.glow;rightMargin=-bar.glow})};space(body,6)
             }
             val shelf=YearBooks(a,read,motionOn);books=shelf;body.addView(shelf,LinearLayout.LayoutParams(-1,-2))
             if(!first&&motionOn){body.animate().cancel();body.alpha=0f;body.translationX=direction*a.d(26).toFloat();body.animate().alpha(1f).translationX(0f).setDuration(340).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}

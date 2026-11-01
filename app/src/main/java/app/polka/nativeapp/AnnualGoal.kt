@@ -11,24 +11,34 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.*
 
-/** Slim glowing progress bar: warm gradient fill with a light top edge and a soft glow that never gets clipped. */
+/** Slim, bright glowing progress bar. The view reaches [glow] beyond its column on each side, so the glow fades out
+ *  softly instead of being cut; the empty part of the track is a recessed groove with an inner shadow. */
 internal class GoalGlowBar(a:MainActivity,animate:Boolean,private val fraction:Float,description:String):StatsAnimatedView(a,animate){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    private val pad get()=a.d(10).toFloat()
-    private val barH get()=a.d(12).toFloat()
+    val glow get()=a.d(14)
+    private val barH get()=a.d(14).toFloat()
     init{contentDescription=description;setLayerType(LAYER_TYPE_SOFTWARE,null)}
-    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(MeasureSpec.getSize(w),(barH+pad*2).toInt())
+    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(MeasureSpec.getSize(w),(barH+glow*2).toInt())
     override fun onDraw(c:Canvas){
-        val w=width.toFloat();val top=pad;val r=barH/2;val light=a.light
-        p.shader=null;p.clearShadowLayer();p.maskFilter=null;p.color=if(light)0xffececef.toInt() else 0xff2f2f33.toInt();c.drawRoundRect(0f,top,w,top+barH,r,r,p)
+        val g=glow.toFloat();val x0=g;val x1=width-g;val w=x1-x0;val top=g;val bottom=top+barH;val r=barH/2;val light=a.light
+        p.reset();p.isAntiAlias=true
+        // groove: base, then an inner shadow along the top edge and a faint light along the bottom
+        p.color=if(light)0xffe6e6ea.toInt() else 0xff2a2a2e.toInt();c.drawRoundRect(x0,top,x1,bottom,r,r,p)
+        c.save();val groove=Path().apply{addRoundRect(x0,top,x1,bottom,r,r,Path.Direction.CW)};c.clipPath(groove)
+        p.color=if(light)0x40000000 else 0xb0000000.toInt();p.style=Paint.Style.STROKE;p.strokeWidth=a.d(4).toFloat();p.maskFilter=BlurMaskFilter(a.d(3).toFloat(),BlurMaskFilter.Blur.NORMAL)
+        c.drawRoundRect(x0-a.d(1),top+a.d(1),x1+a.d(1),bottom+a.d(3),r,r,p)
+        p.color=if(light)0x30ffffff else 0x14ffffff;p.strokeWidth=a.d(1).toFloat();p.maskFilter=null;c.drawLine(x0+r,bottom-a.d(1)*.5f,x1-r,bottom-a.d(1)*.5f,p)
+        p.style=Paint.Style.FILL;c.restore()
         val f=(fraction*phase).coerceIn(0f,1f);if(f<=0f)return
-        val right=(w*f).coerceAtLeast(barH*1.6f).coerceAtMost(w)
-        val c1=0xffff6a3d.toInt();val c2=0xffffb340.toInt()
-        // soft glow under the fill (kept inside the view's own padding)
-        p.color=(c2 and 0xffffff) or ((if(light)0x55 else 0x80) shl 24);p.maskFilter=BlurMaskFilter(a.d(6).toFloat(),BlurMaskFilter.Blur.NORMAL)
-        c.drawRoundRect(a.d(2).toFloat(),top+a.d(1),right-a.d(2),top+barH+a.d(2),r,r,p);p.maskFilter=null
-        p.shader=LinearGradient(0f,0f,right,0f,intArrayOf(c1,0xffff8a3a.toInt(),c2),floatArrayOf(0f,.5f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(0f,top,right,top+barH,r,r,p)
-        p.shader=LinearGradient(0f,top,0f,top+barH,intArrayOf(0x55ffffff,0x00ffffff),floatArrayOf(0f,.6f),Shader.TileMode.CLAMP);c.drawRoundRect(a.d(2).toFloat(),top+a.d(1),right-a.d(2),top+barH*.6f,r*.7f,r*.7f,p)
+        val right=x0+(w*f).coerceAtLeast(barH*1.4f).coerceAtMost(w)
+        val c1=0xffff5a2c.toInt();val c2=0xffffb22e.toInt();val c3=0xffffd76a.toInt()
+        // bright glow around the fill, fading out well inside the view
+        p.color=(0xff8a2a and 0xffffff) or ((if(light)0x88 else 0xcc) shl 24);p.maskFilter=BlurMaskFilter(a.d(9).toFloat(),BlurMaskFilter.Blur.NORMAL)
+        c.drawRoundRect(x0+a.d(2),top,right-a.d(1),bottom+a.d(2),r,r,p);p.maskFilter=null
+        p.shader=LinearGradient(x0,0f,right,0f,intArrayOf(c1,0xffff7f2a.toInt(),c2,c3),floatArrayOf(0f,.4f,.85f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(x0,top,right,bottom,r,r,p)
+        // glossy top light and a hot spot at the head
+        p.shader=LinearGradient(0f,top,0f,bottom,intArrayOf(0x88ffffff.toInt(),0x22ffffff,0x00ffffff),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(x0+a.d(2),top+a.d(1.5f),right-a.d(2),top+barH*.58f,r*.7f,r*.7f,p)
+        p.shader=RadialGradient(right-r,top+r,r*1.8f,intArrayOf(0xb0fff6dc.toInt(),0x00fff6dc),null,Shader.TileMode.CLAMP);c.drawCircle(right-r,top+r,r*1.8f,p)
         p.shader=null
     }
 }
@@ -44,13 +54,14 @@ internal class YearBooks(private val a:MainActivity,private val books:List<Pair<
     private var anim:ValueAnimator?=null
     private val ru=Locale("ru")
     private val cols=3
-    private val firstRow=if(books.size>cols)cols-1 else cols
-    init{orientation=VERTICAL;clipChildren=false;clipToPadding=false
-        when{
-            books.isEmpty()->addView(a.text("Здесь появятся книги, прочитанные за этот год",13.5f,a.muted))
-            books.size==1->addView(single(books[0].first,books[0].second))
-            else->{addView(row(books.take(firstRow),books.size-firstRow));addView(grid,LayoutParams(-1,-2))}
-        }}
+    private var chevron:View?=null
+    init{run apply@{orientation=VERTICAL;clipChildren=false;clipToPadding=false
+        if(books.isEmpty()){addView(a.text("Здесь появятся книги, прочитанные за этот год",13.5f,a.muted));return@apply}
+        // Collapsed: only a quiet line; the books themselves appear when the card is opened.
+        val hint=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(36)}
+        hint.addView(a.text("Прочитанные книги",14f,a.fg,true));hint.addView(a.text("  ${books.size}",14f,a.muted),LayoutParams(0,-2,1f))
+        val chev=IconView(a,"chevdown",a.muted);hint.addView(chev,LayoutParams(a.d(20),a.d(20)));chevron=chev
+        addView(hint,LayoutParams(-1,-2));addView(grid,LayoutParams(-1,-2))}}
     private fun cover(book:JSONObject):View{val box=AspectBox(a)
         fun put(b:Bitmap?){box.removeAllViews();box.addView(CoverView(a,book,b).apply{softShadow=true},FrameLayout.LayoutParams(-1,-1))}
         put(a.cover(book));if(a.cover(book)==null&&book.optJSONObject("cover")!=null)a.requestCover(book){b->if(b!=null)put(b)};return box}
@@ -79,10 +90,11 @@ internal class YearBooks(private val a:MainActivity,private val books:List<Pair<
         val filled=items.size+(if(more>0)1 else 0);repeat(cols-filled){line.addView(View(a),LayoutParams(0,1,1f).apply{leftMargin=a.d(14)})}
         return line}
     private var moreTile:TextView?=null;private var moreLabel:TextView?=null
-    private fun buildGrid(){grid.removeAllViews();val rest=books.drop(firstRow)
-        rest.chunked(cols).forEachIndexed{r,items->grid.addView(row(items,0,r*cols),LayoutParams(-1,-2).apply{topMargin=a.d(18)})}}
-    fun toggle(){if(books.size<=cols)return;open=!open;anim?.cancel()
-        moreLabel?.text=if(open)"Свернуть" else "Все книги"
+    private fun buildGrid(){grid.removeAllViews()
+        if(books.size==1){grid.addView(single(books[0].first,books[0].second),LayoutParams(-1,-2).apply{topMargin=a.d(12)});return}
+        books.chunked(cols).forEachIndexed{r,items->grid.addView(row(items,0,r*cols),LayoutParams(-1,-2).apply{topMargin=a.d(if(r==0)12 else 18)})}}
+    fun toggle(){if(books.isEmpty())return;open=!open;anim?.cancel()
+        chevron?.animate()?.rotation(if(open)180f else 0f)?.setDuration(360)?.setInterpolator(PathInterpolator(.2f,0f,0f,1f))?.start()
         if(open&&grid.childCount==0)buildGrid()
         if(!motion){grid.visibility=if(open)VISIBLE else GONE;return}
         grid.measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));val full=grid.measuredHeight
