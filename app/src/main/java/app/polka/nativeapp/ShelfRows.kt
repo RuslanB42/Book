@@ -40,7 +40,7 @@ internal class ShelfRow(private val a:MainActivity,private val title:String,priv
     /** Our frosted glass shelf (as on the shelf tiles): soft shadow, opaque backing, blurred books behind, hairline edge, four screws. */
     private inner class Glass:View(a){
         val pad=a.d(22)
-        private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         private var frost:Bitmap?=null;private var stale=true
         init{setLayerType(LAYER_TYPE_SOFTWARE,null);isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         fun refresh(){stale=true;invalidate()}
@@ -48,14 +48,14 @@ internal class ShelfRow(private val a:MainActivity,private val title:String,priv
         /** What is behind the glass — the covers at their current scroll — drawn small and blurred. */
         private fun capture(g:RectF){val density=resources.displayMetrics.density
             val tw=(g.width()/density).toInt().coerceIn(1,480);val th=(g.height()/density).toInt().coerceAtLeast(1)
-            val bmp=Bitmap.createBitmap(tw,th,Bitmap.Config.ARGB_8888);val c=Canvas(bmp);c.scale(tw/g.width(),th/g.height())
+            val bmp=Bitmap.createBitmap(tw,th,Bitmap.Config.ARGB_8888);val c=Canvas(bmp);c.drawFilter=PaintFlagsDrawFilter(0,Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG);c.scale(tw/g.width(),th/g.height())
             c.translate(scroller.left+row.left-scroller.scrollX-(left+g.left),scroller.top+row.top-(top+g.top));row.draw(c)
             val old=frost;frost=try{ShelfFrost.blur(bmp,3f)}finally{bmp.recycle()};if(old!==frost)old?.recycle();stale=false}
         override fun onDraw(c:Canvas){if(width<1||height<1)return
             val light=a.light;val density=resources.displayMetrics.density;val radius=a.d(9).toFloat()
             val g=RectF(pad.toFloat(),pad.toFloat(),(width-pad).toFloat(),(height-pad).toFloat());val background=if(light)0xfff2f2f0.toInt() else 0xff161617.toInt()
             if(stale||frost==null)capture(g)
-            p.color=background;p.setShadowLayer(if(light)18*density else 26*density,0f,if(light)10*density else 14*density,if(light)0x22000000 else 0x73000000);c.drawRoundRect(g,radius,radius,p);p.clearShadowLayer()
+            p.color=background;p.setShadowLayer(if(light)22*density else 26*density,0f,if(light)5*density else 7*density,if(light)0x12000000 else 0x40000000);c.drawRoundRect(g,radius,radius,p);p.clearShadowLayer()
             c.save();c.clipPath(Path().apply{addRoundRect(g,radius,radius,Path.Direction.CW)})
             frost?.let{f->val m=ColorMatrix().apply{setSaturation(1.12f)};val k=if(light)1.05f else .82f;m.postConcat(ColorMatrix(floatArrayOf(k,0f,0f,0f,0f,0f,k,0f,0f,0f,0f,0f,k,0f,0f,0f,0f,0f,1f,0f)));p.colorFilter=ColorMatrixColorFilter(m);c.drawBitmap(f,null,g,p);p.colorFilter=null}
             p.color=if(light)0x66ffffff else 0x0effffff;c.drawRect(g,p)
