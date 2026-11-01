@@ -115,7 +115,7 @@ fun MainActivity.settings() {
     val goal=row(reading,"Цель на год","Сколько книг прочитать за $year год","…"){}
     var stats=JSONObject()
     work({stats=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")}?:JSONObject();threshold=stats.optInt("goal",10)}){flame.text="$threshold мин";(flame.parent as View).setOnClickListener{editStreakThreshold{goal->flame.text="$goal мин"}}
-        val model=ReadingStatistics(stats,books);fun show(n:Int)=if(n>0)MainActivity.countBooks(n) else "Не задана";goal.text=show(model.target(year))
+        val model=ReadingStatistics(stats,books);val show={n:Int->if(n>0)MainActivity.countBooks(n) else "Не задана"};goal.text=show(model.target(year))
         (goal.parent as View).setOnClickListener{annualGoalEditor(year,ReadingStatistics(stats,books)){n->if(n==null)stats.optJSONObject("annualGoals")?.remove("$year") else (stats.optJSONObject("annualGoals")?:JSONObject().also{stats.put("annualGoals",it)}).put("$year",n);goal.text=show(n?:0)}}}
     section("Поведение")
     val behaviour=card()
