@@ -30,6 +30,15 @@ class QuoteGeometryCheck {
             var ready=false;var waited=0
             while(!ready&&waited<15000){Thread.sleep(250);waited+=250;scenario.onActivity{ready=reader?.openingReady()==true&&reader?.body?.layout!=null}}
             Thread.sleep(800)
+            // Ground truth: where words are actually drawn, from the ink of the rendered lines.
+            scenario.onActivity{a->val r=reader!!;val l=r.body.layout;val bw=l.width;val bh=l.height;val bmp=Bitmap.createBitmap(bw,bh,Bitmap.Config.ARGB_8888);val c=Canvas(bmp);r.body.paint.color=android.graphics.Color.BLACK;l.draw(c);val sb=StringBuilder("$name api=${android.os.Build.VERSION.SDK_INT}\n")
+                val sp=r.body.paint.measureText(" ")
+                for(line in 0 until minOf(6,l.lineCount)){val fm=r.body.paint.fontMetrics;val base=l.getLineBaseline(line);val y0=(base+fm.ascent*.7f).toInt().coerceAtLeast(0);val y1=(base+fm.descent*.3f).toInt().coerceAtMost(bh-1)
+                    val ink=BooleanArray(bw){x->(y0..y1).any{y->android.graphics.Color.alpha(bmp.getPixel(x,y))>40}}
+                    val starts=mutableListOf<Int>();var gap=999;for(x in 0 until bw){if(ink[x]){if(gap>sp*.55f)starts.add(x);gap=0}else gap++}
+                    val t=l.text;val ls=l.getLineStart(line);val le=l.getLineEnd(line);val wordStarts=(ls until le).filter{i->!t[i].isWhitespace()&&(i==ls||t[i-1]==' ')}
+                    sb.append("L$line justified=${le<t.length&&t[le-1]!='\n'} ink=${starts.take(8)} nat=${wordStarts.take(8).map{l.getPrimaryHorizontal(it).toInt()}} mine=${wordStarts.take(8).map{JustifiedGeometry.x(r.body,l,line,it).toInt()}}\n")}
+                android.util.Log.i("POLKA_QA",sb.toString());bmp.recycle()}
             scenario.onActivity{val r=reader!!;val t=r.selectionFullText().toString();val s=t.indexOf("Обронит");val e=t.indexOf("всадит.")+7;r.quoteSelection.select(s until e)}
             Thread.sleep(900)
             scenario.onActivity{a->val r=reader!!;val dir=File(a.filesDir,"qa").apply{mkdirs()};val b=Bitmap.createBitmap(r.view.width,r.view.height,Bitmap.Config.ARGB_8888);r.view.draw(Canvas(b));File(dir,"quote-$name.png").outputStream().use{b.compress(Bitmap.CompressFormat.PNG,100,it)};b.recycle()}
