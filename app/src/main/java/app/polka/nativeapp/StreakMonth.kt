@@ -63,7 +63,9 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
                     var end=col;while(end+1<7){val nd=row*7+end+1-lead+1;if(nd>month.lengthOfMonth()||!model.met(month.atDay(nd)))break;end++}
                     val left=col*cw+cw/2-r;val right=left+(end*cw+cw/2+r-left)*phase.coerceAtLeast(.001f)
                     p.shader=LinearGradient(left,0f,right.coerceAtLeast(left+1),0f,0xffff5a2c.toInt(),0xffff9b2b.toInt(),Shader.TileMode.CLAMP);p.style=Paint.Style.FILL
-                    c.drawRoundRect(left,cy-r,maxOf(right,left+2*r*phase),cy+r,r,r,p);p.shader=null
+                    val rr=RectF(left,cy-r,maxOf(right,left+2*r*phase),cy+r);c.drawRoundRect(rr,r,r,p);p.shader=null
+                    // The same yellow edge as the week capsule on the collapsed card.
+                    p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=0xffffd23f.toInt();rr.inset(a.d(1).toFloat(),a.d(1).toFloat());c.drawRoundRect(rr,r-a.d(1),r-a.d(1),p);p.style=Paint.Style.FILL
                     col=end+1}
                 for(col2 in 0 until 7){val day=row*7+col2-lead+1;if(day<1||day>month.lengthOfMonth())continue;val d=month.atDay(day);val cx=col2*cw+cw/2
                     val met=model.met(d);val future=d.isAfter(today)
