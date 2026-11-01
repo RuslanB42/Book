@@ -20,7 +20,15 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     private val frontPath=Path();private val backPath=Path();private val shadowPath=Path()
     private val reflection=Matrix();private val matrixValues=FloatArray(9)
     private val xs=FloatArray(8);private val ys=FloatArray(8);private var points=0
-    private val mesh=FloatArray((24+1)*(32+1)*2)
+    private val mesh=FloatArray((COLS+1)*(ROWS+1)*2)
+    private val backMesh=FloatArray((COLS+1)*(ROWS+1)*2)
+    private val frontColors=IntArray((COLS+1)*(ROWS+1))
+    private val backColors=IntArray((COLS+1)*(ROWS+1))
+    private val blank=Bitmap.createBitmap(4,4,Bitmap.Config.ARGB_8888).apply{eraseColor(Color.WHITE)}
+    private val paper2=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val tube=LinearGradient(0f,0f,1f,0f,intArrayOf(0x40000000,0x14000000,0x00000000),floatArrayOf(0f,.35f,1f),Shader.TileMode.CLAMP)
+    private fun grey(l:Float):Int{val g=(255*l.coerceIn(0f,1f)).toInt();return Color.rgb(g,g,g)}
+    companion object{const val COLS=36;const val ROWS=48;val WHITE=Color.WHITE}
     private val shaderMatrix=Matrix()
     private val shaderValues=FloatArray(9)
     private val cast=LinearGradient(0f,0f,1f,0f,intArrayOf(0x00000000,0x3b000000,0x65000000),floatArrayOf(0f,.72f,1f),Shader.TileMode.CLAMP)
@@ -62,42 +70,37 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
         if(reduced){c.drawBitmap(sourceBitmap,0f,0f,paint);c.save();if(direction>0)c.clipRect(w*(1-p),0f,w,h)else c.clipRect(0f,0f,w*p,h);c.drawBitmap(targetBitmap,0f,0f,paint);c.restore();c.restore();return}
         val sheet=if(direction>0)sourceBitmap else targetBitmap;val below=if(direction>0)targetBitmap else sourceBitmap
         val fold=if(direction>0)p else 1-p
-        // T moves twice as far as the crease. Vertical bending follows the hand,
-        // but vanishes at both endpoints, making exact bitmap-to-live handoff.
+        // The finger point T and the crease are as before (T moves twice as far as the crease), so the gesture feels the
+        // same. The sheet now rolls over a cylinder of radius R whose flat-lying back meets the crease: like iOS books.
         val cy=anchorY.coerceIn(0f,h);val tx=w-2*w*fold
         val ty=cy+(touchY-cy)*sin(Math.PI*fold).toFloat()*.52f
         mx=(w+tx)*.5f;my=(cy+ty)*.5f
         val len=hypot(w-tx,cy-ty).coerceAtLeast(.01f);nx=(w-tx)/len;ny=(cy-ty)/len
         band=(w*.075f*sin(Math.PI*fold).toFloat()).coerceAtLeast(w*.008f)
+        val r=(w*.085f*sin(Math.PI*fold).toFloat().pow(.6f)).coerceAtMost(len*.45f)
+        val half=(Math.PI*r/2).toFloat()
+        val ax=mx-nx*half;val ay=my-ny*half
         c.drawBitmap(below,0f,0f,paint)
-        polygon(false,frontPath);polygon(true,backPath,true)
-        // Soft cast shadow on the exposed page; clipped to the folded silhouette.
-        c.save();c.translate(nx*band*.3f,ny*band*.3f);c.clipPath(backPath)
-        paint.shader=shade(cast,-band*2,band)
-        c.drawRect(0f,0f,w,h,paint);paint.shader=null;c.restore()
-        c.save();c.clipPath(frontPath)
-        // A small cylindrical strip compresses ink into the bend. The rest of the
-        // mesh is identity: stationary text stays pixel-stable and doesn't swim.
-        var vertex=0
-        for(row in 0..32)for(col in 0..24){val x=w*col/24f;val y=h*row/32f;val d=(x-mx)*nx+(y-my)*ny
-            val bow=if(d<0&&d> -band)band*.3f*sin(Math.PI*(d+band)/band).toFloat()else 0f
-            mesh[vertex++]=x+nx*bow;mesh[vertex++]=y+ny*bow
-        }
-        c.drawBitmapMesh(sheet,24,32,mesh,0,null,0,paint)
-        // Narrow cylindrical bend on the front surface, no full-screen grey fill.
-        paint.shader=shade(frontShade,-band,0f);c.drawRect(0f,0f,w,h,paint);paint.shader=null;c.restore()
-        c.save();c.clipPath(backPath)
-        paint.color=paper;c.drawPath(backPath,paint)
-        // The reverse carries faint mirrored ink through the paper, not a second
-        // readable front face. Reflection has determinant -1, so type reverses.
-        matrixValues[0]=1-2*nx*nx;matrixValues[1]=-2*nx*ny;matrixValues[2]=2*nx*(nx*mx+ny*my)
-        matrixValues[3]=-2*nx*ny;matrixValues[4]=1-2*ny*ny;matrixValues[5]=2*ny*(nx*mx+ny*my)
-        matrixValues[6]=0f;matrixValues[7]=0f;matrixValues[8]=1f;reflection.setValues(matrixValues)
-        paint.alpha=32;c.drawBitmap(sheet,reflection,paint);paint.alpha=255
+        // Soft shadow of the roll on the page below, just outside the roll's silhouette.
+        if(r>1f){paint.shader=shade(tube,r-half,r-half+r*2.4f);c.drawRect(0f,0f,w,h,paint);paint.shader=null}
+        polygon(true,backPath,true)
+        c.save();c.translate(nx*band*.25f,ny*band*.25f);c.clipPath(backPath);paint.shader=shade(cast,-band*2,band);c.drawRect(0f,0f,w,h,paint);paint.shader=null;c.restore()
+        var v=0
+        for(row in 0..ROWS)for(col in 0..COLS){val x=w*col/COLS;val y=h*row/ROWS;val d=(x-ax)*nx+(y-ay)*ny
+            fun place(dd:Float,out:FloatArray){val off=when{dd<=0f->0f;r<1f->-2*dd;dd<2*half->-dd+r*sin(dd/r);else->-(2*dd-2*half)};out[v]=x+nx*off;out[v+1]=y+ny*off}
+            val dF=min(d,half);place(dF,mesh);val dB=max(d,half);place(dB,backMesh)
+            val vi=v/2
+            // light: the front darkens as it turns away toward the top of the roll; the back is grey on the roll, bright when flat
+            frontColors[vi]=if(d<=0f||r<1f)WHITE else grey(1f-.42f*sin(dF/r).pow(1.6f))
+            backColors[vi]=if(r<1f||dB>=2*half)grey(.97f) else grey(.66f+.31f*(-cos(dB/r)).coerceAtLeast(0f))
+            v+=2}
+        // front side of the sheet (the flat part and the lower half of the roll)
+        c.drawBitmapMesh(sheet,COLS,ROWS,mesh,0,frontColors,0,paint)
+        // back side: translucent paper (the page beneath shows faintly through), with the ink seen mirrored through it
         val lightPaper=Color.luminance(paper)>.4
-        paint.shader=shade(reverseShade,-band*2,0f)
-        c.drawRect(0f,0f,w,h,paint);paint.shader=null;c.restore()
-        paint.color=if(lightPaper)0x3fffffff else 0x25ffffff;paint.style=Paint.Style.STROKE;paint.strokeWidth=resources.displayMetrics.density*.65f;c.drawPath(backPath,paint);paint.style=Paint.Style.FILL
+        paper2.colorFilter=PorterDuffColorFilter(paper,PorterDuff.Mode.MULTIPLY);paper2.alpha=if(lightPaper)236 else 228
+        c.drawBitmapMesh(blank,COLS,ROWS,backMesh,0,backColors,0,paper2)
+        paint.alpha=if(lightPaper)26 else 34;c.drawBitmapMesh(sheet,COLS,ROWS,backMesh,0,null,0,paint);paint.alpha=255
         c.restore()
     }
 }
