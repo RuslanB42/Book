@@ -37,7 +37,7 @@ class TextDeviceCheck {
         for((name,overrides) in combos){
             var reader:NativeReader?=null
             scenario.onActivity{a->
-                dir=a.getExternalFilesDir("qa")
+                dir=File(a.filesDir,"qa").apply{mkdirs()}
                 listOf("ls","ws","font","justify","hyph","size","margin","trimEmpty","lhv").forEach{a.prefs.remove(it)};a.prefs.put("mode","paged").put("size",19.0)
                 overrides.keys().forEach{k->a.prefs.put(k,overrides.get(k))}
                 a.reader?.let{it.dispose();a.reader=null}
@@ -66,6 +66,6 @@ class TextDeviceCheck {
             }
         }
         scenario.onActivity{a->a.reader?.dispose();a.reader=null}
-        File(dir,"report.txt").writeText(report.toString());println(report)
+        File(dir,"report.txt").writeText(report.toString());report.lines().forEach{android.util.Log.i("POLKA_QA",it)}
     }
 }
