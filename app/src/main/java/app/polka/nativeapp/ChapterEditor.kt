@@ -35,7 +35,7 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
    background=null;defaultFocusHighlightEnabled=false;setTextColor(ink);setHintTextColor(a.muted);highlightColor=(a.accent and 0x00ffffff) or 0x55000000
    inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
    imeOptions=android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
-   setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,body.textSize);typeface=body.typeface;letterSpacing=body.letterSpacing
+   setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,body.textSize);typeface=body.typeface;letterSpacing=body.letterSpacing;textLocale=body.textLocale
    setLineSpacing(0f,1f);includeFontPadding=body.includeFontPadding;gravity=Gravity.TOP;textDirection=body.textDirection
    setPadding(body.paddingLeft,body.paddingTop,body.paddingRight,body.paddingBottom);setHorizontallyScrolling(false);minHeight=0;minimumHeight=0
    breakStrategy=body.breakStrategy;hyphenationFrequency=body.hyphenationFrequency;justificationMode=body.justificationMode
