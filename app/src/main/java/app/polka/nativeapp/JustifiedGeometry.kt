@@ -32,8 +32,22 @@ internal object JustifiedGeometry {
         var natural=Layout.getDesiredWidth(t,start,vis,tv.paint)
         val end=l.getLineEnd(line);if(vis==end&&end<t.length&&t[end-1].isLetter()&&t[end].isLetter())natural+=tv.paint.measureText("-")
         val left=l.getPrimaryHorizontal(start)
-        return ((l.getParagraphRight(line)-left-natural)/spaces).coerceAtLeast(0f)
+        val extra=((l.getParagraphRight(line)-left-natural)/spaces).coerceAtLeast(0f)
+        // Whether this device actually stretched the line differs between Android builds; look at the drawn ink.
+        return if(extra>0f&&stretched(tv,l,line,left+natural))extra else 0f
     }
+    private val probes=java.util.WeakHashMap<Layout,HashMap<Int,Boolean>>()
+    /** Draws the layout once into a small alpha mask and checks if the line's ink reaches past its natural end. */
+    private fun stretched(tv:TextView,l:Layout,line:Int,naturalRight:Float):Boolean{
+        val cache=probes.getOrPut(l){HashMap()};cache[line]?.let{return it}
+        val mask=masks.getOrPut(l){runCatching{android.graphics.Bitmap.createBitmap(l.width.coerceAtLeast(1),l.height.coerceAtLeast(1),android.graphics.Bitmap.Config.ALPHA_8).also{l.draw(android.graphics.Canvas(it))}}.getOrNull()}
+        val result=if(mask==null)false else{
+            val fm=tv.paint.fontMetrics;val base=l.getLineBaseline(line);val y0=(base+fm.ascent*.6f).toInt().coerceIn(0,mask.height-1);val y1=(base+fm.descent*.2f).toInt().coerceIn(0,mask.height-1)
+            val from=(naturalRight+tv.resources.displayMetrics.density*3f).toInt().coerceIn(0,mask.width);val to=mask.width
+            var ink=false;var x=to-1;while(x>=from&&!ink){var y=y0;while(y<=y1){if(android.graphics.Color.alpha(mask.getPixel(x,y))>60){ink=true;break};y++};x--};ink}
+        cache[line]=result;return result
+    }
+    private val masks=java.util.WeakHashMap<Layout,android.graphics.Bitmap?>()
     /** Drawn x (layout coordinates) of the caret position [o] on [line]. */
     fun x(tv:TextView,l:Layout,line:Int,o:Int):Float{
         val extra=extraPerSpace(tv,l,line);if(extra==0f)return natural(tv,l,line,o)
