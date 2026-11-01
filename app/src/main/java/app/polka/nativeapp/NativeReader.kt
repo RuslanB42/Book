@@ -616,7 +616,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(!paged())editor.post{scroll.scrollTo(0,editShift)}
         view.addView(toolbar,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{leftMargin=a.d(12);rightMargin=a.d(12);bottomMargin=a.d(12)})
         // Reserve the panel's height so the caret is never hidden under it; the width never changes, so lines never re-break.
-        toolbar.addOnLayoutChangeListener{_,_,_,_,_,_,_,_,_->val lp=scroll.layoutParams as FrameLayout.LayoutParams;val inset=toolbar.height+a.d(20);if(lp.bottomMargin!=inset){lp.bottomMargin=inset;scroll.layoutParams=lp}}
+        toolbar.addOnLayoutChangeListener{_,_,_,_,_,_,_,_,_->if(!editorOpen)return@addOnLayoutChangeListener;val lp=scroll.layoutParams as FrameLayout.LayoutParams;val inset=toolbar.height+a.d(20);if(lp.bottomMargin!=inset){lp.bottomMargin=inset;scroll.layoutParams=lp}}
         if(!reduced){toolbar.alpha=0f;toolbar.translationY=a.d(28).toFloat();toolbar.animate().alpha(1f).translationY(0f).setStartDelay(60).setDuration(320).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}
         if(y<0)scroll.scrollTo(0,0)
     }

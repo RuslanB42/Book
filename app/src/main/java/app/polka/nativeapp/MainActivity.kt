@@ -31,9 +31,9 @@ class MainActivity : Activity() {
     lateinit var page: LinearLayout
     internal lateinit var scroll: ScrollView
     private var nativeNavigation:PolkaNavigation?=null
-    private var tab = "home"
-    private var shelf: String? = null
-    private var auto: String? = null
+    internal var tab = "home"
+    internal var shelf: String? = null
+    internal var auto: String? = null
     var recommendationExpansion:RecommendationExpansion?=null
     internal var ratingPrompt:RatingPrompt?=null
     internal var recommendationDeck:RecommendationDeck?=null
@@ -202,7 +202,7 @@ class MainActivity : Activity() {
             tab=="foryou" -> recommendations()
             else -> {
                 if(query.isBlank()) continueCard()
-                val list=currentBooks(); countRow(list.size)
+                val list=currentBooks()
                 if(list.isEmpty()) { emptyState(if(query.isNotBlank()) "Ничего не найдено" else "Здесь будут ваши книги"); if(query.isBlank()) page.addView(button("＋  Добавить книги",true) { pickBooks() }) } else bookGrid(list)
             }
         }

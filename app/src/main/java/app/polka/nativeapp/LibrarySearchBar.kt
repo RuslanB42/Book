@@ -23,6 +23,8 @@ internal class LibrarySearchBar(private val a:MainActivity):LinearLayout(a) {
  private val revealRect=Rect()
  private val reveal=LiquidSpring{value,_->val f=value.coerceIn(0f,1f);field.alpha=f;field.pivotX=field.width.toFloat();field.scaleX=.94f+.06f*f;revealRect.set((field.width*(1-f)).toInt(),0,field.width,field.height);field.clipBounds=if(f>=.999f)null else revealRect;field.visibility=if(f<=.001f&&!a.searchOpen)View.INVISIBLE else View.VISIBLE}
  private var onToggleChanged:(()->Unit)?=null
+ /** On «Мои книги», «Полки» and «Цитаты» the field is always there: a rounded search line fills the top bar. */
+ private val persistent=a.tab in setOf("home","shelves","quotes")&&a.shelf==null&&a.auto==null
  init {
   orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false
   addView(a.icon("user","Профиль"){a.profile()},LayoutParams(a.d(44),a.d(44)))
@@ -30,16 +32,21 @@ internal class LibrarySearchBar(private val a:MainActivity):LinearLayout(a) {
   field.addView(input,FrameLayout.LayoutParams(-1,-1));field.addView(clear,FrameLayout.LayoutParams(a.d(36),a.d(44),Gravity.END));center.addView(field,FrameLayout.LayoutParams(-1,-1,Gravity.END))
   val controls=a.line();addView(controls,LayoutParams(-2,a.d(44)))
   fun paintToggle(){toggleButton?.let{controls.removeView(it)};val open=a.searchOpen||a.query.isNotEmpty();val v=a.icon(if(open)"x" else "search",if(open)"Закрыть поиск" else "Поиск",open){toggle()};toggleButton=v;controls.addView(v,0,LayoutParams(a.d(44),a.d(44)))}
-  paintToggle();controls.addView(View(a),LayoutParams(a.d(8),1));controls.addView(a.icon("filter","Фильтры и сортировка"){a.filters()},LayoutParams(a.d(44),a.d(44)))
-  a.searchOpen=a.searchOpen||a.query.isNotEmpty();field.visibility=if(a.searchOpen)View.VISIBLE else View.INVISIBLE;clear.visibility=if(a.query.isEmpty())View.GONE else View.VISIBLE
+  if(persistent){
+   input.setPadding(a.d(42),0,a.d(36),0);input.hint=if(a.tab=="quotes")"Поиск по книгам" else "Поиск книг"
+   field.addView(IconView(a,"search",a.muted).apply{importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},0,FrameLayout.LayoutParams(a.d(40),a.d(44),Gravity.START))
+   input.setOnFocusChangeListener{_,has->if(has&&!a.searchOpen){a.searchOpen=true}else if(!has&&input.text.isEmpty()&&a.searchOpen){a.searchOpen=false}}
+   controls.addView(a.icon("filter","Фильтры и сортировка"){a.filters()},LayoutParams(a.d(44),a.d(44)))
+  }else{paintToggle();controls.addView(View(a),LayoutParams(a.d(8),1));controls.addView(a.icon("filter","Фильтры и сортировка"){a.filters()},LayoutParams(a.d(44),a.d(44)))}
+  a.searchOpen=a.searchOpen||a.query.isNotEmpty();field.visibility=if(a.searchOpen||persistent)View.VISIBLE else View.INVISIBLE;clear.visibility=if(a.query.isEmpty())View.GONE else View.VISIBLE
   input.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){clear.visibility=if(s.isNullOrEmpty())View.GONE else View.VISIBLE;pending?.let{removeCallbacks(it)};pending=Runnable{if(a.librarySearch===this@LibrarySearchBar&&a.searchOpen){a.query=input.text.toString();a.renderLibraryResults();a.scroll.scrollTo(0,0)}}.also{postDelayed(it,120)}};override fun afterTextChanged(e:Editable?) {}})
   input.setOnEditorActionListener{_,action,_->if(action==EditorInfo.IME_ACTION_SEARCH){pending?.let{removeCallbacks(it)};a.query=input.text.toString();a.renderLibraryResults();hideKeyboard();true}else false}
   input.setOnKeyListener{_,key,event->if(key==KeyEvent.KEYCODE_ESCAPE&&event.action==KeyEvent.ACTION_UP){close();true}else false}
-  onToggleChanged={paintToggle()};reveal.snap(if(a.searchOpen)1f else 0f)
+  onToggleChanged={if(!persistent)paintToggle()};reveal.snap(if(a.searchOpen||persistent)1f else 0f)
  }
  fun toggle(){if(a.searchOpen)close()else open()}
  fun open(){a.searchOpen=true;field.visibility=View.VISIBLE;onToggleChanged?.invoke();a.scroll.scrollTo(0,0);input.requestFocus();input.setSelection(input.length());if(a.prefs.str("motion")=="reduced")reveal.snap(1f)else reveal.to(1f);showKeyboard()}
- fun close(refresh:Boolean=true){pending?.let{removeCallbacks(it)};a.searchOpen=false;a.query="";hideKeyboard();input.clearFocus();input.setText("");pending?.let{removeCallbacks(it)};onToggleChanged?.invoke();if(a.prefs.str("motion")=="reduced")reveal.snap(0f)else reveal.to(0f);if(refresh)a.renderLibraryResults()}
+ fun close(refresh:Boolean=true){pending?.let{removeCallbacks(it)};a.searchOpen=false;a.query="";hideKeyboard();input.clearFocus();input.setText("");pending?.let{removeCallbacks(it)};onToggleChanged?.invoke();if(!persistent){if(a.prefs.str("motion")=="reduced")reveal.snap(0f)else reveal.to(0f)};if(refresh)a.renderLibraryResults()}
 
  private fun showKeyboard(){input.post{if(a.searchOpen&&isAttachedToWindow){input.requestFocus();(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input,InputMethodManager.SHOW_IMPLICIT);WindowCompat.getInsetsController(a.window,input).show(WindowInsetsCompat.Type.ime())}}}
  private fun hideKeyboard(){(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(input.windowToken,0);WindowCompat.getInsetsController(a.window,input).hide(WindowInsetsCompat.Type.ime())}

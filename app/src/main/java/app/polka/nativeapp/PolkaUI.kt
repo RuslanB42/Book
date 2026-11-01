@@ -35,7 +35,12 @@ class SlidingSegment(val a:MainActivity,selected:Int,val count:Int,private val t
     private val spring=LiquidSpring{value,_->index=value;invalidate()}
     init { orientation=HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; setPadding(a.d(2),a.d(2),a.d(2),a.d(2)); background=if(trackColor!=null)a.shape(trackColor,pillRadius)else a.controlSurface(this,12f); setWillNotDraw(false);spring.snap(index) }
     fun choose(value:Int) { val target=value.coerceIn(0,(count-1).coerceAtLeast(0)).toFloat();if(a.prefs.str("motion")=="reduced")spring.snap(target)else spring.to(target) }
-    override fun onDraw(c:android.graphics.Canvas) { super.onDraw(c); val pad=a.d(2).toFloat(); val cell=(width-pad*2)/count;if(thumbColor!=null){ink.color=thumbColor;c.drawRoundRect(pad+cell*index,pad,pad+cell*(index+1),height-pad,a.d(pillRadius-2).toFloat(),a.d(pillRadius-2).toFloat(),ink)}else{c.save();c.translate(pad+cell*index,pad);segmentThumb.setBounds(0,0,cell.toInt(),(height-pad*2).toInt());segmentThumb.draw(c);c.restore()} }
+    private val shadow=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    override fun onDraw(c:android.graphics.Canvas) { super.onDraw(c); val pad=a.d(2).toFloat(); val cell=(width-pad*2)/count;
+        // Soft shadow under the selected thumb so the active tab lifts off the track.
+        shadow.color=thumbColor?:(if(a.light)android.graphics.Color.WHITE else 0xff4a4a4e.toInt());shadow.setShadowLayer(a.d(5).toFloat(),0f,a.d(2).toFloat(),if(a.light)0x2e000000 else 0x8c000000.toInt())
+        val r=if(thumbColor!=null)a.d(pillRadius-2).toFloat() else a.d(9).toFloat();c.drawRoundRect(pad+cell*index+a.d(1),pad+a.d(1),pad+cell*(index+1)-a.d(1),height-pad-a.d(1),r,r,shadow)
+if(thumbColor!=null){ink.color=thumbColor;c.drawRoundRect(pad+cell*index,pad,pad+cell*(index+1),height-pad,a.d(pillRadius-2).toFloat(),a.d(pillRadius-2).toFloat(),ink)}else{c.save();c.translate(pad+cell*index,pad);segmentThumb.setBounds(0,0,cell.toInt(),(height-pad*2).toInt());segmentThumb.draw(c);c.restore()} }
     override fun onDetachedFromWindow() { spring.stop(); super.onDetachedFromWindow() }
 }
 fun MainActivity.press(v:View) {
@@ -250,7 +255,10 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
     init {
         background=material;elevation=a.d(3).toFloat();clipChildren=false;clipToPadding=false
         addView(pill,LayoutParams(a.d(52),a.d(48)).apply { leftMargin=a.d(5); topMargin=a.d(5) })
-        val row=a.line();keys.forEachIndexed { i,key->val button=IconView(a,key,a.muted).apply{contentDescription=listOf("Мои книги","Полки","Цитаты","Для вас")[i];isClickable=true;isFocusable=true;a.press(this)};buttons.add(button);row.addView(button,LinearLayout.LayoutParams(a.d(52),a.d(48)).apply{if(i>0)marginStart=a.d(4)}) };addView(row,LayoutParams(-2,a.d(48)).apply{leftMargin=a.d(5);topMargin=a.d(5)})
+        // The active tab's pill floats: a soft shadow under it; icons sit above it.
+        pill.elevation=a.d(6).toFloat();pill.outlineProvider=object:android.view.ViewOutlineProvider(){override fun getOutline(v:View,o:android.graphics.Outline){o.setRoundRect(0,0,v.width,v.height,a.d(24).toFloat())}}
+        if(android.os.Build.VERSION.SDK_INT>=28){pill.outlineAmbientShadowColor=0x66000000;pill.outlineSpotShadowColor=0x99000000.toInt()}
+        val row=a.line();row.elevation=a.d(7).toFloat();keys.forEachIndexed { i,key->val button=IconView(a,key,a.muted).apply{contentDescription=listOf("Мои книги","Полки","Цитаты","Для вас")[i];isClickable=true;isFocusable=true;a.press(this)};buttons.add(button);row.addView(button,LinearLayout.LayoutParams(a.d(52),a.d(48)).apply{if(i>0)marginStart=a.d(4)}) };addView(row,LayoutParams(-2,a.d(48)).apply{leftMargin=a.d(5);topMargin=a.d(5)})
     }
     fun bind(tab:String,onSelect:(String)->Unit) {
         choose=onSelect;

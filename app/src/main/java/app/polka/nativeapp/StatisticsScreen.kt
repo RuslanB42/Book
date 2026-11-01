@@ -93,6 +93,11 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         update(selected);return box
     }
     private fun add(card:View){entrance.add(card);content.addView(card,LinearLayout.LayoutParams(-1,-2));space(content,14)}
+    /** «Добрый вечер» and today's date between Back and Settings. */
+    private fun greeting():View{val h=java.time.LocalTime.now().hour
+        val hello=when(h){in 5..11->"Доброе утро";in 12..16->"Добрый день";in 17..22->"Добрый вечер";else->"Доброй ночи"}
+        val date=today.format(DateTimeFormatter.ofPattern("d MMMM, EEEE",ru))
+        return a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;addView(a.text(hello,17f,a.fg,true,serif=true).apply{gravity=Gravity.CENTER});addView(label(date,12.5f).apply{gravity=Gravity.CENTER})}}
     private fun daysWord(n:Int)=if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
     private fun minutesShort(n:Int)="мин"
     private fun minutesGen(n:Int)=if(n%100 in 11..14)"минут" else if(n%10==1)"минуты" else "минут"
@@ -100,7 +105,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val extra=max(0,(a.resources.configuration.screenWidthDp-640)/2)
         a.followInsets(content) { i->content.setPadding(a.d(16+extra)+i.left,a.d(8)+i.top,a.d(16+extra)+i.right,a.d(40)+i.bottom) }
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
-        val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(View(a),LinearLayout.LayoutParams(0,1,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
+        val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
         streak();annualGoal();pair();readingTime()
         if(motionOn) {
@@ -139,6 +144,9 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val names=a.line();dates.forEach{date->val isToday=date==today;names.addView(label(weekNames[date.dayOfWeek.value-1],13f,if(isToday)a.fg else captionInk,isToday).apply{gravity=Gravity.CENTER;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(0,-2,1f))}
         box.addView(names)
         if(motionOn)capsule.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false;override fun onViewAttachedToWindow(v:View){if(!done){done=true;capsule.grow(380)}};override fun onViewDetachedFromWindow(v:View){}})
+        // Tap the card: the whole month opens below the week, with months to page through.
+        val month=StreakMonth(a,model,today,motionOn);box.addView(month,LinearLayout.LayoutParams(-1,-2))
+        box.isClickable=true;box.setOnClickListener{month.toggle()};a.press(box)
         add(box)
     }
     private fun speed():View {
