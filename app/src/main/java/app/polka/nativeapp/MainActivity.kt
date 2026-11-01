@@ -67,6 +67,7 @@ class MainActivity : Activity() {
     internal var floatingCovers:FloatingCovers?=null
     /** Set by add/delete: the next render animates the grid from its old layout. */
     internal var gridMotion=false
+    internal fun hasScroll()=::scroll.isInitialized
     internal var bookCalendar:BookCalendarDialog?=null
     var pendingCalendarImage:File?=null
     var profileOverlay:View?=null

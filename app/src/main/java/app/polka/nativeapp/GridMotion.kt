@@ -22,7 +22,7 @@ internal fun MainActivity.captureGrid(keep:Set<String>):GridSnapshot{
     val visible=Rect(0,0,root.width,root.height)
     found.forEach{(id,v)->val r=screenRect(v);if(!RectF(visible).let{RectF.intersects(it,r)})return@forEach;cells[id]=r
         if(id !in keep&&v.width>0&&v.height>0)runCatching{val b=Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888);v.draw(Canvas(b));ghosts.add(r to b)}}
-    return GridSnapshot(cells,ghosts,if(::scroll.isInitialized)scroll.scrollY else 0)
+    return GridSnapshot(cells,ghosts,if(hasScroll())scroll.scrollY else 0)
 }
 
 /** Called by render() after the new page is in place: animate from the snapshot on the first frame. */
@@ -30,7 +30,7 @@ internal fun MainActivity.playGrid(snap:GridSnapshot,restoreY:Int?){
     val reduced=prefs.str("motion")=="reduced"
     root.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
         if(root.viewTreeObserver.isAlive)root.viewTreeObserver.removeOnPreDrawListener(this)
-        if(restoreY!=null&&::scroll.isInitialized)scroll.scrollTo(0,restoreY)
+        if(restoreY!=null&&hasScroll())scroll.scrollTo(0,restoreY)
         val now=HashMap<String,View>();collectCells(root,now)
         val settle=PathInterpolator(.2f,0f,0f,1f)
         var fresh=0
