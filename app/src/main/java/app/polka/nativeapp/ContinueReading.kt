@@ -55,8 +55,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    a.space(words,4);words.addView(a.text(MainActivity.authors(book),12f,a.muted).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END});a.space(words,14)
    val pct=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
    words.addView(SheenProgress(a,pct),LayoutParams(-1,a.d(10)));a.space(words,6)
-   val chars=book.optInt("chars",0);val left=if(chars>0)(chars*(1-pct)/5.0/190.0*60000).toLong() else 0L
-   words.addView(a.text("${(pct*100).roundToInt()}%"+if(left>0)" · ≈ ${duration(left)}" else "",12f,a.muted));a.space(words,12)
+   words.addView(a.text("${(pct*100).roundToInt()}%",12f,a.muted));a.space(words,12)
    val buttons=a.line();buttons.addView(pill("Читать",true,"Читать: ${book.str("title")}"){a.openBook(book,cover)},LayoutParams(0,-2,1f));buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,cover)},LayoutParams(0,-2,1f).apply{marginStart=a.d(8)});words.addView(buttons)
    row.addView(words,LayoutParams(0,-2,1f));cards.add(card)
    // The focus transform lives on a holder, so the press feedback on the card never fights it.
@@ -90,9 +89,11 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  /** The focused card (at the left margin) is full size and sharp; the others are smaller, dimmer and softly blurred
   *  (on Android 12+), continuously with their distance from focus — like iOS card stacks. */
  private fun focus(x:Int){if(holders.size<=1)return;val stride=carousel.stride.toFloat().coerceAtLeast(1f);val anchor=x+a.d(20)
-  holders.forEach{h->if(h.width<=0)return@forEach;val d=(h.left-anchor)/stride;val k=kotlin.math.abs(d).coerceAtMost(1f)
-   val s=1f-.08f*k;h.pivotX=if(d>0)0f else h.width.toFloat();h.pivotY=h.height/2f;h.scaleX=s;h.scaleY=s;h.alpha=1f-.3f*k
-   if(Build.VERSION.SDK_INT>=31){val blur=a.d(7)*k;h.setRenderEffect(if(blur<.5f)null else android.graphics.RenderEffect.createBlurEffect(blur,blur,Shader.TileMode.DECAL))}}}
+  holders.forEachIndexed{i,h->if(h.width<=0)return@forEachIndexed;val d=(h.left-anchor)/stride;val k=kotlin.math.abs(d).coerceAtMost(1f)
+   val s=1f-.08f*k;h.pivotX=if(d>0)0f else h.width.toFloat();h.pivotY=h.height/2f;h.scaleX=s;h.scaleY=s;h.alpha=1f-.42f*k
+   // the card in focus floats higher (deeper shadow); the others sink a little
+   cards[i].translationZ=a.d(8)*(1f-k)
+   if(Build.VERSION.SDK_INT>=31){val blur=a.d(2.5f)*k;h.setRenderEffect(if(blur<.5f)null else android.graphics.RenderEffect.createBlurEffect(blur,blur,Shader.TileMode.DECAL))}}}
 }
 
 /** The book's own cover, softly blurred and veiled, as the card's background (not a CoverView: it is only a backdrop). */
@@ -130,14 +131,16 @@ internal class CoverBackdrop(private val a:MainActivity,private val book:JSONObj
  *  light at the end — an elongated glow, no hard block. */
 internal class SheenProgress(private val a:MainActivity,private val fraction:Float):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-    override fun onDraw(c:Canvas){val h=a.d(3).toFloat();val cy=height/2f;val w=width.toFloat();val r=h/2;val ink=a.fg
-        p.reset();p.isAntiAlias=true;p.color=(ink and 0xffffff) or ((if(a.light)0x16 else 0x1c) shl 24);c.drawRoundRect(0f,cy-r,w,cy+r,r,r,p)
-        if(fraction<=0f)return;val x=(w*fraction).coerceAtLeast(h)
-        p.shader=LinearGradient(0f,0f,x,0f,intArrayOf((ink and 0xffffff) or 0x80000000.toInt(),(ink and 0xffffff) or 0xf2000000.toInt()),null,Shader.TileMode.CLAMP);c.drawRoundRect(0f,cy-r,x,cy+r,r,r,p)
-        // the spark: a soft, wider-than-tall glow centred on the end of the fill
-        val spark=if(a.light)0xffffb340.toInt() else 0xfffff2cf.toInt();val rx=a.d(13).toFloat();val ry=a.d(5).toFloat()
-        c.save();c.translate(x,cy);c.scale(1f,ry/rx)
-        p.shader=RadialGradient(0f,0f,rx,intArrayOf((spark and 0xffffff) or 0x99000000.toInt(),(spark and 0xffffff) or 0x2e000000,spark and 0xffffff),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP);c.drawCircle(0f,0f,rx,p);c.restore()
-        p.shader=null;p.color=(spark and 0xffffff) or 0xff000000.toInt();c.drawCircle(x-r*.2f,cy,r*1.15f,p)}
+    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;setLayerType(LAYER_TYPE_SOFTWARE,null)}
+    override fun onDraw(c:Canvas){val h=a.d(4).toFloat();val cy=height/2f;val w=width.toFloat();val r=h/2;val ink=a.fg
+        p.reset();p.isAntiAlias=true
+        p.color=(ink and 0xffffff) or ((if(a.light)0x1a else 0x24) shl 24);c.drawRoundRect(0f,cy-r,w,cy+r,r,r,p)
+        if(fraction<=0f)return;val x=(w*fraction).coerceIn(h,w)
+        // soft glow under the filled part, strongest at its end
+        val glow=if(a.light)0xffffa63a.toInt() else 0xfffff0c8.toInt()
+        p.color=(glow and 0xffffff) or ((if(a.light)0x55 else 0x66) shl 24);p.maskFilter=BlurMaskFilter(a.d(4).toFloat(),BlurMaskFilter.Blur.NORMAL)
+        c.drawRoundRect((x-a.d(40)).coerceAtLeast(0f),cy-r,x,cy+r,r,r,p);p.maskFilter=null
+        // the fill itself: solid, brightening toward the end
+        p.color=(ink and 0xffffff) or 0xb3000000.toInt();c.drawRoundRect(0f,cy-r,x,cy+r,r,r,p)
+        p.shader=LinearGradient((x-a.d(48)).coerceAtLeast(0f),0f,x,0f,(ink and 0xffffff),(if(a.light)ink else 0xfffffaf0.toInt()),Shader.TileMode.CLAMP);c.drawRoundRect(0f,cy-r,x,cy+r,r,r,p);p.shader=null}
 }
