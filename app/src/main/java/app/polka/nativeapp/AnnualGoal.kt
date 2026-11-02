@@ -111,52 +111,45 @@ internal class AspectBox(a:MainActivity):FrameLayout(a){
 }
 
 /** Your rating as a small chip in the cover's top-right corner: dark glass, a gold star and the number (like ratings on posters). */
-/** Rating medal: one hexagonal badge for every score; the material climbs with it —
- *  1 bronze, 2 silver, 3 gold, 4 platinum (pearly), 5 diamond (icy, with sparkles). A polished rim, a faceted
- *  field in the tier's own two tones, a glassy highlight and a raised numeral of the same metal. */
+/** Rating medal: a faceted metal star, the same for every score; the material climbs with it —
+ *  1 bronze, 2 silver, 3 gold, 4 platinum, 5 diamond. Ten half-facets lit from the upper left, fine light ridges,
+ *  a soft sheen, and the score engraved into the centre (no outlines, nothing cartoonish). */
 internal class RatingMedal(private val a:MainActivity,private val rating:Int):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    private class Tier(val rim:IntArray,val dark:Int,val light:Int,val numeral:IntArray)
-    private fun i(vararg c:Long)=IntArray(c.size){c[it].toInt()}
-    private val tier=when(rating.coerceIn(1,5)){
-        1->Tier(i(0xfff6c79a,0xffb06a35,0xff6e3a17,0xffe0a06a,0xff8a4b22,0xfff2c08f),0xff8a4a22.toInt(),0xffc27a45.toInt(),i(0xffffe0bf,0xffc98450,0xff7a3f18,0xffe8aa75))
-        2->Tier(i(0xffffffff,0xffb9bec6,0xff6d737c,0xffe3e7ec,0xff8d939c,0xfff5f7fa),0xff5e6670.toInt(),0xffa3abb5.toInt(),i(0xffffffff,0xffc9ced5,0xff7b828c,0xffe6e9ee))
-        3->Tier(i(0xfffff4c2,0xffe8b84e,0xff9c6b1d,0xfff6d37c,0xffb8862a,0xfffff0b0),0xffa8741c.toInt(),0xffe2ad44.toInt(),i(0xfffff6cf,0xfff0c35a,0xffa8731f,0xfff3d07a))
-        4->Tier(i(0xffffffff,0xffded8f2,0xff8d86a8,0xfff6f3ff,0xffaea7c8,0xffffffff),0xff7f7a9e.toInt(),0xffd9d4f0.toInt(),i(0xffffffff,0xffe8e4f8,0xff8f88ad,0xfff4f1ff))
-        else->Tier(i(0xffffffff,0xffbff3ff,0xff5fb9d6,0xffe9fbff,0xff86d4ea,0xffffffff),0xff2f8fb8.toInt(),0xff9fe6fb.toInt(),i(0xffffffff,0xffd6f7ff,0xff6cc3df,0xfff0fdff))}
+    /** deep, mid, light tones of the metal */
+    private val tone=when(rating.coerceIn(1,5)){
+        1->intArrayOf(0xff4a2510.toInt(),0xff9a5a2e.toInt(),0xffd89a66.toInt())
+        2->intArrayOf(0xff3e434a.toInt(),0xff8b929b.toInt(),0xffd3d8de.toInt())
+        3->intArrayOf(0xff5a3a08.toInt(),0xffb8862a.toInt(),0xffecc865.toInt())
+        4->intArrayOf(0xff3f3c52.toInt(),0xff9a96b4.toInt(),0xffe2def3.toInt())
+        else->intArrayOf(0xff0f4a66.toInt(),0xff4fb0d4.toInt(),0xffbdeeff.toInt())}
     init{contentDescription="Оценка $rating из 5";setLayerType(LAYER_TYPE_SOFTWARE,null)}
-    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(36),a.d(38))
-    private fun corner(r:Float,i:Int):Pair<Float,Float>{val t=Math.toRadians(-90.0+60*i);return (50+r*Math.cos(t)).toFloat() to (51+r*Math.sin(t)).toFloat()}
-    /** Rounded hexagon in a 100×100 box. */
-    private val outline=Path().apply{val pts=(0 until 6).map{corner(47f,it)}
-        for(i in 0 until 6){val (x,y)=pts[i];val (px,py)=pts[(i+5)%6];val (nx,ny)=pts[(i+1)%6];val k=.16f
-            val ax=x+(px-x)*k;val ay=y+(py-y)*k;val bx=x+(nx-x)*k;val by=y+(ny-y)*k
-            if(i==0)moveTo(ax,ay) else lineTo(ax,ay);quadTo(x,y,bx,by)};close()}
+    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(36),a.d(36))
+    private fun pt(r:Float,i:Int):PointF{val t=Math.toRadians(-90.0+36*i);return PointF((50+r*Math.cos(t)).toFloat(),(53+r*Math.sin(t)).toFloat())}
+    private val tips=(0 until 10).map{pt(if(it%2==1)21f else 48f,it)}
+    private val star=Path().apply{tips.forEachIndexed{i,q->if(i==0)moveTo(q.x,q.y) else lineTo(q.x,q.y)};close()}
+    private fun shade(d:Float)=if(d<.5f)mix(tone[0],tone[1],d*2) else mix(tone[1],tone[2],(d-.5f)*2)
     override fun onDraw(c:Canvas){val s=minOf(width,height)/100f;c.save();c.translate((width-100*s)/2,(height-100*s)/2);c.scale(s,s)
-        val dp=a.d(1)/s;val t=tier
-        p.reset();p.isAntiAlias=true;p.color=Color.BLACK;p.setShadowLayer(4f*dp,0f,2f*dp,0x80000000.toInt());c.drawPath(outline,p);p.clearShadowLayer()
-        c.save();c.clipPath(outline)
-        // faceted field: six triangles from the centre, lit from the upper left
-        val shades=floatArrayOf(1f,.55f,.25f,0f,.3f,.75f)
-        for(k in 0 until 6){val (x0,y0)=corner(52f,k);val (x1,y1)=corner(52f,(k+1)%6);val f=Path().apply{moveTo(50f,51f);lineTo(x0,y0);lineTo(x1,y1);close()}
-            p.style=Paint.Style.FILL;p.shader=LinearGradient(x0,y0,50f,51f,mix(t.dark,t.light,shades[k]),mix(t.dark,t.light,minOf(1f,shades[k]+.25f)),Shader.TileMode.CLAMP);c.drawPath(f,p);p.shader=null
-            p.style=Paint.Style.STROKE;p.strokeWidth=.8f;p.color=0x2effffff;c.drawPath(f,p)}
-        p.style=Paint.Style.FILL
-        if(rating>=5)for((x,y,r) in listOf(Triple(28f,30f,5f),Triple(72f,70f,3.5f),Triple(66f,28f,2.5f))){p.color=0xf2ffffff.toInt()
+        val dp=a.d(1)/s
+        p.reset();p.isAntiAlias=true;p.color=tone[0];p.setShadowLayer(3f*dp,0f,1.3f*dp,0x73000000);c.drawPath(star,p);p.clearShadowLayer()
+        // ten half-facets, each lit by how its slope faces the light (upper left, from the front)
+        val lx=-.55f;val ly=-.75f;val lz=.38f;val ln=sqrt(lx*lx+ly*ly+lz*lz)
+        for(i in 0 until 10){val q0=tips[i];val q1=tips[(i+1)%10];val mx=(q0.x+q1.x)/2-50;val my=(q0.y+q1.y)/2-53;val m=hypot(mx,my)
+            val d=(((mx/m*.62f)*lx+(my/m*.62f)*ly+.78f*lz)/ln+.2f).div(1.1f).coerceIn(0f,1f)
+            val f=Path().apply{moveTo(50f,53f);lineTo(q0.x,q0.y);lineTo(q1.x,q1.y);close()}
+            p.shader=LinearGradient(50f,53f,mx+50,my+53,shade(d),shade((d*.8f)),Shader.TileMode.CLAMP);c.drawPath(f,p);p.shader=null}
+        p.style=Paint.Style.STROKE;p.strokeWidth=.6f;p.color=0x38ffffff
+        for(i in 0 until 10 step 2)c.drawLine(50f,53f,tips[i].x,tips[i].y,p)
+        p.strokeWidth=.8f;p.color=0x59ffffff;c.drawPath(star,p);p.style=Paint.Style.FILL
+        c.save();c.clipPath(star)
+        p.shader=RadialGradient(36f,30f,40f,0x47ffffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRect(0f,0f,100f,100f,p);p.shader=null
+        if(rating>=5)for((x,y,r) in listOf(Triple(34f,34f,3.2f),Triple(64f,62f,2.2f))){p.color=0xe6ffffff.toInt()
             c.drawPath(Path().apply{moveTo(x,y-r*2);quadTo(x,y,x+r*2,y);quadTo(x,y,x,y+r*2);quadTo(x,y,x-r*2,y);quadTo(x,y,x,y-r*2);close()},p)}
-        p.shader=RadialGradient(30f,22f,50f,0x59ffffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRect(0f,0f,100f,100f,p);p.shader=null
         c.restore()
-        // polished rim of the same metal
-        p.style=Paint.Style.STROKE;p.strokeJoin=Paint.Join.ROUND
-        p.strokeWidth=9f;p.shader=SweepGradient(50f,50f,t.rim,null).apply{setLocalMatrix(Matrix().apply{setRotate(-120f,50f,50f)})};c.drawPath(outline,p);p.shader=null
-        p.strokeWidth=1.4f;p.color=0x59000000;c.save();c.scale(.905f,.905f,50f,51f);c.drawPath(outline,p);c.restore()
-        p.strokeWidth=1.1f;p.color=0x8cffffff.toInt();c.drawPath(outline,p)
-        // raised numeral
-        p.typeface=Typeface.create(Typeface.SERIF,Typeface.BOLD);p.textSize=56f;p.textAlign=Paint.Align.CENTER
+        // engraved score: a dark recess with a light lower lip
+        p.typeface=Typeface.create(Typeface.SERIF,Typeface.BOLD);p.textSize=30f;p.textAlign=Paint.Align.CENTER
         val ty=57f-(p.ascent()+p.descent())/2
-        p.style=Paint.Style.STROKE;p.strokeWidth=6f;p.color=0x8c000000.toInt();c.drawText("$rating",50f,ty,p)
-        p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,ty-44f,0f,ty+4f,t.numeral,floatArrayOf(0f,.4f,.75f,1f),Shader.TileMode.CLAMP);c.drawText("$rating",50f,ty,p);p.shader=null
-        p.style=Paint.Style.STROKE;p.strokeWidth=1.1f;p.color=0x80ffffff.toInt();c.drawText("$rating",50f,ty,p);p.style=Paint.Style.FILL
+        p.color=0x73ffffff;c.drawText("$rating",50f,ty+.9f,p);p.color=mix(tone[0],tone[1],.2f);c.drawText("$rating",50f,ty,p)
         c.restore()}
     private fun mix(x:Int,y:Int,f:Float)=Color.rgb((Color.red(x)+(Color.red(y)-Color.red(x))*f).toInt(),(Color.green(x)+(Color.green(y)-Color.green(x))*f).toInt(),(Color.blue(x)+(Color.blue(y)-Color.blue(x))*f).toInt())
 }
