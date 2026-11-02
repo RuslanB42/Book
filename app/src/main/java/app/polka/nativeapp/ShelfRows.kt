@@ -44,7 +44,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         if(list.isEmpty())row.addView(a.text("Пока пусто — добавьте сюда книги",13.5f,a.muted).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(4),0,0,a.d(10))},LayoutParams(-2,coverH*3/4))
         more(7)
         scroller.addView(row);stage.addView(scroller,FrameLayout.LayoutParams(-1,-2))
-        scroller.setOnScrollChangeListener{_,x,_,_,_->glass.scrolled();if(shown<list.size&&x+scroller.width>row.width-coverW*3)more(10)}
+        scroller.setOnScrollChangeListener{_,_,_,_,_->glass.scrolled()}
         // The glass view is larger than the glass by its shadow; it never takes touches, so the row still scrolls.
         val glassH=(coverH*.42f).toInt()+a.d(8)
         stage.addView(glass,FrameLayout.LayoutParams(-1,glassH+glass.pad*2,Gravity.BOTTOM).apply{leftMargin=a.d(12)-glass.pad;rightMargin=a.d(12)-glass.pad;bottomMargin=-glass.pad})
@@ -92,27 +92,73 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
 
     // Only the covers that fit on screen are built with the page (a 72-book shelf no longer builds 72 views
     // during the tab switch); the rest are appended as the row is scrolled toward its end.
+    // The covers that fit on screen are built with the page; the rest are appended in small batches right after the
+    // page has settled — never while the row is being flung (a relayout mid-fling made the scroll stutter back).
     private fun more(n:Int){val until=minOf(list.size,shown+n)
         for(i in shown until until){val b=list[i]
             val box=FrameLayout(a).apply{clipChildren=false;isClickable=true;contentDescription=b.str("title");setOnClickListener{a.detail(b,this)};a.press(this)}
-            fun put(bmp:Bitmap?){box.removeAllViews();box.addView(CoverView(a,b,bmp).apply{softShadow=true},FrameLayout.LayoutParams(-1,-1));glass.refresh()}
-            put(a.cover(b));if(a.cover(b)==null&&b.optJSONObject("cover")!=null)a.requestCover(b){bmp->if(bmp!=null)put(bmp)}
+            // One CoverView per book; when its picture arrives it only redraws (no view swap, no relayout of the row).
+            val cover=CoverView(a,b,a.cover(b)).apply{softShadow=true};box.addView(cover,FrameLayout.LayoutParams(-1,-1))
+            if(a.cover(b)==null&&b.optJSONObject("cover")!=null)a.requestCover(b){bmp->if(bmp!=null){cover.invalidate();glass.refresh()}}
             row.addView(box,LayoutParams(coverW,coverH).apply{if(i>0)leftMargin=a.d(12)})}
-        shown=until}
+        shown=until;glass.refresh()}
+    private val feed=object:Runnable{override fun run(){if(!isAttachedToWindow||shown>=list.size)return
+        if(scroller.scrollX!=lastFeedX||busy()){lastFeedX=scroller.scrollX;postDelayed(this,120);return}
+        more(8);if(shown<list.size)postDelayed(this,60)}}
+    private var lastFeedX=-1
+    private fun busy()=false
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(shown<list.size)postDelayed(feed,500)}
+    override fun onDetachedFromWindow(){removeCallbacks(feed);super.onDetachedFromWindow()}
 
     private companion object{val shared=HashMap<String,Triple<Bitmap,Bitmap,ColorFilter?>>()}
 
-    /** Clear glass shelf with screws: no blur — the books behind are seen sharp through it, but refracted like thick
-     *  acrylic: the whole pane shifts and slightly magnifies them, and the bevels along the top and bottom edges bend
-     *  them more strongly. Drawn live from the row's own render nodes, so scrolling stays smooth. */
+    /** Clear glass shelf with screws. The books are seen through it directly — sharp, not redrawn, nothing shifted.
+     *  Only along the top and bottom bevels the glass bends them, like the rounded edge of thick acrylic: thin strips
+     *  of the row are snapshotted once (when covers change) and drawn through a smooth mesh, so the distortion has no
+     *  steps; scrolling just slides those strips. */
     private inner class Glass:View(a){
         val pad=a.d(22)
         private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        private val bevel=a.d(10).toFloat();private val reach=a.d(6).toFloat()
+        private var topStrip:Bitmap?=null;private var bottomStrip:Bitmap?=null;private var stripScale=1f;private var queued=false;private var x0=0;private var x1=0
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-        fun refresh()=invalidate()
-        fun scrolled()=invalidate()
+        fun refresh(){if(queued)return;queued=true;postDelayed(settle,140)}
+        /** Strips cover about three screens around the visible part; leaving that window re-snaps at once (a few ms). */
+        fun scrolled(){val sx=scroller.scrollX;val w=scroller.width;if(topStrip!=null&&(sx<x0&&x0>0||sx+w>x1&&x1<row.width)&&!row.isLayoutRequested)capture();invalidate()}
         override fun onTouchEvent(e:MotionEvent)=false
-        // Static parts are rendered once per size/theme into bitmaps (soft shadow under; sheen, rim and screws over),
+        override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(changed)refresh()}
+        private val settle=object:Runnable{override fun run(){if(!isAttachedToWindow){queued=false;return}
+            if(row.isLayoutRequested||row.width<1||width<1){postDelayed(this,48);return}
+            queued=false;capture();invalidate()}}
+        /** Snapshot the two source bands of the row (a little beyond each bevel) at screen resolution. */
+        private fun capture(){val gTop=pad.toFloat();val gBottom=(height-pad).toFloat()
+            val sw=scroller.width.coerceAtLeast(1);x0=(scroller.scrollX-sw).coerceAtLeast(0);x1=(scroller.scrollX+2*sw).coerceAtMost(row.width).coerceAtLeast(x0+1)
+            stripScale=1f
+            val offY=(top-(scroller.top+row.top)).toFloat()
+            fun shot(y0:Float,y1:Float):Bitmap{val w=x1-x0;val h=(y1-y0).toInt().coerceAtLeast(1)
+                val bmp=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);val c=Canvas(bmp);c.drawFilter=PaintFlagsDrawFilter(0,Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+                c.translate(-x0.toFloat(),-(y0+offY));row.draw(c);return bmp}
+            val oldT=topStrip;val oldB=bottomStrip
+            topStrip=shot(gTop-reach,gTop+bevel);bottomStrip=shot(gBottom-bevel,gBottom+reach)
+            oldT?.recycle();oldB?.recycle()}
+        // Mesh rows: bitmap rows are spread uniformly over the source band; their on-screen y solves y_src = f(y).
+        private val rows=14
+        private fun meshY(top:Boolean,src:Float,g0:Float):Float{
+            // top bevel: f(y)=y−reach·(1−(y−g0)/bevel)², y∈[g0,g0+bevel]; bottom mirrors it. Bisection — f is monotonic.
+            var lo=0f;var hi=bevel
+            repeat(22){val m=(lo+hi)/2;val t=if(top)1-m/bevel else m/bevel;val f=if(top)m-reach*t*t else m+reach*t*t;if(f<src)lo=m else hi=m}
+            return g0+(lo+hi)/2}
+        private fun strip(c:Canvas,bmp:Bitmap,top:Boolean,dx:Float){
+            val gTop=pad.toFloat();val gBottom=(height-pad).toFloat()
+            val g0=if(top)gTop else gBottom-bevel;val src0=if(top)-reach else 0f;val srcH=bevel+reach
+            val l=dx+x0;val w=bmp.width.toFloat();val v=FloatArray((rows+1)*2*2)
+            for(j in 0..rows){val src=src0+srcH*j/rows;val y=meshY(top,src,g0).coerceIn(g0,g0+bevel)
+                v[j*4]=l;v[j*4+1]=y;v[j*4+2]=l+w;v[j*4+3]=y}
+            // only where the snapshot reaches; beyond it (mid-fling, for a frame) the real covers show plainly
+            c.save();c.clipRect(maxOf(pad.toFloat(),l),g0,minOf((width-pad).toFloat(),l+w),g0+bevel)
+            c.drawColor(a.bg)
+            c.drawBitmapMesh(bmp,1,rows,v,0,null,0,p);c.restore()}
+        // Static parts are rendered once per size/theme into bitmaps (soft shadow outside; tint, sheen, rim, screws over),
         // shared by every shelf.
         private var under:Bitmap?=null;private var over:Bitmap?=null;private var staticKey=""
         private val clip=Path()
@@ -123,42 +169,37 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             shared[key]?.let{(u,o,_)->under=u;over=o;return}
             val density=resources.displayMetrics.density
             under=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888).also{bmp->val c=Canvas(bmp)
-                p.color=a.bg;p.setShadowLayer(if(light)18*density else 22*density,0f,if(light)5*density else 7*density,if(light)0x14000000 else 0x40000000);c.drawRoundRect(g,radius,radius,p);p.clearShadowLayer()}
+                p.color=Color.BLACK;p.setShadowLayer(if(light)18*density else 22*density,0f,if(light)5*density else 7*density,if(light)0x14000000 else 0x40000000);c.drawRoundRect(g,radius,radius,p);p.clearShadowLayer()
+                // clear glass: the shadow stays outside only
+                p.xfermode=PorterDuffXfermode(PorterDuff.Mode.CLEAR);c.drawRoundRect(g,radius,radius,p);p.xfermode=null}
             over=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888).also{bmp->val c=Canvas(bmp)
                 c.save();c.clipPath(clip)
-                // body tint: almost clear; brighter just under the top edge, a faint cool cast
-                p.shader=LinearGradient(0f,g.top,0f,g.bottom,intArrayOf(if(light)0x55ffffff else 0x26ffffff,if(light)0x14ffffff else 0x0affffff,if(light)0x0ad8eef0 else 0x08c8e6ee,if(light)0x26ffffff else 0x14ffffff),floatArrayOf(0f,.22f,.7f,1f),Shader.TileMode.CLAMP);c.drawRect(g,p)
-                // a soft diagonal reflection streak
-                p.shader=LinearGradient(g.left+g.width()*.18f,g.top,g.left+g.width()*.30f,g.bottom,intArrayOf(0x00ffffff,if(light)0x30ffffff else 0x18ffffff,0x00ffffff),null,Shader.TileMode.CLAMP);c.drawRect(g,p);p.shader=null
-                // bevels: light catching the top edge, a darker line at the bottom edge
-                p.shader=LinearGradient(0f,g.top,0f,g.top+4*density,if(light)0x99ffffff.toInt() else 0x4dffffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRect(g.left,g.top,g.right,g.top+4*density,p)
-                p.shader=LinearGradient(0f,g.bottom-4*density,0f,g.bottom,0x00000000,if(light)0x1f000000 else 0x40000000,Shader.TileMode.CLAMP);c.drawRect(g.left,g.bottom-4*density,g.right,g.bottom,p);p.shader=null
-                p.style=Paint.Style.STROKE;p.strokeWidth=density;p.color=if(light)0xd9ffffff.toInt() else 0x29ffffff
+                // body: a very light tint, a little brighter under the top edge
+                p.shader=LinearGradient(0f,g.top,0f,g.bottom,intArrayOf(if(light)0x40ffffff else 0x1fffffff,if(light)0x14ffffff else 0x0affffff,if(light)0x0fd8eef0 else 0x0ac8e6ee,if(light)0x1fffffff else 0x10ffffff),floatArrayOf(0f,.25f,.7f,1f),Shader.TileMode.CLAMP);c.drawRect(g,p)
+                // a soft diagonal reflection
+                p.shader=LinearGradient(g.left+g.width()*.16f,g.top,g.left+g.width()*.30f,g.bottom,intArrayOf(0x00ffffff,if(light)0x2affffff else 0x14ffffff,0x00ffffff),null,Shader.TileMode.CLAMP);c.drawRect(g,p)
+                // bevels catch the light: brighter along the top band, a darker lip at the bottom
+                p.shader=LinearGradient(0f,g.top,0f,g.top+bevel,if(light)0x59ffffff else 0x2effffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRect(g.left,g.top,g.right,g.top+bevel,p)
+                p.shader=LinearGradient(0f,g.bottom-bevel,0f,g.bottom,0x00000000,if(light)0x1a000000 else 0x33000000,Shader.TileMode.CLAMP);c.drawRect(g.left,g.bottom-bevel,g.right,g.bottom,p);p.shader=null
+                p.style=Paint.Style.STROKE;p.strokeWidth=density;p.color=if(light)0xd9ffffff.toInt() else 0x2effffff
                 val e=(radius-density*.5f).coerceAtLeast(0f);c.drawRoundRect(RectF(g.left+density*.5f,g.top+density*.5f,g.right-density*.5f,g.bottom-density*.5f),e,e,p);p.style=Paint.Style.FILL;c.restore()
                 val size=9*density;val inset=density+radius*.55f+size/2
                 listOf(g.left+inset to g.top+inset,g.right-inset to g.top+inset,g.left+inset to g.bottom-inset,g.right-inset to g.bottom-inset).forEachIndexed{i,(x,y)->ShelfScrew.draw(c,x,y,size,density,ShelfScrew.turns[i])}}
             shared[key]=Triple(under!!,over!!,null)
         }
-        /** Draw the row through one horizontal band of the glass, displaced by [dy] and magnified by [k] about the pane centre. */
-        private fun band(c:Canvas,y0:Float,y1:Float,dx:Float,dy:Float,k:Float){
-            c.save();c.clipRect(pad.toFloat(),y0,(width-pad).toFloat(),y1)
-            c.translate(dx,dy);c.scale(k,k,width/2f,height/2f)
-            c.translate((scroller.left+row.left-scroller.scrollX-left).toFloat(),(scroller.top+row.top-top).toFloat());row.draw(c);c.restore()}
         override fun onDraw(c:Canvas){if(width<1||height<1)return;statics()
             under?.let{c.drawBitmap(it,0f,0f,null)}
-            val d=a.d(1).toFloat();val gTop=pad.toFloat();val gBottom=(height-pad).toFloat();val bevel=9*d;val steps=6
+            val dx=(scroller.left+row.left-scroller.scrollX-left).toFloat()
             c.save();c.clipPath(clip)
-            // the pane: shifted down-right a touch and magnified 3 %
-            band(c,gTop+bevel,gBottom-bevel,1.5f*d,2f*d,1.03f)
-            // the bevels: displacement grows toward the edge (eased), like the rounded rim of thick glass
-            for(i in 0 until steps){val t0=i/steps.toFloat();val t1=(i+1)/steps.toFloat();val tm=(t0+t1)/2;val f=(1-tm)*(1-tm)
-                band(c,gTop+bevel*t0,gTop+bevel*t1+.5f,1.5f*d,2f*d+6f*d*f,1.03f+.05f*f)
-                band(c,gBottom-bevel*t1-.5f,gBottom-bevel*t0,1.5f*d,2f*d-6f*d*f,1.03f+.05f*f)}
+            topStrip?.takeIf{!it.isRecycled}?.let{strip(c,it,true,dx)}
+            bottomStrip?.takeIf{!it.isRecycled}?.let{strip(c,it,false,dx)}
             c.restore()
             over?.let{c.drawBitmap(it,0f,0f,null)}
         }
-        override fun onDetachedFromWindow(){under=null;over=null;staticKey="";super.onDetachedFromWindow()}
+        override fun onAttachedToWindow(){super.onAttachedToWindow();refresh()}
+        override fun onDetachedFromWindow(){removeCallbacks(settle);queued=false;topStrip?.recycle();bottomStrip?.recycle();topStrip=null;bottomStrip=null;under=null;over=null;staticKey="";super.onDetachedFromWindow()}
     }
+
 
 }
 
