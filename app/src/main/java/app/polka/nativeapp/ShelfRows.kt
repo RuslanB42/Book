@@ -178,22 +178,33 @@ internal fun MainActivity.shelfRows(){
  *  aside with a short glide to show where it will land; on release it settles into the gap and the order is saved. */
 internal class ShelfEditor(private val a:MainActivity,private val page:LinearLayout,private val rows:MutableList<ShelfRow>){
     private var held:ShelfRow?=null;private var from=0;private var target=0;private var startY=0f;private var slot=1
+    private var startScroll=0;private var lastY=0f
     private val glide=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
     init{rows.forEach{r->r.handle.setOnTouchListener{_,e->touch(r,e);true}}}
     fun setEditing(on:Boolean){a.shelvesEditing=on;rows.forEachIndexed{i,r->r.setEditing(on,true,i*28L)}}
     private fun touch(r:ShelfRow,e:MotionEvent){if(!r.editing)return
         when(e.actionMasked){
-            MotionEvent.ACTION_DOWN->{held=r;from=rows.indexOf(r);target=from;startY=e.rawY;slot=r.height+a.d(10)
+            MotionEvent.ACTION_DOWN->{held=r;from=rows.indexOf(r);target=from;startY=e.rawY;lastY=e.rawY;startScroll=a.scroll.scrollY;slot=r.height+a.d(10)
                 r.parent.requestDisallowInterceptTouchEvent(true);r.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                r.animate().scaleX(1.03f).scaleY(1.03f).translationZ(a.d(14).toFloat()).setDuration(180).setInterpolator(glide).start()}
-            MotionEvent.ACTION_MOVE->{val h=held?:return;val dy=e.rawY-startY;h.translationY=dy
-                val t=(from+Math.round(dy/slot)).coerceIn(0,rows.lastIndex)
-                if(t!=target){target=t;h.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                    rows.forEachIndexed{j,o->if(o===h)return@forEachIndexed;val shift=when{j in (from+1)..target-> -slot;j in target until from->slot;else->0}.toFloat()
-                        if(o.translationY!=shift)o.animate().translationY(shift).setDuration(240).setInterpolator(glide).start()}}}
-            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val h=held?:return;held=null
+                r.animate().scaleX(1.03f).scaleY(1.03f).translationZ(a.d(14).toFloat()).setDuration(180).setInterpolator(glide).start()
+                a.scroll.postOnAnimation(edge)}
+            MotionEvent.ACTION_MOVE->{lastY=e.rawY;follow()}
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val h=held?:return;held=null;a.scroll.removeCallbacks(edge)
                 h.animate().translationY(((target-from)*slot).toFloat()).scaleX(1f).scaleY(1f).translationZ(0f).setDuration(260).setInterpolator(glide).withEndAction{drop(h)}.start()}
         }}
+    /** The held card stays under the finger, including while the page scrolls under it. */
+    private fun follow(){val h=held?:return;val dy=lastY-startY+(a.scroll.scrollY-startScroll);h.translationY=dy
+        val t=(from+Math.round(dy/slot)).coerceIn(0,rows.lastIndex)
+        if(t!=target){target=t;h.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            rows.forEachIndexed{j,o->if(o===h)return@forEachIndexed;val shift=when{j in (from+1)..target-> -slot;j in target until from->slot;else->0}.toFloat()
+                if(o.translationY!=shift)o.animate().translationY(shift).setDuration(240).setInterpolator(glide).start()}}}
+    /** Auto-scroll: holding the card near the top or bottom edge scrolls the page, faster the closer to the edge. */
+    private val edge=object:Runnable{override fun run(){if(held==null)return
+        val loc=IntArray(2);a.scroll.getLocationOnScreen(loc);val top=loc[1]+a.appInsets.top+a.d(8);val bottom=loc[1]+a.scroll.height-a.navigationBottom()-a.d(66)
+        val zone=a.d(88).toFloat();val max=a.d(16).toFloat()
+        val v=when{lastY<top+zone->-max*((top+zone-lastY)/zone).coerceIn(0f,1f);lastY>bottom-zone->max*((lastY-(bottom-zone))/zone).coerceIn(0f,1f);else->0f}
+        if(v!=0f){val before=a.scroll.scrollY;a.scroll.scrollBy(0,v.toInt().let{if(it==0)(if(v>0)1 else -1) else it});if(a.scroll.scrollY!=before)follow()}
+        a.scroll.postOnAnimation(this)}}
     /** Put the card where it landed, with no visible jump, and save the order. */
     private fun drop(h:ShelfRow){if(target!=from){rows.removeAt(from);rows.add(target,h);page.removeView(h);page.addView(h,target)}
         rows.forEach{it.animate().cancel();it.translationY=0f;it.settleMargin()}
