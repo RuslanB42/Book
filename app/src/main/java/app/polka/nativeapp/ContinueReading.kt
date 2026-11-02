@@ -70,9 +70,6 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   v.background=GradientDrawable().apply{setColor(if(light)Color.WHITE else 0xff242426.toInt());cornerRadius=radius}
   v.elevation=a.d(if(light)8 else 10).toFloat()
   v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,radius)}}
-  // Clip children to the anti-aliased outline: the backdrop no longer clips itself with an aliased path,
-  // which left jagged light fringes of the card background on the rounded corners.
-  v.clipToOutline=true
   if(Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();v.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
  }
  private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,13.5f,if(primary)a.bg else a.fg,true).apply{
@@ -119,17 +116,26 @@ internal class CoverBackdrop(private val a:MainActivity,private val book:JSONObj
  private val clip=Path();private val src=Rect();private val dst=RectF();private val veil=Paint()
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
  override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){clip.reset();clip.addRoundRect(0f,0f,w.toFloat(),h.toFloat(),radius,radius,Path.Direction.CW)}
- override fun onDraw(c:Canvas){
-  ensure();val b=blurred?:return;if(width<1||height<1)return
-  c.save()
-  // Centre-crop the blurred cover to the card, zoomed in a little so only soft colour remains.
+ // Cover and veil are composed once into one small bitmap and painted as ONE anti-aliased rounded rect.
+ // Drawing them as two separately clipped layers let the bright cover leak through the veil's soft edge —
+ // the thin light arcs on the card's corners.
+ private var composed:Bitmap?=null;private var composedKey=""
+ private val fill=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private val m=Matrix()
+ private fun compose(b:Bitmap):Bitmap{val key="${System.identityHashCode(b)}:$width:$height:${a.light}";composed?.takeIf{key==composedKey}?.let{return it}
+  val k=3;val w=(width/k).coerceAtLeast(1);val h=(height/k).coerceAtLeast(1);val out=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);val c=Canvas(out)
   val aspect=width.toFloat()/height;val zoom=1.25f;var sw=b.width/zoom;var sh=sw/aspect;if(sh>b.height/zoom){sh=b.height/zoom;sw=sh*aspect}
   val cx=b.width/2f;val cy=b.height/2f;src.set((cx-sw/2).toInt().coerceAtLeast(0),(cy-sh/2).toInt().coerceAtLeast(0),(cx+sw/2).toInt().coerceAtMost(b.width),(cy+sh/2).toInt().coerceAtMost(b.height))
-  dst.set(0f,0f,width.toFloat(),height.toFloat());c.drawBitmap(b,src,dst,paint)
+  dst.set(0f,0f,w.toFloat(),h.toFloat());c.drawBitmap(b,src,dst,paint)
   // Cover colours on the left melting into the app's usual card grey on the right.
   val base=if(a.light)0xffffffff.toInt() else 0xff242426.toInt();val rgb=base and 0xffffff
-  veil.shader=LinearGradient(0f,0f,width.toFloat(),height*.35f,intArrayOf(rgb or ((if(a.light)0x55 else 0x4d) shl 24),rgb or (0xb0 shl 24),base),floatArrayOf(0f,.42f,.82f),Shader.TileMode.CLAMP)
-  c.drawRect(0f,0f,width.toFloat(),height.toFloat(),veil);c.restore()
+  veil.shader=LinearGradient(0f,0f,w.toFloat(),h*.35f,intArrayOf(rgb or ((if(a.light)0x55 else 0x4d) shl 24),rgb or (0xb0 shl 24),base),floatArrayOf(0f,.42f,.82f),Shader.TileMode.CLAMP)
+  c.drawRect(0f,0f,w.toFloat(),h.toFloat(),veil)
+  composed=out;composedKey=key;return out}
+ override fun onDraw(c:Canvas){
+  ensure();val b=blurred?:return;if(width<1||height<1)return
+  val bmp=compose(b);m.setScale(width/bmp.width.toFloat(),height/bmp.height.toFloat())
+  fill.shader=BitmapShader(bmp,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP).apply{setLocalMatrix(m)}
+  c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),radius,radius,fill)
  }
 }
 
