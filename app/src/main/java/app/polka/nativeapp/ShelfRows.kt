@@ -41,7 +41,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         val end=FrameLayout(a);end.addView(tail,FrameLayout.LayoutParams(-2,-2,Gravity.CENTER_VERTICAL or Gravity.END));end.addView(handle,FrameLayout.LayoutParams(a.d(44),a.d(44),Gravity.CENTER_VERTICAL or Gravity.END))
         head.addView(end,LayoutParams(-2,a.d(44)))
         addView(head,LayoutParams(-1,-2));a.space(this,6)
-        if(list.isEmpty())row.addView(a.text("Пока пусто — добавьте сюда книги",13.5f,a.muted).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(4),0,0,a.d(10))},LayoutParams(-2,coverH*3/4))
+        if(list.isEmpty())row.addView(a.text("Пока пусто — добавьте сюда книги",13.5f,a.muted).apply{gravity=Gravity.TOP;setPadding(a.d(4),a.d(10),0,0)},LayoutParams(-2,coverH*3/4))
         more(7)
         scroller.addView(row);stage.addView(scroller,FrameLayout.LayoutParams(-1,-2))
         scroller.setOnScrollChangeListener{_,_,_,_,_->glass.scrolled()}
