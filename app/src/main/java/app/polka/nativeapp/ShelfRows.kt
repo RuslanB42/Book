@@ -10,19 +10,37 @@ import org.json.JSONObject
  * shelf with screws (the same glass as the shelf tiles) — the glass covers the lower part of the books and stays
  * put while the covers scroll sideways behind it. Tapping the name opens the whole shelf.
  */
-internal class ShelfRow(private val a:MainActivity,private val title:String,private val list:List<JSONObject>,private val open:()->Unit,private val actions:(()->Unit)?):LinearLayout(a){
+internal class ShelfRow(private val a:MainActivity,val key:String,private val title:String,private val list:List<JSONObject>,private val open:()->Unit,private val actions:(()->Unit)?,private val rename:((String)->Unit)?):LinearLayout(a){
     private val coverW=a.d(88);private val coverH=a.d(132)
     private val scroller=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;clipChildren=false}
     private val row=a.row().apply{gravity=Gravity.BOTTOM;clipChildren=false;clipToPadding=false;setPadding(a.d(20),a.d(6),a.d(20),a.d(10))}
     private val glass=Glass()
     private var shown=0
+    // ── edit mode: the header becomes a card with a drag handle, the covers fold away ──
+    private val head=a.row().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(40)}
+    private val card=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(16).toFloat();alpha=0}
+    private val name=a.text(title,17f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
+    private val pen=IconView(a,"pen",a.muted).apply{alpha=0f;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
+    private val tail=a.row().apply{gravity=Gravity.CENTER_VERTICAL}
+    internal val handle=Grip()
+    private val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
+    private val stageFull=(if(list.isEmpty())coverH*3/4 else coverH)+a.d(16)
+    private var progress=0f
+    private var anim:android.animation.ValueAnimator?=null
+    private var field:EditText?=null
+    internal var editing=false;private set
     init{
         orientation=VERTICAL;clipChildren=false;clipToPadding=false
-        val head=a.row().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(40);isClickable=true;setOnClickListener{open()};actions?.let{f->setOnLongClickListener{f();true}};contentDescription="$title, ${MainActivity.countBooks(list.size)}"}
-        head.addView(a.text(title,17f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LayoutParams(0,-2,1f))
-        head.addView(a.text(MainActivity.countBooks(list.size),13f,a.muted));head.addView(IconView(a,"next",a.muted).apply{alpha=.7f},LayoutParams(a.d(18),a.d(18)).apply{leftMargin=a.d(4)})
+        head.background=card;head.isClickable=true;head.contentDescription="$title, ${MainActivity.countBooks(list.size)}"
+        head.setOnClickListener{if(editing){if(rename!=null)startRename()}else open()}
+        actions?.let{f->head.setOnLongClickListener{if(editing)false else{f();true}}}
+        head.addView(name,LayoutParams(-2,-2))
+        head.addView(pen,LayoutParams(a.d(16),a.d(16)).apply{leftMargin=a.d(6)})
+        head.addView(View(a),LayoutParams(0,1,1f))
+        tail.addView(a.text(MainActivity.countBooks(list.size),13f,a.muted));tail.addView(IconView(a,"next",a.muted).apply{alpha=.7f},LayoutParams(a.d(18),a.d(18)).apply{leftMargin=a.d(4)})
+        val end=FrameLayout(a);end.addView(tail,FrameLayout.LayoutParams(-2,-2,Gravity.CENTER_VERTICAL or Gravity.END));end.addView(handle,FrameLayout.LayoutParams(a.d(44),a.d(44),Gravity.CENTER_VERTICAL or Gravity.END))
+        head.addView(end,LayoutParams(-2,a.d(44)))
         addView(head,LayoutParams(-1,-2));a.space(this,6)
-        val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
         if(list.isEmpty())row.addView(a.text("Пока пусто — добавьте сюда книги",13.5f,a.muted).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(4),0,0,a.d(10))},LayoutParams(-2,coverH*3/4))
         more(7)
         scroller.addView(row);stage.addView(scroller,FrameLayout.LayoutParams(-1,-2))
@@ -30,7 +48,46 @@ internal class ShelfRow(private val a:MainActivity,private val title:String,priv
         // The glass view is larger than the glass by its shadow; it never takes touches, so the row still scrolls.
         val glassH=(coverH*.42f).toInt()+a.d(8)
         stage.addView(glass,FrameLayout.LayoutParams(-1,glassH+glass.pad*2,Gravity.BOTTOM).apply{leftMargin=a.d(12)-glass.pad;rightMargin=a.d(12)-glass.pad;bottomMargin=-glass.pad})
-        addView(stage,LayoutParams(-1,-2).apply{leftMargin=-a.d(20);rightMargin=-a.d(20)})
+        addView(stage,LayoutParams(-1,stageFull).apply{leftMargin=-a.d(20);rightMargin=-a.d(20)})
+        apply(0f)
+    }
+    /** Morph between the shelf and its edit card; [delay] staggers the rows. */
+    fun setEditing(on:Boolean,animate:Boolean,delay:Long=0){editing=on;if(!on)commitRename()
+        anim?.cancel();val to=if(on)1f else 0f
+        if(!animate||a.prefs.str("motion")=="reduced"){apply(to);return}
+        val from=progress
+        anim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=460;startDelay=delay;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{apply(it.animatedValue as Float)};start()}}
+    private fun apply(e:Float){progress=e
+        val lp=stage.layoutParams;lp.height=(stageFull*(1-e)).toInt();stage.layoutParams=lp
+        stage.alpha=(1-e*1.6f).coerceIn(0f,1f);stage.scaleY=1f-.08f*e;stage.pivotY=0f
+        card.alpha=(e*255).toInt();val pad=(a.d(14)*e).toInt();head.setPadding(pad,(a.d(6)*e).toInt(),(a.d(4)*e).toInt(),(a.d(6)*e).toInt())
+        tail.alpha=(1-e*2).coerceIn(0f,1f);tail.translationX=-a.d(10)*e
+        handle.alpha=((e-.35f)/.65f).coerceIn(0f,1f);handle.translationX=a.d(14)*(1-e);handle.visibility=if(e>0f)View.VISIBLE else View.INVISIBLE
+        pen.alpha=if(rename==null)0f else ((e-.4f)/.6f).coerceIn(0f,1f)*.8f
+        head.elevation=a.d(if(a.light)3 else 4)*e
+        (layoutParams as? MarginLayoutParams)?.let{m->val idx=(parent as? ViewGroup)?.indexOfChild(this)?:0;val want=if(idx<=0)0 else (a.d(26)+(a.d(10)-a.d(26))*e).toInt();if(m.topMargin!=want){m.topMargin=want;layoutParams=m}}}
+    /** Margins follow the new order after a drag. */
+    fun settleMargin(){apply(progress)}
+    // ── inline rename ──
+    private fun startRename(){if(field!=null)return
+        val f=a.edit(title,"Название полки").apply{setSingleLine(true);textSize=17f;typeface=name.typeface;setTextColor(a.fg);background=null;setPadding(0,0,0,0)
+            imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE;setSelection(text.length)
+            setOnEditorActionListener{_,act,_->if(act==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){commitRename();true}else false}
+            setOnFocusChangeListener{_,has->if(!has)commitRename()}}
+        field=f;val i=head.indexOfChild(name);name.visibility=View.GONE;head.addView(f,i,LayoutParams(0,-2,1f))
+        f.alpha=0f;f.animate().alpha(1f).setDuration(160).start()
+        f.requestFocus();(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(f,0)}
+    private fun commitRename(){val f=field?:return;field=null;val next=f.text.toString().trim()
+        (a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)
+        head.removeView(f);name.visibility=View.VISIBLE
+        if(next.isNotBlank()&&next!=title){name.text=next;rename?.invoke(next)}}
+
+    /** Six-dot grip; dragging it moves the shelf. */
+    internal inner class Grip:View(a){
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+        init{contentDescription="Переместить полку";importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES}
+        override fun onDraw(c:Canvas){p.color=a.muted;val r=a.d(1).toFloat()*1.6f;val gx=a.d(6).toFloat();val gy=a.d(6).toFloat()
+            for(i in 0..1)for(j in -1..1)c.drawCircle(width/2f+(i-.5f)*gx,height/2f+j*gy,r,p)}
     }
 
     // Only the covers that fit on screen are built with the page (a 72-book shelf no longer builds 72 views
@@ -101,15 +158,57 @@ internal class ShelfRow(private val a:MainActivity,private val title:String,priv
     }
 }
 
-/** «Полки»: every shelf as a row of covers on its own coloured plank (saved order kept), then «Новая полка». */
+/** «Полки»: every shelf as a row of covers on our glass shelf, in the saved order. «Изменить» turns the rows into
+ *  cards that can be dragged into a new order and renamed in place. */
 internal fun MainActivity.shelfRows(){
     val byShelf=books.groupBy{it.str("shelf")};val names=(prefs.optJSONArray("shelves")?.strings().orEmpty()+byShelf.keys.filter{it.isNotBlank()}+REC_SHELF).distinct()
     val manual=names.sortedWith(compareByDescending<String>{byShelf[it]?.size ?: 0}.thenBy{it})
-    data class Item(val key:String,val name:String,val list:List<JSONObject>,val open:()->Unit,val actions:(()->Unit)?)
-    val all=manual.map{name->Item("s:$name",name,byShelf[name].orEmpty(),{pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;shelf=name;render(false,false)},{shelfActions(name)})}+
-        listOf("reading","want","done").map{key->Item("a:$key",MainActivity.autoTitle(key),books.groupBy{Library.status(it)}[key].orEmpty(),{pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;auto=key;render(false,false)},null)}
+    data class Item(val key:String,val name:String,val list:List<JSONObject>,val open:()->Unit,val actions:(()->Unit)?,val rename:((String)->Unit)?)
+    val all=manual.map{name->Item("s:$name",name,byShelf[name].orEmpty(),{pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;shelf=name;render(false,false)},{shelfActions(name)},{next:String->renameShelf(name,next)})}+
+        listOf("reading","want","done").map{key->Item("a:$key",MainActivity.autoTitle(key),books.groupBy{Library.status(it)}[key].orEmpty(),{pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;auto=key;render(false,false)},null,null)}
     val saved=prefs.optJSONArray("shelfOrder")?.strings().orEmpty()
     val ordered=all.sortedBy{saved.indexOf(it.key).let{i->if(i<0)Int.MAX_VALUE else i}}
-    ordered.forEachIndexed{i,it->page.addView(ShelfRow(this,it.name,it.list.sortedByDescending{b->maxOf(b.optLong("openedAt"),b.optLong("addedAt"))},it.open,it.actions),LinearLayout.LayoutParams(-1,-2).apply{if(i>0)topMargin=d(26)})}
-    space(page,24);page.addView(button("＋  Новая полка"){createShelf()},LinearLayout.LayoutParams(-1,d(48)))
+    val rows=ordered.map{ShelfRow(this,it.key,it.name,it.list.sortedByDescending{b->maxOf(b.optLong("openedAt"),b.optLong("addedAt"))},it.open,it.actions,it.rename)}
+    rows.forEachIndexed{i,r->page.addView(r,LinearLayout.LayoutParams(-1,-2).apply{if(i>0)topMargin=d(26)})}
+    val editor=ShelfEditor(this,page,rows.toMutableList());shelfEditor=editor
+    if(shelvesEditing)rows.forEach{it.setEditing(true,false)}
+}
+
+/** Drag-to-reorder for the shelf cards in edit mode: the held card lifts and follows the finger, the others slide
+ *  aside with a short glide to show where it will land; on release it settles into the gap and the order is saved. */
+internal class ShelfEditor(private val a:MainActivity,private val page:LinearLayout,private val rows:MutableList<ShelfRow>){
+    private var held:ShelfRow?=null;private var from=0;private var target=0;private var startY=0f;private var slot=1
+    private val glide=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+    init{rows.forEach{r->r.handle.setOnTouchListener{_,e->touch(r,e);true}}}
+    fun setEditing(on:Boolean){a.shelvesEditing=on;rows.forEachIndexed{i,r->r.setEditing(on,true,i*28L)}}
+    private fun touch(r:ShelfRow,e:MotionEvent){if(!r.editing)return
+        when(e.actionMasked){
+            MotionEvent.ACTION_DOWN->{held=r;from=rows.indexOf(r);target=from;startY=e.rawY;slot=r.height+a.d(10)
+                r.parent.requestDisallowInterceptTouchEvent(true);r.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                r.animate().scaleX(1.03f).scaleY(1.03f).translationZ(a.d(14).toFloat()).setDuration(180).setInterpolator(glide).start()}
+            MotionEvent.ACTION_MOVE->{val h=held?:return;val dy=e.rawY-startY;h.translationY=dy
+                val t=(from+Math.round(dy/slot)).coerceIn(0,rows.lastIndex)
+                if(t!=target){target=t;h.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    rows.forEachIndexed{j,o->if(o===h)return@forEachIndexed;val shift=when{j in (from+1)..target-> -slot;j in target until from->slot;else->0}.toFloat()
+                        if(o.translationY!=shift)o.animate().translationY(shift).setDuration(240).setInterpolator(glide).start()}}}
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val h=held?:return;held=null
+                h.animate().translationY(((target-from)*slot).toFloat()).scaleX(1f).scaleY(1f).translationZ(0f).setDuration(260).setInterpolator(glide).withEndAction{drop(h)}.start()}
+        }}
+    /** Put the card where it landed, with no visible jump, and save the order. */
+    private fun drop(h:ShelfRow){if(target!=from){rows.removeAt(from);rows.add(target,h);page.removeView(h);page.addView(h,target)}
+        rows.forEach{it.animate().cancel();it.translationY=0f;it.settleMargin()}
+        a.prefs.put("shelfOrder",org.json.JSONArray(rows.map{it.key}));a.savePreferences()}
+}
+
+/** Top of «Полки»: only «Изменить» on the right. In edit mode it turns into a filled «Готово». */
+internal fun MainActivity.shelvesTopBar():View{
+    val bar=FrameLayout(this)
+    val label=text(if(shelvesEditing)"Готово" else "Изменить",15f,fg,true).apply{gravity=Gravity.CENTER;setPadding(d(18),0,d(18),0);isClickable=true;isFocusable=true;contentDescription="Изменить полки"}
+    fun paint(){val on=shelvesEditing;label.setTextColor(if(on)bg else fg);label.background=if(on)shape(fg,20) else controlSurface(label,20f)}
+    paint();shelvesTopBarLabel=label
+    label.setOnClickListener{val on=!shelvesEditing;shelfEditor?.setEditing(on)
+        label.animate().alpha(0f).scaleX(.92f).scaleY(.92f).setDuration(110).withEndAction{label.text=if(on)"Готово" else "Изменить";paint();label.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
+    press(label)
+    bar.addView(label,FrameLayout.LayoutParams(-2,d(40),Gravity.END or Gravity.CENTER_VERTICAL))
+    return bar
 }

@@ -78,10 +78,14 @@ class RecommendationDeck(val a:MainActivity,val host:LinearLayout,val catalog:JS
     private fun sizeDeck() {
         val deck=activeDeck ?: return; if(!deck.isAttachedToWindow) return
         val pos=IntArray(2); deck.getLocationInWindow(pos); val rootPos=IntArray(2); a.root.getLocationInWindow(rootPos)
-        val barTop=rootPos[1]+a.root.height-a.navigationBottom()-a.d(58); val available=barTop-pos[1]-0-a.d(34)
-        val availableHeight=available.coerceIn(a.d(120),a.d(600));val width=minOf(((availableHeight-a.d(28))/1.5f).toInt(),(deck.width*.8f).toInt().coerceAtLeast(a.d(100)))
+        // Measure from where the deck would sit without its centring margin, so re-measuring never drifts.
+        val lp=deck.layoutParams as LinearLayout.LayoutParams; val top0=pos[1]-lp.topMargin
+        val barTop=rootPos[1]+a.root.height-a.navigationBottom()-a.d(58); val available=barTop-top0-a.d(34)
+        val availableHeight=available.coerceIn(a.d(120),a.d(600));val width=minOf(((availableHeight-a.d(28))/1.5f).toInt(),(deck.width*.72f).toInt().coerceAtLeast(a.d(100)))
         val coverH=(width*1.5f).toInt();val height=coverH+a.d(28)
-        if(deck.layoutParams.height!=height)deck.layoutParams=deck.layoutParams.apply { this.height=height }
+        // The deck sits in the middle of the free space between the header line and the tab bar.
+        val margin=((available-height)/2).coerceAtLeast(0)
+        if(lp.height!=height||lp.topMargin!=margin)deck.layoutParams=lp.apply { this.height=height; topMargin=margin }
         for(i in 0 until deck.childCount) { val child=deck.getChildAt(i); if(child is RecommendationCard && (child.layoutParams.width!=width || child.layoutParams.height!=coverH)) child.layoutParams=(child.layoutParams as FrameLayout.LayoutParams).apply { this.width=width; this.height=coverH } }
     }
     private fun fill(first:Boolean=false,undo:Undo?=null) {
