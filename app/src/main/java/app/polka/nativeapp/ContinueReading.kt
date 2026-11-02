@@ -70,6 +70,9 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   v.background=GradientDrawable().apply{setColor(if(light)Color.WHITE else 0xff242426.toInt());cornerRadius=radius}
   v.elevation=a.d(if(light)8 else 10).toFloat()
   v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,radius)}}
+  // Clip children to the anti-aliased outline: the backdrop no longer clips itself with an aliased path,
+  // which left jagged light fringes of the card background on the rounded corners.
+  v.clipToOutline=true
   if(Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();v.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
  }
  private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,13.5f,if(primary)a.bg else a.fg,true).apply{
@@ -118,7 +121,7 @@ internal class CoverBackdrop(private val a:MainActivity,private val book:JSONObj
  override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){clip.reset();clip.addRoundRect(0f,0f,w.toFloat(),h.toFloat(),radius,radius,Path.Direction.CW)}
  override fun onDraw(c:Canvas){
   ensure();val b=blurred?:return;if(width<1||height<1)return
-  c.save();c.clipPath(clip)
+  c.save()
   // Centre-crop the blurred cover to the card, zoomed in a little so only soft colour remains.
   val aspect=width.toFloat()/height;val zoom=1.25f;var sw=b.width/zoom;var sh=sw/aspect;if(sh>b.height/zoom){sh=b.height/zoom;sw=sh*aspect}
   val cx=b.width/2f;val cy=b.height/2f;src.set((cx-sw/2).toInt().coerceAtLeast(0),(cy-sh/2).toInt().coerceAtLeast(0),(cx+sw/2).toInt().coerceAtMost(b.width),(cy+sh/2).toInt().coerceAtMost(b.height))
