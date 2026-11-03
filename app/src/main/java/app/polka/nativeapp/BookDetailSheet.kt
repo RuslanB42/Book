@@ -162,7 +162,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   super.dispatchDraw(c)
   val v=flight?.takeIf{it.visibility==View.VISIBLE}?:return
   // Over its own shelf the cover is behind the glass: the pane draws it through its lens; leave that part out here.
-  val at=IntArray(2);getLocationOnScreen(at);ShelfGlassLink.move(at[0]+v.x,at[1]+v.y,v.scaleX)
+  val at=IntArray(2);getLocationOnScreen(at)
   val save=c.save();ShelfGlassLink.pane?.paneRectOnScreen()?.let{r->r.offset(-at[0].toFloat(),-at[1].toFloat());c.clipOutRect(r)}
   c.translate(v.x,v.y);c.scale(v.scaleX,v.scaleY);v.draw(c);c.restoreToCount(save)
   val amount=landingLight(presentation)
@@ -183,7 +183,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  private fun rect(v:View):RectF{val at=IntArray(2);val root=IntArray(2);v.getLocationOnScreen(at);getLocationOnScreen(root);return RectF((at[0]-root[0]).toFloat(),(at[1]-root[1]).toFloat(),(at[0]-root[0]+v.width).toFloat(),(at[1]-root[1]+v.height).toFloat())}
  private fun cover(v:View?):CoverView?{if(v is CoverView)return v;if(v is ViewGroup)for(i in 0 until v.childCount)cover(v.getChildAt(i))?.let{return it};return null}
  private var originCover:CoverView?=null
- private fun setupFlight(){val src=cover(source);originCover=src;if(reduced()||src==null||!src.isAttachedToWindow||src.width<=0)return;from=rect(src);to=rect(heroCover).apply{offset(0f,-panel.translationY)};if(from.bottom<0||from.top>height||closing&&(to.bottom<0||to.top>height))return;base=maxOf(from.width(),to.width());val v=CoverView(a,book,a.cover(book)).apply{softShadow=src.softShadow;stackShadow=src.stackShadow};flight=v;addView(v,LayoutParams(base.toInt(),(base*1.5f).toInt()));v.measure(MeasureSpec.makeMeasureSpec(base.toInt(),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec((base*1.5f).toInt(),MeasureSpec.EXACTLY));v.layout(0,0,v.measuredWidth,v.measuredHeight);v.pivotX=0f;v.pivotY=0f;src.visibility=View.INVISIBLE;ShelfGlassLink.begin(src,v);ShelfGlassLink.coverToggled(src);heroCover.visibility=View.INVISIBLE}
+ private fun setupFlight(){val src=cover(source);originCover=src;if(reduced()||src==null||!src.isAttachedToWindow||src.width<=0)return;from=rect(src);to=rect(heroCover).apply{offset(0f,-panel.translationY)};if(from.bottom<0||from.top>height||closing&&(to.bottom<0||to.top>height))return;base=maxOf(from.width(),to.width());val v=CoverView(a,book,a.cover(book)).apply{softShadow=src.softShadow;stackShadow=src.stackShadow};flight=v;addView(v,LayoutParams(base.toInt(),(base*1.5f).toInt()));v.measure(MeasureSpec.makeMeasureSpec(base.toInt(),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec((base*1.5f).toInt(),MeasureSpec.EXACTLY));v.layout(0,0,v.measuredWidth,v.measuredHeight);v.pivotX=0f;v.pivotY=0f;src.visibility=View.INVISIBLE;ShelfGlassLink.begin(src,v);heroCover.visibility=View.INVISIBLE}
  // Exactly the same positional progress drives the cover and its attached light.
  // Broader landing window + cubic easing avoids concentrating brightness into a few frames.
  // No second timer: pausing/reversing the gesture preserves the identical light state.
@@ -192,6 +192,8 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  private var presentation=0f
  private fun pose(q0:Float){val q=q0.coerceIn(0f,1f);presentation=q;panel.alpha=1f;panel.translationY=panel.height*(1-q);scrim.alpha=q;heroGlow.alpha=landingLight(q)
   flight?.let{v->v.translationX=from.left+(to.left-from.left)*q;v.translationY=from.top+(to.top-from.top)*q;v.scaleX=(from.width()+(to.width()-from.width())*q)/base;v.scaleY=v.scaleX
+   // same frame for the shelf glass: it draws the part of the cover that is behind it
+   run{val at=IntArray(2);getLocationOnScreen(at);ShelfGlassLink.move(at[0]+v.x,at[1]+v.y,v.scaleX)}
    val heroRect=rect(heroCover);heroGlow.pivotX=heroCover.left-heroGlow.left+heroCover.width*.5f;heroGlow.pivotY=heroCover.top-heroGlow.top+heroCover.height*.5f;heroGlow.scaleX=wFor(q)/heroCover.width;heroGlow.scaleY=heroGlow.scaleX;heroGlow.translationX=v.translationX+wFor(q)*.5f-heroRect.centerX();heroGlow.translationY=v.translationY+wFor(q)*.75f-heroRect.centerY()
   }
   // Manual overlay transform must re-record the parent display list every frame.
@@ -223,7 +225,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
    };return true
   }
  }
- private fun clearFlight(){heroGlow.alpha=1f;heroGlow.translationX=0f;heroGlow.translationY=0f;heroGlow.scaleX=1f;heroGlow.scaleY=1f;flight?.let{removeView(it)};flight=null;ShelfGlassLink.end();originCover?.let{it.visibility=View.VISIBLE;ShelfGlassLink.coverToggled(it)};heroCover.visibility=View.VISIBLE}
+ private fun clearFlight(){heroGlow.alpha=1f;heroGlow.translationX=0f;heroGlow.translationY=0f;heroGlow.scaleX=1f;heroGlow.scaleY=1f;flight?.let{removeView(it)};flight=null;ShelfGlassLink.end();originCover?.visibility=View.VISIBLE;heroCover.visibility=View.VISIBLE}
  fun dismiss(){if(closing||ended)return;closing=true;freezeMotion();if(reduced()||!begun){finish();return};if(flight==null)setupFlight();animateTo(0f)}
  val bookId get()=book.str("id")
  /** The book is gone (deleted): no cover flight back to the grid; the sheet sinks away, the cover shrinks out with it. */

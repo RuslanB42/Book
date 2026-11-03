@@ -24,6 +24,8 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
     private val tail=a.row().apply{gravity=Gravity.CENTER_VERTICAL}
     internal val handle=Grip()
     private val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
+    /** The covers live in this layer; on Android 13+ the glass bends it live on the GPU (a RenderEffect). */
+    private val lensHost=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
     private val stageFull=(if(list.isEmpty())coverH*3/4 else coverH)+a.d(16)
     private var progress=0f
     private var anim:android.animation.ValueAnimator?=null
@@ -43,7 +45,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         addView(head,LayoutParams(-1,-2));a.space(this,6)
         if(list.isEmpty())row.addView(a.text("Пока пусто — добавьте сюда книги",13.5f,a.muted).apply{gravity=Gravity.TOP;setPadding(a.d(4),a.d(10),0,0)},LayoutParams(-2,coverH*3/4))
         more(7)
-        scroller.addView(row);stage.addView(scroller,FrameLayout.LayoutParams(-1,-2))
+        scroller.addView(row);lensHost.addView(scroller,FrameLayout.LayoutParams(-1,-2));stage.addView(lensHost,FrameLayout.LayoutParams(-1,-1))
         scroller.setOnScrollChangeListener{_,_,_,_,_->glass.scrolled()}
         // The glass view is larger than the glass by its shadow; it never takes touches, so the row still scrolls.
         val glassH=(coverH*.42f).toInt()+a.d(8)
@@ -123,32 +125,22 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         private val meshPaint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         private val bevel=a.d(10).toFloat();private val reach=a.d(6).toFloat();private val seam=a.d(3).toFloat()
         private var topStrip:Bitmap?=null;private var bottomStrip:Bitmap?=null;private var stripScale=1f;private var queued=false;private var x0=0;private var x1=0
-        // Android 13+: the whole pane is a liquid-glass lens drawn by a pixel shader over a snapshot of the row.
-        private val liquid=android.os.Build.VERSION.SDK_INT>=33
-        private var pane:Bitmap?=null;private val margin=a.d(12).toFloat()
-        private val lens:Any? = if(liquid) LiquidGlass.shader() else null
-        private val lensPaint=Paint(Paint.ANTI_ALIAS_FLAG)
+        // Android 13+: the covers' layer is bent live by the lens (LiquidGlass); this view only adds shadow, sheen, rim and screws.
+        private val liquid get()=LiquidGlass.available
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-        fun refresh(){if(queued)return;queued=true;postDelayed(settle,140)}
+        fun refresh(){if(liquid){return};if(queued)return;queued=true;postDelayed(settle,140)}
         // ── a cover flying to / from the book card passes behind this glass (see ShelfGlassLink) ──
         override val home:View get()=this@ShelfRow
-        override fun paneRectOnScreen():RectF?{if(!isAttachedToWindow||LiquidGlass.failed)return null;val at=IntArray(2);getLocationOnScreen(at);return RectF(at[0]+pad.toFloat(),at[1]+pad.toFloat(),at[0]+width-pad.toFloat(),at[1]+height-pad.toFloat())}
-        override fun recapture(){if(isAttachedToWindow&&width>0&&row.width>0&&!row.isLayoutRequested){capture();invalidate()}else refresh()}
-        override fun ghostMoved()=invalidate()
-        private var comp:Bitmap?=null;private var compCanvas:Canvas?=null
-        /** The pane snapshot plus the flying cover where it is now, around the visible glass. */
-        private fun composite(pb:Bitmap,g:RectF,dx:Float):Bitmap{val m=margin.toInt()
-            val w=g.width().toInt()+2*m;val h=g.height().toInt()+2*m
-            val bmp=comp?.takeIf{it.width==w&&it.height==h}?:Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888).also{comp?.recycle();comp=it;compCanvas=Canvas(it).apply{drawFilter=PaintFlagsDrawFilter(0,Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)}}
-            val c=compCanvas!!;bmp.eraseColor(0)
-            c.drawBitmap(pb,dx+x0-g.left+m,0f,null)
-            val ghost=ShelfGlassLink.ghost;if(ghost!=null){val at=IntArray(2);getLocationOnScreen(at)
-                c.save();c.translate(ShelfGlassLink.ghostRect.left-at[0]-g.left+m,ShelfGlassLink.ghostRect.top-at[1]-g.top+m);c.scale(ShelfGlassLink.ghostScale,ShelfGlassLink.ghostScale);ghost.draw(c);c.restore()}
-            return bmp}
+        override val layer:View get()=lensHost
+        override fun paneRectOnScreen():RectF?{if(!isAttachedToWindow||!liquid)return null;val at=IntArray(2);getLocationOnScreen(at);return RectF(at[0]+pad.toFloat(),at[1]+pad.toFloat(),at[0]+width-pad.toFloat(),at[1]+height-pad.toFloat())}
+        private fun applyLens(){if(!liquid){LiquidGlass.apply(lensHost,null,0f,a.light,1f);return}
+            // the pane in lensHost coordinates (both are children of the stage)
+            val r=RectF((left+pad-lensHost.left).toFloat(),(top+pad-lensHost.top).toFloat(),(right-pad-lensHost.left).toFloat(),(bottom-pad-lensHost.top).toFloat())
+            LiquidGlass.apply(lensHost,r,a.d(9).toFloat(),a.light,resources.displayMetrics.density)}
         /** Strips cover about three screens around the visible part; leaving that window re-snaps at once (a few ms). */
-        fun scrolled(){val sx=scroller.scrollX;val w=scroller.width;if((topStrip!=null||pane!=null)&&(sx<x0&&x0>0||sx+w>x1&&x1<row.width)&&!row.isLayoutRequested)capture();invalidate()}
+        fun scrolled(){if(liquid){return};val sx=scroller.scrollX;val w=scroller.width;if(topStrip!=null&&(sx<x0&&x0>0||sx+w>x1&&x1<row.width)&&!row.isLayoutRequested)capture();invalidate()}
         override fun onTouchEvent(e:MotionEvent)=false
-        override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(changed)refresh()}
+        override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(changed){applyLens();refresh()}}
         private val settle=object:Runnable{override fun run(){if(!isAttachedToWindow){queued=false;return}
             if(row.isLayoutRequested||row.width<1||width<1){postDelayed(this,48);return}
             queued=false;capture();invalidate()}}
@@ -160,7 +152,6 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             fun shot(y0:Float,y1:Float):Bitmap{val w=x1-x0;val h=(y1-y0).toInt().coerceAtLeast(1)
                 val bmp=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);val c=Canvas(bmp);c.drawFilter=PaintFlagsDrawFilter(0,Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
                 c.translate(-x0.toFloat(),-(y0+offY));row.draw(c);return bmp}
-            if(liquid&&!LiquidGlass.failed){val old=pane;pane=shot(gTop-margin,gBottom+margin);old?.recycle();return}
             val oldT=topStrip;val oldB=bottomStrip
             // each strip reaches [seam] px past its inner edge, so the seam is sampled from real pixels, not from the
             // bitmap border (which blended with transparency and drew a grey line across light covers)
@@ -215,23 +206,15 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         override fun onDraw(c:Canvas){if(width<1||height<1)return;statics()
             under?.let{c.drawBitmap(it,0f,0f,null)}
             val dx=(scroller.left+row.left-scroller.scrollX-left).toFloat()
-            val pb=pane
-            if(liquid&&!LiquidGlass.failed&&pb!=null&&!pb.isRecycled&&lens!=null){
-                val g=RectF(pad.toFloat(),pad.toFloat(),(width-pad).toFloat(),(height-pad).toFloat())
-                c.save();c.translate(g.left,g.top)
-                if(ShelfGlassLink.pane===this&&ShelfGlassLink.ghost!=null)LiquidGlass.bind(lens,lensPaint,composite(pb,g,dx),-margin,-margin,g.width(),g.height(),a.d(9).toFloat(),a.bg,a.light,resources.displayMetrics.density)
-                else LiquidGlass.bind(lens,lensPaint,pb,dx+x0-g.left,-margin,g.width(),g.height(),a.d(9).toFloat(),a.bg,a.light,resources.displayMetrics.density)
-                if(LiquidGlass.failed){c.restore();refresh();invalidate();return}
-                c.drawRoundRect(0f,0f,g.width(),g.height(),a.d(9).toFloat(),a.d(9).toFloat(),lensPaint);c.restore()
-                over?.let{c.drawBitmap(it,0f,0f,null)};return}
+            if(liquid){over?.let{c.drawBitmap(it,0f,0f,null)};return}
             c.save();c.clipPath(clip)
             topStrip?.takeIf{!it.isRecycled}?.let{strip(c,it,true,dx)}
             bottomStrip?.takeIf{!it.isRecycled}?.let{strip(c,it,false,dx)}
             c.restore()
             over?.let{c.drawBitmap(it,0f,0f,null)}
         }
-        override fun onAttachedToWindow(){super.onAttachedToWindow();if(liquid&&lens!=null)ShelfGlassLink.register(this);refresh()}
-        override fun onDetachedFromWindow(){ShelfGlassLink.unregister(this);comp?.recycle();comp=null;compCanvas=null;removeCallbacks(settle);queued=false;topStrip?.recycle();bottomStrip?.recycle();topStrip=null;bottomStrip=null;pane?.recycle();pane=null;under=null;over=null;staticKey="";super.onDetachedFromWindow()}
+        override fun onAttachedToWindow(){super.onAttachedToWindow();if(liquid)ShelfGlassLink.register(this);applyLens();refresh()}
+        override fun onDetachedFromWindow(){ShelfGlassLink.unregister(this);removeCallbacks(settle);queued=false;topStrip?.recycle();bottomStrip?.recycle();topStrip=null;bottomStrip=null;under=null;over=null;staticKey="";super.onDetachedFromWindow()}
     }
 
 
