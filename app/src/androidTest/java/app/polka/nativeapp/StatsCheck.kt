@@ -31,6 +31,7 @@ class StatsCheck {
             a.tab="home";a.render();a.window.decorView.tag=data}
         Thread.sleep(2500)
         scenario.onActivity{a->StatisticsScreen(a,a.window.decorView.tag as JSONObject,0,false).show()}
+        scenario.onActivity{a->(a.profileOverlay as? android.widget.ScrollView)?.scrollTo(0,0)}
         shot("0-top")
         scenario.onActivity{a->(a.profileOverlay as? android.widget.ScrollView)?.let{it.scrollTo(0,it.getChildAt(0).height/3)}}
         shot("0-mid")

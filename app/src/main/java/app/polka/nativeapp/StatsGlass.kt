@@ -14,12 +14,12 @@ internal class GlassCardDrawable(private val a:MainActivity,private val radius:F
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val r=RectF()
     override fun draw(c:Canvas){val b=bounds;if(b.width()<=0)return;r.set(b);val light=a.light
         p.shader=null;p.style=Paint.Style.FILL;p.color=if(light)0xffffffff.toInt() else 0xff1b1b1d.toInt();c.drawRoundRect(r,radius,radius,p)
-        p.shader=LinearGradient(r.left,r.top,r.right,r.bottom,
+        p.color=Color.WHITE;p.shader=LinearGradient(r.left,r.top,r.right,r.bottom,
             if(light)intArrayOf(0x00ffffff,0x05000000,0x02000000) else intArrayOf(0x14ffffff,0x05ffffff,0x09ffffff),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
         c.drawRoundRect(r,radius,radius,p);p.shader=null
         val d=a.d(1).toFloat();p.style=Paint.Style.STROKE;p.strokeWidth=d
         p.color=if(light)0x12000000 else 0x17ffffff;c.drawRoundRect(RectF(r.left+d/2,r.top+d/2,r.right-d/2,r.bottom-d/2),radius-d/2,radius-d/2,p)
-        if(!light){p.shader=LinearGradient(r.left,0f,r.right,0f,intArrayOf(0x00ffffff,0x1fffffff,0x00ffffff),null,Shader.TileMode.CLAMP)
+        if(!light){p.color=Color.WHITE;p.shader=LinearGradient(r.left,0f,r.right,0f,intArrayOf(0x00ffffff,0x1fffffff,0x00ffffff),null,Shader.TileMode.CLAMP)
             c.save();c.clipRect(r.left,r.top,r.right,r.top+radius);c.drawRoundRect(RectF(r.left+d,r.top+d,r.right-d,r.bottom),radius-d,radius-d,p);c.restore();p.shader=null}
         p.style=Paint.Style.FILL}
     override fun setAlpha(alpha:Int){}
@@ -69,7 +69,7 @@ internal class DayBars(private val a:MainActivity,private val values:List<Double
         p.style=Paint.Style.STROKE;p.strokeWidth=a.d(1).toFloat()*1.4f;p.color=if(light)0x2e000000 else 0x2effffff;p.pathEffect=DashPathEffect(floatArrayOf(a.d(4).toFloat(),a.d(4).toFloat()),0f)
         c.drawLine(0f,ay,width.toFloat(),ay,p);p.pathEffect=null;p.style=Paint.Style.FILL
         tp.color=a.muted;tp.textAlign=Paint.Align.LEFT;c.drawText(averageText,0f,ay-a.d(5),tp)
-        for(i in values.indices){val cx=sl*i+sl/2;val v=(values[i]/max*h).toFloat()*grow;val bh=max(v,bw*.0f+a.d(3).toFloat()*grow)
+        for(i in values.indices){p.color=Color.WHITE;val cx=sl*i+sl/2;val v=(values[i]/max*h).toFloat()*grow;val bh=max(v,bw*.0f+a.d(3).toFloat()*grow)
             val rect=RectF(cx-bw/2,bottom-max(bh,bw*.0f),cx+bw/2,bottom);if(rect.height()<bw)rect.top=bottom-max(rect.height(),a.d(3).toFloat())
             val on=i==selected
             if(on){p.shader=RadialGradient(cx,rect.centerY(),max(bw*1.6f,rect.height()*.7f),intArrayOf((accent and 0xffffff) or 0x55000000,accent and 0xffffff),null,Shader.TileMode.CLAMP);c.drawCircle(cx,rect.centerY(),max(bw*1.6f,rect.height()*.7f),p)}

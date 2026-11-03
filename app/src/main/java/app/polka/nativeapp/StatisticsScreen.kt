@@ -116,9 +116,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     }
     // ───────────────────────── glass cards ─────────────────────────
     /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
-    private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f):TextView{
+    private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f,firstOnly:Boolean=false):TextView{
         val tv=a.text("",size,a.fg).apply{typeface=Typeface.create("sans-serif-light",Typeface.NORMAL);letterSpacing=-.03f;includeFontPadding=false}
         fun styled(t:String):CharSequence{val sp=android.text.SpannableString(t);var i=0
+            if(firstOnly){val k=t.indexOfFirst{!it.isDigit()};if(k>0){sp.setSpan(android.text.style.RelativeSizeSpan(unitScale),k,t.length,0);sp.setSpan(android.text.style.ForegroundColorSpan(captionInk),k,t.length,0)};return sp}
             while(i<t.length){if(!t[i].isDigit()&&t[i]!=' '){var j=i;while(j<t.length&&!t[j].isDigit())j++
                 sp.setSpan(android.text.style.RelativeSizeSpan(unitScale),i,j,0);sp.setSpan(android.text.style.ForegroundColorSpan(captionInk),i,j,0);i=j}else i++};return sp}
         tv.text=styled(text)
@@ -212,7 +213,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             val colors=books.take(slots).mapIndexed{i,f->a.spineColor(f.book,i)}.ifEmpty{listOf(0xffc0563c.toInt(),0xff2f6fb0.toInt(),0xffe2b33c.toInt(),0xff3a7d5c.toInt())}
             goal.addView(GoalStack(a,filled,slots,colors.reversed(),motionOn).apply{contentDescription=null},LinearLayout.LayoutParams(-1,a.d(110)).apply{leftMargin=a.d(14)})
             goal.addView(View(a),LinearLayout.LayoutParams(1,0,1f))
-            if(target>0){val line=a.line().apply{gravity=Gravity.BOTTOM};line.addView(big("$done из $target",36f,done,.47f));goal.addView(line);space(goal,5)
+            if(target>0){val line=a.line().apply{gravity=Gravity.BOTTOM};line.addView(big("$done из $target",36f,done,.47f,firstOnly=true));goal.addView(line);space(goal,5)
                 goal.addView(label(if(done>=target)"цель достигнута" else "ещё ${target-done} ${MainActivity.countBooks(target-done).substringAfter(' ')} · ${(done*100.0/target).roundToInt()}%",12f,if(light)0xff5d5d62.toInt() else 0xffbdbdc2.toInt()))}
             else{goal.addView(label("Цель не задана",17f,a.fg));space(goal,4);goal.addView(label("Настройки → «Чтение» → «Цель на год»",11.5f))}
             goal.contentDescription="Цель на $goalYear: $done из $target книг"}
