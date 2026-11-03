@@ -13,13 +13,13 @@ import kotlin.math.*
 internal class GlassCardDrawable(private val a:MainActivity,private val radius:Float):Drawable(){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val r=RectF()
     override fun draw(c:Canvas){val b=bounds;if(b.width()<=0)return;r.set(b);val light=a.light
-        p.shader=null;p.style=Paint.Style.FILL;p.color=if(light)0xffffffff.toInt() else 0xff151517.toInt();c.drawRoundRect(r,radius,radius,p)
+        p.shader=null;p.style=Paint.Style.FILL;p.color=if(light)0xffffffff.toInt() else 0xff1e1e20.toInt();c.drawRoundRect(r,radius,radius,p)
         p.color=Color.WHITE;p.shader=LinearGradient(r.left,r.top,r.right,r.bottom,
-            if(light)intArrayOf(0x00ffffff,0x05000000,0x02000000) else intArrayOf(0x1effffff,0x06ffffff,0x0bffffff),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
+            if(light)intArrayOf(0x00ffffff,0x05000000,0x02000000) else intArrayOf(0x0cffffff,0x02ffffff,0x04ffffff),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
         c.drawRoundRect(r,radius,radius,p);p.shader=null
         val d=a.d(1).toFloat();p.style=Paint.Style.STROKE;p.strokeWidth=d
-        p.color=if(light)0x12000000 else 0x1cffffff;c.drawRoundRect(RectF(r.left+d/2,r.top+d/2,r.right-d/2,r.bottom-d/2),radius-d/2,radius-d/2,p)
-        if(!light){p.color=Color.WHITE;p.shader=LinearGradient(r.left,0f,r.right,0f,intArrayOf(0x00ffffff,0x30ffffff,0x00ffffff),null,Shader.TileMode.CLAMP)
+        p.color=if(light)0x12000000 else 0x14ffffff;c.drawRoundRect(RectF(r.left+d/2,r.top+d/2,r.right-d/2,r.bottom-d/2),radius-d/2,radius-d/2,p)
+        if(!light){p.color=Color.WHITE;p.shader=LinearGradient(r.left,0f,r.right,0f,intArrayOf(0x00ffffff,0x1cffffff,0x00ffffff),null,Shader.TileMode.CLAMP)
             c.save();c.clipRect(r.left,r.top,r.right,r.top+radius);c.drawRoundRect(RectF(r.left+d,r.top+d,r.right-d,r.bottom),radius-d,radius-d,p);c.restore();p.shader=null}
         p.style=Paint.Style.FILL}
     override fun setAlpha(alpha:Int){}
@@ -48,7 +48,7 @@ internal class FlameOrb(private val a:MainActivity,private val lit:Boolean,priva
     override fun onDraw(c:Canvas){if(width<1||height<1)return
         val layer=if(fade>0f)c.saveLayer(0f,0f,width.toFloat(),height.toFloat(),null) else -1
         val s=scale(width.toFloat(),height.toFloat());c.save();c.translate(width-92f*s,height-106f*s);c.scale(s,s)
-        val breathe=1f+.022f*sin(t);val sway=1.2f*sin(t*.5f)
+        val breathe=1f+.012f*sin(t);val sway=.6f*sin(t*.5f)
         c.save();c.scale(1f,breathe,55f,112f);c.skew(sway/100f,0f)
         p.shader=RadialGradient(56f,88f,52f,intArrayOf(if(lit)0x99ff5a1e.toInt() else 0x30808080,0x00ff5a1e),null,Shader.TileMode.CLAMP);c.drawCircle(56f,88f,52f,p)
         p.shader=if(lit)RadialGradient(52f,92f,80f,intArrayOf(0xfffff6d0.toInt(),0xffffc04a.toInt(),0xffff6a2a.toInt(),0xffe0381e.toInt(),0xffb8241a.toInt()),floatArrayOf(0f,.26f,.58f,.86f,1f),Shader.TileMode.CLAMP)
@@ -66,7 +66,7 @@ internal class DayBars(private val a:MainActivity,private val values:List<Double
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=a.d(11).toFloat();typeface=Typeface.create("sans-serif",Typeface.NORMAL)}
     private var selected=initial.coerceIn(0,max(0,values.lastIndex));private var grow=if(motion)0f else 1f
     init{contentDescription=tips.getOrNull(selected).orEmpty();isClickable=true}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(grow<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=700;startDelay=180;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{grow=it.animatedValue as Float;invalidate()};start()}}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(grow<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=520;startDelay=140;interpolator=Ease.outExpo;addUpdateListener{grow=it.animatedValue as Float;invalidate()};start()}}
     private val top get()=a.d(30).toFloat();private val bottom get()=height-a.d(22).toFloat()
     private val restColors get()=if(a.light)intArrayOf(0xffc4b6f7.toInt(),0xffe6e0fb.toInt()) else intArrayOf(0xff6a5aa6.toInt(),0xff2f2949.toInt())
     private val selectedColors get()=if(a.light)intArrayOf(0xff8d6cf5.toInt(),0xff6a47e8.toInt()) else intArrayOf(0xffe0d6ff.toInt(),0xff7c5cff.toInt())
@@ -84,7 +84,8 @@ internal class DayBars(private val a:MainActivity,private val values:List<Double
         for(i in values.indices){p.color=Color.WHITE;val cx=sl*i+sl/2;val v=(values[i]/max*h).toFloat()*grow;val bh=max(v,bw*.0f+a.d(3).toFloat()*grow)
             val rect=RectF(cx-bw/2,bottom-bh,cx+bw/2,bottom);if(rect.height()<a.d(6)*grow)rect.top=bottom-a.d(6)*grow
             val on=i==selected
-            if(on){val g=bw*.55f;for(k in 1..3){val inflate=g*k/3f;p.color=(glowTint and 0xffffff) or ((if(light)0x16 else 0x22) shl 24);c.drawRoundRect(rect.left-inflate,rect.top-inflate,rect.right+inflate,rect.bottom+inflate,bw/2+inflate,bw/2+inflate,p)};p.color=Color.WHITE}
+            if(on&&!light){val rx=min(sl*.75f,bw*2.2f);val ry=max(rect.height()/2+bw*.9f,rx);c.save();c.translate(cx,rect.centerY());c.scale(1f,ry/rx)
+                p.shader=RadialGradient(0f,0f,rx,intArrayOf((glowTint and 0xffffff) or 0x47000000,(glowTint and 0xffffff) or 0x14000000,glowTint and 0xffffff),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP);c.drawCircle(0f,0f,rx,p);p.shader=null;c.restore()}
             p.shader=LinearGradient(0f,rect.top,0f,rect.bottom,if(on)selectedColors else restColors,null,Shader.TileMode.CLAMP)
             c.drawRoundRect(rect,bw/2,bw/2,p);p.shader=null
             if(!sparseLabels||i==0||i==values.lastIndex||on||(i+1)%5==0){tp.textAlign=Paint.Align.CENTER;tp.color=if(on)a.fg else a.muted;tp.isFakeBoldText=on;c.drawText(labels[i],cx,height-a.d(4).toFloat(),tp);tp.isFakeBoldText=false}
@@ -100,7 +101,7 @@ internal class DayBars(private val a:MainActivity,private val values:List<Double
 /** The annual goal as a small stack of books: read ones in their cover colours (with a page block), the rest dashed. */
 internal class GoalStack(private val a:MainActivity,private val filled:Int,private val slots:Int,private val colors:List<Int>,private val motion:Boolean):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var drop=if(motion)0f else 1f
-    private val settle=Spring.of(.38,420.0).interpolator
+    private val settle=Ease.outCubic
     private val offsets=intArrayOf(6,0,10,2,8,4,0,6);private val widths=floatArrayOf(.94f,1f,.88f,.96f,.9f,.92f,.86f,.9f)
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(drop<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=260L+filled*90L;startDelay=200;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{drop=it.animatedValue as Float;invalidate()};start()}}

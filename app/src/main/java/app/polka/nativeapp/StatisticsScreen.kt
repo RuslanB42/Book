@@ -104,16 +104,15 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     fun show() {
         val extra=max(0,(a.resources.configuration.screenWidthDp-640)/2)
         scroll.clipToPadding=true;a.followInsets(content) { i->scroll.setPadding(0,i.top,0,0);content.setPadding(a.d(16+extra)+i.left,a.d(8),a.d(16+extra)+i.right,a.d(40)+i.bottom) }
-        scroll.background=if(light)android.graphics.drawable.ColorDrawable(a.bg) else GradientDrawable().apply{gradientType=GradientDrawable.RADIAL_GRADIENT;colors=intArrayOf(0xff202024.toInt(),0xff111112.toInt());gradientRadius=a.resources.displayMetrics.widthPixels*1.3f;setGradientCenter(.5f,0f)};scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
+        scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
         streak();readingTime();pair();speed()
         if(motionOn) {
             // Cards rise one after another over a page that only fades in.
             // anime.js-style: a stagger wave (outQuad spacing) and a gentle spring for the rise
-            val spring=Spring.gentle;val delays=Stagger.delays(entrance.size,70,start=90,ease=Ease.outQuad)
-            entrance.forEachIndexed{i,v->v.alpha=0f;v.translationY=a.d(26).toFloat();v.animate().translationY(0f).setStartDelay(delays[i]).setDuration(spring.duration).setInterpolator(spring.interpolator).start()
-                v.animate().alpha(1f).setStartDelay(delays[i]).setDuration(spring.duration).setInterpolator(spring.interpolator).start()}
+            val delays=Stagger.delays(entrance.size,55,start=60,ease=Ease.outQuad)
+            entrance.forEachIndexed{i,v->v.alpha=0f;v.translationY=a.d(14).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(delays[i]).setDuration(420).setInterpolator(Ease.outCubic).start()}
         }
     }
     // ───────────────────────── glass cards ─────────────────────────
@@ -128,7 +127,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         if(countTo!=null&&countTo>0&&motionOn){val fmt=text.replaceFirst(countTo.toString(),"%d")
             tv.minWidth=ceil(android.text.Layout.getDesiredWidth(styled(text),tv.paint)).toInt();tv.text=styled(String.format(fmt,0))
             tv.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false
-                override fun onViewAttachedToWindow(v:View){if(done)return;done=true;android.animation.ValueAnimator.ofInt(0,countTo).apply{duration=900;startDelay=220;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{tv.text=styled(String.format(fmt,it.animatedValue as Int))};start()}}
+                override fun onViewAttachedToWindow(v:View){if(done)return;done=true;android.animation.ValueAnimator.ofInt(0,countTo).apply{duration=650;startDelay=160;interpolator=Ease.outExpo;addUpdateListener{tv.text=styled(String.format(fmt,it.animatedValue as Int))};start()}}
                 override fun onViewDetachedFromWindow(v:View){}})}
         return tv}
     /** Small glass chip (year, period). */
@@ -161,7 +160,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         top.addView(flame,FrameLayout.LayoutParams(a.d(flameDp),-1,Gravity.END))
         box.addView(top,LinearLayout.LayoutParams(-1,-2))
         val month=StreakMonth(a,model,today,motionOn)
-        month.onToggle={open->android.animation.ValueAnimator.ofFloat(flame.fade,if(open)1f else 0f).apply{duration=360;interpolator=Ease.outCubic;addUpdateListener{flame.fade=it.animatedValue as Float};start()}}
         box.addView(a.column().apply{setPadding(a.d(20),0,a.d(20),0);addView(month,LinearLayout.LayoutParams(-1,-2))},LinearLayout.LayoutParams(-1,-2))
         box.contentDescription="Серия чтения: $n ${daysWord(n)}, рекорд $best"
         box.isClickable=true;box.setOnClickListener{month.toggle()};a.press(box)
@@ -232,7 +230,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 covers.forEachIndexed{i,cv->if(i==4)cv.alpha=.7f;addView(cv,LayoutParams(a.d(spots[i].third),(a.d(spots[i].third)*1.5f).toInt()))
                     val b=read[i];if(a.cover(b)==null&&b.optJSONObject("cover")!=null)a.requestCover(b){cv.invalidate()}
                     if(motionOn)android.animation.ValueAnimator.ofFloat(0f,(2*PI).toFloat()).apply{duration=4200L+i*700L;repeatCount=android.animation.ValueAnimator.INFINITE;interpolator=null
-                        addUpdateListener{v->cv.translationY=a.d(2)*sin(v.animatedValue as Float+i*1.3f)};cv.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){start()};override fun onViewDetachedFromWindow(v:View){cancel()}})}}}
+                        addUpdateListener{v->cv.translationY=a.d(1)*1.2f*sin(v.animatedValue as Float+i*1.3f)};cv.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){start()};override fun onViewDetachedFromWindow(v:View){cancel()}})}}}
             override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b)
                 if(covers.isEmpty())return
                 val used=spots.take(covers.size);val d=a.resources.displayMetrics.density

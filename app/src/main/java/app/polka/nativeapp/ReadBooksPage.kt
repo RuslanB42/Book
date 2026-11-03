@@ -21,7 +21,7 @@ internal fun MainActivity.readBooksPage(model:ReadingStatistics,startYear:Int){
     val years=(model.finished.mapNotNull{it.date?.year}+model.today.year).distinct().sortedDescending()
     var year=if(startYear in years)startYear else years.first()
     val page=ScrollView(this).apply{isFillViewport=true;clipToPadding=true;elevation=d(24).toFloat()
-        background=if(light)android.graphics.drawable.ColorDrawable(bg) else GradientDrawable().apply{gradientType=GradientDrawable.RADIAL_GRADIENT;colors=intArrayOf(0xff1a1a1d.toInt(),0xff0e0e0f.toInt());gradientRadius=resources.displayMetrics.widthPixels*1.3f;setGradientCenter(.5f,0f)}
+        background=android.graphics.drawable.ColorDrawable(bg)
         isClickable=true}
     val content=column().apply{clipChildren=false;clipToPadding=false}
     page.addView(content)
@@ -67,11 +67,11 @@ internal fun MainActivity.readBooksPage(model:ReadingStatistics,startYear:Int){
                 c.addView(row(f.book,f.date))}
             body.addView(c,LinearLayout.LayoutParams(-1,-2));space(body,18);views.add(c)}
         if(animate||motion){val sp=Spring.gentle;val delays=Stagger.delays(views.size,60,start=if(animate)0 else 140,ease=Ease.outQuad)
-            if(motion)views.forEachIndexed{i,v->v.alpha=0f;v.translationY=d(18).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(delays[i]).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}
+            if(motion)views.forEachIndexed{i,v->v.alpha=0f;v.translationY=d(12).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(delays[i]).setDuration(400).setInterpolator(Ease.outCubic).start()}}
     }
     bind(false)
     root.addView(page,FrameLayout.LayoutParams(-1,-1));readBooksOverlay=page
-    if(motion){page.translationX=resources.displayMetrics.widthPixels.toFloat();val sp=Spring.of(.08,420.0);page.animate().translationX(0f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
+    if(motion){page.translationX=resources.displayMetrics.widthPixels.toFloat();page.animate().translationX(0f).setDuration(360).setInterpolator(Ease.outQuart).start()}
 }
 
 internal fun MainActivity.closeReadBooks(){val page=readBooksOverlay?:return;readBooksOverlay=null
