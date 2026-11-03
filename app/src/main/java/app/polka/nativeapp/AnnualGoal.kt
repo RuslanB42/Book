@@ -51,6 +51,7 @@ internal class GoalGlowBar(a:MainActivity,animate:Boolean,private val fraction:F
 internal class YearBooks(private val a:MainActivity,private val books:List<Pair<JSONObject,LocalDate?>>,private val motion:Boolean):LinearLayout(a){
     private val grid=LinearLayout(a).apply{orientation=VERTICAL;visibility=GONE;clipChildren=false;clipToPadding=false}
     private var open=false
+    fun isOpen()=open
     private var anim:ValueAnimator?=null
     private val ru=Locale("ru")
     private val cols=3

@@ -51,12 +51,12 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** White (dark: graphite) card with a hairline edge and a soft, wide shadow underneath so it hovers over the page. */
     private fun surface()=a.column().apply {
         tag="statistics-card"
-        val radius=a.d(24).toFloat()
-        background=GradientDrawable().apply{setColor(cardColor);cornerRadius=radius;setStroke(a.d(1),if(light)0x08000000 else 0x14ffffff)}
-        setPadding(a.d(16),a.d(16),a.d(16),a.d(16));clipChildren=false;clipToPadding=false
-        elevation=a.d(if(light)8 else 10).toFloat()
+        val radius=a.d(30).toFloat()
+        background=GlassCardDrawable(a,radius)
+        setPadding(a.d(20),a.d(20),a.d(20),a.d(20));clipChildren=false;clipToPadding=false
+        elevation=a.d(if(light)8 else 12).toFloat()
         outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,radius)}}
-        if(android.os.Build.VERSION.SDK_INT>=28){outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
+        if(android.os.Build.VERSION.SDK_INT>=28){outlineAmbientShadowColor=if(light)0x1a000000 else 0x99000000.toInt();outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
     }
     private fun tile(kind:String,color:Int):View=FrameLayout(a).apply{
         background=pill((color and 0xffffff) or ((if(light)0x26 else 0x33) shl 24),11);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -104,113 +104,158 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     fun show() {
         val extra=max(0,(a.resources.configuration.screenWidthDp-640)/2)
         a.followInsets(content) { i->content.setPadding(a.d(16+extra)+i.left,a.d(8)+i.top,a.d(16+extra)+i.right,a.d(40)+i.bottom) }
-        scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
+        scroll.background=if(light)android.graphics.drawable.ColorDrawable(a.bg) else GradientDrawable().apply{gradientType=GradientDrawable.RADIAL_GRADIENT;colors=intArrayOf(0xff202024.toInt(),0xff111112.toInt());gradientRadius=a.resources.displayMetrics.widthPixels*1.3f;setGradientCenter(.5f,0f)};scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
-        streak();annualGoal();pair();readingTime()
+        streak();readingTime();pair();speed()
         if(motionOn) {
             // Cards rise one after another over a page that only fades in.
             val settle=android.view.animation.PathInterpolator(.22f,1f,.36f,1f)
             entrance.forEachIndexed{i,v->v.alpha=0f;v.translationY=a.d(22).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(90L+i*65L).setDuration(560).setInterpolator(settle).start()}
         }
     }
-    /** Books read and reading speed sit side by side (stacked on narrow screens or large text). */
-    private fun pair() {
-        val row=LinearLayout(a).apply{orientation=if(compact)LinearLayout.VERTICAL else LinearLayout.HORIZONTAL;clipChildren=false;clipToPadding=false}
-        val books=booksRead();val pace=speed()
-        if(compact){row.addView(books,LinearLayout.LayoutParams(-1,-2));row.addView(pace,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})}
-        else{row.addView(books,LinearLayout.LayoutParams(0,-1,1f));row.addView(pace,LinearLayout.LayoutParams(0,-1,1f).apply{leftMargin=a.d(12)})}
-        add(row)
-    }
-    private fun streak() {
-        val box=surface()
-        val top=a.line().apply{gravity=Gravity.TOP}
-        top.clipChildren=false;top.clipToPadding=false
-        val flameBox=FrameLayout(a).apply{clipChildren=false;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
-        if(model.streak>0)flameBox.addView(BreathGlow(a,0xffff7a1e.toInt(),if(light).2f else .3f,motionOn),FrameLayout.LayoutParams(a.d(110),a.d(110),Gravity.CENTER))
-        flameBox.addView(FlameView(a,model.streak,model.streak>0,model.streak>0&&!model.met(today),true).apply{contentDescription="Серия чтения: ${model.streak}";importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},FrameLayout.LayoutParams(-1,-1))
-        top.addView(flameBox,LinearLayout.LayoutParams(a.d(78),a.d(112)).apply{rightMargin=a.d(14)})
-        val side=a.column().apply{setPadding(0,a.d(2),0,0)}
-        side.addView(a.text("${daysWord(model.streak)} подряд",24f,a.fg,true,serif=true).apply{cssLeading(1.1f)});space(side,5)
-        val minutes=(model.ms(today)/60000L).toInt();val left=ceil(max(0,model.dailyGoal*60000L-model.ms(today))/60000.0).toInt()
-        side.addView(label(when{model.met(today)->"Сегодня цель достигнута";model.streak>0->"Ещё $left ${minutesGen(left)} сегодня — и серия продолжится";else->"Огонёк загорится после ${model.dailyGoal} ${minutesGen(model.dailyGoal)} чтения за день"},14f,captionInk).apply{cssLeading(1.25f)});space(side,12)
-        val today1=a.line();today1.addView(label("Сегодня",13.5f),LinearLayout.LayoutParams(0,-2,1f));today1.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13.5f,if(model.met(today))strong else captionInk,model.met(today)));side.addView(today1);space(side,8)
-        side.addView(ProgressRail(a,animate,(model.ms(today).toFloat()/(model.dailyGoal*60000L)).coerceIn(0f,1f),amber,coral,"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)))
-        top.addView(side,LinearLayout.LayoutParams(0,-2,1f));box.addView(top);space(box,16)
-        val dates=(6 downTo 0).map{today.minusDays(it.toLong())}
-        val capsule=WeekCapsule(a,BooleanArray(7){model.met(dates[it])},6)
-        capsule.contentDescription=dates.joinToString("; "){date->"${dayText(date)}: ${if(model.met(date))"серия поддержана" else "${duration(model.ms(date))} чтения"}"}
-        box.addView(capsule,LinearLayout.LayoutParams(-1,-2));space(box,8)
-        val names=a.line();dates.forEach{date->val isToday=date==today;names.addView(label(weekNames[date.dayOfWeek.value-1],13f,if(isToday)a.fg else captionInk,isToday).apply{gravity=Gravity.CENTER;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(0,-2,1f))}
-        box.addView(names)
-        if(motionOn)capsule.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false;override fun onViewAttachedToWindow(v:View){if(!done){done=true;capsule.grow(380)}};override fun onViewDetachedFromWindow(v:View){}})
-        // Tap the card: the whole month opens below the week, with months to page through.
-        val month=StreakMonth(a,model,today,motionOn);box.addView(month,LinearLayout.LayoutParams(-1,-2))
+    // ───────────────────────── glass cards ─────────────────────────
+    /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
+    private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f):TextView{
+        val tv=a.text("",size,a.fg).apply{typeface=Typeface.create("sans-serif-light",Typeface.NORMAL);letterSpacing=-.03f;includeFontPadding=false}
+        fun styled(t:String):CharSequence{val sp=android.text.SpannableString(t);var i=0
+            while(i<t.length){if(!t[i].isDigit()&&t[i]!=' '){var j=i;while(j<t.length&&!t[j].isDigit())j++
+                sp.setSpan(android.text.style.RelativeSizeSpan(unitScale),i,j,0);sp.setSpan(android.text.style.ForegroundColorSpan(captionInk),i,j,0);i=j}else i++};return sp}
+        tv.text=styled(text)
+        if(countTo!=null&&countTo>0&&motionOn){val fmt=text.replaceFirst(countTo.toString(),"%d");tv.text=styled(String.format(fmt,0))
+            tv.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false
+                override fun onViewAttachedToWindow(v:View){if(done)return;done=true;android.animation.ValueAnimator.ofInt(0,countTo).apply{duration=900;startDelay=220;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{tv.text=styled(String.format(fmt,it.animatedValue as Int))};start()}}
+                override fun onViewDetachedFromWindow(v:View){}})}
+        return tv}
+    /** Small glass chip (year, period). */
+    private fun chip(s:String,click:()->Unit)=label(s,12f,if(light)0xff3a3a3d.toInt() else 0xffdddddd.toInt()).apply{
+        background=GradientDrawable().apply{setColor(if(light)0x0a000000 else 0x12ffffff);cornerRadius=a.d(12).toFloat();setStroke(a.d(1),if(light)0x14000000 else 0x1affffff)}
+        setPadding(a.d(10),a.d(5),a.d(10),a.d(5));isClickable=true;setOnClickListener{click()};a.press(this)}
+    private fun bestStreak():Int{var best=0;var run=0;var d=model.first?:return model.streak
+        while(!d.isAfter(today)){if(model.met(d)){run++;best=max(best,run)}else run=0;d=d.plusDays(1)};return max(best,model.streak)}
+
+    /** Streak: big number, record, today's minutes on a glowing rail, and the flame as a lit object; tap — the month. */
+    private fun streak(){
+        val box=surface().apply{setPadding(0,0,0,0);clipToOutline=true;clipChildren=true}
+        val top=FrameLayout(a)
+        val col=a.column().apply{setPadding(a.d(20),a.d(20),a.d(150),a.d(22));minimumHeight=a.d(176)}
+        val n=model.streak
+        val first=a.line().apply{gravity=Gravity.BOTTOM};first.addView(big("$n",52f,n));first.addView(label("  ${daysWord(n)}",22f,a.fg).apply{typeface=Typeface.create("sans-serif-light",Typeface.NORMAL);setPadding(0,0,0,a.d(4))});col.addView(first)
+        space(col,6)
+        val best=bestStreak()
+        col.addView(label(if(n>0)"подряд · ваш рекорд $best" else "серии пока нет",15f,if(light)0xff5d5d62.toInt() else 0xffbdbdc2.toInt()))
+        space(col,20)
+        val minutes=(model.ms(today)/60000L).toInt()
+        val row=a.line();row.addView(label("Сегодня",13f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13f,a.fg));col.addView(row);space(col,7)
+        col.addView(ProgressRail(a,animate,(model.ms(today).toFloat()/(model.dailyGoal*60000L)).coerceIn(0f,1f),amber,coral,"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)))
+        top.addView(col,FrameLayout.LayoutParams(-1,-2))
+        top.addView(FlameOrb(a,n>0,motionOn).apply{translationX=a.d(10).toFloat()},FrameLayout.LayoutParams(a.d(172),-1,Gravity.END))
+        box.addView(top,LinearLayout.LayoutParams(-1,-2))
+        val month=StreakMonth(a,model,today,motionOn);box.addView(a.column().apply{setPadding(a.d(20),0,a.d(20),0);addView(month,LinearLayout.LayoutParams(-1,-2))},LinearLayout.LayoutParams(-1,-2))
+        box.contentDescription="Серия чтения: $n ${daysWord(n)}, рекорд $best"
         box.isClickable=true;box.setOnClickListener{month.toggle()};a.press(box)
         add(box)
     }
-    private fun speed():View {
-        val box=surface();header(box,"Скорость","bolt",blue,true);space(box,12)
-        box.addView(if(model.speed>0)count(model.speed,34f) else label("—",34f,a.fg,true));space(box,2)
-        box.addView(label(if(model.speed>0)"слов в минуту" else "после пары минут чтения",14f));space(box,14)
-        box.addView(ScaleRail(a,animate,true,if(model.speed>0)(model.speed/400f).coerceIn(0f,1f) else null,.5f,"ср. 200","0","400+",blue,blue,if(model.speed>0)"Скорость чтения: ${model.speed} слов в минуту, среднее около 200" else "Скорость чтения пока не посчитана"),LinearLayout.LayoutParams(-1,-2));return box
-    }
-    private fun annualGoal() {
-        val box=surface();header(box,"Цель на год","target",coral);space(box,12)
-        // Header and segment stay put so the thumb can slide; only the body below is swapped and animated.
-        // No offscreen layer while it fades: such a layer is cut to the body's bounds and chopped the bar's glow.
-        val body=object:LinearLayout(a){override fun hasOverlappingRendering()=false}.apply{orientation=LinearLayout.VERTICAL;clipChildren=false;clipToPadding=false}
-        var books:YearBooks?=null
-        fun bind(direction:Int){body.removeAllViews()
-            val target=model.target(goalYear);val done=model.countYear(goalYear);val first=direction==0
-            val read=model.finished.filter{it.date?.year==goalYear}.sortedByDescending{it.date}.map{it.book to it.date}
-            if(target==0){body.addView(label("Год для хороших книг",22f,a.fg,true));space(body,6);body.addView(label("Цель на $goalYear год задаётся в настройках: «Чтение» → «Цель на год».",14f));space(body,16)}
-            else {
-                // big count and the percentage, then the glowing bar with today's pace
-                val top=a.line().apply{gravity=Gravity.BOTTOM}
-                top.addView(count(done,34f,play=first){"$it из $target"},LinearLayout.LayoutParams(-2,-2))
-                top.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
-                top.addView(label("${(done*100.0/target).roundToInt().coerceAtMost(999)}%",17f,if(done>=target)a.accentFill else captionInk,true).apply{setPadding(0,0,0,a.d(4))})
-                body.addView(top);space(body,2);body.addView(label(if(done>=target)"Цель достигнута — книг за $goalYear год" else "книг за $goalYear год",14f));space(body,6)
-                GoalGlowBar(a,animate,(done.toFloat()/target).coerceIn(0f,1f),coral,"Годовая цель: $done из $target книг").let{bar->body.addView(bar,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=-bar.glow;rightMargin=-bar.glow})};space(body,6)
+
+    /** Reading time: the total with the daily average, and bars by day (week / month) or by month (year). */
+    private fun readingTime(){
+        val box=surface()
+        val head=a.line().apply{gravity=Gravity.TOP};val left=a.column();head.addView(left,LinearLayout.LayoutParams(0,-2,1f))
+        val periodChip=chip(""){};head.addView(periodChip);box.addView(head);space(box,14)
+        val chartHost=FrameLayout(a);box.addView(chartHost,LinearLayout.LayoutParams(-1,a.d(150)))
+        val names=listOf("Неделя","Месяц","Год")
+        fun minutes(ms:Long)=ms/60000.0
+        fun bind(first:Boolean){left.removeAllViews();chartHost.removeAllViews()
+            periodChip.text="${names[period].lowercase()} ▾"
+            val values:List<Double>;val labels:List<String>;val tips:List<String>;val total:Long;val avg:Double;val avgText:String;val caption:String;val sparse:Boolean
+            when(period){
+                0->{val days=(6 downTo 0).map{today.minusDays(it.toLong())};values=days.map{minutes(model.ms(it))};labels=days.map{weekNames[it.dayOfWeek.value-1].lowercase()}
+                    tips=days.map{d->(if(d==today)"сегодня" else d.format(DateTimeFormatter.ofPattern("d MMM",ru)).trimEnd('.'))+" · "+duration(model.ms(d))}
+                    total=days.sumOf{model.ms(it)};avg=minutes(total)/7;avgText="ср. ${avg.roundToInt()} мин";caption="за неделю · в среднем ${duration((total/7))} в день";sparse=false}
+                1->{val days=(1..today.dayOfMonth).map{today.withDayOfMonth(it)};values=days.map{minutes(model.ms(it))};labels=days.map{"${it.dayOfMonth}"}
+                    tips=days.map{d->(if(d==today)"сегодня" else d.format(DateTimeFormatter.ofPattern("d MMMM",ru)))+" · "+duration(model.ms(d))}
+                    total=model.total(0);avg=minutes(model.average(0));avgText="ср. ${avg.roundToInt()} мин";caption="за ${today.format(DateTimeFormatter.ofPattern("LLLL",ru))} · в среднем ${duration(model.average(0))} в день";sparse=true}
+                else->{val months=(1..today.monthValue).map{YearMonth.of(today.year,it)};val ms=months.map{m->(1..m.lengthOfMonth()).sumOf{d->model.ms(m.atDay(d))}}
+                    values=ms.map{minutes(it)};labels=months.map{it.month.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE,ru).trimEnd('.').take(3)}
+                    tips=months.indices.map{i->months[i].month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE,ru)+" · "+duration(ms[i])}
+                    total=model.total(1);avg=values.average();avgText="ср. ${duration((avg*60000).toLong())}";caption="за ${today.year} год · в среднем ${duration(model.average(1))} в день";sparse=false}
             }
-            val shelf=YearBooks(a,read,motionOn);books=shelf;body.addView(shelf,LinearLayout.LayoutParams(-1,-2))
-            if(!first&&motionOn){body.animate().cancel();body.alpha=0f;body.translationX=direction*a.d(26).toFloat();body.animate().alpha(1f).translationX(0f).setDuration(340).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}
-            else{body.alpha=1f;body.translationX=0f}
+            left.addView(label("Время чтения",13f));space(left,8)
+            left.addView(big(if(total>0)duration(total) else "0 мин",40f))
+            space(left,6);left.addView(label(caption,12.5f))
+            chartHost.addView(DayBars(a,values,labels,tips,values.lastIndex,avg,avgText,violet,motionOn&&first,sparse),FrameLayout.LayoutParams(-1,-1))
+            if(!first&&motionOn){box.alpha=.6f;box.animate().alpha(1f).setDuration(220).start()}
         }
-        box.addView(segment(listOf("${today.year}","${today.year+1}"),if(goalYear==today.year)0 else 1){val next=today.year+it;val direction=if(next>=goalYear)1 else -1;goalYear=next;a.statisticsGoalYear=goalYear;bind(direction)}.apply{minimumHeight=a.d(40)})
-        space(box,16);box.addView(body);bind(0)
-        // Tap the card: all books read that year open below, with covers, stars and dates.
-        box.isClickable=true;box.setOnClickListener{books?.toggle()};a.press(box)
+        periodChip.setOnClickListener{a.dialog().setTitle("Период").setItems(names.toTypedArray()){_,i->if(i!=period){period=i;a.profileRange=i;bind(false)}}.show()}
+        bind(true);add(box)
+    }
+
+    /** The annual goal as a little stack of books, next to the year's books floating on their orbits. */
+    private fun pair(){
+        val row=LinearLayout(a).apply{orientation=if(compact)LinearLayout.VERTICAL else LinearLayout.HORIZONTAL;clipChildren=false;clipToPadding=false}
+        val panel=surface().apply{visibility=View.GONE}
+        var shelf:YearBooks?=null
+        fun bindPanel(){panel.removeAllViews();val read=model.finished.filter{it.date?.year==goalYear}.sortedByDescending{it.date}.map{it.book to it.date}
+            panel.addView(label("Прочитано в $goalYear",13f));val yb=YearBooks(a,read,motionOn);shelf=yb;panel.addView(yb,LinearLayout.LayoutParams(-1,-2))}
+        bindPanel()
+        fun togglePanel(){val yb=shelf?:return;if(model.finished.none{it.date?.year==goalYear})return
+            if(panel.visibility!=View.VISIBLE){panel.visibility=View.VISIBLE;panel.post{yb.toggle()}}
+            else{yb.toggle();panel.postDelayed({if(!yb.isOpen())panel.visibility=View.GONE},420)}}
+        val goal=surface().apply{minimumHeight=a.d(250)}
+        val goalBody=a.column()
+        fun bindGoal(){goal.removeAllViews();goalBody.removeAllViews()
+            val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL};head.addView(label("Цель на год",13f),LinearLayout.LayoutParams(0,-2,1f))
+            head.addView(chip("$goalYear"){goalYear=if(goalYear==today.year)today.year+1 else today.year;a.statisticsGoalYear=goalYear;bindGoal();bindPanel()});goal.addView(head);space(goal,12)
+            val target=model.target(goalYear);val done=model.countYear(goalYear)
+            val books=model.finished.filter{it.date?.year==goalYear}.sortedByDescending{it.date}
+            val slots=6;val filled=if(target<=0)0 else ((done.toFloat()/target)*slots).roundToInt().coerceIn(if(done>0)1 else 0,slots)
+            val colors=books.take(slots).mapIndexed{i,f->a.spineColor(f.book,i)}.ifEmpty{listOf(0xffc0563c.toInt(),0xff2f6fb0.toInt(),0xffe2b33c.toInt(),0xff3a7d5c.toInt())}
+            goal.addView(GoalStack(a,filled,slots,colors.reversed(),motionOn).apply{contentDescription=null},LinearLayout.LayoutParams(-1,a.d(110)).apply{leftMargin=a.d(14)})
+            goal.addView(View(a),LinearLayout.LayoutParams(1,0,1f))
+            if(target>0){val line=a.line().apply{gravity=Gravity.BOTTOM};line.addView(big("$done из $target",36f,done,.47f));goal.addView(line);space(goal,5)
+                goal.addView(label(if(done>=target)"цель достигнута" else "ещё ${target-done} ${MainActivity.countBooks(target-done).substringAfter(' ')} · ${(done*100.0/target).roundToInt()}%",12f,if(light)0xff5d5d62.toInt() else 0xffbdbdc2.toInt()))}
+            else{goal.addView(label("Цель не задана",17f,a.fg));space(goal,4);goal.addView(label("Настройки → «Чтение» → «Цель на год»",11.5f))}
+            goal.contentDescription="Цель на $goalYear: $done из $target книг"}
+        bindGoal()
+        goal.isClickable=true;goal.setOnClickListener{togglePanel()};a.press(goal)
+
+        val booksCard=surface().apply{minimumHeight=a.d(250);setPadding(a.d(18),a.d(18),a.d(18),a.d(18))}
+        val year=today.year;val read=model.finished.filter{it.date?.year==year}.sortedByDescending{it.date}.map{it.book};val count=read.size
+        val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
+        stage.addView(Orbits(a).apply{translationX=-a.d(30).toFloat();translationY=-a.d(22).toFloat()},FrameLayout.LayoutParams(-1,-1))
+        // slots: (left, top, width) in dp — a large cover, a few smaller ones around it
+        val spots=listOf(Triple(30,8,38),Triple(86,4,26),Triple(4,56,22),Triple(98,52,28),Triple(4,2,18))
+        read.take(spots.size).forEachIndexed{i,b->val (l,t,w)=spots[i]
+            val cv=CoverView(a,b,a.cover(b)).apply{softShadow=true;if(i==4)alpha=.7f}
+            if(a.cover(b)==null&&b.optJSONObject("cover")!=null)a.requestCover(b){cv.invalidate()}
+            stage.addView(cv,FrameLayout.LayoutParams(a.d(w),(a.d(w)*1.5f).toInt()).apply{leftMargin=a.d(l);topMargin=a.d(t)})
+            if(motionOn)android.animation.ValueAnimator.ofFloat(0f,(2*PI).toFloat()).apply{duration=4200L+i*700L;repeatCount=android.animation.ValueAnimator.INFINITE;interpolator=null
+                addUpdateListener{v->cv.translationY=a.d(2)*sin(v.animatedValue as Float+i*1.3f)};cv.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){start()};override fun onViewDetachedFromWindow(v:View){cancel()}})}}
+        booksCard.addView(stage,LinearLayout.LayoutParams(-1,a.d(106)))
+        booksCard.addView(View(a),LinearLayout.LayoutParams(1,0,1f))
+        val l1=a.line().apply{gravity=Gravity.BOTTOM};l1.addView(big("$count",40f,count));l1.addView(label("  ${MainActivity.countBooks(count).substringAfter(' ')}",15f,a.fg).apply{setPadding(0,0,0,a.d(4))});booksCard.addView(l1)
+        space(booksCard,4);booksCard.addView(label(if(count>0)"прочитано в $year" else "пока ни одной в $year",12.5f))
+        if(count>0){space(booksCard,12);booksCard.addView(label("ВСЕ КНИГИ",12f,onStrong,true).apply{gravity=Gravity.CENTER;background=pill(strong,16);setPadding(a.d(14),0,a.d(14),0);minHeight=a.d(32);isClickable=true;setOnClickListener{if(goalYear!=year){goalYear=year;bindGoal();bindPanel()};togglePanel()};a.press(this)},LinearLayout.LayoutParams(-2,a.d(32)))}
+        booksCard.contentDescription="Прочитано в $year: $count"
+        if(compact){row.addView(goal,LinearLayout.LayoutParams(-1,-2));row.addView(booksCard,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})}
+        else{row.addView(goal,LinearLayout.LayoutParams(0,-1,1f));row.addView(booksCard,LinearLayout.LayoutParams(0,-1,1f).apply{leftMargin=a.d(14)})}
+        add(row);add(panel)
+    }
+
+    /** Speed: the number with a speedometer chip, and where it sits on the scale (the faint tick is the average). */
+    private fun speed(){
+        val box=surface()
+        val head=a.line().apply{gravity=Gravity.TOP};val left=a.column();head.addView(left,LinearLayout.LayoutParams(0,-2,1f))
+        left.addView(label("Скорость чтения",13f));space(left,8)
+        left.addView(if(model.speed>0)big("${model.speed} слов/мин",46f,model.speed,.37f) else big("—",46f))
+        val gauge=FrameLayout(a).apply{background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(light)0x0a000000 else 0x12ffffff);setStroke(a.d(1),if(light)0x14000000 else 0x1affffff)}
+            elevation=a.d(4).toFloat();addView(GaugeGlyph(a,blue),FrameLayout.LayoutParams(a.d(26),a.d(26),Gravity.CENTER))}
+        head.addView(gauge,LinearLayout.LayoutParams(a.d(46),a.d(46)));box.addView(head);space(box,22)
+        box.addView(SpeedScale(a,if(model.speed>0)(model.speed/400f).coerceIn(0f,1f) else null,.5f,blue,motionOn),LinearLayout.LayoutParams(-1,a.d(24)))
+        val foot=a.line();foot.addView(label("медленнее",11f),LinearLayout.LayoutParams(0,-2,1f))
+        foot.addView(label(when{model.speed<=0->"появится после пары минут чтения";model.speed>=215->"быстрее среднего (~200)";model.speed<=185->"медленнее среднего (~200)";else->"как в среднем (~200)"},11f));box.addView(foot)
+        box.contentDescription=if(model.speed>0)"Скорость чтения: ${model.speed} слов в минуту" else "Скорость чтения появится после пары минут чтения"
         add(box)
-    }
-    private fun booksRead():View {
-        val box=surface();header(box,"Прочитано книг","book",mint,true);space(box,12)
-        box.addView(count(model.countYear(today.year),34f));space(box,2);box.addView(label("за этот год",14f));space(box,12)
-        for((i,pair) in listOf("За месяц" to model.countMonth(YearMonth.from(today)),"За всё время" to model.finished.size).withIndex()){
-            box.addView(View(a).apply{setBackgroundColor(if(light)0x0f000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,a.d(1)))
-            val row=a.line().apply{setPadding(0,a.d(10),0,a.d(if(i==1)0 else 10))};row.addView(label(pair.first,14f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${pair.second}",17f,a.fg,true));box.addView(row)
-        }
-        box.contentDescription="Прочитано книг: за месяц ${model.countMonth(YearMonth.from(today))}, за год ${model.countYear(today.year)}, за всё время ${model.finished.size}"
-        if(model.undated.isNotEmpty()){space(box,10);box.addView(label("Без даты: ${model.undated.size}",12.5f))};return box
-    }
-    private fun readingTime() {
-        val box=surface();header(box,"Время чтения","clock",violet);space(box,12)
-        val values=a.column();var firstBind=true;fun bind(){values.removeAllViews();val total=model.total(period);val average=model.average(period)
-            val row=if(compact)a.column() else a.line().apply {gravity=Gravity.TOP}
-            fun metric(title:String,value:String):LinearLayout {val c=a.column();c.addView(Odometer(a,value,26f,a.fg,true).apply{if(motionOn)set(value,null,true,delay=160)});space(c,2);c.addView(label(title,14f));return c}
-            row.addView(metric("Всего за период",duration(total)),if(compact)LinearLayout.LayoutParams(-1,-2)else LinearLayout.LayoutParams(0,-2,1f));if(compact)space(row,14)
-            row.addView(metric("В среднем в день",duration(average)),if(compact)LinearLayout.LayoutParams(-1,-2)else LinearLayout.LayoutParams(0,-2,1f));values.addView(row)
-            space(values,14)
-            val plot=model.entries.filter { it.first>=model.start(period) };val n=if(period==0)today.dayOfMonth else if(period==1)today.monthValue else minOf(24,max(1,java.time.temporal.ChronoUnit.MONTHS.between(YearMonth.from(model.first ?: today),YearMonth.from(today)).toInt()+1))
-            val series=when(period){0->(1..n).map { model.ms(today.withDayOfMonth(it))/60000.0 };1->(1..n).map { month->plot.filter {it.first.monthValue==month}.sumOf { max(0,it.second.optLong("ms")) }/60000.0 };else->(n-1 downTo 0).map { offset->val month=YearMonth.from(today).minusMonths(offset.toLong());plot.filter {YearMonth.from(it.first)==month}.sumOf { max(0,it.second.optLong("ms")) }/60000.0 }}
-            val chartLabels=when(period){0->(1..n).map{today.withDayOfMonth(it).format(DateTimeFormatter.ofPattern("d MMMM",ru))};1->(1..n).map{today.withMonth(it).withDayOfMonth(1).format(DateTimeFormatter.ofPattern("LLLL",ru))};else->(n-1 downTo 0).map{YearMonth.from(today).minusMonths(it.toLong()).atDay(1).format(DateTimeFormatter.ofPattern("LLL yyyy",ru))}}
-            // Press and hold a bar: a small bubble with its date and time floats above it; slide to scrub.
-            values.addView(TimeRibbon(a,series,animate,onSelect={},accent=violet,tips=series.indices.map{chartLabels[it] to duration((series[it]*60000).toLong())}),LinearLayout.LayoutParams(-1,a.d(88)));space(values,8)
-            val axis=a.line();listOf(chartLabels.first(),chartLabels[chartLabels.size/2],chartLabels.last()).forEachIndexed{i,t->axis.addView(label(t,12f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;gravity=when(i){0->Gravity.START;1->Gravity.CENTER;else->Gravity.END}},LinearLayout.LayoutParams(0,-2,1f))};values.addView(axis);space(values,6)
-            if(!firstBind&&motionOn){values.alpha=.3f;values.animate().alpha(1f).setDuration(240).start()};firstBind=false
-        }
-        box.addView(segment(listOf("Месяц","Год","Всё время"),period){period=it;a.profileRange=it;bind()}.apply{minimumHeight=a.d(40)});space(box,14);box.addView(values);bind();add(box)
     }
 }
 
