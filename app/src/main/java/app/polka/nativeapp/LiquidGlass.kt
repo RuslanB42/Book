@@ -36,8 +36,8 @@ half4 main(float2 p){
     float2 base=c+rel*zoom;                            // gentle lens magnification
     float2 off=n*bend*strength;                        // the rim pulls the picture outward
     half r=pick(base+off*1.00).r;
-    half g=pick(base+off*1.10).g;
-    half b=pick(base+off*1.22).b;                      // slight dispersion on the curve
+    half g=pick(base+off*1.06).g;
+    half b=pick(base+off*1.12).b;                      // slight dispersion on the curve
     half3 col=half3(r,g,b);
     // light on the rim: bright where the curve faces up-left, shade where it faces down
     float lit=max(dot(n,normalize(float2(-0.35,-1.0))),0.0);
@@ -58,7 +58,8 @@ half4 main(float2 p){
     /** Set if the device refused the shader; the shelf then falls back to the plain glass. */
     @Volatile var failed=false
     @RequiresApi(33) private fun bind33(s:RuntimeShader,paint:Paint,snapshot:Bitmap,ox:Float,oy:Float,w:Float,h:Float,radius:Float,bg:Int,light:Boolean,density:Float){
-        val content=BitmapShader(snapshot,Shader.TileMode.DECAL,Shader.TileMode.DECAL).apply{setLocalMatrix(Matrix().apply{setTranslate(ox,oy)})}
+        // linear filtering: the lens magnifies, and nearest sampling made letters uneven
+        val content=BitmapShader(snapshot,Shader.TileMode.DECAL,Shader.TileMode.DECAL).apply{filterMode=BitmapShader.FILTER_MODE_LINEAR;setLocalMatrix(Matrix().apply{setTranslate(ox,oy)})}
         s.setInputShader("content",content)
         s.setFloatUniform("size",w,h)
         s.setFloatUniform("radius",radius)
