@@ -13,8 +13,8 @@ import kotlin.math.roundToInt
 internal object ReadingQueue {
  fun books(all:List<JSONObject>)=all.filter{!it.optBoolean("noFile")&&Library.status(it)=="reading"}.sortedWith(compareByDescending<JSONObject>{it.optLong("openedAt")}.thenBy{it.str("id")})
 }
-/** Native scrolling with a spring snap; the next book remains visible. Cards are the cover itself, full bleed,
- *  melting into a blur tinted with the cover's own colour, with the text and buttons on top (no page counter). */
+/** Native scrolling with a spring snap; the next book remains visible. Kindle-style cards: a plate in the cover's
+ *  colour with the real cover rising above its top edge, title and progress beside it (no page counter). */
 internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):LinearLayout(a) {
  val readingBooks=ReadingQueue.books(all)
  // The book on the visible card is the likeliest next open: get its text ready in the background.
@@ -26,7 +26,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  private var restoring=true
  private var pendingIndex=readingBooks.indexOfFirst{it.str("id")==a.continueBookId}.coerceAtLeast(0)
  private val cards=mutableListOf<TiltCard>()
- private val heroes=mutableListOf<ContinueHero>()
+ private val tints=mutableListOf<ContinueTint>()
  private val contents=mutableListOf<View>()
  private val holders=mutableListOf<FrameLayout>()
  private var lastViewport=0
@@ -56,23 +56,22 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   orientation=VERTICAL;clipChildren=false;clipToPadding=false
   addView(a.text("Продолжить чтение",20f,bold=true,serif=true));a.space(this,14)
   readingBooks.forEachIndexed{i,book->
-   val card=TiltCard(a).apply{floating(this);isFocusable=true;contentDescription="Продолжить: ${book.str("title")}"}
-   val hero=ContinueHero(a,book);card.addView(hero,FrameLayout.LayoutParams(-1,-1));heroes.add(hero)
-   val words=a.column().apply{setPadding(a.d(16),a.d(16),a.d(16),a.d(16))}
-   words.addView(a.text(book.str("title"),20f,Color.WHITE,bold=true,serif=true).apply{maxLines=1;isSingleLine=true;ellipsize=TextUtils.TruncateAt.END;setShadowLayer(a.d(8).toFloat(),0f,0f,0x40000000)})
-   a.space(words,2);words.addView(a.text(MainActivity.authors(book),13f,0xc8ffffff.toInt()).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END})
-   a.space(words,14)
+   val card=TiltCard(a).apply{floating(this);isFocusable=true;clipChildren=false;clipToPadding=false;contentDescription="Продолжить: ${book.str("title")}"}
+   // Kindle-like plate: tinted with the cover's colour; the real cover stands on it and rises above its top edge.
+   val panel=FrameLayout(a).apply{minimumHeight=a.d(PANEL)}
+   val tint=ContinueTint(a,book);panel.addView(tint,FrameLayout.LayoutParams(-1,-1));tints.add(tint)
+   val words=a.column().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(14),a.d(16),a.d(14));minimumHeight=a.d(PANEL)}
+   words.addView(a.text(book.str("title"),16f,Color.WHITE,bold=true,serif=true).apply{maxLines=2;ellipsize=TextUtils.TruncateAt.END})
    val pct=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
-   val meter=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-   val bar=HeroProgress(a,pct);meter.addView(bar,LayoutParams(0,a.d(10),1f))
-   meter.addView(a.text("${(pct*100).roundToInt()}%",12f,Color.WHITE,true).apply{setPadding(a.d(9),a.d(3),a.d(9),a.d(3));background=glass(11)},LayoutParams(-2,-2).apply{marginStart=a.d(10)})
-   words.addView(meter,LayoutParams(-1,-2));a.space(words,14)
-   val buttons=a.line()
-   buttons.addView(pill("Читать",true,"Читать: ${book.str("title")}"){a.openBook(book,card)},LayoutParams(0,-2,1f))
-   buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,card)},LayoutParams(0,-2,1f).apply{marginStart=a.d(8)})
-   words.addView(buttons)
-   card.addView(words,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));contents.add(words)
-   card.setOnClickListener{a.openBook(book,card)}
+   val ch=book.optJSONObject("progress")?.optInt("ch",-1)?:-1
+   val meta=listOfNotNull(MainActivity.authors(book).takeIf{it.isNotBlank()},if(ch>=0)"Глава ${ch+1}" else null,"${(pct*100).roundToInt()}%").joinToString("  ·  ")
+   a.space(words,6);words.addView(a.text(meta,12f,0xc8ffffff.toInt()).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END})
+   a.space(words,10);words.addView(HeroProgress(a,pct),LayoutParams(-1,a.d(8)))
+   panel.addView(words,FrameLayout.LayoutParams(-1,-2,Gravity.CENTER_VERTICAL).apply{marginStart=a.d(14+COVER_W+14)})
+   card.addView(panel,FrameLayout.LayoutParams(-1,-2).apply{topMargin=a.d(OVERHANG)});contents.add(words)
+   val cover=CoverView(a,book,a.cover(book)).apply{isClickable=true;contentDescription="О книге ${book.str("title")}";setOnClickListener{a.detail(book,this)}}
+   card.addView(cover,FrameLayout.LayoutParams(a.d(COVER_W),a.d(COVER_W*3/2),Gravity.TOP or Gravity.START).apply{marginStart=a.d(14)})
+   card.setOnClickListener{a.openBook(book,cover)}
    cards.add(card)
    // The focus transform lives on a holder, so the press tilt on the card never fights it.
    val holder=FrameLayout(a).apply{clipChildren=false;clipToPadding=false};holder.addView(card,FrameLayout.LayoutParams(a.d(284),-2));holders.add(holder)
@@ -90,20 +89,15 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  private fun findProgress(v:View):HeroProgress?{if(v is HeroProgress)return v;if(v is ViewGroup)for(i in 0 until v.childCount)findProgress(v.getChildAt(i))?.let{return it};return null}
  /** Same floating card as the statistics plates: no border of its own, a wide soft shadow underneath. */
  private fun floating(v:View){
-  val radius=a.d(26).toFloat()
+  val radius=a.d(20).toFloat()
   v.elevation=a.d(if(light)8 else 10).toFloat()
-  v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,radius)}}
+  v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,a.d(OVERHANG),view.width,view.height,radius)}}
   if(Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();v.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
  }
- private fun glass(r:Int)=GradientDrawable().apply{setColor(0x2effffff);cornerRadius=a.d(r).toFloat();setStroke(a.d(1).coerceAtLeast(1),0x26ffffff)}
- private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,14f,if(primary)0xff111111.toInt() else Color.WHITE,true).apply{
-  gravity=Gravity.CENTER;minHeight=a.d(42);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(10),0,a.d(10),0);contentDescription=description;isClickable=true;isFocusable=true
-  background=if(primary)GradientDrawable().apply{setColor(Color.WHITE);cornerRadius=a.d(21).toFloat()} else glass(21)
-  setOnClickListener{click()};a.press(this)}
  private fun resize(viewport:Int){if(viewport<=0||viewport==lastViewport)return;lastViewport=viewport;val content=(viewport-a.d(40)).coerceAtLeast(1)
   // The card in focus sits at the normal page margin on the left; the next one peeks in on the right.
   val width=if(cards.size<=1)content else (content*.86f).toInt();val gap=a.d(10);carousel.stride=width+gap
-  cards.forEach{c->c.layoutParams=(c.layoutParams as FrameLayout.LayoutParams).apply{this.width=width};c.minimumHeight=(width*.96f).toInt().coerceAtMost(a.d(340))}
+  cards.forEach{c->c.layoutParams=(c.layoutParams as FrameLayout.LayoutParams).apply{this.width=width}}
   holders.forEachIndexed{i,h->h.layoutParams=(h.layoutParams as LayoutParams).apply{marginStart=if(i>0)gap else 0}}
   strip.setPadding(a.d(20),a.d(6),(viewport-width-a.d(20)).coerceAtLeast(a.d(20)),a.d(26))
   pendingIndex=readingBooks.indexOfFirst{it.str("id")==a.continueBookId}.coerceAtLeast(0);restoring=true}
@@ -114,13 +108,12 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   *  cover inside each card drifts the other way (parallax), so the cards feel like windows onto the covers. */
  private fun focus(x:Int){val stride=carousel.stride.toFloat().coerceAtLeast(1f);val anchor=x+a.d(20)
   holders.forEachIndexed{i,h->if(h.width<=0)return@forEachIndexed;val d=((h.left-anchor)/stride).coerceIn(-1.5f,1.5f);val k=kotlin.math.abs(d).coerceAtMost(1f)
-   heroes[i].parallax=d
    if(holders.size<=1)return@forEachIndexed
    val s=1f-.09f*k;h.pivotX=if(d>0)0f else h.width.toFloat();h.pivotY=h.height/2f;h.scaleX=s;h.scaleY=s;h.alpha=1f-.38f*k
    contents[i].alpha=1f-.55f*k;contents[i].translationY=a.d(12)*k
    // the card in focus floats higher (deeper shadow); the others sink a little
    cards[i].translationZ=a.d(8)*(1f-k)}}
- companion object{private var introPlayed=false}
+ companion object{private var introPlayed=false;private const val OVERHANG=22;private const val PANEL=112;private const val COVER_W=76}
 }
 
 /** A card that leans toward the finger while pressed (3D tilt + a slight dip) and springs back on release. */
@@ -140,61 +133,27 @@ internal class TiltCard(private val a:MainActivity):FrameLayout(a){
   else{animate().cancel();rotationX=rx;rotationY=ry;scaleX=.965f;scaleY=.965f}}
 }
 
-/** The card's picture: the cover fills the card, sharp at the top, melting into its own blur and a tint taken from
- *  the cover's colours at the bottom (where the white text sits). Composed once into one bitmap and painted as ONE
- *  anti-aliased rounded rect (no separately clipped layers — no light fringes on the corners). */
-internal class ContinueHero(private val a:MainActivity,private val book:JSONObject):View(a){
- private val radius=a.d(26).toFloat()
- private var source:Bitmap?=null;private var requested=false
- /** −1…1: how far the card is from focus; the picture drifts against the scroll. */
- var parallax=0f;set(v){if(v!=field){field=v;invalidate()}}
+/** The plate behind the text: the cover's own colour, a little lighter on the left where the cover stands and
+ *  deeper to the right, with a faint top sheen — like the Kindle "Books you read last" cards. */
+internal class ContinueTint(private val a:MainActivity,private val book:JSONObject):View(a){
+ private val radius=a.d(20).toFloat()
+ private var tint=0;private var requested=false
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
- private fun art():Bitmap?{source?.let{return it}
-  a.cover(book)?.let{source=it;return it}
-  if(book.optJSONObject("cover")!=null&&!requested){requested=true
-   a.requestCover(book){bmp->if(bmp!=null){source=bmp;composed=null;invalidate();if(isAttachedToWindow&&a.prefs.str("motion")!="reduced"){alpha=0f;animate().alpha(1f).setDuration(320).start()}}else{source=typeset();invalidate()}}
-   return null}
-  if(book.optJSONObject("cover")==null){source=typeset();return source}
-  return null}
- /** A book without a picture: its typeset cover, rendered once. */
- private fun typeset():Bitmap=Bitmap.createBitmap(400,600,Bitmap.Config.ARGB_8888).also{CoverView(a,book,null).drawCover(Canvas(it),RectF(0f,0f,400f,600f),book,null)}
- private var composed:Bitmap?=null;private var composedKey=""
- private val extra get()=width*.12f
- private fun compose(b:Bitmap):Bitmap{val key="${System.identityHashCode(b)}:$width:$height:${a.light}";composed?.takeIf{key==composedKey}?.let{return it}
-  val cw=(width+extra).toInt().coerceAtLeast(1);val ch=height.coerceAtLeast(1)
-  val out=Bitmap.createBitmap(cw,ch,Bitmap.Config.ARGB_8888);val c=Canvas(out)
-  val tint=tintOf(b);c.drawColor(tint)
-  // sharp cover, filling the width, anchored to the top (where the cover's art and title usually are)
-  val scale=maxOf(cw/b.width.toFloat(),ch/b.height.toFloat());val dw=b.width*scale;val dh=b.height*scale
-  val dst=RectF((cw-dw)/2f,0f,(cw+dw)/2f,dh);val bp=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);c.drawBitmap(b,null,dst,bp)
-  // progressive blur: the blurred copy faded in from the middle down
-  val small=Bitmap.createScaledBitmap(b,36,(36*b.height/b.width.toFloat()).toInt().coerceIn(24,80),true)
-  val soft=try{ShelfFrost.blur(small,2.6f)}finally{if(small!==b)small.recycle()}
-  val layer=c.saveLayer(0f,0f,cw.toFloat(),ch.toFloat(),null)
-  c.drawBitmap(soft,null,RectF(dst.left-dw*.04f,dst.top-dh*.02f,dst.right+dw*.04f,dst.bottom+dh*.04f),bp)
-  val mask=Paint().apply{xfermode=PorterDuffXfermode(PorterDuff.Mode.DST_IN);shader=LinearGradient(0f,ch*.30f,0f,ch*.62f,0x00000000,0xff000000.toInt(),Shader.TileMode.CLAMP)}
-  c.drawRect(0f,0f,cw.toFloat(),ch.toFloat(),mask);c.restoreToCount(layer);soft.recycle()
-  // the cover's own colour deepening toward the bottom, so white text always reads
-  val rgb=tint and 0xffffff
-  val veil=Paint().apply{shader=LinearGradient(0f,ch*.28f,0f,ch.toFloat(),intArrayOf(rgb,rgb or (0x8c shl 24),rgb or (0xe6 shl 24)),floatArrayOf(0f,.5f,1f),Shader.TileMode.CLAMP)}
-  c.drawRect(0f,0f,cw.toFloat(),ch.toFloat(),veil)
-  composed=out;composedKey=key;return out}
- /** The cover's average colour (lower half), kept as a deep, moderately saturated shade. */
+ private fun color():Int{if(tint!=0)return tint
+  a.cover(book)?.let{tint=tintOf(it);return tint}
+  if(book.optJSONObject("cover")!=null){if(!requested){requested=true;a.requestCover(book){bmp->tint=if(bmp!=null)tintOf(bmp) else deep(CoverView(a,book,null).colors(book).first);invalidate()}};return 0}
+  tint=deep(CoverView(a,book,null).colors(book).first);return tint}
+ private fun deep(c:Int):Int{val hsv=FloatArray(3);Color.colorToHSV(c,hsv);hsv[1]=(hsv[1]*1.1f).coerceIn(.18f,.55f);hsv[2]=.40f;return Color.HSVToColor(hsv)}
  private fun tintOf(b:Bitmap):Int{val s=Bitmap.createScaledBitmap(b,8,12,true);var r=0;var g=0;var bl=0;var n=0
-  for(y in 5 until 12)for(x in 0 until 8){val p=s.getPixel(x,y);r+=Color.red(p);g+=Color.green(p);bl+=Color.blue(p);n++}
-  if(s!==b)s.recycle();val hsv=FloatArray(3);Color.RGBToHSV(r/n,g/n,bl/n,hsv);hsv[1]=(hsv[1]*1.15f).coerceAtMost(.58f);hsv[2]=if(a.light).34f else .24f;return Color.HSVToColor(hsv)}
- private val fill=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private val m=Matrix()
- private val rim=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE}
- private val blank=Paint(Paint.ANTI_ALIAS_FLAG)
- override fun onDraw(c:Canvas){if(width<1||height<1)return
-  val b=art()
-  if(b==null){blank.color=if(a.light)0xffe6e4df.toInt() else 0xff2a2a2d.toInt();c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),radius,radius,blank);return}
-  val bmp=compose(b);m.setTranslate(-extra/2f-parallax*extra/2f,0f)
-  fill.color=Color.WHITE;fill.shader=BitmapShader(bmp,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP).apply{setLocalMatrix(m)}
-  c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),radius,radius,fill)
-  // the white frame of the references (light theme); a hairline glint in the dark
-  val sw=if(a.light)a.d(3).toFloat() else a.d(1).toFloat().coerceAtLeast(1f);rim.strokeWidth=sw;rim.color=if(a.light)Color.WHITE else 0x24ffffff
-  c.drawRoundRect(sw/2,sw/2,width-sw/2,height-sw/2,radius-sw/2,radius-sw/2,rim)}
+  for(y in 0 until 12)for(x in 0 until 8){val p=s.getPixel(x,y);r+=Color.red(p);g+=Color.green(p);bl+=Color.blue(p);n++}
+  if(s!==b)s.recycle();return deep(Color.rgb(r/n,g/n,bl/n))}
+ private fun shade(c:Int,v:Float):Int{val hsv=FloatArray(3);Color.colorToHSV(c,hsv);hsv[2]=(hsv[2]*v).coerceIn(0f,1f);return Color.HSVToColor(hsv)}
+ private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val sheen=Paint(Paint.ANTI_ALIAS_FLAG)
+ override fun onDraw(c:Canvas){if(width<1||height<1)return;val w=width.toFloat();val h=height.toFloat()
+  val base=color();if(base==0){p.shader=null;p.color=if(a.light)0xffe6e4df.toInt() else 0xff2a2a2d.toInt();c.drawRoundRect(0f,0f,w,h,radius,radius,p);return}
+  p.color=Color.WHITE;p.shader=LinearGradient(0f,0f,w,h,shade(base,1.18f),shade(base,.62f),Shader.TileMode.CLAMP)
+  c.drawRoundRect(0f,0f,w,h,radius,radius,p)
+  sheen.shader=LinearGradient(0f,0f,0f,h*.6f,0x1fffffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRoundRect(0f,0f,w,h,radius,radius,sheen)}
 }
 
 /** Thin white bar on the card's tint: a faint track, the fill with a soft spark at its end; grows in on first show. */
