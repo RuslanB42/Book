@@ -28,9 +28,12 @@ class StatsCheck {
             val titles=listOf("Дюна","Солярис","Пикник на обочине","Марсианин","Гиперион","Основание","Нейромант")
             a.books=titles.mapIndexed{i,t->JSONObject().put("id","b$i").put("title",t).put("authors",JSONArray().put("Автор")).put("progress",JSONObject().put("pct",1.0))
                 .put("completedAt",today.minusDays((i*9).toLong()).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())}
-            a.tab="home";a.render()
-            StatisticsScreen(a,data,0,false).show()}
+            a.tab="home";a.render();a.window.decorView.tag=data}
+        Thread.sleep(2500)
+        scenario.onActivity{a->StatisticsScreen(a,a.window.decorView.tag as JSONObject,0,false).show()}
         shot("0-top")
+        scenario.onActivity{a->(a.profileOverlay as? android.widget.ScrollView)?.let{it.scrollTo(0,it.getChildAt(0).height/3)}}
+        shot("0-mid")
         scenario.onActivity{a->(a.profileOverlay as? android.widget.ScrollView)?.fullScroll(android.view.View.FOCUS_DOWN)}
         shot("1-bottom")
     }
