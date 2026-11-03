@@ -119,7 +119,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
     private inner class Glass:View(a){
         val pad=a.d(22)
         private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        private val bevel=a.d(10).toFloat();private val reach=a.d(6).toFloat()
+        private val bevel=a.d(10).toFloat();private val reach=a.d(6).toFloat();private val seam=a.d(3).toFloat()
         private var topStrip:Bitmap?=null;private var bottomStrip:Bitmap?=null;private var stripScale=1f;private var queued=false;private var x0=0;private var x1=0
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         fun refresh(){if(queued)return;queued=true;postDelayed(settle,140)}
@@ -139,10 +139,12 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
                 val bmp=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);val c=Canvas(bmp);c.drawFilter=PaintFlagsDrawFilter(0,Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
                 c.translate(-x0.toFloat(),-(y0+offY));row.draw(c);return bmp}
             val oldT=topStrip;val oldB=bottomStrip
-            topStrip=shot(gTop-reach,gTop+bevel);bottomStrip=shot(gBottom-bevel,gBottom+reach)
+            // each strip reaches [seam] px past its inner edge, so the seam is sampled from real pixels, not from the
+            // bitmap border (which blended with transparency and drew a grey line across light covers)
+            topStrip=shot(gTop-reach,gTop+bevel+seam);bottomStrip=shot(gBottom-bevel-seam,gBottom+reach)
             oldT?.recycle();oldB?.recycle()}
         // Mesh rows: bitmap rows are spread uniformly over the source band; their on-screen y solves y_src = f(y).
-        private val rows=14
+        private val rows=18
         private fun meshY(top:Boolean,src:Float,g0:Float):Float{
             // top bevel: f(y)=y−reach·(1−(y−g0)/bevel)², y∈[g0,g0+bevel]; bottom mirrors it. Bisection — f is monotonic.
             var lo=0f;var hi=bevel
@@ -150,9 +152,9 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             return g0+(lo+hi)/2}
         private fun strip(c:Canvas,bmp:Bitmap,top:Boolean,dx:Float){
             val gTop=pad.toFloat();val gBottom=(height-pad).toFloat()
-            val g0=if(top)gTop else gBottom-bevel;val src0=if(top)-reach else 0f;val srcH=bevel+reach
+            val g0=if(top)gTop else gBottom-bevel;val src0=if(top)-reach else -seam;val srcH=bevel+reach+seam
             val l=dx+x0;val w=bmp.width.toFloat();val v=FloatArray((rows+1)*2*2)
-            for(j in 0..rows){val src=src0+srcH*j/rows;val y=meshY(top,src,g0).coerceIn(g0,g0+bevel)
+            for(j in 0..rows){val src=src0+srcH*j/rows;val y=if(top&&src>=bevel||!top&&src<=0f)g0+src else meshY(top,src,g0).coerceIn(g0,g0+bevel)
                 v[j*4]=l;v[j*4+1]=y;v[j*4+2]=l+w;v[j*4+3]=y}
             // only where the snapshot reaches; beyond it (mid-fling, for a frame) the real covers show plainly
             c.save();c.clipRect(maxOf(pad.toFloat(),l),g0,minOf((width-pad).toFloat(),l+w),g0+bevel)
