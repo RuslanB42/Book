@@ -209,7 +209,9 @@ class MainActivity : Activity() {
             tab=="shelves"&&!inShelf->{query="";searchOpen=false;page.addView(shelvesTopBar(),LinearLayout.LayoutParams(-1,d(48)));space(page,12)}
             else->{query="";searchOpen=false;space(page,if(tab=="foryou")4 else 6)}
         }
-        page=col().apply{clipChildren=false;clipToPadding=false};wrapper.addView(page,LinearLayout.LayoutParams(-1,-2))
+        // The entry fade must not render the page into an offscreen layer: such a layer is clipped to the page,
+        // which cut off the shelf glass (it reaches into the side margins) until the fade ended.
+        page=col().apply{clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)};wrapper.addView(page,LinearLayout.LayoutParams(-1,-2))
         renderLibraryResults()
         navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; if(preservePosition) scroll.post { scroll.scrollTo(0,oldY) }; gridSnap?.let { playGrid(it,if(preservePosition) oldY else null) }; val motion=pendingMotion;pendingMotion=null;if(gridSnap==null){if(motion!=null)screenMotion.play(page,motion.first,motion.second) else if(animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),450,curve=MotionSpec.settle)}
     }
