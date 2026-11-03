@@ -36,7 +36,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  private var lastViewport=0
  private val reduced get()=a.prefs.str("motion")=="reduced"
  /** How far the cover rises above the card. */
- private val rise=a.d(24)
+ private val rise=a.d(22)
  private val strip=a.line().apply{clipChildren=false;clipToPadding=false}
  private val carousel=object:HorizontalScrollView(a){
   var stride=1;private var flung=false;private var startPage=0;private var glide:ValueAnimator?=null
@@ -62,21 +62,21 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   readingBooks.forEachIndexed{i,book->
    val card=RisingCoverCard(a).apply{clipChildren=false;clipToPadding=false;isFocusable=true;contentDescription="Продолжить: ${book.str("title")}"}
    floating(card,book,i)
-   val cover=CoverView(a,book,a.cover(book));card.addView(cover,FrameLayout.LayoutParams(a.d(84),a.d(126),Gravity.BOTTOM or Gravity.START).apply{marginStart=a.d(12);bottomMargin=a.d(10)})
+   val cover=CoverView(a,book,a.cover(book));card.addView(cover,FrameLayout.LayoutParams(a.d(92),a.d(138),Gravity.BOTTOM or Gravity.START).apply{marginStart=a.d(16);bottomMargin=a.d(14)})
    card.cover=cover;covers.add(cover)
-   val words=a.column().apply{gravity=Gravity.BOTTOM;setPadding(a.d(110),a.d(12),a.d(12),a.d(12));clipChildren=true}
-   words.addView(a.text(book.str("title"),14.5f,Color.WHITE,true).apply{maxLines=1;isSingleLine=true;ellipsize=TextUtils.TruncateAt.END})
-   a.space(words,1);words.addView(a.text(MainActivity.authors(book),12f,0xbfffffff.toInt()).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END})
-   a.space(words,8)
+   val words=a.column().apply{gravity=Gravity.BOTTOM;setPadding(a.d(124),a.d(16),a.d(18),a.d(16));clipChildren=true}
+   words.addView(a.text(book.str("title"),15f,a.fg,true).apply{maxLines=1;isSingleLine=true;ellipsize=TextUtils.TruncateAt.END})
+   a.space(words,3);words.addView(a.text(MainActivity.authors(book),12.5f,a.muted).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END})
+   a.space(words,12)
    val pct=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
    val meter=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
    val bar=HeroProgress(a,pct,!reduced);bars.add(bar)
    meter.addView(bar,LayoutParams(0,a.d(8),1f))
-   meter.addView(a.text("${(pct*100).roundToInt()}%",11f,0xccffffff.toInt()),LayoutParams(-2,-2).apply{marginStart=a.d(8)})
-   words.addView(meter,LayoutParams(-1,-2));a.space(words,9)
+   meter.addView(a.text("${(pct*100).roundToInt()}%",11f,a.muted),LayoutParams(-2,-2).apply{marginStart=a.d(8)})
+   words.addView(meter,LayoutParams(-1,-2));a.space(words,12)
    val buttons=a.line()
    buttons.addView(pill("Читать",true,"Читать: ${book.str("title")}"){a.openBook(book,cover)},LayoutParams(0,-2,1f))
-   buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,cover)},LayoutParams(0,-2,1f).apply{marginStart=a.d(6)})
+   buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,cover)},LayoutParams(0,-2,1f).apply{marginStart=a.d(8)})
    words.addView(buttons)
    card.addView(words,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));card.words=words;texts.add(words)
    card.setOnClickListener{a.openBook(book,cover)};a.press(card)
@@ -99,9 +99,10 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   val radius=a.d(18).toFloat()
   fun paint(c:IntArray){tints[i]=c[0];glow.invalidate()}
   val first=shades(null,book);paint(first)
-  val fill=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,first).apply{cornerRadius=radius}
+  // the usual card grey; the cover's colour only tints the glow behind the cards
+  val fill=GradientDrawable().apply{setColor(if(light)Color.WHITE else 0xff242426.toInt());cornerRadius=radius}
   card.background=fill
-  a.cover(book).let{b->if(b!=null)shades(b,book).let{fill.colors=it;paint(it)} else if(book.optJSONObject("cover")!=null)a.requestCover(book){bmp->if(bmp!=null)shades(bmp,book).let{fill.colors=it;paint(it);focus(carousel.scrollX)}}}
+  a.cover(book).let{b->if(b!=null)shades(b,book).let{paint(it)} else if(book.optJSONObject("cover")!=null)a.requestCover(book){bmp->if(bmp!=null)shades(bmp,book).let{paint(it);focus(carousel.scrollX)}}}
   card.elevation=a.d(if(light)8 else 10).toFloat()
   card.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,radius)}}
   if(Build.VERSION.SDK_INT>=28){card.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();card.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
@@ -115,9 +116,9 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   val hsv=FloatArray(3);Color.colorToHSV(base,hsv);val sat=(hsv[1]*.9f).coerceIn(.12f,.62f)
   fun at(v:Float,s:Float)=Color.HSVToColor(floatArrayOf(hsv[0],s,v))
   return if(light)intArrayOf(at(.62f,sat),at(.52f,sat*.9f),at(.38f,sat*.7f)) else intArrayOf(at(.52f,sat),at(.40f,sat*.85f),at(.21f,sat*.5f))}
- private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,12f,if(primary)0xff111111.toInt() else Color.WHITE,true).apply{
-  gravity=Gravity.CENTER;minHeight=a.d(30);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(6),0,a.d(6),0);contentDescription=description;isClickable=true;isFocusable=true
-  background=if(primary)GradientDrawable().apply{setColor(Color.WHITE);cornerRadius=a.d(15).toFloat()} else GradientDrawable().apply{setColor(0x2effffff);cornerRadius=a.d(15).toFloat()}
+ private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,12.5f,if(primary)a.bg else a.fg,true).apply{
+  gravity=Gravity.CENTER;minHeight=a.d(32);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(6),0,a.d(6),0);contentDescription=description;isClickable=true;isFocusable=true
+  background=if(primary)GradientDrawable().apply{setColor(a.fg);cornerRadius=a.d(16).toFloat()} else GradientDrawable().apply{setColor((a.fg and 0xffffff) or ((if(light)0x10 else 0x1c) shl 24));cornerRadius=a.d(16).toFloat()}
   setOnClickListener{click()};a.press(this)}
  private fun resize(viewport:Int){if(viewport<=0||viewport==lastViewport)return;lastViewport=viewport;val content=(viewport-a.d(40)).coerceAtLeast(1)
   // The card in focus sits at the normal page margin on the left; the next one peeks in on the right.
@@ -171,11 +172,11 @@ internal class AmbientGlow(private val a:MainActivity):View(a){
   c.drawCircle(0f,0f,rx,p);c.restore()}
 }
 
-/** The card's height comes from its text (at least 108dp), never from the cover: the taller cover hangs out above. */
+/** The card's height comes from its text (at least 128dp), never from the cover: the taller cover hangs out above. */
 internal class RisingCoverCard(private val a:MainActivity):FrameLayout(a){
  var words:View?=null
  var cover:View?=null
- var floor=a.d(108)
+ var floor=a.d(128)
  private fun reduced()=a.prefs.str("motion")=="reduced"
  /** Pressing the card dips it (the shared press effect) and lifts the book out of it a little, like picking it up. */
  override fun dispatchTouchEvent(e:MotionEvent):Boolean{val c=cover
@@ -197,10 +198,11 @@ internal class HeroProgress(private val a:MainActivity,private val fraction:Floa
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
  fun grow(delay:Long){shown=0f;ValueAnimator.ofFloat(0f,1f).apply{startDelay=delay;duration=900;interpolator=Ease.outExpo;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
  override fun onDraw(c:Canvas){val h=a.d(4).toFloat();val cy=height/2f;val w=width.toFloat();val r=h/2
-  p.shader=null;p.color=0x38ffffff;c.drawRoundRect(0f,cy-r,w,cy+r,r,r,p)
+  val ink=a.fg and 0xffffff
+  p.shader=null;p.color=ink or ((if(a.light)0x1a else 0x26) shl 24);c.drawRoundRect(0f,cy-r,w,cy+r,r,r,p)
   val f=fraction*shown;if(f<=0f)return;val x=(w*f).coerceIn(h,w)
-  val g=a.d(12).toFloat();p.shader=RadialGradient(x-r,cy,g,intArrayOf(0x66ffffff,0x00ffffff),null,Shader.TileMode.CLAMP);c.drawCircle(x-r,cy,g,p)
-  p.shader=null;p.color=Color.WHITE;c.drawRoundRect(0f,cy-r,x,cy+r,r,r,p)}
+  val g=a.d(12).toFloat();p.shader=RadialGradient(x-r,cy,g,intArrayOf(ink or (0x40 shl 24),ink),null,Shader.TileMode.CLAMP);c.drawCircle(x-r,cy,g,p)
+  p.shader=null;p.color=a.fg;c.drawRoundRect(0f,cy-r,x,cy+r,r,r,p)}
 }
 
 /** The book's own cover, softly blurred and veiled, as the card's background (not a CoverView: it is only a backdrop). */
