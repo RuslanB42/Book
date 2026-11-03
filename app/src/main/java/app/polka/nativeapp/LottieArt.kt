@@ -10,7 +10,7 @@ import com.airbnb.lottie.model.KeyPath
 import com.airbnb.lottie.value.LottieValueCallback
 
 /**
- * Lottie animations of Polka (assets/lottie/*.json, drawn for the app). Neutral parts are named «ink» in the files and
+ * Lottie animations of Polka (JSON files in assets/lottie, drawn for the app). Neutral parts are named «ink» in the files and
  * take the theme's muted colour here, so one file works in the light and the dark theme.
  * [loopFrom]: play the whole animation once, then loop from this frame (intro → idle). null — loop all; -1 — play once.
  */
