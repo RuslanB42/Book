@@ -139,7 +139,9 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun streak(){
         val box=surface().apply{setPadding(0,0,0,0);clipToOutline=true;clipChildren=true}
         val top=FrameLayout(a)
-        val col=a.column().apply{setPadding(a.d(20),a.d(20),a.d(150),a.d(22));minimumHeight=a.d(176)}
+        // the flame takes up to ~44% of the card, so the text column keeps room on narrow screens
+        val cardDp=(a.resources.configuration.screenWidthDp-32).coerceAtLeast(240);val flameDp=min(172,(cardDp*.44f).toInt())
+        val col=a.column().apply{setPadding(a.d(20),a.d(20),a.d(flameDp-22),a.d(22));minimumHeight=a.d(176)}
         val n=model.streak
         val first=a.line().apply{gravity=Gravity.BOTTOM};first.addView(big("$n",52f,n));first.addView(label("  ${daysWord(n)}",22f,a.fg).apply{typeface=Typeface.create("sans-serif-light",Typeface.NORMAL);setPadding(0,0,0,a.d(4))});col.addView(first)
         space(col,6)
@@ -147,10 +149,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         col.addView(label(if(n>0)"подряд · ваш рекорд $best" else "серии пока нет",15f,if(light)0xff5d5d62.toInt() else 0xffbdbdc2.toInt()))
         space(col,20)
         val minutes=(model.ms(today)/60000L).toInt()
-        val row=a.line();row.addView(label("Сегодня",13f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13f,a.fg));col.addView(row);space(col,7)
+        val row=a.line();row.addView(label("Сегодня",13f).apply{maxLines=1},LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13f,a.fg).apply{maxLines=1;setPadding(a.d(8),0,0,0)});col.addView(row);space(col,7)
         col.addView(ProgressRail(a,animate,(model.ms(today).toFloat()/(model.dailyGoal*60000L)).coerceIn(0f,1f),amber,coral,"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)))
         top.addView(col,FrameLayout.LayoutParams(-1,-2))
-        top.addView(FlameOrb(a,n>0,motionOn).apply{translationX=a.d(10).toFloat()},FrameLayout.LayoutParams(a.d(172),-1,Gravity.END))
+        top.addView(FlameOrb(a,n>0,motionOn).apply{translationX=a.d(10).toFloat()},FrameLayout.LayoutParams(a.d(flameDp),-1,Gravity.END))
         box.addView(top,LinearLayout.LayoutParams(-1,-2))
         val month=StreakMonth(a,model,today,motionOn);box.addView(a.column().apply{setPadding(a.d(20),0,a.d(20),0);addView(month,LinearLayout.LayoutParams(-1,-2))},LinearLayout.LayoutParams(-1,-2))
         box.contentDescription="Серия чтения: $n ${daysWord(n)}, рекорд $best"
