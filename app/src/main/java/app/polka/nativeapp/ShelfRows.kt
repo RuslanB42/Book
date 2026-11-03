@@ -145,7 +145,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             fun shot(y0:Float,y1:Float):Bitmap{val w=x1-x0;val h=(y1-y0).toInt().coerceAtLeast(1)
                 val bmp=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);val c=Canvas(bmp);c.drawFilter=PaintFlagsDrawFilter(0,Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
                 c.translate(-x0.toFloat(),-(y0+offY));row.draw(c);return bmp}
-            if(liquid){val old=pane;pane=shot(gTop-margin,gBottom+margin);old?.recycle();return}
+            if(liquid&&!LiquidGlass.failed){val old=pane;pane=shot(gTop-margin,gBottom+margin);old?.recycle();return}
             val oldT=topStrip;val oldB=bottomStrip
             // each strip reaches [seam] px past its inner edge, so the seam is sampled from real pixels, not from the
             // bitmap border (which blended with transparency and drew a grey line across light covers)
@@ -201,10 +201,11 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             under?.let{c.drawBitmap(it,0f,0f,null)}
             val dx=(scroller.left+row.left-scroller.scrollX-left).toFloat()
             val pb=pane
-            if(liquid&&pb!=null&&!pb.isRecycled&&lens!=null){
+            if(liquid&&!LiquidGlass.failed&&pb!=null&&!pb.isRecycled&&lens!=null){
                 val g=RectF(pad.toFloat(),pad.toFloat(),(width-pad).toFloat(),(height-pad).toFloat())
                 c.save();c.translate(g.left,g.top)
                 LiquidGlass.bind(lens,lensPaint,pb,dx+x0-g.left,-margin,g.width(),g.height(),a.d(9).toFloat(),a.bg,a.light,resources.displayMetrics.density)
+                if(LiquidGlass.failed){c.restore();refresh();invalidate();return}
                 c.drawRoundRect(0f,0f,g.width(),g.height(),a.d(9).toFloat(),a.d(9).toFloat(),lensPaint);c.restore()
                 over?.let{c.drawBitmap(it,0f,0f,null)};return}
             c.save();c.clipPath(clip)

@@ -17,7 +17,7 @@ uniform float radius;
 uniform float bevel;
 uniform float strength;
 uniform float zoom;
-uniform half4 bg;
+layout(color) uniform half4 bg;
 uniform float lightMode;
 
 float sdBox(float2 p, float2 b, float r){ float2 q=abs(p)-b+r; return length(max(q,0.0))+min(max(q.x,q.y),0.0)-r; }
@@ -53,8 +53,10 @@ half4 main(float2 p){
     /** Points the lens at [snapshot]: its pixel (0,0) sits at ([ox],[oy]) in pane coordinates. */
     fun bind(lens:Any,paint:Paint,snapshot:Bitmap,ox:Float,oy:Float,w:Float,h:Float,radius:Float,bg:Int,light:Boolean,density:Float){
         if(android.os.Build.VERSION.SDK_INT<33)return
-        bind33(lens as RuntimeShader,paint,snapshot,ox,oy,w,h,radius,bg,light,density)
+        try{bind33(lens as RuntimeShader,paint,snapshot,ox,oy,w,h,radius,bg,light,density)}catch(e:Throwable){paint.shader=null;failed=true}
     }
+    /** Set if the device refused the shader; the shelf then falls back to the plain glass. */
+    @Volatile var failed=false
     @RequiresApi(33) private fun bind33(s:RuntimeShader,paint:Paint,snapshot:Bitmap,ox:Float,oy:Float,w:Float,h:Float,radius:Float,bg:Int,light:Boolean,density:Float){
         val content=BitmapShader(snapshot,Shader.TileMode.DECAL,Shader.TileMode.DECAL).apply{setLocalMatrix(Matrix().apply{setTranslate(ox,oy)})}
         s.setInputShader("content",content)
