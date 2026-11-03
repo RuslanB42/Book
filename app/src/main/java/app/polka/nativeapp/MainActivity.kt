@@ -324,13 +324,12 @@ class MainActivity : Activity() {
     }
     fun sortName(key:String=sort):String = when(key) { "recent" -> "Недавние"; "title" -> "По названию"; "author" -> "По автору"; else -> "Мой порядок" }
     fun search() { librarySearch?.toggle() }
-    fun inputDialog(title:String,value:String="",done:(String)->Unit) { val input=EditText(this).apply { setTextColor(fg); setHintTextColor(muted); setText(value); isSingleLine=true; setPadding(d(24),d(16),d(24),d(16)) }; dialog().setTitle(title).setView(input).setNegativeButton("Отмена",null).setPositiveButton("Готово") { _,_ -> done(input.text.toString().trim()) }.show() }
-    fun createShelf() { inputDialog("Новая полка") { name -> if(name.isNotBlank()) { prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct())); savePreferences(); render() } } }
+    fun createShelf() { inputDialog("Новая полка",hint="Например, «Отпуск» или «Классика»",helper="Полку потом можно переименовать и переставить") { name -> if(name.isNotBlank()) { prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct())); savePreferences(); render() } } }
     fun renameShelf(name:String,next:String) { if(next.isBlank() || next==name) return
         prefs.optJSONArray("shelfOrder")?.strings()?.let { order -> prefs.put("shelfOrder",JSONArray(order.map { if(it=="s:$name") "s:$next" else it })) }
         work({ library.db.runInTransaction { books.filter { it.str("shelf")==name }.forEach { library.save(it.copyJson().put("shelf",next)) }; prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty().filterNot { it==name }+next).distinct())); library.savePrefs(prefs) } }) { if(shelf==name) shelf=next; reload() } }
     fun shelfActions(name:String) { dialog().setTitle(name).setItemIcons("pen","plus","trash").setDestructiveItems(2).setItems(arrayOf("Переименовать","Добавить книги на полку","Удалить полку")) { _,i -> when(i) {
-        0 -> inputDialog("Название полки",name) { next -> renameShelf(name,next) }
+        0 -> inputDialog("Название полки",name,hint="Название полки",action="Сохранить") { next -> renameShelf(name,next) }
         1 -> { val checked=BooleanArray(books.size) { books[it].str("shelf")==name }; dialog().setTitle("Книги на полке").setMultiChoiceItems(books.map { it.str("title") }.toTypedArray(),checked) { _,which,on -> checked[which]=on }.setPositiveButton("Сохранить") { _,_ -> work({ library.db.runInTransaction { books.forEachIndexed { j,b -> if(checked[j]) library.save(b.copyJson().put("shelf",name)); else if(b.str("shelf")==name) library.save(b.copyJson().put("shelf","")) } } }) { reload() } }.setNegativeButton("Отмена",null).show() }
         2 -> confirm("Удалить полку?","Книги останутся в библиотеке.") { work({ library.db.runInTransaction { books.filter { it.str("shelf")==name }.forEach { library.save(it.copyJson().put("shelf","")) }; prefs.put("shelves",JSONArray(prefs.optJSONArray("shelves")?.strings().orEmpty().filterNot { it==name })); library.savePrefs(prefs) } }) { shelf=null; reload() } }
     } }.show() }
