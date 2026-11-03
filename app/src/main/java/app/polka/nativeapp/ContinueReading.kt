@@ -27,11 +27,16 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  private var restoring=true
  private var pendingIndex=readingBooks.indexOfFirst{it.str("id")==a.continueBookId}.coerceAtLeast(0)
  private val cards=mutableListOf<RisingCoverCard>()
+ private val covers=mutableListOf<CoverView>()
+ private val texts=mutableListOf<LinearLayout>()
+ private val bars=mutableListOf<HeroProgress>()
+ private val tints=IntArray(readingBooks.size)
+ private val glow=AmbientGlow(a)
  private val holders=mutableListOf<FrameLayout>()
  private var lastViewport=0
  private val reduced get()=a.prefs.str("motion")=="reduced"
  /** How far the cover rises above the card. */
- private val rise=a.d(30)
+ private val rise=a.d(24)
  private val strip=a.line().apply{clipChildren=false;clipToPadding=false}
  private val carousel=object:HorizontalScrollView(a){
   var stride=1;private var flung=false;private var startPage=0;private var glide:ValueAnimator?=null
@@ -56,36 +61,47 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   addView(a.text("Продолжить чтение",20f,bold=true,serif=true))
   readingBooks.forEachIndexed{i,book->
    val card=RisingCoverCard(a).apply{clipChildren=false;clipToPadding=false;isFocusable=true;contentDescription="Продолжить: ${book.str("title")}"}
-   floating(card,book)
-   val cover=CoverView(a,book,a.cover(book));card.addView(cover,FrameLayout.LayoutParams(a.d(112),a.d(168),Gravity.BOTTOM or Gravity.START).apply{marginStart=a.d(14);bottomMargin=a.d(12)})
-   val words=a.column().apply{gravity=Gravity.BOTTOM;setPadding(a.d(140),a.d(14),a.d(14),a.d(14))}
-   words.addView(a.text(book.str("title"),15f,Color.WHITE,true).apply{maxLines=2;ellipsize=TextUtils.TruncateAt.END;setLineSpacing(0f,1.08f)})
-   a.space(words,2);words.addView(a.text(MainActivity.authors(book),12.5f,0xbfffffff.toInt()).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END})
-   a.space(words,10)
+   floating(card,book,i)
+   val cover=CoverView(a,book,a.cover(book));card.addView(cover,FrameLayout.LayoutParams(a.d(84),a.d(126),Gravity.BOTTOM or Gravity.START).apply{marginStart=a.d(12);bottomMargin=a.d(10)})
+   card.cover=cover;covers.add(cover)
+   val words=a.column().apply{gravity=Gravity.BOTTOM;setPadding(a.d(110),a.d(12),a.d(12),a.d(12));clipChildren=true}
+   words.addView(a.text(book.str("title"),14.5f,Color.WHITE,true).apply{maxLines=1;isSingleLine=true;ellipsize=TextUtils.TruncateAt.END})
+   a.space(words,1);words.addView(a.text(MainActivity.authors(book),12f,0xbfffffff.toInt()).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END})
+   a.space(words,8)
    val pct=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
    val meter=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-   meter.addView(HeroProgress(a,pct),LayoutParams(0,a.d(8),1f))
+   val bar=HeroProgress(a,pct,!reduced);bars.add(bar)
+   meter.addView(bar,LayoutParams(0,a.d(8),1f))
    meter.addView(a.text("${(pct*100).roundToInt()}%",11f,0xccffffff.toInt()),LayoutParams(-2,-2).apply{marginStart=a.d(8)})
-   words.addView(meter,LayoutParams(-1,-2));a.space(words,11)
+   words.addView(meter,LayoutParams(-1,-2));a.space(words,9)
    val buttons=a.line()
    buttons.addView(pill("Читать",true,"Читать: ${book.str("title")}"){a.openBook(book,cover)},LayoutParams(0,-2,1f))
    buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,cover)},LayoutParams(0,-2,1f).apply{marginStart=a.d(6)})
    words.addView(buttons)
-   card.addView(words,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));card.words=words
+   card.addView(words,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));card.words=words;texts.add(words)
    card.setOnClickListener{a.openBook(book,cover)};a.press(card)
    cards.add(card)
-   // The focus transform lives on a holder, so the press feedback on the card never fights it.
-   val holder=FrameLayout(a).apply{clipChildren=false;clipToPadding=false};holder.addView(card,FrameLayout.LayoutParams(a.d(300),-2));holders.add(holder)
+   // The focus transform lives on a holder, so the press feedback on the card never fights it. The holder's top
+   // padding makes room for the rising cover INSIDE its bounds: when the holder is dimmed (alpha < 1) its layer is
+   // clipped to those bounds, and without the room the cover's top was cut off on the neighbouring cards.
+   val holder=FrameLayout(a).apply{clipChildren=false;clipToPadding=false;setPadding(0,rise+a.d(6),0,0)};holder.addView(card,FrameLayout.LayoutParams(a.d(300),-2));holders.add(holder)
    strip.addView(holder,LayoutParams(-2,-2).apply{if(i>0)marginStart=a.d(12)})
   }
-  carousel.addView(strip,FrameLayout.LayoutParams(-2,-2));addView(carousel,LayoutParams(-1,-2).apply{marginStart=-a.d(20);marginEnd=-a.d(20);bottomMargin=-a.d(14)})
+  carousel.addView(strip,FrameLayout.LayoutParams(-2,-2))
+  // a soft glow in the focused book's colour behind the cards; it changes colour as you scroll
+  val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
+  if(!reduced)stage.addView(glow,FrameLayout.LayoutParams(-1,-1))
+  stage.addView(carousel,FrameLayout.LayoutParams(-1,-2))
+  addView(stage,LayoutParams(-1,-2).apply{marginStart=-a.d(20);marginEnd=-a.d(20);bottomMargin=-a.d(14)})
  }
  /** Card fill: the cover's colour, lighter on the left (next to the cover) and deepening to the right, like Kindle. */
- private fun floating(card:FrameLayout,book:JSONObject){
-  val radius=a.d(20).toFloat()
-  val fill=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,shades(null,book)).apply{cornerRadius=radius}
+ private fun floating(card:FrameLayout,book:JSONObject,i:Int){
+  val radius=a.d(18).toFloat()
+  fun paint(c:IntArray){tints[i]=c[0];glow.invalidate()}
+  val first=shades(null,book);paint(first)
+  val fill=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,first).apply{cornerRadius=radius}
   card.background=fill
-  (a.cover(book)?:null).let{b->if(b!=null)fill.colors=shades(b,book) else if(book.optJSONObject("cover")!=null)a.requestCover(book){bmp->if(bmp!=null)fill.colors=shades(bmp,book)}}
+  a.cover(book).let{b->if(b!=null)shades(b,book).let{fill.colors=it;paint(it)} else if(book.optJSONObject("cover")!=null)a.requestCover(book){bmp->if(bmp!=null)shades(bmp,book).let{fill.colors=it;paint(it);focus(carousel.scrollX)}}}
   card.elevation=a.d(if(light)8 else 10).toFloat()
   card.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,radius)}}
   if(Build.VERSION.SDK_INT>=28){card.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();card.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
@@ -99,40 +115,80 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   val hsv=FloatArray(3);Color.colorToHSV(base,hsv);val sat=(hsv[1]*.9f).coerceIn(.12f,.62f)
   fun at(v:Float,s:Float)=Color.HSVToColor(floatArrayOf(hsv[0],s,v))
   return if(light)intArrayOf(at(.62f,sat),at(.52f,sat*.9f),at(.38f,sat*.7f)) else intArrayOf(at(.52f,sat),at(.40f,sat*.85f),at(.21f,sat*.5f))}
- private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,12.5f,if(primary)0xff111111.toInt() else Color.WHITE,true).apply{
-  gravity=Gravity.CENTER;minHeight=a.d(32);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(6),0,a.d(6),0);contentDescription=description;isClickable=true;isFocusable=true
-  background=if(primary)GradientDrawable().apply{setColor(Color.WHITE);cornerRadius=a.d(16).toFloat()} else GradientDrawable().apply{setColor(0x29ffffff);cornerRadius=a.d(16).toFloat();setStroke(a.d(1).coerceAtLeast(1),0x38ffffff)}
+ private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,12f,if(primary)0xff111111.toInt() else Color.WHITE,true).apply{
+  gravity=Gravity.CENTER;minHeight=a.d(30);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(6),0,a.d(6),0);contentDescription=description;isClickable=true;isFocusable=true
+  background=if(primary)GradientDrawable().apply{setColor(Color.WHITE);cornerRadius=a.d(15).toFloat()} else GradientDrawable().apply{setColor(0x2effffff);cornerRadius=a.d(15).toFloat()}
   setOnClickListener{click()};a.press(this)}
  private fun resize(viewport:Int){if(viewport<=0||viewport==lastViewport)return;lastViewport=viewport;val content=(viewport-a.d(40)).coerceAtLeast(1)
   // The card in focus sits at the normal page margin on the left; the next one peeks in on the right.
-  val width=if(cards.size<=1)content else (content*.94f).toInt().coerceAtMost(a.d(360));val gap=a.d(12);carousel.stride=width+gap
+  val width=if(cards.size<=1)content else (content*.9f).toInt().coerceAtMost(a.d(340));val gap=a.d(12);carousel.stride=width+gap
   cards.forEach{c->c.layoutParams=(c.layoutParams as FrameLayout.LayoutParams).apply{this.width=width}}
   holders.forEachIndexed{i,h->h.layoutParams=(h.layoutParams as LayoutParams).apply{marginStart=if(i>0)gap else 0}}
-  strip.setPadding(a.d(20),rise+a.d(16),(viewport-width-a.d(20)).coerceAtLeast(a.d(20)),a.d(22))
+  strip.setPadding(a.d(20),a.d(8),(viewport-width-a.d(20)).coerceAtLeast(a.d(20)),a.d(22))
   pendingIndex=readingBooks.indexOfFirst{it.str("id")==a.continueBookId}.coerceAtLeast(0);restoring=true}
  /** Every card gets the height of the tallest one, so all of them scale the same way. */
  private fun evenHeights(){if(cards.size<=1)return;val tallest=cards.maxOf{it.measuredHeight};if(tallest<=0)return
   cards.forEach{c->if(c.floor<tallest){c.floor=tallest;c.requestLayout()}}}
- /** The focused card (at the left margin) is full size; the others are a little smaller and dimmer,
-  *  continuously with their distance from focus. */
- private fun focus(x:Int){if(holders.size<=1)return;val stride=carousel.stride.toFloat().coerceAtLeast(1f);val anchor=x+a.d(20)
+ /** Everything follows the scroll position continuously (no timers), so it tracks the finger exactly:
+  *  - neighbours are smaller and dimmer; the focused card floats higher;
+  *  - the cover in focus stands tall above its card, leaning a touch toward the scroll; on the neighbours it
+  *    shrinks back into the card (scaled from its foot, so it never pokes out below);
+  *  - the text lines slide at different speeds (title slowest, buttons fastest) — a layered parallax;
+  *  - the glow behind blends from one book's colour into the next;
+  *  - when a card lands in focus for the first time, its progress bar fills up. */
+ private fun focus(x:Int){val stride=carousel.stride.toFloat().coerceAtLeast(1f);val anchor=x+a.d(20);val motion=!reduced
   holders.forEachIndexed{i,h->if(h.width<=0)return@forEachIndexed;val d=(h.left-anchor)/stride;val k=kotlin.math.abs(d).coerceAtMost(1f)
-   val s=1f-.06f*k;h.pivotX=if(d>0)0f else h.width.toFloat();h.pivotY=h.height.toFloat();h.scaleX=s;h.scaleY=s;h.alpha=1f-.35f*k
-   cards[i].translationZ=a.d(6)*(1f-k)}}
+   if(k<.08f)bars[i].reveal()
+   if(holders.size<=1)return@forEachIndexed
+   val s=1f-.07f*k;h.pivotX=if(d>0)0f else h.width.toFloat();h.pivotY=h.height.toFloat();h.scaleX=s;h.scaleY=s;h.alpha=1f-.4f*k
+   cards[i].translationZ=a.d(6)*(1f-k)
+   if(!motion)return@forEachIndexed
+   val c=covers[i];c.pivotX=c.width/2f;c.pivotY=c.height.toFloat()
+   val sink=1f-.16f*k;c.scaleX=sink;c.scaleY=sink;c.rotation=(-d*4f).coerceIn(-4f,4f);c.translationX=-d.coerceIn(-1f,1f)*a.d(6)
+   val rows=texts[i];var n=0
+   for(r in 0 until rows.childCount){val v=rows.getChildAt(r);if(v.height<=a.d(2)&&v !is TextView)continue;v.translationX=d.coerceIn(-1f,1f)*a.d(14)*(1+n*.5f);n++}}
+  if(motion&&readingBooks.isNotEmpty()){val f=(x/stride).coerceIn(0f,readingBooks.lastIndex.toFloat());val lo=f.toInt();val hi=(lo+1).coerceAtMost(readingBooks.lastIndex)
+   glow.set(blend(tints[lo],tints[hi],f-lo),a.d(20)+carousel.stride*.42f,light)}}
+ private fun blend(p:Int,q:Int,t:Float):Int{fun ch(sh:Int)=(((p shr sh) and 255)*(1-t)+((q shr sh) and 255)*t).roundToInt();return Color.rgb(ch(16),ch(8),ch(0))}
 }
 
-/** The card's height comes from its text (at least 150dp), never from the cover: the taller cover hangs out above. */
+/** A wide, very soft ellipse of colour behind the focused card. Cheap: one radial gradient, redrawn on scroll. */
+internal class AmbientGlow(private val a:MainActivity):View(a){
+ private var color=0;private var cx=0f;private var light=false
+ private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+ init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
+ fun set(c:Int,x:Float,l:Boolean){if(c==color&&x==cx&&l==light)return;color=c;cx=x;light=l;invalidate()}
+ override fun onDraw(c:Canvas){if(width<1||height<1||color==0)return
+  val hsv=FloatArray(3);Color.colorToHSV(color,hsv);hsv[1]=(hsv[1]*1.2f).coerceAtMost(.75f);hsv[2]=if(light).85f else .75f;val col=Color.HSVToColor(hsv) and 0xffffff
+  val alpha=if(light)0x30 else 0x4a;val cy=height*.56f;val rx=width*.62f;val ry=height*.42f
+  c.save();c.translate(cx,cy);c.scale(1f,ry/rx)
+  p.shader=RadialGradient(0f,0f,rx,intArrayOf(col or (alpha shl 24),col or ((alpha/3) shl 24),col),floatArrayOf(0f,.5f,1f),Shader.TileMode.CLAMP)
+  c.drawCircle(0f,0f,rx,p);c.restore()}
+}
+
+/** The card's height comes from its text (at least 108dp), never from the cover: the taller cover hangs out above. */
 internal class RisingCoverCard(private val a:MainActivity):FrameLayout(a){
  var words:View?=null
- var floor=a.d(150)
+ var cover:View?=null
+ var floor=a.d(108)
+ private fun reduced()=a.prefs.str("motion")=="reduced"
+ /** Pressing the card dips it (the shared press effect) and lifts the book out of it a little, like picking it up. */
+ override fun dispatchTouchEvent(e:MotionEvent):Boolean{val c=cover
+  if(c!=null&&!reduced())when(e.actionMasked){
+   MotionEvent.ACTION_DOWN->{c.pivotX=c.width/2f;c.pivotY=c.height.toFloat();val sp=Spring.of(.2,300.0);c.animate().translationY(-a.d(7).toFloat()).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
+   MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val sp=Spring.of(.45,520.0);c.animate().translationY(0f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
+  }
+  return super.dispatchTouchEvent(e)}
  override fun onMeasure(w:Int,h:Int){val text=words;var hh=floor
   if(text!=null){text.measure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(w),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));hh=maxOf(hh,text.measuredHeight)}
   super.onMeasure(w,MeasureSpec.makeMeasureSpec(hh,MeasureSpec.EXACTLY))}
 }
 
 /** Thin white bar on the card: a faint track and the fill with a soft spark at its end. */
-internal class HeroProgress(private val a:MainActivity,private val fraction:Float):View(a){
- private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var shown=1f
+internal class HeroProgress(private val a:MainActivity,private val fraction:Float,animated:Boolean=false):View(a){
+ private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var shown=if(animated)0f else 1f;private var revealed=!animated
+ /** Fill the bar the first time its card comes into focus. */
+ fun reveal(){if(revealed)return;revealed=true;val sp=Spring.of(.12,700.0);ValueAnimator.ofFloat(0f,1f).apply{startDelay=120;duration=sp.duration;interpolator=sp.interpolator;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
  fun grow(delay:Long){shown=0f;ValueAnimator.ofFloat(0f,1f).apply{startDelay=delay;duration=900;interpolator=Ease.outExpo;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
  override fun onDraw(c:Canvas){val h=a.d(4).toFloat();val cy=height/2f;val w=width.toFloat();val r=h/2
