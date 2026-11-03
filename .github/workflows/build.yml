@@ -99,7 +99,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot
           script: |
             chmod +x gradlew
-            timeout 840 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=app.polka.nativeapp.ShelvesCheck -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --no-daemon --console=plain > device.log 2>&1 || true
+            timeout 840 ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=app.polka.nativeapp.StatsCheck -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --no-daemon --console=plain > device.log 2>&1 || true
             mkdir -p device-qa
             adb exec-out run-as app.polka.nativeapp tar cf - -C files/qa . > device-qa/qa.tar || true
             tar xf device-qa/qa.tar -C device-qa || true
