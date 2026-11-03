@@ -222,22 +222,22 @@ class MainActivity : Activity() {
         screenMotion.stop();page.removeAllViews()
 
         when {
-            query.isNotBlank() -> {val found=searchBooks();if(found.isEmpty()){page.addView(text("Ничего не нашлось по запросу «${query.trim()}». Поиск идёт по названию, автору, серии и полке.",15f,muted))}else{val row=line();row.addView(text("Найдено",20f,bold=true),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(countBooks(found.size),14f,muted));page.addView(row);space(page,14);bookGrid(found)}}
-            shelf!=null || auto!=null -> { backAndCount(); val list=currentBooks(); if(list.isEmpty()) emptyState(if(auto=="reading") "Пока ничего не читаете" else "На полке пока пусто") else bookGrid(list) }
+            query.isNotBlank() -> {val found=searchBooks();if(found.isEmpty()){space(page,8);page.addView(lottie("empty_search"),LinearLayout.LayoutParams(-1,d(200)));space(page,8);page.addView(text("Ничего не нашлось",22f,bold=true,serif=true).apply{gravity=Gravity.CENTER});space(page,8);page.addView(text("По запросу «${query.trim()}» нет книг. Поиск идёт по названию, автору, серии и полке.",15f,muted).apply{gravity=Gravity.CENTER})}else{val row=line();row.addView(text("Найдено",20f,bold=true),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(countBooks(found.size),14f,muted));page.addView(row);space(page,14);bookGrid(found)}}
+            shelf!=null || auto!=null -> { backAndCount(); val list=currentBooks(); if(list.isEmpty()) emptyState(if(auto=="reading") "Пока ничего не читаете" else "На полке пока пусто",lottieName="empty_books") else bookGrid(list) }
             tab=="shelves" && query.isBlank() -> shelfRows()
             tab=="quotes" -> quotes()
             tab=="foryou" -> recommendations()
             else -> {
                 if(query.isBlank()) continueCard()
                 val list=currentBooks()
-                if(list.isEmpty()) { emptyState(if(query.isNotBlank()) "Ничего не найдено" else "Здесь будут ваши книги"); if(query.isBlank()) page.addView(button("＋  Добавить книги",true) { pickBooks() }) } else bookGrid(list)
+                if(list.isEmpty()) { emptyState(if(query.isNotBlank()) "Ничего не найдено" else "Здесь будут ваши книги",lottieName=if(query.isNotBlank())"empty_search" else null); if(query.isBlank()) page.addView(button("＋  Добавить книги",true) { pickBooks() }) } else bookGrid(list)
             }
         }
 
     }
     fun countRow(n:Int) { val r=row(); r.addView(text(countBooks(n),20f,bold=true),LinearLayout.LayoutParams(0,-2,1f)); r.addView(text(sortName(),14f,muted).apply { sortControl=this; setPadding(d(8),0,0,0); gravity=Gravity.CENTER_VERTICAL; minHeight=d(36); setOnClickListener { filters() } }); page.addView(r,LinearLayout.LayoutParams(-1,d(36))); space(page,14) }
     fun backAndCount() { val r=row(); r.addView(backControl("Полки","Назад к полкам") { pendingMotion=MotionPose(.4f,x=-d(18).toFloat()) to MotionSpec.SHELF;shelf=null;auto=null;query="";tab="shelves";render(false,false) },LinearLayout.LayoutParams(0,d(44),1f)); r.addView(text(countBooks(currentBooks().size),14f,muted)); addIcon(r,"more","Действия с полкой") { if(shelf!=null) shelfActions(shelf!!) else filters() }; page.addView(r); space(page,18) }
-    fun emptyState(label:String) { space(page,12); val covers=FloatingCovers(this); floatingCovers=covers; page.addView(covers,LinearLayout.LayoutParams(-1,d(240))); space(page,16); page.addView(text(label,25f,bold=true,serif=true).apply { gravity=Gravity.CENTER }); space(page,24) }
+    fun emptyState(label:String,lottieName:String?=null) { space(page,12); if(lottieName!=null) page.addView(lottie(lottieName,if(lottieName=="empty_books")60 else null),LinearLayout.LayoutParams(-1,d(220))) else { val covers=FloatingCovers(this); floatingCovers=covers; page.addView(covers,LinearLayout.LayoutParams(-1,d(240))) }; space(page,16); page.addView(text(label,25f,bold=true,serif=true).apply { gravity=Gravity.CENTER }); space(page,24) }
     internal var continueBookId:String?=null
     private var continueCarousel:ContinueReading?=null
     fun continueCard() {

@@ -17,6 +17,8 @@ internal class StreakCelebration(private val a:MainActivity,private val host:Fra
     private val overlay=FrameLayout(a)
     private val glow=BreathGlow(a,0xffff6e1e.toInt(),if(a.light).22f else .3f,false).apply{level=0f}
     private val burst=IgnitionBurst(a)
+    private val sparks=a.lottie("streak_burst",-1)
+    private val embers=a.lottie("streak_embers",-1).apply{repeatCount=com.airbnb.lottie.LottieDrawable.INFINITE}
     private val flame=FlameArt(a,0f)
     private val number=Odometer(a,"${streak-1}",84f,amber,true,true)
     private val caption=a.text(days(streak)+" подряд",17f,amber,true).apply{gravity=Gravity.CENTER}
@@ -48,7 +50,10 @@ internal class StreakCelebration(private val a:MainActivity,private val host:Fra
         val col=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;clipChildren=false;clipToPadding=false}
         val flameBox=FrameLayout(a).apply{clipChildren=false}
         flameBox.addView(glow,FrameLayout.LayoutParams(a.d(440),a.d(440),Gravity.CENTER))
-        flameBox.addView(burst,FrameLayout.LayoutParams(a.d(380),a.d(380),Gravity.CENTER))
+        // embers rising around the flame (Lottie, looped) and the ignition burst (Lottie, once)
+        flameBox.addView(embers,FrameLayout.LayoutParams(a.d(220),a.d(308),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply{bottomMargin=-a.d(40)})
+        flameBox.addView(sparks,FrameLayout.LayoutParams(a.d(400),a.d(400),Gravity.CENTER).apply{topMargin=-a.d(28)})
+        embers.alpha=0f
         flameBox.addView(flame,FrameLayout.LayoutParams(a.d(112),a.d(140),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
         burst.originY=.66f
         col.addView(flameBox,LinearLayout.LayoutParams(a.d(160),a.d(170)))
@@ -108,7 +113,7 @@ internal class StreakCelebration(private val a:MainActivity,private val host:Fra
             flame.lit=1f
             // stretch into a droplet
             flame.animate().scaleX(.42f).scaleY(1.3f).setDuration(190).setInterpolator(PathInterpolator(.2f,0f,.2f,1f)).withEndAction{
-                burst.play();haptic()
+                sparks.playAnimation();embers.playAnimation();embers.animate().alpha(1f).setStartDelay(250).setDuration(600).start();haptic()
                 ValueAnimator.ofFloat(0f,1f).apply{duration=700;interpolator=DecelerateInterpolator();addUpdateListener{glow.level=it.animatedValue as Float};start()}
                 flame.animate().scaleX(1f).scaleY(1f).setDuration(680).setInterpolator(OvershootInterpolator(2.4f)).withEndAction{if(!closed)flame.startFlicker()}.start()
                 settle()
