@@ -39,5 +39,9 @@ class StatsCheck {
         shot("1-bottom")
         scenario.onActivity{a->(a.profileOverlay as? android.widget.ScrollView)?.scrollTo(0,0)}
         Thread.sleep(2500);shot("2-top")
+        scenario.onActivity{a->(a.profileOverlay as? android.widget.ScrollView)?.let{sv->val card=((sv.getChildAt(0) as android.view.ViewGroup).getChildAt(2));card.performClick()}}
+        Thread.sleep(2500);shot("3-month")
+        scenario.onActivity{a->a.readBooksPage(ReadingStatistics(a.window.decorView.tag as JSONObject,a.books),java.time.LocalDate.now().year)}
+        Thread.sleep(2500);shot("4-books")
     }
 }

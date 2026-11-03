@@ -16,6 +16,7 @@ import java.util.Locale
 internal class StreakMonth(private val a:MainActivity,private val model:ReadingStatistics,private val today:LocalDate,private val motion:Boolean):LinearLayout(a){
     private var month=YearMonth.from(today)
     private var open=false
+    var onToggle:((Boolean)->Unit)?=null
     private val title=a.text("",16f,a.fg,true)
     private val grid=MonthGrid()
     private val prev=a.icon("back","Предыдущий месяц"){go(-1)}
@@ -23,10 +24,12 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
     private var anim:ValueAnimator?=null
     init{
         orientation=VERTICAL;visibility=GONE;clipChildren=false
-        val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(18),0,a.d(8))}
+        // a hairline separates the month from the card above
+        addView(View(a).apply{setBackgroundColor(if(a.light)0x12000000 else 0x14ffffff)},LayoutParams(-1,a.d(1)).apply{topMargin=a.d(2)})
+        val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(12),0,a.d(6))}
         bar.addView(prev,LayoutParams(a.d(40),a.d(40)));bar.addView(title.apply{gravity=Gravity.CENTER},LayoutParams(0,-2,1f));bar.addView(next,LayoutParams(a.d(40),a.d(40)))
         addView(bar,LayoutParams(-1,-2))
-        val names=a.line();listOf("Пн","Вт","Ср","Чт","Пт","Сб","Вс").forEach{names.addView(a.text(it,12f,a.muted).apply{gravity=Gravity.CENTER},LayoutParams(0,-2,1f))}
+        val names=a.line();listOf("пн","вт","ср","чт","пт","сб","вс").forEach{names.addView(a.text(it,12f,a.muted).apply{gravity=Gravity.CENTER},LayoutParams(0,-2,1f))}
         addView(names,LayoutParams(-1,-2));addView(grid,LayoutParams(-1,-2).apply{topMargin=a.d(8)})
         bind()
     }
@@ -35,7 +38,7 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
     private fun go(dir:Int){val target=month.plusMonths(dir.toLong());if(target>YearMonth.from(today))return
         if(!motion){month=target;bind();return}
         grid.animate().cancel();grid.animate().alpha(0f).translationX(-dir*a.d(24).toFloat()).setDuration(130).withEndAction{month=target;bind();grid.translationX=dir*a.d(24).toFloat();grid.animate().alpha(1f).translationX(0f).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
-    fun toggle(){open=!open;anim?.cancel()
+    fun toggle(){open=!open;anim?.cancel();onToggle?.invoke(open)
         if(!motion){visibility=if(open)VISIBLE else GONE;return}
         val w=(parent as View).width-(parent as View).paddingLeft-(parent as View).paddingRight
         measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));val full=measuredHeight
@@ -54,7 +57,7 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
         private val rowH get()=a.d(40)
         override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(MeasureSpec.getSize(w),rows*rowH)
         override fun onDraw(c:Canvas){
-            val lead=month.atDay(1).dayOfWeek.value-1;val cw=width/7f;val r=a.d(15).toFloat();val quiet=if(a.light)0xffeeeeec.toInt() else 0xff2f2f31.toInt()
+            val lead=month.atDay(1).dayOfWeek.value-1;val cw=width/7f;val r=a.d(15).toFloat();val quiet=if(a.light)0x0f000000 else 0x14ffffff
             for(row in 0 until rows){val cy=row*rowH+rowH/2f
                 // join consecutive met days inside this row into capsules
                 var col=0

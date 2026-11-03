@@ -103,7 +103,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun minutesGen(n:Int)=if(n%100 in 11..14)"минут" else if(n%10==1)"минуты" else "минут"
     fun show() {
         val extra=max(0,(a.resources.configuration.screenWidthDp-640)/2)
-        a.followInsets(content) { i->content.setPadding(a.d(16+extra)+i.left,a.d(8)+i.top,a.d(16+extra)+i.right,a.d(40)+i.bottom) }
+        scroll.clipToPadding=true;a.followInsets(content) { i->scroll.setPadding(0,i.top,0,0);content.setPadding(a.d(16+extra)+i.left,a.d(8),a.d(16+extra)+i.right,a.d(40)+i.bottom) }
         scroll.background=if(light)android.graphics.drawable.ColorDrawable(a.bg) else GradientDrawable().apply{gradientType=GradientDrawable.RADIAL_GRADIENT;colors=intArrayOf(0xff202024.toInt(),0xff111112.toInt());gradientRadius=a.resources.displayMetrics.widthPixels*1.3f;setGradientCenter(.5f,0f)};scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
@@ -119,13 +119,14 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     // ───────────────────────── glass cards ─────────────────────────
     /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
     private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f,firstOnly:Boolean=false):TextView{
-        val tv=a.text("",size,a.fg).apply{typeface=Typeface.create("sans-serif-light",Typeface.NORMAL);letterSpacing=-.03f;includeFontPadding=false}
+        val tv=a.text("",size,a.fg).apply{typeface=Typeface.create("sans-serif-light",Typeface.NORMAL);letterSpacing=-.03f;includeFontPadding=false;fontFeatureSettings="tnum"}
         fun styled(t:String):CharSequence{val sp=android.text.SpannableString(t);var i=0
             if(firstOnly){val k=t.indexOfFirst{!it.isDigit()};if(k>0){sp.setSpan(android.text.style.RelativeSizeSpan(unitScale),k,t.length,0);sp.setSpan(android.text.style.ForegroundColorSpan(captionInk),k,t.length,0)};return sp}
             while(i<t.length){if(!t[i].isDigit()&&t[i]!=' '){var j=i;while(j<t.length&&!t[j].isDigit())j++
                 sp.setSpan(android.text.style.RelativeSizeSpan(unitScale),i,j,0);sp.setSpan(android.text.style.ForegroundColorSpan(captionInk),i,j,0);i=j}else i++};return sp}
         tv.text=styled(text)
-        if(countTo!=null&&countTo>0&&motionOn){val fmt=text.replaceFirst(countTo.toString(),"%d");tv.text=styled(String.format(fmt,0))
+        if(countTo!=null&&countTo>0&&motionOn){val fmt=text.replaceFirst(countTo.toString(),"%d")
+            tv.minWidth=ceil(android.text.Layout.getDesiredWidth(styled(text),tv.paint)).toInt();tv.text=styled(String.format(fmt,0))
             tv.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false
                 override fun onViewAttachedToWindow(v:View){if(done)return;done=true;android.animation.ValueAnimator.ofInt(0,countTo).apply{duration=900;startDelay=220;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{tv.text=styled(String.format(fmt,it.animatedValue as Int))};start()}}
                 override fun onViewDetachedFromWindow(v:View){}})}
@@ -142,8 +143,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val box=surface().apply{setPadding(0,0,0,0);clipToOutline=true;clipChildren=true}
         val top=FrameLayout(a)
         // the flame takes up to ~44% of the card, so the text column keeps room on narrow screens
-        val cardDp=(a.resources.configuration.screenWidthDp-32).coerceAtLeast(240);val flameDp=min(172,(cardDp*.44f).toInt())
-        val col=a.column().apply{setPadding(a.d(20),a.d(20),a.d(flameDp-22),a.d(22));minimumHeight=a.d(176)}
+        val cardDp=(a.resources.configuration.screenWidthDp-32).coerceAtLeast(240);val flameDp=min(160,(cardDp*.42f).toInt())
+        // the text column stops 14dp before the flame's left edge (the flame view sits 10dp past the card's right edge)
+        val reachDp=FlameOrb.reach(flameDp.toFloat(),176f);val textPad=(reachDp-10+14).roundToInt()
+        val col=a.column().apply{setPadding(a.d(20),a.d(20),a.d(textPad),a.d(22));minimumHeight=a.d(176)}
         val n=model.streak
         val first=a.line().apply{gravity=Gravity.BOTTOM};first.addView(big("$n",52f,n));first.addView(label("  ${daysWord(n)}",22f,a.fg).apply{typeface=Typeface.create("sans-serif-light",Typeface.NORMAL);setPadding(0,0,0,a.d(4))});col.addView(first)
         space(col,6)
@@ -154,9 +157,12 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val row=a.line();row.addView(label("Сегодня",13f).apply{maxLines=1},LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13f,a.fg).apply{maxLines=1;setPadding(a.d(8),0,0,0)});col.addView(row);space(col,7)
         col.addView(ProgressRail(a,animate,(model.ms(today).toFloat()/(model.dailyGoal*60000L)).coerceIn(0f,1f),amber,coral,"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)))
         top.addView(col,FrameLayout.LayoutParams(-1,-2))
-        top.addView(FlameOrb(a,n>0,motionOn).apply{translationX=a.d(10).toFloat()},FrameLayout.LayoutParams(a.d(flameDp),-1,Gravity.END))
+        val flame=FlameOrb(a,n>0,motionOn).apply{translationX=a.d(10).toFloat()}
+        top.addView(flame,FrameLayout.LayoutParams(a.d(flameDp),-1,Gravity.END))
         box.addView(top,LinearLayout.LayoutParams(-1,-2))
-        val month=StreakMonth(a,model,today,motionOn);box.addView(a.column().apply{setPadding(a.d(20),0,a.d(20),0);addView(month,LinearLayout.LayoutParams(-1,-2))},LinearLayout.LayoutParams(-1,-2))
+        val month=StreakMonth(a,model,today,motionOn)
+        month.onToggle={open->android.animation.ValueAnimator.ofFloat(flame.fade,if(open)1f else 0f).apply{duration=360;interpolator=Ease.outCubic;addUpdateListener{flame.fade=it.animatedValue as Float};start()}}
+        box.addView(a.column().apply{setPadding(a.d(20),0,a.d(20),0);addView(month,LinearLayout.LayoutParams(-1,-2))},LinearLayout.LayoutParams(-1,-2))
         box.contentDescription="Серия чтения: $n ${daysWord(n)}, рекорд $best"
         box.isClickable=true;box.setOnClickListener{month.toggle()};a.press(box)
         add(box)
@@ -195,56 +201,54 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         bind(true);add(box)
     }
 
-    /** The annual goal as a little stack of books, next to the year's books floating on their orbits. */
+    /** The annual goal as a little stack of books, next to the year's books floating on their orbits.
+     *  «Все книги» (or a tap on either card) opens the full list of read books as its own page. */
     private fun pair(){
         val row=LinearLayout(a).apply{orientation=if(compact)LinearLayout.VERTICAL else LinearLayout.HORIZONTAL;clipChildren=false;clipToPadding=false}
-        val panel=surface().apply{visibility=View.GONE}
-        var shelf:YearBooks?=null
-        fun bindPanel(){panel.removeAllViews();val read=model.finished.filter{it.date?.year==goalYear}.sortedByDescending{it.date}.map{it.book to it.date}
-            panel.addView(label("Прочитано в $goalYear",13f));val yb=YearBooks(a,read,motionOn);shelf=yb;panel.addView(yb,LinearLayout.LayoutParams(-1,-2))}
-        bindPanel()
-        fun togglePanel(){val yb=shelf?:return;if(model.finished.none{it.date?.year==goalYear})return
-            if(panel.visibility!=View.VISIBLE){panel.visibility=View.VISIBLE;panel.post{yb.toggle()}}
-            else{yb.toggle();panel.postDelayed({if(!yb.isOpen())panel.visibility=View.GONE},420)}}
         val goal=surface().apply{minimumHeight=a.d(250)}
-        val goalBody=a.column()
-        fun bindGoal(){goal.removeAllViews();goalBody.removeAllViews()
+        fun bindGoal(){goal.removeAllViews()
             val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL};head.addView(label("Цель на год",13f),LinearLayout.LayoutParams(0,-2,1f))
-            head.addView(chip("$goalYear"){goalYear=if(goalYear==today.year)today.year+1 else today.year;a.statisticsGoalYear=goalYear;bindGoal();bindPanel()});goal.addView(head);space(goal,12)
+            head.addView(chip("$goalYear"){goalYear=if(goalYear==today.year)today.year+1 else today.year;a.statisticsGoalYear=goalYear;bindGoal()});goal.addView(head);space(goal,14)
             val target=model.target(goalYear);val done=model.countYear(goalYear)
-            val books=model.finished.filter{it.date?.year==goalYear}.sortedByDescending{it.date}
+            val books=model.finished.filter{it.date?.year==goalYear}.sortedBy{it.date}
             val slots=6;val filled=if(target<=0)0 else ((done.toFloat()/target)*slots).roundToInt().coerceIn(if(done>0)1 else 0,slots)
-            val colors=books.take(slots).mapIndexed{i,f->a.spineColor(f.book,i)}.ifEmpty{listOf(0xffc0563c.toInt(),0xff2f6fb0.toInt(),0xffe2b33c.toInt(),0xff3a7d5c.toInt())}
-            goal.addView(GoalStack(a,filled,slots,colors.reversed(),motionOn).apply{contentDescription=null},LinearLayout.LayoutParams(-1,a.d(110)).apply{leftMargin=a.d(14)})
+            val colors=books.takeLast(slots).mapIndexed{i,f->a.spineColor(f.book,i)}.ifEmpty{listOf(0xffc0563c.toInt(),0xff2f6fb0.toInt(),0xffe2b33c.toInt(),0xff3a7d5c.toInt())}
+            goal.addView(GoalStack(a,filled,slots,colors,motionOn),LinearLayout.LayoutParams(-1,a.d(110)).apply{leftMargin=a.d(6);rightMargin=a.d(6)})
             goal.addView(View(a),LinearLayout.LayoutParams(1,0,1f))
-            if(target>0){val line=a.line().apply{gravity=Gravity.BOTTOM};line.addView(big("$done из $target",36f,done,.47f,firstOnly=true));goal.addView(line);space(goal,5)
-                goal.addView(label(if(done>=target)"цель достигнута" else "ещё ${target-done} ${MainActivity.countBooks(target-done).substringAfter(' ')} · ${(done*100.0/target).roundToInt()}%",12f,if(light)0xff5d5d62.toInt() else 0xffbdbdc2.toInt()))}
+            if(target>0){goal.addView(big("$done из $target",36f,done,.47f,firstOnly=true));space(goal,6)
+                goal.addView(label(if(done>=target)"цель достигнута" else "ещё ${target-done} ${MainActivity.countBooks(target-done).substringAfter(' ')} · ${(done*100.0/target).roundToInt()}%",12.5f,if(light)0xff5d5d62.toInt() else 0xffbdbdc2.toInt()))}
             else{goal.addView(label("Цель не задана",17f,a.fg));space(goal,4);goal.addView(label("Настройки → «Чтение» → «Цель на год»",11.5f))}
             goal.contentDescription="Цель на $goalYear: $done из $target книг"}
         bindGoal()
-        goal.isClickable=true;goal.setOnClickListener{togglePanel()};a.press(goal)
+        goal.isClickable=true;goal.setOnClickListener{a.readBooksPage(model,goalYear)};a.press(goal)
 
-        val booksCard=surface().apply{minimumHeight=a.d(250);setPadding(a.d(18),a.d(18),a.d(18),a.d(18))}
+        val booksCard=surface().apply{minimumHeight=a.d(250);setPadding(a.d(18),a.d(18),a.d(18),a.d(18));clipToOutline=true;clipChildren=true}
         val year=today.year;val read=model.finished.filter{it.date?.year==year}.sortedByDescending{it.date}.map{it.book};val count=read.size
-        val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
-        stage.addView(Orbits(a).apply{translationX=-a.d(30).toFloat();translationY=-a.d(22).toFloat()},FrameLayout.LayoutParams(-1,-1))
-        // slots: (left, top, width) in dp — a large cover, a few smaller ones around it
-        val spots=listOf(Triple(30,8,38),Triple(86,4,26),Triple(4,56,22),Triple(98,52,28),Triple(4,2,18))
-        read.take(spots.size).forEachIndexed{i,b->val (l,t,w)=spots[i]
-            val cv=CoverView(a,b,a.cover(b)).apply{softShadow=true;if(i==4)alpha=.7f}
-            if(a.cover(b)==null&&b.optJSONObject("cover")!=null)a.requestCover(b){cv.invalidate()}
-            stage.addView(cv,FrameLayout.LayoutParams(a.d(w),(a.d(w)*1.5f).toInt()).apply{leftMargin=a.d(l);topMargin=a.d(t)})
-            if(motionOn)android.animation.ValueAnimator.ofFloat(0f,(2*PI).toFloat()).apply{duration=4200L+i*700L;repeatCount=android.animation.ValueAnimator.INFINITE;interpolator=null
-                addUpdateListener{v->cv.translationY=a.d(2)*sin(v.animatedValue as Float+i*1.3f)};cv.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){start()};override fun onViewDetachedFromWindow(v:View){cancel()}})}}
-        booksCard.addView(stage,LinearLayout.LayoutParams(-1,a.d(106)))
+        // the covers form one balanced cluster, centred in the card, with the orbits around its middle
+        val stage=object:FrameLayout(a){
+            val spots=listOf(Triple(0f,0f,40),Triple(46f,-16f,26),Triple(-46f,14f,24),Triple(52f,26f,28),Triple(-40f,-30f,18))
+            val covers=read.take(spots.size).map{b->CoverView(a,b,a.cover(b)).apply{softShadow=true}}
+            init{clipChildren=false;clipToPadding=false;addView(Orbits(a),LayoutParams(-1,-1))
+                covers.forEachIndexed{i,cv->if(i==4)cv.alpha=.7f;addView(cv,LayoutParams(a.d(spots[i].third),(a.d(spots[i].third)*1.5f).toInt()))
+                    val b=read[i];if(a.cover(b)==null&&b.optJSONObject("cover")!=null)a.requestCover(b){cv.invalidate()}
+                    if(motionOn)android.animation.ValueAnimator.ofFloat(0f,(2*PI).toFloat()).apply{duration=4200L+i*700L;repeatCount=android.animation.ValueAnimator.INFINITE;interpolator=null
+                        addUpdateListener{v->cv.translationY=a.d(2)*sin(v.animatedValue as Float+i*1.3f)};cv.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){start()};override fun onViewDetachedFromWindow(v:View){cancel()}})}}}
+            override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b)
+                if(covers.isEmpty())return
+                val used=spots.take(covers.size);val d=a.resources.displayMetrics.density
+                val minX=used.minOf{it.first-it.third/2f};val maxX=used.maxOf{it.first+it.third/2f};val minY=used.minOf{it.second-it.third*.75f};val maxY=used.maxOf{it.second+it.third*.75f}
+                val cx=width/2f-(minX+maxX)/2f*d;val cy=height/2f-(minY+maxY)/2f*d
+                covers.forEachIndexed{i,cv->val (x,y,w)=used[i];val pw=w*d;val ph=pw*1.5f;cv.layout((cx+x*d-pw/2).toInt(),(cy+y*d-ph/2).toInt(),(cx+x*d+pw/2).toInt(),(cy+y*d+ph/2).toInt())}}
+        }
+        booksCard.addView(stage,LinearLayout.LayoutParams(-1,a.d(112)))
         booksCard.addView(View(a),LinearLayout.LayoutParams(1,0,1f))
         val l1=a.line().apply{gravity=Gravity.BOTTOM};l1.addView(big("$count",40f,count));l1.addView(label("  ${MainActivity.countBooks(count).substringAfter(' ')}",15f,a.fg).apply{setPadding(0,0,0,a.d(4))});booksCard.addView(l1)
         space(booksCard,4);booksCard.addView(label(if(count>0)"прочитано в $year" else "пока ни одной в $year",12.5f))
-        if(count>0){space(booksCard,12);booksCard.addView(label("ВСЕ КНИГИ",12f,onStrong,true).apply{gravity=Gravity.CENTER;background=pill(strong,16);setPadding(a.d(14),0,a.d(14),0);minHeight=a.d(32);isClickable=true;setOnClickListener{if(goalYear!=year){goalYear=year;bindGoal();bindPanel()};togglePanel()};a.press(this)},LinearLayout.LayoutParams(-2,a.d(32)))}
+        if(model.finished.isNotEmpty()){space(booksCard,12);booksCard.addView(label("ВСЕ КНИГИ",12f,onStrong,true).apply{gravity=Gravity.CENTER;background=pill(strong,16);setPadding(a.d(14),0,a.d(14),0);minHeight=a.d(32);isClickable=true;setOnClickListener{a.readBooksPage(model,year)};a.press(this)},LinearLayout.LayoutParams(-2,a.d(32)))}
         booksCard.contentDescription="Прочитано в $year: $count"
         if(compact){row.addView(goal,LinearLayout.LayoutParams(-1,-2));row.addView(booksCard,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})}
         else{row.addView(goal,LinearLayout.LayoutParams(0,-1,1f));row.addView(booksCard,LinearLayout.LayoutParams(0,-1,1f).apply{leftMargin=a.d(14)})}
-        add(row);add(panel)
+        add(row)
     }
 
     /** Speed: the number with a speedometer chip, and where it sits on the scale (the faint tick is the average). */

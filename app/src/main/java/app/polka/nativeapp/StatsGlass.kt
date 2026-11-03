@@ -13,13 +13,13 @@ import kotlin.math.*
 internal class GlassCardDrawable(private val a:MainActivity,private val radius:Float):Drawable(){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val r=RectF()
     override fun draw(c:Canvas){val b=bounds;if(b.width()<=0)return;r.set(b);val light=a.light
-        p.shader=null;p.style=Paint.Style.FILL;p.color=if(light)0xffffffff.toInt() else 0xff1b1b1d.toInt();c.drawRoundRect(r,radius,radius,p)
+        p.shader=null;p.style=Paint.Style.FILL;p.color=if(light)0xffffffff.toInt() else 0xff151517.toInt();c.drawRoundRect(r,radius,radius,p)
         p.color=Color.WHITE;p.shader=LinearGradient(r.left,r.top,r.right,r.bottom,
-            if(light)intArrayOf(0x00ffffff,0x05000000,0x02000000) else intArrayOf(0x14ffffff,0x05ffffff,0x09ffffff),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
+            if(light)intArrayOf(0x00ffffff,0x05000000,0x02000000) else intArrayOf(0x1effffff,0x06ffffff,0x0bffffff),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
         c.drawRoundRect(r,radius,radius,p);p.shader=null
         val d=a.d(1).toFloat();p.style=Paint.Style.STROKE;p.strokeWidth=d
-        p.color=if(light)0x12000000 else 0x17ffffff;c.drawRoundRect(RectF(r.left+d/2,r.top+d/2,r.right-d/2,r.bottom-d/2),radius-d/2,radius-d/2,p)
-        if(!light){p.color=Color.WHITE;p.shader=LinearGradient(r.left,0f,r.right,0f,intArrayOf(0x00ffffff,0x1fffffff,0x00ffffff),null,Shader.TileMode.CLAMP)
+        p.color=if(light)0x12000000 else 0x1cffffff;c.drawRoundRect(RectF(r.left+d/2,r.top+d/2,r.right-d/2,r.bottom-d/2),radius-d/2,radius-d/2,p)
+        if(!light){p.color=Color.WHITE;p.shader=LinearGradient(r.left,0f,r.right,0f,intArrayOf(0x00ffffff,0x30ffffff,0x00ffffff),null,Shader.TileMode.CLAMP)
             c.save();c.clipRect(r.left,r.top,r.right,r.top+radius);c.drawRoundRect(RectF(r.left+d,r.top+d,r.right-d,r.bottom),radius-d,radius-d,p);c.restore();p.shader=null}
         p.style=Paint.Style.FILL}
     override fun setAlpha(alpha:Int){}
@@ -32,23 +32,32 @@ internal class GlassCardDrawable(private val a:MainActivity,private val radius:F
 internal class FlameOrb(private val a:MainActivity,private val lit:Boolean,private val motion:Boolean):View(a){
     private val outer=Path().apply{moveTo(58f,8f);cubicTo(63f,32f,90f,44f,90f,74f);cubicTo(90f,98f,72f,112f,54f,112f);cubicTo(36f,112f,20f,98f,20f,76f);cubicTo(20f,59f,30f,50f,35f,40f);cubicTo(38f,51f,43f,55f,48f,56f);cubicTo(46f,35f,50f,22f,58f,8f);close()}
     private val inner=Path().apply{moveTo(55f,66f);cubicTo(57f,76f,68f,79f,68f,92f);cubicTo(68f,102f,61f,108f,54f,108f);cubicTo(47f,108f,41f,102f,41f,93f);cubicTo(41f,85f,45f,81f,48f,77f);cubicTo(49f,82f,51f,84f,53f,84f);cubicTo(52f,77f,53f,71f,55f,66f);close()}
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val mask=Paint(Paint.ANTI_ALIAS_FLAG).apply{xfermode=PorterDuffXfermode(PorterDuff.Mode.DST_IN)}
     private var t=0f;private var clock:ValueAnimator?=null
+    /** 0 — the flame is cut by the card's edge; 1 — its foot melts away (the month is open below). */
+    var fade=0f;set(v){field=v;invalidate()}
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
+    companion object{
+        /** Scale of the 100×116 flame box in a view of [w]×[h] px: it fits the height and never the width beyond 96. */
+        fun scale(w:Float,h:Float)=min(h/104f,w/96f)
+        /** Distance (px) from the view's right edge to the flame's left edge. */
+        fun reach(w:Float,h:Float)=72f*scale(w,h)
+    }
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(lit&&motion&&clock==null)clock=ValueAnimator.ofFloat(0f,(2*PI).toFloat()).apply{duration=2600;repeatCount=ValueAnimator.INFINITE;interpolator=null;addUpdateListener{t=it.animatedValue as Float;invalidate()};start()}}
     override fun onDetachedFromWindow(){clock?.cancel();clock=null;super.onDetachedFromWindow()}
     override fun onDraw(c:Canvas){if(width<1||height<1)return
-        // the flame's 100×116 box is scaled to the view's height and stands on its bottom edge (cut by the card)
-        val s=height/104f;c.save();c.translate(width-100f*s,0f);c.scale(s,s)
-        val breathe=1f+.025f*sin(t);val sway=1.4f*sin(t*.5f)
+        val layer=if(fade>0f)c.saveLayer(0f,0f,width.toFloat(),height.toFloat(),null) else -1
+        val s=scale(width.toFloat(),height.toFloat());c.save();c.translate(width-92f*s,height-106f*s);c.scale(s,s)
+        val breathe=1f+.022f*sin(t);val sway=1.2f*sin(t*.5f)
         c.save();c.scale(1f,breathe,55f,112f);c.skew(sway/100f,0f)
-        p.shader=RadialGradient(56f,84f,44f,intArrayOf(if(lit)0x80ff6a2c.toInt() else 0x30808080,0x00ff6a2c),null,Shader.TileMode.CLAMP);c.drawCircle(56f,84f,44f,p)
-        p.shader=if(lit)RadialGradient(50f,87f,80f,intArrayOf(0xfffff3c4.toInt(),0xffffb23e.toInt(),0xffff5b25.toInt(),0xffc2321a.toInt()),floatArrayOf(0f,.35f,.75f,1f),Shader.TileMode.CLAMP)
-            else RadialGradient(50f,87f,80f,intArrayOf(0xff8e8e93.toInt(),0xff5a5a5e.toInt(),0xff3a3a3d.toInt()),null,Shader.TileMode.CLAMP)
+        p.shader=RadialGradient(56f,88f,52f,intArrayOf(if(lit)0x99ff5a1e.toInt() else 0x30808080,0x00ff5a1e),null,Shader.TileMode.CLAMP);c.drawCircle(56f,88f,52f,p)
+        p.shader=if(lit)RadialGradient(52f,92f,80f,intArrayOf(0xfffff6d0.toInt(),0xffffc04a.toInt(),0xffff6a2a.toInt(),0xffe0381e.toInt(),0xffb8241a.toInt()),floatArrayOf(0f,.26f,.58f,.86f,1f),Shader.TileMode.CLAMP)
+            else RadialGradient(52f,92f,80f,intArrayOf(0xff8e8e93.toInt(),0xff5a5a5e.toInt(),0xff3a3a3d.toInt()),null,Shader.TileMode.CLAMP)
         c.drawPath(outer,p)
-        p.shader=RadialGradient(40f,35f,60f,intArrayOf(if(lit)0xb3ffffff.toInt() else 0x40ffffff,0x00ffffff),null,Shader.TileMode.CLAMP);c.drawPath(outer,p)
-        p.shader=null;p.color=if(lit)0xe6fff6d8.toInt() else 0x66d0d0d4;c.drawPath(inner,p)
-        c.restore();c.restore()}
+        p.shader=RadialGradient(46f,40f,34f,intArrayOf(if(lit)0x66ffffff else 0x26ffffff,0x00ffffff),null,Shader.TileMode.CLAMP);c.drawPath(outer,p)
+        p.shader=RadialGradient(54f,100f,22f,intArrayOf(if(lit)0xfffffbe8.toInt() else 0x80d0d0d4.toInt(),if(lit)0xf2ffe2a0.toInt() else 0x40d0d0d4),null,Shader.TileMode.CLAMP);c.drawPath(inner,p);p.shader=null
+        c.restore();c.restore()
+        if(layer>=0){mask.shader=LinearGradient(0f,height*.55f,0f,height.toFloat(),Color.BLACK,(((1-fade)*255).toInt() shl 24),Shader.TileMode.CLAMP);c.drawRect(0f,0f,width.toFloat(),height.toFloat(),mask);c.restoreToCount(layer)}}
 }
 
 /** Reading time as day (or month) bars: the chosen bar glows and carries a label; press and slide to read any bar. */
@@ -59,6 +68,9 @@ internal class DayBars(private val a:MainActivity,private val values:List<Double
     init{contentDescription=tips.getOrNull(selected).orEmpty();isClickable=true}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(grow<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=700;startDelay=180;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{grow=it.animatedValue as Float;invalidate()};start()}}
     private val top get()=a.d(30).toFloat();private val bottom get()=height-a.d(22).toFloat()
+    private val restColors get()=if(a.light)intArrayOf(0xffc4b6f7.toInt(),0xffe6e0fb.toInt()) else intArrayOf(0xff6a5aa6.toInt(),0xff2f2949.toInt())
+    private val selectedColors get()=if(a.light)intArrayOf(0xff8d6cf5.toInt(),0xff6a47e8.toInt()) else intArrayOf(0xffe0d6ff.toInt(),0xff7c5cff.toInt())
+    private val glowTint=0xff8c6cff.toInt()
     private fun slot()=width/max(1,values.size).toFloat()
     override fun onTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){MotionEvent.ACTION_DOWN,MotionEvent.ACTION_MOVE->{parent?.requestDisallowInterceptTouchEvent(true)
         val i=(e.x/slot()).toInt().coerceIn(0,values.lastIndex);if(i!=selected){selected=i;contentDescription=tips[i];performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);invalidate()}}};return true}
@@ -70,10 +82,10 @@ internal class DayBars(private val a:MainActivity,private val values:List<Double
         c.drawLine(0f,ay,width.toFloat(),ay,p);p.pathEffect=null;p.style=Paint.Style.FILL
         tp.color=a.muted;tp.textAlign=Paint.Align.LEFT;c.drawText(averageText,0f,ay-a.d(5),tp)
         for(i in values.indices){p.color=Color.WHITE;val cx=sl*i+sl/2;val v=(values[i]/max*h).toFloat()*grow;val bh=max(v,bw*.0f+a.d(3).toFloat()*grow)
-            val rect=RectF(cx-bw/2,bottom-max(bh,bw*.0f),cx+bw/2,bottom);if(rect.height()<bw)rect.top=bottom-max(rect.height(),a.d(3).toFloat())
+            val rect=RectF(cx-bw/2,bottom-bh,cx+bw/2,bottom);if(rect.height()<a.d(6)*grow)rect.top=bottom-a.d(6)*grow
             val on=i==selected
-            if(on){p.shader=RadialGradient(cx,rect.centerY(),max(bw*1.6f,rect.height()*.7f),intArrayOf((accent and 0xffffff) or 0x55000000,accent and 0xffffff),null,Shader.TileMode.CLAMP);c.drawCircle(cx,rect.centerY(),max(bw*1.6f,rect.height()*.7f),p)}
-            p.shader=LinearGradient(0f,rect.top,0f,rect.bottom,if(on)intArrayOf(lighten(accent,.45f),accent) else intArrayOf((accent and 0xffffff) or (if(light)0x66000000 else 0x8c000000.toInt()),(accent and 0xffffff) or (if(light)0x26000000 else 0x2e000000)),null,Shader.TileMode.CLAMP)
+            if(on){val g=bw*.55f;for(k in 1..3){val inflate=g*k/3f;p.color=(glowTint and 0xffffff) or ((if(light)0x16 else 0x22) shl 24);c.drawRoundRect(rect.left-inflate,rect.top-inflate,rect.right+inflate,rect.bottom+inflate,bw/2+inflate,bw/2+inflate,p)};p.color=Color.WHITE}
+            p.shader=LinearGradient(0f,rect.top,0f,rect.bottom,if(on)selectedColors else restColors,null,Shader.TileMode.CLAMP)
             c.drawRoundRect(rect,bw/2,bw/2,p);p.shader=null
             if(!sparseLabels||i==0||i==values.lastIndex||on||(i+1)%5==0){tp.textAlign=Paint.Align.CENTER;tp.color=if(on)a.fg else a.muted;tp.isFakeBoldText=on;c.drawText(labels[i],cx,height-a.d(4).toFloat(),tp);tp.isFakeBoldText=false}
             if(on){val text=tips[i];tp.textSize=a.d(11.5f).toFloat();val tw=tp.measureText(text)+a.d(16);val th=a.d(22).toFloat()
@@ -109,7 +121,7 @@ internal class GoalStack(private val a:MainActivity,private val filled:Int,priva
 internal class Orbits(private val a:MainActivity):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE}
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-    override fun onDraw(c:Canvas){p.strokeWidth=a.d(1).toFloat();p.color=if(a.light)0x12000000 else 0x10ffffff;val cx=width*.42f;val cy=height*.5f
+    override fun onDraw(c:Canvas){p.strokeWidth=a.d(1).toFloat();p.color=if(a.light)0x12000000 else 0x10ffffff;val cx=width*.5f;val cy=height*.5f
         c.drawCircle(cx,cy,min(width,height)*.62f,p);c.drawCircle(cx,cy,min(width,height)*.36f,p)}
 }
 
@@ -140,5 +152,7 @@ internal class SpeedScale(private val a:MainActivity,private val fraction:Float?
 /** Cover colour for the goal stack: the dominant pigment of the cover, or a stable palette colour. */
 internal fun MainActivity.spineColor(book:JSONObject,i:Int):Int{
     val palette=intArrayOf(0xffc0563c.toInt(),0xff2f6fb0.toInt(),0xffe2b33c.toInt(),0xff3a7d5c.toInt(),0xff8a4fb0.toInt(),0xffc98a3a.toInt())
-    return BookCoverVolume.binding(cover(book),palette[i%palette.size])
+    val c=BookCoverVolume.binding(cover(book),palette[i%palette.size]);val hsv=FloatArray(3);Color.colorToHSV(c,hsv)
+    if(hsv[1]<.18f)return palette[i%palette.size] // grey / black / white covers read badly as a spine
+    hsv[1]=hsv[1].coerceIn(.35f,.85f);hsv[2]=hsv[2].coerceIn(.55f,.9f);return Color.HSVToColor(hsv)
 }
