@@ -119,6 +119,8 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
     private inner class Glass:View(a){
         val pad=a.d(22)
         private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        // its own opaque paint: [p] keeps the translucent rim colour from statics(), which faded the snapshot into a grey band
+        private val meshPaint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         private val bevel=a.d(10).toFloat();private val reach=a.d(6).toFloat();private val seam=a.d(3).toFloat()
         private var topStrip:Bitmap?=null;private var bottomStrip:Bitmap?=null;private var stripScale=1f;private var queued=false;private var x0=0;private var x1=0
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
@@ -159,7 +161,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             // only where the snapshot reaches; beyond it (mid-fling, for a frame) the real covers show plainly
             c.save();c.clipRect(maxOf(pad.toFloat(),l),g0,minOf((width-pad).toFloat(),l+w),g0+bevel)
             c.drawColor(a.bg)
-            c.drawBitmapMesh(bmp,1,rows,v,0,null,0,p);c.restore()}
+            c.drawBitmapMesh(bmp,1,rows,v,0,null,0,meshPaint);c.restore()}
         // Static parts are rendered once per size/theme into bitmaps (soft shadow outside; tint, sheen, rim, screws over),
         // shared by every shelf.
         private var under:Bitmap?=null;private var over:Bitmap?=null;private var staticKey=""
