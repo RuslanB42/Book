@@ -37,5 +37,7 @@ class StatsCheck {
         shot("0-mid")
         scenario.onActivity{a->(a.profileOverlay as? android.widget.ScrollView)?.fullScroll(android.view.View.FOCUS_DOWN)}
         shot("1-bottom")
+        scenario.onActivity{a->(a.profileOverlay as? android.widget.ScrollView)?.scrollTo(0,0)}
+        Thread.sleep(2500);shot("2-top")
     }
 }
