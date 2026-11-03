@@ -303,7 +303,11 @@ class MainActivity : Activity() {
     fun navigation() {
         val nav=nativeNavigation ?: PolkaNavigation(this).also { nativeNavigation=it }
         nav.bind(tab) { key ->
-            if(tab!=key || shelf!=null || auto!=null || quoteBookId!=null) { val from=listOf("home","shelves","quotes","foryou").indexOf(tab);val to=listOf("home","shelves","quotes","foryou").indexOf(key);tabScroll[tab]=scroll.scrollY;val outgoing=screenMotion.captureOutgoing(page,to>from);pendingMotion=null;librarySearch?.close(false);tab=key;shelf=null;auto=null;quoteBookId=null;query="";render(false,false);outgoing();scroll.post { scroll.scrollTo(0,tabScroll[key] ?: 0) } } else scroll.smoothScrollTo(0,0)
+            if(tab!=key || shelf!=null || auto!=null || quoteBookId!=null) { val from=listOf("home","shelves","quotes","foryou").indexOf(tab);val to=listOf("home","shelves","quotes","foryou").indexOf(key);tabScroll[tab]=scroll.scrollY;val oldScroll=scroll;screenMotion.stop();pendingMotion=null;librarySearch?.close(false);tab=key;shelf=null;auto=null;quoteBookId=null;query="";render(false,false)
+                // Restore the tab's scroll after layout but BEFORE the first frame (a posted scroll showed one frame
+                // at the top — with its top buttons — and then jumped).
+                val target=tabScroll[key] ?: 0;val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this);sv.scrollTo(0,target);return true}})
+                screenMotion.pushTab(oldScroll,to>from) } else scroll.smoothScrollTo(0,0)
         }
         root.addView(nav,FrameLayout.LayoutParams(d(230),d(58),Gravity.BOTTOM or Gravity.START))
         followInsets(nav){i->nav.layoutParams=(nav.layoutParams as FrameLayout.LayoutParams).apply{leftMargin=d(16)+i.left;bottomMargin=navigationBottom(i)}}

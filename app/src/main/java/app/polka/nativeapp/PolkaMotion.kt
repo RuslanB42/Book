@@ -42,6 +42,19 @@ class ScreenMotion(private val a:MainActivity) {
     }
     private fun finishTab(){freezeTab();tabView?.translationX=0f;tabView=null;ghost?.let{(it.parent as? ViewGroup)?.removeView(it)};ghost=null}
 
+    /** Tab switch with the REAL outgoing page (no snapshot): it keeps its exact look — shadows, glass, state —
+     *  and slides out while the new page, top bar included, slides in. */
+    fun pushTab(old:View?,opening:Boolean){
+        if(old==null||a.prefs.str("motion")=="reduced"||a.root.width<=0)return
+        (old.parent as? ViewGroup)?.removeView(old)
+        old.isEnabled=false
+        val blocker=object:FrameLayout(a){override fun onInterceptTouchEvent(e:android.view.MotionEvent)=true;override fun onTouchEvent(e:android.view.MotionEvent)=true}
+        blocker.addView(old,FrameLayout.LayoutParams(-1,-1))
+        ghost=blocker;tabView=(a.page.parent as? View)?:a.page;tabDirection=if(opening)1f else -1f;tabWidth=a.root.width.toFloat()
+        a.root.addView(blocker,1.coerceAtMost(a.root.childCount),FrameLayout.LayoutParams(-1,-1))
+        sampleTab(0)
+        tabClock=ValueAnimator.ofFloat(0f,1f).apply{duration=300;interpolator=LinearInterpolator();addUpdateListener{sampleTab(currentPlayTime)};start()}
+    }
     fun stop() { finishTab();motions.toList().forEach { it.cancel() }; motions.clear(); ghost?.let { (it.parent as? ViewGroup)?.removeView(it) }; ghost=null }
     fun play(view:View,from:MotionPose,duration:Long,delay:Long=0,curve:TimeInterpolator=MotionSpec.ease) {
         if(a.prefs.str("motion")=="reduced") return
@@ -62,7 +75,7 @@ class ScreenMotion(private val a:MainActivity) {
         drawPresentation(a.scroll);ghost?.let{drawPresentation(it)}
         val layer=object:View(a){val paint=Paint(Paint.FILTER_BITMAP_FLAG);override fun onDraw(c:Canvas){if(!image.isRecycled)c.drawBitmap(image,null,RectF(0f,0f,width.toFloat(),height.toFloat()),paint)};override fun onDetachedFromWindow(){if(!image.isRecycled)image.recycle();super.onDetachedFromWindow()}}.apply{importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS;isClickable=false}
         return {
-            ghost=layer;tabView=a.page;tabDirection=if(opening)1f else -1f;tabWidth=width.toFloat()
+            ghost=layer;tabView=(a.page.parent as? View)?:a.page;tabDirection=if(opening)1f else -1f;tabWidth=width.toFloat()
             a.root.addView(layer,1.coerceAtMost(a.root.childCount),FrameLayout.LayoutParams(width,height).apply{leftMargin=left-a.root.paddingLeft;topMargin=top-a.root.paddingTop})
             sampleTab(0)
             // The destination's posted scroll restoration runs before the first animated draw.
