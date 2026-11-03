@@ -26,12 +26,15 @@ half4 pick(float2 q){ half4 c=content.eval(q); return half4(c.rgb + bg.rgb*(1.0-
 
 half4 main(float2 p){
     float2 c=size*0.5; float2 rel=p-c;
-    float d=sdBox(rel,c,radius);                       // <0 inside, 0 on the rim
+    // The bend is measured against a slab with a corner radius of at least the bevel: its inner contours stay
+    // round all the way in, so the bend direction turns smoothly around the corners (no diagonal creases).
+    float rs=min(max(radius,bevel*1.15),min(c.x,c.y));
+    float d=sdBox(rel,c,rs);                           // <0 inside, 0 on the rim
     float t=clamp(-d/bevel,0.0,1.0);                   // 0 at rim → 1 past the bevel
-    float bend=(1.0-t)*(1.0-t);                        // curvature of the slab's edge
+    float bend=smoothstep(0.0,1.0,1.0-t); bend*=bend;   // curvature of the slab's edge, eased at both ends
     float e=0.75;
-    float2 n=float2(sdBox(rel+float2(e,0),c,radius)-sdBox(rel-float2(e,0),c,radius),
-                    sdBox(rel+float2(0,e),c,radius)-sdBox(rel-float2(0,e),c,radius));
+    float2 n=float2(sdBox(rel+float2(e,0),c,rs)-sdBox(rel-float2(e,0),c,rs),
+                    sdBox(rel+float2(0,e),c,rs)-sdBox(rel-float2(0,e),c,rs));
     n=n/max(length(n),1e-4);                           // outward normal of the nearest rim
     float2 base=c+rel*zoom;                            // gentle lens magnification
     float2 off=n*bend*strength;                        // the rim pulls the picture outward

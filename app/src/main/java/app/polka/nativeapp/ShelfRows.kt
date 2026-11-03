@@ -116,7 +116,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
      *  Only along the top and bottom bevels the glass bends them, like the rounded edge of thick acrylic: thin strips
      *  of the row are snapshotted once (when covers change) and drawn through a smooth mesh, so the distortion has no
      *  steps; scrolling just slides those strips. */
-    private inner class Glass:View(a){
+    private inner class Glass:View(a),ShelfGlassLink.Pane{
         val pad=a.d(22)
         private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         // its own opaque paint: [p] keeps the translucent rim colour from statics(), which faded the snapshot into a grey band
@@ -130,6 +130,21 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         private val lensPaint=Paint(Paint.ANTI_ALIAS_FLAG)
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         fun refresh(){if(queued)return;queued=true;postDelayed(settle,140)}
+        // ── a cover flying to / from the book card passes behind this glass (see ShelfGlassLink) ──
+        override val home:View get()=this@ShelfRow
+        override fun paneRectOnScreen():RectF?{if(!isAttachedToWindow||LiquidGlass.failed)return null;val at=IntArray(2);getLocationOnScreen(at);return RectF(at[0]+pad.toFloat(),at[1]+pad.toFloat(),at[0]+width-pad.toFloat(),at[1]+height-pad.toFloat())}
+        override fun recapture(){if(isAttachedToWindow&&width>0&&row.width>0&&!row.isLayoutRequested){capture();invalidate()}else refresh()}
+        override fun ghostMoved()=invalidate()
+        private var comp:Bitmap?=null;private var compCanvas:Canvas?=null
+        /** The pane snapshot plus the flying cover where it is now, around the visible glass. */
+        private fun composite(pb:Bitmap,g:RectF,dx:Float):Bitmap{val m=margin.toInt()
+            val w=g.width().toInt()+2*m;val h=g.height().toInt()+2*m
+            val bmp=comp?.takeIf{it.width==w&&it.height==h}?:Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888).also{comp?.recycle();comp=it;compCanvas=Canvas(it).apply{drawFilter=PaintFlagsDrawFilter(0,Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)}}
+            val c=compCanvas!!;bmp.eraseColor(0)
+            c.drawBitmap(pb,dx+x0-g.left+m,0f,null)
+            val ghost=ShelfGlassLink.ghost;if(ghost!=null){val at=IntArray(2);getLocationOnScreen(at)
+                c.save();c.translate(ShelfGlassLink.ghostRect.left-at[0]-g.left+m,ShelfGlassLink.ghostRect.top-at[1]-g.top+m);c.scale(ShelfGlassLink.ghostScale,ShelfGlassLink.ghostScale);ghost.draw(c);c.restore()}
+            return bmp}
         /** Strips cover about three screens around the visible part; leaving that window re-snaps at once (a few ms). */
         fun scrolled(){val sx=scroller.scrollX;val w=scroller.width;if((topStrip!=null||pane!=null)&&(sx<x0&&x0>0||sx+w>x1&&x1<row.width)&&!row.isLayoutRequested)capture();invalidate()}
         override fun onTouchEvent(e:MotionEvent)=false
@@ -204,7 +219,8 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             if(liquid&&!LiquidGlass.failed&&pb!=null&&!pb.isRecycled&&lens!=null){
                 val g=RectF(pad.toFloat(),pad.toFloat(),(width-pad).toFloat(),(height-pad).toFloat())
                 c.save();c.translate(g.left,g.top)
-                LiquidGlass.bind(lens,lensPaint,pb,dx+x0-g.left,-margin,g.width(),g.height(),a.d(9).toFloat(),a.bg,a.light,resources.displayMetrics.density)
+                if(ShelfGlassLink.pane===this&&ShelfGlassLink.ghost!=null)LiquidGlass.bind(lens,lensPaint,composite(pb,g,dx),-margin,-margin,g.width(),g.height(),a.d(9).toFloat(),a.bg,a.light,resources.displayMetrics.density)
+                else LiquidGlass.bind(lens,lensPaint,pb,dx+x0-g.left,-margin,g.width(),g.height(),a.d(9).toFloat(),a.bg,a.light,resources.displayMetrics.density)
                 if(LiquidGlass.failed){c.restore();refresh();invalidate();return}
                 c.drawRoundRect(0f,0f,g.width(),g.height(),a.d(9).toFloat(),a.d(9).toFloat(),lensPaint);c.restore()
                 over?.let{c.drawBitmap(it,0f,0f,null)};return}
@@ -214,8 +230,8 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             c.restore()
             over?.let{c.drawBitmap(it,0f,0f,null)}
         }
-        override fun onAttachedToWindow(){super.onAttachedToWindow();refresh()}
-        override fun onDetachedFromWindow(){removeCallbacks(settle);queued=false;topStrip?.recycle();bottomStrip?.recycle();topStrip=null;bottomStrip=null;pane?.recycle();pane=null;under=null;over=null;staticKey="";super.onDetachedFromWindow()}
+        override fun onAttachedToWindow(){super.onAttachedToWindow();if(liquid&&lens!=null)ShelfGlassLink.register(this);refresh()}
+        override fun onDetachedFromWindow(){ShelfGlassLink.unregister(this);comp?.recycle();comp=null;compCanvas=null;removeCallbacks(settle);queued=false;topStrip?.recycle();bottomStrip?.recycle();topStrip=null;bottomStrip=null;pane?.recycle();pane=null;under=null;over=null;staticKey="";super.onDetachedFromWindow()}
     }
 
 
