@@ -10,7 +10,7 @@ internal object FrostCache {
     const val MARGIN_Y=MARGIN*2f/3f
     private const val W=32;private const val H=48;private const val PX=8;private const val PY=8
     private val cache=object:LruCache<String,Bitmap>(400){}
-    fun get(cover:CoverView):Bitmap?{val key=cover.glowKey();cache.get(key)?.let{return it}
+    fun get(cover:CoverView):Bitmap?{if(cover.waiting)return null;val key=cover.glowKey();cache.get(key)?.let{return it}
         return try{
             val art=cover.glowArtwork() // 96×144 render of the cover (picture or typeset placeholder)
             val small=Bitmap.createBitmap(W+2*PX,H+2*PY,Bitmap.Config.ARGB_8888)

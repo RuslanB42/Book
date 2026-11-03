@@ -17,8 +17,10 @@ internal object ShelfGlassLink {
     var pane:Pane?=null;private set
     var ghost:CoverView?=null;private set
     val ghostRect=RectF()
+    /** 0 — the flying cover is still in its slot, behind the glass; 1 — lifted off the shelf, in front of everything. */
+    var front=0f;private set
     fun begin(cover:View,flying:CoverView){end();val p=panes.firstOrNull{isInside(cover,it.home)}?:return;pane=p;ghost=flying}
-    fun move(left:Float,top:Float,scale:Float){val g=ghost?:return;ghostRect.set(left,top,left+g.width*scale,top+g.height*scale);pane?.ghostMoved()}
+    fun move(left:Float,top:Float,scale:Float,lift:Float){val g=ghost?:return;front=lift;ghostRect.set(left,top,left+g.width*scale,top+g.height*scale);pane?.ghostMoved()}
     fun end(){val p=pane;pane=null;ghost=null;p?.ghostMoved()}
     private fun isInside(v:View,parent:View):Boolean{var p=v.parent;while(p!=null){if(p===parent)return true;p=p.parent};return false}
 }

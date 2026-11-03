@@ -166,8 +166,8 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
                 val cx=ox+box.left+box.width/2f;val cy=oy+box.top+box.height/2f;val hw=box.width*box.scaleX/2f;val hh=box.height*box.scaleY/2f
                 if(cx+hw*1.6f<gl||cx-hw*1.6f>gr)continue
                 frost(c,cover,cx-hw,cy-hh,cx+hw,cy+hh)}
-            if(ShelfGlassLink.pane===this){ShelfGlassLink.ghost?.let{g->val at=IntArray(2);getLocationOnScreen(at);val r=ShelfGlassLink.ghostRect
-                frost(c,g,r.left-at[0],r.top-at[1],r.right-at[0],r.bottom-at[1])}}
+            if(ShelfGlassLink.pane===this&&ShelfGlassLink.front<1f){ShelfGlassLink.ghost?.let{g->val at=IntArray(2);getLocationOnScreen(at);val r=ShelfGlassLink.ghostRect
+                frostPaint.alpha=((1f-ShelfGlassLink.front)*255).toInt();frost(c,g,r.left-at[0],r.top-at[1],r.right-at[0],r.bottom-at[1]);frostPaint.alpha=255}}
             c.restore()
             over?.let{c.drawBitmap(it,0f,0f,null)}
         }

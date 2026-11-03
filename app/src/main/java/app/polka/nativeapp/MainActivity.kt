@@ -30,7 +30,7 @@ class MainActivity : Activity() {
     private var bootFinished = false
     var prefs = JSONObject()
     var books = listOf<JSONObject>()
-    val covers = object:android.util.LruCache<String,Bitmap>((Runtime.getRuntime().maxMemory()/1024/6).toInt().coerceAtLeast(16*1024)) { override fun sizeOf(key:String,value:Bitmap)=value.allocationByteCount/1024 }
+    val covers = object:android.util.LruCache<String,Bitmap>((Runtime.getRuntime().maxMemory()/1024/4).toInt().coerceAtLeast(16*1024)) { override fun sizeOf(key:String,value:Bitmap)=value.allocationByteCount/1024 }
     lateinit var root: FrameLayout
     lateinit var page: LinearLayout
     internal lateinit var scroll: ScrollView

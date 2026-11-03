@@ -163,8 +163,11 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val v=flight?.takeIf{it.visibility==View.VISIBLE}?:return
   // Over its own shelf the cover is behind the glass: the pane draws it through its lens; leave that part out here.
   val at=IntArray(2);getLocationOnScreen(at)
-  val save=c.save();ShelfGlassLink.pane?.paneRectOnScreen()?.let{r->r.offset(-at[0].toFloat(),-at[1].toFloat());c.clipOutRect(r)}
+  // Only while the cover is still in (or just leaving) its slot; once lifted off the shelf it is fully in front.
+  val pane=ShelfGlassLink.pane?.takeIf{ShelfGlassLink.front<1f}?.paneRectOnScreen()?.apply{offset(-at[0].toFloat(),-at[1].toFloat())}
+  val save=c.save();pane?.let{c.clipOutRect(it)}
   c.translate(v.x,v.y);c.scale(v.scaleX,v.scaleY);v.draw(c);c.restoreToCount(save)
+  if(pane!=null&&ShelfGlassLink.front>0f){val l=c.saveLayerAlpha(pane,(ShelfGlassLink.front*255).toInt());c.translate(v.x,v.y);c.scale(v.scaleX,v.scaleY);v.draw(c);c.restoreToCount(l)}
   val amount=landingLight(presentation)
   if(amount>0f){
    val bounds=RectF(v.x,v.y,v.x+v.width*v.scaleX,v.y+v.height*v.scaleY)
@@ -193,7 +196,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  private fun pose(q0:Float){val q=q0.coerceIn(0f,1f);presentation=q;panel.alpha=1f;panel.translationY=panel.height*(1-q);scrim.alpha=q;heroGlow.alpha=landingLight(q)
   flight?.let{v->v.translationX=from.left+(to.left-from.left)*q;v.translationY=from.top+(to.top-from.top)*q;v.scaleX=(from.width()+(to.width()-from.width())*q)/base;v.scaleY=v.scaleX
    // same frame for the shelf glass: it draws the part of the cover that is behind it
-   run{val at=IntArray(2);getLocationOnScreen(at);ShelfGlassLink.move(at[0]+v.x,at[1]+v.y,v.scaleX)}
+   run{val at=IntArray(2);getLocationOnScreen(at);val lift=((q-.03f)/.22f).coerceIn(0f,1f);ShelfGlassLink.move(at[0]+v.x,at[1]+v.y,v.scaleX,lift*lift*(3-2*lift))}
    val heroRect=rect(heroCover);heroGlow.pivotX=heroCover.left-heroGlow.left+heroCover.width*.5f;heroGlow.pivotY=heroCover.top-heroGlow.top+heroCover.height*.5f;heroGlow.scaleX=wFor(q)/heroCover.width;heroGlow.scaleY=heroGlow.scaleX;heroGlow.translationX=v.translationX+wFor(q)*.5f-heroRect.centerX();heroGlow.translationY=v.translationY+wFor(q)*.75f-heroRect.centerY()
   }
   // Manual overlay transform must re-record the parent display list every frame.

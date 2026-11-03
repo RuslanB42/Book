@@ -33,12 +33,24 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
         super.onDraw(canvas)
         val activity=context as? MainActivity
         val bitmap=currentArtwork()
-        if(bitmap==null && activity!=null && book.optJSONObject("cover")!=null && requestedId!=book.optJSONObject("cover")?.str("__polkaBlob")) { requestedId=book.optJSONObject("cover")?.str("__polkaBlob"); val expected=book.optJSONObject("cover")?.toString().orEmpty();activity.requestCover(book) { loaded -> if(loaded!=null&&expected==book.optJSONObject("cover")?.toString().orEmpty()) {retainedArtwork=loaded;retainedKey=expected;invalidate();artworkChanged?.invoke()} } }
+        if(bitmap==null && activity!=null && book.optJSONObject("cover")!=null && requestedId!=book.optJSONObject("cover")?.str("__polkaBlob")) { requestedId=book.optJSONObject("cover")?.str("__polkaBlob"); val expected=book.optJSONObject("cover")?.toString().orEmpty();activity.requestCover(book) { loaded -> if(loaded==null){missing=true;invalidate()} else if(expected==book.optJSONObject("cover")?.toString().orEmpty()) {retainedArtwork=loaded;retainedKey=expected;invalidate();artworkChanged?.invoke()} } }
         val bounds=RectF(0f,0f,width.toFloat(),height.toFloat())
         BookCoverVolume.shadow(canvas,bounds,activity?.light==false,softShadow,stackShadow,shadowFade)
+        // A book with a picture whose bitmap is still decoding: a quiet blank cover, never the typeset placeholder
+        // (that flashed a different cover for a moment); the picture then fades in.
+        if(bitmap==null&&book.optJSONObject("cover")!=null&&!missing){waiting=true;blank(canvas,bounds);return}
+        if(waiting){waiting=false;fadeFrom=android.os.SystemClock.uptimeMillis()}
+        val f=if(fadeFrom>0L)((android.os.SystemClock.uptimeMillis()-fadeFrom)/180f).coerceIn(0f,1f) else 1f
+        if(f<1f){blank(canvas,bounds);val l=canvas.saveLayerAlpha(bounds,(f*255).toInt());drawCover(canvas,bounds,book,bitmap);canvas.restoreToCount(l);postInvalidateOnAnimation();return}
+        fadeFrom=0L
         drawCover(canvas,bounds,book,bitmap)
     }
     internal var artworkChanged:(()->Unit)?=null
+    private var missing=false;private var fadeFrom=0L
+    /** True while the cover's picture is still on its way (the view shows a blank cover). */
+    internal var waiting=false;private set
+    private val blankPaint=Paint(Paint.ANTI_ALIAS_FLAG)
+    private fun blank(c:Canvas,b:RectF){val dark=(context as? MainActivity)?.light==false;blankPaint.color=if(dark)0xff2a2a2d.toInt() else 0xffe6e4df.toInt();val r=BookCoverVolume.radius(b.width());c.drawRoundRect(b,r,r,blankPaint)}
     private fun currentArtwork():Bitmap? {
         val ref=book.optJSONObject("cover")
         full?.let{f->if(!f.isRecycled)return f}
