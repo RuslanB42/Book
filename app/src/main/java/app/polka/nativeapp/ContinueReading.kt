@@ -149,7 +149,12 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    for(r in 0 until rows.childCount){val v=rows.getChildAt(r);if(v.height<=a.d(2)&&v !is TextView)continue;v.translationX=d.coerceIn(-1f,1f)*a.d(14)*(1+n*.5f);n++}}
   if(motion&&readingBooks.isNotEmpty()){val f=(x/stride).coerceIn(0f,readingBooks.lastIndex.toFloat());val lo=f.toInt();val hi=(lo+1).coerceAtMost(readingBooks.lastIndex)
    glow.set(blend(tints[lo],tints[hi],f-lo),a.d(20)+carousel.stride*.42f,light)}}
- private fun blend(p:Int,q:Int,t:Float):Int{fun ch(sh:Int)=(((p shr sh) and 255)*(1-t)+((q shr sh) and 255)*t).roundToInt();return Color.rgb(ch(16),ch(8),ch(0))}
+ private fun blend(p:Int,q:Int,t:Float):Int{
+  val r=(Color.red(p)*(1-t)+Color.red(q)*t).roundToInt()
+  val g=(Color.green(p)*(1-t)+Color.green(q)*t).roundToInt()
+  val b=(Color.blue(p)*(1-t)+Color.blue(q)*t).roundToInt()
+  return Color.rgb(r,g,b)
+ }
 }
 
 /** A wide, very soft ellipse of colour behind the focused card. Cheap: one radial gradient, redrawn on scroll. */
