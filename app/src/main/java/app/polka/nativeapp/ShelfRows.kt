@@ -114,107 +114,65 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
 
     private companion object{val shared=HashMap<String,Triple<Bitmap,Bitmap,ColorFilter?>>()}
 
-    /** Clear glass shelf with screws. The books are seen through it directly — sharp, not redrawn, nothing shifted.
-     *  Only along the top and bottom bevels the glass bends them, like the rounded edge of thick acrylic: thin strips
-     *  of the row are snapshotted once (when covers change) and drawn through a smooth mesh, so the distortion has no
-     *  steps; scrolling just slides those strips. */
+    /** Matte glass shelf with screws, light to draw: every cover has a tiny pre-blurred copy (made once, cached);
+     *  the pane paints those copies where the covers are — a handful of small bitmaps per frame, no snapshots of
+     *  the row, no offscreen effects. Then a frosted tint, a soft top sheen, the rim and four screws. */
     private inner class Glass:View(a),ShelfGlassLink.Pane{
         val pad=a.d(22)
         private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        // its own opaque paint: [p] keeps the translucent rim colour from statics(), which faded the snapshot into a grey band
-        private val meshPaint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        private val bevel=a.d(10).toFloat();private val reach=a.d(6).toFloat();private val seam=a.d(3).toFloat()
-        private var topStrip:Bitmap?=null;private var bottomStrip:Bitmap?=null;private var stripScale=1f;private var queued=false;private var x0=0;private var x1=0
-        // Android 13+: the covers' layer is bent live by the lens (LiquidGlass); this view only adds shadow, sheen, rim and screws.
-        private val liquid get()=LiquidGlass.available
+        private val frostPaint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-        fun refresh(){if(liquid){return};if(queued)return;queued=true;postDelayed(settle,140)}
+        fun refresh()=invalidate()
+        fun scrolled()=invalidate()
+        override fun onTouchEvent(e:MotionEvent)=false
         // ── a cover flying to / from the book card passes behind this glass (see ShelfGlassLink) ──
         override val home:View get()=this@ShelfRow
-        override val layer:View get()=lensHost
-        override fun paneRectOnScreen():RectF?{if(!isAttachedToWindow||!liquid)return null;val at=IntArray(2);getLocationOnScreen(at);return RectF(at[0]+pad.toFloat(),at[1]+pad.toFloat(),at[0]+width-pad.toFloat(),at[1]+height-pad.toFloat())}
-        private fun applyLens(){if(!liquid){LiquidGlass.apply(lensHost,null,0f,a.light,1f);return}
-            // the pane in lensHost coordinates (both are children of the stage)
-            val r=RectF((left+pad-lensHost.left).toFloat(),(top+pad-lensHost.top).toFloat(),(right-pad-lensHost.left).toFloat(),(bottom-pad-lensHost.top).toFloat())
-            LiquidGlass.apply(lensHost,r,a.d(9).toFloat(),a.light,resources.displayMetrics.density)}
-        /** Strips cover about three screens around the visible part; leaving that window re-snaps at once (a few ms). */
-        fun scrolled(){if(liquid){return};val sx=scroller.scrollX;val w=scroller.width;if(topStrip!=null&&(sx<x0&&x0>0||sx+w>x1&&x1<row.width)&&!row.isLayoutRequested)capture();invalidate()}
-        override fun onTouchEvent(e:MotionEvent)=false
-        override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(changed){applyLens();refresh()}}
-        private val settle=object:Runnable{override fun run(){if(!isAttachedToWindow){queued=false;return}
-            if(row.isLayoutRequested||row.width<1||width<1){postDelayed(this,48);return}
-            queued=false;capture();invalidate()}}
-        /** Snapshot the two source bands of the row (a little beyond each bevel) at screen resolution. */
-        private fun capture(){val gTop=pad.toFloat();val gBottom=(height-pad).toFloat()
-            val sw=scroller.width.coerceAtLeast(1);x0=(scroller.scrollX-sw).coerceAtLeast(0);x1=(scroller.scrollX+2*sw).coerceAtMost(row.width).coerceAtLeast(x0+1)
-            stripScale=1f
-            val offY=(top-(scroller.top+row.top)).toFloat()
-            fun shot(y0:Float,y1:Float):Bitmap{val w=x1-x0;val h=(y1-y0).toInt().coerceAtLeast(1)
-                val bmp=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);val c=Canvas(bmp);c.drawFilter=PaintFlagsDrawFilter(0,Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
-                c.translate(-x0.toFloat(),-(y0+offY));row.draw(c);return bmp}
-            val oldT=topStrip;val oldB=bottomStrip
-            // each strip reaches [seam] px past its inner edge, so the seam is sampled from real pixels, not from the
-            // bitmap border (which blended with transparency and drew a grey line across light covers)
-            topStrip=shot(gTop-reach,gTop+bevel+seam);bottomStrip=shot(gBottom-bevel-seam,gBottom+reach)
-            oldT?.recycle();oldB?.recycle()}
-        // Mesh rows: bitmap rows are spread uniformly over the source band; their on-screen y solves y_src = f(y).
-        private val rows=18
-        private fun meshY(top:Boolean,src:Float,g0:Float):Float{
-            // top bevel: f(y)=y−reach·(1−(y−g0)/bevel)², y∈[g0,g0+bevel]; bottom mirrors it. Bisection — f is monotonic.
-            var lo=0f;var hi=bevel
-            repeat(22){val m=(lo+hi)/2;val t=if(top)1-m/bevel else m/bevel;val f=if(top)m-reach*t*t else m+reach*t*t;if(f<src)lo=m else hi=m}
-            return g0+(lo+hi)/2}
-        private fun strip(c:Canvas,bmp:Bitmap,top:Boolean,dx:Float){
-            val gTop=pad.toFloat();val gBottom=(height-pad).toFloat()
-            val g0=if(top)gTop else gBottom-bevel;val src0=if(top)-reach else -seam;val srcH=bevel+reach+seam
-            val l=dx+x0;val w=bmp.width.toFloat();val v=FloatArray((rows+1)*2*2)
-            for(j in 0..rows){val src=src0+srcH*j/rows;val y=if(top&&src>=bevel||!top&&src<=0f)g0+src else meshY(top,src,g0).coerceIn(g0,g0+bevel)
-                v[j*4]=l;v[j*4+1]=y;v[j*4+2]=l+w;v[j*4+3]=y}
-            // only where the snapshot reaches; beyond it (mid-fling, for a frame) the real covers show plainly
-            c.save();c.clipRect(maxOf(pad.toFloat(),l),g0,minOf((width-pad).toFloat(),l+w),g0+bevel)
-            c.drawColor(a.bg)
-            c.drawBitmapMesh(bmp,1,rows,v,0,null,0,meshPaint);c.restore()}
-        // Static parts are rendered once per size/theme into bitmaps (soft shadow outside; tint, sheen, rim, screws over),
-        // shared by every shelf.
+        override fun paneRectOnScreen():RectF?{if(!isAttachedToWindow)return null;val at=IntArray(2);getLocationOnScreen(at);return RectF(at[0]+pad.toFloat(),at[1]+pad.toFloat(),at[0]+width-pad.toFloat(),at[1]+height-pad.toFloat())}
+        override fun ghostMoved()=invalidate()
+        // Static parts, once per size/theme and shared by every shelf: soft shadow outside; tint, sheen, rim, screws over.
         private var under:Bitmap?=null;private var over:Bitmap?=null;private var staticKey=""
         private val clip=Path()
         private fun statics(){val light=a.light;val key="$width:$height:$light";val radius=a.d(9).toFloat()
             val g=RectF(pad.toFloat(),pad.toFloat(),(width-pad).toFloat(),(height-pad).toFloat())
-            if(key!=staticKey||under==null){clip.reset();clip.addRoundRect(g,radius,radius,Path.Direction.CW)}
+            if(key!=staticKey||under==null){clip.reset();clip.addRoundRect(g,radius,radius,Path.Direction.CW)
+                val m=ColorMatrix().apply{setSaturation(1.12f)};val k=if(light)1.05f else .82f;m.postConcat(ColorMatrix(floatArrayOf(k,0f,0f,0f,0f,0f,k,0f,0f,0f,0f,0f,k,0f,0f,0f,0f,0f,1f,0f)));frostPaint.colorFilter=ColorMatrixColorFilter(m)}
             if(key==staticKey&&under!=null)return;staticKey=key
             shared[key]?.let{(u,o,_)->under=u;over=o;return}
             val density=resources.displayMetrics.density
             under=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888).also{bmp->val c=Canvas(bmp)
-                p.color=Color.BLACK;p.setShadowLayer(if(light)18*density else 22*density,0f,if(light)5*density else 7*density,if(light)0x14000000 else 0x40000000);c.drawRoundRect(g,radius,radius,p);p.clearShadowLayer()
-                // clear glass: the shadow stays outside only
-                p.xfermode=PorterDuffXfermode(PorterDuff.Mode.CLEAR);c.drawRoundRect(g,radius,radius,p);p.xfermode=null}
+                p.color=if(light)0xfff2f2f0.toInt() else 0xff161617.toInt();p.setShadowLayer(if(light)18*density else 22*density,0f,if(light)5*density else 7*density,if(light)0x14000000 else 0x40000000);c.drawRoundRect(g,radius,radius,p);p.clearShadowLayer()}
             over=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888).also{bmp->val c=Canvas(bmp)
                 c.save();c.clipPath(clip)
-                // body: a very light tint, a little brighter under the top edge
-                p.shader=LinearGradient(0f,g.top,0f,g.bottom,intArrayOf(if(light)0x40ffffff else 0x1fffffff,if(light)0x14ffffff else 0x0affffff,if(light)0x0fd8eef0 else 0x0ac8e6ee,if(light)0x1fffffff else 0x10ffffff),floatArrayOf(0f,.25f,.7f,1f),Shader.TileMode.CLAMP);c.drawRect(g,p)
-                // a soft diagonal reflection
-                p.shader=LinearGradient(g.left+g.width()*.16f,g.top,g.left+g.width()*.30f,g.bottom,intArrayOf(0x00ffffff,if(light)0x2affffff else 0x14ffffff,0x00ffffff),null,Shader.TileMode.CLAMP);c.drawRect(g,p)
-                // bevels catch the light: brighter along the top band, a darker lip at the bottom
-                p.shader=LinearGradient(0f,g.top,0f,g.top+bevel,if(light)0x59ffffff else 0x2effffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRect(g.left,g.top,g.right,g.top+bevel,p)
-                p.shader=LinearGradient(0f,g.bottom-bevel,0f,g.bottom,0x00000000,if(light)0x1a000000 else 0x33000000,Shader.TileMode.CLAMP);c.drawRect(g.left,g.bottom-bevel,g.right,g.bottom,p);p.shader=null
-                p.style=Paint.Style.STROKE;p.strokeWidth=density;p.color=if(light)0xd9ffffff.toInt() else 0x2effffff
+                p.color=if(light)0x66ffffff else 0x0effffff;c.drawRect(g,p)
+                p.shader=LinearGradient(0f,g.top,0f,g.top+8*density,if(light)0x4dffffff else 0x1fffffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRect(g.left,g.top,g.right,g.top+8*density,p);p.shader=null
+                p.style=Paint.Style.STROKE;p.strokeWidth=density;p.color=if(light)0xccffffff.toInt() else 0x21ffffff
                 val e=(radius-density*.5f).coerceAtLeast(0f);c.drawRoundRect(RectF(g.left+density*.5f,g.top+density*.5f,g.right-density*.5f,g.bottom-density*.5f),e,e,p);p.style=Paint.Style.FILL;c.restore()
                 val size=9*density;val inset=density+radius*.55f+size/2
                 listOf(g.left+inset to g.top+inset,g.right-inset to g.top+inset,g.left+inset to g.bottom-inset,g.right-inset to g.bottom-inset).forEachIndexed{i,(x,y)->ShelfScrew.draw(c,x,y,size,density,ShelfScrew.turns[i])}}
             shared[key]=Triple(under!!,over!!,null)
         }
+        private val dst=RectF()
+        /** A cover's frosted copy over [l,t,r,b] (glass coordinates); the copy carries its own soft margin. */
+        private fun frost(c:Canvas,cover:CoverView,l:Float,t:Float,r:Float,b:Float){val f=FrostCache.get(cover)?:return
+            val mx=(r-l)*FrostCache.MARGIN;val my=(b-t)*FrostCache.MARGIN_Y;dst.set(l-mx,t-my,r+mx,b+my);c.drawBitmap(f,null,dst,frostPaint)}
         override fun onDraw(c:Canvas){if(width<1||height<1)return;statics()
             under?.let{c.drawBitmap(it,0f,0f,null)}
-            val dx=(scroller.left+row.left-scroller.scrollX-left).toFloat()
-            if(liquid){over?.let{c.drawBitmap(it,0f,0f,null)};return}
             c.save();c.clipPath(clip)
-            topStrip?.takeIf{!it.isRecycled}?.let{strip(c,it,true,dx)}
-            bottomStrip?.takeIf{!it.isRecycled}?.let{strip(c,it,false,dx)}
+            val ox=(scroller.left+row.left-scroller.scrollX-left).toFloat();val oy=(scroller.top+row.top-top).toFloat()
+            val gl=pad.toFloat();val gr=(width-pad).toFloat()
+            for(i in 0 until row.childCount){val box=row.getChildAt(i) as? ViewGroup?:continue;val cover=box.getChildAt(0) as? CoverView?:continue
+                if(box.visibility!=View.VISIBLE||cover.visibility!=View.VISIBLE)continue
+                // the box's press scale (about its centre) is followed too
+                val cx=ox+box.left+box.width/2f;val cy=oy+box.top+box.height/2f;val hw=box.width*box.scaleX/2f;val hh=box.height*box.scaleY/2f
+                if(cx+hw*1.6f<gl||cx-hw*1.6f>gr)continue
+                frost(c,cover,cx-hw,cy-hh,cx+hw,cy+hh)}
+            if(ShelfGlassLink.pane===this){ShelfGlassLink.ghost?.let{g->val at=IntArray(2);getLocationOnScreen(at);val r=ShelfGlassLink.ghostRect
+                frost(c,g,r.left-at[0],r.top-at[1],r.right-at[0],r.bottom-at[1])}}
             c.restore()
             over?.let{c.drawBitmap(it,0f,0f,null)}
         }
-        override fun onAttachedToWindow(){super.onAttachedToWindow();if(liquid)ShelfGlassLink.register(this);applyLens();refresh()}
-        override fun onDetachedFromWindow(){ShelfGlassLink.unregister(this);removeCallbacks(settle);queued=false;topStrip?.recycle();bottomStrip?.recycle();topStrip=null;bottomStrip=null;under=null;over=null;staticKey="";super.onDetachedFromWindow()}
+        override fun onAttachedToWindow(){super.onAttachedToWindow();ShelfGlassLink.register(this)}
+        override fun onDetachedFromWindow(){ShelfGlassLink.unregister(this);under=null;over=null;staticKey="";super.onDetachedFromWindow()}
     }
 
 
