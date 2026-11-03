@@ -26,7 +26,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  fun matches(all:List<JSONObject>)=light==a.light&&fontScale==resources.configuration.fontScale&&signature==ReadingQueue.books(all).joinToString{it.toString()}
  private var restoring=true
  private var pendingIndex=readingBooks.indexOfFirst{it.str("id")==a.continueBookId}.coerceAtLeast(0)
- private val cards=mutableListOf<FrameLayout>()
+ private val cards=mutableListOf<RisingCoverCard>()
  private val holders=mutableListOf<FrameLayout>()
  private var lastViewport=0
  private val reduced get()=a.prefs.str("motion")=="reduced"
@@ -55,7 +55,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   orientation=VERTICAL;clipChildren=false;clipToPadding=false
   addView(a.text("Продолжить чтение",20f,bold=true,serif=true))
   readingBooks.forEachIndexed{i,book->
-   val card=FrameLayout(a).apply{clipChildren=false;clipToPadding=false;isFocusable=true;contentDescription="Продолжить: ${book.str("title")}";minimumHeight=a.d(150)}
+   val card=RisingCoverCard(a).apply{clipChildren=false;clipToPadding=false;isFocusable=true;contentDescription="Продолжить: ${book.str("title")}"}
    floating(card,book)
    val cover=CoverView(a,book,a.cover(book));card.addView(cover,FrameLayout.LayoutParams(a.d(112),a.d(168),Gravity.BOTTOM or Gravity.START).apply{marginStart=a.d(14);bottomMargin=a.d(12)})
    val words=a.column().apply{gravity=Gravity.BOTTOM;setPadding(a.d(140),a.d(14),a.d(14),a.d(14))}
@@ -71,7 +71,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    buttons.addView(pill("Читать",true,"Читать: ${book.str("title")}"){a.openBook(book,cover)},LayoutParams(0,-2,1f))
    buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,cover)},LayoutParams(0,-2,1f).apply{marginStart=a.d(6)})
    words.addView(buttons)
-   card.addView(words,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM))
+   card.addView(words,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));card.words=words
    card.setOnClickListener{a.openBook(book,cover)};a.press(card)
    cards.add(card)
    // The focus transform lives on a holder, so the press feedback on the card never fights it.
@@ -91,9 +91,12 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   if(Build.VERSION.SDK_INT>=28){card.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();card.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
  }
  private fun shades(b:Bitmap?,book:JSONObject):IntArray{
-  val base=if(b!=null){val s=Bitmap.createScaledBitmap(b,8,12,true);var r=0;var g=0;var bl=0;var n=0
-   for(y in 0 until 12)for(x in 0 until 8){val p=s.getPixel(x,y);r+=Color.red(p);g+=Color.green(p);bl+=Color.blue(p);n++};if(s!==b)s.recycle();Color.rgb(r/n,g/n,bl/n)} else CoverView(a,book,null).colors(book).first
-  val hsv=FloatArray(3);Color.colorToHSV(base,hsv);val sat=(hsv[1]*.85f).coerceIn(.12f,.5f)
+  // the cover's leading colour: pixels weighted by how colourful and bright they are, so a yellow cover with black
+  // type gives an amber card, not the muddy average of all its pixels
+  val base=if(b!=null){val s=Bitmap.createScaledBitmap(b,12,18,true);var r=0f;var g=0f;var bl=0f;var w=0f;val t=FloatArray(3)
+   for(y in 0 until 18)for(x in 0 until 12){val p=s.getPixel(x,y);Color.colorToHSV(p,t);val k=(t[1]*t[2]).let{it*it}+.004f;r+=Color.red(p)*k;g+=Color.green(p)*k;bl+=Color.blue(p)*k;w+=k}
+   if(s!==b)s.recycle();Color.rgb((r/w).toInt(),(g/w).toInt(),(bl/w).toInt())} else CoverView(a,book,null).colors(book).first
+  val hsv=FloatArray(3);Color.colorToHSV(base,hsv);val sat=(hsv[1]*.9f).coerceIn(.12f,.62f)
   fun at(v:Float,s:Float)=Color.HSVToColor(floatArrayOf(hsv[0],s,v))
   return if(light)intArrayOf(at(.62f,sat),at(.52f,sat*.9f),at(.38f,sat*.7f)) else intArrayOf(at(.52f,sat),at(.40f,sat*.85f),at(.21f,sat*.5f))}
  private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,12.5f,if(primary)0xff111111.toInt() else Color.WHITE,true).apply{
@@ -105,17 +108,26 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   val width=if(cards.size<=1)content else (content*.94f).toInt().coerceAtMost(a.d(360));val gap=a.d(12);carousel.stride=width+gap
   cards.forEach{c->c.layoutParams=(c.layoutParams as FrameLayout.LayoutParams).apply{this.width=width}}
   holders.forEachIndexed{i,h->h.layoutParams=(h.layoutParams as LayoutParams).apply{marginStart=if(i>0)gap else 0}}
-  strip.setPadding(a.d(20),rise+a.d(14),(viewport-width-a.d(20)).coerceAtLeast(a.d(20)),a.d(26))
+  strip.setPadding(a.d(20),rise+a.d(16),(viewport-width-a.d(20)).coerceAtLeast(a.d(20)),a.d(22))
   pendingIndex=readingBooks.indexOfFirst{it.str("id")==a.continueBookId}.coerceAtLeast(0);restoring=true}
  /** Every card gets the height of the tallest one, so all of them scale the same way. */
  private fun evenHeights(){if(cards.size<=1)return;val tallest=cards.maxOf{it.measuredHeight};if(tallest<=0)return
-  cards.forEach{c->if(c.minimumHeight<tallest){c.minimumHeight=tallest}}}
+  cards.forEach{c->if(c.floor<tallest){c.floor=tallest;c.requestLayout()}}}
  /** The focused card (at the left margin) is full size; the others are a little smaller and dimmer,
   *  continuously with their distance from focus. */
  private fun focus(x:Int){if(holders.size<=1)return;val stride=carousel.stride.toFloat().coerceAtLeast(1f);val anchor=x+a.d(20)
   holders.forEachIndexed{i,h->if(h.width<=0)return@forEachIndexed;val d=(h.left-anchor)/stride;val k=kotlin.math.abs(d).coerceAtMost(1f)
    val s=1f-.06f*k;h.pivotX=if(d>0)0f else h.width.toFloat();h.pivotY=h.height.toFloat();h.scaleX=s;h.scaleY=s;h.alpha=1f-.35f*k
    cards[i].translationZ=a.d(6)*(1f-k)}}
+}
+
+/** The card's height comes from its text (at least 150dp), never from the cover: the taller cover hangs out above. */
+internal class RisingCoverCard(private val a:MainActivity):FrameLayout(a){
+ var words:View?=null
+ var floor=a.d(150)
+ override fun onMeasure(w:Int,h:Int){val text=words;var hh=floor
+  if(text!=null){text.measure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(w),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));hh=maxOf(hh,text.measuredHeight)}
+  super.onMeasure(w,MeasureSpec.makeMeasureSpec(hh,MeasureSpec.EXACTLY))}
 }
 
 /** Thin white bar on the card: a faint track and the fill with a soft spark at its end. */
