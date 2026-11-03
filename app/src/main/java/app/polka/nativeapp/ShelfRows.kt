@@ -123,10 +123,15 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         private val meshPaint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         private val bevel=a.d(10).toFloat();private val reach=a.d(6).toFloat();private val seam=a.d(3).toFloat()
         private var topStrip:Bitmap?=null;private var bottomStrip:Bitmap?=null;private var stripScale=1f;private var queued=false;private var x0=0;private var x1=0
+        // Android 13+: the whole pane is a liquid-glass lens drawn by a pixel shader over a snapshot of the row.
+        private val liquid=android.os.Build.VERSION.SDK_INT>=33
+        private var pane:Bitmap?=null;private val margin=a.d(12).toFloat()
+        private val lens:Any? = if(liquid) LiquidGlass.shader() else null
+        private val lensPaint=Paint(Paint.ANTI_ALIAS_FLAG)
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         fun refresh(){if(queued)return;queued=true;postDelayed(settle,140)}
         /** Strips cover about three screens around the visible part; leaving that window re-snaps at once (a few ms). */
-        fun scrolled(){val sx=scroller.scrollX;val w=scroller.width;if(topStrip!=null&&(sx<x0&&x0>0||sx+w>x1&&x1<row.width)&&!row.isLayoutRequested)capture();invalidate()}
+        fun scrolled(){val sx=scroller.scrollX;val w=scroller.width;if((topStrip!=null||pane!=null)&&(sx<x0&&x0>0||sx+w>x1&&x1<row.width)&&!row.isLayoutRequested)capture();invalidate()}
         override fun onTouchEvent(e:MotionEvent)=false
         override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(changed)refresh()}
         private val settle=object:Runnable{override fun run(){if(!isAttachedToWindow){queued=false;return}
@@ -140,6 +145,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             fun shot(y0:Float,y1:Float):Bitmap{val w=x1-x0;val h=(y1-y0).toInt().coerceAtLeast(1)
                 val bmp=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);val c=Canvas(bmp);c.drawFilter=PaintFlagsDrawFilter(0,Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
                 c.translate(-x0.toFloat(),-(y0+offY));row.draw(c);return bmp}
+            if(liquid){val old=pane;pane=shot(gTop-margin,gBottom+margin);old?.recycle();return}
             val oldT=topStrip;val oldB=bottomStrip
             // each strip reaches [seam] px past its inner edge, so the seam is sampled from real pixels, not from the
             // bitmap border (which blended with transparency and drew a grey line across light covers)
@@ -194,6 +200,13 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         override fun onDraw(c:Canvas){if(width<1||height<1)return;statics()
             under?.let{c.drawBitmap(it,0f,0f,null)}
             val dx=(scroller.left+row.left-scroller.scrollX-left).toFloat()
+            val pb=pane
+            if(liquid&&pb!=null&&!pb.isRecycled&&lens!=null){
+                val g=RectF(pad.toFloat(),pad.toFloat(),(width-pad).toFloat(),(height-pad).toFloat())
+                c.save();c.translate(g.left,g.top)
+                LiquidGlass.bind(lens,lensPaint,pb,dx+x0-g.left,-margin,g.width(),g.height(),a.d(9).toFloat(),a.bg,a.light,resources.displayMetrics.density)
+                c.drawRoundRect(0f,0f,g.width(),g.height(),a.d(9).toFloat(),a.d(9).toFloat(),lensPaint);c.restore()
+                over?.let{c.drawBitmap(it,0f,0f,null)};return}
             c.save();c.clipPath(clip)
             topStrip?.takeIf{!it.isRecycled}?.let{strip(c,it,true,dx)}
             bottomStrip?.takeIf{!it.isRecycled}?.let{strip(c,it,false,dx)}
@@ -201,7 +214,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             over?.let{c.drawBitmap(it,0f,0f,null)}
         }
         override fun onAttachedToWindow(){super.onAttachedToWindow();refresh()}
-        override fun onDetachedFromWindow(){removeCallbacks(settle);queued=false;topStrip?.recycle();bottomStrip?.recycle();topStrip=null;bottomStrip=null;under=null;over=null;staticKey="";super.onDetachedFromWindow()}
+        override fun onDetachedFromWindow(){removeCallbacks(settle);queued=false;topStrip?.recycle();bottomStrip?.recycle();topStrip=null;bottomStrip=null;pane?.recycle();pane=null;under=null;over=null;staticKey="";super.onDetachedFromWindow()}
     }
 
 
