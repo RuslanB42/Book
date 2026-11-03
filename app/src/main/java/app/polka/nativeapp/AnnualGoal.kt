@@ -78,7 +78,7 @@ if(d!=null){a.space(m,6);m.addView(a.text("Прочитана ${date(d)}",12.5f,
     private fun cell(b:JSONObject,d:LocalDate?,i:Int):View{val cell=a.column().apply{clipChildren=false;isClickable=true;setOnClickListener{a.detail(b)};a.press(this)}
         cell.addView(cover(b),LayoutParams(-1,-2));a.space(cell,8)
         cell.addView(a.text(b.str("title"),12.5f,a.fg,true).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END})
-        if(motion){cell.alpha=0f;cell.translationY=a.d(12).toFloat();cell.animate().alpha(1f).translationY(0f).setStartDelay(160L+min(i,8)*50L).setDuration(460).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
+        if(motion){cell.alpha=0f;cell.translationY=a.d(12).toFloat();val sp=Spring.gentle;cell.animate().alpha(1f).translationY(0f).setStartDelay(160L+(hypot((i%cols).toFloat(),(i/cols).toFloat())*60f).toLong().coerceAtMost(600)).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
         return cell}
     private fun row(items:List<Pair<JSONObject,LocalDate?>>,more:Int,offset:Int=0):LinearLayout{val line=a.line().apply{gravity=Gravity.TOP;clipChildren=false}
         items.forEachIndexed{k,(b,d)->line.addView(cell(b,d,offset+k),LayoutParams(0,-2,1f).apply{if(k>0)leftMargin=a.d(14)})}

@@ -58,7 +58,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         anim?.cancel();val to=if(on)1f else 0f
         if(!animate||a.prefs.str("motion")=="reduced"){apply(to);return}
         val from=progress
-        anim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=460;startDelay=delay;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{apply(it.animatedValue as Float)};start()}}
+        val sp=Spring.of(.1,460.0);anim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=sp.duration;startDelay=delay;interpolator=sp.interpolator;addUpdateListener{apply(it.animatedValue as Float)};start()}}
     private fun apply(e:Float){progress=e
         val lp=stage.layoutParams;lp.height=(stageFull*(1-e)).toInt();stage.layoutParams=lp
         stage.alpha=(1-e*1.6f).coerceIn(0f,1f);stage.scaleY=1f-.08f*e;stage.pivotY=0f
@@ -201,7 +201,7 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
     private var startScroll=0;private var lastY=0f
     private val glide=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
     init{rows.forEach{r->r.handle.setOnTouchListener{_,e->touch(r,e);true}}}
-    fun setEditing(on:Boolean){a.shelvesEditing=on;rows.forEachIndexed{i,r->r.setEditing(on,true,i*28L)}}
+    fun setEditing(on:Boolean){a.shelvesEditing=on;val delays=Stagger.delays(rows.size,30,ease=Ease.outQuad);rows.forEachIndexed{i,r->r.setEditing(on,true,delays[i])}}
     private fun touch(r:ShelfRow,e:MotionEvent){if(!r.editing)return
         when(e.actionMasked){
             MotionEvent.ACTION_DOWN->{held=r;from=rows.indexOf(r);target=from;startY=e.rawY;lastY=e.rawY;startScroll=a.scroll.scrollY;slot=r.height+a.d(10)

@@ -110,8 +110,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         streak();readingTime();pair();speed()
         if(motionOn) {
             // Cards rise one after another over a page that only fades in.
-            val settle=android.view.animation.PathInterpolator(.22f,1f,.36f,1f)
-            entrance.forEachIndexed{i,v->v.alpha=0f;v.translationY=a.d(22).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(90L+i*65L).setDuration(560).setInterpolator(settle).start()}
+            // anime.js-style: a stagger wave (outQuad spacing) and a gentle spring for the rise
+            val spring=Spring.gentle;val delays=Stagger.delays(entrance.size,70,start=90,ease=Ease.outQuad)
+            entrance.forEachIndexed{i,v->v.alpha=0f;v.translationY=a.d(26).toFloat();v.animate().translationY(0f).setStartDelay(delays[i]).setDuration(spring.duration).setInterpolator(spring.interpolator).start()
+                v.animate().alpha(1f).setStartDelay(delays[i]).setDuration(spring.duration).setInterpolator(spring.interpolator).start()}
         }
     }
     // ───────────────────────── glass cards ─────────────────────────

@@ -38,7 +38,7 @@ internal class AddMenu(private val a:MainActivity){
         a.root.addView(overlay,a.root.indexOfChild(fab),FrameLayout.LayoutParams(-1,-1))
         val reduced=a.prefs.str("motion")=="reduced"
         scrim.animate().alpha(1f).setDuration(if(reduced)0 else 240).setInterpolator(out).start()
-        fab.animate().rotation(45f).setDuration(if(reduced)0 else 320).setInterpolator(out).start()
+        Spring.of(.42,420.0).let{sp->fab.animate().rotation(45f).setDuration(if(reduced)0 else sp.duration).setInterpolator(sp.interpolator).start()}
         // Start poses are set after layout but BEFORE the first frame (setting them in a post showed the pills
         // at rest for a frame and then snapped them back — the flash).
         overlay.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
@@ -47,7 +47,7 @@ internal class AddMenu(private val a:MainActivity){
                 // each pill grows out of the button: from its right edge, a little below, small and clear
                 p.pivotX=p.width.toFloat();p.pivotY=p.height/2f
                 p.translationY=(column.height-p.top-p.height/2f)*.35f+a.d(12);p.scaleX=.82f;p.scaleY=.82f;p.alpha=0f
-                p.animate().translationY(0f).scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(if(reduced)0 else 30L+i*45L).setDuration(if(reduced)0 else 340).setInterpolator(rise).start()}
+                val sp=Spring.lively;p.animate().translationY(0f).scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(if(reduced)0 else 30L+i*50L).setDuration(if(reduced)0 else sp.duration).setInterpolator(sp.interpolator).start()}
             return true}})
     }
 

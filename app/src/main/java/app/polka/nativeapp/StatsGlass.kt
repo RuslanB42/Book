@@ -88,6 +88,7 @@ internal class DayBars(private val a:MainActivity,private val values:List<Double
 /** The annual goal as a small stack of books: read ones in their cover colours (with a page block), the rest dashed. */
 internal class GoalStack(private val a:MainActivity,private val filled:Int,private val slots:Int,private val colors:List<Int>,private val motion:Boolean):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var drop=if(motion)0f else 1f
+    private val settle=Spring.of(.38,420.0).interpolator
     private val offsets=intArrayOf(6,0,10,2,8,4,0,6);private val widths=floatArrayOf(.94f,1f,.88f,.96f,.9f,.92f,.86f,.9f)
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(drop<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=260L+filled*90L;startDelay=200;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{drop=it.animatedValue as Float;invalidate()};start()}}
@@ -95,7 +96,7 @@ internal class GoalStack(private val a:MainActivity,private val filled:Int,priva
         for(i in 0 until slots){val y=height-(i+1)*(bh+gap)-0f;val w=full*widths[i%widths.size];val x=a.d(offsets[i%offsets.size]).toFloat()
             val r=RectF(x,y,x+w,y+bh)
             if(i<filled){val k=((drop*filled)-i).coerceIn(0f,1f);if(k<=0f)continue
-                c.save();c.translate(0f,-(1-k)*a.d(24));val col=colors[i%colors.size]
+                val y0=1f-settle.getInterpolation(k);c.save();c.translate(0f,-y0*a.d(24));val col=colors[i%colors.size]
                 p.alpha=(k*255).toInt();p.setShadowLayer(4*d,0f,2*d,0x66000000);p.color=col;c.drawRoundRect(r,4*d,4*d,p);p.clearShadowLayer()
                 p.shader=LinearGradient(0f,r.top,0f,r.bottom,0x2effffff,0x26000000,Shader.TileMode.CLAMP);c.drawRoundRect(r,4*d,4*d,p);p.shader=null
                 val pg=RectF(r.right-4*d-9*d,r.top+3*d,r.right-4*d,r.bottom-3*d);p.shader=LinearGradient(pg.left,0f,pg.right,0f,0xffefe6cf.toInt(),0xffcbbf9f.toInt(),Shader.TileMode.CLAMP);c.drawRoundRect(pg,2*d,2*d,p);p.shader=null
