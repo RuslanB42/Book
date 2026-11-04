@@ -93,29 +93,25 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             setOnFocusChangeListener{v,has->if(!has)v.post{if(field===v)commitRename()}}}
         // the field takes the name's exact place and size: the title just gets a cursor, nothing moves or blinks
         field=f;val i=head.indexOfChild(name);head.addView(f,i,LayoutParams(-2,-2));name.visibility=View.GONE
+        pen.animate().alpha(0f).setDuration(120).start()
         followKeyboard()
         f.requestFocus();(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(f,0)}
-    /** The keyboard's own animation drives the page: a card that would end up under the keyboard glides up with it,
-     *  in the same time and curve, and back down as it closes. */
+    /** The page rides on the keyboard: frame by frame, as far as needed for this card to stay above it, by moving the
+     *  page as a picture (no layout); it comes back down the same way as the keyboard closes. */
     private fun followKeyboard(){
         var sv:android.view.ViewParent?=parent;while(sv!=null&&sv !is ScrollView)sv=sv.parent
-        val scroll=sv as? ScrollView?:return;var shifted=0;var glide:android.animation.ValueAnimator?=null
-        fun move(dy:Int,ms:Long,curve:android.view.animation.Interpolator?){glide?.cancel();if(dy==0)return;val from=scroll.scrollY
-            if(a.prefs.str("motion")=="reduced"||ms<=0){scroll.scrollTo(0,from+dy);return}
-            glide=android.animation.ValueAnimator.ofInt(0,dy).apply{duration=ms;interpolator=curve?:android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{scroll.scrollTo(0,from+(it.animatedValue as Int))};start()}}
-        a.imeFollower={target,ms,curve->
-            if(target>0){a.setIme(target)
-                val at=IntArray(2);head.getLocationOnScreen(at);val root=IntArray(2);a.root.getLocationOnScreen(root)
-                val limit=root[1]+a.root.height-target-a.d(20);val dy=(at[1]+head.height-limit).coerceAtLeast(0)
-                // the page has just been given room below; scroll on the next frame, when it is laid out
-                if(dy>0)scroll.post{move(dy,ms,curve);shifted+=dy}}
-            else{val back=shifted;shifted=0;if(back>0)move(-back.coerceAtMost(scroll.scrollY),ms,curve)}}}
+        val page=sv as? View?:return
+        val at=IntArray(2);head.getLocationOnScreen(at);val root=IntArray(2);a.root.getLocationOnScreen(root)
+        val cardBottom=at[1]-page.translationY+head.height;val screenBottom=root[1]+a.root.height-a.d(20)
+        a.imeFollower={ime->page.translationY=-(cardBottom-(screenBottom-ime)).coerceAtLeast(0f)}}
     private fun commitRename(){val f=field?:return;field=null;val next=f.text.toString().trim()
-        if(a.imeBottom==0)a.imeFollower=null // the keyboard never came up: nothing to follow
+        // normally the keyboard's closing slide brings the page down; if it never came up (or no slide is reported), settle here
+        a.imeFollower?.let{fl->a.root.postDelayed({if(a.imeFollower===fl){val ime=androidx.core.view.ViewCompat.getRootWindowInsets(a.root)?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0;if(ime==0){fl(0);a.imeFollower=null}}},900)}
         f.onFocusChangeListener=null;f.setOnEditorActionListener(null)
         (a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)
         if(f.hasFocus()){a.root.isFocusableInTouchMode=true;a.root.requestFocus()}
         (f.parent as? ViewGroup)?.removeView(f);name.visibility=View.VISIBLE
+        if(editing&&rename!=null)pen.animate().alpha(.8f).setDuration(180).start()
         // the shelves reload after a rename: let this tap finish first
         if(next.isNotBlank()&&next!=title){name.text=next;val r=rename;a.root.post{r?.invoke(next)}}}
 
