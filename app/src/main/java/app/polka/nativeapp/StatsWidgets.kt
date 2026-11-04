@@ -131,11 +131,11 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
         return out}
     private fun avgY(avg:Double,vals:List<Double>):Float{val m=max(vals.maxOrNull()?:0.0,max(avg,1.0)*1.15);return bottom-(avg/m*(bottom-top)).toFloat()}
     fun setData(v:List<Double>,l:List<String>,t:List<String>,avg:Double,avgText:String,sparse:Boolean){
-        if(!motion||width==0||pts.isEmpty()){values=v;labels=l;tips=t;average=avg;averageText=avgText;sparseLabels=sparse;tipIndex=-1;tipShow=0f;glowBitmap=null;build();invalidate();return}
+        if(!motion||width==0||pts.isEmpty()){values=v;labels=l;tips=t;average=avg;averageText=avgText;sparseLabels=sparse;tipIndex=-1;tipShow=0f;glowBitmap=null;glowGen++;build();invalidate();return}
         fromYs=if(morph<1f)current() else samples();fromAvg=avgY(average,values)
         oldLabels=labels;oldXs=FloatArray(labels.size){xOf(it)};oldLabelShown=BooleanArray(labels.size){labelShown(it,labels.size)}
         values=v;labels=l;tips=t;average=avg;averageText=avgText;sparseLabels=sparse;tipIndex=-1;tipShow=0f;a.touchWatchers.remove(outside)
-        glowBitmap=null;build();toYs=samples();draw=1f
+        glowBitmap=null;glowGen++;build();toYs=samples();draw=1f
         // a quick second switch takes over from wherever the curve is now (the previous morph must not finish it)
         morphAnim?.removeAllListeners();morphAnim?.cancel();glowAnim?.cancel()
         morphAnim=ValueAnimator.ofFloat(0f,1f).apply{duration=560;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{morph=it.animatedValue as Float;glowFade=0f;invalidate()}
@@ -162,15 +162,22 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
         line.moveTo(pts[0].x,pts[0].y)
         for(i in 1 until pts.size){val p0=pts[i-1];val p1=pts[i];val mx=(p0.x+p1.x)/2;line.cubicTo(mx,p0.y,mx,p1.y,p1.x,p1.y)}
         area.set(line);area.lineTo(pts.last().x,bottom+a.d(2));area.lineTo(pts[0].x,bottom+a.d(2));area.close()}
-    override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){build();glowBitmap=null}
+    override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){build();glowBitmap=null;glowGen++}
     private var glowBitmap:Bitmap?=null
     private val glowPaint=Paint(Paint.FILTER_BITMAP_FLAG).apply{alpha=0xc0}
     /** The line, drawn thick at a third of the size and gaussian-blurred once: a soft halo that fades smoothly. */
+    /** The halo is blurred off the main thread (measured: a blur in the first frame cost ~220 ms) and fades in. */
+    private var glowGen=0;private var glowFor=-1
     private fun glow():Bitmap?{glowBitmap?.let{return it};if(width<3||height<3||pts.isEmpty())return null
-        return try{val k=3;val small=Bitmap.createBitmap(width/k,height/k,Bitmap.Config.ARGB_8888);val c=Canvas(small);c.scale(1f/k,1f/k)
+        if(glowFor==glowGen)return null;glowFor=glowGen;val gen=glowGen;val w=width;val h=height;val path=Path(line);var out:Bitmap?=null
+        a.work({val k=3;val small=Bitmap.createBitmap(w/k,h/k,Bitmap.Config.ARGB_8888);val c=Canvas(small);c.scale(1f/k,1f/k)
             val gp=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND;strokeWidth=a.d(6).toFloat()
-                shader=LinearGradient(0f,0f,width.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP)}
-            c.drawPath(line,gp);val out=ShelfFrost.blur(small,a.d(9).toFloat()/k/2.2f);small.recycle();glowBitmap=out;out}catch(e:Exception){null}}
+                shader=LinearGradient(0f,0f,w.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP)}
+            c.drawPath(path,gp);out=ShelfFrost.blur(small,a.d(9).toFloat()/k/2.2f);small.recycle()}){val g=out?:return@work
+            if(gen!=glowGen||width!=w||height!=h){g.recycle();return@work}
+            glowBitmap=g;glowAnim?.cancel();glowFade=0f
+            glowAnim=ValueAnimator.ofFloat(0f,1f).apply{duration=420;addUpdateListener{glowFade=it.animatedValue as Float;invalidate()};start()}}
+        return null}
     // ── details on long press (same behaviour as the chart it replaces) ──
     private var tipIndex=-1;private var tipShow=0f;private var tipX=0f
     private var showAnim:ValueAnimator?=null;private var moveAnim:ValueAnimator?=null

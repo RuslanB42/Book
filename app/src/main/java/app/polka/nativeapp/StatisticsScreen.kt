@@ -119,7 +119,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
         if(!motionOn){streak();speed();readingTime();books();return}
-        StatsProbe.start(a);StatsProbe.mark("страница показана")
         // 1. The page itself is there at once: it fades up with its greeting, nothing waits for the cards.
         scroll.alpha=0f;scroll.translationY=a.d(12).toFloat()
         scroll.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()

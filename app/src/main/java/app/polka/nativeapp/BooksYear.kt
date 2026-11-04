@@ -114,10 +114,14 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
             val l=cv.left+cv.pivotX*(1-cv.scaleX);val t=cv.top+cv.translationY+cv.pivotY*(1-cv.scaleY);val pad=haloPad*cv.scaleX
             haloPaint.alpha=(k*(if(a.light)150 else 235)).toInt();c.drawBitmap(g,null,RectF(l-pad,t-pad,l+w+pad,t+h+pad),haloPaint)}}
     private val haloPad=d*14;private var halo:Bitmap?=null;private val haloPaint=Paint(Paint.FILTER_BITMAP_FLAG)
-    private fun haloFor(w:Int,h:Int):Bitmap?{halo?.let{return it}
-        return try{val pad=haloPad.toInt();val b=Bitmap.createBitmap(w+pad*2,h+pad*2,Bitmap.Config.ARGB_8888)
-            Canvas(b).drawRoundRect(pad.toFloat(),pad.toFloat(),(pad+w).toFloat(),(pad+h).toFloat(),d*3,d*3,Paint(Paint.ANTI_ALIAS_FLAG).apply{color=if(a.light)0xff2fd38a.toInt() else 0xff9df5c8.toInt()})
-            val out=ShelfFrost.blur(b,d*5);b.recycle();halo=out;out}catch(e:Exception){null}}
+    /** Blurred off the main thread at a third of the size (measured: done in the frame it cost ~140 ms). */
+    private var haloPending=false
+    private fun haloFor(w:Int,h:Int):Bitmap?{halo?.let{return it};if(haloPending)return null;haloPending=true
+        val pad=haloPad;val light=a.light;var out:Bitmap?=null
+        a.work({val k=3;val pw=(pad/k).toInt();val b=Bitmap.createBitmap(w/k+pw*2,h/k+pw*2,Bitmap.Config.ARGB_8888)
+            Canvas(b).drawRoundRect(pw.toFloat(),pw.toFloat(),(pw+w/k).toFloat(),(pw+h/k).toFloat(),d,d,Paint(Paint.ANTI_ALIAS_FLAG).apply{color=if(light)0xff2fd38a.toInt() else 0xff9df5c8.toInt()})
+            out=ShelfFrost.blur(b,d*5/k);b.recycle()}){halo=out;invalidate()}
+        return null}
     // soft glow under the walked part: drawn thick at a third of the size and blurred once
     private var glowBmp:Bitmap?=null;private var glowKey=-1f
     private val glowPaint=Paint(Paint.FILTER_BITMAP_FLAG).apply{alpha=0x8c}
