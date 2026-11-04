@@ -143,7 +143,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         if(countTo!=null&&countTo>0&&motionOn){val fmt=text.replaceFirst(countTo.toString(),"%d")
             tv.minWidth=ceil(android.text.Layout.getDesiredWidth(styled(text),tv.paint)).toInt();tv.text=styled(String.format(fmt,0))
             tv.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false
-                override fun onViewAttachedToWindow(v:View){if(done)return;done=true;android.animation.ValueAnimator.ofInt(0,countTo).apply{duration=720;startDelay=myDelay;interpolator=PathInterpolator(.3f,.3f,.6f,.8f);addUpdateListener{tv.text=styled(String.format(fmt,it.animatedValue as Int))};start()}}
+                override fun onViewAttachedToWindow(v:View){if(done)return;done=true;android.animation.ValueAnimator.ofInt(0,countTo).apply{duration=720;startDelay=myDelay;interpolator=PathInterpolator(.3f,.3f,.6f,.8f);
+                    // fixed width while counting: a changing wrap-content text re-laid out the whole page on every frame
+                    addListener(object:android.animation.AnimatorListenerAdapter(){
+                        override fun onAnimationStart(x:android.animation.Animator){tv.layoutParams?.let{lp->lp.width=max(tv.width,tv.minWidth+a.d(2));tv.layoutParams=lp}}});addUpdateListener{tv.text=styled(String.format(fmt,it.animatedValue as Int))};start()}}
                 override fun onViewDetachedFromWindow(v:View){}})}
         return tv}
     /** Small glass chip (year, period). */

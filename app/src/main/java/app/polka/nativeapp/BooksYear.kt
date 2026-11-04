@@ -89,7 +89,7 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
         // the way walked so far
         val done=(books.size.toFloat()/slots).coerceIn(0f,1f)*walk
         if(done>0f){val part=Path();pm.getSegment(0f,length*done,part,true);p.strokeCap=Paint.Cap.ROUND
-            if(!a.light)glowFor(part)?.let{c.drawBitmap(it,0f,0f,glowPaint)}
+            if(!a.light)glowFor(part)?.let{glowPaint.alpha=(0x8c*glowFade).toInt();c.drawBitmap(it,null,RectF(0f,0f,width.toFloat(),height.toFloat()),glowPaint)}
             p.shader=LinearGradient(0f,0f,width.toFloat(),0f,green,green2,Shader.TileMode.CLAMP);p.strokeWidth=d*5;c.drawPath(part,p);p.shader=null}
         p.style=Paint.Style.FILL
         // milestones: one per book of the goal
@@ -120,11 +120,17 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     // soft glow under the walked part: drawn thick at a third of the size and blurred once
     private var glowBmp:Bitmap?=null;private var glowKey=-1f
     private val glowPaint=Paint(Paint.FILTER_BITMAP_FLAG).apply{alpha=0x8c}
+    /** The glow is blurred off the main thread (a blur mid-animation dropped frames) and fades in once ready. */
+    private var glowPending=false;private var glowFade=0f
     private fun glowFor(part:Path):Bitmap?{if(walk<1f)return null;val key=width*10000f+height;if(glowKey==key)return glowBmp
-        return try{val k=3;val small=Bitmap.createBitmap(max(1,width/k),max(1,height/k),Bitmap.Config.ARGB_8888);val cv=Canvas(small);cv.scale(1f/k,1f/k)
-            cv.drawPath(part,Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeWidth=d*9;color=0xff2fd38a.toInt()})
-            val blurred=ShelfFrost.blur(small,d*3.2f/k);small.recycle()
-            val full=Bitmap.createScaledBitmap(blurred,width,height,true);blurred.recycle();glowBmp=full;glowKey=key;full}catch(e:Exception){null}}
+        if(glowPending)return null;glowPending=true;val w=width;val h=height;val path=Path(part);var out:Bitmap?=null
+        a.work({val k=3;val small=Bitmap.createBitmap(max(1,w/k),max(1,h/k),Bitmap.Config.ARGB_8888);val cv=Canvas(small);cv.scale(1f/k,1f/k)
+            cv.drawPath(path,Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeWidth=d*9;color=0xff2fd38a.toInt()})
+            out=ShelfFrost.blur(small,d*3.2f/k);small.recycle()}){glowPending=false;val g=out?:return@work
+            if(!isAttachedToWindow||width!=w||height!=h){g.recycle();return@work}
+            glowBmp=g;glowKey=key;glowFade=0f
+            ValueAnimator.ofFloat(0f,1f).apply{duration=500;addUpdateListener{glowFade=it.animatedValue as Float;invalidate()};start()}}
+        return null}
     companion object{const val SEL=1.12f;const val BASE=.8f;val MONTHS_SHORT=listOf("янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек")}
 }
 
