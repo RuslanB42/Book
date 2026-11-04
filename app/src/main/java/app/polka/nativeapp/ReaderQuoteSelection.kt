@@ -51,7 +51,6 @@ internal class ChapterSelection {
 /** The five highlight colours of quotes; the last one chosen is used for the next quote. */
 /** Background of a saved quote. Unlike BackgroundColorSpan its colour can change in place, so recolouring glides without re-setting the page. */
 class QuoteInk(var color:Int):android.text.style.CharacterStyle(),android.text.style.UpdateAppearance{
-    var anim:android.animation.ValueAnimator?=null
     override fun updateDrawState(tp:android.text.TextPaint){tp.bgColor=color}
 }
 internal object QuoteColors{
@@ -81,7 +80,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     var dragging=false;private set
     private var atStart=false
     private var x=0f;private var y=0f
-    private var edge=0;private var edgeLocked=false
+    private var edge=0;private var edgeDelay=340L;private var edgeLocked=false
     private val timer=Handler(Looper.getMainLooper())
     private val marker=Paint(Paint.ANTI_ALIAS_FLAG)
     private val highlight=Path();private val clip=RectF()
@@ -147,7 +146,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private fun recolor(key:String){val (s,e)=stripQuote?:return;val q=reader.quoteOverlapping(s,e)?:return;val old=q.first.optString("color")
         a.prefs.put("quoteColor",key);a.savePreferences();dots.forEach{it.on=it.key==key}
         if(old==key){removeCallbacks(stripTimer);postDelayed(stripTimer,2500);return}
-        reader.recolorQuote(q.first,q.second,key,!reduced)
+        reader.recolorQuote(q.first,q.second,key,!reduced,QuoteColors.ink(old.ifBlank{"amber"}))
         if(!reduced){
             dots.firstOrNull{it.key==key}?.let{d->d.scaleX=.7f;d.scaleY=.7f;d.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(320).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()}}
         removeCallbacks(stripTimer);postDelayed(stripTimer,2500)}
@@ -235,9 +234,12 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
                 val h=if(atStart)startHandle else endHandle;val lh=reader.body.paint.fontMetrics.let{it.descent*1.25f-it.ascent*1.02f}
                 grabDx=h.x-x;grabDy=(h.y-lh/2f)-y;menu.visibility=INVISIBLE;parent.requestDisallowInterceptTouchEvent(true);return true}
             MotionEvent.ACTION_MOVE->{if(!dragging)return true;x=e.x;y=e.y;if(!edgeLocked){val off=offsetAt(x+grabDx,y+grabDy);if(off!=lastOff){lastOff=off;atStart=range.drag(off,atStart)}
-                // The page turns only past the text block or at the very screen edge of its first/last line: reaching for the last word of a line no longer flips the page.
-                val lines=reader.body.layout?.lineCount?:0;val edgeZone=a.d(12)
-                val dir=when{!atStart&&(y>height-reader.body.paddingBottom+a.d(16)||(dragLine>=lines-1&&x>width-edgeZone))->1;atStart&&(y<reader.body.paddingTop-a.d(16)||(dragLine<=0&&x<edgeZone))->-1;else->0};if(dir!=edge){timer.removeCallbacks(pageTimer);edge=dir;if(dir!=0)timer.postDelayed(pageTimer,340)};invalidate()};return true}
+                val side=!atStart&&x>width-reader.body.paddingRight+a.d(1)||atStart&&x<reader.body.paddingLeft-a.d(1)
+                val beyond=!atStart&&y>height-reader.body.paddingBottom+a.d(8)||atStart&&y<reader.body.paddingTop-a.d(8)
+                val dir=if(side||beyond)(if(atStart)-1 else 1) else 0
+                // Past the bottom/top or at the edge of the page's last/first line the page turns quickly; at the end of an inner line it only turns after a longer hold, so the last word of a line can be reached.
+                val lines=reader.body.layout?.lineCount?:0;val outer=beyond||(!atStart&&dragLine>=lines-1)||(atStart&&dragLine<=0);edgeDelay=if(outer)340L else 750L
+                if(dir!=edge){timer.removeCallbacks(pageTimer);edge=dir;if(dir!=0)timer.postDelayed(pageTimer,edgeDelay)};invalidate()};return true}
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{dragging=false;edge=0;lastOff=-1;timer.removeCallbacks(pageTimer);parent.requestDisallowInterceptTouchEvent(false);range.snap(reader.selectionFullText());contentDescription="Выделено: ${range.text(reader.selectionFullText())}";showMenu();invalidate();return true}
         };return true
     }

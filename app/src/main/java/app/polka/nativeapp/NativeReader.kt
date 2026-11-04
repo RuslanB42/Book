@@ -303,20 +303,26 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.setSpan(QuoteInk(QuoteColors.ink(color)),start.coerceIn(0,rich.length),end.coerceIn(0,rich.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); repaintMarks() }
         persist() }
     /** Gives a saved quote another highlight colour, in place. */
-    /** Recolours a saved quote. The page keeps the same span object, so its colour glides in place (no page re-set, no overlay). */
-    fun recolorQuote(quote:JSONObject,range:IntRange,color:String,animate:Boolean=true) { book.optJSONArray("quotes")?.objects()?.firstOrNull { it.str("id")==quote.str("id") }?.put("color",color); quote.put("color",color)
+    /** Recolours a saved quote: the colour glides from the old ink to the new one on every span drawn for it (chapter text and the shown page). */
+    fun recolorQuote(quote:JSONObject,range:IntRange,color:String,animate:Boolean=true,fromInk:Int=QuoteColors.ink(color)) { book.optJSONArray("quotes")?.objects()?.firstOrNull { it.str("id")==quote.str("id") }?.put("color",color); quote.put("color",color)
         val rich=chapterRich as? android.text.Spannable; val to=QuoteColors.ink(color)
-        val span=rich?.getSpans(range.first,range.last+1,QuoteInk::class.java)?.firstOrNull { rich.getSpanStart(it)==range.first && rich.getSpanEnd(it)==range.last+1 }
-        when {
-            rich==null -> { val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } }
-            span==null -> { rich.setSpan(QuoteInk(to),range.first,(range.last+1).coerceAtMost(rich.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); repaintMarks() }
-            else -> { span.anim?.cancel(); val from=span.color
-                if(!animate||from==to){ span.color=to; body.invalidate(); marksSettled() }
-                else span.anim=android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(),from,to).apply { duration=300; interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
-                    addUpdateListener { span.color=it.animatedValue as Int; body.invalidate() }
-                    addListener(object:android.animation.AnimatorListenerAdapter(){ override fun onAnimationEnd(x:android.animation.Animator){ span.anim=null; marksSettled() } }); start() } }
-        }
+        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) }; persist(); return }
+        val s=range.first; val e=(range.last+1).coerceAtMost(rich.length)
+        val mine=rich.getSpans(s,e,QuoteInk::class.java).filter { rich.getSpanStart(it)==s && rich.getSpanEnd(it)==e }
+        mine.drop(1).forEach { rich.removeSpan(it) }
+        if(mine.isEmpty()) rich.setSpan(QuoteInk(fromInk),s,e,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        rich.getSpans(s,e,QuoteInk::class.java).filter { rich.getSpanStart(it)==s && rich.getSpanEnd(it)==e }.forEach { it.color=fromInk }
+        repaintMarks() // the page shows the quote's span at its old colour; from here only colours change
+        fun paint(c:Int) { rich.getSpans(s,e,QuoteInk::class.java).forEach { if(rich.getSpanStart(it)==s&&rich.getSpanEnd(it)==e) it.color=c }
+            val base=pageBase(); (body.text as? android.text.Spanned)?.let { t -> t.getSpans(0,t.length,QuoteInk::class.java).forEach { sp -> if(t.getSpanStart(sp)+base>=s && t.getSpanEnd(sp)+base<=e) sp.color=c } }
+            body.invalidate() }
+        recolorAnim?.cancel()
+        if(!animate||fromInk==to){ paint(to); repaintMarks() }
+        else recolorAnim=android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(),fromInk,to).apply { duration=320; interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+            addUpdateListener { paint(it.animatedValue as Int) }
+            addListener(object:android.animation.AnimatorListenerAdapter(){ override fun onAnimationEnd(x:android.animation.Animator){ paint(to); recolorAnim=null; repaintMarks() } }); start() }
         persist() }
+    private var recolorAnim:android.animation.ValueAnimator?=null
     /** Page pictures taken before a mark changed colour are stale. */
     private fun marksSettled() { cachedCurrent=null; cachedNext=null; previewPages.clear(); warmSnapshot() }
     fun removeQuote(quote:JSONObject,range:IntRange) { val quotes=book.optJSONArray("quotes")?.objects().orEmpty().filterNot { it.str("id")==quote.str("id") }; book.put("quotes",JSONArray(quotes))
