@@ -164,8 +164,9 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         return bar
     }
     private fun group(vararg rows:View)=a.column().apply{
-        background=a.shape(pillColor,18);setPadding(a.d(14),a.d(2),a.d(14),a.d(2))
-        rows.forEachIndexed{i,v->if(i>0)addView(View(a).apply{setBackgroundColor(if(a.light)0x10000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1));addView(v,LinearLayout.LayoutParams(-1,-2))}
+        background=a.shape(pillColor,18);setPadding(0,a.d(2),0,a.d(2))
+        rows.forEachIndexed{i,v->if(i>0)addView(View(a).apply{setBackgroundColor(if(a.light)0x10000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1).apply{leftMargin=a.d(14);rightMargin=a.d(14)})
+            v.setPadding(a.d(14),v.paddingTop,a.d(14),v.paddingBottom);addView(v,LinearLayout.LayoutParams(-1,-2))}
     }
     private fun fmt(v:Float,digits:Int=1):String{val t=if(digits==2)"%.2f".format(java.util.Locale.US,v) else "%.1f".format(java.util.Locale.US,v);return t.trimEnd('0').trimEnd('.').replace('.',',')}
     private fun percent(v:Float):String{val p=(v*100).roundToInt();return if(p==0)"0" else if(p>0)"+$p%" else "−${-p}%"}
@@ -190,7 +191,15 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
                 if(parent===sheet)break;child=parent;parent=parent.parent as? ViewGroup}
             // the scroll view's fading edges would still draw over the background; switch them off while focused
             var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? ScrollView)?.isVerticalFadingEdgeEnabled=false;g=g.parent}
+            // the held row becomes its own small floating card, so the book text never runs into it; the reader bars step aside
+            val card=a.shape(sheetColor,22).apply{alpha=0};row.background=card;row.elevation=0f
+            ValueAnimator.ofFloat(0f,1f).apply{duration=if(reduced)0 else 180;addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt();row.elevation=a.d(10)*k};start()}
+            r.fadeChrome(true)
         }else{
+            (row.background as? android.graphics.drawable.Drawable)?.let{card->ValueAnimator.ofFloat(1f,0f).apply{duration=if(reduced)0 else 220;startDelay=if(reduced)0 else 80
+                addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt();row.elevation=a.d(10)*k}
+                addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(row.background===card){row.background=null;row.elevation=0f}}});start()}}
+            r.fadeChrome(false)
             hidden.forEach{(v,alpha)->if(reduced)v.alpha=alpha else v.animate().alpha(alpha).setStartDelay(60).setDuration(240).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()};hidden.clear()
             faded.forEach{(bg,an)->an.cancel();ValueAnimator.ofInt(bg.alpha,255).apply{duration=if(reduced)0 else 240;startDelay=if(reduced)0 else 40;addUpdateListener{bg.alpha=it.animatedValue as Int};start()}};faded.clear()
             var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? ScrollView)?.isVerticalFadingEdgeEnabled=true;g=g.parent}
