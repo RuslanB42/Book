@@ -137,15 +137,17 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         override fun onTouchEvent(e:MotionEvent)=false
         override fun onDraw(c:Canvas){val w=width.toFloat();val light=a.light
             val top=0f;val lip=(behind+front).toFloat();val bottom=lip+edge
-            // top surface: darker at the back (in the books' shadow), lighter towards the front edge
-            p.shader=LinearGradient(0f,top,0f,lip,if(light)0xffd6d6d2.toInt() else 0xff222226.toInt(),if(light)0xffeaeae6.toInt() else 0xff3c3c42.toInt(),Shader.TileMode.CLAMP)
+            // top surface: darker at the back (in the books' shadow), lighter towards the front edge.
+            // (The paint's own opacity also scales a gradient: reset it, or the light line's faint colour from the
+            // previous frame dimmed the whole shelf on every redraw after the first.)
+            p.color=Color.WHITE;p.shader=LinearGradient(0f,top,0f,lip,if(light)0xffd6d6d2.toInt() else 0xff222226.toInt(),if(light)0xffeaeae6.toInt() else 0xff3c3c42.toInt(),Shader.TileMode.CLAMP)
             c.drawRect(0f,top,w,lip,p)
             // the front edge, a thin light line along its top
-            p.shader=LinearGradient(0f,lip,0f,bottom,if(light)0xffcdcdc9.toInt() else 0xff414147.toInt(),if(light)0xffb8b8b4.toInt() else 0xff222226.toInt(),Shader.TileMode.CLAMP)
+            p.color=Color.WHITE;p.shader=LinearGradient(0f,lip,0f,bottom,if(light)0xffcdcdc9.toInt() else 0xff414147.toInt(),if(light)0xffb8b8b4.toInt() else 0xff222226.toInt(),Shader.TileMode.CLAMP)
             c.drawRect(0f,lip,w,bottom,p);p.shader=null
             p.color=if(light)0x99ffffff.toInt() else 0x24ffffff;c.drawRect(0f,lip,w,lip+d,p)
             // the shadow the shelf casts on the wall below
-            p.shader=LinearGradient(0f,bottom,0f,bottom+shade,if(light)0x26000000 else 0x99000000.toInt(),0,Shader.TileMode.CLAMP);c.drawRect(0f,bottom,w,bottom+shade,p);p.shader=null}
+            p.color=Color.WHITE;p.shader=LinearGradient(0f,bottom,0f,bottom+shade,if(light)0x26000000 else 0x99000000.toInt(),0,Shader.TileMode.CLAMP);c.drawRect(0f,bottom,w,bottom+shade,p);p.shader=null}
     }
 
     /** Matte glass shelf with screws, light to draw: every cover has a tiny pre-blurred copy (made once, cached);
