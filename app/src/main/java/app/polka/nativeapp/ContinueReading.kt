@@ -91,7 +91,10 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    // The focus transform lives on a holder, so the press feedback on the card never fights it. The holder's top
    // padding makes room for the rising cover INSIDE its bounds: when the holder is dimmed (alpha < 1) its layer is
    // clipped to those bounds, and without the room the cover's top was cut off on the neighbouring cards.
-   val holder=FrameLayout(a).apply{clipChildren=false;clipToPadding=false;setPadding(0,rise+a.d(6),0,0)};holder.addView(card,FrameLayout.LayoutParams(a.d(300),-2));holders.add(holder)
+   val holder=FrameLayout(a).apply{clipChildren=false;clipToPadding=false;setPadding(0,rise+a.d(6),0,0)
+    // dimmed without an offscreen layer: a layer is clipped to the holder, so the card's shadow blinked
+    // (cut off, then whole again) every time the opacity left or reached 1 while paging
+    forceHasOverlappingRendering(false)};holder.addView(card,FrameLayout.LayoutParams(a.d(300),-2));holders.add(holder)
    strip.addView(holder,LayoutParams(-2,-2).apply{if(i>0)marginStart=a.d(12)})
   }
   carousel.addView(strip,FrameLayout.LayoutParams(-2,-2))
