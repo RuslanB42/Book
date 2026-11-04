@@ -77,7 +77,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         card.alpha=(e*255).toInt();val pad=(a.d(14)*e).toInt();head.setPadding(pad,(a.d(6)*e).toInt(),(a.d(4)*e).toInt(),(a.d(6)*e).toInt())
         tail.alpha=(1-e*2).coerceIn(0f,1f);tail.translationX=-a.d(10)*e
         handle.alpha=((e-.35f)/.65f).coerceIn(0f,1f);handle.translationX=a.d(14)*(1-e);handle.visibility=if(e>0f)View.VISIBLE else View.INVISIBLE
-        pen.alpha=if(rename==null)0f else ((e-.4f)/.6f).coerceIn(0f,1f)*.8f
+        pen.alpha=if(rename==null||field!=null)0f else ((e-.4f)/.6f).coerceIn(0f,1f)*.8f
         if(remove!=null){trash.alpha=((e-.4f)/.6f).coerceIn(0f,1f);trash.translationX=a.d(14)*(1-e);trash.visibility=if(e>0f)View.VISIBLE else View.INVISIBLE}
         head.elevation=a.d(if(a.light)3 else 4)*e
         (layoutParams as? MarginLayoutParams)?.let{m->val idx=(parent as? ViewGroup)?.indexOfChild(this)?:0;val want=if(idx<=0)0 else (a.d(12)+(a.d(10)-a.d(12))*e).toInt();if(m.topMargin!=want){m.topMargin=want;layoutParams=m}}}
@@ -92,10 +92,14 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             // the commit runs right after, on the next loop
             setOnFocusChangeListener{v,has->if(!has)v.post{if(field===v)commitRename()}}}
         // the field takes the name's exact place and size: the title just gets a cursor, nothing moves or blinks
-        field=f;val i=head.indexOfChild(name);head.addView(f,i,LayoutParams(-2,-2));name.visibility=View.GONE
-        pen.animate().alpha(0f).setDuration(120).start()
-        followKeyboard()
-        f.requestFocus();(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(f,0)}
+        // the pencil fades out first, still in its place; only then the title turns into the field (which is a little
+        // wider and would push it along), so the pencil never moves
+        field=f
+        val swap={if(field===f&&isAttachedToWindow&&editing){pen.alpha=0f
+            val i=head.indexOfChild(name);head.addView(f,i,LayoutParams(-2,-2));name.visibility=View.GONE
+            followKeyboard()
+            f.requestFocus();(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(f,0)}}
+        if(a.prefs.str("motion")=="reduced"||pen.alpha<=0f)swap() else pen.animate().alpha(0f).setDuration(110).withEndAction{swap()}.start()}
     /** The page rides on the keyboard: frame by frame, as far as needed for this card to stay above it, by moving the
      *  page as a picture (no layout); it comes back down the same way as the keyboard closes. */
     private fun followKeyboard(){
@@ -111,7 +115,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         (a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)
         if(f.hasFocus()){a.root.isFocusableInTouchMode=true;a.root.requestFocus()}
         (f.parent as? ViewGroup)?.removeView(f);name.visibility=View.VISIBLE
-        if(editing&&rename!=null)pen.animate().alpha(.8f).setDuration(180).start()
+        pen.animate().cancel();if(editing&&rename!=null)pen.animate().alpha(.8f).setDuration(180).start()
         // the shelves reload after a rename: let this tap finish first
         if(next.isNotBlank()&&next!=title){name.text=next;val r=rename;a.root.post{r?.invoke(next)}}}
 
