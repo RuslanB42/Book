@@ -22,7 +22,7 @@ internal object JustifiedGeometry {
         val start=l.getLineStart(line);val end=l.getLineEnd(line)
         return if(o<end||o<=start)l.getPrimaryHorizontal(o) else l.getPrimaryHorizontal(o-1)+tv.paint.measureText(l.text,o-1,o)
     }
-    private fun spacesIn(t:CharSequence,from:Int,to:Int):Int{var n=0;for(i in from until to)if(t[i]==' ')n++;return n}
+    private fun spacesIn(t:CharSequence,from:Int,to:Int):Int{var n=0;for(i in from until to)if(t[i]==' '||t[i]=='\u00a0')n++;return n}
     /** Widening per space on a justified line, computed from text widths alone (not from platform positions, which
      *  include the widening on some Android versions and not on others). */
     private fun extraPerSpace(tv:TextView,l:Layout,line:Int):Float{
@@ -48,8 +48,19 @@ internal object JustifiedGeometry {
         cache[line]=result;return result
     }
     private val masks=java.util.WeakHashMap<Layout,android.graphics.Bitmap?>()
+    /** The [LineStretch] of a line stretched by [SpacedJustify] (custom spacing + justification), if any. */
+    internal fun stretchOf(l:Layout,line:Int):LineStretch?{val t=l.text as? android.text.Spanned?:return null;val start=l.getLineStart(line);val end=l.getLineEnd(line);if(end<=start)return null
+        return t.getSpans(start,end,LineStretch::class.java).firstOrNull{t.getSpanStart(it)==start}}
+    /** On a stretched line every space is wider by the stretch: positions are measured on the plain text and the widening added,
+     *  so they never depend on whether the platform's position queries see the stretch. */
+    private fun stretchedX(tv:TextView,l:Layout,line:Int,o:Int,st:LineStretch):Float{
+        val t=l.text;val start=l.getLineStart(line);val vis=visibleEnd(l,line);val upto=o.coerceIn(start,vis)
+        val plain=t.subSequence(start,upto).toString()
+        return l.getPrimaryHorizontal(start)+tv.paint.measureText(plain)+st.extra*spacesIn(t,start,upto)
+    }
     /** Drawn x (layout coordinates) of the caret position [o] on [line]. */
     fun x(tv:TextView,l:Layout,line:Int,o:Int):Float{
+        stretchOf(l,line)?.let{return stretchedX(tv,l,line,o,it)}
         val extra=extraPerSpace(tv,l,line);if(extra==0f)return natural(tv,l,line,o)
         val t=l.text;val start=l.getLineStart(line);val vis=visibleEnd(l,line);val upto=o.coerceIn(start,vis)
         return l.getPrimaryHorizontal(start)+Layout.getDesiredWidth(t,start,upto,tv.paint)+extra*spacesIn(t,start,upto)
@@ -58,7 +69,7 @@ internal object JustifiedGeometry {
     /** Offset whose drawn position is nearest to [px] on [line]. */
     fun offset(tv:TextView,l:Layout,line:Int,px:Float):Int{
         val start=l.getLineStart(line);val vis=visibleEnd(l,line)
-        if(extraPerSpace(tv,l,line)==0f)return l.getOffsetForHorizontal(line,px)
+        if(stretchOf(l,line)==null&&extraPerSpace(tv,l,line)==0f)return l.getOffsetForHorizontal(line,px)
         var best=start;var dist=Float.MAX_VALUE
         for(o in start..vis){val d=kotlin.math.abs(x(tv,l,line,o)-px);if(d<dist){dist=d;best=o}}
         return best
@@ -70,7 +81,7 @@ internal object JustifiedGeometry {
         out.rewind();if(e<=s)return
         val first=l.getLineForOffset(s);val last=l.getLineForOffset(maxOf(s,e-1))
         for(line in first..last){val ls=maxOf(s,l.getLineStart(line));val le=minOf(e,visibleEnd(l,line).coerceAtLeast(ls))
-            val left=x(tv,l,line,ls);var right=x(tv,l,line,le);if(line<last&&le>=visibleEnd(l,line)&&extraPerSpace(tv,l,line)>0f)right=l.getParagraphRight(line).toFloat()
+            val left=x(tv,l,line,ls);var right=x(tv,l,line,le);if(line<last&&le>=visibleEnd(l,line)&&(stretchOf(l,line)!=null||extraPerSpace(tv,l,line)>0f))right=l.getParagraphRight(line).toFloat()
             if(right-left<1f)continue
             val (top,bottom)=band(tv,l,line);out.addRoundRect(left-radius*.4f,top,right+radius*.4f,bottom,radius,radius,Path.Direction.CW)}
     }

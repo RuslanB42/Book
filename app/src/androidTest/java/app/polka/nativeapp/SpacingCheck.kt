@@ -47,6 +47,11 @@ class SpacingCheck {
         scenario.onActivity{a->val r=reader!!
             val spans=(r.body.text as? android.text.Spanned)?.getSpans(0,r.body.text.length,LineStretch::class.java)?.size
             report.append("previewProbe=${run{val tv=android.widget.TextView(a);tv.setText("а б в",android.widget.TextView.BufferType.SPANNABLE);tv.measure(0,0);tv.layout(0,0,tv.measuredWidth,tv.measuredHeight);"text=${tv.text.javaClass.simpleName} layoutText=${tv.layout.text.javaClass.simpleName} same=${tv.text===tv.layout.text}"}}\n");report.append("justify=${r.body.justificationMode} ls=${r.body.letterSpacing} stretchSpans=$spans layout=${r.body.layout.javaClass.simpleName} sdk=${android.os.Build.VERSION.SDK_INT}\n")
+            run{val b=r.body;val l=b.layout;val sb=StringBuilder("geometry:");var n=0
+                for(i in 0 until l.lineCount){val st=JustifiedGeometry.stretchOf(l,i)?:continue;var vis=l.getLineEnd(i);while(vis>l.getLineStart(i)&&l.text[vis-1].isWhitespace())vis--
+                    val ours=JustifiedGeometry.x(b,l,i,vis);val plat=l.getPrimaryHorizontal(vis-1)+b.paint.measureText(l.text,vis-1,vis)
+                    if(n++<8)sb.append(" [ours=${"%.1f".format(ours)} platform=${"%.1f".format(plat)} right=${l.getParagraphRight(i)}]")}
+                report.append(sb).append("\n")}
             val sw=Bitmap.createBitmap(r.view.width,r.view.height,Bitmap.Config.ARGB_8888);r.view.draw(Canvas(sw));edges("view-draw",sw,r)
             val m=NativeReader::class.java.declaredMethods.first{it.name=="snapshot"&&it.parameterTypes.size==3};m.isAccessible=true
             edges("snapshot-current",m.invoke(r,null,null,false) as Bitmap,r)
