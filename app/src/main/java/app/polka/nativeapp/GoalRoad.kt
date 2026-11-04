@@ -234,15 +234,29 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
             a.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="image/png";putExtra(Intent.EXTRA_STREAM,uri);clipData=ClipData.newUri(a.contentResolver,"Мой год в книгах",uri);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)},"Поделиться"))}}
 }
 
-/** The road screen's backdrop: the page colour with a soft green light from the top right. */
+/** The road screen's backdrop: the page colour with a soft green light from the top right. The light is baked once
+ *  into an opaque picture with a gaussian falloff and fine per-channel noise, so it shows no rings or layers. */
 internal class GoalBackdrop(private val a:MainActivity):android.graphics.drawable.Drawable(){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var key=0
-    override fun draw(c:Canvas){val b=bounds;c.drawColor(a.bg);val W=b.width().toFloat()
-        if(key!=b.width()){key=b.width();p.shader=RadialGradient(W*.82f,0f,W*1.05f,intArrayOf(if(a.light)0x1f2fd38a else 0x292fd38a,0x002fd38a),null,Shader.TileMode.CLAMP)}
-        c.drawRect(0f,0f,W,b.height()*.7f,p)}
+    private val p=Paint(Paint.FILTER_BITMAP_FLAG)
+    override fun draw(c:Canvas){val b=bounds;c.drawColor(a.bg);val t=bake(a,b.width())?:return;c.drawBitmap(t,b.left.toFloat(),b.top.toFloat(),p)}
     override fun setAlpha(alpha:Int){}
     override fun setColorFilter(cf:ColorFilter?){}
     @Deprecated("Deprecated in Java") override fun getOpacity()=PixelFormat.OPAQUE
+    companion object{
+        private var tex:Bitmap?=null;private var key=""
+        /** Bake ahead of time (the card calls this while the statistics are shown) so opening never waits. */
+        fun prepare(a:MainActivity){val w=a.resources.displayMetrics.widthPixels;val k="$w${a.light}";if(k==key)return
+            a.work({bake(a,w)})}
+        @Synchronized fun bake(a:MainActivity,w:Int):Bitmap?{if(w<=0)return null;val k="$w${a.light}";if(k==key&&tex!=null)return tex
+            return try{val rx=w*1.05f;val h=(rx*1.25f).toInt();val cx=w*.82f;val px=IntArray(w*h);val rnd=java.util.Random(11)
+                val base=a.bg;val g=0xff2fd38a.toInt();val peak=if(a.light).09f else .15f
+                val bR=Color.red(base).toFloat();val bG=Color.green(base).toFloat();val bB=Color.blue(base).toFloat()
+                val dR=Color.red(g)-bR;val dG=Color.green(g)-bG;val dB=Color.blue(g)-bB
+                for(y in 0 until h){val dy=y/rx;val dy2=dy*dy
+                    for(x in 0 until w){val dx=(x-cx)/rx;val q=peak*exp(-2.6f*(dx*dx+dy2));val n=rnd.nextFloat()-rnd.nextFloat()
+                        px[y*w+x]=(0xff shl 24) or ((bR+dR*q+n).roundToInt().coerceIn(0,255) shl 16) or ((bG+dG*q+n).roundToInt().coerceIn(0,255) shl 8) or (bB+dB*q+n).roundToInt().coerceIn(0,255)}}
+                val out=Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888);tex=out;key=k;out}catch(e:Throwable){null}}
+    }
 }
 
 /** Five plain stars, filled yellow up to the rating. */
@@ -415,7 +429,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         // the walked part draws itself along its length once (a round head, no hard edges); then its glow fades in
         if(!walked.isEmpty){if(intro>=1f)part.set(walked) else{part.reset();walkMeasure.getSegment(0f,walkLen*intro,part,true)}
             val ga=glowAlpha*((intro-.8f)/.2f).coerceIn(0f,1f)
-            if(ga>0f)glow?.let{g->glowPaint.alpha=(0x99*ga).toInt();c.drawBitmap(g,null,RectF(0f,0f,W,height.toFloat()),glowPaint)}
+            if(ga>0f)glow?.let{g->glowPaint.alpha=(0x70*ga).toInt();c.drawBitmap(g,null,RectF(0f,0f,W,height.toFloat()),glowPaint)}
             p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*7;p.color=Color.WHITE;p.shader=LinearGradient(0f,top,0f,walkedEnd,green,green2,Shader.TileMode.CLAMP);c.drawPath(part,p);p.shader=null}
         p.style=Paint.Style.FILL
         for(k in 1..slots){val q=pts[k];val done=k<=books.size;p.color=if(done)(if(a.light)green else Color.WHITE) else if(a.light)0x40000000 else 0x4dffffff;c.drawCircle(q.x,q.y,d*(if(done)5f else 3.5f),p)}
