@@ -121,7 +121,11 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         streak();speed();readingTime();books()
         if(!motionOn)return
         // a simple, calm entrance: the whole page fades in, everything on it already in place
-        scroll.alpha=0f;scroll.animate().alpha(1f).setDuration(240).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
+        // starts after the page's first (heavier) frame has been drawn, so no part of it is skipped; the still page
+        // is cached in a layer while it fades and rises, which keeps every frame light
+        scroll.alpha=0f;scroll.translationY=a.d(18).toFloat();scroll.scaleX=.985f;scroll.scaleY=.985f
+        val ch=android.view.Choreographer.getInstance()
+        ch.postFrameCallback{ch.postFrameCallback{scroll.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(340).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withLayer().start()}}
     }
     private var deferred=false
     private val shadow=HashMap<View,Float>()
@@ -313,7 +317,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 nw.animate().translationX(0f).alpha(1f).setStartDelay(80).setDuration(460).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()
                 medalHolder?.let{m->m.alpha=0f;m.translationX=dir*a.d(12).toFloat();m.animate().alpha(1f).translationX(0f).setStartDelay(160).setDuration(420).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}}
             road=YearRoad(a,list,target,motionOn){i,dir->show(i,dir)}
-            space(box,6);box.addView(road,LinearLayout.LayoutParams(-1,a.d(232)))
+            space(box,6);box.addView(road,LinearLayout.LayoutParams(-1,-2))
             space(box,12);box.addView(row,LinearLayout.LayoutParams(-1,a.d(56)))
             box.addView(rateRow,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
             rateRow.tag={v:Int->val b=list[road.selected].book;b.put("rating",v);a.saveBook(b)

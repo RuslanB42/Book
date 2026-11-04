@@ -60,7 +60,9 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
         covers.forEachIndexed{i,c->c?:return@forEachIndexed;addView(c,LayoutParams(a.d(40),a.d(60)));c.isClickable=true;c.contentDescription="${i+1}-я книга: ${books[i].book.str("title")}"
             c.setOnClickListener{if(big)select(if(selected>0)selected-1 else books.lastIndex) else select(i)}}
         badge?.let{addView(it,LayoutParams(-2,-2))}}
-    override fun onMeasure(w:Int,h:Int){super.onMeasure(w,MeasureSpec.makeMeasureSpec(a.d(232),MeasureSpec.EXACTLY))}
+    // a big goal needs no room for covers along the whole road (they stand in one stack), so its road is lower and
+    // ends lower — no empty field above the flag
+    override fun onMeasure(w:Int,h:Int){super.onMeasure(w,MeasureSpec.makeMeasureSpec(a.d(if(big)178 else 232),MeasureSpec.EXACTLY))}
     private fun slot(i:Int)=(i+1f)/slots
     private fun at(f:Float):FloatArray{pm.getPosTan(length*f.coerceIn(0f,1f),pos,null);return floatArrayOf(pos[0],pos[1])}
     override fun onAttachedToWindow(){super.onAttachedToWindow()
@@ -76,7 +78,7 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
         road.reset();road.moveTo(x(0f),y(.95f))
         road.cubicTo(x(.2f),y(1f),x(.2f),y(.56f),x(.41f),y(.56f))
         road.cubicTo(x(.62f),y(.56f),x(.64f),y(.92f),x(.82f),y(.7f))
-        road.cubicTo(x(1f),y(.48f),x(1f),y(.2f),x(1f),y(.14f))
+        if(big)road.cubicTo(x(1f),y(.55f),x(1f),y(.36f),x(1f),y(.3f)) else road.cubicTo(x(1f),y(.48f),x(1f),y(.2f),x(1f),y(.14f))
         pm.setPath(road,false);length=pm.length;requestLayout()}
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){if(length<=0f)return
         if(big){val q=at(books.size.toFloat()/slots);val x=max(q[0],d*46);val w=d*40;val h=d*60
