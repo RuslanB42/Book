@@ -241,62 +241,64 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 goalYear<today.year->"не хватило ${MainActivity.countBooks(left)}";else->"ещё $left"},12.5f))
             box.addView(head)
             if(list.isEmpty()){space(box,14);box.addView(label("Пока ни одной книги за $goalYear — дочитанные появятся здесь, на дороге года.",13f));return}
-            // detail card + pager (declared first: the road reports picks to them)
-            val cardCover=FrameLayout(a);val title=a.text("",16f,a.fg,true,serif=true);val author=label("",12f);val dates=label("",12.5f,if(light)0xff3a3a3d.toInt() else 0xffdcdce0.toInt())
-            val starBox=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;isClickable=true};val starLabel=label("",10f)
+            // under the road: one line for the chosen book — title, «N-я книга · start — end», and its star
+            val row=FrameLayout(a).apply{clipChildren=false}
             val rateRow=a.line().apply{visibility=View.GONE}
-            val pager=FrameLayout(a);val prev=roundButton("‹","Предыдущая книга");val next=roundButton("›","Следующая книга")
+            fun f(dt:LocalDate)="${dt.dayOfMonth} ${YearRoad.MONTHS_SHORT[dt.monthValue-1]}"+if(dt.year!=goalYear)" ${dt.year}" else ""
             lateinit var road:YearRoad
-            fun show(i:Int){val yb=list[i]
-                cardCover.removeAllViews();cardCover.addView(CoverView(a,yb.book,a.cover(yb.book)).apply{softShadow=true},FrameLayout.LayoutParams(-1,-1))
-                title.text=yb.book.str("title");author.text=MainActivity.authors(yb.book)
-                val days=java.time.temporal.ChronoUnit.DAYS.between(yb.start,yb.end)+1
-                fun f(dt:LocalDate)="${dt.dayOfMonth} ${YearRoad.MONTHS_SHORT[dt.monthValue-1]}"+if(dt.year!=goalYear)" ${dt.year}" else ""
-                val tail=listOf(daysWordFull(days.toInt()),if(yb.ms>0)duration(yb.ms) else null).filterNotNull().joinToString(" · ")
-                dates.text=android.text.SpannableString("${f(yb.start)} → ${f(yb.end)}  · $tail").apply{val k=indexOf("  ·");if(k>0)setSpan(android.text.style.ForegroundColorSpan(a.muted),k,length,0)}
-                val r=yb.book.optInt("rating");starBox.removeAllViews()
-                starBox.addView(if(r in 1..5)RatingMedal(a,r) else EmptyStar(a));starBox.addView(starLabel.apply{text=if(r in 1..5)listOf("бронза","серебро","золото","платина","бриллиант")[r-1] else "оценить"})
-                starBox.contentDescription=if(r in 1..5)"Оценка $r из 5, изменить" else "Поставить оценку"
-                rateRow.visibility=View.GONE
-                pager.removeAllViews()
-                if(list.size>7)pager.addView(label("${i+1} / ${list.size}",12f),FrameLayout.LayoutParams(-2,-2,Gravity.CENTER_VERTICAL))
-                else pager.addView(PagerDots(a,list.size,i),FrameLayout.LayoutParams(a.d(16+list.size*12),a.d(8),Gravity.CENTER_VERTICAL))
-                prev.alpha=if(i>0)1f else .3f;next.alpha=if(i<list.lastIndex)1f else .3f}
-            road=YearRoad(a,goalYear,list,target,today,motionOn){i->show(i)}
-            space(box,8);box.addView(road,LinearLayout.LayoutParams(-1,a.d(200)))
-            val axis=a.line();axis.addView(label("январь",10.5f),LinearLayout.LayoutParams(0,-2,1f));axis.addView(label(if(target>0)"декабрь · цель $target" else "декабрь",10.5f));box.addView(axis)
-            val card=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(12),a.d(12),a.d(12))
-                background=GradientDrawable().apply{setColor(if(light)0x0a000000 else 0x0dffffff);cornerRadius=a.d(20).toFloat()}}
-            card.addView(cardCover,LinearLayout.LayoutParams(a.d(48),a.d(72)))
-            val info=a.column().apply{setPadding(a.d(12),0,0,0)}
-            val trow=a.line().apply{gravity=Gravity.TOP};val names=a.column();names.addView(title.apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END});space(names,3);names.addView(author.apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
-            trow.addView(names,LinearLayout.LayoutParams(0,-2,1f));trow.addView(starBox,LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(8)})
-            info.addView(trow);space(info,8);info.addView(dates);info.addView(rateRow,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
-            card.addView(info,LinearLayout.LayoutParams(0,-2,1f))
-            space(box,12);box.addView(card)
-            // rate right here
-            starBox.setOnClickListener{if(rateRow.visibility==View.VISIBLE){rateRow.visibility=View.GONE;return@setOnClickListener}
-                rateRow.removeAllViews();for(v in 1..5)rateRow.addView(RatingMedal(a,v).apply{isClickable=true;setOnClickListener{val b=list[road.selected].book;b.put("rating",v);a.saveBook(b);show(road.selected)}},LinearLayout.LayoutParams(0,-2,1f))
-                rateRow.visibility=View.VISIBLE}
-            a.press(starBox)
-            // swipe the card to move between books (horizontal drags only; vertical ones scroll the page)
-            card.setOnTouchListener(object:View.OnTouchListener{var x0=0f;var y0=0f;var dragging=false
-                override fun onTouch(v:View,e:MotionEvent):Boolean{when(e.actionMasked){
+            var medalHolder:FrameLayout?=null
+            fun medal(r:Int):View=if(r in 1..5)RatingMedal(a,r) else EmptyStar(a)
+            fun line(i:Int):View{val yb=list[i]
+                val v=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+                val texts=a.column()
+                texts.addView(a.text(yb.book.str("title"),17f,a.fg,true,serif=true).apply{maxLines=1;isSingleLine=true;ellipsize=android.text.TextUtils.TruncateAt.END})
+                space(texts,4);texts.addView(label("${i+1}-я книга · ${f(yb.start)} — ${f(yb.end)}",12.5f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+                v.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
+                val holder=FrameLayout(a).apply{isClickable=true;contentDescription=if(yb.book.optInt("rating") in 1..5)"Оценка ${yb.book.optInt("rating")} из 5, изменить" else "Поставить оценку"}
+                holder.addView(medal(yb.book.optInt("rating")),FrameLayout.LayoutParams(-2,-2,Gravity.CENTER))
+                holder.setOnClickListener{toggleRate(rateRow,road)}
+                v.addView(holder,LinearLayout.LayoutParams(a.d(40),a.d(40)).apply{marginStart=a.d(10)})
+                medalHolder=holder
+                return v}
+            fun show(i:Int,dir:Int){val old=row.getChildAt(0);val nw=line(i);row.addView(nw,FrameLayout.LayoutParams(-1,-2,Gravity.CENTER_VERTICAL))
+                closeRate(rateRow)
+                if(old==null||dir==0||!motionOn){if(old!=null)row.removeView(old);return}
+                old.animate().translationX(-dir*a.d(40).toFloat()).alpha(0f).setDuration(240).setInterpolator(Ease.inCubic).withEndAction{row.removeView(old)}.start()
+                nw.translationX=dir*a.d(46).toFloat();nw.alpha=0f;val sp=Spring.of(.22,420.0)
+                nw.animate().translationX(0f).alpha(1f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()
+                medalHolder?.let{m->m.scaleX=.4f;m.scaleY=.4f;m.rotation=-40f;m.alpha=0f;val sp2=Spring.of(.4,520.0)
+                    m.animate().scaleX(1f).scaleY(1f).rotation(0f).alpha(1f).setStartDelay(120).setDuration(sp2.duration).setInterpolator(sp2.interpolator).start()}}
+            road=YearRoad(a,list,target,motionOn){i,dir->show(i,dir)}
+            space(box,6);box.addView(road,LinearLayout.LayoutParams(-1,a.d(170)))
+            space(box,12);box.addView(row,LinearLayout.LayoutParams(-1,a.d(56)))
+            box.addView(rateRow,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
+            rateRow.tag={v:Int->val b=list[road.selected].book;b.put("rating",v);a.saveBook(b)
+                medalHolder?.let{m->m.removeAllViews();m.addView(medal(v),FrameLayout.LayoutParams(-2,-2,Gravity.CENTER));m.contentDescription="Оценка $v из 5, изменить"
+                    if(motionOn){m.scaleX=.3f;m.scaleY=.3f;val sp=Spring.of(.5,520.0);m.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}
+                closeRate(rateRow)}
+            // swipe the line to move between books (horizontal drags only; vertical ones scroll the page)
+            row.setOnTouchListener(object:View.OnTouchListener{var x0=0f;var y0=0f;var dragging=false
+                override fun onTouch(v:View,e:MotionEvent):Boolean{val cur=row.getChildAt(row.childCount-1);when(e.actionMasked){
                     MotionEvent.ACTION_DOWN->{x0=e.rawX;y0=e.rawY;dragging=false;return true}
                     MotionEvent.ACTION_MOVE->{val dx=e.rawX-x0;if(!dragging&&abs(dx)>a.d(10)&&abs(dx)>abs(e.rawY-y0)){dragging=true;v.parent?.requestDisallowInterceptTouchEvent(true)}
-                        if(dragging)v.translationX=dx*.6f;return true}
-                    MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val dx=e.rawX-x0;val go=if(!dragging)0 else if(dx<-a.d(40))1 else if(dx>a.d(40))-1 else 0
-                        val target=(road.selected+go).coerceIn(0,list.lastIndex)
-                        if(go!=0&&target!=road.selected){road.select(target);v.translationX=-go*a.d(24).toFloat()}
-                        v.animate().translationX(0f).setDuration(260).setInterpolator(Ease.outCubic).start();return true}}
+                        if(dragging)cur?.translationX=dx*.5f;return true}
+                    MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val dx=e.rawX-x0;val go=if(!dragging)0 else if(dx<-a.d(36))1 else if(dx>a.d(36))-1 else 0
+                        val target=road.selected+go
+                        if(go!=0&&target in list.indices){cur?.translationX=0f;road.select(target)}
+                        else cur?.let{c->val sp=Spring.of(.4,360.0);c.animate().translationX(0f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
+                        return true}}
                     return false}})
-            val foot=a.line().apply{gravity=Gravity.CENTER_VERTICAL};foot.addView(pager,LinearLayout.LayoutParams(0,a.d(30),1f));foot.addView(prev,LinearLayout.LayoutParams(a.d(30),a.d(30)));foot.addView(next,LinearLayout.LayoutParams(a.d(30),a.d(30)).apply{marginStart=a.d(6)})
-            prev.setOnClickListener{road.select(road.selected-1)};next.setOnClickListener{road.select(road.selected+1)}
-            space(box,10);box.addView(foot)
-            show(road.selected)
+            show(road.selected,0)
             box.contentDescription="Книги за $goalYear: $done"+if(target>0)" из $target" else ""}
         bind();add(box)
     }
+    @Suppress("UNCHECKED_CAST")
+    private fun toggleRate(rateRow:LinearLayout,road:YearRoad){if(rateRow.visibility==View.VISIBLE){closeRate(rateRow);return}
+        rateRow.removeAllViews();val pick=rateRow.tag as? (Int)->Unit
+        for(v in 1..5)rateRow.addView(RatingMedal(a,v).apply{isClickable=true;setOnClickListener{pick?.invoke(v)}
+            if(motionOn){alpha=0f;translationY=a.d(10).toFloat();scaleX=.5f;scaleY=.5f;val sp=Spring.of(.45,380.0);animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setStartDelay(v*45L).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}},LinearLayout.LayoutParams(0,-2,1f))
+        rateRow.visibility=View.VISIBLE}
+    private fun closeRate(rateRow:LinearLayout){rateRow.visibility=View.GONE}
     private fun daysWordFull(n:Int)="$n "+if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
     private fun roundButton(s:String,desc:String)=a.text(s,16f,a.fg).apply{gravity=Gravity.CENTER;contentDescription=desc;isClickable=true
         background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(light)0x0d000000 else 0x14ffffff)};a.press(this)}
