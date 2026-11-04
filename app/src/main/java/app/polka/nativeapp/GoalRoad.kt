@@ -342,7 +342,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
     /** One book: the cover stands on its milestone at the edge, the details sit beside it towards the middle. */
     private fun item(i:Int,yb:YearBook):View{val right=i%2==0
         val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false}
-        val cover=FlatCover(a,yb.book).apply{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
+        val cover=CoverView(a,yb.book,a.cover(yb.book)).apply{softShadow=true;hiRes=true;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         val g=if(right)Gravity.END else Gravity.START
         val t=a.column().apply{gravity=g}
         fun add(v:TextView,top:Int=0){v.gravity=g;t.addView(v,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(top)})}
@@ -355,8 +355,8 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         val r=yb.book.optInt("rating")
         val rate=StarRow(a,r,15f,3f)
         t.addView(rate,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10);gravity=g})
-        val pad=a.d(FlatCover.PAD)
-        val coverLp=LinearLayout.LayoutParams(a.d(96)+pad*2,a.d(144)+pad*2).apply{setMargins(-pad,-pad,-pad,-pad)}
+        val pad=0
+        val coverLp=LinearLayout.LayoutParams(a.d(96),a.d(144))
         if(right){row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{rightMargin=a.d(16)+pad});row.addView(cover,coverLp)}
         else{row.addView(cover,coverLp);row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=a.d(16)+pad})}
         row.tag=right

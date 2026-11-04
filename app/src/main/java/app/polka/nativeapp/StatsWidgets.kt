@@ -16,17 +16,33 @@ import kotlin.math.*
 
 /** Statistics widgets (approved mockup «вариант A»): dark cards, each with its own colour glowing softly from inside. */
 internal class WidgetCardDrawable(private val a:MainActivity,private val radius:Float,private val glow:Int?,private val fx:Float,private val fy:Float,private val reach:Float):Drawable(){
-    private val base=Paint(Paint.ANTI_ALIAS_FLAG);private val light=Paint(Paint.ANTI_ALIAS_FLAG);private val r=RectF()
+    private val base=Paint(Paint.ANTI_ALIAS_FLAG);private val light=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private val r=RectF()
+    private var tex:Bitmap?=null;private var texKey=""
     override fun draw(c:Canvas){val b=bounds;if(b.width()<=0||b.height()<=0)return;r.set(b)
         base.color=if(a.light)Color.WHITE else 0xff1c1c1f.toInt();c.drawRoundRect(r,radius,radius,base)
         val g=glow?:return
-        // one radial glow, stretched to the card's shape; its edge fades to nothing well inside the card
-        val cx=r.left+r.width()*fx;val cy=r.top+r.height()*fy;val rx=max(r.width(),r.height())*reach
-        // a gentle light: lower peak and a long, smooth falloff (no visible rim)
-        val alpha=if(a.light)0x1a else 0x38
-        fun t(k:Float)=(g and 0xffffff) or ((alpha*k).toInt() shl 24)
-        light.shader=RadialGradient(cx,cy,rx*1.1f,intArrayOf(t(1f),t(.62f),t(.3f),t(.1f),t(0f)),floatArrayOf(0f,.25f,.5f,.75f,1f),Shader.TileMode.CLAMP)
-        c.drawRoundRect(r,radius,radius,light)}
+        // one soft light, pre-rendered with a gaussian falloff and fine noise so the 8-bit steps never show as rings
+        // rendered once per card width; when the card's height changes (a section opens) the light is simply stretched
+        val key="${b.width()}${a.light}"
+        if(key!=texKey||tex==null){tex=render(b.width(),b.height(),g);texKey=key;light.shader=tex?.let{t->BitmapShader(t,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP)}}
+        val t=tex?:return;(light.shader as? BitmapShader)?.setLocalMatrix(Matrix().apply{setScale(b.width().toFloat()/t.width,b.height().toFloat()/t.height)})
+        if(light.shader==null)return
+        c.save();c.translate(r.left,r.top);c.drawRoundRect(0f,0f,r.width(),r.height(),radius,radius,light);c.restore()}
+    /** The card's face with its light baked in at full resolution: base colour plus a gaussian glow, each channel
+     *  dithered with fine triangular noise in output space, so no 8-bit rings can appear. Cached per size. */
+    private fun render(w:Int,h:Int,g:Int):Bitmap?{val key="$w:$g:$fx:$fy:$reach:${a.light}";cache[key]?.let{if(!it.isRecycled)return it}
+        return try{val px=IntArray(w*h);val rnd=java.util.Random(7)
+            val base=if(a.light)Color.WHITE else 0xff1c1c1f.toInt()
+            val bR=Color.red(base).toFloat();val bG=Color.green(base).toFloat();val bB=Color.blue(base).toFloat()
+            val dR=Color.red(g)-bR;val dG=Color.green(g)-bG;val dB=Color.blue(g)-bB
+            val cx=w*fx;val cy=h*fy;val rx=max(w,h)*reach*1.15f;val peak=if(a.light).10f else .2f
+            for(y in 0 until h){val dy=(y-cy)/rx;val dy2=dy*dy
+                for(x in 0 until w){val dx=(x-cx)/rx;val k=peak*exp(-3.2f*(dx*dx+dy2))
+                    val n=rnd.nextFloat()-rnd.nextFloat()
+                    val R=(bR+dR*k+n).roundToInt().coerceIn(0,255);val G=(bG+dG*k+n).roundToInt().coerceIn(0,255);val B=(bB+dB*k+n).roundToInt().coerceIn(0,255)
+                    px[y*w+x]=(0xff shl 24) or (R shl 16) or (G shl 8) or B}}
+            Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888).also{cache[key]=it}}catch(e:Throwable){null}}
+    private companion object{val cache=HashMap<String,Bitmap>()}
     override fun setAlpha(alpha:Int){}
     override fun setColorFilter(cf:ColorFilter?){}
     @Deprecated("Deprecated in Java") override fun getOpacity()=PixelFormat.TRANSLUCENT
