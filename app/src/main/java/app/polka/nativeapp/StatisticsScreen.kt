@@ -147,7 +147,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val box=surface(0xffff5a1e.toInt(),.14f,.62f,.75f).apply{clipToOutline=true}
         val n=model.streak;val best=bestStreak();val met=model.met(today)
         val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-        top.addView(FlameView(a,n,n>0,n>0&&!met,false).apply{importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(a.d(58),a.d(74)).apply{rightMargin=a.d(14)})
+        top.addView(StreakFlameView(a,n>0,motionOn),LinearLayout.LayoutParams(a.d(68),a.d(86)).apply{rightMargin=a.d(10)})
         val col=a.column()
         col.addView(kicker("Серия"));space(col,4)
         col.addView(big("$n ${daysWord(n)} подряд",42f,n,.38f,firstOnly=true))
@@ -156,7 +156,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val dates=(6 downTo 0).map{today.minusDays(it.toLong())}
         val todayFraction=(model.ms(today).toFloat()/(model.dailyGoal*60000L)).coerceIn(0f,1f)
         box.addView(WeekFlames(a,dates.map{weekNames[it.dayOfWeek.value-1].lowercase()},BooleanArray(7){model.met(dates[it])},todayFraction,motionOn),LinearLayout.LayoutParams(-1,-2))
-        space(box,14);box.addView(View(a).apply{setBackgroundColor(if(light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,a.d(1)).apply{leftMargin=-a.d(18);rightMargin=-a.d(18)});space(box,14)
+        space(box,20)
         val minutes=(model.ms(today)/60000L).toInt();val left=ceil(max(0L,model.dailyGoal*60000L-model.ms(today))/60000.0).toInt()
         val row=a.line();row.addView(label("Сегодня",13f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13f,a.fg,true));box.addView(row);space(box,8)
         box.addView(ProgressRail(a,animate,todayFraction,amber,coral,"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)));space(box,8)
@@ -186,11 +186,12 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** Reading time: the total and the daily average, the Week / Month / Year switch, and a glowing line chart. */
     private fun readingTime(){
         val box=surface(0xff8c5cff.toInt(),.3f,.82f,.7f)
-        val head=a.line().apply{gravity=Gravity.TOP};val left=a.column();head.addView(left,LinearLayout.LayoutParams(0,-2,1f))
+        val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL};head.addView(kicker("Время чтения"),LinearLayout.LayoutParams(0,-2,1f))
+        val left=a.column()
         val names=listOf("Неделя","Месяц","Год")
         val chartHost=FrameLayout(a).apply{clipChildren=false}
         lateinit var bind:(Boolean)->Unit
-        head.addView(PeriodPills(a,names,period){i->period=i;a.profileRange=i;bind(false)});box.addView(head);space(box,6)
+        head.addView(PeriodPills(a,names,period){i->period=i;a.profileRange=i;bind(false)});box.addView(head);space(box,10);box.addView(left);space(box,4)
         box.addView(chartHost,LinearLayout.LayoutParams(-1,a.d(176)))
         fun minutes(ms:Long)=ms/60000.0
         bind={first->left.removeAllViews();chartHost.removeAllViews()
@@ -201,15 +202,14 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                     total=days.sumOf{model.ms(it)};avg=minutes(total)/7;avgText="ср. ${avg.roundToInt()} мин";caption="в среднем ${duration((total/7))} в день";sparse=false}
                 1->{val days=(1..today.dayOfMonth).map{today.withDayOfMonth(it)};values=days.map{minutes(model.ms(it))};labels=days.map{"${it.dayOfMonth}"}
                     tips=days.map{d->(if(d==today)"сегодня" else d.format(DateTimeFormatter.ofPattern("d MMMM",ru)))+" · "+duration(model.ms(d))}
-                    total=model.total(0);avg=minutes(model.average(0));avgText="ср. ${avg.roundToInt()} мин";caption="за ${today.format(DateTimeFormatter.ofPattern("LLLL",ru))} · в среднем ${duration(model.average(0))} в день";sparse=true}
+                    total=model.total(0);avg=minutes(model.average(0));avgText="ср. ${avg.roundToInt()} мин";caption="в среднем ${duration(model.average(0))} в день";sparse=true}
                 else->{val months=(1..today.monthValue).map{YearMonth.of(today.year,it)};val ms=months.map{m->(1..m.lengthOfMonth()).sumOf{d->model.ms(m.atDay(d))}}
                     values=ms.map{minutes(it)};labels=months.map{it.month.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE,ru).trimEnd('.').take(3)}
                     tips=months.indices.map{i->months[i].month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE,ru)+" · "+duration(ms[i])}
-                    total=model.total(1);avg=values.average();avgText="ср. ${duration((avg*60000).toLong())}";caption="за ${today.year} год · в среднем ${duration(model.average(1))} в день";sparse=false}
+                    total=model.total(1);avg=values.average();avgText="ср. ${duration((avg*60000).toLong())}";caption="за ${today.year} год · в среднем ${duration((avg*60000).toLong())} в месяц";sparse=false}
             }
-            left.addView(kicker("Время чтения"));space(left,6)
-            left.addView(big(if(total>0)duration(total) else "0 мин",40f))
-            space(left,4);left.addView(label(caption,12.5f))
+            left.addView(big(if(total>0)duration(total) else "0 мин",40f).apply{maxLines=1;isSingleLine=true})
+            space(left,4);left.addView(label(caption,12.5f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
             chartHost.addView(ReadingLine(a,values,labels,tips,avg,avgText,motionOn,sparse),FrameLayout.LayoutParams(-1,-1))
             if(!first&&motionOn){chartHost.alpha=0f;chartHost.animate().alpha(1f).setDuration(220).start()}
         }

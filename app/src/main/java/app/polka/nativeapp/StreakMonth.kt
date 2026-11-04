@@ -10,30 +10,34 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 /**
- * The streak card's month: opens under the week with a smooth height reveal. Days that kept the streak join into
- * warm capsules within each week row, today is ringed, future days are faint; arrows page through months.
+ * The streak card's month (widget style): opens under the week with a smooth height reveal. Streak days are glowing
+ * orange circles joined by a soft ribbon within each row, today is ringed, future days are faint; arrows page months.
  */
 internal class StreakMonth(private val a:MainActivity,private val model:ReadingStatistics,private val today:LocalDate,private val motion:Boolean):LinearLayout(a){
     private var month=YearMonth.from(today)
     private var open=false
     var onToggle:((Boolean)->Unit)?=null
-    private val title=a.text("",16f,a.fg,true)
+    private val title=a.text("",17f,a.fg,true,serif=true)
+    private val year=a.text("",13f,a.muted)
     private val grid=MonthGrid()
-    private val prev=a.icon("back","Предыдущий месяц"){go(-1)}
-    private val next=a.icon("next","Следующий месяц"){go(1)}
+    private fun arrow(kind:String,label:String,click:()->Unit)=FrameLayout(a).apply{contentDescription=label;isClickable=true;setOnClickListener{click()}
+        background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x12ffffff)}
+        addView(IconView(a,kind,a.fg),FrameLayout.LayoutParams(a.d(16),a.d(16),Gravity.CENTER));a.press(this)}
+    private val prev=arrow("back","Предыдущий месяц"){go(-1)}
+    private val next=arrow("next","Следующий месяц"){go(1)}
     private var anim:ValueAnimator?=null
     init{
         orientation=VERTICAL;visibility=GONE;clipChildren=false
-        // a hairline separates the month from the card above
-        addView(View(a).apply{setBackgroundColor(if(a.light)0x12000000 else 0x14ffffff)},LayoutParams(-1,a.d(1)).apply{topMargin=a.d(2)})
-        val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(12),0,a.d(6))}
-        bar.addView(prev,LayoutParams(a.d(40),a.d(40)));bar.addView(title.apply{gravity=Gravity.CENTER},LayoutParams(0,-2,1f));bar.addView(next,LayoutParams(a.d(40),a.d(40)))
+        // month name on the left, small round arrows on the right; no separating lines
+        val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(20),0,a.d(8))}
+        val name=a.line().apply{gravity=Gravity.BOTTOM};name.addView(title);name.addView(year.apply{setPadding(a.d(6),0,0,a.d(1))})
+        bar.addView(name,LayoutParams(0,-2,1f));bar.addView(prev,LayoutParams(a.d(32),a.d(32)));bar.addView(next,LayoutParams(a.d(32),a.d(32)).apply{marginStart=a.d(6)})
         addView(bar,LayoutParams(-1,-2))
-        val names=a.line();listOf("пн","вт","ср","чт","пт","сб","вс").forEach{names.addView(a.text(it,12f,a.muted).apply{gravity=Gravity.CENTER},LayoutParams(0,-2,1f))}
+        val names=a.line();listOf("пн","вт","ср","чт","пт","сб","вс").forEach{names.addView(a.text(it,11f,a.muted).apply{gravity=Gravity.CENTER},LayoutParams(0,-2,1f))}
         addView(names,LayoutParams(-1,-2));addView(grid,LayoutParams(-1,-2).apply{topMargin=a.d(8)})
         bind()
     }
-    private fun bind(){title.text=month.month.getDisplayName(TextStyle.FULL_STANDALONE,Locale("ru")).replaceFirstChar{it.titlecase()}+if(month.year!=today.year)" ${month.year}" else ""
+    private fun bind(){title.text=month.month.getDisplayName(TextStyle.FULL_STANDALONE,Locale("ru")).replaceFirstChar{it.titlecase()};year.text="${month.year}"
         next.alpha=if(month<YearMonth.from(today))1f else .3f;next.isEnabled=month<YearMonth.from(today);grid.requestLayout();grid.invalidate()}
     private fun go(dir:Int){val target=month.plusMonths(dir.toLong());if(target>YearMonth.from(today))return
         if(!motion){month=target;bind();return}
@@ -54,28 +58,26 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
         private var phase=1f
         fun reveal(){phase=0f;ValueAnimator.ofFloat(0f,1f).apply{startDelay=120;duration=620;interpolator=PathInterpolator(.22f,1f,.36f,1f);addUpdateListener{phase=it.animatedValue as Float;invalidate()};start()}}
         private val rows get()=(month.atDay(1).dayOfWeek.value-1+month.lengthOfMonth()+6)/7
-        private val rowH get()=a.d(40)
+        private val rowH get()=a.d(42)
         override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(MeasureSpec.getSize(w),rows*rowH)
         override fun onDraw(c:Canvas){
             val lead=month.atDay(1).dayOfWeek.value-1;val cw=width/7f;val r=a.d(15).toFloat();val quiet=if(a.light)0x0f000000 else 0x14ffffff
+            fun dayAt(row:Int,col:Int):LocalDate?{val day=row*7+col-lead+1;return if(day<1||day>month.lengthOfMonth())null else month.atDay(day)}
             for(row in 0 until rows){val cy=row*rowH+rowH/2f
-                // join consecutive met days inside this row into capsules
-                var col=0
-                while(col<7){val day=row*7+col-lead+1;if(day<1||day>month.lengthOfMonth()){col++;continue}
-                    val d=month.atDay(day);if(!model.met(d)){col++;continue}
-                    var end=col;while(end+1<7){val nd=row*7+end+1-lead+1;if(nd>month.lengthOfMonth()||!model.met(month.atDay(nd)))break;end++}
-                    val left=col*cw+cw/2-r;val right=left+(end*cw+cw/2+r-left)*phase.coerceAtLeast(.001f)
-                    p.shader=LinearGradient(left,0f,right.coerceAtLeast(left+1),0f,0xffff5a2c.toInt(),0xffff9b2b.toInt(),Shader.TileMode.CLAMP);p.style=Paint.Style.FILL
-                    val rr=RectF(left,cy-r,maxOf(right,left+2*r*phase),cy+r);c.drawRoundRect(rr,r,r,p);p.shader=null
-                    // The same yellow edge as the week capsule on the collapsed card.
-                    p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=0xffffd23f.toInt();rr.inset(a.d(1).toFloat(),a.d(1).toFloat());c.drawRoundRect(rr,r-a.d(1),r-a.d(1),p);p.style=Paint.Style.FILL
-                    col=end+1}
-                for(col2 in 0 until 7){val day=row*7+col2-lead+1;if(day<1||day>month.lengthOfMonth())continue;val d=month.atDay(day);val cx=col2*cw+cw/2
+                // a soft ribbon joins neighbouring streak days within the row
+                for(col in 0 until 6){val d1=dayAt(row,col)?:continue;val d2=dayAt(row,col+1)?:continue
+                    if(!model.met(d1)||!model.met(d2))continue
+                    p.shader=null;p.color=0x38ff6e28;val x1=col*cw+cw/2;val x2=x1+cw*phase;c.drawRect(x1,cy-r*.62f,x2,cy+r*.62f,p)}
+                for(col in 0 until 7){val d=dayAt(row,col)?:continue;val cx=col*cw+cw/2
                     val met=model.met(d);val future=d.isAfter(today)
-                    if(!met&&!future&&model.ms(d)>0){p.color=quiet;c.drawCircle(cx,cy,r,p)}
-                    if(d==today&&!met){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=a.accentFill;c.drawCircle(cx,cy,r-a.d(1),p);p.style=Paint.Style.FILL}
-                    text.color=when{met->Color.WHITE;future->(a.muted and 0xffffff) or 0x66000000;d==today->a.fg;else->a.muted};text.isFakeBoldText=met||d==today
-                    c.drawText("$day",cx,cy-(text.ascent()+text.descent())/2,text)}
+                    if(met){val k=phase.coerceIn(0f,1f)
+                        if(!a.light){p.shader=RadialGradient(cx,cy,r*1.7f,intArrayOf(0x4dff6e28,0x00ff6e28),null,Shader.TileMode.CLAMP);p.color=Color.WHITE;c.drawCircle(cx,cy,r*1.7f*k,p)}
+                        p.color=Color.WHITE;p.shader=LinearGradient(cx-r,cy-r,cx+r*.4f,cy+r,0xffffb522.toInt(),0xffff5a1e.toInt(),Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r*k,p);p.shader=null}
+                    else if(!future&&model.ms(d)>0){p.shader=null;p.color=quiet;c.drawCircle(cx,cy,r,p)}
+                    if(d==today&&!met){p.shader=null;p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=0xffffb522.toInt();c.drawCircle(cx,cy,r-a.d(1),p);p.style=Paint.Style.FILL}
+                    text.typeface=PolkaFonts.sans(if(met||d==today)600 else 400)
+                    text.color=when{met->Color.WHITE;future->(a.muted and 0xffffff) or 0x59000000;d==today->a.fg;else->a.muted}
+                    c.drawText("${d.dayOfMonth}",cx,cy-(text.ascent()+text.descent())/2,text)}
             }
         }
     }

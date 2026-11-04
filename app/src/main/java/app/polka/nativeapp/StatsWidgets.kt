@@ -48,7 +48,7 @@ internal class WeekFlames(private val a:MainActivity,private val names:List<Stri
         for(i in 0 until n){val cx=slot*i+slot/2;val today=i==n-1
             // the days light up one after another
             val t=((k*(n+2))-i).coerceIn(0f,1f);val pop=if(t<1f)Ease.outBack(1.8f).getInterpolation(t) else 1f
-            if(kept[i]){c.save();c.scale(pop,pop,cx,cy)
+            if(kept[i]){c.save();c.scale(pop,pop,cx,cy);p.color=Color.WHITE
                 p.shader=RadialGradient(cx,cy,r*1.7f,intArrayOf(0x55ff6e28,0x00ff6e28),null,Shader.TileMode.CLAMP);if(!a.light)c.drawCircle(cx,cy,r*1.7f,p)
                 p.shader=LinearGradient(cx-r,cy-r,cx+r*.4f,cy+r,0xffffb522.toInt(),0xffff5a1e.toInt(),Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r,p);p.shader=null
                 val s=r*1.0f/150f*1.05f;c.save();c.translate(cx-60*s,cy-80*s);c.scale(s,s);p.color=Color.WHITE;c.drawPath(FlameGlyph.path,p);c.restore()
@@ -123,7 +123,7 @@ internal class ReadingLine(private val a:MainActivity,private val values:List<Do
         val ay=bottom-(average/max*(bottom-top)).toFloat()
         p.style=Paint.Style.STROKE;p.strokeWidth=1.3f*d;p.color=if(a.light)0x26000000 else 0x2effffff;p.pathEffect=DashPathEffect(floatArrayOf(4*d,4*d),0f)
         c.drawLine(0f,ay,width.toFloat(),ay,p);p.pathEffect=null
-        tp.textSize=10.5f*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(400);tp.color=a.muted;tp.textAlign=Paint.Align.RIGHT;c.drawText(averageText,width.toFloat(),ay-4*d,tp)
+        
         // the line draws itself in from the left
         c.save();c.clipRect(0f,0f,width*draw+2*d,height.toFloat())
         p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,top,0f,bottom,(c2 and 0xffffff) or ((if(a.light)0x30 else 0x47) shl 24),c2 and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(area,p)
@@ -219,3 +219,46 @@ internal class BookRoad(private val a:MainActivity,private val done:Int,private 
 internal fun MainActivity.softPill(label:String,click:()->Unit):TextView=text(label,12.5f,fg,true).apply{
     setPadding(d(12),d(6),d(12),d(6));background=android.graphics.drawable.GradientDrawable().apply{setColor(if(light)0x12000000 else 0x24ffffff);cornerRadius=d(14).toFloat()}
     isClickable=true;setOnClickListener{click()};press(this)}
+
+/** The streak flame (approved look): the classic three-layer flame with a warm halo, a richer outer gradient, light
+ *  from the core, soft glows between layers and depth at the foot. It never moves itself — only tiny sparks rise from
+ *  its tips, drift and fade. Without a streak it is grey and still; with reduced motion there are no sparks. */
+internal class StreakFlameView(private val a:MainActivity,private val active:Boolean,private val motion:Boolean):View(a){
+    private val paths=listOf("M60 145C32 145 12 129 9 108C5 86 15 66 31 51C29 63 31 74 38 81C35 61 48 48 57 34C65 21 62 10 54 3C82 5 101 25 99 49C98 62 92 73 97 81C101 87 108 82 111 72C124 90 119 112 105 128C94 140 78 146 60 145Z",
+        "M60 145C43 145 31 133 30 117C29 105 34 94 42 86C43 94 46 99 51 101C44 84 49 66 63 52C67 47 72 44 77 42C71 59 75 72 84 85C94 99 99 111 94 125C89 139 76 146 60 145Z",
+        "M60 145C49 145 41 137 42 126C42 116 46 107 51 101C51 110 56 114 61 115C57 106 58 97 63 89C65 101 74 109 78 119C85 134 76 145 60 145Z").map{androidx.core.graphics.PathParser.createPathFromPathData(it)!!}
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var time=0f;private var clock:ValueAnimator?=null
+    private data class Spark(val x:Float,val d:Float,val life:Float,val dr:Float,val r:Float)
+    private val sparks=List(7){i->Spark(34f+((i*37)%56),((i*.37f)%1f),1.3f+((i*.53f)%.7f),(if(i%2==1)1 else -1)*(4f+(i*3)%6),1.2f+((i*.7f)%1.4f))}
+    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;if(android.os.Build.VERSION.SDK_INT<28)setLayerType(LAYER_TYPE_SOFTWARE,null)}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(active&&motion&&clock==null)clock=ValueAnimator.ofFloat(0f,1000f).apply{duration=1_000_000L;interpolator=null;repeatCount=ValueAnimator.INFINITE;addUpdateListener{time=it.animatedValue as Float;invalidate()};start()}}
+    override fun onDetachedFromWindow(){clock?.cancel();clock=null;super.onDetachedFromWindow()}
+    private fun lin(y0:Float,y1:Float,colors:IntArray,stops:FloatArray)=LinearGradient(0f,y0,0f,y1,colors,stops,Shader.TileMode.CLAMP)
+    override fun onDraw(c:Canvas){if(width<1||height<1)return
+        val s=minOf(width/150f,height/185f);c.save();c.translate(width/2f-60*s,height-165*s);c.scale(s,s)
+        p.reset();p.isAntiAlias=true;p.color=Color.WHITE
+        if(!active){
+            p.shader=lin(3f,145f,intArrayOf(0xffa5a5ac.toInt(),0xff83838c.toInt(),0xff62626c.toInt()),floatArrayOf(0f,.55f,1f));c.drawPath(paths[0],p)
+            p.shader=lin(42f,145f,intArrayOf(0xffc5c5cb.toInt(),0xffb1b1b9.toInt(),0xffdedee2.toInt()),floatArrayOf(0f,.6f,1f));c.drawPath(paths[1],p)
+            p.shader=lin(89f,145f,intArrayOf(0xffe2e2e7.toInt(),0xfff5f5f7.toInt()),floatArrayOf(0f,1f));c.drawPath(paths[2],p);p.shader=null;c.restore();return}
+        // halo
+        p.shader=RadialGradient(60f,100f,80f,intArrayOf(0x73ff6e1e,0x24ff5a1e,0x00ff5a1e),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP);c.drawCircle(60f,100f,80f,p)
+        // outer flame
+        p.shader=lin(3f,145f,intArrayOf(0xffe8231c.toInt(),0xffff3d1a.toInt(),0xffff6312.toInt(),0xffff8a10.toInt(),0xffffb21e.toInt()),floatArrayOf(0f,.22f,.45f,.7f,1f));c.drawPath(paths[0],p)
+        c.save();c.clipPath(paths[0])
+        p.shader=RadialGradient(62f,118f,62f,intArrayOf(0x8cffd65a.toInt(),0x00ffd65a),null,Shader.TileMode.CLAMP);c.drawRect(0f,0f,120f,150f,p)   // the core lights it from inside
+        p.shader=RadialGradient(24f,78f,34f,intArrayOf(0x33ffffff,0x00ffffff),null,Shader.TileMode.CLAMP);c.drawRect(0f,0f,120f,150f,p)           // sheen on the left tongue
+        p.shader=lin(118f,147f,intArrayOf(0x00961e0a,0x47961e0a),floatArrayOf(0f,1f));c.drawRect(0f,0f,120f,150f,p)                                 // depth at the foot
+        c.restore()
+        // middle and core, each with a soft glow over the layer below
+        p.shader=lin(42f,145f,intArrayOf(0xffffcf2e.toInt(),0xffffdd48.toInt(),0xffffec7a.toInt(),0xfffff3a6.toInt()),floatArrayOf(0f,.4f,.75f,1f))
+        p.setShadowLayer(14f,0f,0f,0xe6ffc83c.toInt());c.drawPath(paths[1],p);p.clearShadowLayer()
+        p.shader=RadialGradient(60f,126f,30f,intArrayOf(0xffffffff.toInt(),0xfffffbe0.toInt(),0xfffff1a0.toInt()),floatArrayOf(0f,.6f,1f),Shader.TileMode.CLAMP)
+        p.setShadowLayer(10f,0f,0f,0xf2fffad2.toInt());c.drawPath(paths[2],p);p.clearShadowLayer();p.shader=null
+        // sparks above the tips
+        if(motion)for(sp in sparks){val ph=((time/sp.life)+sp.d)%1f;val y=34f-ph*58f;val x=sp.x+sp.dr*kotlin.math.sin(ph*Math.PI.toFloat())+(sp.x-60f)*.2f*ph
+            val al=(kotlin.math.sin(Math.PI.toFloat()*ph)*(.75f+.25f*kotlin.math.sin(time*18f+sp.x))).coerceIn(0f,1f);val r=sp.r*(1-ph*.5f)
+            p.shader=RadialGradient(x,y,r*3.2f,intArrayOf(((.55f*al*255).toInt() shl 24) or 0xffc850,0x00ff8c28),null,Shader.TileMode.CLAMP);c.drawCircle(x,y,r*3.2f,p);p.shader=null
+            p.color=((al*255).toInt() shl 24) or 0xfff0be;c.drawCircle(x,y,r,p);p.color=Color.WHITE}
+        c.restore()}
+}
