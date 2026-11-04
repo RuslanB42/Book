@@ -68,7 +68,7 @@ internal class GoalTrack(private val a:MainActivity,fraction:Float,motion:Boolea
 internal fun MainActivity.goalYearMenu(anchor:View,years:List<Int>,current:Int,motion:Boolean,stats:(Int)->Pair<Int,Int>,onClose:()->Unit,pick:(Int)->Unit){
     val a=this
     val box=column().apply{setPadding(d(6),d(6),d(6),d(6))
-        background=GradientDrawable().apply{setColor(if(light)0xf7ffffff.toInt() else 0xf52a2a2e.toInt());cornerRadius=d(20).toFloat();setStroke(d(1),if(light)0x0f000000 else 0x10ffffff)}}
+        background=GradientDrawable().apply{setColor(if(light)0xffffffff.toInt() else 0xff2a2a2e.toInt());cornerRadius=d(20).toFloat();setStroke(d(1),if(light)0x0f000000 else 0x10ffffff)}}
     val popup=PopupWindow(box,d(236),ViewGroup.LayoutParams.WRAP_CONTENT,true).apply{elevation=d(22).toFloat();isOutsideTouchable=true;setBackgroundDrawable(ColorDrawable(0));animationStyle=0;setOnDismissListener{onClose()}}
     years.forEachIndexed{i,y->val (done,goal)=stats(y)
         val row=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(12),d(10),d(12),d(10));isClickable=true;contentDescription="$y: $done"+if(goal>0)" из $goal" else ""
@@ -80,8 +80,8 @@ internal fun MainActivity.goalYearMenu(anchor:View,years:List<Int>,current:Int,m
         box.addView(row,LinearLayout.LayoutParams(-1,-2))
         if(motion){row.alpha=0f;row.translationY=-d(6).toFloat();row.animate().alpha(1f).translationY(0f).setStartDelay(60L+i*40L).setDuration(300).setInterpolator(Ease.outCubic).start()}}
     popup.showAsDropDown(anchor,-d(4),d(8))
-    if(motion){box.pivotX=d(24).toFloat();box.pivotY=0f;box.scaleX=.86f;box.scaleY=.86f;box.alpha=0f;val sp=Spring.of(.3,420.0)
-        box.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
+    if(motion){box.pivotX=d(24).toFloat();box.pivotY=0f;box.scaleX=.86f;box.scaleY=.86f;val sp=Spring.of(.3,420.0)
+        box.animate().scaleX(1f).scaleY(1f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
 }
 
 // ───────────────────────── full-screen road ─────────────────────────
@@ -127,13 +127,17 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         bar.addView(round("share","Поделиться годом в книгах"){openShare()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
         col.addView(bar)
         tabs=a.line().apply{gravity=Gravity.BOTTOM;setPadding(a.d(18),0,a.d(18),0)}
-        col.addView(HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(tabs)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})
+        val page=a.column()
+        page.addView(HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(tabs)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(10)})
         progress=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),0,a.d(18),0)}
-        col.addView(progress,LinearLayout.LayoutParams(-1,a.d(30)).apply{topMargin=a.d(12)})
-        scroll=ScrollView(a).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS;clipToPadding=false;setPadding(0,0,0,insets.bottom+a.d(24))}
-        roadHost=FrameLayout(a);scroll.addView(roadHost,ViewGroup.LayoutParams(-1,-2))
-        scroll.setOnScrollChangeListener{_,_,y,_,_->column?.viewport(y,scroll.height)}
-        col.addView(scroll,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=a.d(6)})
+        page.addView(progress,LinearLayout.LayoutParams(-1,a.d(30)).apply{topMargin=a.d(12)})
+        roadHost=FrameLayout(a);page.addView(roadHost,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(6)})
+        // the year and the progress are part of the page and scroll away with it; content fades softly under the buttons
+        scroll=ScrollView(a).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS;clipToPadding=false;setPadding(0,0,0,insets.bottom+a.d(24))
+            isVerticalFadingEdgeEnabled=true;setFadingEdgeLength(a.d(28))}
+        scroll.addView(page,ViewGroup.LayoutParams(-1,-2))
+        scroll.setOnScrollChangeListener{_,_,y,_,_->column?.viewport(y-roadHost.top,scroll.height)}
+        col.addView(scroll,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=a.d(4)})
         col.setPadding(insets.left,insets.top,insets.right,0)
         frame.addView(col,FrameLayout.LayoutParams(-1,-1))
         decor.addView(frame,FrameLayout.LayoutParams(-1,-1))
@@ -177,7 +181,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         progress.addView(GoalTrack(a,if(goal>0)list.size.toFloat()/goal else 1f,motion),LinearLayout.LayoutParams(0,a.d(6),1f).apply{marginStart=a.d(14)})
         val old=column;val nw=RoadColumn(a,list,goal,year,today,motion)
         roadHost.addView(nw,FrameLayout.LayoutParams(-1,-2));column=nw
-        scroll.scrollTo(0,0);nw.post{nw.viewport(0,scroll.height)}
+        scroll.scrollTo(0,0);nw.post{nw.viewport(scroll.scrollY-roadHost.top,scroll.height)}
         if(old!=null){if(animated&&motion){old.animate().alpha(0f).setDuration(180).withEndAction{roadHost.removeView(old)}.start()
             nw.alpha=0f;nw.animate().alpha(1f).setStartDelay(120).setDuration(380).setInterpolator(Ease.outCubic).start()} else roadHost.removeView(old)}
     }
@@ -284,7 +288,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
     private val revealed=HashSet<View>()
     init{setWillNotDraw(false);clipChildren=false
         books.forEachIndexed{i,b->val v=item(i,b);items.add(v);addView(v);if(motion){v.alpha=0f;v.translationY=d*18;v.translationX=if(i%2==0)d*28 else -d*28} else revealed.add(v)}
-        for(k in books.size+1..slots){val s=EmptySlot(a,k);slotViews.add(s);addView(s);if(motion){s.alpha=0f} else revealed.add(s)}
+        
         addView(startLabel)
         if(goal>0){finish.addView(a.text("Финиш — ${MainActivity.countBooks(goal)}",26f,a.fg,true,serif=true).apply{gravity=Gravity.CENTER})
             val pace=goalPace(year,today,books.size,goal);if(pace.isNotEmpty()){a.space(finish,6);finish.addView(a.text(pace,12.5f,a.muted).apply{gravity=Gravity.CENTER})}}
@@ -322,8 +326,9 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         // every book gets enough room so neighbours never touch, however long the title is
         val tallest=(items.maxOfOrNull{it.measuredHeight}?:a.d(144)).toFloat()
         step=max(d*230,tallest+d*64);first=max(d*150,tallest/2+d*86)
-        setMeasuredDimension(W,(top+first+max(0,slots-1)*step+d*230).toInt())}
-    private fun milestoneY(k:Int)=top+first+(k-1)*step
+        setMeasuredDimension(W,((if(slots>0)milestoneY(slots) else top)+d*230).toInt())}
+    /** Read books get room for their cover and details; the places still ahead come closer together. */
+    private fun milestoneY(k:Int):Float{val n=books.size;return if(k<=n||n==0)top+first+(k-1)*step else top+first+(n-1)*step+(k-n)*d*130}
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat()
         pts.clear();pts.add(PointF(W/2,top))
         // milestones sit under the middle of the covers, which stand at the screen edges
