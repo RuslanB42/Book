@@ -26,7 +26,9 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
     private val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
     /** The covers live in this layer; on Android 13+ the glass bends it live on the GPU (a RenderEffect). */
     private val lensHost=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
-    private val stageFull=(if(list.isEmpty())coverH*3/4 else coverH)+a.d(16)
+    // the shelf (its front, edge and shadow) lies inside the row's own bounds: drawn outside them it was cut off by
+    // the page, so only a thin line of it showed
+    private val stageFull=(if(list.isEmpty())coverH*3/4 else coverH)+a.d(16)+a.d(36)
     private var progress=0f
     private var anim:android.animation.ValueAnimator?=null
     private var field:EditText?=null
@@ -49,7 +51,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         scroller.setOnScrollChangeListener{_,_,_,_,_->glass.scrolled()}
         // The glass view is larger than the glass by its shadow; it never takes touches, so the row still scrolls.
         // the matte shelf lies behind the covers: its top surface starts under their lower part, so the books stand on it
-        stage.addView(glass,0,FrameLayout.LayoutParams(-1,glass.full,Gravity.BOTTOM).apply{bottomMargin=-(glass.full-glass.behind-a.d(10))})
+        stage.addView(glass,0,FrameLayout.LayoutParams(-1,glass.full,Gravity.BOTTOM))
         addView(stage,LayoutParams(-1,stageFull).apply{leftMargin=-a.d(20);rightMargin=-a.d(20)})
         apply(0f)
     }
@@ -61,13 +63,15 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         val sp=Spring.of(.1,460.0);anim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=sp.duration;startDelay=delay;interpolator=sp.interpolator;addUpdateListener{apply(it.animatedValue as Float)};start()}}
     private fun apply(e:Float){progress=e
         val lp=stage.layoutParams;lp.height=(stageFull*(1-e)).toInt();stage.layoutParams=lp
+        // while folding, the covers and the shelf are cut at the shrinking bottom instead of spilling over the next shelf
+        stage.clipBounds=if(e>0f)android.graphics.Rect(-a.d(40),-a.d(80),a.d(2000),lp.height) else null
         stage.alpha=(1-e*1.6f).coerceIn(0f,1f);stage.scaleY=1f-.08f*e;stage.pivotY=0f
         card.alpha=(e*255).toInt();val pad=(a.d(14)*e).toInt();head.setPadding(pad,(a.d(6)*e).toInt(),(a.d(4)*e).toInt(),(a.d(6)*e).toInt())
         tail.alpha=(1-e*2).coerceIn(0f,1f);tail.translationX=-a.d(10)*e
         handle.alpha=((e-.35f)/.65f).coerceIn(0f,1f);handle.translationX=a.d(14)*(1-e);handle.visibility=if(e>0f)View.VISIBLE else View.INVISIBLE
         pen.alpha=if(rename==null)0f else ((e-.4f)/.6f).coerceIn(0f,1f)*.8f
         head.elevation=a.d(if(a.light)3 else 4)*e
-        (layoutParams as? MarginLayoutParams)?.let{m->val idx=(parent as? ViewGroup)?.indexOfChild(this)?:0;val want=if(idx<=0)0 else (a.d(26)+(a.d(10)-a.d(26))*e).toInt();if(m.topMargin!=want){m.topMargin=want;layoutParams=m}}}
+        (layoutParams as? MarginLayoutParams)?.let{m->val idx=(parent as? ViewGroup)?.indexOfChild(this)?:0;val want=if(idx<=0)0 else (a.d(12)+(a.d(10)-a.d(12))*e).toInt();if(m.topMargin!=want){m.topMargin=want;layoutParams=m}}}
     /** Margins follow the new order after a drag. */
     fun settleMargin(){apply(progress)}
     // ── inline rename ──
@@ -134,12 +138,12 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         override fun onDraw(c:Canvas){val w=width.toFloat();val light=a.light
             val top=0f;val lip=(behind+front).toFloat();val bottom=lip+edge
             // top surface: darker at the back (in the books' shadow), lighter towards the front edge
-            p.shader=LinearGradient(0f,top,0f,lip,if(light)0xffd9d9d5.toInt() else 0xff1d1d20.toInt(),if(light)0xffe9e9e5.toInt() else 0xff35353a.toInt(),Shader.TileMode.CLAMP)
+            p.shader=LinearGradient(0f,top,0f,lip,if(light)0xffd6d6d2.toInt() else 0xff222226.toInt(),if(light)0xffeaeae6.toInt() else 0xff3c3c42.toInt(),Shader.TileMode.CLAMP)
             c.drawRect(0f,top,w,lip,p)
             // the front edge, a thin light line along its top
-            p.shader=LinearGradient(0f,lip,0f,bottom,if(light)0xffd0d0cc.toInt() else 0xff38383d.toInt(),if(light)0xffbdbdb9.toInt() else 0xff1c1c1f.toInt(),Shader.TileMode.CLAMP)
+            p.shader=LinearGradient(0f,lip,0f,bottom,if(light)0xffcdcdc9.toInt() else 0xff414147.toInt(),if(light)0xffb8b8b4.toInt() else 0xff222226.toInt(),Shader.TileMode.CLAMP)
             c.drawRect(0f,lip,w,bottom,p);p.shader=null
-            p.color=if(light)0x99ffffff.toInt() else 0x17ffffff;c.drawRect(0f,lip,w,lip+d,p)
+            p.color=if(light)0x99ffffff.toInt() else 0x24ffffff;c.drawRect(0f,lip,w,lip+d,p)
             // the shadow the shelf casts on the wall below
             p.shader=LinearGradient(0f,bottom,0f,bottom+shade,if(light)0x26000000 else 0x99000000.toInt(),0,Shader.TileMode.CLAMP);c.drawRect(0f,bottom,w,bottom+shade,p);p.shader=null}
     }
