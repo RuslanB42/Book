@@ -224,21 +224,28 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         if(goalYear !in years&&goalYear!=today.year+1)goalYear=today.year
         fun bind(){box.removeAllViews()
             val list=yearBooks(model,data,goalYear);val target=model.target(goalYear);val done=list.size
-            // head: the year switch, the count, the pace
-            val chips=a.line().apply{visibility=View.GONE}
-            val head=a.column()
-            val kick=a.line().apply{gravity=Gravity.CENTER_VERTICAL;isClickable=true;contentDescription="Выбрать год";setOnClickListener{chips.visibility=if(chips.visibility==View.VISIBLE)View.GONE else View.VISIBLE}}
-            kick.addView(kicker("Книги · $goalYear"));kick.addView(label(" ⌄",12f,if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt()))
-            head.addView(kick)
-            years.forEach{y->chips.addView(label("$y",12.5f,if(y==goalYear)(if(light)Color.WHITE else 0xff141416.toInt()) else a.muted).apply{setPadding(a.d(11),a.d(5),a.d(11),a.d(5))
-                background=GradientDrawable().apply{setColor(if(y==goalYear)a.fg else if(light)0x0d000000 else 0x14ffffff);cornerRadius=a.d(12).toFloat()}
-                isClickable=true;setOnClickListener{goalYear=y;a.statisticsGoalYear=y;bind()}},LinearLayout.LayoutParams(-2,-2).apply{marginEnd=a.d(6)})}
-            head.addView(chips,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(6)});space(head,6)
-            head.addView(if(target>0)big("$done из $target",44f,done,.38f,firstOnly=true) else big(MainActivity.countBooks(done),44f,done,.38f,firstOnly=true));space(head,4)
-            val left=target-done
-            head.addView(label(when{target<=0->if(goalYear>=today.year)"цель не задана · Настройки → «Чтение»" else "";left<=0->"цель достигнута"
-                goalYear==today.year->{val per=left.toDouble()/(13-today.monthValue);"ещё $left — "+(if(per<1)"меньше книги в месяц" else "примерно ${per.roundToInt()} в месяц")}
-                goalYear<today.year->"не хватило ${MainActivity.countBooks(left)}";else->"ещё $left"},12.5f))
+            // head: «ЦЕЛЬ НА 2026 ⌄» opens the year menu, the round button (or a tap on the card) opens the whole road
+            val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+            val chevron=Glyph(a,"down",if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt())
+            val yearBtn=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(6),a.d(9),a.d(6));isClickable=true;contentDescription="Цель на $goalYear, выбрать год"
+                background=GradientDrawable().apply{setColor(if(light)0x0d000000 else 0x12ffffff);cornerRadius=a.d(14).toFloat()}
+                addView(label(if(target>0||goalYear>=today.year)"ЦЕЛЬ НА $goalYear" else "КНИГИ · $goalYear",12.5f,a.fg,true).apply{letterSpacing=.03f})
+                addView(chevron,LinearLayout.LayoutParams(a.d(12),a.d(12)).apply{marginStart=a.d(6)});a.press(this)}
+            yearBtn.setOnClickListener{chevron.animate().rotation(180f).setDuration(260).start()
+                a.goalYearMenu(yearBtn,years,goalYear,motionOn,{y->yearBooks(model,data,y).size to model.target(y)},{chevron.animate().rotation(0f).setDuration(260).start()}){y->
+                    goalYear=y;a.statisticsGoalYear=y
+                    if(motionOn)box.animate().alpha(0f).translationY(a.d(6).toFloat()).setDuration(160).setInterpolator(Ease.inCubic).withEndAction{bind();box.translationY=-a.d(6).toFloat()
+                        box.animate().alpha(1f).translationY(0f).setDuration(380).setInterpolator(Ease.outCubic).start()}.start() else bind()}}
+            top.addView(yearBtn,LinearLayout.LayoutParams(-2,-2));top.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
+            val expand=FrameLayout(a).apply{isClickable=true;contentDescription="Открыть дорогу года";setOnClickListener{openRoad(box,years){bind()}}
+                background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(light)0x0d000000 else 0x12ffffff)}
+                addView(Glyph(a,"expand",a.fg),FrameLayout.LayoutParams(a.d(15),a.d(15),Gravity.CENTER));a.press(this)}
+            top.addView(expand,LinearLayout.LayoutParams(a.d(34),a.d(34)))
+            box.addView(top)
+            box.isClickable=true;box.setOnClickListener{openRoad(box,years){bind()}}
+            val head=a.column();space(head,10)
+            head.addView(if(target>0)big("$done из ${ofBooks(target)}",46f,done,.35f,firstOnly=true) else big(MainActivity.countBooks(done),46f,done,.35f,firstOnly=true));space(head,5)
+            head.addView(label(goalPace(goalYear,today,done,target),12.5f))
             box.addView(head)
             if(list.isEmpty()){space(box,14);box.addView(label("Пока ни одной книги за $goalYear — дочитанные появятся здесь, на дороге года.",13f));return}
             // under the road: one line for the chosen book — title, «N-я книга · start — end», and its star
@@ -284,6 +291,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                         if(dragging)cur?.translationX=dx*.5f;return true}
                     MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val dx=e.rawX-x0;val go=if(!dragging)0 else if(dx<-a.d(36))1 else if(dx>a.d(36))-1 else 0
                         val target=road.selected+go
+                        if(!dragging&&e.actionMasked==MotionEvent.ACTION_UP){box.performClick();return true}
                         if(go!=0&&target in list.indices){cur?.translationX=0f;road.select(target)}
                         else cur?.let{c->val sp=Spring.of(.4,360.0);c.animate().translationX(0f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
                         return true}}
@@ -292,6 +300,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             box.contentDescription="Книги за $goalYear: $done"+if(target>0)" из $target" else ""}
         bind();add(box)
     }
+    /** The whole road of the year, opened out of the card; switching the year there switches it on the card too. */
+    private var roadDialog:GoalRoadDialog?=null
+    private fun openRoad(box:View,years:List<Int>,rebind:()->Unit){if(roadDialog?.isShowing==true)return
+        roadDialog=GoalRoadDialog(a,model,data,goalYear,years,motionOn,{if(box.isAttachedToWindow){val l=IntArray(2);box.getLocationOnScreen(l);Rect(l[0],l[1],l[0]+box.width,l[1]+box.height)} else null}){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.also{it.show()}}
     @Suppress("UNCHECKED_CAST")
     private fun toggleRate(rateRow:LinearLayout,road:YearRoad){if(rateRow.visibility==View.VISIBLE){closeRate(rateRow);return}
         rateRow.removeAllViews();val pick=rateRow.tag as? (Int)->Unit

@@ -40,7 +40,6 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     private val d=a.d(1).toFloat()
     private val coverFrom=if(slots>16)max(0,books.size-6) else 0
     private val covers=books.mapIndexed{i,b->if(i<coverFrom)null else CoverView(a,b.book,a.cover(b.book)).apply{softShadow=true}}
-    private val frame=android.graphics.drawable.GradientDrawable().apply{setColor(0);setStroke(a.d(2),0xffffffff.toInt());cornerRadius=d*3}
     private var walk=if(motion)0f else 1f;private var pulse=0f;private var clock:ValueAnimator?=null
     private val pos=FloatArray(2)
     init{setWillNotDraw(false);clipChildren=false;clipToPadding=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -51,8 +50,8 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     override fun onAttachedToWindow(){super.onAttachedToWindow()
         if(walk<1f){ValueAnimator.ofFloat(0f,1f).apply{duration=1100;interpolator=Ease.outCubic;addUpdateListener{walk=it.animatedValue as Float;invalidate()};start()}
             covers.forEachIndexed{i,c->c?:return@forEachIndexed;c.alpha=0f;c.translationY=d*14;c.scaleX=.6f;c.scaleY=.6f;val sp=Spring.of(.3,520.0)
-                val lift=if(i==selected)-d*8 else 0f;val k=if(i==selected)1.16f else 1f
-                c.animate().alpha(1f).translationY(lift).scaleX(k).scaleY(k).setStartDelay(250L+(i-coverFrom)*80L).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}
+                val lift=if(i==selected)-d*10 else 0f;val k=if(i==selected)SEL else 1f
+                c.animate().setUpdateListener{invalidate()}.alpha(1f).translationY(lift).scaleX(k).scaleY(k).setStartDelay(250L+(i-coverFrom)*80L).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}
         if(motion&&books.size<slots)clock=ValueAnimator.ofFloat(0f,1f).apply{duration=1600;repeatCount=ValueAnimator.INFINITE;interpolator=Ease.outQuad;addUpdateListener{pulse=it.animatedValue as Float;invalidate()};start()}}
     override fun onDetachedFromWindow(){clock?.cancel();clock=null;super.onDetachedFromWindow()}
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat();val H=h.toFloat()
@@ -66,13 +65,13 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){if(length<=0f)return
         covers.forEachIndexed{i,c->c?:return@forEachIndexed;val q=at(slot(i));val w=d*21;val h=d*31
             c.layout((q[0]-w/2).roundToInt(),(q[1]-d*9-h).roundToInt(),(q[0]+w/2).roundToInt(),(q[1]-d*9).roundToInt());c.pivotX=c.width/2f;c.pivotY=c.height.toFloat()
-            c.foreground=if(i==selected)frame else null;c.translationZ=if(i==selected)d*6 else d*2
-            if(walk>=1f||!motion){val lift=if(i==selected)-d*8 else 0f;val k=if(i==selected)1.16f else 1f;c.translationY=lift;c.scaleX=k;c.scaleY=k}}}
-    /** Show book [i]: its cover springs up with a white frame, the previous one settles back. */
+            c.translationZ=if(i==selected)d*6 else d*2
+            if(walk>=1f||!motion){val lift=if(i==selected)-d*10 else 0f;val k=if(i==selected)SEL else 1f;c.translationY=lift;c.scaleX=k;c.scaleY=k}}}
+    /** Show book [i]: its cover springs up, grows and lights up softly (no frame); the previous one settles back. */
     fun select(i:Int){if(i !in books.indices||i==selected)return;val dir=if(i>selected)1 else -1;val old=selected;selected=i
-        listOf(old,i).forEach{k->val c=covers[k]?:return@forEach;c.foreground=if(k==i)frame else null;c.translationZ=if(k==i)d*6 else d*2
-            val lift=if(k==i)-d*8 else 0f;val s=if(k==i)1.16f else 1f
-            if(motion){val sp=Spring.of(.35,450.0);c.animate().translationY(lift).scaleX(s).scaleY(s).setStartDelay(0).setDuration(sp.duration).setInterpolator(sp.interpolator).start()} else {c.translationY=lift;c.scaleX=s;c.scaleY=s}}
+        listOf(old,i).forEach{k->val c=covers[k]?:return@forEach;c.translationZ=if(k==i)d*6 else d*2
+            val lift=if(k==i)-d*10 else 0f;val s=if(k==i)SEL else 1f
+            if(motion){val sp=Spring.of(.35,450.0);c.animate().setUpdateListener{invalidate()}.translationY(lift).scaleX(s).scaleY(s).setStartDelay(0).setDuration(sp.duration).setInterpolator(sp.interpolator).start()} else {c.translationY=lift;c.scaleX=s;c.scaleY=s}}
         invalidate();onPick(i,dir)}
     // earlier books shown as milestones (very large goals) are picked by a tap near them
     override fun onTouchEvent(e:MotionEvent):Boolean{if(coverFrom==0)return false
@@ -106,7 +105,17 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
         p.style=Paint.Style.STROKE;p.strokeWidth=d*3;p.color=green;c.drawCircle(s0[0],s0[1],d*5.5f,p);p.style=Paint.Style.FILL
         val e=at(1f);p.color=a.fg;c.drawRect(e[0]-d,e[1]-d*30,e[0]+d,e[1],p)
         c.drawPath(Path().apply{moveTo(e[0]+d,e[1]-d*30);lineTo(e[0]+d*18,e[1]-d*25);lineTo(e[0]+d,e[1]-d*19);close()},p)
-        if(goal>0){tp.textSize=11*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(600);tp.color=a.fg;c.drawText("$goal",e[0]+d*21,e[1]-d*20,tp)}}
+        if(goal>0){tp.textSize=11*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(600);tp.color=a.fg;c.drawText("$goal",e[0]+d*21,e[1]-d*20,tp)}
+        // a soft green light behind the chosen cover; it grows and fades with the cover's own lift
+        covers.forEach{cv->cv?:return@forEach;val k=((cv.scaleX-1f)/(SEL-1f)).coerceIn(0f,1f);if(k<=.01f||cv.width==0)return@forEach
+            val g=haloFor(cv.width,cv.height)?:return@forEach;val w=cv.width*cv.scaleX;val h=cv.height*cv.scaleY
+            val l=cv.left+cv.pivotX*(1-cv.scaleX);val t=cv.top+cv.translationY+cv.pivotY*(1-cv.scaleY);val pad=haloPad*cv.scaleX
+            haloPaint.alpha=(k*(if(a.light)150 else 235)).toInt();c.drawBitmap(g,null,RectF(l-pad,t-pad,l+w+pad,t+h+pad),haloPaint)}}
+    private val haloPad=d*14;private var halo:Bitmap?=null;private val haloPaint=Paint(Paint.FILTER_BITMAP_FLAG)
+    private fun haloFor(w:Int,h:Int):Bitmap?{halo?.let{return it}
+        return try{val pad=haloPad.toInt();val b=Bitmap.createBitmap(w+pad*2,h+pad*2,Bitmap.Config.ARGB_8888)
+            Canvas(b).drawRoundRect(pad.toFloat(),pad.toFloat(),(pad+w).toFloat(),(pad+h).toFloat(),d*3,d*3,Paint(Paint.ANTI_ALIAS_FLAG).apply{color=if(a.light)0xff2fd38a.toInt() else 0xff9df5c8.toInt()})
+            val out=ShelfFrost.blur(b,d*5);b.recycle();halo=out;out}catch(e:Exception){null}}
     // soft glow under the walked part: drawn thick at a third of the size and blurred once
     private var glowBmp:Bitmap?=null;private var glowKey=-1f
     private val glowPaint=Paint(Paint.FILTER_BITMAP_FLAG).apply{alpha=0x8c}
@@ -115,7 +124,7 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
             cv.drawPath(part,Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeWidth=d*9;color=0xff2fd38a.toInt()})
             val blurred=ShelfFrost.blur(small,d*3.2f/k);small.recycle()
             val full=Bitmap.createScaledBitmap(blurred,width,height,true);blurred.recycle();glowBmp=full;glowKey=key;full}catch(e:Exception){null}}
-    companion object{val MONTHS_SHORT=listOf("янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек")}
+    companion object{const val SEL=1.28f;val MONTHS_SHORT=listOf("янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек")}
 }
 
 /** An empty, dashed star: the book has no rating yet. */
