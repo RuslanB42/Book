@@ -303,7 +303,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** The whole road of the year, opened out of the card; switching the year there switches it on the card too. */
     private var roadDialog:GoalRoadDialog?=null
     private fun openRoad(box:View,years:List<Int>,rebind:()->Unit){if(roadDialog?.isShowing==true)return
-        roadDialog=GoalRoadDialog(a,model,data,goalYear,years,motionOn,{if(box.isAttachedToWindow){val l=IntArray(2);box.getLocationOnScreen(l);Rect(l[0],l[1],l[0]+box.width,l[1]+box.height)} else null}){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.also{it.show()}}
+        roadDialog=GoalRoadDialog(a,model,data,goalYear,years,motionOn,{box}){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.also{it.show()}}
     @Suppress("UNCHECKED_CAST")
     private fun toggleRate(rateRow:LinearLayout,road:YearRoad){if(rateRow.visibility==View.VISIBLE){closeRate(rateRow);return}
         rateRow.removeAllViews();val pick=rateRow.tag as? (Int)->Unit
