@@ -159,8 +159,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         space(box,20)
         val minutes=(model.ms(today)/60000L).toInt();val left=ceil(max(0L,model.dailyGoal*60000L-model.ms(today))/60000.0).toInt()
         val row=a.line();row.addView(label("Сегодня",13f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13f,a.fg,true));box.addView(row);space(box,8)
-        box.addView(ProgressRail(a,animate,todayFraction,amber,coral,"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)));space(box,8)
-        box.addView(label(when{met->"на сегодня огонёк горит — серия продолжается";n>0->"ещё $left ${minutesAcc(left)} — и огонёк загорится на ${n+1}-й день";else->"ещё $left ${minutesAcc(left)} — и огонёк загорится"},12.5f))
+        box.addView(ProgressRail(a,animate,todayFraction,amber,coral,"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)))
         val month=StreakMonth(a,model,today,motionOn)
         box.addView(month,LinearLayout.LayoutParams(-1,-2))
         box.contentDescription="Серия чтения: $n ${daysWord(n)}, рекорд $best"

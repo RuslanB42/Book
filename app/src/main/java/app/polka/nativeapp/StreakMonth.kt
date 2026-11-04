@@ -71,7 +71,7 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
                 for(col in 0 until 7){val d=dayAt(row,col)?:continue;val cx=col*cw+cw/2
                     val met=model.met(d);val future=d.isAfter(today)
                     if(met){val k=phase.coerceIn(0f,1f)
-                        if(!a.light){p.shader=RadialGradient(cx,cy,r*1.7f,intArrayOf(0x4dff6e28,0x00ff6e28),null,Shader.TileMode.CLAMP);p.color=Color.WHITE;c.drawCircle(cx,cy,r*1.7f*k,p)}
+                        if(!a.light){p.shader=RadialGradient(cx,cy,r*1.45f,intArrayOf(0x24ff6e28,0x00ff6e28),null,Shader.TileMode.CLAMP);p.color=Color.WHITE;c.drawCircle(cx,cy,r*1.45f*k,p)}
                         p.color=Color.WHITE;p.shader=LinearGradient(cx-r,cy-r,cx+r*.4f,cy+r,0xffffb522.toInt(),0xffff5a1e.toInt(),Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r*k,p);p.shader=null}
                     else if(!future&&model.ms(d)>0){p.shader=null;p.color=quiet;c.drawCircle(cx,cy,r,p)}
                     if(d==today&&!met){p.shader=null;p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=0xffffb522.toInt();c.drawCircle(cx,cy,r-a.d(1),p);p.style=Paint.Style.FILL}

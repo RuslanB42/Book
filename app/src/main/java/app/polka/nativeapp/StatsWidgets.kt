@@ -49,7 +49,7 @@ internal class WeekFlames(private val a:MainActivity,private val names:List<Stri
             // the days light up one after another
             val t=((k*(n+2))-i).coerceIn(0f,1f);val pop=if(t<1f)Ease.outBack(1.8f).getInterpolation(t) else 1f
             if(kept[i]){c.save();c.scale(pop,pop,cx,cy);p.color=Color.WHITE
-                p.shader=RadialGradient(cx,cy,r*1.7f,intArrayOf(0x55ff6e28,0x00ff6e28),null,Shader.TileMode.CLAMP);if(!a.light)c.drawCircle(cx,cy,r*1.7f,p)
+                p.shader=RadialGradient(cx,cy,r*1.45f,intArrayOf(0x2eff6e28,0x00ff6e28),null,Shader.TileMode.CLAMP);if(!a.light)c.drawCircle(cx,cy,r*1.45f,p)
                 p.shader=LinearGradient(cx-r,cy-r,cx+r*.4f,cy+r,0xffffb522.toInt(),0xffff5a1e.toInt(),Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r,p);p.shader=null
                 val s=r*1.0f/150f*1.05f;c.save();c.translate(cx-60*s,cy-80*s);c.scale(s,s);p.color=Color.WHITE;c.drawPath(FlameGlyph.path,p);c.restore()
                 c.restore()}
@@ -90,7 +90,15 @@ internal class ReadingLine(private val a:MainActivity,private val values:List<Do
         line.moveTo(pts[0].x,pts[0].y)
         for(i in 1 until pts.size){val p0=pts[i-1];val p1=pts[i];val mx=(p0.x+p1.x)/2;line.cubicTo(mx,p0.y,mx,p1.y,p1.x,p1.y)}
         area.set(line);area.lineTo(pts.last().x,bottom+a.d(2));area.lineTo(pts[0].x,bottom+a.d(2));area.close()}
-    override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){build()}
+    override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){build();glowBitmap=null}
+    private var glowBitmap:Bitmap?=null
+    private val glowPaint=Paint(Paint.FILTER_BITMAP_FLAG).apply{alpha=0xc0}
+    /** The line, drawn thick at a third of the size and gaussian-blurred once: a soft halo that fades smoothly. */
+    private fun glow():Bitmap?{glowBitmap?.let{return it};if(width<3||height<3||pts.isEmpty())return null
+        return try{val k=3;val small=Bitmap.createBitmap(width/k,height/k,Bitmap.Config.ARGB_8888);val c=Canvas(small);c.scale(1f/k,1f/k)
+            val gp=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND;strokeWidth=a.d(6).toFloat()
+                shader=LinearGradient(0f,0f,width.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP)}
+            c.drawPath(line,gp);val out=ShelfFrost.blur(small,a.d(9).toFloat()/k/2.2f);small.recycle();glowBitmap=out;out}catch(e:Exception){null}}
     // ── details on long press (same behaviour as the chart it replaces) ──
     private var tipIndex=-1;private var tipShow=0f;private var tipX=0f
     private var showAnim:ValueAnimator?=null;private var moveAnim:ValueAnimator?=null
@@ -129,7 +137,7 @@ internal class ReadingLine(private val a:MainActivity,private val values:List<Do
         p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,top,0f,bottom,(c2 and 0xffffff) or ((if(a.light)0x30 else 0x47) shl 24),c2 and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(area,p)
         p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND
         val grad=LinearGradient(0f,0f,width.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP)
-        if(!a.light){p.shader=grad;p.alpha=0x24;p.strokeWidth=12*d;c.drawPath(line,p);p.alpha=0x40;p.strokeWidth=7*d;c.drawPath(line,p)}
+        if(!a.light)glow()?.let{g->p.shader=null;p.alpha=255;p.style=Paint.Style.FILL;c.drawBitmap(g,null,RectF(0f,0f,width.toFloat(),height.toFloat()),glowPaint);p.style=Paint.Style.STROKE}
         p.shader=grad;p.alpha=255;p.strokeWidth=3*d;c.drawPath(line,p);p.shader=null;p.style=Paint.Style.FILL
         c.restore()
         // day labels; the open one sits in a light pill
@@ -242,7 +250,7 @@ internal class StreakFlameView(private val a:MainActivity,private val active:Boo
             p.shader=lin(42f,145f,intArrayOf(0xffc5c5cb.toInt(),0xffb1b1b9.toInt(),0xffdedee2.toInt()),floatArrayOf(0f,.6f,1f));c.drawPath(paths[1],p)
             p.shader=lin(89f,145f,intArrayOf(0xffe2e2e7.toInt(),0xfff5f5f7.toInt()),floatArrayOf(0f,1f));c.drawPath(paths[2],p);p.shader=null;c.restore();return}
         // halo
-        p.shader=RadialGradient(60f,100f,80f,intArrayOf(0x73ff6e1e,0x24ff5a1e,0x00ff5a1e),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP);c.drawCircle(60f,100f,80f,p)
+        p.shader=RadialGradient(60f,98f,62f,intArrayOf(0x66ff6e1e,0x1fff5a1e,0x00ff5a1e),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP);c.drawCircle(60f,98f,62f,p)
         // outer flame
         p.shader=lin(3f,145f,intArrayOf(0xffe8231c.toInt(),0xffff3d1a.toInt(),0xffff6312.toInt(),0xffff8a10.toInt(),0xffffb21e.toInt()),floatArrayOf(0f,.22f,.45f,.7f,1f));c.drawPath(paths[0],p)
         c.save();c.clipPath(paths[0])
