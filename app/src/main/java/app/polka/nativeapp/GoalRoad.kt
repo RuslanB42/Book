@@ -280,6 +280,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
     private val finish=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
     private var reach=0f;private var intro=if(motion)0f else 1f
     private var glow:Bitmap?=null;private var glowAlpha=0f;private var glowGen=0
+    private val part=Path();private val walkMeasure=PathMeasure();private var walkLen=0f;private val glowPaint=Paint(Paint.FILTER_BITMAP_FLAG)
     private val revealed=HashSet<View>()
     init{setWillNotDraw(false);clipChildren=false
         books.forEachIndexed{i,b->val v=item(i,b);items.add(v);addView(v);if(motion){v.alpha=0f;v.translationY=d*18;v.translationX=if(i%2==0)d*28 else -d*28} else revealed.add(v)}
@@ -289,7 +290,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
             val pace=goalPace(year,today,books.size,goal);if(pace.isNotEmpty()){a.space(finish,6);finish.addView(a.text(pace,12.5f,a.muted).apply{gravity=Gravity.CENTER})}}
         else if(books.isEmpty())finish.addView(a.text("Пока ни одной книги за $year — дочитанные появятся здесь.",13f,a.muted).apply{gravity=Gravity.CENTER})
         addView(finish)
-        if(motion)ValueAnimator.ofFloat(0f,1f).apply{startDelay=240;duration=1100;interpolator=PathInterpolator(.45f,0f,.15f,1f);addUpdateListener{intro=it.animatedValue as Float;invalidate()};start()}}
+        if(motion)ValueAnimator.ofFloat(0f,1f).apply{startDelay=320;duration=900L+min(books.size,8)*140L;interpolator=PathInterpolator(.45f,0f,.2f,1f);addUpdateListener{intro=it.animatedValue as Float;invalidate()};start()}}
     /** One book: the cover stands on its milestone at the edge, the details sit beside it towards the middle. */
     private fun item(i:Int,yb:YearBook):View{val right=i%2==0
         val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
@@ -334,6 +335,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
             road.cubicTo(a0.x,a0.y+bend,b.x,b.y-bend,b.x,b.y);pm.setPath(seg,false);total+=pm.length;lens[k]=total}
         walked.reset();pm.setPath(road,false);val n=min(books.size,slots);if(n>0)pm.getSegment(0f,lens[n],walked,true)
         walkedEnd=if(n>0)pts[n].y else top
+        walkMeasure.setPath(walked,false);walkLen=walkMeasure.length
         // the soft glow under the walked road is blurred off the main thread and fades in when ready
         glow?.recycle();glow=null;glowAlpha=0f;val gen=++glowGen
         if(!a.light&&n>0){val path=Path(walked);var out:Bitmap?=null
@@ -361,10 +363,11 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         p.color=if(a.light)0x0d000000 else 0x0fffffff;p.strokeWidth=d*26;c.drawPath(road,p)
         p.strokeCap=Paint.Cap.BUTT;p.strokeWidth=d*1.6f;p.color=if(a.light)0x38000000 else 0x38ffffff;p.pathEffect=DashPathEffect(floatArrayOf(d*6,d*9),0f);c.drawPath(road,p);p.pathEffect=null
         // the walked part, revealed down to where the reader has scrolled (the road only ever goes down)
-        val shown=top+(max(reach,top+d*60)-top)*intro
-        if(!walked.isEmpty){c.save();c.clipRect(0f,0f,W,min(shown,walkedEnd+d*20))
-            glow?.let{g->c.drawBitmap(g,null,RectF(0f,0f,W,height.toFloat()),Paint(Paint.FILTER_BITMAP_FLAG).apply{alpha=(0x99*glowAlpha).toInt()})}
-            p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*7;p.color=Color.WHITE;p.shader=LinearGradient(0f,top,0f,walkedEnd,green,green2,Shader.TileMode.CLAMP);c.drawPath(walked,p);p.shader=null;c.restore()}
+        // the walked part draws itself along its length once (a round head, no hard edges); then its glow fades in
+        if(!walked.isEmpty){if(intro>=1f)part.set(walked) else{part.reset();walkMeasure.getSegment(0f,walkLen*intro,part,true)}
+            val ga=glowAlpha*((intro-.8f)/.2f).coerceIn(0f,1f)
+            if(ga>0f)glow?.let{g->glowPaint.alpha=(0x99*ga).toInt();c.drawBitmap(g,null,RectF(0f,0f,W,height.toFloat()),glowPaint)}
+            p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*7;p.color=Color.WHITE;p.shader=LinearGradient(0f,top,0f,walkedEnd,green,green2,Shader.TileMode.CLAMP);c.drawPath(part,p);p.shader=null}
         p.style=Paint.Style.FILL
         for(k in 1..slots){val q=pts[k];val done=k<=books.size;p.color=if(done)(if(a.light)green else Color.WHITE) else if(a.light)0x40000000 else 0x4dffffff;c.drawCircle(q.x,q.y,d*(if(done)5f else 3.5f),p)}
         val s=pts[0];p.color=a.bg;c.drawCircle(s.x,s.y,d*9,p);p.style=Paint.Style.STROKE;p.strokeWidth=d*4;p.color=green;c.drawCircle(s.x,s.y,d*9,p);p.style=Paint.Style.FILL
