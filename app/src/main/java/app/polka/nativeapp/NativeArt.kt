@@ -50,7 +50,7 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
     /** True while the cover's picture is still on its way (the view shows a blank cover). */
     internal var waiting=false;private set
     private val blankPaint=Paint(Paint.ANTI_ALIAS_FLAG)
-    private fun blank(c:Canvas,b:RectF){val dark=(context as? MainActivity)?.light==false;blankPaint.color=if(dark)0xff2a2a2d.toInt() else 0xffe6e4df.toInt();val r=BookCoverVolume.radius(b.width());c.drawRoundRect(b,r,r,blankPaint)}
+    private fun blank(c:Canvas,b:RectF){val dark=(context as? MainActivity)?.light==false;blankPaint.color=if(dark)0xff2a2a2d.toInt() else 0xffe6e4df.toInt();val path=Path();BookCoverVolume.outline(path,b);c.drawPath(path,blankPaint)}
     private fun currentArtwork():Bitmap? {
         val ref=book.optJSONObject("cover")
         full?.let{f->if(!f.isRecycled)return f}
@@ -68,7 +68,7 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
     internal fun glowArtwork():Bitmap = Bitmap.createBitmap(96,144,Bitmap.Config.ARGB_8888).also{drawCover(Canvas(it),RectF(0f,0f,96f,144f),book,currentArtwork())}
     fun drawCover(canvas: Canvas, bounds: RectF, b: JSONObject, bitmap: Bitmap? = null, shelf:Boolean=false) {
         val r=BookCoverVolume.boards(canvas,bounds,BookCoverVolume.binding(bitmap,colors(b).first))
-        canvas.save(); val path = Path().apply { BookCoverVolume.radius(r.width()).let{rr->addRoundRect(r,rr,rr,Path.Direction.CW)} }; canvas.clipPath(path)
+        canvas.save(); val path = Path().apply { BookCoverVolume.outline(this,r) }; canvas.clipPath(path)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         if (bitmap != null) {
             val scale = maxOf(r.width() / bitmap.width, r.height() / bitmap.height); val w = bitmap.width * scale; val h = bitmap.height * scale
