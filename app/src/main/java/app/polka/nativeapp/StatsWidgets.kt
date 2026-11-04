@@ -67,7 +67,7 @@ internal class WeekFlames(private val a:MainActivity,private val names:List<Stri
     private var k=if(motion)0f else 1f
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     override fun onMeasure(w:Int,h:Int){setMeasuredDimension(MeasureSpec.getSize(w),a.d(62))}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=180;interpolator=Ease.outCubic;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=StatsEntrance.wait()+60;interpolator=Ease.outCubic;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
     override fun onDraw(c:Canvas){val d=a.d(1).toFloat();val n=names.size;if(n==0)return
         val r=min(18*d,width/n/2f-3*d);val slot=width/n.toFloat();val cy=r+2*d
         for(i in 0 until n){val cx=slot*i+slot/2;val today=i==n-1
@@ -151,7 +151,7 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
     private var draw=if(motion)0f else 1f
     private val line=Path();private val area=Path();private val pts=ArrayList<PointF>()
     init{contentDescription=tips.lastOrNull().orEmpty();isClickable=true}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(draw<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=520;interpolator=android.view.animation.PathInterpolator(.3f,0f,.2f,1f);addUpdateListener{draw=it.animatedValue as Float;invalidate()};start()}}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(draw<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=StatsEntrance.wait()+160;interpolator=android.view.animation.PathInterpolator(.3f,0f,.2f,1f);addUpdateListener{draw=it.animatedValue as Float;invalidate()};start()}}
     private val top get()=a.d(40).toFloat();private val bottom get()=height-a.d(26).toFloat()
     private fun xOf(i:Int)=a.d(10)+(width-a.d(20))*(if(values.size<=1).5f else i/(values.size-1f))
     private fun build(){pts.clear();line.reset();area.reset();if(values.isEmpty())return
@@ -248,7 +248,7 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
 internal class SpeedBar(private val a:MainActivity,private val fraction:Float?,private val average:Float,private val motion:Boolean):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var k=if(motion)0f else 1f
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f){val sp=Spring.of(.22,720.0);ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=340;interpolator=sp.interpolator;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f){val sp=Spring.of(.22,720.0);ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=StatsEntrance.wait()+80;interpolator=sp.interpolator;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}}
     override fun onDraw(c:Canvas){val d=a.d(1).toFloat();val cy=height/2f;val h=8*d;val pad=9*d
         p.shader=LinearGradient(pad,0f,width-pad,0f,intArrayOf(0xff2f3f6e.toInt(),0xff4a72c9.toInt(),0xff8ab8ff.toInt()),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
         c.drawRoundRect(pad,cy-h/2,width-pad,cy+h/2,h/2,h/2,p);p.shader=null
@@ -362,9 +362,17 @@ internal class CountNumber(private val a:MainActivity,private val n:Int,private 
     init{contentDescription="$n$unit";importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES}
     override fun onMeasure(w:Int,h:Int){val fm=pn.fontMetrics;setMeasuredDimension(ceil(pn.measureText("$n")+pu.measureText(unit)).toInt()+a.d(2),ceil(fm.descent-fm.ascent).toInt())}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(started||shown>=n)return;started=true
-        ValueAnimator.ofInt(0,n).apply{startDelay=delay;duration=720;interpolator=android.view.animation.PathInterpolator(.3f,.3f,.6f,.8f)
+        ValueAnimator.ofInt(0,n).apply{startDelay=StatsEntrance.wait()+delay;duration=720;interpolator=android.view.animation.PathInterpolator(.3f,.3f,.6f,.8f)
             addUpdateListener{val v=it.animatedValue as Int;if(v!=shown){shown=v;invalidate()}};start()}}
     override fun onDraw(c:Canvas){val base=-pn.fontMetrics.ascent;val s="$shown";val full=pn.measureText("$n")
         // the number grows towards the words (right-aligned in the final number's width), the words never move
         c.drawText(s,full-pn.measureText(s),base,pn);c.drawText(unit,full,base,pu)}
+}
+
+/** The statistics entrance: the cards first glide in with everything at rest; only once they have settled do the
+ *  numbers count, the line draw, the flames light and the road fill. Views ask how long is left until then. */
+internal object StatsEntrance{
+    var settleAt=0L
+    /** Milliseconds until the cards have settled (0 outside the entrance). */
+    fun wait():Long=max(0L,settleAt-android.os.SystemClock.uptimeMillis())
 }

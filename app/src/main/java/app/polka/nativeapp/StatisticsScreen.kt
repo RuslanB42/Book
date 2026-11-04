@@ -129,7 +129,9 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             if(k<builders.size){builders[k]();scroll.post{build(k+1)};return}
             // 3. All cards join the page together, invisible, are laid out and drawn once — then they rise.
             deferred=false
-            pending.forEach{v->v.alpha=0f;v.translationY=a.d(44).toFloat();v.scaleX=.96f;v.scaleY=.96f;v.pivotY=0f
+            // the shadows stay off while the cards move (a moving, growing shadow is recomputed on every frame)
+            StatsEntrance.settleAt=android.os.SystemClock.uptimeMillis()+40+(pending.size-1)*90L+760
+            pending.forEach{v->v.alpha=0f;v.translationY=a.d(44).toFloat();v.scaleX=.96f;v.scaleY=.96f;v.pivotY=0f;shadow[v]=v.elevation;v.elevation=0f
                 content.addView(v,LinearLayout.LayoutParams(-1,-2));space(content,12)}
             pending.clear()
             val ch=android.view.Choreographer.getInstance()
@@ -137,6 +139,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         scroll.postDelayed({build(0)},280)
     }
     private var deferred=false
+    private val shadow=HashMap<View,Float>()
     private val pending=mutableListOf<View>()
     /** One wave from top to bottom: each card glides up and settles with a long, soft deceleration. */
     private fun reveal(){val ease=PathInterpolator(.05f,.7f,.1f,1f)
@@ -145,11 +148,14 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         entrance.forEachIndexed{i,v->v.pivotX=v.width/2f;val y0=v.translationY;val s0=v.scaleX
             ValueAnimator.ofFloat(0f,1f).apply{startDelay=i*90L;duration=760;interpolator=android.view.animation.LinearInterpolator()
                 addUpdateListener{val t=it.animatedValue as Float;val e=ease.getInterpolation(t)
-                    v.alpha=(t/.32f).coerceIn(0f,1f);v.translationY=y0*(1-e);val sc=s0+(1-s0)*e;v.scaleX=sc;v.scaleY=sc};start()}}}
+                    v.alpha=(t/.32f).coerceIn(0f,1f);v.translationY=y0*(1-e);val sc=s0+(1-s0)*e;v.scaleX=sc;v.scaleY=sc}
+                // settled: its shadow fades back in
+                addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){val el=shadow[v]?:return
+                    ValueAnimator.ofFloat(0f,el).apply{duration=420;addUpdateListener{v.elevation=it.animatedValue as Float};start()}}});start()}}}
     // ───────────────────────── glass cards ─────────────────────────
     /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
     /** A count starts while its own card rises, not before (cards rise one after another). */
-    private val countDelay get()=300L+entrance.size*90L
+    private val countDelay get()=entrance.size*90L
     /** A counting numeral drawn straight onto the canvas: no text layout is rebuilt while it counts, so the count costs
      *  nothing but a redraw. The words after it are set smaller and grey, like [big]. */
     private fun bigCount(n:Int,unit:String,size:Float,unitScale:Float):View=CountNumber(a,n,unit,size,unitScale,captionInk,countDelay,motionOn)
