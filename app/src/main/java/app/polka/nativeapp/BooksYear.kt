@@ -39,12 +39,27 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG)
     private val road=Path();private val pm=PathMeasure();private var length=0f
     private val d=a.d(1).toFloat()
-    private val coverFrom=if(slots>16)max(0,books.size-6) else 0
+    /** A big goal (over 20 books): no point per book — a few labelled marks, and the books read so far stand as one
+     *  small stack where you are (the chosen book on top); tap the stack or swipe the line to go through them. */
+    private val big=slots>20
+    private val coverFrom=if(!big&&slots>16)max(0,books.size-6) else 0
     private val covers=books.mapIndexed{i,b->if(i<coverFrom)null else MiniCover(a,b.book)}
+    private val badge=if(big&&books.size>1)a.text("${books.size}",11f,if(a.light)Color.WHITE else 0xff141416.toInt(),true).apply{gravity=Gravity.CENTER;minWidth=a.d(20)
+        setPadding(a.d(6),a.d(2),a.d(6),a.d(2));background=android.graphics.drawable.GradientDrawable().apply{setColor(a.fg);cornerRadius=a.d(10).toFloat()};elevation=a.d(8).toFloat()} else null
+    private val tickStep=listOf(5,10,20,25,50,100,200,250,500,1000,2000,5000).firstOrNull{slots/it in 2..5}?:max(1,slots/4)
+    /** The stack, top first: the chosen book, then the ones read before it. */
+    private fun stack():List<Int>{val order=(selected downTo 0)+(selected+1..books.lastIndex);return order.take(3)}
+    private fun place(i:Int,c:View,animate:Boolean){val depth=stack().indexOf(i);val dd=if(depth<0)2 else depth
+        val tx=floatArrayOf(0f,-d*12,-d*22)[dd];val ty=floatArrayOf(-d*8,d*2,d*8)[dd];val sc=floatArrayOf(SEL,BASE*.95f,BASE*.88f)[dd];val rot=floatArrayOf(0f,-7f,-13f)[dd]
+        val al=if(depth<0)0f else if(dd==2).9f else 1f;c.translationZ=floatArrayOf(d*6,d*4,d*2)[dd];c.isClickable=depth>=0
+        if(animate&&motion)c.animate().setUpdateListener{invalidate()}.translationX(tx).translationY(ty).scaleX(sc).scaleY(sc).rotation(rot).alpha(al).setStartDelay(0).setDuration(480).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()
+        else{c.translationX=tx;c.translationY=ty;c.scaleX=sc;c.scaleY=sc;c.rotation=rot;c.alpha=al}}
     private var walk=1f;private var pulse=0f;private var clock:ValueAnimator?=null
     private val pos=FloatArray(2)
     init{setWillNotDraw(false);clipChildren=false;clipToPadding=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
-        covers.forEachIndexed{i,c->c?:return@forEachIndexed;addView(c,LayoutParams(a.d(40),a.d(60)));c.isClickable=true;c.contentDescription="${i+1}-я книга: ${books[i].book.str("title")}";c.setOnClickListener{select(i)}}}
+        covers.forEachIndexed{i,c->c?:return@forEachIndexed;addView(c,LayoutParams(a.d(40),a.d(60)));c.isClickable=true;c.contentDescription="${i+1}-я книга: ${books[i].book.str("title")}"
+            c.setOnClickListener{if(big)select(if(selected>0)selected-1 else books.lastIndex) else select(i)}}
+        badge?.let{addView(it,LayoutParams(-2,-2))}}
     override fun onMeasure(w:Int,h:Int){super.onMeasure(w,MeasureSpec.makeMeasureSpec(a.d(232),MeasureSpec.EXACTLY))}
     private fun slot(i:Int)=(i+1f)/slots
     private fun at(f:Float):FloatArray{pm.getPosTan(length*f.coerceIn(0f,1f),pos,null);return floatArrayOf(pos[0],pos[1])}
@@ -64,12 +79,18 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
         road.cubicTo(x(1f),y(.48f),x(1f),y(.2f),x(1f),y(.14f))
         pm.setPath(road,false);length=pm.length;requestLayout()}
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){if(length<=0f)return
+        if(big){val q=at(books.size.toFloat()/slots);val x=max(q[0],d*46);val w=d*40;val h=d*60
+            covers.forEachIndexed{i,c->c?:return@forEachIndexed;c.layout((x-w/2).roundToInt(),(q[1]-d*9-h).roundToInt(),(x+w/2).roundToInt(),(q[1]-d*9).roundToInt());c.pivotX=c.width/2f;c.pivotY=c.height.toFloat();place(i,c,false)}
+            badge?.let{bg->val bw=bg.measuredWidth;val bh=bg.measuredHeight;val top=q[1]-d*9-h*SEL-d*8;val left=x+w*SEL/2-bw/2f
+                bg.layout(left.roundToInt(),(top-bh/2f).roundToInt(),(left+bw).roundToInt(),(top+bh/2f).roundToInt())}
+            return}
         covers.forEachIndexed{i,c->c?:return@forEachIndexed;val q=at(slot(i));val w=d*40;val h=d*60
             c.layout((q[0]-w/2).roundToInt(),(q[1]-d*9-h).roundToInt(),(q[0]+w/2).roundToInt(),(q[1]-d*9).roundToInt());c.pivotX=c.width/2f;c.pivotY=c.height.toFloat()
             c.translationZ=if(i==selected)d*6 else d*2
             if(walk>=1f||!motion){val lift=if(i==selected)-d*8 else 0f;val k=if(i==selected)SEL else BASE;c.translationY=lift;c.scaleX=k;c.scaleY=k}}}
     /** Show book [i]: its cover springs up, grows and lights up softly (no frame); the previous one settles back. */
     fun select(i:Int){if(i !in books.indices||i==selected)return;val dir=if(i>selected)1 else -1;val old=selected;selected=i
+        if(big){covers.forEachIndexed{k,c->c?:return@forEachIndexed;place(k,c,true)};invalidate();onPick(i,dir);return}
         listOf(old,i).forEach{k->val c=covers[k]?:return@forEach;c.translationZ=if(k==i)d*6 else d*2
             val lift=if(k==i)-d*8 else 0f;val s=if(k==i)SEL else BASE
             if(motion){c.animate().setUpdateListener{invalidate()}.translationY(lift).scaleX(s).scaleY(s).setStartDelay(0).setDuration(460).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()} else {c.translationY=lift;c.scaleX=s;c.scaleY=s}}
@@ -93,15 +114,22 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
             if(!a.light)glowFor(part)?.let{glowPaint.alpha=(0x8c*glowFade).toInt();c.drawBitmap(it,null,RectF(0f,0f,width.toFloat(),height.toFloat()),glowPaint)}
             p.shader=LinearGradient(0f,0f,width.toFloat(),0f,green,green2,Shader.TileMode.CLAMP);p.strokeWidth=d*5;c.drawPath(part,p);p.shader=null}
         p.style=Paint.Style.FILL
+        if(big){tp.textSize=10*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(500);tp.textAlign=Paint.Align.CENTER
+            var m=tickStep;while(m<slots){val f=m.toFloat()/slots;val q=at(f);val reached=f<=done+.001f
+                p.color=if(reached)(if(a.light)0xff1f9d63.toInt() else Color.WHITE) else if(a.light)0x59000000 else 0x66ffffff;c.drawCircle(q[0],q[1],d*3.2f,p)
+                tp.color=if(reached)a.fg else a.muted;c.drawText("$m",q[0],q[1]+d*20,tp);m+=tickStep}
+            tp.textAlign=Paint.Align.LEFT
+            if(books.isNotEmpty()){val q=at(books.size.toFloat()/slots);val x=max(q[0],d*46);p.color=if(a.light)0x59000000 else 0x80ffffff.toInt();p.strokeWidth=d*1.5f;c.drawLine(x,q[1]-d*9,q[0],q[1]-d*3,p)
+                p.color=if(a.light)0xff1f9d63.toInt() else Color.WHITE;c.drawCircle(q[0],q[1],d*4f,p)}}
         // milestones: one per book of the goal
-        for(k in 1 until slots){val q=at(k.toFloat()/slots);val reached=k<=books.size&&k.toFloat()/slots<=done+.001f
+        if(!big)for(k in 1 until slots){val q=at(k.toFloat()/slots);val reached=k<=books.size&&k.toFloat()/slots<=done+.001f
             p.color=if(reached)(if(a.light)0xff1f9d63.toInt() else Color.WHITE) else if(a.light)0x40000000 else 0x4dffffff
             c.drawCircle(q[0],q[1],d*(if(reached)(if(k-1<coverFrom&&k-1==selected)4.6f else 3.4f) else 2.4f),p)}
         // stems under the covers
         p.color=if(a.light)0x59000000 else 0x80ffffff.toInt();p.strokeWidth=d*1.5f
-        for(i in coverFrom until books.size){val q=at(slot(i));c.drawLine(q[0],q[1]-d*9,q[0],q[1]-d*3,p)}
+        if(!big)for(i in coverFrom until books.size){val q=at(slot(i));c.drawLine(q[0],q[1]-d*9,q[0],q[1]-d*3,p)}
         // the next milestone breathes
-        if(books.size<slots&&walk>=1f){val q=at((books.size+1f)/slots);p.style=Paint.Style.STROKE;p.strokeWidth=d*2;p.color=green;p.alpha=(255*(1-pulse)).toInt();c.drawCircle(q[0],q[1],d*(5+6*pulse),p);p.alpha=255;p.style=Paint.Style.FILL}
+        if(!big&&books.size<slots&&walk>=1f){val q=at((books.size+1f)/slots);p.style=Paint.Style.STROKE;p.strokeWidth=d*2;p.color=green;p.alpha=(255*(1-pulse)).toInt();c.drawCircle(q[0],q[1],d*(5+6*pulse),p);p.alpha=255;p.style=Paint.Style.FILL}
         // start ring and the flag with the goal
         val s0=at(0f);p.color=if(a.light)Color.WHITE else 0xff1c1c1f.toInt();c.drawCircle(s0[0],s0[1],d*5.5f,p)
         p.style=Paint.Style.STROKE;p.strokeWidth=d*3;p.color=green;c.drawCircle(s0[0],s0[1],d*5.5f,p);p.style=Paint.Style.FILL

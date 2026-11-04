@@ -328,6 +328,9 @@ internal class FlatCover(private val a:MainActivity,private val book:JSONObject)
 internal class RoadColumn(private val a:MainActivity,private val books:List<YearBook>,private val goal:Int,private val year:Int,private val today:LocalDate,private val motion:Boolean):FrameLayout(a){
     private val d=a.d(1).toFloat()
     private val slots=if(goal>0)max(goal,books.size) else books.size
+    /** A big goal (over 20 books) keeps only the books already read on the road; the way still ahead is one long
+     *  stretch to the flag instead of dozens of empty places. */
+    private val geo=if(slots>20)books.size else slots
     private val top=d*70
     private val pts=ArrayList<PointF>()
     private val road=Path();private val walked=Path();private var walkedEnd=0f
@@ -380,13 +383,13 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         val tallest=(items.maxOfOrNull{it.measuredHeight}?:a.d(144)).toFloat()
         tallestH=tallest;step=max(d*260,tallest+d*140);first=max(d*170,tallest/2+d*120)
         setMeasuredDimension(W,(finishY()+d*120).toInt())}
-    private fun finishY()=(if(slots>0)milestoneY(slots) else top)+(if(slots in 1..books.size)tallestH/2+d*140 else d*120)
+    private fun finishY()=(if(geo>0)milestoneY(geo) else top)+(if(geo in 1..books.size)tallestH/2+(if(geo<slots)d*320 else d*140) else if(geo==0&&slots>0)d*320 else d*120)
     /** Read books get room for their cover and details; the places still ahead come closer together. */
     private fun milestoneY(k:Int):Float{val n=books.size;return if(k<=n||n==0)top+first+(k-1)*step else top+first+(n-1)*step+tallestH/2+(k-n)*d*130}
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat()
         pts.clear();pts.add(PointF(W/2,top))
         // milestones sit under the middle of the covers, which stand at the screen edges
-        for(k in 1..slots)pts.add(PointF(if(k%2==1)W-d*64 else d*64,milestoneY(k)))
+        for(k in 1..geo)pts.add(PointF(if(k%2==1)W-d*64 else d*64,milestoneY(k)))
         pts.add(PointF(W/2,finishY()))
         road.reset()
         val lens=FloatArray(pts.size);var total=0f;val pm=PathMeasure()
@@ -401,7 +404,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
             if(y1-y0>d*40){if(y0>a0.y)line(a0.x,y0);val bend=(y1-y0)*.5f;curve(a0.x,y0+bend,b.x,y1-bend,b.x,y1);if(b.y>y1)line(b.x,b.y)}
             else{val bend=(b.y-a0.y)*.55f;curve(a0.x,a0.y+bend,b.x,b.y-bend,b.x,b.y)}
             pm.setPath(seg,false);total+=pm.length;lens[k]=total}
-        walked.reset();pm.setPath(road,false);val n=min(books.size,slots);if(n>0)pm.getSegment(0f,lens[n],walked,true)
+        walked.reset();pm.setPath(road,false);val n=min(books.size,geo);if(n>0)pm.getSegment(0f,lens[n],walked,true)
         walkedEnd=if(n>0)pts[n].y else top
         walkMeasure.setPath(walked,false);walkLen=walkMeasure.length
         // the soft glow under the walked road is blurred off the main thread and fades in when ready
@@ -435,7 +438,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
             if(ga>0f)glow?.let{g->glowPaint.alpha=(0x70*ga).toInt();c.drawBitmap(g,null,RectF(0f,0f,W,height.toFloat()),glowPaint)}
             p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*7;p.color=Color.WHITE;p.shader=LinearGradient(0f,top,0f,walkedEnd,green,green2,Shader.TileMode.CLAMP);c.drawPath(part,p);p.shader=null}
         p.style=Paint.Style.FILL
-        for(k in 1..slots){val q=pts[k];val done=k<=books.size;p.color=if(done)(if(a.light)green else Color.WHITE) else if(a.light)0x40000000 else 0x4dffffff;c.drawCircle(q.x,q.y,d*(if(done)5f else 3.5f),p)}
+        for(k in 1..geo){val q=pts[k];val done=k<=books.size;p.color=if(done)(if(a.light)green else Color.WHITE) else if(a.light)0x40000000 else 0x4dffffff;c.drawCircle(q.x,q.y,d*(if(done)5f else 3.5f),p)}
         val s=pts[0];p.color=a.bg;c.drawCircle(s.x,s.y,d*9,p);p.style=Paint.Style.STROKE;p.strokeWidth=d*4;p.color=green;c.drawCircle(s.x,s.y,d*9,p);p.style=Paint.Style.FILL
         if(goal>0){val e=pts.last();p.color=a.fg;c.drawRect(e.x-d*1.5f,e.y-d*44,e.x+d*1.5f,e.y,p)
             c.drawPath(Path().apply{moveTo(e.x+d*1.5f,e.y-d*44);lineTo(e.x+d*27,e.y-d*36);lineTo(e.x+d*1.5f,e.y-d*27);close()},p)}}
