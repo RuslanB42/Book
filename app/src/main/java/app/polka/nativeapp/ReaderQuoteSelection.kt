@@ -80,7 +80,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     var dragging=false;private set
     private var atStart=false
     private var x=0f;private var y=0f
-    private var edge=0;private var edgeDelay=340L;private var edgeLocked=false
+    private var edge=0;private var edgeLocked=false
     private val timer=Handler(Looper.getMainLooper())
     private val marker=Paint(Paint.ANTI_ALIAS_FLAG)
     private val highlight=Path();private val clip=RectF()
@@ -165,7 +165,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         if(existing!=null){val r=existing.second;val y=menu.translationY;clear(false);menu.translationY=y;showStrip(r.first,r.last+1,existing.first.optString("color","amber"));return}
         val text=range.text(full);val color=QuoteColors.last(a);val y=menu.translationY;clear(false);menu.translationY=y
         if(reduced){reader.addQuote(s,e,text,color);showStrip(s,e,color);return}
-        settleOut(s,e,0x65e7ac48,QuoteColors.ink(color),240){reader.addQuote(s,e,text,QuoteColors.last(a))}
+        settleOut(s,e,selFill(),QuoteColors.ink(color),240){reader.addQuote(s,e,text,QuoteColors.last(a))}
         showStrip(s,e,color)
     }
     private fun settleOut(s:Int,e:Int,from:Int,to:Int,ms:Long,done:()->Unit){
@@ -190,6 +190,10 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private fun popOut(v:View,end:()->Unit){if(reduced||v.visibility!=VISIBLE){end();return};v.animate().cancel()
         v.animate().alpha(0f).scaleX(.94f).scaleY(.94f).setDuration(150).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,1f,1f)).withEndAction{end()}.start()}
     /** Buttons sink a little under the finger and come back when released. */
+    /** Selection fill and handles take the last chosen quote colour, so the selection already looks like the quote it will become. */
+    private fun selFill()=(0x65 shl 24) or QuoteColors.rgb(QuoteColors.last(a))
+    private fun selHandle():Int{val c=QuoteColors.rgb(QuoteColors.last(a));if(Color.luminance(reader.backgroundColor)<=.4)return 0xff000000.toInt() or c
+        val k=.62f;return Color.rgb((Color.red(c)*k).toInt(),(Color.green(c)*k).toInt(),(Color.blue(c)*k).toInt())}
     private fun pressable(v:View){v.setOnTouchListener{view,e->if(reduced)return@setOnTouchListener false
         when(e.actionMasked){MotionEvent.ACTION_DOWN->view.animate().scaleX(.9f).scaleY(.9f).alpha(.7f).setDuration(90).start()
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->view.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(220).setInterpolator(android.view.animation.OvershootInterpolator(1.6f)).start()};false}}
@@ -207,15 +211,15 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         if(settling){val layout=reader.body.layout?:return;val base=reader.pageBase();val s=(settleStart-base).coerceIn(0,reader.body.length());val e=(settleEnd-base).coerceIn(0,reader.body.length())
             highlight.rewind();if(e>s){JustifiedGeometry.path(reader.body,layout,s,e,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=settleColor;c.drawPath(highlight,marker);c.restore()}}
         if(!active&&fade>0f){val layout=reader.body.layout?:return;val base=reader.pageBase();val fs=(fadeStart-base).coerceIn(0,reader.body.length());val fe=(fadeEnd-base).coerceIn(0,reader.body.length())
-            highlight.rewind();if(fe>fs){JustifiedGeometry.path(reader.body,layout,fs,fe,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=0x65e7ac48;marker.alpha=(0x65*fade).toInt();c.drawPath(highlight,marker);c.restore();marker.alpha=255}}
+            highlight.rewind();if(fe>fs){JustifiedGeometry.path(reader.body,layout,fs,fe,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=selFill();marker.alpha=(0x65*fade).toInt();c.drawPath(highlight,marker);c.restore();marker.alpha=255}}
         if(!active||edgeLocked)return
         val layout=reader.body.layout?:return;val base=reader.pageBase();val s=(range.start-base).coerceIn(0,reader.body.length());val e=(range.end-base).coerceIn(0,reader.body.length())
-        highlight.rewind();if(e>s){JustifiedGeometry.path(reader.body,layout,s,e,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=0x65e7ac48;marker.alpha=(0x65*appear).toInt();c.drawPath(highlight,marker);c.restore()}
+        highlight.rewind();if(e>s){JustifiedGeometry.path(reader.body,layout,s,e,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=selFill();marker.alpha=(0x65*appear).toInt();c.drawPath(highlight,marker);c.restore()}
         marker.alpha=255
         startVisible=point(range.start,false,startHandle);endVisible=point(range.end,true,endHandle)
-        marker.color=if(Color.luminance(reader.backgroundColor)>.4)0xff9b5c12.toInt()else 0xffefbd70.toInt();marker.strokeWidth=a.d(2).toFloat()
+        marker.color=selHandle();marker.strokeWidth=a.d(2).toFloat()
         marker.alpha=(255*appear).toInt();for((p,visible)in listOf(startHandle to startVisible,endHandle to endVisible)){if(visible){val lh=reader.body.paint.fontMetrics.let{it.descent*1.25f-it.ascent*1.02f};c.drawLine(p.x,p.y-lh,p.x,p.y+a.d(3),marker);c.drawCircle(p.x,p.y+a.d(8),a.d(6)*(.6f+.4f*appear),marker)}};marker.alpha=255
-        if(edge!=0){marker.color=0xa6e7ac48.toInt();val cx=if(edge>0)width-a.d(13).toFloat()else a.d(13).toFloat();c.drawCircle(cx,y.coerceIn(a.d(30).toFloat(),height-a.d(30).toFloat()),a.d(11).toFloat(),marker)}
+        if(edge!=0){marker.color=(0xa6 shl 24) or QuoteColors.rgb(QuoteColors.last(a));val cx=if(edge>0)width-a.d(13).toFloat()else a.d(13).toFloat();c.drawCircle(cx,y.coerceIn(a.d(30).toFloat(),height-a.d(30).toFloat()),a.d(11).toFloat(),marker)}
     }
     private fun positionMenu(){
         if(!active||dragging||edgeLocked)return
@@ -236,12 +240,11 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
                 val h=if(atStart)startHandle else endHandle;val lh=reader.body.paint.fontMetrics.let{it.descent*1.25f-it.ascent*1.02f}
                 grabDx=h.x-x;grabDy=(h.y-lh/2f)-y;menu.visibility=INVISIBLE;parent.requestDisallowInterceptTouchEvent(true);return true}
             MotionEvent.ACTION_MOVE->{if(!dragging)return true;x=e.x;y=e.y;if(!edgeLocked){val off=offsetAt(x+grabDx,y+grabDy);if(off!=lastOff){lastOff=off;atStart=range.drag(off,atStart)}
-                val side=!atStart&&x>width-reader.body.paddingRight+a.d(1)||atStart&&x<reader.body.paddingLeft-a.d(1)
-                val beyond=!atStart&&y>height-reader.body.paddingBottom+a.d(8)||atStart&&y<reader.body.paddingTop-a.d(8)
-                val dir=if(side||beyond)(if(atStart)-1 else 1) else 0
-                // Past the bottom/top or at the edge of the page's last/first line the page turns quickly; at the end of an inner line it only turns after a longer hold, so the last word of a line can be reached.
-                val lines=reader.body.layout?.lineCount?:0;val outer=beyond||(!atStart&&dragLine>=lines-1)||(atStart&&dragLine<=0);edgeDelay=if(outer)340L else 750L
-                if(dir!=edge){timer.removeCallbacks(pageTimer);edge=dir;if(dir!=0)timer.postDelayed(pageTimer,edgeDelay)};invalidate()};return true}
+                // The page turns only from the page's last line (forward) or first line (backward), or past the text there — never mid-page.
+                val lines=reader.body.layout?.lineCount?:0
+                val dir=when{!atStart&&dragLine>=lines-1&&(x>width-reader.body.paddingRight+a.d(1)||y>height-reader.body.paddingBottom+a.d(8))->1
+                    atStart&&dragLine<=0&&(x<reader.body.paddingLeft-a.d(1)||y<reader.body.paddingTop-a.d(8))->-1;else->0}
+                if(dir!=edge){timer.removeCallbacks(pageTimer);edge=dir;if(dir!=0)timer.postDelayed(pageTimer,340)};invalidate()};return true}
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{dragging=false;edge=0;lastOff=-1;timer.removeCallbacks(pageTimer);parent.requestDisallowInterceptTouchEvent(false);range.snap(reader.selectionFullText());contentDescription="Выделено: ${range.text(reader.selectionFullText())}";showMenu();invalidate();return true}
         };return true
     }
