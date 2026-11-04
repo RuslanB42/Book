@@ -182,7 +182,8 @@ internal class BookRoad(private val a:MainActivity,private val done:Int,private 
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f){val sp=Spring.of(.12,1100.0);ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=260;interpolator=sp.interpolator;addUpdateListener{k=it.animatedValue as Float;place();invalidate()};start()}} else post{place()}}
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat();val H=h.toFloat();val d=a.d(1).toFloat()
         // the same S-shaped road as the mockup, stretched to the card
-        fun x(f:Float)=14*d+(W-34*d)*f;fun y(f:Float)=12*d+(H-24*d)*f
+        fun x(f:Float):Float{return 14*d+(W-34*d)*f}
+        fun y(f:Float):Float{return 12*d+(H-24*d)*f}
         road.reset();road.moveTo(x(0f),y(.98f))
         road.cubicTo(x(.195f),y(1f),x(.195f),y(.6f),x(.4f),y(.6f))
         road.cubicTo(x(.6f),y(.6f),x(.63f),y(.93f),x(.82f),y(.74f))
