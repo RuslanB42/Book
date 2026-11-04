@@ -290,7 +290,8 @@ internal class MiniCover(private val a:MainActivity,private val book:JSONObject)
     private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private var small:Bitmap?=null;private var source:Bitmap?=null;private var asked=false
     private val art by lazy{CoverView(a,JSONObject())};private val clip=Path();private val r=RectF()
     init{outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,2.5f*a.resources.displayMetrics.density)}}}
-    override fun onDraw(c:Canvas){if(width==0)return;r.set(0f,0f,width.toFloat(),height.toFloat());val rad=2.5f*a.resources.displayMetrics.density
+    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Обложки цели",pt0)}}
+    private fun draw0(c:Canvas){if(width==0)return;r.set(0f,0f,width.toFloat(),height.toFloat());val rad=2.5f*a.resources.displayMetrics.density
         c.save();clip.reset();clip.addRoundRect(r,rad,rad,Path.Direction.CW);c.clipPath(clip)
         val bmp=a.cover(book)
         if(bmp==null&&book.optJSONObject("cover")!=null){if(!asked){asked=true;a.requestCover(book){if(it!=null)invalidate()}};c.drawColor(if(a.light)0xffe6e4df.toInt() else 0xff2a2a2d.toInt())}

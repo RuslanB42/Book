@@ -81,7 +81,8 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
             for(i in 0 until coverFrom){val q=at(slot(i));val dist=hypot(e.x-q[0],e.y-q[1]);if(dist<bd){bd=dist;best=i}}
             if(best>=0)select(best);return true}
         return true}
-    override fun onDraw(c:Canvas){if(length<=0f)return
+    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Дорога цели",pt0)}}
+    private fun draw0(c:Canvas){if(length<=0f)return
         val green=if(a.light)0xff1f9d63.toInt() else 0xff2fd38a.toInt();val green2=if(a.light)0xff52c68f.toInt() else 0xff9df5c8.toInt()
         p.reset();p.isAntiAlias=true;p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND
         p.color=if(a.light)0x0f000000 else 0x12ffffff;p.strokeWidth=d*16;c.drawPath(road,p)

@@ -18,7 +18,8 @@ import kotlin.math.*
 internal class WidgetCardDrawable(private val a:MainActivity,private val radius:Float,private val glow:Int?,private val fx:Float,private val fy:Float,private val reach:Float):Drawable(){
     private val base=Paint(Paint.ANTI_ALIAS_FLAG);private val light=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private val r=RectF()
     private var tex:Bitmap?=null;private var texKey="";private var fade=1f
-    override fun draw(c:Canvas){val b=bounds;if(b.width()<=0||b.height()<=0)return;r.set(b)
+    override fun draw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Фон плашек",pt0)}}
+    private fun draw0(c:Canvas){val b=bounds;if(b.width()<=0||b.height()<=0)return;r.set(b)
         base.color=if(a.light)Color.WHITE else 0xff1c1c1f.toInt();c.drawRoundRect(r,radius,radius,base)
         val g=glow?:return
         // one soft light, pre-rendered with a gaussian falloff and fine noise so the 8-bit steps never show as rings
@@ -68,7 +69,8 @@ internal class WeekFlames(private val a:MainActivity,private val names:List<Stri
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     override fun onMeasure(w:Int,h:Int){setMeasuredDimension(MeasureSpec.getSize(w),a.d(62))}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=StatsEntrance.wait()+60;interpolator=Ease.outCubic;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
-    override fun onDraw(c:Canvas){val d=a.d(1).toFloat();val n=names.size;if(n==0)return
+    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Огоньки недели",pt0)}}
+    private fun draw0(c:Canvas){val d=a.d(1).toFloat();val n=names.size;if(n==0)return
         val r=min(18*d,width/n/2f-3*d);val slot=width/n.toFloat();val cy=r+2*d
         for(i in 0 until n){val cx=slot*i+slot/2;val today=i==n-1
             // the days light up one after another
@@ -195,7 +197,8 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
         MotionEvent.ACTION_MOVE->{if(scrubbing)pick(index(e.x),true) else if(abs(e.x-downX)>slop||abs(e.y-downY)>slop)removeCallbacks(hold)}
         MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{removeCallbacks(hold);if(!scrubbing&&e.actionMasked==MotionEvent.ACTION_UP&&tapStartedOpen)show(false);scrubbing=false}}
         return true}
-    override fun onDraw(c:Canvas){if(values.isEmpty()||width<1)return;if(pts.size!=values.size)build();val d=a.d(1).toFloat()
+    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Линия времени",pt0)}}
+    private fun draw0(c:Canvas){if(values.isEmpty()||width<1)return;if(pts.size!=values.size)build();val d=a.d(1).toFloat()
         val max=max(values.maxOrNull()?:0.0,max(average,1.0)*1.15)
         // average
         val ayNew=bottom-(average/max*(bottom-top)).toFloat();val ay=if(morph<1f)fromAvg+(ayNew-fromAvg)*morph else ayNew
@@ -249,7 +252,8 @@ internal class SpeedBar(private val a:MainActivity,private val fraction:Float?,p
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var k=if(motion)0f else 1f
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f){val sp=Spring.of(.22,720.0);ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=StatsEntrance.wait()+80;interpolator=sp.interpolator;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}}
-    override fun onDraw(c:Canvas){val d=a.d(1).toFloat();val cy=height/2f;val h=8*d;val pad=9*d
+    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Скорость",pt0)}}
+    private fun draw0(c:Canvas){val d=a.d(1).toFloat();val cy=height/2f;val h=8*d;val pad=9*d
         p.shader=LinearGradient(pad,0f,width-pad,0f,intArrayOf(0xff2f3f6e.toInt(),0xff4a72c9.toInt(),0xff8ab8ff.toInt()),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
         c.drawRoundRect(pad,cy-h/2,width-pad,cy+h/2,h/2,h/2,p);p.shader=null
         val ax=pad+(width-2*pad)*average;p.color=if(a.light)0x66000000 else 0x8cffffff.toInt();c.drawRoundRect(ax-d,cy-9*d,ax+d,cy+9*d,d,d,p)
@@ -323,7 +327,8 @@ internal class StreakFlameView(private val a:MainActivity,private val active:Boo
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(active&&motion&&clock==null)clock=ValueAnimator.ofFloat(0f,1000f).apply{duration=1_000_000L;interpolator=null;repeatCount=ValueAnimator.INFINITE;addUpdateListener{time=it.animatedValue as Float;invalidate()};start()}}
     override fun onDetachedFromWindow(){clock?.cancel();clock=null;super.onDetachedFromWindow()}
     private fun lin(y0:Float,y1:Float,colors:IntArray,stops:FloatArray)=LinearGradient(0f,y0,0f,y1,colors,stops,Shader.TileMode.CLAMP)
-    override fun onDraw(c:Canvas){if(width<1||height<1)return
+    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Огонь",pt0)}}
+    private fun draw0(c:Canvas){if(width<1||height<1)return
         val s=minOf(width/150f,height/185f);c.save();c.translate(width/2f-60*s,height-165*s);c.scale(s,s)
         p.reset();p.isAntiAlias=true;p.color=Color.WHITE
         if(!active){
@@ -364,7 +369,8 @@ internal class CountNumber(private val a:MainActivity,private val n:Int,private 
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(started||shown>=n)return;started=true
         ValueAnimator.ofInt(0,n).apply{startDelay=StatsEntrance.wait()+delay;duration=720;interpolator=android.view.animation.PathInterpolator(.3f,.3f,.6f,.8f)
             addUpdateListener{val v=it.animatedValue as Int;if(v!=shown){shown=v;invalidate()}};start()}}
-    override fun onDraw(c:Canvas){val base=-pn.fontMetrics.ascent;val s="$shown";val full=pn.measureText("$n")
+    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Цифры",pt0)}}
+    private fun draw0(c:Canvas){val base=-pn.fontMetrics.ascent;val s="$shown";val full=pn.measureText("$n")
         // the number grows towards the words (right-aligned in the final number's width), the words never move
         c.drawText(s,full-pn.measureText(s),base,pn);c.drawText(unit,full,base,pu)}
 }
