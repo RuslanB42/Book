@@ -71,18 +71,23 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
     /** Margins follow the new order after a drag. */
     fun settleMargin(){apply(progress)}
     // ── inline rename ──
-    private fun startRename(){if(field!=null)return
+    private fun startRename(){if(field!=null||!isAttachedToWindow||!editing)return
         val f=a.edit(title,"Название полки").apply{setSingleLine(true);textSize=17f;typeface=name.typeface;setTextColor(a.fg);background=null;setPadding(0,0,0,0)
             imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE;setSelection(text.length)
             setOnEditorActionListener{_,act,_->if(act==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){commitRename();true}else false}
-            setOnFocusChangeListener{_,has->if(!has)commitRename()}}
+            // never change the views from inside a focus change (the focus is moving through this very field):
+            // the commit runs right after, on the next loop
+            setOnFocusChangeListener{v,has->if(!has)v.post{if(field===v)commitRename()}}}
         field=f;val i=head.indexOfChild(name);name.visibility=View.GONE;head.addView(f,i,LayoutParams(0,-2,1f))
         f.alpha=0f;f.animate().alpha(1f).setDuration(160).start()
         f.requestFocus();(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(f,0)}
     private fun commitRename(){val f=field?:return;field=null;val next=f.text.toString().trim()
+        f.onFocusChangeListener=null;f.setOnEditorActionListener(null)
         (a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)
-        head.removeView(f);name.visibility=View.VISIBLE
-        if(next.isNotBlank()&&next!=title){name.text=next;rename?.invoke(next)}}
+        if(f.hasFocus()){a.root.isFocusableInTouchMode=true;a.root.requestFocus()}
+        (f.parent as? ViewGroup)?.removeView(f);name.visibility=View.VISIBLE
+        // the shelves reload after a rename: let this tap finish first
+        if(next.isNotBlank()&&next!=title){name.text=next;val r=rename;a.root.post{r?.invoke(next)}}}
 
     /** Six-dot grip; dragging it moves the shelf. */
     internal inner class Grip:View(a){

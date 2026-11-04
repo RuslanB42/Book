@@ -28,7 +28,14 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private val model=ReadingStatistics(data,a.books)
     private val today=model.today
     private val content=a.column().apply{clipChildren=false;clipToPadding=false}
-    private val scroll=ScrollView(a)
+    /** The page scrolls under the status bar and fades into it (no hard cut at the top edge). */
+    private var scrimTop=0
+    private val scrimPaint=Paint()
+    private val scroll=object:ScrollView(a){
+        override fun draw(c:Canvas){super.draw(c);if(scrimTop<=0)return;val fade=a.d(22).toFloat();val h=scrimTop+fade
+            scrimPaint.shader=LinearGradient(0f,scrimTop.toFloat(),0f,h,a.bg,a.bg and 0x00ffffff,Shader.TileMode.CLAMP)
+            c.save();c.translate(scrollX.toFloat(),scrollY.toFloat());scrimPaint.color=Color.WHITE
+            c.drawRect(0f,scrimTop.toFloat(),width.toFloat(),h,scrimPaint);scrimPaint.shader=null;scrimPaint.color=a.bg;c.drawRect(0f,0f,width.toFloat(),scrimTop.toFloat(),scrimPaint);c.restore()}}
     private var period=range.coerceIn(0,2)
     private var goalYear=(a.statisticsGoalYear ?: today.year).coerceAtMost(today.year+1)
     private val compact=a.resources.configuration.screenWidthDp<340 || a.resources.configuration.fontScale>1.15f
@@ -106,18 +113,19 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun minutesGen(n:Int)=if(n%100 in 11..14)"минут" else if(n%10==1)"минуты" else "минут"
     fun show() {
         val extra=max(0,(a.resources.configuration.screenWidthDp-640)/2)
-        scroll.clipToPadding=true;a.followInsets(content) { i->scroll.setPadding(0,i.top,0,0);content.setPadding(a.d(16+extra)+i.left,a.d(8),a.d(16+extra)+i.right,a.d(40)+i.bottom) }
+        scroll.clipToPadding=false;a.followInsets(content) { i->scroll.setPadding(0,i.top,0,0);scrimTop=i.top;scroll.invalidate();content.setPadding(a.d(16+extra)+i.left,a.d(8),a.d(16+extra)+i.right,a.d(40)+i.bottom) }
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
-        streak();speed();readingTime();books()
-        if(motionOn) {
-            // Cards rise one after another over a page that only fades in.
-            // anime.js-style: a stagger wave (outQuad spacing) and a gentle spring for the rise
-            val delays=Stagger.delays(entrance.size,55,start=60,ease=Ease.outQuad)
-            entrance.forEachIndexed{i,v->v.alpha=0f;v.translationY=a.d(14).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(delays[i]).setDuration(420).setInterpolator(Ease.outCubic).start()}
-        }
+        // first what is on screen; the cards further down are built on the next frames, so the page appears at once
+        streak();speed()
+        rise(0)
+        if(!motionOn){readingTime();books()} else content.post{readingTime();rise(2);content.post{books();rise(3)}}
     }
+    /** Cards rise one after another: a soft lift and fade with a long, calm deceleration (no bounce). */
+    private fun rise(from:Int){if(!motionOn)return
+        for(i in from until entrance.size){val v=entrance[i];v.alpha=0f;v.translationY=a.d(28).toFloat();v.scaleX=.98f;v.scaleY=.98f
+            v.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setStartDelay(40L+i*75L).setDuration(640).setInterpolator(android.view.animation.PathInterpolator(.16f,1f,.3f,1f)).start()}}
     // ───────────────────────── glass cards ─────────────────────────
     /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
     private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f,firstOnly:Boolean=false):TextView{
@@ -194,7 +202,8 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         head.addView(PeriodPills(a,names,period){i->period=i;a.profileRange=i;bind(false)});box.addView(head);space(box,10);box.addView(left);space(box,4)
         box.addView(chartHost,LinearLayout.LayoutParams(-1,a.d(176)))
         fun minutes(ms:Long)=ms/60000.0
-        bind={first->left.removeAllViews();chartHost.removeAllViews()
+        var chart:ReadingLine?=null
+        bind={first->
             val values:List<Double>;val labels:List<String>;val tips:List<String>;val total:Long;val avg:Double;val avgText:String;val caption:String;val sparse:Boolean
             when(period){
                 0->{val days=(6 downTo 0).map{today.minusDays(it.toLong())};values=days.map{minutes(model.ms(it))};labels=days.map{weekNames[it.dayOfWeek.value-1].lowercase()}
@@ -208,10 +217,16 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                     tips=months.indices.map{i->months[i].month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE,ru)+" · "+duration(ms[i])}
                     total=model.total(1);avg=values.average();avgText="ср. ${duration((avg*60000).toLong())}";caption="в среднем ${duration((avg*60000).toLong())} в месяц";sparse=false}
             }
-            left.addView(big(if(total>0)duration(total) else "0 мин",40f).apply{maxLines=1;isSingleLine=true})
-            space(left,4);left.addView(label(caption,12.5f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
-            chartHost.addView(ReadingLine(a,values,labels,tips,avg,avgText,motionOn,sparse),FrameLayout.LayoutParams(-1,-1))
-            if(!first&&motionOn){chartHost.alpha=0f;chartHost.animate().alpha(1f).setDuration(220).start()}
+            // the number and its caption: the old ones lift away, the new ones rise in (the chart morphs meanwhile)
+            fun fill(){left.removeAllViews()
+                left.addView(big(if(total>0)duration(total) else "0 мин",40f).apply{maxLines=1;isSingleLine=true})
+                space(left,4);left.addView(label(caption,12.5f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})}
+            if(first||!motionOn)fill()
+            else{left.animate().cancel();left.animate().alpha(0f).translationY(-a.d(8).toFloat()).setDuration(150).setInterpolator(Ease.inCubic).withEndAction{fill();left.translationY=a.d(10).toFloat()
+                left.animate().alpha(1f).translationY(0f).setDuration(420).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
+            val c=chart
+            if(c==null){val n=ReadingLine(a,values,labels,tips,avg,avgText,motionOn,sparse);chart=n;chartHost.addView(n,FrameLayout.LayoutParams(-1,-1))}
+            else c.setData(values,labels,tips,avg,avgText,sparse)
         }
         bind(true);add(box)
     }
@@ -273,13 +288,12 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             fun show(i:Int,dir:Int){val old=row.getChildAt(0);val nw=line(i);row.addView(nw,FrameLayout.LayoutParams(-1,-2,Gravity.CENTER_VERTICAL))
                 closeRate(rateRow)
                 if(old==null||dir==0||!motionOn){if(old!=null)row.removeView(old);return}
-                old.animate().translationX(-dir*a.d(40).toFloat()).alpha(0f).setDuration(240).setInterpolator(Ease.inCubic).withEndAction{row.removeView(old)}.start()
-                nw.translationX=dir*a.d(46).toFloat();nw.alpha=0f;val sp=Spring.of(.22,420.0)
-                nw.animate().translationX(0f).alpha(1f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()
-                medalHolder?.let{m->m.scaleX=.4f;m.scaleY=.4f;m.rotation=-40f;m.alpha=0f;val sp2=Spring.of(.4,520.0)
-                    m.animate().scaleX(1f).scaleY(1f).rotation(0f).alpha(1f).setStartDelay(120).setDuration(sp2.duration).setInterpolator(sp2.interpolator).start()}}
+                old.animate().translationX(-dir*a.d(24).toFloat()).alpha(0f).setDuration(180).setInterpolator(Ease.inCubic).withEndAction{row.removeView(old)}.start()
+                nw.translationX=dir*a.d(28).toFloat();nw.alpha=0f
+                nw.animate().translationX(0f).alpha(1f).setStartDelay(80).setDuration(460).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()
+                medalHolder?.let{m->m.alpha=0f;m.translationX=dir*a.d(12).toFloat();m.animate().alpha(1f).translationX(0f).setStartDelay(160).setDuration(420).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}}
             road=YearRoad(a,list,target,motionOn){i,dir->show(i,dir)}
-            space(box,6);box.addView(road,LinearLayout.LayoutParams(-1,a.d(196)))
+            space(box,6);box.addView(road,LinearLayout.LayoutParams(-1,a.d(232)))
             space(box,12);box.addView(row,LinearLayout.LayoutParams(-1,a.d(56)))
             box.addView(rateRow,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
             rateRow.tag={v:Int->val b=list[road.selected].book;b.put("rating",v);a.saveBook(b)

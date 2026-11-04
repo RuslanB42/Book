@@ -64,8 +64,8 @@ class MainActivity : Activity() {
     internal fun pushInsets(){val s=baseInsets;updateAppInsets(androidx.core.graphics.Insets.of(s.left,s.top,s.right,maxOf(s.bottom,imeBottom)))}
     internal fun setIme(bottom:Int){if(bottom!=imeBottom){imeBottom=bottom;pushInsets()}}
     /** The keyboard went away (back, swipe, «готово»): the text field lets go too, so no caret keeps blinking. */
-    internal fun imeVisible(shown:Boolean){if(imeShown&&!shown)releaseTextFocus();imeShown=shown}
-    internal fun releaseTextFocus(){val f=currentFocus as? android.widget.EditText?:return
+    internal fun imeVisible(shown:Boolean){if(imeShown&&!shown)root.post{releaseTextFocus()};imeShown=shown}
+    internal fun releaseTextFocus(){if(isFinishing||isDestroyed)return;val f=currentFocus as? android.widget.EditText?:return;if(!f.isAttachedToWindow)return
         (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)
         root.isFocusableInTouchMode=true;root.requestFocus();f.clearFocus()}
     internal fun updateAppInsets(safe:androidx.core.graphics.Insets){
@@ -166,7 +166,7 @@ class MainActivity : Activity() {
                 imeAnimating=false;val now=androidx.core.view.ViewCompat.getRootWindowInsets(root);val ime=now?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0
                 if(reader==null)setIme(ime);imeVisible(ime>0)}})
         // a tap anywhere outside the focused text field closes the keyboard and lets the field go
-        touchWatchers.add{e->val f=currentFocus as? android.widget.EditText;if(f!=null&&reader==null){val r=android.graphics.Rect();f.getGlobalVisibleRect(r);if(!r.contains(e.rawX.toInt(),e.rawY.toInt()))releaseTextFocus()}}
+        touchWatchers.add{e->val f=currentFocus as? android.widget.EditText;if(f!=null&&reader==null){val r=android.graphics.Rect();f.getGlobalVisibleRect(r);if(!r.contains(e.rawX.toInt(),e.rawY.toInt()))root.post{releaseTextFocus()}}}
         setContentView(root)
         root.requestApplyInsets()
         root.addView(bootLogo(),FrameLayout.LayoutParams(-1,-1))

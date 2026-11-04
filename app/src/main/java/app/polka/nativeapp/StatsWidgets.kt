@@ -17,31 +17,38 @@ import kotlin.math.*
 /** Statistics widgets (approved mockup «вариант A»): dark cards, each with its own colour glowing softly from inside. */
 internal class WidgetCardDrawable(private val a:MainActivity,private val radius:Float,private val glow:Int?,private val fx:Float,private val fy:Float,private val reach:Float):Drawable(){
     private val base=Paint(Paint.ANTI_ALIAS_FLAG);private val light=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private val r=RectF()
-    private var tex:Bitmap?=null;private var texKey=""
+    private var tex:Bitmap?=null;private var texKey="";private var fade=1f
     override fun draw(c:Canvas){val b=bounds;if(b.width()<=0||b.height()<=0)return;r.set(b)
         base.color=if(a.light)Color.WHITE else 0xff1c1c1f.toInt();c.drawRoundRect(r,radius,radius,base)
         val g=glow?:return
         // one soft light, pre-rendered with a gaussian falloff and fine noise so the 8-bit steps never show as rings
         // rendered once per card width; when the card's height changes (a section opens) the light is simply stretched
         val key="${b.width()}${a.light}"
-        if(key!=texKey||tex==null){tex=render(b.width(),b.height(),g);texKey=key;light.shader=tex?.let{t->BitmapShader(t,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP)}}
-        val t=tex?:return;(light.shader as? BitmapShader)?.setLocalMatrix(Matrix().apply{setScale(b.width().toFloat()/t.width,b.height().toFloat()/t.height)})
+        if(key!=texKey){texKey=key;tex=null;light.shader=null;val w=b.width();val h=b.height()
+            val ready=synchronized(cache){cache["$w:$g:$fx:$fy:$reach:${a.light}"]}
+            if(ready!=null){tex=ready;fade=1f;light.shader=BitmapShader(ready,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP)}
+            else{fade=0f;var out:Bitmap?=null;a.work({out=render(w,h,g)}){val t=out;if(t!=null&&texKey==key){tex=t;light.shader=BitmapShader(t,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP)
+                ValueAnimator.ofFloat(0f,1f).apply{duration=480;addUpdateListener{fade=it.animatedValue as Float;invalidateSelf()};start()}}}}}
+        val t=tex?:return;light.alpha=(255*fade).toInt();(light.shader as? BitmapShader)?.setLocalMatrix(Matrix().apply{setScale(b.width().toFloat()/t.width,b.height().toFloat()/t.height)})
         if(light.shader==null)return
         c.save();c.translate(r.left,r.top);c.drawRoundRect(0f,0f,r.width(),r.height(),radius,radius,light);c.restore()}
     /** The card's face with its light baked in at full resolution: base colour plus a gaussian glow, each channel
      *  dithered with fine triangular noise in output space, so no 8-bit rings can appear. Cached per size. */
-    private fun render(w:Int,h:Int,g:Int):Bitmap?{val key="$w:$g:$fx:$fy:$reach:${a.light}";cache[key]?.let{if(!it.isRecycled)return it}
-        return try{val px=IntArray(w*h);val rnd=java.util.Random(7)
+    private fun render(w:Int,h:Int,g:Int):Bitmap?{val key="$w:$g:$fx:$fy:$reach:${a.light}";synchronized(cache){cache[key]?.let{if(!it.isRecycled)return it}}
+        return try{val px=IntArray(w*h);var seed=0x2545F491
             val base=if(a.light)Color.WHITE else 0xff1c1c1f.toInt()
             val bR=Color.red(base).toFloat();val bG=Color.green(base).toFloat();val bB=Color.blue(base).toFloat()
             val dR=Color.red(g)-bR;val dG=Color.green(g)-bG;val dB=Color.blue(g)-bB
             val cx=w*fx;val cy=h*fy;val rx=max(w,h)*reach*1.15f;val peak=if(a.light).10f else .2f
-            for(y in 0 until h){val dy=(y-cy)/rx;val dy2=dy*dy
-                for(x in 0 until w){val dx=(x-cx)/rx;val k=peak*exp(-3.2f*(dx*dx+dy2))
-                    val n=rnd.nextFloat()-rnd.nextFloat()
-                    val R=(bR+dR*k+n).roundToInt().coerceIn(0,255);val G=(bG+dG*k+n).roundToInt().coerceIn(0,255);val B=(bB+dB*k+n).roundToInt().coerceIn(0,255)
-                    px[y*w+x]=(0xff shl 24) or (R shl 16) or (G shl 8) or B}}
-            Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888).also{cache[key]=it}}catch(e:Throwable){null}}
+            // the gaussian splits into a row and a column factor: two small tables instead of an exp per pixel
+            val gx=FloatArray(w){val dx=(it-cx)/rx;exp(-3.2f*dx*dx)};val gy=FloatArray(h){val dy=(it-cy)/rx;peak*exp(-3.2f*dy*dy)}
+            for(y in 0 until h){val fy0=gy[y];val row=y*w
+                for(x in 0 until w){val k=fy0*gx[x]
+                    seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val n1=(seed and 0xffff)/65535f
+                    seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val n=n1-(seed and 0xffff)/65535f
+                    val R=(bR+dR*k+n+.5f).toInt().coerceIn(0,255);val G=(bG+dG*k+n+.5f).toInt().coerceIn(0,255);val B=(bB+dB*k+n+.5f).toInt().coerceIn(0,255)
+                    px[row+x]=(0xff shl 24) or (R shl 16) or (G shl 8) or B}}
+            Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888).also{synchronized(cache){cache[key]=it}}}catch(e:Throwable){null}}
     private companion object{val cache=HashMap<String,Bitmap>()}
     override fun setAlpha(alpha:Int){}
     override fun setColorFilter(cf:ColorFilter?){}
@@ -79,21 +86,63 @@ internal class WeekFlames(private val a:MainActivity,private val names:List<Stri
 }
 
 /** Three-way pill switch (Неделя / Месяц / Год): the chosen one is a light pill with dark text. */
-internal class PeriodPills(private val a:MainActivity,labels:List<String>,selected:Int,private val onSelect:(Int)->Unit):LinearLayout(a){
-    private val items=labels.map{s->a.text(s,12f,a.muted).apply{gravity=Gravity.CENTER;setPadding(a.d(9),a.d(5),a.d(9),a.d(5));isClickable=true}}
-    private var current=selected
-    init{orientation=HORIZONTAL;setPadding(a.d(3),a.d(3),a.d(3),a.d(3))
-        background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)0x0d000000 else 0x12ffffff);cornerRadius=a.d(12).toFloat()}
-        items.forEachIndexed{i,t->addView(t);t.setOnClickListener{if(i!=current){current=i;paint();onSelect(i)}}};paint()}
-    private fun paint(){items.forEachIndexed{i,t->val on=i==current
-        t.setTextColor(if(on)(if(a.light)Color.WHITE else 0xff111111.toInt()) else a.muted);t.typeface=PolkaFonts.sans(if(on)600 else 400)
-        t.background=if(on)android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)0xff161617.toInt() else 0xfff2f2f2.toInt());cornerRadius=a.d(9).toFloat()} else null}}
+internal class PeriodPills(private val a:MainActivity,labels:List<String>,selected:Int,private val onSelect:(Int)->Unit):FrameLayout(a){
+    /** Capsule segmented control: a light capsule glides under the chosen period and the labels change colour with it. */
+    private val row=LinearLayout(a).apply{orientation=LinearLayout.HORIZONTAL}
+    private val items=labels.map{s->a.text(s,12.5f,a.muted).apply{gravity=Gravity.CENTER;setPadding(a.d(13),a.d(7),a.d(13),a.d(7));isClickable=true}}
+    private val thumb=View(a).apply{background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)0xff161617.toInt() else 0xfff2f2f2.toInt());cornerRadius=a.d(40).toFloat()}}
+    private var current=selected;private var slide:ValueAnimator?=null
+    private val on get()=if(a.light)Color.WHITE else 0xff111111.toInt()
+    init{setPadding(a.d(3),a.d(3),a.d(3),a.d(3))
+        background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)0x0d000000 else 0x12ffffff);cornerRadius=a.d(40).toFloat()}
+        addView(thumb,LayoutParams(0,0));addView(row,LayoutParams(-2,-2))
+        items.forEachIndexed{i,t->row.addView(t);t.setOnClickListener{if(i!=current)select(i)}}
+        items.forEachIndexed{i,t->t.setTextColor(if(i==current)on else a.muted);t.typeface=PolkaFonts.sans(if(i==current)600 else 500)}}
+    override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(slide?.isRunning!=true)place(items[current].left.toFloat(),items[current].width.toFloat())}
+    private fun place(x:Float,w:Float){val lp=thumb.layoutParams;val h=items[0].height;if(lp.width!=w.toInt()||lp.height!=h){lp.width=w.toInt();lp.height=h;thumb.layoutParams=lp}
+        thumb.translationX=x;thumb.translationY=0f}
+    private fun select(i:Int){val from=current;current=i;onSelect(i)
+        val x0=thumb.translationX;val w0=thumb.layoutParams.width.toFloat();val x1=items[i].left.toFloat();val w1=items[i].width.toFloat()
+        items[from].typeface=PolkaFonts.sans(500);items[i].typeface=PolkaFonts.sans(600)
+        if(a.prefs.str("motion")=="reduced"){place(x1,w1);items.forEachIndexed{k,t->t.setTextColor(if(k==i)on else a.muted)};return}
+        val ev=android.animation.ArgbEvaluator()
+        slide?.cancel();slide=ValueAnimator.ofFloat(0f,1f).apply{duration=420;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+            addUpdateListener{val k=it.animatedValue as Float;place(x0+(x1-x0)*k,w0+(w1-w0)*k)
+                items[from].setTextColor(ev.evaluate(k,on,a.muted) as Int);items[i].setTextColor(ev.evaluate(k,a.muted,on) as Int)};start()}}
 }
 
 /** Reading time as a smooth glowing line (violet → pink) over a soft fill, with the average as a dashed line.
  *  Press and HOLD to read a day (a plain tap does nothing); slide to move between days; a tap anywhere else closes it. */
-internal class ReadingLine(private val a:MainActivity,private val values:List<Double>,private val labels:List<String>,private val tips:List<String>,
-                           private val average:Double,private val averageText:String,private val motion:Boolean,private val sparseLabels:Boolean):View(a){
+internal class ReadingLine(private val a:MainActivity,private var values:List<Double>,private var labels:List<String>,private var tips:List<String>,
+                           private var average:Double,private var averageText:String,private val motion:Boolean,private var sparseLabels:Boolean):View(a){
+    // ── switching periods: the old curve morphs into the new one (both sampled across the width), labels cross-fade ──
+    private var morph=1f;private var fromYs:FloatArray?=null;private var toYs:FloatArray?=null;private var fromAvg=0f
+    private var oldLabels:List<String> = emptyList();private var oldXs:FloatArray=FloatArray(0);private var oldLabelShown:BooleanArray=BooleanArray(0)
+    private var glowFade=1f;private val morphPath=Path();private val morphArea=Path()
+    private fun samples():FloatArray{val n=72;val out=FloatArray(n);if(pts.isEmpty()){java.util.Arrays.fill(out,bottom);return out}
+        val pm=PathMeasure(line,false);val len=pm.length;val xs=ArrayList<Float>();val ys=ArrayList<Float>();val pos=FloatArray(2);var s=0f
+        while(s<=len){pm.getPosTan(s,pos,null);xs.add(pos[0]);ys.add(pos[1]);s+=max(1f,len/400f)}
+        val x0=xOf(0);val x1=xOf(values.lastIndex.coerceAtLeast(0));var j=0
+        for(i in 0 until n){val x=a.d(10)+(width-a.d(20))*i/(n-1f)
+            if(pts.size==1||x<=x0){out[i]=pts[0].y;continue};if(x>=x1){out[i]=pts.last().y;continue}
+            while(j<xs.size-2&&xs[j+1]<x)j++;val t=if(xs[j+1]==xs[j])0f else ((x-xs[j])/(xs[j+1]-xs[j])).coerceIn(0f,1f);out[i]=ys[j]+(ys[j+1]-ys[j])*t}
+        return out}
+    private fun avgY(avg:Double,vals:List<Double>):Float{val m=max(vals.maxOrNull()?:0.0,max(avg,1.0)*1.15);return bottom-(avg/m*(bottom-top)).toFloat()}
+    fun setData(v:List<Double>,l:List<String>,t:List<String>,avg:Double,avgText:String,sparse:Boolean){
+        if(!motion||width==0||pts.isEmpty()){values=v;labels=l;tips=t;average=avg;averageText=avgText;sparseLabels=sparse;tipIndex=-1;tipShow=0f;glowBitmap=null;build();invalidate();return}
+        fromYs=if(morph<1f)current() else samples();fromAvg=avgY(average,values)
+        oldLabels=labels;oldXs=FloatArray(labels.size){xOf(it)};oldLabelShown=BooleanArray(labels.size){labelShown(it,labels.size)}
+        values=v;labels=l;tips=t;average=avg;averageText=avgText;sparseLabels=sparse;tipIndex=-1;tipShow=0f;a.touchWatchers.remove(outside)
+        glowBitmap=null;build();toYs=samples();draw=1f
+        ValueAnimator.ofFloat(0f,1f).apply{duration=560;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{morph=it.animatedValue as Float;glowFade=0f;invalidate()}
+            addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){morph=1f;fromYs=null
+                ValueAnimator.ofFloat(0f,1f).apply{duration=420;addUpdateListener{glowFade=it.animatedValue as Float;invalidate()};start()}}});start()}}
+    private fun current():FloatArray{val f=fromYs;val t=toYs;if(f==null||t==null)return samples();return FloatArray(f.size){f[it]+(t[it]-f[it])*morph}}
+    /** Which day labels fit: all of them when there is room, otherwise every 2nd, 5th, 7th… day, plus the first and the last. */
+    private fun labelShown(i:Int,n:Int):Boolean{if(!sparseLabels||n<=1)return true;val need=a.d(26)*n;val room=max(1,width-a.d(20))
+        val step=listOf(1,2,3,5,7,10).firstOrNull{need/it<=room}?:10;val last=n-1
+        if(i==0||i==last)return true;if(step==1)return true
+        return (i+1)%step==0&&last-i>=max(1,step/2)}
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG)
     private val c1=0xff7c5cff.toInt();private val c2=0xffff5aa0.toInt()
     private var draw=if(motion)0f else 1f
@@ -146,26 +195,33 @@ internal class ReadingLine(private val a:MainActivity,private val values:List<Do
     override fun onDraw(c:Canvas){if(values.isEmpty()||width<1)return;if(pts.size!=values.size)build();val d=a.d(1).toFloat()
         val max=max(values.maxOrNull()?:0.0,max(average,1.0)*1.15)
         // average
-        val ay=bottom-(average/max*(bottom-top)).toFloat()
+        val ayNew=bottom-(average/max*(bottom-top)).toFloat();val ay=if(morph<1f)fromAvg+(ayNew-fromAvg)*morph else ayNew
         p.style=Paint.Style.STROKE;p.strokeWidth=1.3f*d;p.color=if(a.light)0x26000000 else 0x2effffff;p.pathEffect=DashPathEffect(floatArrayOf(4*d,4*d),0f)
         c.drawLine(0f,ay,width.toFloat(),ay,p);p.pathEffect=null
         
         // the line draws itself in from the left
         c.save();c.clipRect(0f,0f,width*draw+2*d,height.toFloat())
-        p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,top,0f,bottom,(c2 and 0xffffff) or ((if(a.light)0x30 else 0x47) shl 24),c2 and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(area,p)
+        var curve=line;var fill=area
+        if(morph<1f&&fromYs!=null){val ys=current();morphPath.reset();val n=ys.size
+            for(i in 0 until n){val x=a.d(10)+(width-a.d(20))*i/(n-1f);if(i==0)morphPath.moveTo(x,ys[i]) else morphPath.lineTo(x,ys[i])}
+            morphArea.set(morphPath);morphArea.lineTo(width-a.d(10).toFloat(),bottom+a.d(2));morphArea.lineTo(a.d(10).toFloat(),bottom+a.d(2));morphArea.close();curve=morphPath;fill=morphArea}
+        p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,top,0f,bottom,(c2 and 0xffffff) or ((if(a.light)0x30 else 0x47) shl 24),c2 and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(fill,p)
         p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND
         val grad=LinearGradient(0f,0f,width.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP)
-        if(!a.light)glow()?.let{g->p.shader=null;p.alpha=255;p.style=Paint.Style.FILL;c.drawBitmap(g,null,RectF(0f,0f,width.toFloat(),height.toFloat()),glowPaint);p.style=Paint.Style.STROKE}
-        p.shader=grad;p.alpha=255;p.strokeWidth=3*d;c.drawPath(line,p);p.shader=null;p.style=Paint.Style.FILL
+        if(!a.light&&morph>=1f&&glowFade>0f)glow()?.let{g->p.shader=null;p.alpha=255;p.style=Paint.Style.FILL;glowPaint.alpha=(0xc0*glowFade).toInt();c.drawBitmap(g,null,RectF(0f,0f,width.toFloat(),height.toFloat()),glowPaint);p.style=Paint.Style.STROKE}
+        p.shader=grad;p.alpha=255;p.strokeWidth=3*d;c.drawPath(curve,p);p.shader=null;p.style=Paint.Style.FILL
         c.restore()
         // day labels; the open one sits in a light pill
         tp.textAlign=Paint.Align.CENTER;tp.textSize=11*a.resources.displayMetrics.scaledDensity
+        val newAlpha=if(morph<1f)((morph-.35f)/.65f).coerceIn(0f,1f) else 1f
+        if(morph<1f){val k=(1f-morph/.45f).coerceIn(0f,1f);if(k>0f)for(i in oldLabels.indices){if(i>=oldLabelShown.size||!oldLabelShown[i])continue
+            tp.typeface=PolkaFonts.sans(if(i==oldLabels.lastIndex)600 else 400);tp.color=if(i==oldLabels.lastIndex)a.fg else a.muted;tp.alpha=(255*k).toInt();c.drawText(oldLabels[i],oldXs[i],height-7*d,tp)};tp.alpha=255}
         for(i in values.indices){val on=i==tipIndex&&tipShow>0f;val last=i==values.lastIndex
-            if(sparseLabels&&!(i==0||last||on||(i+1)%5==0))continue
+            if(!on&&!labelShown(i,values.size))continue
             val x=xOf(i);val y=height-7*d
             if(on){val w=tp.measureText(labels[i])+12*d;val k=tipShow.coerceIn(0f,1f);p.color=if(a.light)0xff161617.toInt() else 0xfff2f2f2.toInt();p.alpha=(255*k).toInt();c.drawRoundRect(x-w/2,y-13*d,x+w/2,y+5*d,6*d,6*d,p);p.alpha=255}
             tp.typeface=PolkaFonts.sans(if(on||last)600 else 400);tp.color=if(on)(if(a.light)Color.WHITE else 0xff111111.toInt()) else if(last)a.fg else a.muted
-            c.drawText(labels[i],x,y,tp)}
+            tp.alpha=(255*newAlpha).toInt();c.drawText(labels[i],x,y,tp);tp.alpha=255}
         drawTip(c)}
     private fun drawTip(c:Canvas){val i=tipIndex;if(i<0||tipShow<=0.001f||i>=pts.size)return;val d=a.d(1).toFloat();val k=tipShow.coerceIn(0f,1.15f);val alpha=(255*k.coerceAtMost(1f)).toInt()
         val y=pts[i].y;val x=tipX
