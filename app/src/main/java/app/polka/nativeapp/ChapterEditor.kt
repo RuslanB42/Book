@@ -46,7 +46,7 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
    setText(draft.text);contentDescription="Текст текущей страницы"
   }
   // Quote highlights are read-only decoration; links keep their colour but stop being clickable.
-  editor.text.getSpans(0,editor.length(),BackgroundColorSpan::class.java).forEach{editor.text.removeSpan(it)}
+  editor.text.getSpans(0,editor.length(),BackgroundColorSpan::class.java).forEach{editor.text.removeSpan(it)};editor.text.getSpans(0,editor.length(),QuoteInk::class.java).forEach{editor.text.removeSpan(it)}
   editor.text.getSpans(0,editor.length(),ClickableSpan::class.java).forEach{span->val from=editor.text.getSpanStart(span);val to=editor.text.getSpanEnd(span);editor.text.removeSpan(span);if(to>from)editor.text.setSpan(ForegroundColorSpan(a.accent),from,to,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
   toolbar.orientation=LinearLayout.VERTICAL;toolbar.setPadding(a.d(10),a.d(8),a.d(10),a.d(10))
   a.controlSurface(toolbar,26f,sheet=true).apply{themeLight=lightPage;refresh()}

@@ -227,7 +227,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         }
         layoutJob=a.compute({engine.prepare(key,{
             val rendered=ReadingText(a,size,width,maxImage,images,ink,leading,trimEmpty=trim).render(html);val rich=rendered.text
-            quotes.filter{it.optInt("ch")==targetChapter}.forEach{q->val raw=q.str("rawText",q.str("text"));val range=TextAnchors.locate(rich.toString(),raw,q.optInt("start"));if(range!=null)rich.setSpan(android.text.style.BackgroundColorSpan(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
+            quotes.filter{it.optInt("ch")==targetChapter}.forEach{q->val raw=q.str("rawText",q.str("text"));val range=TextAnchors.locate(rich.toString(),raw,q.optInt("start"));if(range!=null)rich.setSpan(QuoteInk(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
             rendered
         },paint,width,height,justify,hyph,early)},failed={if(generation==layoutGeneration){preparing=false;view.alpha=1f}},done={result->
             if(!disposed && generation==layoutGeneration && chapter==targetChapter){
@@ -300,17 +300,28 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     /** Marks the quote in place: the page's text, line breaks and position stay exactly as they are. */
     fun addQuote(start:Int,end:Int,text:String,color:String=QuoteColors.last(a)) { val quotes=book.optJSONArray("quotes") ?: JSONArray(); if(quotes.objects().none { it.optInt("ch")==chapter && it.str("text")==text }) quotes.put(JSONObject().put("id",uid()).put("ch",chapter).put("start",start).put("end",end).put("block",0).put("text",text).put("rawText",text).put("color",color).put("at",System.currentTimeMillis())); book.put("quotes",quotes)
         val rich=chapterRich as? android.text.Spannable
-        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.setSpan(android.text.style.BackgroundColorSpan(QuoteColors.ink(color)),start.coerceIn(0,rich.length),end.coerceIn(0,rich.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); repaintMarks() }
+        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.setSpan(QuoteInk(QuoteColors.ink(color)),start.coerceIn(0,rich.length),end.coerceIn(0,rich.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); repaintMarks() }
         persist() }
     /** Gives a saved quote another highlight colour, in place. */
-    fun recolorQuote(quote:JSONObject,range:IntRange,color:String) { book.optJSONArray("quotes")?.objects()?.firstOrNull { it.str("id")==quote.str("id") }?.put("color",color); quote.put("color",color)
-        val rich=chapterRich as? android.text.Spannable
-        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.getSpans(range.first,range.last+1,android.text.style.BackgroundColorSpan::class.java).filter { rich.getSpanStart(it)==range.first && rich.getSpanEnd(it)==range.last+1 }.forEach { rich.removeSpan(it) }
-            rich.setSpan(android.text.style.BackgroundColorSpan(QuoteColors.ink(color)),range.first,(range.last+1).coerceAtMost(rich.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); repaintMarks() }
+    /** Recolours a saved quote. The page keeps the same span object, so its colour glides in place (no page re-set, no overlay). */
+    fun recolorQuote(quote:JSONObject,range:IntRange,color:String,animate:Boolean=true) { book.optJSONArray("quotes")?.objects()?.firstOrNull { it.str("id")==quote.str("id") }?.put("color",color); quote.put("color",color)
+        val rich=chapterRich as? android.text.Spannable; val to=QuoteColors.ink(color)
+        val span=rich?.getSpans(range.first,range.last+1,QuoteInk::class.java)?.firstOrNull { rich.getSpanStart(it)==range.first && rich.getSpanEnd(it)==range.last+1 }
+        when {
+            rich==null -> { val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } }
+            span==null -> { rich.setSpan(QuoteInk(to),range.first,(range.last+1).coerceAtMost(rich.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); repaintMarks() }
+            else -> { span.anim?.cancel(); val from=span.color
+                if(!animate||from==to){ span.color=to; body.invalidate(); marksSettled() }
+                else span.anim=android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(),from,to).apply { duration=300; interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+                    addUpdateListener { span.color=it.animatedValue as Int; body.invalidate() }
+                    addListener(object:android.animation.AnimatorListenerAdapter(){ override fun onAnimationEnd(x:android.animation.Animator){ span.anim=null; marksSettled() } }); start() } }
+        }
         persist() }
+    /** Page pictures taken before a mark changed colour are stale. */
+    private fun marksSettled() { cachedCurrent=null; cachedNext=null; previewPages.clear(); warmSnapshot() }
     fun removeQuote(quote:JSONObject,range:IntRange) { val quotes=book.optJSONArray("quotes")?.objects().orEmpty().filterNot { it.str("id")==quote.str("id") }; book.put("quotes",JSONArray(quotes))
         val rich=chapterRich as? android.text.Spannable
-        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.getSpans(range.first,range.last+1,android.text.style.BackgroundColorSpan::class.java).filter { rich.getSpanStart(it)==range.first && rich.getSpanEnd(it)==range.last+1 }.forEach { rich.removeSpan(it) }; repaintMarks() }
+        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.getSpans(range.first,range.last+1,QuoteInk::class.java).filter { rich.getSpanStart(it)==range.first && rich.getSpanEnd(it)==range.last+1 }.forEach { rich.removeSpan(it) }; repaintMarks() }
         persist() }
     /** Same page, same breaks: only the page text is re-set so the new marks show; stale page pictures are dropped. */
     private fun repaintMarks() { cachedCurrent=null; cachedNext=null; previewPages.clear(); body.text=pageText(chapterRich,pageStarts,pageIndex); quoteSelection.invalidate(); warmSnapshot() }
@@ -406,7 +417,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         // Warm jobs can share the engine cache; completion is keyed by geometry,
         // theme, chapter content and quote revision, never by page index alone.
         previewJobs[index]=a.compute({previewEngine.prepare(key,{
-            ReadingText(a,size,width,(height-size*3).toInt().coerceAtLeast(a.d(80)),images,ink,leading,trimEmpty=trim).render(html).also{rendered->JSONArray(quotes).objects().filter{it.optInt("ch")==index}.forEach{q->TextAnchors.locate(rendered.text.toString(),q.str("rawText",q.str("text")),q.optInt("start"))?.let{range->rendered.text.setSpan(android.text.style.BackgroundColorSpan(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}}}
+            ReadingText(a,size,width,(height-size*3).toInt().coerceAtLeast(a.d(80)),images,ink,leading,trimEmpty=trim).render(html).also{rendered->JSONArray(quotes).objects().filter{it.optInt("ch")==index}.forEach{q->TextAnchors.locate(rendered.text.toString(),q.str("rawText",q.str("text")),q.optInt("start"))?.let{range->rendered.text.setSpan(QuoteInk(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}}}
         },paint,width,height,justify,hyph)},failed={previewJobs.remove(index);if(isTurning())stopPageMotion()},done={data->previewJobs.remove(index);if(!disposed&&generation==previewGeneration&&chapterKey(index)==key){previewPages[index]=key to data;previewPages.keys.filter{abs(it-chapter)>1}.toList().forEach{previewPages.remove(it)};done(data,key)}})
     }
     private fun warmPages(){if(!paged()||scroll.width<=0)return;if(pageIndex==0&&chapter>0&&!previewJobs.containsKey(chapter-1))preparePreview(chapter-1);if(pageIndex==pageStarts.lastIndex&&chapter<chapters.length()-1&&!previewJobs.containsKey(chapter+1))preparePreview(chapter+1)}

@@ -49,6 +49,11 @@ internal class ChapterSelection {
 }
 
 /** The five highlight colours of quotes; the last one chosen is used for the next quote. */
+/** Background of a saved quote. Unlike BackgroundColorSpan its colour can change in place, so recolouring glides without re-setting the page. */
+class QuoteInk(var color:Int):android.text.style.CharacterStyle(),android.text.style.UpdateAppearance{
+    var anim:android.animation.ValueAnimator?=null
+    override fun updateDrawState(tp:android.text.TextPaint){tp.bgColor=color}
+}
 internal object QuoteColors{
     val all=listOf("amber" to 0xf0a742,"mint" to 0x7cc98e,"sky" to 0x6fa8f0,"rose" to 0xef7fa8,"lavender" to 0xa98bf7)
     fun rgb(key:String?)=all.firstOrNull{it.first==key}?.second?:0xf0a742
@@ -142,8 +147,8 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private fun recolor(key:String){val (s,e)=stripQuote?:return;val q=reader.quoteOverlapping(s,e)?:return;val old=q.first.optString("color")
         a.prefs.put("quoteColor",key);a.savePreferences();dots.forEach{it.on=it.key==key}
         if(old==key){removeCallbacks(stripTimer);postDelayed(stripTimer,2500);return}
-        reader.recolorQuote(q.first,q.second,key)
-        if(!reduced){val oldInk=QuoteColors.ink(old.ifBlank{"amber"});settleOut(q.second.first,q.second.last+1,oldInk,oldInk and 0x00ffffff,320){}
+        reader.recolorQuote(q.first,q.second,key,!reduced)
+        if(!reduced){
             dots.firstOrNull{it.key==key}?.let{d->d.scaleX=.7f;d.scaleY=.7f;d.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(320).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()}}
         removeCallbacks(stripTimer);postDelayed(stripTimer,2500)}
     /** Third button: «Заметка» for a new selection, «Убрать» for a saved quote. */
@@ -229,7 +234,10 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
                 if(min(ds,de)>a.d(36)){clear();return true};atStart=ds<de;dragging=true
                 val h=if(atStart)startHandle else endHandle;val lh=reader.body.paint.fontMetrics.let{it.descent*1.25f-it.ascent*1.02f}
                 grabDx=h.x-x;grabDy=(h.y-lh/2f)-y;menu.visibility=INVISIBLE;parent.requestDisallowInterceptTouchEvent(true);return true}
-            MotionEvent.ACTION_MOVE->{if(!dragging)return true;x=e.x;y=e.y;if(!edgeLocked){val dir=when{!atStart&&(x>width-reader.body.paddingRight+a.d(1)||y>height-reader.body.paddingBottom+a.d(8))->1;atStart&&(x<reader.body.paddingLeft-a.d(1)||y<reader.body.paddingTop-a.d(8))->-1;else->0};if(dir==0){val off=offsetAt(x+grabDx,y+grabDy);if(off!=lastOff){lastOff=off;atStart=range.drag(off,atStart)}};if(dir!=edge){timer.removeCallbacks(pageTimer);edge=dir;if(dir!=0)timer.postDelayed(pageTimer,340)};invalidate()};return true}
+            MotionEvent.ACTION_MOVE->{if(!dragging)return true;x=e.x;y=e.y;if(!edgeLocked){val off=offsetAt(x+grabDx,y+grabDy);if(off!=lastOff){lastOff=off;atStart=range.drag(off,atStart)}
+                // The page turns only past the text block or at the very screen edge of its first/last line: reaching for the last word of a line no longer flips the page.
+                val lines=reader.body.layout?.lineCount?:0;val edgeZone=a.d(12)
+                val dir=when{!atStart&&(y>height-reader.body.paddingBottom+a.d(16)||(dragLine>=lines-1&&x>width-edgeZone))->1;atStart&&(y<reader.body.paddingTop-a.d(16)||(dragLine<=0&&x<edgeZone))->-1;else->0};if(dir!=edge){timer.removeCallbacks(pageTimer);edge=dir;if(dir!=0)timer.postDelayed(pageTimer,340)};invalidate()};return true}
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{dragging=false;edge=0;lastOff=-1;timer.removeCallbacks(pageTimer);parent.requestDisallowInterceptTouchEvent(false);range.snap(reader.selectionFullText());contentDescription="Выделено: ${range.text(reader.selectionFullText())}";showMenu();invalidate();return true}
         };return true
     }
