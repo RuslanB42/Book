@@ -351,3 +351,20 @@ internal class StreakFlameView(private val a:MainActivity,private val active:Boo
             p.color=((al*255).toInt() shl 24) or 0xfff0be;c.drawCircle(x,y,r,p);p.color=Color.WHITE}
         c.restore()}
 }
+
+/** A big numeral that counts up, drawn directly (number in the display serif, the words after it smaller in the sans).
+ *  Its size is fixed by the final value, so counting never triggers a layout. */
+internal class CountNumber(private val a:MainActivity,private val n:Int,private val unit:String,size:Float,unitScale:Float,unitColor:Int,private val delay:Long,private val motion:Boolean):View(a){
+    private val sd=a.resources.displayMetrics.scaledDensity
+    private val pn=Paint(Paint.ANTI_ALIAS_FLAG).apply{typeface=PolkaFonts.display();textSize=size*sd;color=a.fg;letterSpacing=-.01f;fontFeatureSettings="lnum, tnum"}
+    private val pu=Paint(Paint.ANTI_ALIAS_FLAG).apply{typeface=PolkaFonts.sans(400);textSize=size*unitScale*sd;color=unitColor}
+    private var shown=if(motion&&n>0)0 else n;private var started=false
+    init{contentDescription="$n$unit";importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES}
+    override fun onMeasure(w:Int,h:Int){val fm=pn.fontMetrics;setMeasuredDimension(ceil(pn.measureText("$n")+pu.measureText(unit)).toInt()+a.d(2),ceil(fm.descent-fm.ascent).toInt())}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(started||shown>=n)return;started=true
+        ValueAnimator.ofInt(0,n).apply{startDelay=delay;duration=720;interpolator=android.view.animation.PathInterpolator(.3f,.3f,.6f,.8f)
+            addUpdateListener{val v=it.animatedValue as Int;if(v!=shown){shown=v;invalidate()}};start()}}
+    override fun onDraw(c:Canvas){val base=-pn.fontMetrics.ascent;val s="$shown";val full=pn.measureText("$n")
+        // the number grows towards the words (right-aligned in the final number's width), the words never move
+        c.drawText(s,full-pn.measureText(s),base,pn);c.drawText(unit,full,base,pu)}
+}

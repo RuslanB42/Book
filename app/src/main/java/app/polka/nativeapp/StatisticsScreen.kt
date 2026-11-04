@@ -1,5 +1,6 @@
 package app.polka.nativeapp
 
+import android.animation.ValueAnimator
 import android.graphics.*
 import android.graphics.drawable.GradientDrawable
 import android.view.*
@@ -120,7 +121,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         if(!motionOn){streak();speed();readingTime();books();return}
         // 1. The page itself is there at once: it fades up with its greeting, nothing waits for the cards.
         scroll.alpha=0f;scroll.translationY=a.d(12).toFloat()
-        scroll.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withLayer().start()
+        scroll.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
         // 2. The cards are built off-screen, one per frame, after that fade (building never stalls a moving frame).
         deferred=true
         val builders=listOf({streak()},{speed()},{readingTime()},{books()})
@@ -139,12 +140,19 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private val pending=mutableListOf<View>()
     /** One wave from top to bottom: each card glides up and settles with a long, soft deceleration. */
     private fun reveal(){val ease=PathInterpolator(.05f,.7f,.1f,1f)
-        entrance.forEachIndexed{i,v->v.pivotX=v.width/2f
-            v.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setStartDelay(i*90L).setDuration(760).setInterpolator(ease).withLayer().start()}}
+        // the fade is short (a card below full opacity is drawn through an offscreen buffer every frame); the glide
+        // and the slight growth go on with a long, soft deceleration. No cached layers: the cards' content is moving.
+        entrance.forEachIndexed{i,v->v.pivotX=v.width/2f;val y0=v.translationY;val s0=v.scaleX
+            ValueAnimator.ofFloat(0f,1f).apply{startDelay=i*90L;duration=760;interpolator=android.view.animation.LinearInterpolator()
+                addUpdateListener{val t=it.animatedValue as Float;val e=ease.getInterpolation(t)
+                    v.alpha=(t/.32f).coerceIn(0f,1f);v.translationY=y0*(1-e);val sc=s0+(1-s0)*e;v.scaleX=sc;v.scaleY=sc};start()}}}
     // ───────────────────────── glass cards ─────────────────────────
     /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
     /** A count starts while its own card rises, not before (cards rise one after another). */
     private val countDelay get()=300L+entrance.size*90L
+    /** A counting numeral drawn straight onto the canvas: no text layout is rebuilt while it counts, so the count costs
+     *  nothing but a redraw. The words after it are set smaller and grey, like [big]. */
+    private fun bigCount(n:Int,unit:String,size:Float,unitScale:Float):View=CountNumber(a,n,unit,size,unitScale,captionInk,countDelay,motionOn)
     private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f,firstOnly:Boolean=false):TextView{
         val tv=a.text("",size,a.fg).apply{typeface=PolkaFonts.display();letterSpacing=-.01f;includeFontPadding=false;fontFeatureSettings="lnum, tnum"}
         fun styled(t:String):CharSequence{val sp=android.text.SpannableString(t);var i=0
@@ -180,7 +188,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         top.addView(StreakFlameView(a,n>0,motionOn),LinearLayout.LayoutParams(a.d(68),a.d(86)).apply{rightMargin=a.d(10)})
         val col=a.column()
         col.addView(kicker("Серия"));space(col,4)
-        col.addView(big("$n ${daysWord(n)} подряд",42f,n,.38f,firstOnly=true))
+        col.addView(bigCount(n," ${daysWord(n)} подряд",42f,.38f))
         space(col,4);col.addView(label(if(n>0)"рекорд — $best ${daysWord(best)}" else "серии пока нет",12.5f))
         top.addView(col,LinearLayout.LayoutParams(0,-2,1f));box.addView(top);space(box,14)
         val dates=(6 downTo 0).map{today.minusDays(it.toLong())}
@@ -201,7 +209,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun speed(){
         val box=surface()
         box.addView(kicker("Скорость"));space(box,6)
-        box.addView(if(model.speed>0)big("${model.speed} слов в минуту",40f,model.speed,.4f,firstOnly=true) else big("—",40f))
+        box.addView(if(model.speed>0)bigCount(model.speed," слов в минуту",40f,.4f) else big("—",40f))
         space(box,4)
         val diff=((model.speed-200)/2.0).roundToInt()
         box.addView(label(when{model.speed<=0->"появится после пары минут чтения";abs(diff)<3->"как у среднего читателя";diff>0->"на $diff% быстрее среднего читателя";else->"на ${-diff}% медленнее среднего читателя"},12.5f))
@@ -283,7 +291,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             top.addView(expand,LinearLayout.LayoutParams(a.d(34),a.d(34)))
             box.addView(top)
             val head=a.column();space(head,10)
-            head.addView(if(target>0)big("$done из ${ofBooks(target)}",46f,done,.35f,firstOnly=true) else big(MainActivity.countBooks(done),46f,done,.35f,firstOnly=true));space(head,5)
+            head.addView(if(target>0)bigCount(done," из ${ofBooks(target)}",46f,.35f) else bigCount(done," "+MainActivity.countBooks(done).substringAfter(' '),46f,.35f));space(head,5)
             head.addView(label(goalPace(goalYear,today,done,target),12.5f))
             box.addView(head)
             if(list.isEmpty()){space(box,14);box.addView(label("Пока ни одной книги за $goalYear — дочитанные появятся здесь, на дороге года.",13f));return}
