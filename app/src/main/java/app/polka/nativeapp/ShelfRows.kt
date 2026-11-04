@@ -10,7 +10,7 @@ import org.json.JSONObject
  * shelf with screws (the same glass as the shelf tiles) — the glass covers the lower part of the books and stays
  * put while the covers scroll sideways behind it. Tapping the name opens the whole shelf.
  */
-internal class ShelfRow(private val a:MainActivity,val key:String,private val title:String,private val list:List<JSONObject>,private val open:()->Unit,private val actions:(()->Unit)?,private val rename:((String)->Unit)?):LinearLayout(a){
+internal class ShelfRow(private val a:MainActivity,val key:String,private val title:String,private val list:List<JSONObject>,private val open:()->Unit,private val actions:(()->Unit)?,private val rename:((String)->Unit)?,private val remove:(()->Unit)?=null):LinearLayout(a){
     // The shelf shows only what fits, laid out evenly across the page (no sideways scrolling); the whole shelf opens
     // with a tap. Four covers on a phone, more on wider screens.
     private val gap=a.d(12)
@@ -26,6 +26,8 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
     private val name=a.text(title,17f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
     private val pen=IconView(a,"pen",a.muted).apply{alpha=0f;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     private val tail=a.row().apply{gravity=Gravity.CENTER_VERTICAL}
+    /** Edit mode: removes a shelf of the user's own (the books stay in the library). */
+    private val trash=IconView(a,"trash",0xffff8a7a.toInt()).apply{alpha=0f;visibility=View.GONE;isClickable=true;contentDescription="Удалить полку";setPadding(a.d(10),a.d(10),a.d(10),a.d(10))}
     internal val handle=Grip()
     private val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
     /** The covers live in this layer; on Android 13+ the glass bends it live on the GPU (a RenderEffect). */
@@ -47,6 +49,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         head.addView(View(a),LayoutParams(0,1,1f))
         tail.addView(a.text(MainActivity.countBooks(list.size),13f,a.muted));tail.addView(IconView(a,"next",a.muted).apply{alpha=.7f},LayoutParams(a.d(18),a.d(18)).apply{leftMargin=a.d(4)})
         val end=FrameLayout(a);end.addView(tail,FrameLayout.LayoutParams(-2,-2,Gravity.CENTER_VERTICAL or Gravity.END));end.addView(handle,FrameLayout.LayoutParams(a.d(44),a.d(44),Gravity.CENTER_VERTICAL or Gravity.END))
+        remove?.let{f->trash.setOnClickListener{if(editing){commitRename();f()}};a.press(trash);head.addView(trash,LayoutParams(a.d(42),a.d(44)))}
         head.addView(end,LayoutParams(-2,a.d(44)))
         addView(head,LayoutParams(-1,-2));a.space(this,6)
         if(list.isEmpty())row.addView(a.text("Пока пусто — добавьте сюда книги",13.5f,a.muted).apply{gravity=Gravity.TOP;setPadding(a.d(4),a.d(10),0,0)},LayoutParams(-2,coverH*3/4))
@@ -74,6 +77,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         tail.alpha=(1-e*2).coerceIn(0f,1f);tail.translationX=-a.d(10)*e
         handle.alpha=((e-.35f)/.65f).coerceIn(0f,1f);handle.translationX=a.d(14)*(1-e);handle.visibility=if(e>0f)View.VISIBLE else View.INVISIBLE
         pen.alpha=if(rename==null)0f else ((e-.4f)/.6f).coerceIn(0f,1f)*.8f
+        if(remove!=null){trash.alpha=((e-.4f)/.6f).coerceIn(0f,1f);trash.translationX=a.d(14)*(1-e);trash.visibility=if(e>0f)View.VISIBLE else View.GONE}
         head.elevation=a.d(if(a.light)3 else 4)*e
         (layoutParams as? MarginLayoutParams)?.let{m->val idx=(parent as? ViewGroup)?.indexOfChild(this)?:0;val want=if(idx<=0)0 else (a.d(12)+(a.d(10)-a.d(12))*e).toInt();if(m.topMargin!=want){m.topMargin=want;layoutParams=m}}}
     /** Margins follow the new order after a drag. */
@@ -88,7 +92,15 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             setOnFocusChangeListener{v,has->if(!has)v.post{if(field===v)commitRename()}}}
         field=f;val i=head.indexOfChild(name);name.visibility=View.GONE;head.addView(f,i,LayoutParams(0,-2,1f))
         f.alpha=0f;f.animate().alpha(1f).setDuration(160).start()
-        f.requestFocus();(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(f,0)}
+        f.requestFocus();(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(f,0)
+        // a shelf low on the page would end up under the keyboard: once it is up, the page glides so the card sits above it
+        listOf(220L,420L,650L).forEach{d->postDelayed({if(field===f)revealAboveKeyboard()},d)}}
+    private fun revealAboveKeyboard(){val ime=a.imeBottom;if(ime<=0)return
+        var sv:android.view.ViewParent?=parent;while(sv!=null&&sv !is ScrollView&&sv !is androidx.core.widget.NestedScrollView)sv=sv.parent
+        val scroll=sv as? ViewGroup?:return
+        val at=IntArray(2);head.getLocationOnScreen(at);val root=IntArray(2);a.root.getLocationOnScreen(root)
+        val limit=root[1]+a.root.height-ime-a.d(16);val bottom=at[1]+head.height
+        if(bottom>limit){val dy=bottom-limit;when(scroll){is ScrollView->scroll.smoothScrollBy(0,dy);is androidx.core.widget.NestedScrollView->scroll.smoothScrollBy(0,dy)}}}
     private fun commitRename(){val f=field?:return;field=null;val next=f.text.toString().trim()
         f.onFocusChangeListener=null;f.setOnEditorActionListener(null)
         (a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)
@@ -220,12 +232,12 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
 internal fun MainActivity.shelfRows(){
     val byShelf=books.groupBy{it.str("shelf")};val names=(prefs.optJSONArray("shelves")?.strings().orEmpty()+byShelf.keys.filter{it.isNotBlank()}+REC_SHELF).distinct()
     val manual=names.sortedWith(compareByDescending<String>{byShelf[it]?.size ?: 0}.thenBy{it})
-    data class Item(val key:String,val name:String,val list:List<JSONObject>,val open:()->Unit,val actions:(()->Unit)?,val rename:((String)->Unit)?)
-    val all=manual.map{name->Item("s:$name",name,byShelf[name].orEmpty(),{pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;shelf=name;render(false,false)},{shelfActions(name)},{next:String->renameShelf(name,next)})}+
+    data class Item(val key:String,val name:String,val list:List<JSONObject>,val open:()->Unit,val actions:(()->Unit)?,val rename:((String)->Unit)?,val remove:(()->Unit)?=null)
+    val all=manual.map{name->Item("s:$name",name,byShelf[name].orEmpty(),{pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;shelf=name;render(false,false)},{shelfActions(name)},{next:String->renameShelf(name,next)},{deleteShelf(name)})}+
         listOf("reading","want","done").map{key->Item("a:$key",MainActivity.autoTitle(key),books.groupBy{Library.status(it)}[key].orEmpty(),{pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;auto=key;render(false,false)},null,null)}
     val saved=prefs.optJSONArray("shelfOrder")?.strings().orEmpty()
     val ordered=all.sortedBy{saved.indexOf(it.key).let{i->if(i<0)Int.MAX_VALUE else i}}
-    val rows=ordered.map{ShelfRow(this,it.key,it.name,it.list.sortedByDescending{b->maxOf(b.optLong("openedAt"),b.optLong("addedAt"))},it.open,it.actions,it.rename)}
+    val rows=ordered.map{ShelfRow(this,it.key,it.name,it.list.sortedByDescending{b->maxOf(b.optLong("openedAt"),b.optLong("addedAt"))},it.open,it.actions,it.rename,it.remove)}
     rows.forEachIndexed{i,r->page.addView(r,LinearLayout.LayoutParams(-1,-2).apply{if(i>0)topMargin=d(26)})}
     val editor=ShelfEditor(this,page,rows.toMutableList());shelfEditor=editor
     if(shelvesEditing)rows.forEach{it.setEditing(true,false)}
