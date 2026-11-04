@@ -133,7 +133,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         page.addView(progress,LinearLayout.LayoutParams(-1,a.d(30)).apply{topMargin=a.d(12)})
         roadHost=FrameLayout(a);page.addView(roadHost,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(6)})
         // the year and the progress are part of the page and scroll away with it; content fades softly under the buttons
-        scroll=ScrollView(a).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS;clipToPadding=false;setPadding(0,0,0,insets.bottom+a.d(24))
+        scroll=object:ScrollView(a){override fun getBottomFadingEdgeStrength()=0f}.apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS;clipToPadding=false;setPadding(0,0,0,insets.bottom+a.d(24))
             isVerticalFadingEdgeEnabled=true;setFadingEdgeLength(a.d(28))}
         scroll.addView(page,ViewGroup.LayoutParams(-1,-2))
         scroll.setOnScrollChangeListener{_,_,y,_,_->column?.viewport(y-roadHost.top,scroll.height)}
@@ -260,15 +260,26 @@ internal class StarGlyph(private val a:MainActivity,on:Boolean):View(a){
         else{p.color=if(a.light)0x14000000 else 0x1fffffff;StarRow.drawStar(c,x,y,s,p)}}
 }
 
-/** A flat book cover for the road: the picture with soft rounded corners and a real shadow, no gloss. */
+/** A flat book cover for the road: the picture with soft rounded corners and a soft painted shadow, no gloss.
+ *  The shadow is drawn inside the view (it is [PAD] larger than the cover on every side), never as an elevation
+ *  shadow, so the cover fades cleanly under the header like any other content. */
 internal class FlatCover(private val a:MainActivity,private val book:JSONObject):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private var asked=false;private val art by lazy{CoverView(a,JSONObject())}
-    init{elevation=a.d(8).toFloat();clipToOutline=true;outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,a.d(4).toFloat())}}}
-    override fun onDraw(c:Canvas){val bmp=a.cover(book);val r=RectF(0f,0f,width.toFloat(),height.toFloat())
-        if(bmp==null&&book.optJSONObject("cover")!=null){if(!asked){asked=true;a.requestCover(book){if(it!=null)invalidate()}};c.drawColor(if(a.light)0xffe6e4df.toInt() else 0xff2a2a2d.toInt());return}
-        if(bmp==null){art.drawCover(c,r,book,null);return}
-        val sc=max(r.width()/bmp.width,r.height()/bmp.height);val w=bmp.width*sc;val h=bmp.height*sc
-        c.drawBitmap(bmp,null,RectF(r.centerX()-w/2,r.centerY()-h/2,r.centerX()+w/2,r.centerY()+h/2),p)}
+    private val pad=a.d(PAD).toFloat();private val clip=Path();private val r=RectF()
+    override fun onDraw(c:Canvas){r.set(pad,pad,width-pad,height-pad);val rad=a.d(4).toFloat()
+        shadow(r.width().roundToInt(),r.height().roundToInt())?.let{c.drawBitmap(it,null,RectF(0f,pad*.5f,width.toFloat(),height+pad*.5f),p)}
+        c.save();clip.reset();clip.addRoundRect(r,rad,rad,Path.Direction.CW);c.clipPath(clip)
+        val bmp=a.cover(book)
+        if(bmp==null&&book.optJSONObject("cover")!=null){if(!asked){asked=true;a.requestCover(book){if(it!=null)invalidate()}};c.drawColor(if(a.light)0xffe6e4df.toInt() else 0xff2a2a2d.toInt())}
+        else if(bmp==null)art.drawCover(c,r,book,null)
+        else{val sc=max(r.width()/bmp.width,r.height()/bmp.height);val w=bmp.width*sc;val h=bmp.height*sc
+            c.drawBitmap(bmp,null,RectF(r.centerX()-w/2,r.centerY()-h/2,r.centerX()+w/2,r.centerY()+h/2),p)}
+        c.restore()}
+    private fun shadow(w:Int,h:Int):Bitmap?{val key=w*10000+h;cache[key]?.let{return it}
+        return try{val k=2;val pd=pad/k;val b=Bitmap.createBitmap(((w+pad*2)/k).roundToInt(),((h+pad*2)/k).roundToInt(),Bitmap.Config.ARGB_8888)
+            Canvas(b).drawRoundRect(pd,pd,b.width-pd,b.height-pd,a.d(4)/k.toFloat(),a.d(4)/k.toFloat(),Paint(Paint.ANTI_ALIAS_FLAG).apply{color=if(a.light)0x40000000 else 0x99000000.toInt()})
+            val out=ShelfFrost.blur(b,a.d(6)/k.toFloat());b.recycle();cache[key]=out;out}catch(e:Throwable){null}}
+    companion object{const val PAD=14;private val cache=HashMap<Int,Bitmap>()}
 }
 
 /** The long winding road of the year: one milestone per book of the goal, big covers alternating sides. */
@@ -297,7 +308,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         if(motion)ValueAnimator.ofFloat(0f,1f).apply{startDelay=320;duration=900L+min(books.size,8)*140L;interpolator=PathInterpolator(.45f,0f,.2f,1f);addUpdateListener{intro=it.animatedValue as Float;invalidate()};start()}}
     /** One book: the cover stands on its milestone at the edge, the details sit beside it towards the middle. */
     private fun item(i:Int,yb:YearBook):View{val right=i%2==0
-        val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+        val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false}
         val cover=FlatCover(a,yb.book).apply{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         val g=if(right)Gravity.END else Gravity.START
         val t=a.column().apply{gravity=g}
@@ -311,9 +322,10 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         val r=yb.book.optInt("rating")
         val rate=StarRow(a,r,15f,3f)
         t.addView(rate,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10);gravity=g})
-        val coverLp=LinearLayout.LayoutParams(a.d(96),a.d(144))
-        if(right){row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{rightMargin=a.d(16)});row.addView(cover,coverLp)}
-        else{row.addView(cover,coverLp);row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=a.d(16)})}
+        val pad=a.d(FlatCover.PAD)
+        val coverLp=LinearLayout.LayoutParams(a.d(96)+pad*2,a.d(144)+pad*2).apply{setMargins(-pad,-pad,-pad,-pad)}
+        if(right){row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{rightMargin=a.d(16)+pad});row.addView(cover,coverLp)}
+        else{row.addView(cover,coverLp);row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=a.d(16)+pad})}
         row.tag=right
         row.contentDescription="${i+1}-я книга: ${yb.book.str("title")}, ${f(yb.start)} — ${f(yb.end)}"+if(r in 1..5)", оценка $r из 5" else ""
         row.isClickable=true;row.setOnClickListener{a.detail(yb.book)}
