@@ -28,7 +28,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
     private val lensHost=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
     // the shelf (its front, edge and shadow) lies inside the row's own bounds: drawn outside them it was cut off by
     // the page, so only a thin line of it showed
-    private val stageFull=(if(list.isEmpty())coverH*3/4 else coverH)+a.d(16)+a.d(36)
+    private val stageFull=(if(list.isEmpty())coverH*3/4 else coverH)+a.d(16)+a.d(17)
     private var progress=0f
     private var anim:android.animation.ValueAnimator?=null
     private var field:EditText?=null
@@ -127,27 +127,24 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
      *  with the books standing towards its back; then the front edge with a faint light line and a soft shadow below.
      *  No glass, no reflections. Drawn behind the covers. */
     private inner class MatteShelf:View(a){
+        /** Approved look Г2: a thin rounded graphite plank under the covers, with a light top edge and a soft shadow. */
         private val d=a.d(1).toFloat()
-        /** How far the top surface reaches up behind the books, the visible depth in front of them, the edge, the shadow. */
-        val behind=a.d(20);private val front=a.d(12);private val edge=a.d(14);private val shade=a.d(20)
-        val full=behind+front+edge+shade
+        private val plank=a.d(11);private val shade=a.d(16)
+        val full=plank+shade
         private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{isDither=true}
+        private val r=RectF()
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         fun refresh(){};fun scrolled(){}
         override fun onTouchEvent(e:MotionEvent)=false
-        override fun onDraw(c:Canvas){val w=width.toFloat();val light=a.light
-            val top=0f;val lip=(behind+front).toFloat();val bottom=lip+edge
-            // top surface: darker at the back (in the books' shadow), lighter towards the front edge.
-            // (The paint's own opacity also scales a gradient: reset it, or the light line's faint colour from the
-            // previous frame dimmed the whole shelf on every redraw after the first.)
-            p.color=Color.WHITE;p.shader=LinearGradient(0f,top,0f,lip,if(light)0xffd6d6d2.toInt() else 0xff222226.toInt(),if(light)0xffeaeae6.toInt() else 0xff3c3c42.toInt(),Shader.TileMode.CLAMP)
-            c.drawRect(0f,top,w,lip,p)
-            // the front edge, a thin light line along its top
-            p.color=Color.WHITE;p.shader=LinearGradient(0f,lip,0f,bottom,if(light)0xffcdcdc9.toInt() else 0xff414147.toInt(),if(light)0xffb8b8b4.toInt() else 0xff222226.toInt(),Shader.TileMode.CLAMP)
-            c.drawRect(0f,lip,w,bottom,p);p.shader=null
-            p.color=if(light)0x99ffffff.toInt() else 0x24ffffff;c.drawRect(0f,lip,w,lip+d,p)
-            // the shadow the shelf casts on the wall below
-            p.color=Color.WHITE;p.shader=LinearGradient(0f,bottom,0f,bottom+shade,if(light)0x26000000 else 0x99000000.toInt(),0,Shader.TileMode.CLAMP);c.drawRect(0f,bottom,w,bottom+shade,p);p.shader=null}
+        override fun onDraw(c:Canvas){val light=a.light;val l=d*16;val rgt=width-d*16;val h=plank.toFloat();val rad=h/2
+            // soft shadow under the plank
+            p.color=Color.WHITE;p.shader=LinearGradient(0f,h*.6f,0f,h+shade,if(light)0x2e000000 else 0xa6000000.toInt(),0,Shader.TileMode.CLAMP)
+            r.set(l+d*6,h*.6f,rgt-d*6,h+shade);c.drawRoundRect(r,shade.toFloat(),shade.toFloat(),p)
+            // the plank: lighter on top, darker underneath (paint opacity reset first — it scales a gradient too)
+            p.color=Color.WHITE;p.shader=LinearGradient(0f,0f,0f,h,intArrayOf(if(light)0xffdcdcd8.toInt() else 0xff56565d.toInt(),if(light)0xffc6c6c2.toInt() else 0xff3b3b41.toInt(),if(light)0xffb3b3af.toInt() else 0xff2a2a2f.toInt()),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
+            r.set(l,0f,rgt,h);c.drawRoundRect(r,rad,rad,p);p.shader=null
+            // a fine light line along the top edge
+            p.color=if(light)0xb3ffffff.toInt() else 0x2effffff;r.set(l+d*4,d,rgt-d*4,d*2);c.drawRoundRect(r,d,d,p)}
     }
 
     /** Matte glass shelf with screws, light to draw: every cover has a tiny pre-blurred copy (made once, cached);
