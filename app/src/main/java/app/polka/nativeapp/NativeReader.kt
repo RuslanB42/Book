@@ -312,9 +312,9 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         mine.drop(1).forEach { rich.removeSpan(it) }
         if(mine.isEmpty()) rich.setSpan(QuoteInk(fromInk),s,e,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         rich.getSpans(s,e,QuoteInk::class.java).filter { rich.getSpanStart(it)==s && rich.getSpanEnd(it)==e }.forEach { it.color=fromInk }
-        repaintMarks() // the page shows the quote's span at its old colour; from here only colours change
+        repaintMarks() // the page shows the quote's span at its old colour; from here only colours change. Re-setting the span on the shown text tells the selectable TextView to redraw its cached text blocks.
         fun paint(c:Int) { rich.getSpans(s,e,QuoteInk::class.java).forEach { if(rich.getSpanStart(it)==s&&rich.getSpanEnd(it)==e) it.color=c }
-            val base=pageBase(); (body.text as? android.text.Spanned)?.let { t -> t.getSpans(0,t.length,QuoteInk::class.java).forEach { sp -> if(t.getSpanStart(sp)+base>=s && t.getSpanEnd(sp)+base<=e) sp.color=c } }
+            val base=pageBase(); (body.text as? android.text.Spanned)?.let { t -> t.getSpans(0,t.length,QuoteInk::class.java).forEach { sp -> val ss=t.getSpanStart(sp); val se=t.getSpanEnd(sp); if(ss+base>=s && se+base<=e) { sp.color=c; (t as? android.text.Spannable)?.setSpan(sp,ss,se,t.getSpanFlags(sp)) } } }
             body.invalidate() }
         recolorAnim?.cancel()
         if(!animate||fromInk==to){ paint(to); repaintMarks() }

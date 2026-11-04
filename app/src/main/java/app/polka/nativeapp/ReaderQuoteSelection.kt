@@ -143,8 +143,10 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private fun hideStrip(){removeCallbacks(stripTimer);if(!stripOpen)return;stripOpen=false
         val done={strip.visibility=GONE;strip.alpha=1f;strip.scaleX=1f;strip.scaleY=1f;if(!active&&!settling&&fade<=0f)visibility=GONE}
         popOut(strip){done()}}
-    private fun recolor(key:String){val (s,e)=stripQuote?:return;val q=reader.quoteOverlapping(s,e)?:return;val old=q.first.optString("color")
-        a.prefs.put("quoteColor",key);a.savePreferences();dots.forEach{it.on=it.key==key}
+    private fun recolor(key:String){
+        // The choice is remembered first, even if the quote is still being saved (its colour is read when it lands).
+        if(QuoteColors.last(a)!=key){a.prefs.put("quoteColor",key);a.savePreferences()};dots.forEach{it.on=it.key==key}
+        val (s,e)=stripQuote?:return;val q=reader.quoteOverlapping(s,e)?:run{removeCallbacks(stripTimer);postDelayed(stripTimer,2500);return};val old=q.first.optString("color")
         if(old==key){removeCallbacks(stripTimer);postDelayed(stripTimer,2500);return}
         reader.recolorQuote(q.first,q.second,key,!reduced,QuoteColors.ink(old.ifBlank{"amber"}))
         if(!reduced){
@@ -163,7 +165,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         if(existing!=null){val r=existing.second;val y=menu.translationY;clear(false);menu.translationY=y;showStrip(r.first,r.last+1,existing.first.optString("color","amber"));return}
         val text=range.text(full);val color=QuoteColors.last(a);val y=menu.translationY;clear(false);menu.translationY=y
         if(reduced){reader.addQuote(s,e,text,color);showStrip(s,e,color);return}
-        settleOut(s,e,0x65e7ac48,QuoteColors.ink(color),240){reader.addQuote(s,e,text,color)}
+        settleOut(s,e,0x65e7ac48,QuoteColors.ink(color),240){reader.addQuote(s,e,text,QuoteColors.last(a))}
         showStrip(s,e,color)
     }
     private fun settleOut(s:Int,e:Int,from:Int,to:Int,ms:Long,done:()->Unit){
