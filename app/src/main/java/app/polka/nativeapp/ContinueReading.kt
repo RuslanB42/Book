@@ -46,12 +46,19 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   init{isHorizontalScrollBarEnabled=false;isHorizontalFadingEdgeEnabled=false;isVerticalFadingEdgeEnabled=false;setFadingEdgeLength(0);overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;clipChildren=false;contentDescription="Книги в процессе чтения"}
   override fun onMeasure(w:Int,h:Int){resize(MeasureSpec.getSize(w));super.onMeasure(w,h)}
   override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);evenHeights();if(restoring){scrollTo(pendingIndex*stride,0);restoring=false};focus(scrollX)}
-  override fun fling(velocityX:Int){flung=true;val dir=if(velocityX>0)1 else if(velocityX<0)-1 else 0;springTo((startPage+dir).coerceIn(0,last()),velocityX)}
+  override fun fling(velocityX:Int){flung=true;val dir=if(velocityX>0)1 else if(velocityX<0)-1 else 0;val want=startPage+dir
+   if(want<0||want>last()){edgeBounce(dir,velocityX)}
+   springTo(want.coerceIn(0,last()),velocityX)}
+  /** At either end the row gives a little and eases back, instead of stopping dead. */
+  private fun edgeBounce(dir:Int,velocity:Int){if(reduced)return;val give=-dir*a.d(10)*(kotlin.math.abs(velocity)/a.d(1500).toFloat()).coerceIn(.6f,1.6f)
+   strip.animate().cancel();strip.animate().translationX(give).setDuration(150).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).withEndAction{
+    strip.animate().translationX(0f).setDuration(520).setInterpolator(android.view.animation.PathInterpolator(.3f,0f,.1f,1f)).start()}.start()}
   override fun onTouchEvent(e:MotionEvent):Boolean{if(e.actionMasked==MotionEvent.ACTION_DOWN)flung=false;val handled=super.onTouchEvent(e);if((e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)&&!flung)post{snap()};return handled}
   fun snap(){springTo((scrollX.toFloat()/stride).roundToInt().coerceIn((startPage-1).coerceAtLeast(0),(startPage+1).coerceAtMost(last())),0)}
   /** anime.js spring instead of the linear smooth scroll: a quick throw settles with a small, soft overshoot. */
   fun springTo(page:Int,velocity:Int){val target=page*stride;glide?.cancel();if(reduced||target==scrollX){scrollTo(target,0);return}
-   val bounce=if(kotlin.math.abs(velocity)>a.d(900))0.2 else 0.1;val sp=Spring.of(bounce,520.0)
+   // no overshoot into the ends: the scroll cannot go past them, a clipped overshoot reads as a jolt
+   val edge=page==0||page==last();val bounce=if(edge)0.0 else if(kotlin.math.abs(velocity)>a.d(900))0.2 else 0.1;val sp=Spring.of(bounce,520.0)
    glide=ValueAnimator.ofInt(scrollX,target).apply{duration=sp.duration;interpolator=sp.interpolator;addUpdateListener{scrollTo(it.animatedValue as Int,0)};start()}}
   override fun onScrollChanged(x:Int,y:Int,ox:Int,oy:Int){super.onScrollChanged(x,y,ox,oy);focus(x);if(restoring)return;val n=(x.toFloat()/stride).roundToInt().coerceIn(0,readingBooks.lastIndex.coerceAtLeast(0))
    if(a.continueBookId!=readingBooks.getOrNull(n)?.str("id"))readingBooks.getOrNull(n)?.let{a.prefetchContent(it)};a.continueBookId=readingBooks.getOrNull(n)?.str("id")}
@@ -90,14 +97,15 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   carousel.addView(strip,FrameLayout.LayoutParams(-2,-2))
   // a soft glow in the focused book's colour behind the cards; it changes colour as you scroll
   val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
-  if(!reduced)stage.addView(glow,FrameLayout.LayoutParams(-1,-1))
+  // the light layer reaches well above and below the cards, so its soft edge is never cut
+  if(!reduced)stage.addView(glow,FrameLayout.LayoutParams(-1,-1).apply{topMargin=-a.d(90);bottomMargin=-a.d(90)})
   stage.addView(carousel,FrameLayout.LayoutParams(-1,-2))
   addView(stage,LayoutParams(-1,-2).apply{marginStart=-a.d(20);marginEnd=-a.d(20);bottomMargin=-a.d(14)})
  }
  /** Card fill: the cover's colour, lighter on the left (next to the cover) and deepening to the right, like Kindle. */
  private fun floating(card:FrameLayout,book:JSONObject,i:Int){
   val radius=a.d(18).toFloat()
-  fun paint(c:IntArray){tints[i]=c[0];glow.invalidate()}
+  fun paint(c:IntArray){tints[i]=glow.tone(c[0]);glow.invalidate()}
   val first=shades(null,book);paint(first)
   // the usual card grey; the cover's colour only tints the glow behind the cards
   val fill=GradientDrawable().apply{setColor(if(light)Color.WHITE else 0xff242426.toInt());cornerRadius=radius}
@@ -119,7 +127,13 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,12.5f,if(primary)a.bg else a.fg,true).apply{
   gravity=Gravity.CENTER;minHeight=a.d(32);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(6),0,a.d(6),0);contentDescription=description;isClickable=true;isFocusable=true
   background=if(primary)GradientDrawable().apply{setColor(a.fg);cornerRadius=a.d(16).toFloat()} else GradientDrawable().apply{setColor((a.fg and 0xffffff) or ((if(light)0x10 else 0x1c) shl 24));cornerRadius=a.d(16).toFloat()}
-  setOnClickListener{click()};a.press(this)}
+  setOnClickListener{click()};pressy(this)}
+ /** The buttons sink clearly under the finger and spring back when released. */
+ private fun pressy(v:View){v.setOnTouchListener{view,e->view.background?.setHotspot(e.x,e.y);if(reduced)return@setOnTouchListener false
+   when(e.actionMasked){
+    MotionEvent.ACTION_DOWN->view.animate().scaleX(.9f).scaleY(.9f).alpha(.82f).setDuration(110).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()
+    MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val sp=Spring.of(.5,460.0);view.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}
+   false}}
  private fun resize(viewport:Int){if(viewport<=0||viewport==lastViewport)return;lastViewport=viewport;val content=(viewport-a.d(40)).coerceAtLeast(1)
   // The card in focus sits at the normal page margin on the left; the next one peeks in on the right.
   val width=if(cards.size<=1)content else (content*.9f).toInt().coerceAtMost(a.d(340));val gap=a.d(12);carousel.stride=width+gap
@@ -145,7 +159,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    cards[i].translationZ=a.d(6)*(1f-k)
    if(!motion)return@forEachIndexed
    val c=covers[i];c.pivotX=c.width/2f;c.pivotY=c.height.toFloat()
-   val sink=1f-.16f*k;c.scaleX=sink;c.scaleY=sink;c.rotation=(-d*4f).coerceIn(-4f,4f);c.translationX=-d.coerceIn(-1f,1f)*a.d(6)
+   val sink=1f-.16f*k;c.scaleX=sink;c.scaleY=sink;c.rotation=(if(d>0)-1f else 1f)*16f*k*(1f-k);c.translationX=-d.coerceIn(-1f,1f)*a.d(6)
    val rows=texts[i];var n=0
    for(r in 0 until rows.childCount){val v=rows.getChildAt(r);if(v.height<=a.d(2)&&v !is TextView)continue;v.translationX=d.coerceIn(-1f,1f)*a.d(14)*(1+n*.5f);v.alpha=1f-.55f*k;n++}}
   if(motion&&readingBooks.isNotEmpty()){val f=(x/stride).coerceIn(0f,readingBooks.lastIndex.toFloat());val lo=f.toInt();val hi=(lo+1).coerceAtMost(readingBooks.lastIndex)
@@ -167,12 +181,14 @@ internal class AmbientGlow(private val a:MainActivity):View(a){
  fun set(c:Int,x:Float,l:Boolean){if(c==color&&x==cx&&l==light)return;color=c;cx=x;light=l;invalidate()}
  /** The light's colour at one steady brightness: blends between two books never dip or flare, and a dark (or black)
   *  cover still gives a clearly visible light; a colourless cover gives a soft warm white. */
- private fun tone(c:Int):Int{val hsl=FloatArray(3);androidx.core.graphics.ColorUtils.colorToHSL(c,hsl)
-  if(hsl[1]<.12f||hsl[2]<.06f){hsl[0]=36f;hsl[1]=.22f}else hsl[1]=(hsl[1]*1.25f).coerceIn(.45f,.85f)
-  hsl[2]=if(light).58f else .62f;return androidx.core.graphics.ColorUtils.HSLToColor(hsl)}
+ fun tone(c:Int):Int{val hsl=FloatArray(3);androidx.core.graphics.ColorUtils.colorToHSL(c,hsl)
+  val hsv=FloatArray(3);Color.colorToHSV(c,hsv)
+  if(hsv[1]<=.125f){hsl[0]=36f;hsl[1]=.22f}else hsl[1]=(hsl[1]*1.25f).coerceIn(.45f,.85f)
+  hsl[2]=if(a.light).58f else .62f;return androidx.core.graphics.ColorUtils.HSLToColor(hsl)}
  /** A soft oval of light baked once per size: a gaussian falloff with fine noise in its opacity, so it shows no rings. */
  private fun mask(w:Int,h:Int):Bitmap?{val key="$w:$h:$light";if(key==maskKey&&mask!=null)return mask
-  return try{val peak=if(light)52f else 84f;val rx=w*.40f;val ry=h*.50f;val mx=w/2f;val my=h*.56f;val px=IntArray(w*h);var seed=0x1f2e3d4c
+  // the oval is small against the view, so the light has died out completely well before any edge
+  return try{val peak=if(light)52f else 84f;val rx=w*.30f;val ry=h*.25f;val mx=w/2f;val my=h*.53f;val px=IntArray(w*h);var seed=0x1f2e3d4c
    val gx=FloatArray(w){val d=(it-mx)/rx;kotlin.math.exp(-2.6f*d*d)};val gy=FloatArray(h){val d=(it-my)/ry;kotlin.math.exp(-2.6f*d*d)}
    for(y in 0 until h){val fy=gy[y];val row=y*w
     for(x in 0 until w){seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val n1=(seed and 0xffff)/65535f
@@ -180,7 +196,7 @@ internal class AmbientGlow(private val a:MainActivity):View(a){
      val al=(peak*fy*gx[x]+n+.5f).toInt().coerceIn(0,255);px[row+x]=(al shl 24) or 0xffffff}}
    Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888).also{mask?.recycle();mask=it;maskKey=key}}catch(e:Throwable){null}}
  override fun onDraw(c:Canvas){if(width<1||height<1||color==0)return;val m=mask(width,height)?:return
-  p.colorFilter=PorterDuffColorFilter(tone(color),PorterDuff.Mode.SRC_IN);c.drawBitmap(m,cx-width/2f,0f,p)}
+  p.colorFilter=PorterDuffColorFilter(color,PorterDuff.Mode.SRC_IN);c.drawBitmap(m,cx-width/2f,0f,p)}
  override fun onDetachedFromWindow(){super.onDetachedFromWindow();mask?.recycle();mask=null;maskKey=""}
 }
 
