@@ -22,9 +22,9 @@ internal object SpacedJustify {
     // Paint word spacing is public only from Android 10; older phones keep the platform justification.
     fun needed(a:MainActivity)=android.os.Build.VERSION.SDK_INT>=29&&a.prefs.optBoolean("justify",true)&&(a.prefs.optDouble("ls",0.0)!=0.0||a.prefs.optDouble("ws",0.0)!=0.0)
     fun clear(t:Spannable){runCatching{t.getSpans(0,t.length,LineStretch::class.java).forEach{t.removeSpan(it)}}}
-    fun apply(tv:TextView){val l=tv.layout?:return;val t=tv.text as? Spannable?:return
-        // never stretch from a layout of another text (a page being swapped): offsets would not match
-        if(l.text!==t&&l.text.length!=t.length)return
+    fun apply(tv:TextView){val l=tv.layout?:return
+        // the spans go on the text the layout draws (a TextView may lay out its own copy of what it was given)
+        val t=(l.text as? Spannable)?:(tv.text as? Spannable)?.takeIf{it===l.text}?:return
         try{apply(l,t)}catch(e:Exception){android.util.Log.w("Polka","line stretch skipped",e);clear(t)}}
     private fun apply(l:Layout,t:Spannable){
         clear(t)
