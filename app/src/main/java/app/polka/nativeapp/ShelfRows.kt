@@ -14,7 +14,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
     private val coverW=a.d(88);private val coverH=a.d(132)
     private val scroller=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;clipChildren=false}
     private val row=a.row().apply{gravity=Gravity.BOTTOM;clipChildren=false;clipToPadding=false;setPadding(a.d(20),a.d(6),a.d(20),a.d(10))}
-    private val glass=Glass()
+    private val glass=MatteShelf()
     private var shown=0
     // ── edit mode: the header becomes a card with a drag handle, the covers fold away ──
     private val head=a.row().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(40)}
@@ -48,8 +48,8 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         scroller.addView(row);lensHost.addView(scroller,FrameLayout.LayoutParams(-1,-2));stage.addView(lensHost,FrameLayout.LayoutParams(-1,-1))
         scroller.setOnScrollChangeListener{_,_,_,_,_->glass.scrolled()}
         // The glass view is larger than the glass by its shadow; it never takes touches, so the row still scrolls.
-        val glassH=(coverH*.42f).toInt()+a.d(8)
-        stage.addView(glass,FrameLayout.LayoutParams(-1,glassH+glass.pad*2,Gravity.BOTTOM).apply{leftMargin=a.d(12)-glass.pad;rightMargin=a.d(12)-glass.pad;bottomMargin=-glass.pad})
+        // the matte shelf lies behind the covers: its top surface starts under their lower part, so the books stand on it
+        stage.addView(glass,0,FrameLayout.LayoutParams(-1,glass.full,Gravity.BOTTOM).apply{bottomMargin=-(glass.full-glass.behind-a.d(10))})
         addView(stage,LayoutParams(-1,stageFull).apply{leftMargin=-a.d(20);rightMargin=-a.d(20)})
         apply(0f)
     }
@@ -118,6 +118,31 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
     override fun onDetachedFromWindow(){removeCallbacks(feed);super.onDetachedFromWindow()}
 
     private companion object{val shared=HashMap<String,Triple<Bitmap,Bitmap,ColorFilter?>>()}
+
+    /** A matte wall shelf from edge to edge (approved design В3): the shelf's top surface, seen from a little above,
+     *  with the books standing towards its back; then the front edge with a faint light line and a soft shadow below.
+     *  No glass, no reflections. Drawn behind the covers. */
+    private inner class MatteShelf:View(a){
+        private val d=a.d(1).toFloat()
+        /** How far the top surface reaches up behind the books, the visible depth in front of them, the edge, the shadow. */
+        val behind=a.d(20);private val front=a.d(12);private val edge=a.d(14);private val shade=a.d(20)
+        val full=behind+front+edge+shade
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{isDither=true}
+        init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
+        fun refresh(){};fun scrolled(){}
+        override fun onTouchEvent(e:MotionEvent)=false
+        override fun onDraw(c:Canvas){val w=width.toFloat();val light=a.light
+            val top=0f;val lip=(behind+front).toFloat();val bottom=lip+edge
+            // top surface: darker at the back (in the books' shadow), lighter towards the front edge
+            p.shader=LinearGradient(0f,top,0f,lip,if(light)0xffd9d9d5.toInt() else 0xff1d1d20.toInt(),if(light)0xffe9e9e5.toInt() else 0xff35353a.toInt(),Shader.TileMode.CLAMP)
+            c.drawRect(0f,top,w,lip,p)
+            // the front edge, a thin light line along its top
+            p.shader=LinearGradient(0f,lip,0f,bottom,if(light)0xffd0d0cc.toInt() else 0xff38383d.toInt(),if(light)0xffbdbdb9.toInt() else 0xff1c1c1f.toInt(),Shader.TileMode.CLAMP)
+            c.drawRect(0f,lip,w,bottom,p);p.shader=null
+            p.color=if(light)0x99ffffff.toInt() else 0x17ffffff;c.drawRect(0f,lip,w,lip+d,p)
+            // the shadow the shelf casts on the wall below
+            p.shader=LinearGradient(0f,bottom,0f,bottom+shade,if(light)0x26000000 else 0x99000000.toInt(),0,Shader.TileMode.CLAMP);c.drawRect(0f,bottom,w,bottom+shade,p);p.shader=null}
+    }
 
     /** Matte glass shelf with screws, light to draw: every cover has a tiny pre-blurred copy (made once, cached);
      *  the pane paints those copies where the covers are — a handful of small bitmaps per frame, no snapshots of
