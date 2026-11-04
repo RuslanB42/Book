@@ -25,31 +25,16 @@ internal class WidgetCardDrawable(private val a:MainActivity,private val radius:
         // one soft light, pre-rendered with a gaussian falloff and fine noise so the 8-bit steps never show as rings
         // rendered once per card width; when the card's height changes (a section opens) the light is simply stretched
         val key="${b.width()}${a.light}"
-        if(key!=texKey){texKey=key;tex=null;light.shader=null;val w=b.width();val h=b.height()
-            val ready=synchronized(cache){cache["$w:$g:$fx:$fy:$reach:${a.light}"]}
-            if(ready!=null){tex=ready;fade=1f;light.shader=BitmapShader(ready,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP)}
-            else{fade=0f;var out:Bitmap?=null;a.work({out=render(w,h,g)}){val t=out;if(t!=null&&texKey==key){tex=t;light.shader=BitmapShader(t,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP)
-                ValueAnimator.ofFloat(0f,1f).apply{duration=480;addUpdateListener{fade=it.animatedValue as Float;invalidateSelf()};start()}}}}}
+        if(key!=texKey){texKey=key;fade=1f;tex=render(b.width(),b.height(),g);light.shader=tex?.let{BitmapShader(it,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP)}}
         val t=tex?:return;light.alpha=(255*fade).toInt();(light.shader as? BitmapShader)?.setLocalMatrix(Matrix().apply{setScale(b.width().toFloat()/t.width,b.height().toFloat()/t.height)})
         if(light.shader==null)return
         c.save();c.translate(r.left,r.top);c.drawRoundRect(0f,0f,r.width(),r.height(),radius,radius,light);c.restore()}
     /** The card's face with its light baked in at full resolution: base colour plus a gaussian glow, each channel
      *  dithered with fine triangular noise in output space, so no 8-bit rings can appear. Cached per size. */
     private fun render(w:Int,h:Int,g:Int):Bitmap?{val key="$w:$g:$fx:$fy:$reach:${a.light}";synchronized(cache){cache[key]?.let{if(!it.isRecycled)return it}}
-        return try{val px=IntArray(w*h);var seed=0x2545F491
-            val base=if(a.light)Color.WHITE else 0xff1c1c1f.toInt()
-            val bR=Color.red(base).toFloat();val bG=Color.green(base).toFloat();val bB=Color.blue(base).toFloat()
-            val dR=Color.red(g)-bR;val dG=Color.green(g)-bG;val dB=Color.blue(g)-bB
-            val cx=w*fx;val cy=h*fy;val rx=max(w,h)*reach*1.15f;val peak=if(a.light).10f else .2f
-            // the gaussian splits into a row and a column factor: two small tables instead of an exp per pixel
-            val gx=FloatArray(w){val dx=(it-cx)/rx;exp(-3.2f*dx*dx)};val gy=FloatArray(h){val dy=(it-cy)/rx;peak*exp(-3.2f*dy*dy)}
-            for(y in 0 until h){val fy0=gy[y];val row=y*w
-                for(x in 0 until w){val k=fy0*gx[x]
-                    seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val n1=(seed and 0xffff)/65535f
-                    seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val n=n1-(seed and 0xffff)/65535f
-                    val R=(bR+dR*k+n+.5f).toInt().coerceIn(0,255);val G=(bG+dG*k+n+.5f).toInt().coerceIn(0,255);val B=(bB+dB*k+n+.5f).toInt().coerceIn(0,255)
-                    px[row+x]=(0xff shl 24) or (R shl 16) or (G shl 8) or B}}
-            Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888).also{synchronized(cache){cache[key]=it}}}catch(e:Throwable){null}}
+        val base=if(a.light)Color.WHITE else 0xff1c1c1f.toInt();val rx=max(w,h)*reach*1.15f
+        // gaussian exp(-3.2 q²) reaches ~4 % at the radius: the gradient spans 1.6 radii so it fades fully to nothing
+        return Glow.face(w,h,base,g,w*fx,h*fy,rx*1.6f,if(a.light).10f else .2f,3.2f*1.6f*1.6f)?.also{synchronized(cache){cache[key]=it}}}
     private companion object{val cache=HashMap<String,Bitmap>()}
     override fun setAlpha(alpha:Int){}
     override fun setColorFilter(cf:ColorFilter?){}
@@ -169,15 +154,9 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
     /** The halo is blurred off the main thread (measured: a blur in the first frame cost ~220 ms) and fades in. */
     private var glowGen=0;private var glowFor=-1
     private fun glow():Bitmap?{glowBitmap?.let{return it};if(width<3||height<3||pts.isEmpty())return null
-        if(glowFor==glowGen)return null;glowFor=glowGen;val gen=glowGen;val w=width;val h=height;val path=Path(line);var out:Bitmap?=null
-        a.work({val k=3;val small=Bitmap.createBitmap(w/k,h/k,Bitmap.Config.ARGB_8888);val c=Canvas(small);c.scale(1f/k,1f/k)
-            val gp=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND;strokeWidth=a.d(6).toFloat()
-                shader=LinearGradient(0f,0f,w.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP)}
-            c.drawPath(path,gp);out=ShelfFrost.blur(small,a.d(9).toFloat()/k/2.2f);small.recycle()}){val g=out?:return@work
-            if(gen!=glowGen||width!=w||height!=h){g.recycle();return@work}
-            glowBitmap=g;glowAnim?.cancel();glowFade=0f
-            glowAnim=ValueAnimator.ofFloat(0f,1f).apply{duration=420;addUpdateListener{glowFade=it.animatedValue as Float;invalidate()};start()}}
-        return null}
+        val w=width;glowBitmap=Glow.blurred(width,height,3,a.d(9).toFloat()/2.2f){c,gp->gp.style=Paint.Style.STROKE;gp.strokeCap=Paint.Cap.ROUND;gp.strokeJoin=Paint.Join.ROUND
+            gp.strokeWidth=a.d(6).toFloat();gp.shader=LinearGradient(0f,0f,w.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP);c.drawPath(line,gp)}
+        return glowBitmap}
     // ── details on long press (same behaviour as the chart it replaces) ──
     private var tipIndex=-1;private var tipShow=0f;private var tipX=0f
     private var showAnim:ValueAnimator?=null;private var moveAnim:ValueAnimator?=null
@@ -388,4 +367,19 @@ internal object StatsEntrance{
     var settleAt=0L
     /** Milliseconds until the cards have settled (0 outside the entrance). */
     fun wait():Long=max(0L,settleAt-android.os.SystemClock.uptimeMillis())
+}
+
+/** Soft light, made by Skia (native and fast enough for the first frame, so nothing appears late). */
+internal object Glow{
+    /** Whatever [draw] paints, blurred with a gaussian of [sigma] (full-size pixels), into a bitmap 1/[k] the size. */
+    fun blurred(w:Int,h:Int,k:Int,sigma:Float,draw:(Canvas,Paint)->Unit):Bitmap?{if(w<2||h<2)return null
+        return try{val b=Bitmap.createBitmap(max(1,w/k),max(1,h/k),Bitmap.Config.ARGB_8888);val c=Canvas(b);c.scale(1f/k,1f/k)
+            val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{maskFilter=BlurMaskFilter(max(.5f,sigma/.57735f),BlurMaskFilter.Blur.NORMAL)}
+            draw(c,p);b}catch(e:Throwable){null}}
+    /** An opaque face: [base] with a round gaussian light of [glow] at (cx, cy), dithered so it shows no rings. */
+    fun face(w:Int,h:Int,base:Int,glow:Int,cx:Float,cy:Float,r:Float,peak:Float,fall:Float):Bitmap?{if(w<2||h<2)return null
+        return try{val b=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);val c=Canvas(b);c.drawColor(base)
+            val n=14;val pos=FloatArray(n){it/(n-1f)};val rgb=glow and 0xffffff
+            val cols=IntArray(n){val t=pos[it];(((255*peak*exp(-fall*t*t)).roundToInt().coerceIn(0,255)) shl 24) or rgb};cols[n-1]=rgb
+            c.drawRect(0f,0f,w.toFloat(),h.toFloat(),Paint(Paint.ANTI_ALIAS_FLAG).apply{isDither=true;shader=RadialGradient(cx,cy,r,cols,pos,Shader.TileMode.CLAMP)});b}catch(e:Throwable){null}}
 }

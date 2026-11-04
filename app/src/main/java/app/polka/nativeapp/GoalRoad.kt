@@ -248,14 +248,8 @@ internal class GoalBackdrop(private val a:MainActivity):android.graphics.drawabl
         fun prepare(a:MainActivity){val w=a.resources.displayMetrics.widthPixels;val k="$w${a.light}";if(k==key)return
             a.work({bake(a,w)})}
         @Synchronized fun bake(a:MainActivity,w:Int):Bitmap?{if(w<=0)return null;val k="$w${a.light}";if(k==key&&tex!=null)return tex
-            return try{val rx=w*1.05f;val h=(rx*1.25f).toInt();val cx=w*.82f;val px=IntArray(w*h);val rnd=java.util.Random(11)
-                val base=a.bg;val g=0xff2fd38a.toInt();val peak=if(a.light).09f else .15f
-                val bR=Color.red(base).toFloat();val bG=Color.green(base).toFloat();val bB=Color.blue(base).toFloat()
-                val dR=Color.red(g)-bR;val dG=Color.green(g)-bG;val dB=Color.blue(g)-bB
-                for(y in 0 until h){val dy=y/rx;val dy2=dy*dy
-                    for(x in 0 until w){val dx=(x-cx)/rx;val q=peak*exp(-2.6f*(dx*dx+dy2));val n=rnd.nextFloat()-rnd.nextFloat()
-                        px[y*w+x]=(0xff shl 24) or ((bR+dR*q+n).roundToInt().coerceIn(0,255) shl 16) or ((bG+dG*q+n).roundToInt().coerceIn(0,255) shl 8) or (bB+dB*q+n).roundToInt().coerceIn(0,255)}}
-                val out=Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888);tex=out;key=k;out}catch(e:Throwable){null}}
+            val rx=w*1.05f;val h=(rx*1.25f).toInt()
+            val out=Glow.face(w,h,a.bg,0xff2fd38a.toInt(),w*.82f,0f,rx*1.7f,if(a.light).09f else .15f,2.6f*1.7f*1.7f)?:return null;tex=out;key=k;return out}
     }
 }
 
@@ -413,9 +407,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         // the soft glow under the walked road is blurred off the main thread and fades in when ready
         glow?.recycle();glow=null;glowAlpha=0f;val gen=++glowGen
         if(!a.light&&n>0){val path=Path(walked);var out:Bitmap?=null
-            a.work({val k=4;val small=Bitmap.createBitmap(max(1,w/k),max(1,h/k),Bitmap.Config.ARGB_8888);val cv=Canvas(small);cv.scale(1f/k,1f/k)
-                cv.drawPath(path,Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeWidth=d*16;color=0xff2fd38a.toInt()})
-                out=ShelfFrost.blur(small,d*6f/k);small.recycle()}){val g=out
+            a.work({out=Glow.blurred(w,h,4,d*6f){c,p->p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*16;p.color=0xff2fd38a.toInt();c.drawPath(path,p)}}){val g=out
                 if(g==null)return@work
                 if(gen!=glowGen||!isAttachedToWindow){g.recycle();return@work}
                 glow=g;if(!motion){glowAlpha=1f;invalidate()} else ValueAnimator.ofFloat(0f,1f).apply{duration=500;addUpdateListener{glowAlpha=it.animatedValue as Float;invalidate()};start()}}}}

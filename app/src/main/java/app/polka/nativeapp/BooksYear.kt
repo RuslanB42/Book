@@ -116,26 +116,17 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     private val haloPad=d*14;private var halo:Bitmap?=null;private val haloPaint=Paint(Paint.FILTER_BITMAP_FLAG)
     /** Blurred off the main thread at a third of the size (measured: done in the frame it cost ~140 ms). */
     private var haloPending=false
-    private fun haloFor(w:Int,h:Int):Bitmap?{halo?.let{return it};if(haloPending)return null;haloPending=true
-        val pad=haloPad;val light=a.light;var out:Bitmap?=null
-        a.work({val k=3;val pw=(pad/k).toInt();val b=Bitmap.createBitmap(w/k+pw*2,h/k+pw*2,Bitmap.Config.ARGB_8888)
-            Canvas(b).drawRoundRect(pw.toFloat(),pw.toFloat(),(pw+w/k).toFloat(),(pw+h/k).toFloat(),d,d,Paint(Paint.ANTI_ALIAS_FLAG).apply{color=if(light)0xff2fd38a.toInt() else 0xff9df5c8.toInt()})
-            out=ShelfFrost.blur(b,d*5/k);b.recycle()}){halo=out;invalidate()}
-        return null}
+    private fun haloFor(w:Int,h:Int):Bitmap?{halo?.let{return it};val pad=haloPad
+        halo=Glow.blurred((w+pad*2).toInt(),(h+pad*2).toInt(),3,d*5){c,p->p.color=if(a.light)0xff2fd38a.toInt() else 0xff9df5c8.toInt();c.drawRoundRect(pad,pad,pad+w,pad+h,d*3,d*3,p)}
+        return halo}
     // soft glow under the walked part: drawn thick at a third of the size and blurred once
     private var glowBmp:Bitmap?=null;private var glowKey=-1f
     private val glowPaint=Paint(Paint.FILTER_BITMAP_FLAG).apply{alpha=0x8c}
     /** The glow is blurred off the main thread (a blur mid-animation dropped frames) and fades in once ready. */
     private var glowPending=false;private var glowFade=0f
     private fun glowFor(part:Path):Bitmap?{if(walk<1f)return null;val key=width*10000f+height;if(glowKey==key)return glowBmp
-        if(glowPending)return null;glowPending=true;val w=width;val h=height;val path=Path(part);var out:Bitmap?=null
-        a.work({val k=3;val small=Bitmap.createBitmap(max(1,w/k),max(1,h/k),Bitmap.Config.ARGB_8888);val cv=Canvas(small);cv.scale(1f/k,1f/k)
-            cv.drawPath(path,Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeWidth=d*9;color=0xff2fd38a.toInt()})
-            out=ShelfFrost.blur(small,d*3.2f/k);small.recycle()}){glowPending=false;val g=out?:return@work
-            if(!isAttachedToWindow||width!=w||height!=h){g.recycle();return@work}
-            glowBmp=g;glowKey=key;glowFade=0f
-            ValueAnimator.ofFloat(0f,1f).apply{duration=500;addUpdateListener{glowFade=it.animatedValue as Float;invalidate()};start()}}
-        return null}
+        glowBmp=Glow.blurred(width,height,3,d*3.2f){c,p->p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*9;p.color=0xff2fd38a.toInt();c.drawPath(part,p)}
+        glowKey=key;glowFade=1f;return glowBmp}
     companion object{const val SEL=1.12f;const val BASE=.8f;val MONTHS_SHORT=listOf("янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек")}
 }
 
