@@ -60,6 +60,9 @@ class MainActivity : Activity() {
     internal var baseInsets=androidx.core.graphics.Insets.NONE
     internal var imeBottom=0
     internal var imeAnimating=false
+    /** While set, the keyboard's motion is handed to it once per animation (target height, duration, curve) instead of
+     *  re-padding the whole page on every frame; it is dropped when the keyboard has fully gone. */
+    internal var imeFollower:((Int,Long,android.view.animation.Interpolator?)->Unit)?=null
     private var imeShown=false
     internal fun pushInsets(){val s=baseInsets;updateAppInsets(androidx.core.graphics.Insets.of(s.left,s.top,s.right,maxOf(s.bottom,imeBottom)))}
     internal fun setIme(bottom:Int){if(bottom!=imeBottom){imeBottom=bottom;pushInsets()}}
@@ -160,11 +163,14 @@ class MainActivity : Activity() {
         androidx.core.view.ViewCompat.setWindowInsetsAnimationCallback(root,object:androidx.core.view.WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE){
             private fun isIme(list:List<androidx.core.view.WindowInsetsAnimationCompat>)=list.any{it.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()!=0}
             override fun onPrepare(animation:androidx.core.view.WindowInsetsAnimationCompat){if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()!=0)imeAnimating=true}
+            override fun onStart(animation:androidx.core.view.WindowInsetsAnimationCompat,bounds:androidx.core.view.WindowInsetsAnimationCompat.BoundsCompat):androidx.core.view.WindowInsetsAnimationCompat.BoundsCompat{
+                if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()!=0&&reader==null)imeFollower?.let{f->val end=androidx.core.view.ViewCompat.getRootWindowInsets(root)?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0;f(end,animation.durationMillis,animation.interpolator)}
+                return bounds}
             override fun onProgress(insets:androidx.core.view.WindowInsetsCompat,running:List<androidx.core.view.WindowInsetsAnimationCompat>):androidx.core.view.WindowInsetsCompat{
-                if(reader==null&&isIme(running))setIme(insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom);return insets}
+                if(reader==null&&isIme(running)&&imeFollower==null)setIme(insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom);return insets}
             override fun onEnd(animation:androidx.core.view.WindowInsetsAnimationCompat){if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()==0)return
                 imeAnimating=false;val now=androidx.core.view.ViewCompat.getRootWindowInsets(root);val ime=now?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0
-                if(reader==null)setIme(ime);imeVisible(ime>0)}})
+                if(reader==null)setIme(ime);if(ime==0)imeFollower=null;imeVisible(ime>0)}})
         // a tap anywhere outside the focused text field closes the keyboard and lets the field go
         touchWatchers.add{e->val f=currentFocus as? android.widget.EditText;if(f!=null&&reader==null){val r=android.graphics.Rect();f.getGlobalVisibleRect(r);if(!r.contains(e.rawX.toInt(),e.rawY.toInt()))root.post{releaseTextFocus()}}}
         setContentView(root)

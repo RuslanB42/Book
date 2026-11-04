@@ -27,7 +27,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
     private val pen=IconView(a,"pen",a.muted).apply{alpha=0f;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     private val tail=a.row().apply{gravity=Gravity.CENTER_VERTICAL}
     /** Edit mode: removes a shelf of the user's own (the books stay in the library). */
-    private val trash=IconView(a,"trash",0xffff8a7a.toInt()).apply{alpha=0f;visibility=View.GONE;isClickable=true;contentDescription="Удалить полку";setPadding(a.d(10),a.d(10),a.d(10),a.d(10))}
+    private val trash=IconView(a,"trash",0xffff8a7a.toInt()).apply{alpha=0f;visibility=View.INVISIBLE;isClickable=true;contentDescription="Удалить полку";setPadding(a.d(10),a.d(10),a.d(10),a.d(10))}
     internal val handle=Grip()
     private val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
     /** The covers live in this layer; on Android 13+ the glass bends it live on the GPU (a RenderEffect). */
@@ -49,7 +49,8 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         head.addView(View(a),LayoutParams(0,1,1f))
         tail.addView(a.text(MainActivity.countBooks(list.size),13f,a.muted));tail.addView(IconView(a,"next",a.muted).apply{alpha=.7f},LayoutParams(a.d(18),a.d(18)).apply{leftMargin=a.d(4)})
         val end=FrameLayout(a);end.addView(tail,FrameLayout.LayoutParams(-2,-2,Gravity.CENTER_VERTICAL or Gravity.END));end.addView(handle,FrameLayout.LayoutParams(a.d(44),a.d(44),Gravity.CENTER_VERTICAL or Gravity.END))
-        remove?.let{f->trash.setOnClickListener{if(editing){commitRename();f()}};a.press(trash);head.addView(trash,LayoutParams(a.d(42),a.d(44)))}
+        // the bin sits right before the grip, at the same place on every card
+        remove?.let{f->trash.setOnClickListener{if(editing){commitRename();f()}};a.press(trash);end.addView(trash,FrameLayout.LayoutParams(a.d(40),a.d(44),Gravity.CENTER_VERTICAL or Gravity.END).apply{rightMargin=a.d(38)})}
         head.addView(end,LayoutParams(-2,a.d(44)))
         addView(head,LayoutParams(-1,-2));a.space(this,6)
         if(list.isEmpty())row.addView(a.text("Пока пусто — добавьте сюда книги",13.5f,a.muted).apply{gravity=Gravity.TOP;setPadding(a.d(4),a.d(10),0,0)},LayoutParams(-2,coverH*3/4))
@@ -77,31 +78,40 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         tail.alpha=(1-e*2).coerceIn(0f,1f);tail.translationX=-a.d(10)*e
         handle.alpha=((e-.35f)/.65f).coerceIn(0f,1f);handle.translationX=a.d(14)*(1-e);handle.visibility=if(e>0f)View.VISIBLE else View.INVISIBLE
         pen.alpha=if(rename==null)0f else ((e-.4f)/.6f).coerceIn(0f,1f)*.8f
-        if(remove!=null){trash.alpha=((e-.4f)/.6f).coerceIn(0f,1f);trash.translationX=a.d(14)*(1-e);trash.visibility=if(e>0f)View.VISIBLE else View.GONE}
+        if(remove!=null){trash.alpha=((e-.4f)/.6f).coerceIn(0f,1f);trash.translationX=a.d(14)*(1-e);trash.visibility=if(e>0f)View.VISIBLE else View.INVISIBLE}
         head.elevation=a.d(if(a.light)3 else 4)*e
         (layoutParams as? MarginLayoutParams)?.let{m->val idx=(parent as? ViewGroup)?.indexOfChild(this)?:0;val want=if(idx<=0)0 else (a.d(12)+(a.d(10)-a.d(12))*e).toInt();if(m.topMargin!=want){m.topMargin=want;layoutParams=m}}}
     /** Margins follow the new order after a drag. */
     fun settleMargin(){apply(progress)}
     // ── inline rename ──
     private fun startRename(){if(field!=null||!isAttachedToWindow||!editing)return
-        val f=a.edit(title,"Название полки").apply{setSingleLine(true);textSize=17f;typeface=name.typeface;setTextColor(a.fg);background=null;setPadding(0,0,0,0)
-            imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE;setSelection(text.length)
+        val f=a.edit(title,"Название полки").apply{setSingleLine(true);setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,name.textSize);typeface=name.typeface;setTextColor(a.fg);background=null;setPadding(0,0,0,0)
+            includeFontPadding=name.includeFontPadding;minHeight=0;minimumHeight=0;gravity=name.gravity;imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE;setSelection(text.length)
             setOnEditorActionListener{_,act,_->if(act==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){commitRename();true}else false}
             // never change the views from inside a focus change (the focus is moving through this very field):
             // the commit runs right after, on the next loop
             setOnFocusChangeListener{v,has->if(!has)v.post{if(field===v)commitRename()}}}
-        field=f;val i=head.indexOfChild(name);name.visibility=View.GONE;head.addView(f,i,LayoutParams(0,-2,1f))
-        f.alpha=0f;f.animate().alpha(1f).setDuration(160).start()
-        f.requestFocus();(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(f,0)
-        // a shelf low on the page would end up under the keyboard: once it is up, the page glides so the card sits above it
-        listOf(220L,420L,650L).forEach{d->postDelayed({if(field===f)revealAboveKeyboard()},d)}}
-    private fun revealAboveKeyboard(){val ime=a.imeBottom;if(ime<=0)return
-        var sv:android.view.ViewParent?=parent;while(sv!=null&&sv !is ScrollView&&sv !is androidx.core.widget.NestedScrollView)sv=sv.parent
-        val scroll=sv as? ViewGroup?:return
-        val at=IntArray(2);head.getLocationOnScreen(at);val root=IntArray(2);a.root.getLocationOnScreen(root)
-        val limit=root[1]+a.root.height-ime-a.d(16);val bottom=at[1]+head.height
-        if(bottom>limit){val dy=bottom-limit;when(scroll){is ScrollView->scroll.smoothScrollBy(0,dy);is androidx.core.widget.NestedScrollView->scroll.smoothScrollBy(0,dy)}}}
+        // the field takes the name's exact place and size: the title just gets a cursor, nothing moves or blinks
+        field=f;val i=head.indexOfChild(name);head.addView(f,i,LayoutParams(-2,-2));name.visibility=View.GONE
+        followKeyboard()
+        f.requestFocus();(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(f,0)}
+    /** The keyboard's own animation drives the page: a card that would end up under the keyboard glides up with it,
+     *  in the same time and curve, and back down as it closes. */
+    private fun followKeyboard(){
+        var sv:android.view.ViewParent?=parent;while(sv!=null&&sv !is ScrollView)sv=sv.parent
+        val scroll=sv as? ScrollView?:return;var shifted=0;var glide:android.animation.ValueAnimator?=null
+        fun move(dy:Int,ms:Long,curve:android.view.animation.Interpolator?){glide?.cancel();if(dy==0)return;val from=scroll.scrollY
+            if(a.prefs.str("motion")=="reduced"||ms<=0){scroll.scrollTo(0,from+dy);return}
+            glide=android.animation.ValueAnimator.ofInt(0,dy).apply{duration=ms;interpolator=curve?:android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{scroll.scrollTo(0,from+(it.animatedValue as Int))};start()}}
+        a.imeFollower={target,ms,curve->
+            if(target>0){a.setIme(target)
+                val at=IntArray(2);head.getLocationOnScreen(at);val root=IntArray(2);a.root.getLocationOnScreen(root)
+                val limit=root[1]+a.root.height-target-a.d(20);val dy=(at[1]+head.height-limit).coerceAtLeast(0)
+                // the page has just been given room below; scroll on the next frame, when it is laid out
+                if(dy>0)scroll.post{move(dy,ms,curve);shifted+=dy}}
+            else{val back=shifted;shifted=0;if(back>0)move(-back.coerceAtMost(scroll.scrollY),ms,curve)}}}
     private fun commitRename(){val f=field?:return;field=null;val next=f.text.toString().trim()
+        if(a.imeBottom==0)a.imeFollower=null // the keyboard never came up: nothing to follow
         f.onFocusChangeListener=null;f.setOnEditorActionListener(null)
         (a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)
         if(f.hasFocus()){a.root.isFocusableInTouchMode=true;a.root.requestFocus()}
