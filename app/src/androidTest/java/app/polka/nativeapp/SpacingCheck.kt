@@ -53,6 +53,11 @@ class SpacingCheck {
             val pt=NativeReader::class.java.declaredMethods.first{it.name=="pageText"&&it.parameterTypes.size==3};pt.isAccessible=true
             val rich=NativeReader::class.java.getDeclaredField("chapterRich").apply{isAccessible=true}.get(r) as CharSequence
             val starts=NativeReader::class.java.getDeclaredField("pageStarts").apply{isAccessible=true}.get(r) as List<*>
+            run{val page=pt.invoke(r,rich,starts,0) as CharSequence;val b=r.body;val pv=android.widget.TextView(a);pv.paint.set(b.paint);pv.typeface=b.typeface;pv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,b.textSize);pv.includeFontPadding=b.includeFontPadding;pv.setLineSpacing(0f,1f);pv.breakStrategy=b.breakStrategy;pv.hyphenationFrequency=b.hyphenationFrequency;pv.justificationMode=b.justificationMode;pv.setPadding(b.paddingLeft,b.paddingTop,b.paddingRight,b.paddingBottom);pv.setTextIsSelectable(true);pv.setText(page,android.widget.TextView.BufferType.SPANNABLE)
+                pv.measure(android.view.View.MeasureSpec.makeMeasureSpec(r.scroll.width,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(0,android.view.View.MeasureSpec.UNSPECIFIED));pv.layout(0,0,r.scroll.width,pv.measuredHeight)
+                SpacedJustify.apply(pv);val sp=(pv.layout.text as android.text.Spanned).getSpans(0,pv.layout.text.length,LineStretch::class.java)
+                report.append("manualPreview: lines=${pv.layout.lineCount} spans=${sp.size} first=${sp.firstOrNull()?.extra} err=${SpacedJustify.lastError} lineRight0=${pv.layout.getLineRight(0)} parRight0=${pv.layout.getParagraphRight(0)} width=${pv.layout.width} ws=${pv.paint.wordSpacing} ls=${pv.paint.letterSpacing} bodyLineRight0=${b.layout.getLineRight(0)} bodyLineMax0=${b.layout.getLineMax(0)} pvLineMax0=${pv.layout.getLineMax(0)}\n")
+                val bb=Bitmap.createBitmap(r.view.width,r.view.height,Bitmap.Config.ARGB_8888);val c=Canvas(bb);c.translate(r.scroll.left.toFloat(),r.scroll.top.toFloat());pv.draw(c);edges("manual-preview",bb,r)}
             edges("snapshot-text-same-page",m.invoke(r,pt.invoke(r,rich,starts,0),null,false) as Bitmap,r)
         }
         val scr=ui.takeScreenshot();scenario.onActivity{a->edges("screen",scr,reader!!,true)}
