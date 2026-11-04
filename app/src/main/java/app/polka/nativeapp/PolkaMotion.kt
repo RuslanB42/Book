@@ -40,7 +40,7 @@ class ScreenMotion(private val a:MainActivity) {
         ghost?.translationX=-tabDirection*tabWidth*q
         if(ms>=300)finishTab()
     }
-    private fun finishTab(){freezeTab();tabView?.translationX=0f;tabView=null;ghost?.let{(it.parent as? ViewGroup)?.removeView(it)};ghost=null}
+    private fun finishTab(){freezeTab();tabView?.translationX=0f;tabView?.clipBounds=null;tabView=null;ghost?.let{(it.parent as? ViewGroup)?.removeView(it)};ghost=null}
 
     /** Tab switch with the REAL outgoing page (no snapshot): it keeps its exact look — shadows, glass, state —
      *  and slides out while the new page, top bar included, slides in. */
@@ -52,6 +52,10 @@ class ScreenMotion(private val a:MainActivity) {
         blocker.addView(old,FrameLayout.LayoutParams(-1,-1))
         ghost=blocker;tabView=(a.page.parent as? View)?:a.page;tabDirection=if(opening)1f else -1f;tabWidth=a.root.width.toFloat()
         a.root.addView(blocker,1.coerceAtMost(a.root.childCount),FrameLayout.LayoutParams(-1,-1))
+        // While the two pages slide side by side each is cut to its own width: rows that scroll sideways (shelves,
+        // covers) reach past the screen edge and would otherwise show over the neighbouring page.
+        (tabView as? View)?.let{v->v.clipBounds=android.graphics.Rect(0,-v.height,v.width.coerceAtLeast(a.root.width),v.height*2)}
+        blocker.clipBounds=android.graphics.Rect(0,-a.root.height,a.root.width,a.root.height*2)
         sampleTab(0)
         tabClock=ValueAnimator.ofFloat(0f,1f).apply{duration=300;interpolator=LinearInterpolator();addUpdateListener{sampleTab(currentPlayTime)};start()}
     }
