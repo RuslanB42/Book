@@ -59,10 +59,13 @@ internal object QuoteColors{
 
 /** A colour dot of the quote colour strip; the chosen one has a ring. */
 internal class QuoteDot(private val a:MainActivity,val key:String):View(a){
-    var on=false;set(v){field=v;invalidate()}
+    private var ring=0f;private var ringAnim:android.animation.ValueAnimator?=null
+    var on=false;set(v){if(field==v){return};field=v;ringAnim?.cancel()
+        if(!isAttachedToWindow||a.prefs.str("motion")=="reduced"){ring=if(v)1f else 0f;invalidate();return}
+        ringAnim=android.animation.ValueAnimator.ofFloat(ring,if(v)1f else 0f).apply{duration=240;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{ring=it.animatedValue as Float;invalidate()};start()}}
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c:Canvas){val cx=width/2f;val cy=height/2f;val r=a.d(13).toFloat()
-        if(on){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=a.fg;c.drawCircle(cx,cy,r+a.d(4),p)}
+        if(ring>0f){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=a.fg;p.alpha=(255*ring).toInt();c.drawCircle(cx,cy,r+a.d(2)+a.d(2)*ring,p);p.alpha=255}
         p.style=Paint.Style.FILL;p.color=(0xff shl 24) or QuoteColors.rgb(key);c.drawCircle(cx,cy,r,p)
         p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=0x2effffff;c.drawCircle(cx,cy,r,p)}
 }
@@ -101,11 +104,11 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private val pageTimer=Runnable { val dir=edge;edge=0;if(active&&dragging&&!edgeLocked&&dir!=0){edgeLocked=true;menu.visibility=INVISIBLE;reader.turnWithSelection(dir){ok->edgeLocked=false;if(ok){val full=reader.selectionFullText();var boundary=if(dir>0)reader.pageBase() else (reader.pageLimit()-1).coerceAtLeast(0);if(dir<0)while(boundary>reader.pageBase()&&full[boundary].isWhitespace())boundary--;atStart=range.move(full,boundary,atStart)}else{Toast.makeText(a,"Выделение ограничено текущей главой",Toast.LENGTH_SHORT).show()};invalidate();showMenu();if(dragging){x=if(dir>0)reader.body.paddingLeft+a.d(8).toFloat()else width-reader.body.paddingRight-a.d(8).toFloat();y=if(dir>0)reader.body.paddingTop+a.d(12).toFloat()else min(height-a.d(60).toFloat(),reader.body.height.toFloat());}}} }
     init {
         setWillNotDraw(false);clipChildren=false;visibility=GONE;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES
-        fun action(label:String,fn:()->Unit):TextView{val v=a.text(label,14f,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(44);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(a.d(4),0,a.d(4),0);a.press(this);setOnClickListener{fn()}};menu.addView(v,LinearLayout.LayoutParams(0,a.d(44),1f));return v}
+        fun action(label:String,fn:()->Unit):TextView{val v=a.text(label,14f,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(44);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(a.d(4),0,a.d(4),0);pressable(this);setOnClickListener{fn()}};menu.addView(v,LinearLayout.LayoutParams(0,a.d(44),1f));return v}
         primary=action("Цитата"){quoteAction()}
         action("Копировать"){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата",range.text(reader.selectionFullText())));clear()}
         third=action("Заметка"){thirdAction()}
-        menu.addView(a.icon("x","Убрать выделение"){clear()},LinearLayout.LayoutParams(a.d(44),a.d(44)));addView(menu,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
+        menu.addView(IconView(a,"x",a.muted).apply{contentDescription="Убрать выделение";isClickable=true;setPadding(a.d(12),a.d(12),a.d(12),a.d(12));setOnClickListener{clear()};pressable(this)},LinearLayout.LayoutParams(a.d(44),a.d(44)));addView(menu,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
         // the colour strip: shown right after a quote is saved (or from «Цвет» on a saved one), in the menu's place
         strip.addView(a.text("Цвет",13f,a.muted).apply{setPadding(a.d(12),0,a.d(6),0)})
         QuoteColors.all.forEach{(key,_)->val dot=QuoteDot(a,key).apply{isClickable=true;contentDescription="Цвет цитаты";setOnClickListener{recolor(key)}};dots.add(dot);strip.addView(dot,LinearLayout.LayoutParams(a.d(40),a.d(44)))}
@@ -120,24 +123,32 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private fun start(haptic:Boolean){finishSettle();active=true;visibility=VISIBLE;dragging=false;grabDx=0f;grabDy=0f;contentDescription="Выделено: ${range.text(reader.selectionFullText())}"
         appear=if(reduced)1f else 0f;if(!reduced)android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=200;interpolator=android.view.animation.DecelerateInterpolator();addUpdateListener{appear=it.animatedValue as Float;invalidate()};start()}
         menu.visibility=INVISIBLE;invalidate();post{showMenu()};if(haptic&&a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)}
-    fun clear(){active=false;dragging=false;edgeLocked=false;timer.removeCallbacksAndMessages(null);edge=0;if(!settling&&!stripOpen)visibility=GONE;invalidate()}
+    fun clear(fadeOut:Boolean=true){val was=active;active=false;dragging=false;edgeLocked=false;timer.removeCallbacksAndMessages(null);edge=0
+        if(was&&!reduced){if(!fadeOut){popOut(menu){menu.visibility=INVISIBLE;menu.alpha=1f;menu.scaleX=1f;menu.scaleY=1f};if(!settling&&!stripOpen)post{if(!active&&!settling&&!stripOpen&&fade<=0f)visibility=GONE};invalidate();return}
+            fadeStart=range.start;fadeEnd=range.end;fadeAnim?.cancel();fadeAnim=android.animation.ValueAnimator.ofFloat(appear,0f).apply{duration=180;addUpdateListener{fade=it.animatedValue as Float;invalidate()}
+            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){fade=0f;if(!active&&!settling&&!stripOpen)visibility=GONE;invalidate()}});start()}
+            popOut(menu){menu.visibility=INVISIBLE;menu.alpha=1f;menu.scaleX=1f;menu.scaleY=1f};invalidate();return}
+        menu.visibility=INVISIBLE;if(!settling&&!stripOpen)visibility=GONE;invalidate()}
+    private var fade=0f;private var fadeStart=0;private var fadeEnd=0;private var fadeAnim:android.animation.ValueAnimator?=null
     /** The strip with the five colours, in the menu's place, for the quote at [s, e). It goes away by itself. */
-    private fun showStrip(s:Int,e:Int,color:String){stripQuote=s to e;stripOpen=true;visibility=VISIBLE;menu.visibility=INVISIBLE
+    private fun showStrip(s:Int,e:Int,color:String){stripQuote=s to e;stripOpen=true;visibility=VISIBLE
         dots.forEach{it.on=it.key==color};strip.translationY=menu.translationY;strip.visibility=VISIBLE
-        if(!reduced){strip.alpha=0f;strip.scaleX=.94f;strip.scaleY=.94f;strip.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200).setInterpolator(android.view.animation.DecelerateInterpolator()).start()}
+        if(!reduced){popIn(strip);dots.forEachIndexed{i,d->d.scaleX=.4f;d.scaleY=.4f;d.alpha=0f
+            d.animate().scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(60L+i*35L).setDuration(300).setInterpolator(android.view.animation.OvershootInterpolator(1.8f)).start()}}
         removeCallbacks(stripTimer);postDelayed(stripTimer,3500)}
     private fun hideStrip(){removeCallbacks(stripTimer);if(!stripOpen)return;stripOpen=false
-        val done={strip.visibility=GONE;if(!active&&!settling)visibility=GONE}
-        if(reduced)done() else strip.animate().alpha(0f).setDuration(160).withEndAction{done()}.start()}
+        val done={strip.visibility=GONE;strip.alpha=1f;strip.scaleX=1f;strip.scaleY=1f;if(!active&&!settling&&fade<=0f)visibility=GONE}
+        popOut(strip){done()}}
     private fun recolor(key:String){val (s,e)=stripQuote?:return;val q=reader.quoteOverlapping(s,e)?:return;val old=q.first.optString("color")
         a.prefs.put("quoteColor",key);a.savePreferences();dots.forEach{it.on=it.key==key}
         if(old==key){removeCallbacks(stripTimer);postDelayed(stripTimer,2500);return}
-        if(reduced){reader.recolorQuote(q.first,q.second,key)}
-        else{reader.recolorQuote(q.first,q.second,key)}
+        reader.recolorQuote(q.first,q.second,key)
+        if(!reduced){val oldInk=QuoteColors.ink(old.ifBlank{"amber"});settleOut(q.second.first,q.second.last+1,oldInk,oldInk and 0x00ffffff,320){}
+            dots.firstOrNull{it.key==key}?.let{d->d.scaleX=.7f;d.scaleY=.7f;d.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(320).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()}}
         removeCallbacks(stripTimer);postDelayed(stripTimer,2500)}
     /** Third button: «Заметка» for a new selection, «Убрать» for a saved quote. */
     private fun thirdAction(){val existing=reader.quoteOverlapping(range.start,range.end)
-        if(existing!=null){val r=existing.second;val ink=QuoteColors.ink(existing.first.optString("color"));reader.removeQuote(existing.first,r);settleOut(r.first,r.last+1,ink,ink and 0x00ffffff,280){};clear();return}
+        if(existing!=null){val r=existing.second;val ink=QuoteColors.ink(existing.first.optString("color"));reader.removeQuote(existing.first,r);settleOut(r.first,r.last+1,ink,ink and 0x00ffffff,280){};clear(false);return}
         val text=range.text(reader.selectionFullText());clear();reader.addNote(text)}
     private fun finishSettle(){settle?.end();settle=null}
     /** «Цитата» marks the selection: the selection tint deepens into the quote tint, then the mark stays in the text.
@@ -145,8 +156,8 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private fun quoteAction(){
         val full=reader.selectionFullText();val s=range.start;val e=range.end;val existing=reader.quoteOverlapping(s,e)
         // a saved quote: «Цвет» opens the colour strip for it
-        if(existing!=null){val r=existing.second;val y=menu.translationY;clear();menu.translationY=y;showStrip(r.first,r.last+1,existing.first.optString("color","amber"));return}
-        val text=range.text(full);val color=QuoteColors.last(a);val y=menu.translationY;clear();menu.translationY=y
+        if(existing!=null){val r=existing.second;val y=menu.translationY;clear(false);menu.translationY=y;showStrip(r.first,r.last+1,existing.first.optString("color","amber"));return}
+        val text=range.text(full);val color=QuoteColors.last(a);val y=menu.translationY;clear(false);menu.translationY=y
         if(reduced){reader.addQuote(s,e,text,color);showStrip(s,e,color);return}
         settleOut(s,e,0x65e7ac48,QuoteColors.ink(color),240){reader.addQuote(s,e,text,color)}
         showStrip(s,e,color)
@@ -164,7 +175,18 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         third.setTextColor(if(saved!=null)0xffff8a7a.toInt() else a.fg)
         if(saved!=null){val sp=android.text.SpannableString("● Цвет");sp.setSpan(android.text.style.ForegroundColorSpan((0xff shl 24) or QuoteColors.rgb(saved.first.optString("color"))),0,1,0);primary.text=sp}
         val wasHidden=menu.visibility!=VISIBLE;positionMenu()
-        if(wasHidden&&!reduced){menu.alpha=0f;menu.scaleX=.94f;menu.scaleY=.94f;menu.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200).setInterpolator(android.view.animation.DecelerateInterpolator()).start()}else menu.alpha=1f}
+        if(wasHidden&&!reduced)popIn(menu) else{menu.alpha=1f;menu.scaleX=1f;menu.scaleY=1f}}
+    private val glide=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+    /** Menus come out of the selection: a short fade with a small rise and growth, settling softly. */
+    private fun popIn(v:View){v.animate().cancel();v.pivotX=v.width/2f;v.pivotY=if(v.translationY<startHandle.y)v.height.toFloat() else 0f
+        v.alpha=0f;v.scaleX=.9f;v.scaleY=.9f;v.translationX=0f
+        v.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(280).setInterpolator(glide).start()}
+    private fun popOut(v:View,end:()->Unit){if(reduced||v.visibility!=VISIBLE){end();return};v.animate().cancel()
+        v.animate().alpha(0f).scaleX(.94f).scaleY(.94f).setDuration(150).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,1f,1f)).withEndAction{end()}.start()}
+    /** Buttons sink a little under the finger and come back when released. */
+    private fun pressable(v:View){v.setOnTouchListener{view,e->if(reduced)return@setOnTouchListener false
+        when(e.actionMasked){MotionEvent.ACTION_DOWN->view.animate().scaleX(.9f).scaleY(.9f).alpha(.7f).setDuration(90).start()
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->view.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(220).setInterpolator(android.view.animation.OvershootInterpolator(1.6f)).start()};false}}
     override fun onDetachedFromWindow(){timer.removeCallbacksAndMessages(null);removeCallbacks(stripTimer);super.onDetachedFromWindow()}
     private fun point(offset:Int,end:Boolean,p:PointF):Boolean {
         val layout=reader.body.layout?:return false;val base=reader.pageBase();val limit=reader.pageLimit()
@@ -178,6 +200,8 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         super.onDraw(c)
         if(settling){val layout=reader.body.layout?:return;val base=reader.pageBase();val s=(settleStart-base).coerceIn(0,reader.body.length());val e=(settleEnd-base).coerceIn(0,reader.body.length())
             highlight.rewind();if(e>s){JustifiedGeometry.path(reader.body,layout,s,e,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=settleColor;c.drawPath(highlight,marker);c.restore()}}
+        if(!active&&fade>0f){val layout=reader.body.layout?:return;val base=reader.pageBase();val fs=(fadeStart-base).coerceIn(0,reader.body.length());val fe=(fadeEnd-base).coerceIn(0,reader.body.length())
+            highlight.rewind();if(fe>fs){JustifiedGeometry.path(reader.body,layout,fs,fe,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=0x65e7ac48;marker.alpha=(0x65*fade).toInt();c.drawPath(highlight,marker);c.restore();marker.alpha=255}}
         if(!active||edgeLocked)return
         val layout=reader.body.layout?:return;val base=reader.pageBase();val s=(range.start-base).coerceIn(0,reader.body.length());val e=(range.end-base).coerceIn(0,reader.body.length())
         highlight.rewind();if(e>s){JustifiedGeometry.path(reader.body,layout,s,e,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=0x65e7ac48;marker.alpha=(0x65*appear).toInt();c.drawPath(highlight,marker);c.restore()}
