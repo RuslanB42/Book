@@ -25,7 +25,7 @@ class SpacingCheck {
         val report=StringBuilder();var dir:File?=null;var reader:NativeReader?=null
         scenario.onActivity{a->
             dir=File(a.filesDir,"qa").apply{mkdirs()}
-            listOf("ls","ws","font","justify","hyph","size","margin","trimEmpty","lhv").forEach{a.prefs.remove(it)};a.prefs.put("mode","paged").put("size",19.0).put("ls",.06).put("motion","full")
+            listOf("ls","ws","font","justify","hyph","size","margin","trimEmpty","lhv").forEach{a.prefs.remove(it)};a.prefs.put("mode","paged").put("size",19.0).put("motion","full")
             a.reader?.let{it.dispose();a.reader=null}
             val book=JSONObject().put("id","spacing-check").put("title","Проверка").put("authors",JSONArray().put("Тест")).put("progress",JSONObject().put("ch",0).put("nativeOffset",0))
             val r=NativeReader(a,book,content(),emptyMap());a.reader=r;a.root.removeAllViews();a.root.addView(r.view,FrameLayout.LayoutParams(-1,-1));r.start();reader=r

@@ -15,12 +15,13 @@ internal class LineStretch(val extra:Float):CharacterStyle(){
 /**
  * Android's own inter-word justification resets the paint's letter and word spacing on the lines it stretches
  * (the lines are broken with the spacing but drawn without it: they overflow or fall short of the right edge).
- * When the reader has custom spacing, the layout is left unjustified and each line is stretched here instead:
+ * So the layout is left unjustified and each line is stretched here instead:
  * its spaces get exactly the width that brings the line to the right edge, with the spacing kept.
  */
 internal object SpacedJustify {
-    // Paint word spacing is public only from Android 10; older phones keep the platform justification.
-    fun needed(a:MainActivity)=android.os.Build.VERSION.SDK_INT>=29&&a.prefs.optBoolean("justify",true)&&(a.prefs.optDouble("ls",0.0)!=0.0||a.prefs.optDouble("ws",0.0)!=0.0)
+    // Justified text is always stretched here (Android 10+): drawing, page pictures and selection geometry then follow
+    // one formula on every phone, instead of each Android build's own idea of where justified words are.
+    fun needed(a:MainActivity)=android.os.Build.VERSION.SDK_INT>=29&&a.prefs.optBoolean("justify",true)
     fun clear(t:Spannable){runCatching{t.getSpans(0,t.length,LineStretch::class.java).forEach{t.removeSpan(it)}}}
     fun apply(tv:TextView){val l=tv.layout?:return
         // the spans go on the text the layout draws (a TextView may lay out its own copy of what it was given)
