@@ -29,7 +29,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private val content=a.column().apply{clipChildren=false;clipToPadding=false}
     private val scroll=ScrollView(a)
     private var period=range.coerceIn(0,2)
-    private var goalYear=(a.statisticsGoalYear ?: today.year).coerceIn(today.year,today.year+1)
+    private var goalYear=(a.statisticsGoalYear ?: today.year).coerceAtMost(today.year+1)
     private val compact=a.resources.configuration.screenWidthDp<340 || a.resources.configuration.fontScale>1.15f
     private val light get()=a.light
     private val cardColor get()=if(light)Color.WHITE else 0xff242426.toInt()
@@ -205,7 +205,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 else->{val months=(1..today.monthValue).map{YearMonth.of(today.year,it)};val ms=months.map{m->(1..m.lengthOfMonth()).sumOf{d->model.ms(m.atDay(d))}}
                     values=ms.map{minutes(it)};labels=months.map{it.month.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE,ru).trimEnd('.').take(3)}
                     tips=months.indices.map{i->months[i].month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE,ru)+" · "+duration(ms[i])}
-                    total=model.total(1);avg=values.average();avgText="ср. ${duration((avg*60000).toLong())}";caption="за ${today.year} год · в среднем ${duration((avg*60000).toLong())} в месяц";sparse=false}
+                    total=model.total(1);avg=values.average();avgText="ср. ${duration((avg*60000).toLong())}";caption="в среднем ${duration((avg*60000).toLong())} в месяц";sparse=false}
             }
             left.addView(big(if(total>0)duration(total) else "0 мин",40f).apply{maxLines=1;isSingleLine=true})
             space(left,4);left.addView(label(caption,12.5f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
@@ -215,31 +215,99 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         bind(true);add(box)
     }
 
-    /** The year's books in one card: «2 из 24», how many are left, and the goal as a road from January to the flag.
-     *  Tap the year to look at next year's goal; «Все ›» (or a tap on the card) opens the list of read books. */
+    /** The year's books in one card (approved prototype): «N из M», the year as a road with every finished book on it,
+     *  and the chosen book's card underneath — first and last day, days and hours spent, its rating (set it right here).
+     *  Tap a cover or a stack, swipe the book card, or switch the year from the «КНИГИ · 2026» label. */
     private fun books(){
-        val box=surface(0xff2fd38a.toInt(),.86f,.18f,.8f)
+        val box=surface(0xff2fd38a.toInt(),.86f,.12f,.8f)
+        val years=(model.finished.mapNotNull{it.date?.year}+today.year).distinct().sortedDescending().take(8)
+        if(goalYear !in years&&goalYear!=today.year+1)goalYear=today.year
         fun bind(){box.removeAllViews()
-            val target=model.target(goalYear);val done=model.countYear(goalYear)
-            val read=model.finished.filter{it.date?.year==goalYear}.sortedBy{it.date}
-            val head=a.line().apply{gravity=Gravity.TOP};val left=a.column();head.addView(left,LinearLayout.LayoutParams(0,-2,1f))
-            left.addView(kicker("Книги · $goalYear").apply{isClickable=true;setOnClickListener{goalYear=if(goalYear==today.year)today.year+1 else today.year;a.statisticsGoalYear=goalYear;bind()}});space(left,6)
-            if(target>0){left.addView(big("$done из $target",44f,done,.38f,firstOnly=true));space(left,4)
-                val leftBooks=target-done
-                val monthsLeft=if(goalYear==today.year)13-today.monthValue else 12
-                val perMonth=leftBooks.toDouble()/max(1,monthsLeft)
-                val pace=if(perMonth<1)"меньше книги в месяц" else "примерно ${perMonth.roundToInt()} в месяц"
-                left.addView(label(if(done>=target)"цель достигнута" else "ещё $leftBooks — $pace",12.5f))}
-            else{left.addView(big("$done",44f,done));space(left,4);left.addView(label("цель не задана · Настройки → «Чтение»",12.5f))}
-            if(model.finished.isNotEmpty())head.addView(a.softPill("Все ›"){a.readBooksPage(model,goalYear)})
-            box.addView(head);space(box,10)
-            box.addView(BookRoad(a,done,if(target>0)target else max(done,12),read.lastOrNull()?.book,motionOn),LinearLayout.LayoutParams(-1,a.d(132)))
-            val foot=a.line();foot.addView(label("январь",11f),LinearLayout.LayoutParams(0,-2,1f));foot.addView(label(if(target>0)"цель — ${MainActivity.countBooks(target)}" else "",11f));box.addView(foot)
-            box.contentDescription="Книги за $goalYear: $done из $target"}
-        bind()
-        box.isClickable=true;box.setOnClickListener{a.readBooksPage(model,goalYear)};a.press(box)
-        add(box)
+            val list=yearBooks(model,data,goalYear);val target=model.target(goalYear);val done=list.size
+            // head: the year switch, the count, the pace
+            val chips=a.line().apply{visibility=View.GONE}
+            val head=a.column()
+            val kick=a.line().apply{gravity=Gravity.CENTER_VERTICAL;isClickable=true;contentDescription="Выбрать год";setOnClickListener{chips.visibility=if(chips.visibility==View.VISIBLE)View.GONE else View.VISIBLE}}
+            kick.addView(kicker("Книги · $goalYear"));kick.addView(label(" ⌄",12f,if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt()))
+            head.addView(kick)
+            years.forEach{y->chips.addView(label("$y",12.5f,if(y==goalYear)(if(light)Color.WHITE else 0xff141416.toInt()) else a.muted).apply{setPadding(a.d(11),a.d(5),a.d(11),a.d(5))
+                background=GradientDrawable().apply{setColor(if(y==goalYear)a.fg else if(light)0x0d000000 else 0x14ffffff);cornerRadius=a.d(12).toFloat()}
+                isClickable=true;setOnClickListener{goalYear=y;a.statisticsGoalYear=y;bind()}},LinearLayout.LayoutParams(-2,-2).apply{marginEnd=a.d(6)})}
+            head.addView(chips,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(6)});space(head,6)
+            head.addView(if(target>0)big("$done из $target",44f,done,.38f,firstOnly=true) else big(MainActivity.countBooks(done),44f,done,.38f,firstOnly=true));space(head,4)
+            val left=target-done
+            head.addView(label(when{target<=0->if(goalYear>=today.year)"цель не задана · Настройки → «Чтение»" else "";left<=0->"цель достигнута"
+                goalYear==today.year->{val per=left.toDouble()/(13-today.monthValue);"ещё $left — "+(if(per<1)"меньше книги в месяц" else "примерно ${per.roundToInt()} в месяц")}
+                goalYear<today.year->"не хватило ${MainActivity.countBooks(left)}";else->"ещё $left"},12.5f))
+            box.addView(head)
+            if(list.isEmpty()){space(box,14);box.addView(label("Пока ни одной книги за $goalYear — дочитанные появятся здесь, на дороге года.",13f));return}
+            // detail card + pager (declared first: the road reports picks to them)
+            val cardCover=FrameLayout(a);val title=a.text("",16f,a.fg,true,serif=true);val author=label("",12f);val dates=label("",12.5f,if(light)0xff3a3a3d.toInt() else 0xffdcdce0.toInt())
+            val starBox=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;isClickable=true};val starLabel=label("",10f)
+            val rateRow=a.line().apply{visibility=View.GONE}
+            val pager=FrameLayout(a);val prev=roundButton("‹","Предыдущая книга");val next=roundButton("›","Следующая книга")
+            lateinit var road:YearRoad
+            fun show(i:Int){val yb=list[i]
+                cardCover.removeAllViews();cardCover.addView(CoverView(a,yb.book,a.cover(yb.book)).apply{softShadow=true},FrameLayout.LayoutParams(-1,-1))
+                title.text=yb.book.str("title");author.text=MainActivity.authors(yb.book)
+                val days=java.time.temporal.ChronoUnit.DAYS.between(yb.start,yb.end)+1
+                fun f(dt:LocalDate)="${dt.dayOfMonth} ${YearRoad.MONTHS_SHORT[dt.monthValue-1]}"+if(dt.year!=goalYear)" ${dt.year}" else ""
+                val tail=listOf(daysWordFull(days.toInt()),if(yb.ms>0)duration(yb.ms) else null).filterNotNull().joinToString(" · ")
+                dates.text=android.text.SpannableString("${f(yb.start)} → ${f(yb.end)}  · $tail").apply{val k=indexOf("  ·");if(k>0)setSpan(android.text.style.ForegroundColorSpan(a.muted),k,length,0)}
+                val r=yb.book.optInt("rating");starBox.removeAllViews()
+                starBox.addView(if(r in 1..5)RatingMedal(a,r) else EmptyStar(a));starBox.addView(starLabel.apply{text=if(r in 1..5)listOf("бронза","серебро","золото","платина","бриллиант")[r-1] else "оценить"})
+                starBox.contentDescription=if(r in 1..5)"Оценка $r из 5, изменить" else "Поставить оценку"
+                rateRow.visibility=View.GONE
+                pager.removeAllViews()
+                if(list.size>7)pager.addView(label("${i+1} / ${list.size}",12f),FrameLayout.LayoutParams(-2,-2,Gravity.CENTER_VERTICAL))
+                else pager.addView(PagerDots(a,list.size,i),FrameLayout.LayoutParams(a.d(16+list.size*12),a.d(8),Gravity.CENTER_VERTICAL))
+                prev.alpha=if(i>0)1f else .3f;next.alpha=if(i<list.lastIndex)1f else .3f}
+            road=YearRoad(a,goalYear,list,target,today,motionOn){i->show(i)}
+            space(box,8);box.addView(road,LinearLayout.LayoutParams(-1,a.d(200)))
+            val axis=a.line();axis.addView(label("январь",10.5f),LinearLayout.LayoutParams(0,-2,1f));axis.addView(label(if(target>0)"декабрь · цель $target" else "декабрь",10.5f));box.addView(axis)
+            val card=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(12),a.d(12),a.d(12))
+                background=GradientDrawable().apply{setColor(if(light)0x0a000000 else 0x0dffffff);cornerRadius=a.d(20).toFloat()}}
+            card.addView(cardCover,LinearLayout.LayoutParams(a.d(48),a.d(72)))
+            val info=a.column().apply{setPadding(a.d(12),0,0,0)}
+            val trow=a.line().apply{gravity=Gravity.TOP};val names=a.column();names.addView(title.apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END});space(names,3);names.addView(author.apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+            trow.addView(names,LinearLayout.LayoutParams(0,-2,1f));trow.addView(starBox,LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(8)})
+            info.addView(trow);space(info,8);info.addView(dates);info.addView(rateRow,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
+            card.addView(info,LinearLayout.LayoutParams(0,-2,1f))
+            space(box,12);box.addView(card)
+            // rate right here
+            starBox.setOnClickListener{if(rateRow.visibility==View.VISIBLE){rateRow.visibility=View.GONE;return@setOnClickListener}
+                rateRow.removeAllViews();for(v in 1..5)rateRow.addView(RatingMedal(a,v).apply{isClickable=true;setOnClickListener{val b=list[road.selected].book;b.put("rating",v);a.saveBook(b);show(road.selected)}},LinearLayout.LayoutParams(0,-2,1f))
+                rateRow.visibility=View.VISIBLE}
+            a.press(starBox)
+            // swipe the card to move between books (horizontal drags only; vertical ones scroll the page)
+            card.setOnTouchListener(object:View.OnTouchListener{var x0=0f;var y0=0f;var dragging=false
+                override fun onTouch(v:View,e:MotionEvent):Boolean{when(e.actionMasked){
+                    MotionEvent.ACTION_DOWN->{x0=e.rawX;y0=e.rawY;dragging=false;return true}
+                    MotionEvent.ACTION_MOVE->{val dx=e.rawX-x0;if(!dragging&&abs(dx)>a.d(10)&&abs(dx)>abs(e.rawY-y0)){dragging=true;v.parent?.requestDisallowInterceptTouchEvent(true)}
+                        if(dragging)v.translationX=dx*.6f;return true}
+                    MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val dx=e.rawX-x0;val go=if(!dragging)0 else if(dx<-a.d(40))1 else if(dx>a.d(40))-1 else 0
+                        val target=(road.selected+go).coerceIn(0,list.lastIndex)
+                        if(go!=0&&target!=road.selected){road.select(target);v.translationX=-go*a.d(24).toFloat()}
+                        v.animate().translationX(0f).setDuration(260).setInterpolator(Ease.outCubic).start();return true}}
+                    return false}})
+            val foot=a.line().apply{gravity=Gravity.CENTER_VERTICAL};foot.addView(pager,LinearLayout.LayoutParams(0,a.d(30),1f));foot.addView(prev,LinearLayout.LayoutParams(a.d(30),a.d(30)));foot.addView(next,LinearLayout.LayoutParams(a.d(30),a.d(30)).apply{marginStart=a.d(6)})
+            prev.setOnClickListener{road.select(road.selected-1)};next.setOnClickListener{road.select(road.selected+1)}
+            space(box,10);box.addView(foot)
+            show(road.selected)
+            box.contentDescription="Книги за $goalYear: $done"+if(target>0)" из $target" else ""}
+        bind();add(box)
     }
+    private fun daysWordFull(n:Int)="$n "+if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
+    private fun roundButton(s:String,desc:String)=a.text(s,16f,a.fg).apply{gravity=Gravity.CENTER;contentDescription=desc;isClickable=true
+        background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(light)0x0d000000 else 0x14ffffff)};a.press(this)}
+}
+
+/** Small page dots under the book card: the open book is a longer green pill. */
+internal class PagerDots(private val a:MainActivity,private val n:Int,private val at:Int):View(a){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun onDraw(c:Canvas){val d=a.d(1).toFloat();var x=0f;val cy=height/2f
+        for(i in 0 until n){val w=if(i==at)16*d else 6*d;p.color=if(i==at)(if(a.light)0xff1f9d63.toInt() else 0xff2fd38a.toInt()) else if(a.light)0x33000000 else 0x4dffffff
+            c.drawRoundRect(x,cy-3*d,x+w,cy+3*d,3*d,3*d,p);x+=w+6*d}}
 }
 
 internal fun MainActivity.updateStatistics(change:(JSONObject)->Unit) {
