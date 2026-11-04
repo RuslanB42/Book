@@ -39,7 +39,7 @@ class RecommendationCard(val a:MainActivity,val book:JSONObject):FrameLayout(a) 
         }; c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),2*density,6*density,p);p.shader=null
         p.color=color;p.alpha=(alpha*(if(dir=="nope").7f else .95f)*255).toInt();p.style=Paint.Style.STROKE;p.strokeWidth=3*density;c.drawRoundRect(1.5f*density,1.5f*density,width-1.5f*density,height-1.5f*density,2*density,6*density,p)
         val stampAlpha=((progress-.15f)/.85f).coerceIn(0f,1f); if(stampAlpha<=0) return
-        val text=when(dir) { "want"->"ХОЧУ";"read"->"ЧИТАЛ";else->"НЕ ТО" }; p.textSize=22*density; p.typeface=Typeface.create("sans-serif",Typeface.BOLD); val tw=p.measureText(text); val w=tw+24*density; val h=42*density
+        val text=when(dir) { "want"->"ХОЧУ";"read"->"ЧИТАЛ";else->"НЕ ТО" }; p.textSize=22*density; p.typeface=PolkaFonts.sans(600); val tw=p.measureText(text); val w=tw+24*density; val h=42*density
         val x=when(dir) { "want"->width*.1f;"nope"->width*.92f-w;else->(width-w)/2 }; val y=if(dir=="read") height*.9f-h else height*.09f
         c.save(); c.rotate(if(dir=="want") -14f else if(dir=="nope") 14f else 0f,x+w/2,y+h/2); p.style=Paint.Style.FILL; p.color=0xc7101011.toInt(); p.alpha=(stampAlpha*200).toInt(); c.drawRoundRect(x,y,x+w,y+h,12*density,12*density,p); p.color=color; p.alpha=(stampAlpha*255).toInt(); p.style=Paint.Style.STROKE; c.drawRoundRect(x,y,x+w,y+h,12*density,12*density,p); p.style=Paint.Style.FILL; c.drawText(text,x+12*density,y+h/2-(p.ascent()+p.descent())/2,p); c.restore()
     }

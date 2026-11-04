@@ -15,7 +15,7 @@ object CoverTypeset {
   val paint=TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply{textSize=if(opening)44f else 46f;typeface=PolkaFonts.serif(context,true);this.color=color}
   val width=if(opening)296 else 312
   val tl=StaticLayout.Builder.obtain(title,0,title.length,paint,width).setIncludePad(false).setLineSpacing(paint.textSize*1.12f-paint.fontSpacing,1f).setMaxLines(6).setEllipsize(TextUtils.TruncateAt.END).setBreakStrategy(if(opening)Layout.BREAK_STRATEGY_BALANCED else Layout.BREAK_STRATEGY_HIGH_QUALITY).build()
-  val ap=TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply{textSize=if(opening)27.2f else 25.6f;typeface=Typeface.create("sans-serif",Typeface.BOLD);this.color=(color and 0xffffff) or 0xc7000000.toInt();}
+  val ap=TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply{textSize=if(opening)27.2f else 25.6f;typeface=PolkaFonts.sans(600);this.color=(color and 0xffffff) or 0xc7000000.toInt();}
   val tracked=SpannableString(author);var offset=0;while(offset<author.length){val end=offset+Character.charCount(Character.codePointAt(author,offset));tracked.setSpan(CoverTracking(ap.textSize*(if(opening).1f else .12f)),offset,end,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);offset=end}
   val al=StaticLayout.Builder.obtain(tracked,0,tracked.length,ap,width).setIncludePad(false).setLineSpacing(ap.textSize*1.25f-ap.fontSpacing,1f).build()
   return Lines(if(opening)60f else 48f,if(opening)52f else 44f,tl,al).also{cache.put(key,it)}

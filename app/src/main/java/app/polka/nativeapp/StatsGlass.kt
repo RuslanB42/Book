@@ -63,7 +63,7 @@ internal class FlameOrb(private val a:MainActivity,private val lit:Boolean,priva
 /** Reading time as day (or month) bars: the chosen bar glows and carries a label; press and slide to read any bar. */
 internal class DayBars(private val a:MainActivity,private val values:List<Double>,private val labels:List<String>,private val tips:List<String>,
                        initial:Int,private val average:Double,private val averageText:String,private val accent:Int,private val motion:Boolean,private val sparseLabels:Boolean):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=a.d(11).toFloat();typeface=Typeface.create("sans-serif",Typeface.NORMAL)}
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=a.d(11).toFloat();typeface=PolkaFonts.sans(400)}
     private var selected=initial.coerceIn(0,max(0,values.lastIndex));private var grow=if(motion)0f else 1f
     init{contentDescription=tips.getOrNull(selected).orEmpty();isClickable=true}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(grow<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=520;startDelay=140;interpolator=Ease.outExpo;addUpdateListener{grow=it.animatedValue as Float;invalidate()};start()}}
@@ -72,8 +72,36 @@ internal class DayBars(private val a:MainActivity,private val values:List<Double
     private val selectedColors get()=if(a.light)intArrayOf(0xff8d6cf5.toInt(),0xff6a47e8.toInt()) else intArrayOf(0xffe0d6ff.toInt(),0xff7c5cff.toInt())
     private val glowTint=0xff8c6cff.toInt()
     private fun slot()=width/max(1,values.size).toFloat()
-    override fun onTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){MotionEvent.ACTION_DOWN,MotionEvent.ACTION_MOVE->{parent?.requestDisallowInterceptTouchEvent(true)
-        val i=(e.x/slot()).toInt().coerceIn(0,values.lastIndex);if(i!=selected){selected=i;contentDescription=tips[i];performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);invalidate()}}};return true}
+    // Details: press and HOLD a bar (a plain tap does nothing, so scrolling past the chart never pops it up); while
+    // holding, slide to read other bars. The label stays after release and goes away with a tap anywhere else.
+    private var tipIndex=-1;private var tipShow=0f;private var tipX=0f
+    private var showAnim:ValueAnimator?=null;private var moveAnim:ValueAnimator?=null
+    private var downX=0f;private var downY=0f;private var scrubbing=false;private var tapStartedOpen=false
+    private val slop=android.view.ViewConfiguration.get(a).scaledTouchSlop
+    private val hold=Runnable{scrubbing=true;parent?.requestDisallowInterceptTouchEvent(true);performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);pick(index(downX),tipShow>0f);show(true)}
+    private val outside:(MotionEvent)->Unit={e->if(tipIndex>=0){val loc=IntArray(2);getLocationOnScreen(loc)
+        if(e.rawX<loc[0]||e.rawX>loc[0]+width||e.rawY<loc[1]||e.rawY>loc[1]+height)show(false)}}
+    private fun index(x:Float)=(x/slot()).toInt().coerceIn(0,values.lastIndex)
+    private fun pick(i:Int,glide:Boolean){if(i==tipIndex)return;val first=tipIndex<0;tipIndex=i;contentDescription=tips[i]
+        if(!first)performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+        val target=slot()*i+slot()/2;moveAnim?.cancel()
+        if(!glide||!motion){tipX=target;invalidate();return}
+        val sp=Spring.of(.15,260.0);moveAnim=ValueAnimator.ofFloat(tipX,target).apply{duration=sp.duration;interpolator=sp.interpolator;addUpdateListener{tipX=it.animatedValue as Float;invalidate()};start()}}
+    private fun show(on:Boolean){showAnim?.cancel()
+        if(on)a.touchWatchers.add(outside) else a.touchWatchers.remove(outside)
+        if(!motion){tipShow=if(on)1f else 0f;if(!on)tipIndex=-1;invalidate();return}
+        val sp=if(on)Spring.of(.3,360.0) else Spring.of(0.0,220.0)
+        showAnim=ValueAnimator.ofFloat(tipShow,if(on)1f else 0f).apply{duration=sp.duration;interpolator=sp.interpolator;addUpdateListener{tipShow=it.animatedValue as Float;invalidate()}
+            if(!on)addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(tipShow<=0.001f){tipIndex=-1;invalidate()}}});start()}}
+    override fun onDetachedFromWindow(){a.touchWatchers.remove(outside);removeCallbacks(hold);super.onDetachedFromWindow()}
+    override fun onTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){
+        MotionEvent.ACTION_DOWN->{downX=e.x;downY=e.y;scrubbing=false;tapStartedOpen=tipIndex>=0;postDelayed(hold,android.view.ViewConfiguration.getLongPressTimeout().toLong())}
+        MotionEvent.ACTION_MOVE->{if(scrubbing)pick(index(e.x),true) else if(kotlin.math.abs(e.x-downX)>slop||kotlin.math.abs(e.y-downY)>slop)removeCallbacks(hold)}
+        MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{removeCallbacks(hold)
+            // a short tap on the chart while a label is open closes it
+            if(!scrubbing&&e.actionMasked==MotionEvent.ACTION_UP&&tapStartedOpen)show(false)
+            scrubbing=false}}
+        return true}
     override fun onDraw(c:Canvas){if(values.isEmpty()||width<1)return;val light=a.light
         val max=max(values.maxOrNull()?:0.0,max(average,1.0));val h=bottom-top;val sl=slot();val bw=min(a.d(22).toFloat(),sl*.62f)
         // average line
@@ -83,18 +111,24 @@ internal class DayBars(private val a:MainActivity,private val values:List<Double
         tp.color=a.muted;tp.textAlign=Paint.Align.LEFT;c.drawText(averageText,0f,ay-a.d(5),tp)
         for(i in values.indices){p.color=Color.WHITE;val cx=sl*i+sl/2;val v=(values[i]/max*h).toFloat()*grow;val bh=max(v,bw*.0f+a.d(3).toFloat()*grow)
             val rect=RectF(cx-bw/2,bottom-bh,cx+bw/2,bottom);if(rect.height()<a.d(6)*grow)rect.top=bottom-a.d(6)*grow
-            val on=i==selected
-            if(on&&!light){val rx=min(sl*.75f,bw*2.2f);val ry=max(rect.height()/2+bw*.9f,rx);c.save();c.translate(cx,rect.centerY());c.scale(1f,ry/rx)
-                p.shader=RadialGradient(0f,0f,rx,intArrayOf((glowTint and 0xffffff) or 0x47000000,(glowTint and 0xffffff) or 0x14000000,glowTint and 0xffffff),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP);c.drawCircle(0f,0f,rx,p);p.shader=null;c.restore()}
+            val on=i==(if(tipIndex>=0)tipIndex else selected)
+            // the glow only accompanies an open label, and it is kept inside the view (no hard cut at the edges)
+            if(on&&!light&&tipIndex>=0&&tipShow>0f){val rx=minOf(sl*.75f,bw*2.2f,cx,width-cx).coerceAtLeast(bw*.8f);val ry=minOf(max(rect.height()/2+bw*.9f,rx),rect.centerY(),height-rect.centerY());c.save();c.translate(cx,rect.centerY());c.scale(1f,ry/rx)
+                val k=tipShow.coerceIn(0f,1f);p.shader=RadialGradient(0f,0f,rx,intArrayOf((glowTint and 0xffffff) or ((0x47*k).toInt() shl 24),(glowTint and 0xffffff) or ((0x14*k).toInt() shl 24),glowTint and 0xffffff),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP);c.drawCircle(0f,0f,rx,p);p.shader=null;c.restore()}
             p.shader=LinearGradient(0f,rect.top,0f,rect.bottom,if(on)selectedColors else restColors,null,Shader.TileMode.CLAMP)
             c.drawRoundRect(rect,bw/2,bw/2,p);p.shader=null
             if(!sparseLabels||i==0||i==values.lastIndex||on||(i+1)%5==0){tp.textAlign=Paint.Align.CENTER;tp.color=if(on)a.fg else a.muted;tp.isFakeBoldText=on;c.drawText(labels[i],cx,height-a.d(4).toFloat(),tp);tp.isFakeBoldText=false}
-            if(on){val text=tips[i];tp.textSize=a.d(11.5f).toFloat();val tw=tp.measureText(text)+a.d(16);val th=a.d(22).toFloat()
-                val l=(cx-tw/2).coerceIn(0f,width-tw);val r=RectF(l,0f,l+tw,th)
-                p.color=if(light)0xff161617.toInt() else 0xfff2f2f2.toInt();c.drawRoundRect(r,th/2,th/2,p)
-                p.color=(p.color and 0xffffff) or 0x80000000.toInt();c.drawRect(cx-a.d(1)*.75f,th,cx+a.d(1)*.75f,min(rect.top-a.d(4),th+a.d(10)),p)
-                tp.color=if(light)Color.WHITE else 0xff111111.toInt();tp.textAlign=Paint.Align.CENTER;tp.isFakeBoldText=true;c.drawText(text,r.centerX(),r.centerY()-(tp.ascent()+tp.descent())/2,tp);tp.isFakeBoldText=false;tp.textSize=a.d(11).toFloat()}
-        }}
+        }
+        drawTip(c)}
+    /** The label pops from the bar on a spring (scale + fade + a small rise) and glides between bars while scrubbing. */
+    private fun drawTip(c:Canvas){val i=tipIndex;if(i<0||tipShow<=0.001f)return;val k=tipShow.coerceIn(0f,1.15f)
+        val text=tips[i];tp.textSize=a.d(11.5f).toFloat();tp.typeface=PolkaFonts.sans(600);val tw=tp.measureText(text)+a.d(18);val th=a.d(22).toFloat()
+        val l=(tipX-tw/2).coerceIn(0f,width-tw);val r=RectF(l,0f,l+tw,th)
+        c.save();c.translate(0f,(1f-k.coerceAtMost(1f))*a.d(8));val sc=.82f+.18f*k;c.scale(sc,sc,tipX.coerceIn(r.left,r.right),th)
+        val alpha=(255*k.coerceAtMost(1f)).toInt()
+        p.color=if(a.light)0xff161617.toInt() else 0xfff2f2f2.toInt();p.alpha=alpha;c.drawRoundRect(r,th/2,th/2,p)
+        tp.color=if(a.light)Color.WHITE else 0xff111111.toInt();tp.alpha=alpha;tp.textAlign=Paint.Align.CENTER;c.drawText(text,r.centerX(),r.centerY()-(tp.ascent()+tp.descent())/2,tp)
+        c.restore();tp.alpha=255;tp.textSize=a.d(11).toFloat();tp.typeface=PolkaFonts.sans(400)}
     private fun lighten(c:Int,f:Float)=Color.rgb((Color.red(c)+(255-Color.red(c))*f).toInt(),(Color.green(c)+(255-Color.green(c))*f).toInt(),(Color.blue(c)+(255-Color.blue(c))*f).toInt())
 }
 

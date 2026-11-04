@@ -148,7 +148,7 @@ internal class RatingMedal(private val a:MainActivity,private val rating:Int):Vi
             c.drawPath(Path().apply{moveTo(x,y-r*2);quadTo(x,y,x+r*2,y);quadTo(x,y,x,y+r*2);quadTo(x,y,x-r*2,y);quadTo(x,y,x,y-r*2);close()},p)}
         c.restore()
         // engraved score: a dark recess with a light lower lip
-        p.typeface=Typeface.create(Typeface.SERIF,Typeface.BOLD);p.textSize=30f;p.textAlign=Paint.Align.CENTER
+        p.typeface=PolkaFonts.display();p.textSize=30f;p.textAlign=Paint.Align.CENTER
         val ty=57f-(p.ascent()+p.descent())/2
         p.color=0x73ffffff;c.drawText("$rating",50f,ty+.9f,p);p.color=mix(tone[0],tone[1],.2f);c.drawText("$rating",50f,ty,p)
         c.restore()}

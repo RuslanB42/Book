@@ -10,19 +10,34 @@ import android.view.*
 import android.view.animation.PathInterpolator
 import android.widget.*
 
+/** The app's type pair: Piazzolla (serif — headings, book titles, big numbers) + Geologica (sans — everything else).
+ *  Both are variable fonts; each weight / optical size is built once and cached. The reading text keeps its own
+ *  fonts (Literata by default, PT Serif, system sans) — see [reader]. */
 object PolkaFonts {
     private val cache=java.util.concurrent.ConcurrentHashMap<String,Typeface>()
-    fun serif(a:android.content.Context,bold:Boolean=false,italic:Boolean=false):Typeface = cache.getOrPut("lit-$bold-$italic") {
+    private var assets:android.content.res.AssetManager?=null
+    fun init(c:android.content.Context){if(assets==null)assets=c.applicationContext.assets}
+    private fun variable(file:String,settings:String):Typeface=cache.getOrPut("$file|$settings"){
+        val am=assets?:return@getOrPut Typeface.DEFAULT
+        try{Typeface.Builder(am,"fonts/$file").setFontVariationSettings(settings).build()?:Typeface.DEFAULT}catch(e:Exception){Typeface.DEFAULT}}
+    /** Geologica at [weight] (400 text, 500 medium, 600 for what used to be bold). */
+    fun sans(weight:Int=400):Typeface=variable("geologica.ttf","'wght' $weight")
+    /** Piazzolla for headings and titles: semibold at a display optical size, or regular at text size. */
+    fun serif(a:android.content.Context,bold:Boolean=false,italic:Boolean=false):Typeface{init(a);return if(bold)variable("piazzolla.ttf","'wght' 600, 'opsz' 24") else variable("piazzolla.ttf","'wght' 420, 'opsz' 16")}
+    /** Piazzolla at its largest optical size — the big numbers of the statistics. */
+    fun display(weight:Int=600):Typeface=variable("piazzolla.ttf","'wght' $weight, 'opsz' 30")
+    /** Literata — the default reading font (not used for the app's own interface). */
+    fun literata(a:android.content.Context,bold:Boolean=false,italic:Boolean=false):Typeface = cache.getOrPut("lit-$bold-$italic") {
         Typeface.createFromAsset(a.assets,"fonts/literata-static-${if(bold) 600 else 400}${if(italic) "-italic" else ""}.ttf")
     }
-    fun reader(a:android.content.Context,font:String):Typeface=when(font) { "sans"->Typeface.create("sans-serif",Typeface.NORMAL); "ptserif"->cache.getOrPut("pt") { Typeface.createFromAsset(a.assets,"fonts/ptserif-PT_Serif-Web-Regular.ttf") }; else->serif(a) }
+    fun reader(a:android.content.Context,font:String):Typeface=when(font) { "sans"->Typeface.create("sans-serif",Typeface.NORMAL); "ptserif"->cache.getOrPut("pt") { Typeface.createFromAsset(a.assets,"fonts/ptserif-PT_Serif-Web-Regular.ttf") }; else->literata(a) }
 }
 fun TextView.cssLeading(factor:Float) { setLineSpacing(textSize*factor-paint.fontSpacing,1f) }
 fun MainActivity.column()=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
 fun MainActivity.line()=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
 fun MainActivity.label(value:String,parent:LinearLayout) { space(parent,20); parent.addView(text(value.uppercase(),12f,muted,true)); space(parent,10) }
 fun MainActivity.edit(value:String="",hint:String="",multi:Boolean=false)=EditText(this).apply {
-    setText(value); setHint(hint); setTextColor(fg); setHintTextColor(muted); textSize=16f; typeface=Typeface.create("sans-serif",Typeface.NORMAL); isSingleLine=!multi; minLines=if(multi) 3 else 1; setPadding(d(14),d(12),d(14),d(12)); this@edit.controlSurface(this,12f)
+    setText(value); setHint(hint); setTextColor(fg); setHintTextColor(muted); textSize=16f; typeface=PolkaFonts.sans(400); isSingleLine=!multi; minLines=if(multi) 3 else 1; setPadding(d(14),d(12),d(14),d(12)); this@edit.controlSurface(this,12f)
 }
 fun MainActivity.segment(labels:List<String>,selected:Int,onSelect:(Int)->Unit):LinearLayout {
     val box=SlidingSegment(this,selected,labels.size)
@@ -230,7 +245,7 @@ class PolkaSwitch(private val a:MainActivity):Switch(a) {
     override fun onDraw(c:android.graphics.Canvas) {
         val left=width-a.d(51).toFloat(); val top=(height-a.d(31))/2f; val radius=a.d(16).toFloat(); ink.color=android.animation.ArgbEvaluator().evaluate(fraction,if(a.light) 0xffd8d8d8.toInt() else 0xff353537.toInt(),0xff30ca5c.toInt()) as Int; c.drawRoundRect(left,top,width.toFloat(),top+a.d(31),radius,radius,ink)
         ink.color=android.graphics.Color.WHITE; val cx=left+a.d(31)/2f+a.d(20)*fraction; c.drawCircle(cx,top+a.d(31)/2f,a.d(13).toFloat(),ink)
-        if(!text.isNullOrBlank()) { ink.color=a.fg; ink.textSize=a.d(16).toFloat(); ink.typeface=android.graphics.Typeface.create("sans-serif",android.graphics.Typeface.NORMAL); c.drawText(text.toString(),paddingLeft.toFloat(),height/2f-(ink.ascent()+ink.descent())/2,ink) }
+        if(!text.isNullOrBlank()) { ink.color=a.fg; ink.textSize=a.d(16).toFloat(); ink.typeface=PolkaFonts.sans(400); c.drawText(text.toString(),paddingLeft.toFloat(),height/2f-(ink.ascent()+ink.descent())/2,ink) }
     }
 }
 

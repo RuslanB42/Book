@@ -56,7 +56,7 @@ internal fun MainActivity.readBooksPage(model:ReadingStatistics,startYear:Int){
         body.removeAllViews()
         val list=model.finished.filter{it.date?.year==year}.sortedByDescending{it.date}
         val sum=line().apply{gravity=Gravity.BOTTOM}
-        sum.addView(text("${list.size}",44f,fg).apply{typeface=Typeface.create("sans-serif-light",Typeface.NORMAL);letterSpacing=-.03f;includeFontPadding=false})
+        sum.addView(text("${list.size}",44f,fg).apply{typeface=PolkaFonts.display();letterSpacing=-.01f;includeFontPadding=false;fontFeatureSettings="lnum, tnum"})
         sum.addView(text("  ${MainActivity.countBooks(list.size).substringAfter(' ')} за $year год",16f,muted).apply{setPadding(0,0,0,d(6))})
         body.addView(sum);space(body,16)
         if(list.isEmpty()){body.addView(text("В этом году пока ни одной прочитанной книги.",15f,muted));return}

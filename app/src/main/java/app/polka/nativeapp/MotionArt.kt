@@ -78,7 +78,7 @@ internal class BreathGlow(context:android.content.Context,private val color:Int=
  * [rollAll] false rolls only the leading number of the text ("12 из 24" rolls 12, not 24).
  */
 internal class Odometer(private val a:MainActivity,initial:String,size:Float,color:Int,bold:Boolean=true,serif:Boolean=false):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=size*a.resources.displayMetrics.scaledDensity;this.color=color;typeface=if(serif)PolkaFonts.serif(a,bold) else Typeface.create("sans-serif",if(bold)Typeface.BOLD else Typeface.NORMAL);fontFeatureSettings="tnum";letterSpacing=-.02f}
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=size*a.resources.displayMetrics.scaledDensity;this.color=color;typeface=if(serif)PolkaFonts.serif(a,bold) else PolkaFonts.sans(if(bold)600 else 400);fontFeatureSettings="tnum";letterSpacing=-.02f}
     var text=initial; private set
     private var from=IntArray(0); private var steps=IntArray(0); private var prog=FloatArray(0)
     private val anims=mutableListOf<Animator>()

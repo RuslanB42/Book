@@ -118,7 +118,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     // ───────────────────────── glass cards ─────────────────────────
     /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
     private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f,firstOnly:Boolean=false):TextView{
-        val tv=a.text("",size,a.fg).apply{typeface=Typeface.create("sans-serif-light",Typeface.NORMAL);letterSpacing=-.03f;includeFontPadding=false;fontFeatureSettings="tnum"}
+        val tv=a.text("",size,a.fg).apply{typeface=PolkaFonts.display();letterSpacing=-.01f;includeFontPadding=false;fontFeatureSettings="lnum, tnum"}
         fun styled(t:String):CharSequence{val sp=android.text.SpannableString(t);var i=0
             if(firstOnly){val k=t.indexOfFirst{!it.isDigit()};if(k>0){sp.setSpan(android.text.style.RelativeSizeSpan(unitScale),k,t.length,0);sp.setSpan(android.text.style.ForegroundColorSpan(captionInk),k,t.length,0)};return sp}
             while(i<t.length){if(!t[i].isDigit()&&t[i]!=' '){var j=i;while(j<t.length&&!t[j].isDigit())j++
@@ -140,14 +140,15 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** Streak: big number, record, today's minutes on a glowing rail, and the flame as a lit object; tap — the month. */
     private fun streak(){
         val box=surface().apply{setPadding(0,0,0,0);clipToOutline=true;clipChildren=true}
-        val top=FrameLayout(a)
+        // the flame's glow may spill below this block over the opened month (no straight cut line)
+        val top=FrameLayout(a).apply{clipChildren=false}
         // the flame takes up to ~44% of the card, so the text column keeps room on narrow screens
         val cardDp=(a.resources.configuration.screenWidthDp-32).coerceAtLeast(240);val flameDp=min(160,(cardDp*.42f).toInt())
         // the text column stops 14dp before the flame's left edge (the flame view sits 10dp past the card's right edge)
         val reachDp=FlameOrb.reach(flameDp.toFloat(),176f);val textPad=(reachDp-10+14).roundToInt()
         val col=a.column().apply{setPadding(a.d(20),a.d(20),a.d(textPad),a.d(22));minimumHeight=a.d(176)}
         val n=model.streak
-        val first=a.line().apply{gravity=Gravity.BOTTOM};first.addView(big("$n",52f,n));first.addView(label("  ${daysWord(n)}",22f,a.fg).apply{typeface=Typeface.create("sans-serif-light",Typeface.NORMAL);setPadding(0,0,0,a.d(4))});col.addView(first)
+        val first=a.line().apply{gravity=Gravity.BOTTOM};first.addView(big("$n",52f,n));first.addView(label("  ${daysWord(n)}",22f,a.fg).apply{typeface=PolkaFonts.sans(400);setPadding(0,0,0,a.d(4))});col.addView(first)
         space(col,6)
         val best=bestStreak()
         col.addView(label(if(n>0)"подряд · ваш рекорд $best" else "серии пока нет",15f,if(light)0xff5d5d62.toInt() else 0xffbdbdc2.toInt()))
@@ -160,6 +161,12 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         top.addView(flame,FrameLayout.LayoutParams(a.d(flameDp),-1,Gravity.END))
         box.addView(top,LinearLayout.LayoutParams(-1,-2))
         val month=StreakMonth(a,model,today,motionOn)
+        // Closed, the flame's foot is cut by the card's rounded edge (it stands in the card). Opened, the card goes on
+        // below, so the flame rises a little and settles whole above the month instead of being sliced by a straight line.
+        month.onToggle={open->val s=FlameOrb.scale(flame.width.toFloat(),flame.height.toFloat());flame.pivotX=flame.width-48f*s;flame.pivotY=flame.height.toFloat()
+            val lift=if(open)-16f*s else 0f;val k=if(open).92f else 1f
+            if(!motionOn){flame.translationY=lift;flame.scaleX=k;flame.scaleY=k}
+            else{val sp=Spring.of(if(open).22 else .1,520.0);flame.animate().translationY(lift).scaleX(k).scaleY(k).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}
         box.addView(a.column().apply{setPadding(a.d(20),0,a.d(20),0);addView(month,LinearLayout.LayoutParams(-1,-2))},LinearLayout.LayoutParams(-1,-2))
         box.contentDescription="Серия чтения: $n ${daysWord(n)}, рекорд $best"
         box.isClickable=true;box.setOnClickListener{month.toggle()};a.press(box)
@@ -373,8 +380,8 @@ internal class TimeRibbon(a:MainActivity,private val values:List<Double>,animate
         // Floating bubble above the held bar.
         if(tips!=null&&selected in tips.indices&&bubble>0f){val (title,value)=tips[selected];val cx=selected*cell+cell/2f
             bubbleX=if(bubbleX<0f)cx else bubbleX+(cx-bubbleX)*.45f;if(kotlin.math.abs(bubbleX-cx)>.5f)postInvalidateOnAnimation()
-            tipPaint.textSize=a.d(13).toFloat();tipPaint.typeface=Typeface.create("sans-serif",Typeface.BOLD);val w1=tipPaint.measureText(value)
-            tipPaint.textSize=a.d(11).toFloat();tipPaint.typeface=Typeface.DEFAULT;val w2=tipPaint.measureText(title)
+            tipPaint.textSize=a.d(13).toFloat();tipPaint.typeface=PolkaFonts.sans(600);val w1=tipPaint.measureText(value)
+            tipPaint.textSize=a.d(11).toFloat();tipPaint.typeface=PolkaFonts.sans(400);val w2=tipPaint.measureText(title)
             val bw=max(w1,w2)+a.d(24);val bh=a.d(44).toFloat();val bx=(bubbleX-bw/2).coerceIn(0f,width-bw);val v=values[selected];val barTop=height-max(a.d(5).toFloat(),(v/maximum*height).toFloat())
             val by=barTop-bh-a.d(10)
             c.save();c.translate(0f,a.d(6)*(1f-bubble));val s=.92f+.08f*bubble;c.scale(s,s,bubbleX,by+bh)
@@ -384,8 +391,8 @@ internal class TimeRibbon(a:MainActivity,private val values:List<Double>,animate
             // a small pointer down to the bar
             val tip=Path();tip.moveTo(bubbleX-a.d(6),by+bh-1);tip.lineTo(bubbleX,by+bh+a.d(6));tip.lineTo(bubbleX+a.d(6),by+bh-1);tip.close();c.drawPath(tip,tipPaint)
             tipPaint.textAlign=Paint.Align.CENTER;val mid=bx+bw/2
-            tipPaint.color=a.fg;tipPaint.alpha=(255*bubble).toInt();tipPaint.textSize=a.d(13).toFloat();tipPaint.typeface=Typeface.create("sans-serif",Typeface.BOLD);c.drawText(value,mid,by+a.d(19),tipPaint)
-            tipPaint.color=a.muted;tipPaint.alpha=(255*bubble).toInt();tipPaint.textSize=a.d(11).toFloat();tipPaint.typeface=Typeface.DEFAULT;c.drawText(title,mid,by+a.d(35),tipPaint)
+            tipPaint.color=a.fg;tipPaint.alpha=(255*bubble).toInt();tipPaint.textSize=a.d(13).toFloat();tipPaint.typeface=PolkaFonts.sans(600);c.drawText(value,mid,by+a.d(19),tipPaint)
+            tipPaint.color=a.muted;tipPaint.alpha=(255*bubble).toInt();tipPaint.textSize=a.d(11).toFloat();tipPaint.typeface=PolkaFonts.sans(400);c.drawText(title,mid,by+a.d(35),tipPaint)
             c.restore()}
     }
 }
