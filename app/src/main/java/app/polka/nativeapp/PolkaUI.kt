@@ -10,7 +10,7 @@ import android.view.*
 import android.view.animation.PathInterpolator
 import android.widget.*
 
-/** The app's type pair: Piazzolla (serif — headings, book titles, big numbers) + Geologica (sans — everything else).
+/** The app's type pair: Brygada 1918 (serif — headings, book titles, big numbers) + Geologica (sans — everything else).
  *  Both are variable fonts; each weight / optical size is built once and cached. The reading text keeps its own
  *  fonts (Literata by default, PT Serif, system sans) — see [reader]. */
 object PolkaFonts {
@@ -22,10 +22,10 @@ object PolkaFonts {
         try{Typeface.Builder(am,"fonts/$file").setFontVariationSettings(settings).build()?:Typeface.DEFAULT}catch(e:Exception){Typeface.DEFAULT}}
     /** Geologica at [weight] (400 text, 500 medium, 600 for what used to be bold). */
     fun sans(weight:Int=400):Typeface=variable("geologica.ttf","'wght' $weight")
-    /** Piazzolla for headings and titles: semibold at a display optical size, or regular at text size. */
-    fun serif(a:android.content.Context,bold:Boolean=false,italic:Boolean=false):Typeface{init(a);return if(bold)variable("piazzolla.ttf","'wght' 600, 'opsz' 24") else variable("piazzolla.ttf","'wght' 420, 'opsz' 16")}
-    /** Piazzolla at its largest optical size — the big numbers of the statistics. */
-    fun display(weight:Int=600):Typeface=variable("piazzolla.ttf","'wght' $weight, 'opsz' 30")
+    /** Brygada 1918 for headings and titles: semibold, or regular for text sizes. */
+    fun serif(a:android.content.Context,bold:Boolean=false,italic:Boolean=false):Typeface{init(a);return if(bold)variable("brygada.ttf","'wght' 600") else variable("brygada.ttf","'wght' 400")}
+    /** Brygada 1918 for the big numbers of the statistics. */
+    fun display(weight:Int=600):Typeface=variable("brygada.ttf","'wght' $weight")
     /** Literata — the default reading font (not used for the app's own interface). */
     fun literata(a:android.content.Context,bold:Boolean=false,italic:Boolean=false):Typeface = cache.getOrPut("lit-$bold-$italic") {
         Typeface.createFromAsset(a.assets,"fonts/literata-static-${if(bold) 600 else 400}${if(italic) "-italic" else ""}.ttf")

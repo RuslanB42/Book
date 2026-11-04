@@ -120,9 +120,9 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f,firstOnly:Boolean=false):TextView{
         val tv=a.text("",size,a.fg).apply{typeface=PolkaFonts.display();letterSpacing=-.01f;includeFontPadding=false;fontFeatureSettings="lnum, tnum"}
         fun styled(t:String):CharSequence{val sp=android.text.SpannableString(t);var i=0
-            if(firstOnly){val k=t.indexOfFirst{!it.isDigit()};if(k>0){sp.setSpan(android.text.style.RelativeSizeSpan(unitScale),k,t.length,0);sp.setSpan(android.text.style.ForegroundColorSpan(captionInk),k,t.length,0)};return sp}
+            if(firstOnly){val k=t.indexOfFirst{!it.isDigit()};if(k>0){sp.setSpan(SansSpan(),k,t.length,0);sp.setSpan(android.text.style.RelativeSizeSpan(unitScale),k,t.length,0);sp.setSpan(android.text.style.ForegroundColorSpan(captionInk),k,t.length,0)};return sp}
             while(i<t.length){if(!t[i].isDigit()&&t[i]!=' '){var j=i;while(j<t.length&&!t[j].isDigit())j++
-                sp.setSpan(android.text.style.RelativeSizeSpan(unitScale),i,j,0);sp.setSpan(android.text.style.ForegroundColorSpan(captionInk),i,j,0);i=j}else i++};return sp}
+                sp.setSpan(SansSpan(),i,j,0);sp.setSpan(android.text.style.RelativeSizeSpan(unitScale),i,j,0);sp.setSpan(android.text.style.ForegroundColorSpan(captionInk),i,j,0);i=j}else i++};return sp}
         tv.text=styled(text)
         if(countTo!=null&&countTo>0&&motionOn){val fmt=text.replaceFirst(countTo.toString(),"%d")
             tv.minWidth=ceil(android.text.Layout.getDesiredWidth(styled(text),tv.paint)).toInt();tv.text=styled(String.format(fmt,0))
@@ -410,4 +410,10 @@ internal open class StatsAnimatedView(a:MainActivity,private val motion:Boolean)
     }
     override fun onAttachedToWindow(){super.onAttachedToWindow();phase=if(!started && motion && a.prefs.str("motion")!="reduced")0f else 1f;viewTreeObserver.addOnPreDrawListener(watcher)}
     override fun onDetachedFromWindow(){clock?.cancel();clock=null;if(viewTreeObserver.isAlive)viewTreeObserver.removeOnPreDrawListener(watcher);super.onDetachedFromWindow()}
+}
+
+/** Units next to the big numbers ("ч", "мин", "дней") are set in the interface sans, not in the numbers' serif. */
+internal class SansSpan:android.text.style.MetricAffectingSpan(){
+    override fun updateDrawState(tp:android.text.TextPaint){tp.typeface=PolkaFonts.sans(400)}
+    override fun updateMeasureState(tp:android.text.TextPaint){tp.typeface=PolkaFonts.sans(400)}
 }
