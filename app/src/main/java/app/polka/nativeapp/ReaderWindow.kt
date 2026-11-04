@@ -36,8 +36,13 @@ internal object ReaderWindow {
    val gestures=if(Build.VERSION.SDK_INT>=29)insets.systemGestureInsets.bottom else 0
    r.safeArea(safe[0],safe[1],safe[2],maxOf(safe[3],gestures,keyboard))
   }else {
-   val safe=SafeArea.content(androidx.core.view.WindowInsetsCompat.toWindowInsetsCompat(insets,a.root))
-   a.updateAppInsets(safe)
+   val compat=androidx.core.view.WindowInsetsCompat.toWindowInsetsCompat(insets,a.root)
+   a.baseInsets=SafeArea.content(compat,false)
+   val ime=compat.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom
+   // while the keyboard slides, its height comes frame by frame from the animation callback
+   if(!a.imeAnimating)a.imeBottom=ime
+   a.pushInsets()
+   if(!a.imeAnimating)a.imeVisible(ime>0)
   }
  }
 }

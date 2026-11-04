@@ -55,6 +55,19 @@ class MainActivity : Activity() {
             override fun onViewDetachedFromWindow(v:View){insetConsumers.remove(v)}
         })
     }
+    /** Safe area without the keyboard, and the keyboard's height as it is right now (it follows the keyboard's own
+     *  slide frame by frame, so nothing jumps when it opens or closes). */
+    internal var baseInsets=androidx.core.graphics.Insets.NONE
+    internal var imeBottom=0
+    internal var imeAnimating=false
+    private var imeShown=false
+    internal fun pushInsets(){val s=baseInsets;updateAppInsets(androidx.core.graphics.Insets.of(s.left,s.top,s.right,maxOf(s.bottom,imeBottom)))}
+    internal fun setIme(bottom:Int){if(bottom!=imeBottom){imeBottom=bottom;pushInsets()}}
+    /** The keyboard went away (back, swipe, «готово»): the text field lets go too, so no caret keeps blinking. */
+    internal fun imeVisible(shown:Boolean){if(imeShown&&!shown)releaseTextFocus();imeShown=shown}
+    internal fun releaseTextFocus(){val f=currentFocus as? android.widget.EditText?:return
+        (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)
+        root.isFocusableInTouchMode=true;root.requestFocus();f.clearFocus()}
     internal fun updateAppInsets(safe:androidx.core.graphics.Insets){
         appInsets=safe
         // Backgrounds, scrims and scroll viewports ALWAYS occupy the entire window.
@@ -143,6 +156,17 @@ class MainActivity : Activity() {
         root=FrameLayout(this); root.setBackgroundColor(bg)
         ReaderWindow.configure(window,false,bg)
         SafeArea.bind(root) { insets -> ReaderWindow.apply(this,insets.toWindowInsets()!!) }
+        // follow the keyboard's slide instead of jumping to its final height
+        androidx.core.view.ViewCompat.setWindowInsetsAnimationCallback(root,object:androidx.core.view.WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE){
+            private fun isIme(list:List<androidx.core.view.WindowInsetsAnimationCompat>)=list.any{it.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()!=0}
+            override fun onPrepare(animation:androidx.core.view.WindowInsetsAnimationCompat){if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()!=0)imeAnimating=true}
+            override fun onProgress(insets:androidx.core.view.WindowInsetsCompat,running:List<androidx.core.view.WindowInsetsAnimationCompat>):androidx.core.view.WindowInsetsCompat{
+                if(reader==null&&isIme(running))setIme(insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom);return insets}
+            override fun onEnd(animation:androidx.core.view.WindowInsetsAnimationCompat){if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()==0)return
+                imeAnimating=false;val now=androidx.core.view.ViewCompat.getRootWindowInsets(root);val ime=now?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0
+                if(reader==null)setIme(ime);imeVisible(ime>0)}})
+        // a tap anywhere outside the focused text field closes the keyboard and lets the field go
+        touchWatchers.add{e->val f=currentFocus as? android.widget.EditText;if(f!=null&&reader==null){val r=android.graphics.Rect();f.getGlobalVisibleRect(r);if(!r.contains(e.rawX.toInt(),e.rawY.toInt()))releaseTextFocus()}}
         setContentView(root)
         root.requestApplyInsets()
         root.addView(bootLogo(),FrameLayout.LayoutParams(-1,-1))
@@ -316,10 +340,10 @@ class MainActivity : Activity() {
                 screenMotion.pushTab(oldScroll,to>from) } else scroll.smoothScrollTo(0,0)
         }
         root.addView(nav,FrameLayout.LayoutParams(d(230),d(58),Gravity.BOTTOM or Gravity.START))
-        followInsets(nav){i->nav.layoutParams=(nav.layoutParams as FrameLayout.LayoutParams).apply{leftMargin=d(16)+i.left;bottomMargin=navigationBottom(i)}}
+        followInsets(nav){i->nav.layoutParams=(nav.layoutParams as FrameLayout.LayoutParams).apply{leftMargin=d(16)+i.left;bottomMargin=navigationBottom(baseInsets)}}
         val add=icon("plus","Добавить",true) { if(addMenu!=null) addMenu?.close() else AddMenu(this).open() }; addButton=add
         root.addView(add,FrameLayout.LayoutParams(d(58),d(58),Gravity.BOTTOM or Gravity.END))
-        followInsets(add){i->add.layoutParams=(add.layoutParams as FrameLayout.LayoutParams).apply{rightMargin=d(16)+i.right;bottomMargin=navigationBottom(i)}}
+        followInsets(add){i->add.layoutParams=(add.layoutParams as FrameLayout.LayoutParams).apply{rightMargin=d(16)+i.right;bottomMargin=navigationBottom(baseInsets)}}
     }
     fun filters() {
         val box=column()
