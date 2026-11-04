@@ -118,26 +118,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
-        if(!motionOn){streak();speed();readingTime();books();return}
-        // 1. The page itself is there at once: it fades up with its greeting, nothing waits for the cards.
-        scroll.alpha=0f;scroll.translationY=a.d(12).toFloat()
-        scroll.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
-        // 2. The cards are built off-screen, one per frame, after that fade (building never stalls a moving frame).
-        deferred=true
-        val builders=listOf({streak()},{speed()},{readingTime()},{books()})
-        fun build(k:Int){if(!scroll.isAttachedToWindow)return
-            if(k<builders.size){builders[k]();StatsProbe.mark("собрана плашка ${k+1}");scroll.post{build(k+1)};return}
-            // 3. All cards join the page together, invisible, are laid out and drawn once — then they rise.
-            deferred=false
-            // the shadows stay off while the cards move (a moving, growing shadow is recomputed on every frame)
-            StatsEntrance.settleAt=android.os.SystemClock.uptimeMillis()+40+(pending.size-1)*90L+760
-            pending.forEach{v->v.alpha=0f;v.translationY=a.d(44).toFloat();v.scaleX=.96f;v.scaleY=.96f;v.pivotY=0f;shadow[v]=v.elevation;v.elevation=0f
-                content.addView(v,LinearLayout.LayoutParams(-1,-2));space(content,12)}
-            pending.clear()
-            val ch=android.view.Choreographer.getInstance()
-            StatsProbe.mark("плашки добавлены")
-            ch.postFrameCallback{ch.postFrameCallback{StatsProbe.mark("въезд начался");reveal()}}}
-        scroll.postDelayed({build(0)},280)
+        streak();speed();readingTime();books()
+        if(!motionOn)return
+        // a simple, calm entrance: the whole page fades in, everything on it already in place
+        scroll.alpha=0f;scroll.animate().alpha(1f).setDuration(240).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
     }
     private var deferred=false
     private val shadow=HashMap<View,Float>()
@@ -159,7 +143,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private val countDelay get()=entrance.size*90L
     /** A counting numeral drawn straight onto the canvas: no text layout is rebuilt while it counts, so the count costs
      *  nothing but a redraw. The words after it are set smaller and grey, like [big]. */
-    private fun bigCount(n:Int,unit:String,size:Float,unitScale:Float):View=CountNumber(a,n,unit,size,unitScale,captionInk,countDelay,motionOn)
+    private fun bigCount(n:Int,unit:String,size:Float,unitScale:Float):View=CountNumber(a,n,unit,size,unitScale,captionInk,0,false)
     private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f,firstOnly:Boolean=false):TextView{
         val tv=a.text("",size,a.fg).apply{typeface=PolkaFonts.display();letterSpacing=-.01f;includeFontPadding=false;fontFeatureSettings="lnum, tnum"}
         fun styled(t:String):CharSequence{val sp=android.text.SpannableString(t);var i=0

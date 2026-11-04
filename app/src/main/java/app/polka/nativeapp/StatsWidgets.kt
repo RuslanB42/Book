@@ -65,7 +65,7 @@ internal object FlameGlyph{
  *  ring, and today's ring fills as you read toward the daily goal. Weekday names underneath; today in bold. */
 internal class WeekFlames(private val a:MainActivity,private val names:List<String>,private val kept:BooleanArray,private val todayFraction:Float,private val motion:Boolean):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER}
-    private var k=if(motion)0f else 1f
+    private var k=1f /* shown at rest: the page entrance is a simple fade */
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     override fun onMeasure(w:Int,h:Int){setMeasuredDimension(MeasureSpec.getSize(w),a.d(62))}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=StatsEntrance.wait()+60;interpolator=Ease.outCubic;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
@@ -150,7 +150,7 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
         return (i+1)%step==0&&last-i>=max(1,step/2)}
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG)
     private val c1=0xff7c5cff.toInt();private val c2=0xffff5aa0.toInt()
-    private var draw=if(motion)0f else 1f
+    private var draw=1f /* shown at rest: the page entrance is a simple fade */
     private val line=Path();private val area=Path();private val pts=ArrayList<PointF>()
     init{contentDescription=tips.lastOrNull().orEmpty();isClickable=true}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(draw<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=StatsEntrance.wait()+160;interpolator=android.view.animation.PathInterpolator(.3f,0f,.2f,1f);addUpdateListener{draw=it.animatedValue as Float;invalidate()};start()}}
@@ -256,7 +256,7 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
 
 /** Speed on a cool blue bar: a faint tick marks the average (~200 words a minute), a glowing knob marks you. */
 internal class SpeedBar(private val a:MainActivity,private val fraction:Float?,private val average:Float,private val motion:Boolean):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var k=if(motion)0f else 1f
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var k=1f /* shown at rest: the page entrance is a simple fade */
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f){val sp=Spring.of(.22,720.0);ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=StatsEntrance.wait()+80;interpolator=sp.interpolator;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}}
     override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Скорость",pt0)}}

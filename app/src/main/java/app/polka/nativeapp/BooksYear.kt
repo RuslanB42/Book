@@ -41,7 +41,7 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     private val d=a.d(1).toFloat()
     private val coverFrom=if(slots>16)max(0,books.size-6) else 0
     private val covers=books.mapIndexed{i,b->if(i<coverFrom)null else MiniCover(a,b.book)}
-    private var walk=if(motion)0f else 1f;private var pulse=0f;private var clock:ValueAnimator?=null
+    private var walk=1f;private var pulse=0f;private var clock:ValueAnimator?=null
     private val pos=FloatArray(2)
     init{setWillNotDraw(false);clipChildren=false;clipToPadding=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
         covers.forEachIndexed{i,c->c?:return@forEachIndexed;addView(c,LayoutParams(a.d(40),a.d(60)));c.isClickable=true;c.contentDescription="${i+1}-я книга: ${books[i].book.str("title")}";c.setOnClickListener{select(i)}}}
