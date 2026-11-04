@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /** «Оформление чтения» (approved design): a compact panel at the bottom, under half the screen and without dimming,
- *  so every change shows at once in the page above it. The main page holds brightness, theme, text size and font; «Вёрстка и режим» and the font list open inside the same panel at the same height. */
+ *  so every change shows at once in the page above it. The main page holds brightness, theme, text size and font; «Вёрстка» and the font list open inside the same panel at the same height. */
 internal class ReaderSettings(private val a:MainActivity,private val r:NativeReader) {
     private val themes=listOf("night" to "Ночь","black" to "Чёрная","sepia" to "Сепия","paper" to "Бумага")
     private val fonts=listOf(Triple("literata","Literata","для долгого чтения"),Triple("ptserif","PT Serif","классическая книжная"),Triple("sans","Без засечек","чистая и простая"))
@@ -65,7 +65,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         fontSize.addView(fontButton(),LinearLayout.LayoutParams(-2,a.d(44)).apply{leftMargin=a.d(10)})
         box.addView(fontSize,LinearLayout.LayoutParams(-1,-2).apply{topMargin=gap})
         val more=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),0,a.d(16),0);background=a.shape(pillColor,18);isClickable=true;a.press(this);setOnClickListener{open(layoutPage())}}
-        more.addView(a.text("Вёрстка и режим",14.5f),LinearLayout.LayoutParams(0,-2,1f))
+        more.addView(a.text("Вёрстка",14.5f),LinearLayout.LayoutParams(0,-2,1f))
         more.addView(Chevron(a),LinearLayout.LayoutParams(a.d(12),a.d(18)))
         box.addView(more,LinearLayout.LayoutParams(-1,a.d(50)).apply{topMargin=gap})
         refresh();return box
@@ -91,7 +91,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         main.animate().translationX(0f).alpha(1f).setDuration(280).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
 
     private fun layoutPage():View{
-        val box=a.column().apply{tag="Вёрстка и режим"}
+        val box=a.column().apply{tag="Вёрстка"}
         box.addView(modeRow(),LinearLayout.LayoutParams(-1,-2))
         box.addView(group(
             inline("Межстрочный",1.2f,2.2f,.05f,r.lineHeight(),1.6f,{fmt(it,2)}){v->a.prefs.put("lhv",v.toDouble())},
@@ -175,8 +175,26 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         row.addView(a.text(title,14f),LinearLayout.LayoutParams(0,-2,1f))
         val valueView=a.text(format(value),12.5f,a.muted).apply{gravity=Gravity.END}
         val bar=SettingSlider(a,from,to,step,value,default){v,done->valueView.text=format(v);set(v);typography();if(done)a.savePreferences()}
+        bar.onGrab={held->spotlight(row,held)}
         row.addView(bar,LinearLayout.LayoutParams(a.d(150),a.d(40)));row.addView(valueView,LinearLayout.LayoutParams(a.d(42),-2))
         return row
+    }
+    private val hidden=mutableListOf<Pair<View,Float>>();private val faded=mutableListOf<Pair<android.graphics.drawable.Drawable,ValueAnimator>>()
+    /** While a slider is held, everything but its row fades away (panel included), so only the text and that one control remain. */
+    private fun spotlight(row:View,on:Boolean){
+        val reduced=this.reduced
+        if(on){hidden.clear();faded.forEach{it.second.cancel()};faded.clear()
+            var child=row;var parent=child.parent as? ViewGroup
+            while(parent!=null){for(i in 0 until parent.childCount){val v=parent.getChildAt(i);if(v!==child){hidden.add(v to v.alpha);if(reduced)v.alpha=0f else v.animate().alpha(0f).setStartDelay(0).setDuration(160).setInterpolator(PathInterpolator(.4f,0f,.2f,1f)).start()}}
+                parent.background?.let{bg->val an=ValueAnimator.ofInt(255,0).apply{duration=if(reduced)0 else 180;addUpdateListener{bg.alpha=it.animatedValue as Int};start()};faded.add(bg to an)}
+                if(parent===sheet)break;child=parent;parent=parent.parent as? ViewGroup}
+            // the scroll view's fading edges would still draw over the background; switch them off while focused
+            var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? ScrollView)?.isVerticalFadingEdgeEnabled=false;g=g.parent}
+        }else{
+            hidden.forEach{(v,alpha)->if(reduced)v.alpha=alpha else v.animate().alpha(alpha).setStartDelay(60).setDuration(240).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()};hidden.clear()
+            faded.forEach{(bg,an)->an.cancel();ValueAnimator.ofInt(bg.alpha,255).apply{duration=if(reduced)0 else 240;startDelay=if(reduced)0 else 40;addUpdateListener{bg.alpha=it.animatedValue as Int};start()}};faded.clear()
+            var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? ScrollView)?.isVerticalFadingEdgeEnabled=true;g=g.parent}
+        }
     }
     private fun toggle(title:String,key:String,default:Boolean)=PolkaSwitch(a).apply{
         text=title;setTextColor(a.fg);textSize=14f;minHeight=a.d(46);isChecked=a.prefs.optBoolean(key,default)
@@ -306,11 +324,13 @@ internal class SettingSlider(private val a:MainActivity,private val from:Float,p
                 if(default!=null){val near=abs(v-default)<=(to-from)*.03f;if(near&&!detent&&a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);detent=near;if(near)v=default}
                 shown=v;invalidate();onChange(v,false)
             }
-            override fun onStartTrackingTouch(s:SeekBar?){parent?.requestDisallowInterceptTouchEvent(true)}
-            override fun onStopTrackingTouch(s:SeekBar?){onChange(shown,true)}
+            override fun onStartTrackingTouch(s:SeekBar?){parent?.requestDisallowInterceptTouchEvent(true);onGrab?.invoke(true)}
+            override fun onStopTrackingTouch(s:SeekBar?){onChange(shown,true);onGrab?.invoke(false)}
         })
     }
     fun value()=shown
+    /** Called with true when the finger takes the knob and false when it lets go. */
+    var onGrab:((Boolean)->Unit)?=null
     override fun onDraw(c:Canvas){
         val y=height/2f;val left=paddingLeft.toFloat();val right=(width-paddingRight).toFloat();val span=(right-left).coerceAtLeast(1f)
         fun xOf(v:Float)=left+span*((v-from)/(to-from)).coerceIn(0f,1f)
