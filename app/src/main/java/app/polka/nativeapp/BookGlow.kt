@@ -16,22 +16,33 @@ internal object BookGlowRaster {
  const val SPREAD=1.08f
  private val executor=Executors.newSingleThreadExecutor{r->Thread(r,"polka-cover-light").apply{isDaemon=true}}
  private val main=Handler(Looper.getMainLooper())
- private val cache=object:android.util.LruCache<String,Bitmap>(1024){override fun sizeOf(key:String,value:Bitmap)=value.allocationByteCount/1024}
+ private val cache=object:android.util.LruCache<String,Bitmap>(24*1024){override fun sizeOf(key:String,value:Bitmap)=value.allocationByteCount/1024}
  fun cached(key:String)=cache.get(key)
  fun store(key:String,bitmap:Bitmap){cache.put(key,bitmap)}
  fun build(artwork:Bitmap):Bitmap {
   val layer=Bitmap.createBitmap(artwork.width+PADDING*2,artwork.height+PADDING*2,Bitmap.Config.ARGB_8888)
   try {
-   Canvas(layer).drawBitmap(artwork,PADDING.toFloat(),PADDING.toFloat(),Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
-   // Wider Gaussian penumbra, with enough transparent padding for its full 3-sigma tail.
-   // Half-resolution convolution keeps the same optical radius while avoiding
-   // millions of full-resolution kernel operations before the sheet can enter.
-   val small=Bitmap.createScaledBitmap(layer,layer.width/2,layer.height/2,true)
-   val soft=try{ShelfFrost.blur(small,12.5f)}finally{small.recycle()}
-   val blurred=Bitmap.createScaledBitmap(soft,layer.width,layer.height,true).also{soft.recycle()}
-   // No header-shaped alpha mask: the soft Gaussian continues behind floating
-   // controls and is clipped only by the actual rounded sheet boundary.
-   return blurred
+   // A brightness lift so every cover gives a visible light: a mostly black cover is raised until its colours
+   // glow; a cover that is already bright is left as it is. Saturation is lifted a little too.
+   val probe=Bitmap.createScaledBitmap(artwork,16,24,true);var sum=0f;var n=0
+   for(y in 0 until probe.height)for(x in 0 until probe.width){val p=probe.getPixel(x,y);sum+=maxOf(Color.red(p),Color.green(p),Color.blue(p));n++}
+   if(probe!==artwork)probe.recycle()
+   val mean=(sum/maxOf(1,n)/255f).coerceAtLeast(.04f);val lift=(.62f/mean).coerceIn(1f,5f)
+   val cm=ColorMatrix().apply{setSaturation(1.25f)};cm.postConcat(ColorMatrix(floatArrayOf(lift,0f,0f,0f,0f, 0f,lift,0f,0f,0f, 0f,0f,lift,0f,0f, 0f,0f,0f,1f,0f)))
+   Canvas(layer).drawBitmap(artwork,PADDING.toFloat(),PADDING.toFloat(),Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply{colorFilter=ColorMatrixColorFilter(cm)})
+   // A wide, very soft gaussian (computed at a quarter of the size), then fine noise at full size so the long
+   // falloff never shows steps.
+   val small=Bitmap.createScaledBitmap(layer,maxOf(1,layer.width/4),maxOf(1,layer.height/4),true)
+   val soft=try{ShelfFrost.blur(small,7f)}finally{small.recycle()}
+   // enlarged to about the size it is shown at, so the noise grains are screen pixels
+   val blurred=Bitmap.createScaledBitmap(soft,layer.width*3,layer.height*3,true).also{soft.recycle()}
+   val w=blurred.width;val h=blurred.height;val px=IntArray(w*h);blurred.getPixels(px,0,w,0,0,w,h);var seed=0x5bd1e995
+   for(k in px.indices){val c=px[k];val al=c ushr 24;if(al==0)continue
+    seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val n1=(seed and 0xffff)/65535f
+    seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val nz=(n1-(seed and 0xffff)/65535f)*1.5f
+    val na=(al+nz).toInt().coerceIn(0,255);px[k]=(na shl 24) or (c and 0xffffff)}
+   val out=Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888);blurred.recycle()
+   return out
   }finally{layer.recycle()}
  }
  fun prepare(artwork:Bitmap,done:(Bitmap?)->Unit){executor.execute{

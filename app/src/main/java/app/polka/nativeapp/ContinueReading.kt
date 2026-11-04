@@ -64,7 +64,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    floating(card,book,i)
    val cover=CoverView(a,book,a.cover(book));card.addView(cover,FrameLayout.LayoutParams(a.d(92),a.d(138),Gravity.BOTTOM or Gravity.START).apply{marginStart=a.d(16);bottomMargin=a.d(14)})
    card.cover=cover;covers.add(cover)
-   val words=a.column().apply{gravity=Gravity.BOTTOM;setPadding(a.d(124),a.d(16),a.d(18),a.d(16));clipChildren=true}
+   val words=a.column().apply{gravity=Gravity.BOTTOM;setPadding(a.d(124),a.d(16),a.d(18),a.d(16));clipChildren=false;clipToPadding=false}
    words.addView(a.text(book.str("title"),15f,a.fg,true).apply{maxLines=1;isSingleLine=true;ellipsize=TextUtils.TruncateAt.END})
    a.space(words,3);words.addView(a.text(MainActivity.authors(book),12.5f,a.muted).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END})
    a.space(words,12)
@@ -78,7 +78,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    buttons.addView(pill("Читать",true,"Читать: ${book.str("title")}"){a.openBook(book,cover)},LayoutParams(0,-2,1f))
    buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,cover)},LayoutParams(0,-2,1f).apply{marginStart=a.d(8)})
    words.addView(buttons)
-   card.addView(words,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));card.words=words;texts.add(words)
+   card.addView(words,0,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));card.words=words;texts.add(words)
    card.setOnClickListener{a.openBook(book,cover)};a.press(card)
    cards.add(card)
    // The focus transform lives on a holder, so the press feedback on the card never fights it. The holder's top
@@ -147,9 +147,9 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    val c=covers[i];c.pivotX=c.width/2f;c.pivotY=c.height.toFloat()
    val sink=1f-.16f*k;c.scaleX=sink;c.scaleY=sink;c.rotation=(-d*4f).coerceIn(-4f,4f);c.translationX=-d.coerceIn(-1f,1f)*a.d(6)
    val rows=texts[i];var n=0
-   for(r in 0 until rows.childCount){val v=rows.getChildAt(r);if(v.height<=a.d(2)&&v !is TextView)continue;v.translationX=d.coerceIn(-1f,1f)*a.d(14)*(1+n*.5f);n++}}
+   for(r in 0 until rows.childCount){val v=rows.getChildAt(r);if(v.height<=a.d(2)&&v !is TextView)continue;v.translationX=d.coerceIn(-1f,1f)*a.d(14)*(1+n*.5f);v.alpha=1f-.55f*k;n++}}
   if(motion&&readingBooks.isNotEmpty()){val f=(x/stride).coerceIn(0f,readingBooks.lastIndex.toFloat());val lo=f.toInt();val hi=(lo+1).coerceAtMost(readingBooks.lastIndex)
-   glow.set(blend(tints[lo],tints[hi],f-lo),a.d(20)+carousel.stride*.42f,light)}}
+   glow.set(blend(tints[lo],tints[hi],f-lo),a.d(40)+(carousel.stride-a.d(12))/2f,light)}}
  private fun blend(p:Int,q:Int,t:Float):Int{
   val r=(Color.red(p)*(1-t)+Color.red(q)*t).roundToInt()
   val g=(Color.green(p)*(1-t)+Color.green(q)*t).roundToInt()
@@ -161,15 +161,27 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
 /** A wide, very soft ellipse of colour behind the focused card. Cheap: one radial gradient, redrawn on scroll. */
 internal class AmbientGlow(private val a:MainActivity):View(a){
  private var color=0;private var cx=0f;private var light=false
- private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+ private val p=Paint(Paint.FILTER_BITMAP_FLAG)
+ private var mask:Bitmap?=null;private var maskKey=""
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
  fun set(c:Int,x:Float,l:Boolean){if(c==color&&x==cx&&l==light)return;color=c;cx=x;light=l;invalidate()}
- override fun onDraw(c:Canvas){if(width<1||height<1||color==0)return
-  val hsv=FloatArray(3);Color.colorToHSV(color,hsv);hsv[1]=(hsv[1]*1.2f).coerceAtMost(.75f);hsv[2]=if(light).85f else .75f;val col=Color.HSVToColor(hsv) and 0xffffff
-  val alpha=if(light)0x30 else 0x4a;val cy=height*.56f;val rx=width*.62f;val ry=height*.42f
-  c.save();c.translate(cx,cy);c.scale(1f,ry/rx)
-  p.shader=RadialGradient(0f,0f,rx,intArrayOf(col or (alpha shl 24),col or ((alpha/3) shl 24),col),floatArrayOf(0f,.5f,1f),Shader.TileMode.CLAMP)
-  c.drawCircle(0f,0f,rx,p);c.restore()}
+ /** The light's colour at one steady brightness: blends between two books never dip or flare, and a dark (or black)
+  *  cover still gives a clearly visible light; a colourless cover gives a soft warm white. */
+ private fun tone(c:Int):Int{val hsl=FloatArray(3);androidx.core.graphics.ColorUtils.colorToHSL(c,hsl)
+  if(hsl[1]<.12f||hsl[2]<.06f){hsl[0]=36f;hsl[1]=.22f}else hsl[1]=(hsl[1]*1.25f).coerceIn(.45f,.85f)
+  hsl[2]=if(light).58f else .62f;return androidx.core.graphics.ColorUtils.HSLToColor(hsl)}
+ /** A soft oval of light baked once per size: a gaussian falloff with fine noise in its opacity, so it shows no rings. */
+ private fun mask(w:Int,h:Int):Bitmap?{val key="$w:$h:$light";if(key==maskKey&&mask!=null)return mask
+  return try{val peak=if(light)52f else 84f;val rx=w*.40f;val ry=h*.50f;val mx=w/2f;val my=h*.56f;val px=IntArray(w*h);var seed=0x1f2e3d4c
+   val gx=FloatArray(w){val d=(it-mx)/rx;kotlin.math.exp(-2.6f*d*d)};val gy=FloatArray(h){val d=(it-my)/ry;kotlin.math.exp(-2.6f*d*d)}
+   for(y in 0 until h){val fy=gy[y];val row=y*w
+    for(x in 0 until w){seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val n1=(seed and 0xffff)/65535f
+     seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val n=(n1-(seed and 0xffff)/65535f)*1.6f
+     val al=(peak*fy*gx[x]+n+.5f).toInt().coerceIn(0,255);px[row+x]=(al shl 24) or 0xffffff}}
+   Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888).also{mask?.recycle();mask=it;maskKey=key}}catch(e:Throwable){null}}
+ override fun onDraw(c:Canvas){if(width<1||height<1||color==0)return;val m=mask(width,height)?:return
+  p.colorFilter=PorterDuffColorFilter(tone(color),PorterDuff.Mode.SRC_IN);c.drawBitmap(m,cx-width/2f,0f,p)}
+ override fun onDetachedFromWindow(){super.onDetachedFromWindow();mask?.recycle();mask=null;maskKey=""}
 }
 
 /** The card's height comes from its text (at least 128dp), never from the cover: the taller cover hangs out above. */
