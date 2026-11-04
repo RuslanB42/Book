@@ -118,14 +118,16 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
         // first what is on screen; the cards further down are built on the next frames, so the page appears at once
-        streak();speed()
-        rise(0)
-        if(!motionOn){readingTime();books()} else content.post{readingTime();rise(2);content.post{books();rise(3)}}
+        streak();speed();readingTime();books()
+        if(!motionOn)return
+        // The cards are built and drawn once while still (almost) invisible — every heavy first draw (blurs, glows,
+        // bitmaps) happens before anything moves; the rise starts two frames later, so no frame of it is dropped.
+        entrance.forEach{v->v.alpha=.004f;v.translationY=a.d(26).toFloat()}
+        val ch=android.view.Choreographer.getInstance()
+        ch.postFrameCallback{ch.postFrameCallback{
+            entrance.forEachIndexed{i,v->v.animate().alpha(1f).translationY(0f).setStartDelay(i*70L).setDuration(620)
+                .setInterpolator(android.view.animation.PathInterpolator(.16f,1f,.3f,1f)).withLayer().start()}}}
     }
-    /** Cards rise one after another: a soft lift and fade with a long, calm deceleration (no bounce). */
-    private fun rise(from:Int){if(!motionOn)return
-        for(i in from until entrance.size){val v=entrance[i];v.alpha=0f;v.translationY=a.d(28).toFloat();v.scaleX=.98f;v.scaleY=.98f
-            v.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setStartDelay(40L+i*75L).setDuration(640).setInterpolator(android.view.animation.PathInterpolator(.16f,1f,.3f,1f)).start()}}
     // ───────────────────────── glass cards ─────────────────────────
     /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
     private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f,firstOnly:Boolean=false):TextView{

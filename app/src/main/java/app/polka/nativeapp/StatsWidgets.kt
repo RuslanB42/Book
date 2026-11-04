@@ -119,7 +119,7 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
     private var morph=1f;private var fromYs:FloatArray?=null;private var toYs:FloatArray?=null;private var fromAvg=0f
     private var oldLabels:List<String> = emptyList();private var oldXs:FloatArray=FloatArray(0);private var oldLabelShown:BooleanArray=BooleanArray(0)
     private var glowFade=1f;private val morphPath=Path();private val morphArea=Path()
-    private fun samples():FloatArray{val n=72;val out=FloatArray(n);if(pts.isEmpty()){java.util.Arrays.fill(out,bottom);return out}
+    private fun samples():FloatArray{val n=160;val out=FloatArray(n);if(pts.isEmpty()){java.util.Arrays.fill(out,bottom);return out}
         val pm=PathMeasure(line,false);val len=pm.length;val xs=ArrayList<Float>();val ys=ArrayList<Float>();val pos=FloatArray(2);var s=0f
         while(s<=len){pm.getPosTan(s,pos,null);xs.add(pos[0]);ys.add(pos[1]);s+=max(1f,len/400f)}
         val x0=xOf(0);val x1=xOf(values.lastIndex.coerceAtLeast(0));var j=0
@@ -134,9 +134,12 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
         oldLabels=labels;oldXs=FloatArray(labels.size){xOf(it)};oldLabelShown=BooleanArray(labels.size){labelShown(it,labels.size)}
         values=v;labels=l;tips=t;average=avg;averageText=avgText;sparseLabels=sparse;tipIndex=-1;tipShow=0f;a.touchWatchers.remove(outside)
         glowBitmap=null;build();toYs=samples();draw=1f
-        ValueAnimator.ofFloat(0f,1f).apply{duration=560;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{morph=it.animatedValue as Float;glowFade=0f;invalidate()}
+        // a quick second switch takes over from wherever the curve is now (the previous morph must not finish it)
+        morphAnim?.removeAllListeners();morphAnim?.cancel();glowAnim?.cancel()
+        morphAnim=ValueAnimator.ofFloat(0f,1f).apply{duration=560;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{morph=it.animatedValue as Float;glowFade=0f;invalidate()}
             addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){morph=1f;fromYs=null
-                ValueAnimator.ofFloat(0f,1f).apply{duration=420;addUpdateListener{glowFade=it.animatedValue as Float;invalidate()};start()}}});start()}}
+                glowAnim=ValueAnimator.ofFloat(0f,1f).apply{duration=420;addUpdateListener{glowFade=it.animatedValue as Float;invalidate()};start()}}});start()}}
+    private var morphAnim:ValueAnimator?=null;private var glowAnim:ValueAnimator?=null
     private fun current():FloatArray{val f=fromYs;val t=toYs;if(f==null||t==null)return samples();return FloatArray(f.size){f[it]+(t[it]-f[it])*morph}}
     /** Which day labels fit: all of them when there is room, otherwise every 2nd, 5th, 7th… day, plus the first and the last. */
     private fun labelShown(i:Int,n:Int):Boolean{if(!sparseLabels||n<=1)return true;val need=a.d(26)*n;val room=max(1,width-a.d(20))
@@ -203,7 +206,11 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
         c.save();c.clipRect(0f,0f,width*draw+2*d,height.toFloat())
         var curve=line;var fill=area
         if(morph<1f&&fromYs!=null){val ys=current();morphPath.reset();val n=ys.size
-            for(i in 0 until n){val x=a.d(10)+(width-a.d(20))*i/(n-1f);if(i==0)morphPath.moveTo(x,ys[i]) else morphPath.lineTo(x,ys[i])}
+            // through the midpoints with quadratic joins: a smooth, round curve at every moment of the morph
+            fun xi(i:Int)=a.d(10)+(width-a.d(20))*i/(n-1f)
+            morphPath.moveTo(xi(0),ys[0])
+            for(i in 1 until n-1){val mx=(xi(i)+xi(i+1))/2;val my=(ys[i]+ys[i+1])/2;morphPath.quadTo(xi(i),ys[i],mx,my)}
+            morphPath.lineTo(xi(n-1),ys[n-1])
             morphArea.set(morphPath);morphArea.lineTo(width-a.d(10).toFloat(),bottom+a.d(2));morphArea.lineTo(a.d(10).toFloat(),bottom+a.d(2));morphArea.close();curve=morphPath;fill=morphArea}
         p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,top,0f,bottom,(c2 and 0xffffff) or ((if(a.light)0x30 else 0x47) shl 24),c2 and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(fill,p)
         p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND

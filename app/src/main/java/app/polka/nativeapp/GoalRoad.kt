@@ -376,26 +376,36 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         row.tag=right
         row.contentDescription="${i+1}-я книга: ${yb.book.str("title")}, ${f(yb.start)} — ${f(yb.end)}"+if(r in 1..5)", оценка $r из 5" else ""
         return row}
-    private var step=d*230;private var first=d*170
+    private var step=d*230;private var first=d*170;private var tallestH=d*144
     override fun onMeasure(w:Int,h:Int){val W=MeasureSpec.getSize(w)
         val side=MeasureSpec.makeMeasureSpec(W-a.d(32),MeasureSpec.EXACTLY);val free=MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED)
         items.forEach{it.measure(side,free)};slotViews.forEach{it.measure(MeasureSpec.makeMeasureSpec(a.d(64),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(a.d(96),MeasureSpec.EXACTLY))}
         startLabel.measure(MeasureSpec.makeMeasureSpec(W,MeasureSpec.EXACTLY),free);finish.measure(side,free)
         // every book gets enough room so neighbours never touch, however long the title is
         val tallest=(items.maxOfOrNull{it.measuredHeight}?:a.d(144)).toFloat()
-        step=max(d*230,tallest+d*64);first=max(d*150,tallest/2+d*86)
-        setMeasuredDimension(W,((if(slots>0)milestoneY(slots) else top)+d*230).toInt())}
+        tallestH=tallest;step=max(d*260,tallest+d*140);first=max(d*170,tallest/2+d*120)
+        setMeasuredDimension(W,(finishY()+d*120).toInt())}
+    private fun finishY()=(if(slots>0)milestoneY(slots) else top)+(if(slots in 1..books.size)tallestH/2+d*140 else d*120)
     /** Read books get room for their cover and details; the places still ahead come closer together. */
-    private fun milestoneY(k:Int):Float{val n=books.size;return if(k<=n||n==0)top+first+(k-1)*step else top+first+(n-1)*step+(k-n)*d*130}
+    private fun milestoneY(k:Int):Float{val n=books.size;return if(k<=n||n==0)top+first+(k-1)*step else top+first+(n-1)*step+tallestH/2+(k-n)*d*130}
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat()
         pts.clear();pts.add(PointF(W/2,top))
         // milestones sit under the middle of the covers, which stand at the screen edges
         for(k in 1..slots)pts.add(PointF(if(k%2==1)W-d*64 else d*64,milestoneY(k)))
-        pts.add(PointF(W/2,(if(slots>0)milestoneY(slots) else top)+d*120))
-        road.reset();road.moveTo(pts[0].x,pts[0].y)
+        pts.add(PointF(W/2,finishY()))
+        road.reset()
         val lens=FloatArray(pts.size);var total=0f;val pm=PathMeasure()
-        for(k in 1 until pts.size){val a0=pts[k-1];val b=pts[k];val seg=Path();seg.moveTo(a0.x,a0.y);val bend=(b.y-a0.y)*.55f;seg.cubicTo(a0.x,a0.y+bend,b.x,b.y-bend,b.x,b.y)
-            road.cubicTo(a0.x,a0.y+bend,b.x,b.y-bend,b.x,b.y);pm.setPath(seg,false);total+=pm.length;lens[k]=total}
+        // the road runs straight down under each cover and only swings across in the free space between two books,
+        // so it never passes under a title, the dates or the stars
+        fun half(k:Int)=if(k in 1..books.size)items[k-1].measuredHeight/2f+d*12 else 0f
+        for(k in 1 until pts.size){val a0=pts[k-1];val b=pts[k];val seg=Path();seg.moveTo(a0.x,a0.y)
+            val y0=a0.y+half(k-1);val y1=b.y-half(k)
+            if(k==1)road.moveTo(a0.x,a0.y)
+            fun line(x:Float,y:Float){seg.lineTo(x,y);road.lineTo(x,y)}
+            fun curve(x1:Float,y1c:Float,x2:Float,y2c:Float,x:Float,y:Float){seg.cubicTo(x1,y1c,x2,y2c,x,y);road.cubicTo(x1,y1c,x2,y2c,x,y)}
+            if(y1-y0>d*40){if(y0>a0.y)line(a0.x,y0);val bend=(y1-y0)*.5f;curve(a0.x,y0+bend,b.x,y1-bend,b.x,y1);if(b.y>y1)line(b.x,b.y)}
+            else{val bend=(b.y-a0.y)*.55f;curve(a0.x,a0.y+bend,b.x,b.y-bend,b.x,b.y)}
+            pm.setPath(seg,false);total+=pm.length;lens[k]=total}
         walked.reset();pm.setPath(road,false);val n=min(books.size,slots);if(n>0)pm.getSegment(0f,lens[n],walked,true)
         walkedEnd=if(n>0)pts[n].y else top
         walkMeasure.setPath(walked,false);walkLen=walkMeasure.length
