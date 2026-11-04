@@ -117,7 +117,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         strip.addView(a.text("Цвет",13f,a.muted).apply{setPadding(a.d(12),0,a.d(6),0)})
         QuoteColors.all.forEach{(key,_)->val dot=QuoteDot(a,key).apply{isClickable=true;contentDescription="Цвет цитаты";setOnClickListener{recolor(key)}};dots.add(dot);strip.addView(dot,LinearLayout.LayoutParams(a.d(40),a.d(44)))}
         strip.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
-        strip.addView(a.text("Готово",13.5f,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(12),0,a.d(12),0);minHeight=a.d(44);a.press(this);setOnClickListener{hideStrip()}})
+        strip.addView(a.text("Готово",13.5f,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(12),0,a.d(12),0);minHeight=a.d(44);a.press(this);setOnClickListener{done()}})
         strip.visibility=GONE;addView(strip,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
     }
     /** Long press: a saved quote under the finger is picked up whole (so it can be removed); otherwise the word. */
@@ -139,13 +139,24 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         dots.forEach{it.on=it.key==color};strip.translationY=menu.translationY;strip.visibility=VISIBLE
         if(!reduced){popIn(strip);dots.forEachIndexed{i,d->d.scaleX=.4f;d.scaleY=.4f;d.alpha=0f
             d.animate().scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(60L+i*35L).setDuration(300).setInterpolator(android.view.animation.OvershootInterpolator(1.8f)).start()}}
-        removeCallbacks(stripTimer);postDelayed(stripTimer,3500)}
-    private fun hideStrip(){removeCallbacks(stripTimer);if(!stripOpen)return;stripOpen=false
-        val done={strip.visibility=GONE;strip.alpha=1f;strip.scaleX=1f;strip.scaleY=1f;if(!active&&!settling&&fade<=0f)visibility=GONE}
+        removeCallbacks(stripTimer);if(pend==null)postDelayed(stripTimer,3500)}
+    /** A new quote waits for «Готово»: until then it is only a preview in the chosen colour, nothing is saved. */
+    private var pend:Triple<Int,Int,String>?=null;private var pendColor=0;private var pendAnim:android.animation.ValueAnimator?=null
+    private fun tintPending(to:Int,end:()->Unit={}){pendAnim?.cancel();if(reduced){pendColor=to;invalidate();end();return}
+        pendAnim=android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(),pendColor,to).apply{duration=260;interpolator=glide
+            addUpdateListener{pendColor=it.animatedValue as Int;invalidate()}
+            addListener(object:android.animation.AnimatorListenerAdapter(){var cancelled=false;override fun onAnimationCancel(x:android.animation.Animator){cancelled=true};override fun onAnimationEnd(x:android.animation.Animator){if(!cancelled)end()}});start()}}
+    /** «Готово»: a waiting quote is saved now, in the chosen colour; a saved one just closes the strip. */
+    private fun done(){val p=pend;if(p!=null){pend=null;pendAnim?.cancel();reader.addQuote(p.first,p.second,p.third,QuoteColors.last(a));invalidate()};hideStrip()}
+    /** Closing the strip any other way drops a waiting quote: its preview fades and nothing is saved. */
+    private fun dropPending(){val p=pend?:return;tintPending(pendColor and 0x00ffffff){if(pend===p){pend=null;if(!active&&!stripOpen&&!settling&&fade<=0f)visibility=GONE;invalidate()}}}
+    private fun hideStrip(){removeCallbacks(stripTimer);if(!stripOpen)return;stripOpen=false;dropPending()
+        val done={strip.visibility=GONE;strip.alpha=1f;strip.scaleX=1f;strip.scaleY=1f;if(!active&&!settling&&fade<=0f&&pend==null)visibility=GONE}
         popOut(strip){done()}}
     private fun recolor(key:String){
         // The choice is remembered first, even if the quote is still being saved (its colour is read when it lands).
         if(QuoteColors.last(a)!=key){a.prefs.put("quoteColor",key);a.savePreferences()};dots.forEach{it.on=it.key==key}
+        if(pend!=null){tintPending(QuoteColors.ink(key));if(!reduced)dots.firstOrNull{it.key==key}?.let{d->d.scaleX=.7f;d.scaleY=.7f;d.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(320).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()};return}
         val (s,e)=stripQuote?:return;val q=reader.quoteOverlapping(s,e)?:run{removeCallbacks(stripTimer);postDelayed(stripTimer,2500);return};val old=q.first.optString("color")
         if(old==key){removeCallbacks(stripTimer);postDelayed(stripTimer,2500);return}
         reader.recolorQuote(q.first,q.second,key,!reduced,QuoteColors.ink(old.ifBlank{"amber"}))
@@ -164,8 +175,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         // a saved quote: «Цвет» opens the colour strip for it
         if(existing!=null){val r=existing.second;val y=menu.translationY;clear(false);menu.translationY=y;showStrip(r.first,r.last+1,existing.first.optString("color","amber"));return}
         val text=range.text(full);val color=QuoteColors.last(a);val y=menu.translationY;clear(false);menu.translationY=y
-        if(reduced){reader.addQuote(s,e,text,color);showStrip(s,e,color);return}
-        settleOut(s,e,selFill(),QuoteColors.ink(color),240){reader.addQuote(s,e,text,QuoteColors.last(a))}
+        pend=Triple(s,e,text);pendColor=selFill();tintPending(QuoteColors.ink(color))
         showStrip(s,e,color)
     }
     private fun settleOut(s:Int,e:Int,from:Int,to:Int,ms:Long,done:()->Unit){
@@ -212,6 +222,8 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
             highlight.rewind();if(e>s){JustifiedGeometry.path(reader.body,layout,s,e,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=settleColor;c.drawPath(highlight,marker);c.restore()}}
         if(!active&&fade>0f){val layout=reader.body.layout?:return;val base=reader.pageBase();val fs=(fadeStart-base).coerceIn(0,reader.body.length());val fe=(fadeEnd-base).coerceIn(0,reader.body.length())
             highlight.rewind();if(fe>fs){JustifiedGeometry.path(reader.body,layout,fs,fe,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=selFill();marker.alpha=(0x65*fade).toInt();c.drawPath(highlight,marker);c.restore();marker.alpha=255}}
+        pend?.let{p->val layout=reader.body.layout?:return@let;val base=reader.pageBase();val ps=(p.first-base).coerceIn(0,reader.body.length());val pe=(p.second-base).coerceIn(0,reader.body.length())
+            highlight.rewind();if(pe>ps){JustifiedGeometry.path(reader.body,layout,ps,pe,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=pendColor;c.drawPath(highlight,marker);c.restore()}}
         if(!active||edgeLocked)return
         val layout=reader.body.layout?:return;val base=reader.pageBase();val s=(range.start-base).coerceIn(0,reader.body.length());val e=(range.end-base).coerceIn(0,reader.body.length())
         highlight.rewind();if(e>s){JustifiedGeometry.path(reader.body,layout,s,e,highlight,a.d(3).toFloat());c.save();c.translate(reader.body.paddingLeft.toFloat(),reader.body.paddingTop.toFloat());marker.color=selFill();marker.alpha=(0x65*appear).toInt();c.drawPath(highlight,marker);c.restore()}
@@ -233,7 +245,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         menu.translationY=desired.coerceIn(a.d(8).toFloat(),max(a.d(8).toFloat(),height-menuHeight-a.d(12).toFloat()))
     }
     override fun onTouchEvent(e:MotionEvent):Boolean {
-        if(!active)return false
+        if(!active){if(pend!=null&&e.actionMasked==MotionEvent.ACTION_DOWN){hideStrip();return true};return false}
         when(e.actionMasked){
             MotionEvent.ACTION_DOWN->{dragLine=-1;lastOff=-1;startVisible=point(range.start,false,startHandle);endVisible=point(range.end,true,endHandle);x=e.x;y=e.y;val ds=if(startVisible)hypot(x-startHandle.x,y-startHandle.y-a.d(4))else Float.MAX_VALUE;val de=if(endVisible)hypot(x-endHandle.x,y-endHandle.y-a.d(4))else Float.MAX_VALUE
                 if(min(ds,de)>a.d(36)){clear();return true};atStart=ds<de;dragging=true
