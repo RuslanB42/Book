@@ -9,7 +9,7 @@ import android.widget.TextView
 
 /** Extra width for every space of one line; read at draw and measure time only, so line breaking is untouched. */
 internal class LineStretch(val extra:Float):CharacterStyle(){
-    override fun updateDrawState(tp:TextPaint){tp.wordSpacing+=extra}
+    override fun updateDrawState(tp:TextPaint){if(android.os.Build.VERSION.SDK_INT>=29)tp.wordSpacing+=extra}
 }
 
 /**
@@ -19,19 +19,23 @@ internal class LineStretch(val extra:Float):CharacterStyle(){
  * its spaces get exactly the width that brings the line to the right edge, with the spacing kept.
  */
 internal object SpacedJustify {
-    fun needed(a:MainActivity)=a.prefs.optBoolean("justify",true)&&(a.prefs.optDouble("ls",0.0)!=0.0||(android.os.Build.VERSION.SDK_INT>=29&&a.prefs.optDouble("ws",0.0)!=0.0))
-    fun clear(t:Spannable){t.getSpans(0,t.length,LineStretch::class.java).forEach{t.removeSpan(it)}}
-    fun apply(tv:TextView){val l=tv.layout?:return;val t=tv.text as? Spannable?:return;apply(l,t)}
-    fun apply(l:Layout,t:Spannable){
+    // Paint word spacing is public only from Android 10; older phones keep the platform justification.
+    fun needed(a:MainActivity)=android.os.Build.VERSION.SDK_INT>=29&&a.prefs.optBoolean("justify",true)&&(a.prefs.optDouble("ls",0.0)!=0.0||a.prefs.optDouble("ws",0.0)!=0.0)
+    fun clear(t:Spannable){runCatching{t.getSpans(0,t.length,LineStretch::class.java).forEach{t.removeSpan(it)}}}
+    fun apply(tv:TextView){val l=tv.layout?:return;val t=tv.text as? Spannable?:return
+        // never stretch from a layout of another text (a page being swapped): offsets would not match
+        if(l.text!==t&&l.text.length!=t.length)return
+        try{apply(l,t)}catch(e:Exception){android.util.Log.w("Polka","line stretch skipped",e);clear(t)}}
+    private fun apply(l:Layout,t:Spannable){
         clear(t)
         for(line in 0 until l.lineCount){
-            val s=l.getLineStart(line);val e=l.getLineEnd(line)
+            val s=l.getLineStart(line);val e=l.getLineEnd(line).coerceAtMost(t.length)
             if(e>=t.length||e<=s||t[e-1]=='\n')continue // a paragraph's last line stays as it is
             var vis=e;while(vis>s&&t[vis-1].isWhitespace())vis--
             var spaces=0;for(i in s until vis)if(t[i]==' '||t[i]==' ')spaces++
             if(spaces==0)continue
             val gap=l.getParagraphRight(line)-l.getLineRight(line)
-            if(gap<=.5f)continue
+            if(gap<=.5f||gap.isNaN())continue
             t.setSpan(LineStretch(gap/spaces),s,vis,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
