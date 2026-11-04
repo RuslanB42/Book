@@ -151,7 +151,7 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
     private var draw=if(motion)0f else 1f
     private val line=Path();private val area=Path();private val pts=ArrayList<PointF>()
     init{contentDescription=tips.lastOrNull().orEmpty();isClickable=true}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(draw<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=160;interpolator=Ease.outExpo;addUpdateListener{draw=it.animatedValue as Float;invalidate()};start()}}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(draw<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=360;interpolator=android.view.animation.PathInterpolator(.3f,0f,.2f,1f);addUpdateListener{draw=it.animatedValue as Float;invalidate()};start()}}
     private val top get()=a.d(40).toFloat();private val bottom get()=height-a.d(26).toFloat()
     private fun xOf(i:Int)=a.d(10)+(width-a.d(20))*(if(values.size<=1).5f else i/(values.size-1f))
     private fun build(){pts.clear();line.reset();area.reset();if(values.isEmpty())return

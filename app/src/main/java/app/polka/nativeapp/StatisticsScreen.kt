@@ -113,7 +113,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun minutesGen(n:Int)=if(n%100 in 11..14)"минут" else if(n%10==1)"минуты" else "минут"
     fun show() {
         val extra=max(0,(a.resources.configuration.screenWidthDp-640)/2)
-        scroll.clipToPadding=false;a.followInsets(content) { i->scroll.setPadding(0,i.top,0,0);scrimTop=i.top;scroll.invalidate();content.setPadding(a.d(16+extra)+i.left,a.d(8),a.d(16+extra)+i.right,a.d(40)+i.bottom) }
+        scroll.clipToPadding=false;a.followInsets(content) { i->scroll.setPadding(0,i.top,0,0);content.setPadding(a.d(16+extra)+i.left,a.d(8),a.d(16+extra)+i.right,a.d(40)+i.bottom) }
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
@@ -122,14 +122,16 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         if(!motionOn)return
         // The cards are built and drawn once while still (almost) invisible — every heavy first draw (blurs, glows,
         // bitmaps) happens before anything moves; the rise starts two frames later, so no frame of it is dropped.
-        entrance.forEach{v->v.alpha=.004f;v.translationY=a.d(26).toFloat()}
+        entrance.forEach{v->v.alpha=.004f;v.translationY=a.d(18).toFloat()}
         val ch=android.view.Choreographer.getInstance()
         ch.postFrameCallback{ch.postFrameCallback{
-            entrance.forEachIndexed{i,v->v.animate().alpha(1f).translationY(0f).setStartDelay(i*70L).setDuration(620)
+            entrance.forEachIndexed{i,v->v.animate().alpha(1f).translationY(0f).setStartDelay(i*60L).setDuration(560)
                 .setInterpolator(android.view.animation.PathInterpolator(.16f,1f,.3f,1f)).withLayer().start()}}}
     }
     // ───────────────────────── glass cards ─────────────────────────
     /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
+    /** A count starts while its own card rises, not before (cards rise one after another). */
+    private val countDelay get()=180L+entrance.size*60L
     private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f,firstOnly:Boolean=false):TextView{
         val tv=a.text("",size,a.fg).apply{typeface=PolkaFonts.display();letterSpacing=-.01f;includeFontPadding=false;fontFeatureSettings="lnum, tnum"}
         fun styled(t:String):CharSequence{val sp=android.text.SpannableString(t);var i=0
@@ -137,10 +139,11 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             while(i<t.length){if(!t[i].isDigit()&&t[i]!=' '){var j=i;while(j<t.length&&!t[j].isDigit())j++
                 sp.setSpan(SansSpan(),i,j,0);sp.setSpan(android.text.style.RelativeSizeSpan(unitScale),i,j,0);sp.setSpan(android.text.style.ForegroundColorSpan(captionInk),i,j,0);i=j}else i++};return sp}
         tv.text=styled(text)
+        val myDelay=countDelay
         if(countTo!=null&&countTo>0&&motionOn){val fmt=text.replaceFirst(countTo.toString(),"%d")
             tv.minWidth=ceil(android.text.Layout.getDesiredWidth(styled(text),tv.paint)).toInt();tv.text=styled(String.format(fmt,0))
             tv.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false
-                override fun onViewAttachedToWindow(v:View){if(done)return;done=true;android.animation.ValueAnimator.ofInt(0,countTo).apply{duration=650;startDelay=160;interpolator=Ease.outExpo;addUpdateListener{tv.text=styled(String.format(fmt,it.animatedValue as Int))};start()}}
+                override fun onViewAttachedToWindow(v:View){if(done)return;done=true;android.animation.ValueAnimator.ofInt(0,countTo).apply{duration=720;startDelay=myDelay;interpolator=PathInterpolator(.3f,.3f,.6f,.8f);addUpdateListener{tv.text=styled(String.format(fmt,it.animatedValue as Int))};start()}}
                 override fun onViewDetachedFromWindow(v:View){}})}
         return tv}
     /** Small glass chip (year, period). */
