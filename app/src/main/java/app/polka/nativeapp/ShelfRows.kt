@@ -11,8 +11,12 @@ import org.json.JSONObject
  * put while the covers scroll sideways behind it. Tapping the name opens the whole shelf.
  */
 internal class ShelfRow(private val a:MainActivity,val key:String,private val title:String,private val list:List<JSONObject>,private val open:()->Unit,private val actions:(()->Unit)?,private val rename:((String)->Unit)?):LinearLayout(a){
-    private val coverW=a.d(88);private val coverH=a.d(132)
-    private val scroller=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;clipChildren=false}
+    // The shelf shows only what fits, laid out evenly across the page (no sideways scrolling); the whole shelf opens
+    // with a tap. Four covers on a phone, more on wider screens.
+    private val gap=a.d(12)
+    private val fit=run{val avail=a.resources.displayMetrics.widthPixels-a.d(40);((avail+gap)/(a.d(76)+gap)).coerceIn(3,8)}
+    private val coverW=(a.resources.displayMetrics.widthPixels-a.d(40)-gap*(fit-1))/fit;private val coverH=(coverW*1.5f).toInt()
+    private val scroller=object:HorizontalScrollView(a){override fun onInterceptTouchEvent(e:MotionEvent)=false;override fun onTouchEvent(e:MotionEvent)=false}.apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;clipChildren=false}
     private val row=a.row().apply{gravity=Gravity.BOTTOM;clipChildren=false;clipToPadding=false;setPadding(a.d(20),a.d(6),a.d(20),a.d(10))}
     private val glass=MatteShelf()
     private var shown=0
@@ -46,7 +50,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         head.addView(end,LayoutParams(-2,a.d(44)))
         addView(head,LayoutParams(-1,-2));a.space(this,6)
         if(list.isEmpty())row.addView(a.text("Пока пусто — добавьте сюда книги",13.5f,a.muted).apply{gravity=Gravity.TOP;setPadding(a.d(4),a.d(10),0,0)},LayoutParams(-2,coverH*3/4))
-        more(7)
+        more(fit)
         scroller.addView(row);lensHost.addView(scroller,FrameLayout.LayoutParams(-1,-2));stage.addView(lensHost,FrameLayout.LayoutParams(-1,-1))
         scroller.setOnScrollChangeListener{_,_,_,_,_->glass.scrolled()}
         // The glass view is larger than the glass by its shadow; it never takes touches, so the row still scrolls.
@@ -111,14 +115,14 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             // One CoverView per book; when its picture arrives it only redraws (no view swap, no relayout of the row).
             val cover=CoverView(a,b,a.cover(b)).apply{softShadow=true};box.addView(cover,FrameLayout.LayoutParams(-1,-1))
             if(a.cover(b)==null&&b.optJSONObject("cover")!=null)a.requestCover(b){bmp->if(bmp!=null){cover.invalidate();glass.refresh()}}
-            row.addView(box,LayoutParams(coverW,coverH).apply{if(i>0)leftMargin=a.d(12)})}
+            row.addView(box,LayoutParams(coverW,coverH).apply{if(i>0)leftMargin=gap})}
         shown=until;glass.refresh()}
     private val feed=object:Runnable{override fun run(){if(!isAttachedToWindow||shown>=list.size)return
         if(scroller.scrollX!=lastFeedX||busy()){lastFeedX=scroller.scrollX;postDelayed(this,120);return}
         more(8);if(shown<list.size)postDelayed(this,60)}}
     private var lastFeedX=-1
     private fun busy()=false
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(shown<list.size)postDelayed(feed,500)}
+    override fun onAttachedToWindow(){super.onAttachedToWindow()}
     override fun onDetachedFromWindow(){removeCallbacks(feed);super.onDetachedFromWindow()}
 
     private companion object{val shared=HashMap<String,Triple<Bitmap,Bitmap,ColorFilter?>>()}
