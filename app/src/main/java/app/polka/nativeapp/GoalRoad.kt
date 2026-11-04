@@ -69,7 +69,7 @@ internal fun MainActivity.goalYearMenu(anchor:View,years:List<Int>,current:Int,m
     val a=this
     val box=column().apply{setPadding(d(6),d(6),d(6),d(6))
         background=GradientDrawable().apply{setColor(if(light)0xffffffff.toInt() else 0xff2a2a2e.toInt());cornerRadius=d(20).toFloat();setStroke(d(1),if(light)0x0f000000 else 0x10ffffff)}}
-    val popup=PopupWindow(box,d(236),ViewGroup.LayoutParams.WRAP_CONTENT,true).apply{elevation=d(22).toFloat();isOutsideTouchable=true;setBackgroundDrawable(ColorDrawable(0));animationStyle=0;setOnDismissListener{onClose()}}
+    val popup=GentlePopup(box,d(236),motion,onClose).apply{elevation=d(22).toFloat();isOutsideTouchable=true;setBackgroundDrawable(ColorDrawable(0));animationStyle=0}
     years.forEachIndexed{i,y->val (done,goal)=stats(y)
         val row=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(12),d(10),d(12),d(10));isClickable=true;contentDescription="$y: $done"+if(goal>0)" из $goal" else ""
             background=GradientDrawable().apply{setColor(if(y==current)(if(light)0x0d000000 else 0x14ffffff) else 0);cornerRadius=d(14).toFloat()}
@@ -80,8 +80,18 @@ internal fun MainActivity.goalYearMenu(anchor:View,years:List<Int>,current:Int,m
         box.addView(row,LinearLayout.LayoutParams(-1,-2))
         if(motion){row.alpha=0f;row.translationY=-d(6).toFloat();row.animate().alpha(1f).translationY(0f).setStartDelay(60L+i*40L).setDuration(300).setInterpolator(Ease.outCubic).start()}}
     popup.showAsDropDown(anchor,-d(4),d(8))
-    if(motion){box.pivotX=d(24).toFloat();box.pivotY=0f;box.scaleX=.86f;box.scaleY=.86f;val sp=Spring.of(.3,420.0)
-        box.animate().scaleX(1f).scaleY(1f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
+    if(motion){box.pivotX=d(24).toFloat();box.pivotY=0f;box.scaleX=.86f;box.scaleY=.86f;box.alpha=0f;val sp=Spring.of(.3,420.0)
+        box.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
+}
+
+/** A popup that folds away (scale and fade towards its anchor) instead of vanishing; a tap outside or on the
+ *  anchor again closes it the same gentle way. [onClose] fires as the fold starts, so the chevron turns back with it. */
+internal class GentlePopup(private val box:View,width:Int,private val motion:Boolean,private val onClose:()->Unit):PopupWindow(box,width,ViewGroup.LayoutParams.WRAP_CONTENT,true){
+    private var folding=false
+    override fun dismiss(){if(folding)return;folding=true;onClose()
+        if(!motion){super.dismiss();return}
+        box.animate().cancel();box.animate().scaleX(.9f).scaleY(.9f).alpha(0f).setDuration(200).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{close()}.start()}
+    private fun close(){super.dismiss()}
 }
 
 // ───────────────────────── full-screen road ─────────────────────────
@@ -260,6 +270,29 @@ internal class StarGlyph(private val a:MainActivity,on:Boolean):View(a){
         else{p.color=if(a.light)0x14000000 else 0x1fffffff;StarRow.drawStar(c,x,y,s,p)}}
 }
 
+/** A small cover for the card's road. The picture is scaled down in halves to its exact pixel size first (one big
+ *  jump from a high-resolution cover leaves jagged, shimmering detail), then drawn with rounded corners. */
+internal class MiniCover(private val a:MainActivity,private val book:JSONObject):View(a){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private var small:Bitmap?=null;private var source:Bitmap?=null;private var asked=false
+    private val art by lazy{CoverView(a,JSONObject())};private val clip=Path();private val r=RectF()
+    init{outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,2.5f*a.resources.displayMetrics.density)}}}
+    override fun onDraw(c:Canvas){if(width==0)return;r.set(0f,0f,width.toFloat(),height.toFloat());val rad=2.5f*a.resources.displayMetrics.density
+        c.save();clip.reset();clip.addRoundRect(r,rad,rad,Path.Direction.CW);c.clipPath(clip)
+        val bmp=a.cover(book)
+        if(bmp==null&&book.optJSONObject("cover")!=null){if(!asked){asked=true;a.requestCover(book){if(it!=null)invalidate()}};c.drawColor(if(a.light)0xffe6e4df.toInt() else 0xff2a2a2d.toInt())}
+        else if(bmp==null)art.drawCover(c,r,book,null)
+        else{if(source!==bmp||small==null||small!!.width!=width){source=bmp;small=try{fit(bmp,width,height)}catch(e:Throwable){null}}
+            val s=small;if(s!=null)c.drawBitmap(s,null,r,p) else art.drawCover(c,r,book,bmp)}
+        c.restore()}
+    private fun fit(src:Bitmap,w:Int,h:Int):Bitmap{
+        // crop to the cover's shape, then halve until close, then one last filtered step
+        val sc=max(w.toFloat()/src.width,h.toFloat()/src.height);val cw=(w/sc).roundToInt().coerceAtMost(src.width);val ch=(h/sc).roundToInt().coerceAtMost(src.height)
+        var cur=Bitmap.createBitmap(src,(src.width-cw)/2,(src.height-ch)/2,cw,ch)
+        while(cur.width>w*2&&cur.height>h*2){val nx=Bitmap.createScaledBitmap(cur,cur.width/2,cur.height/2,true);if(cur!==src)cur.recycle();cur=nx}
+        val out=Bitmap.createScaledBitmap(cur,w,h,true);if(cur!==src&&cur!==out)cur.recycle();return out}
+    override fun onDetachedFromWindow(){super.onDetachedFromWindow();small?.recycle();small=null}
+}
+
 /** A flat book cover for the road: the picture with soft rounded corners and a soft painted shadow, no gloss.
  *  The shadow is drawn inside the view (it is [PAD] larger than the cover on every side), never as an elevation
  *  shadow, so the cover fades cleanly under the header like any other content. */
@@ -328,7 +361,6 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         else{row.addView(cover,coverLp);row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=a.d(16)+pad})}
         row.tag=right
         row.contentDescription="${i+1}-я книга: ${yb.book.str("title")}, ${f(yb.start)} — ${f(yb.end)}"+if(r in 1..5)", оценка $r из 5" else ""
-        row.isClickable=true;row.setOnClickListener{a.detail(yb.book)}
         return row}
     private var step=d*230;private var first=d*170
     override fun onMeasure(w:Int,h:Int){val W=MeasureSpec.getSize(w)

@@ -22,8 +22,10 @@ internal class WidgetCardDrawable(private val a:MainActivity,private val radius:
         val g=glow?:return
         // one radial glow, stretched to the card's shape; its edge fades to nothing well inside the card
         val cx=r.left+r.width()*fx;val cy=r.top+r.height()*fy;val rx=max(r.width(),r.height())*reach
-        val alpha=if(a.light)0x2a else 0x5c
-        light.shader=RadialGradient(cx,cy,rx,intArrayOf((g and 0xffffff) or (alpha shl 24),(g and 0xffffff) or ((alpha/4) shl 24),g and 0xffffff),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP)
+        // a gentle light: lower peak and a long, smooth falloff (no visible rim)
+        val alpha=if(a.light)0x1a else 0x38
+        fun t(k:Float)=(g and 0xffffff) or ((alpha*k).toInt() shl 24)
+        light.shader=RadialGradient(cx,cy,rx*1.1f,intArrayOf(t(1f),t(.62f),t(.3f),t(.1f),t(0f)),floatArrayOf(0f,.25f,.5f,.75f,1f),Shader.TileMode.CLAMP)
         c.drawRoundRect(r,radius,radius,light)}
     override fun setAlpha(alpha:Int){}
     override fun setColorFilter(cf:ColorFilter?){}

@@ -219,6 +219,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** The year's books in one card (approved prototype): «N из M», the year as a road with every finished book on it,
      *  and the chosen book's card underneath — first and last day, days and hours spent, its rating (set it right here).
      *  Tap a cover or a stack, swipe the book card, or switch the year from the «КНИГИ · 2026» label. */
+    private var menuClosedAt=0L
     private fun books(){
         val box=surface(0xff2fd38a.toInt(),.86f,.12f,.8f)
         val years=(model.finished.mapNotNull{it.date?.year}+today.year).distinct().sortedDescending().take(8)
@@ -232,8 +233,9 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 background=GradientDrawable().apply{setColor(if(light)0x0d000000 else 0x12ffffff);cornerRadius=a.d(14).toFloat()}
                 addView(label(if(target>0||goalYear>=today.year)"ЦЕЛЬ НА $goalYear" else "КНИГИ · $goalYear",12.5f,a.fg,true).apply{letterSpacing=.03f})
                 addView(chevron,LinearLayout.LayoutParams(a.d(12),a.d(12)).apply{marginStart=a.d(6)});a.press(this)}
-            yearBtn.setOnClickListener{chevron.animate().rotation(180f).setDuration(260).start()
-                a.goalYearMenu(yearBtn,years,goalYear,motionOn,{y->yearBooks(model,data,y).size to model.target(y)},{chevron.animate().rotation(0f).setDuration(260).start()}){y->
+            yearBtn.setOnClickListener{if(android.os.SystemClock.uptimeMillis()-menuClosedAt<400)return@setOnClickListener
+                chevron.animate().rotation(180f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
+                a.goalYearMenu(yearBtn,years,goalYear,motionOn,{y->yearBooks(model,data,y).size to model.target(y)},{menuClosedAt=android.os.SystemClock.uptimeMillis();chevron.animate().rotation(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}){y->
                     goalYear=y;a.statisticsGoalYear=y
                     if(motionOn)box.animate().alpha(0f).translationY(a.d(6).toFloat()).setDuration(160).setInterpolator(Ease.inCubic).withEndAction{bind();box.translationY=-a.d(6).toFloat()
                         box.animate().alpha(1f).translationY(0f).setDuration(380).setInterpolator(Ease.outCubic).start()}.start() else bind()}}
@@ -276,7 +278,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 medalHolder?.let{m->m.scaleX=.4f;m.scaleY=.4f;m.rotation=-40f;m.alpha=0f;val sp2=Spring.of(.4,520.0)
                     m.animate().scaleX(1f).scaleY(1f).rotation(0f).alpha(1f).setStartDelay(120).setDuration(sp2.duration).setInterpolator(sp2.interpolator).start()}}
             road=YearRoad(a,list,target,motionOn){i,dir->show(i,dir)}
-            space(box,6);box.addView(road,LinearLayout.LayoutParams(-1,a.d(170)))
+            space(box,6);box.addView(road,LinearLayout.LayoutParams(-1,a.d(196)))
             space(box,12);box.addView(row,LinearLayout.LayoutParams(-1,a.d(56)))
             box.addView(rateRow,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
             rateRow.tag={v:Int->val b=list[road.selected].book;b.put("rating",v);a.saveBook(b)

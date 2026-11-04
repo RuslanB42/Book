@@ -40,12 +40,12 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     private val road=Path();private val pm=PathMeasure();private var length=0f
     private val d=a.d(1).toFloat()
     private val coverFrom=if(slots>16)max(0,books.size-6) else 0
-    private val covers=books.mapIndexed{i,b->if(i<coverFrom)null else CoverView(a,b.book,a.cover(b.book)).apply{softShadow=true}}
+    private val covers=books.mapIndexed{i,b->if(i<coverFrom)null else MiniCover(a,b.book)}
     private var walk=if(motion)0f else 1f;private var pulse=0f;private var clock:ValueAnimator?=null
     private val pos=FloatArray(2)
     init{setWillNotDraw(false);clipChildren=false;clipToPadding=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
-        covers.forEachIndexed{i,c->c?:return@forEachIndexed;addView(c,LayoutParams(a.d(21),a.d(31)));c.isClickable=true;c.contentDescription="${i+1}-я книга: ${books[i].book.str("title")}";c.setOnClickListener{select(i)}}}
-    override fun onMeasure(w:Int,h:Int){super.onMeasure(w,MeasureSpec.makeMeasureSpec(a.d(170),MeasureSpec.EXACTLY))}
+        covers.forEachIndexed{i,c->c?:return@forEachIndexed;addView(c,LayoutParams(a.d(30),a.d(45)));c.isClickable=true;c.contentDescription="${i+1}-я книга: ${books[i].book.str("title")}";c.setOnClickListener{select(i)}}}
+    override fun onMeasure(w:Int,h:Int){super.onMeasure(w,MeasureSpec.makeMeasureSpec(a.d(196),MeasureSpec.EXACTLY))}
     private fun slot(i:Int)=(i+1f)/slots
     private fun at(f:Float):FloatArray{pm.getPosTan(length*f.coerceIn(0f,1f),pos,null);return floatArrayOf(pos[0],pos[1])}
     override fun onAttachedToWindow(){super.onAttachedToWindow()
@@ -57,14 +57,14 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     override fun onDetachedFromWindow(){clock?.cancel();clock=null;super.onDetachedFromWindow()}
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat();val H=h.toFloat()
         fun x(f:Float):Float{return d*12+(W-d*40)*f}
-        fun y(f:Float):Float{return d*18+(H-d*32)*f}
+        fun y(f:Float):Float{return d*48+(H-d*62)*f}
         road.reset();road.moveTo(x(0f),y(.95f))
         road.cubicTo(x(.2f),y(1f),x(.2f),y(.56f),x(.41f),y(.56f))
         road.cubicTo(x(.62f),y(.56f),x(.64f),y(.92f),x(.82f),y(.7f))
         road.cubicTo(x(1f),y(.48f),x(1f),y(.2f),x(1f),y(.14f))
         pm.setPath(road,false);length=pm.length;requestLayout()}
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){if(length<=0f)return
-        covers.forEachIndexed{i,c->c?:return@forEachIndexed;val q=at(slot(i));val w=d*21;val h=d*31
+        covers.forEachIndexed{i,c->c?:return@forEachIndexed;val q=at(slot(i));val w=d*30;val h=d*45
             c.layout((q[0]-w/2).roundToInt(),(q[1]-d*9-h).roundToInt(),(q[0]+w/2).roundToInt(),(q[1]-d*9).roundToInt());c.pivotX=c.width/2f;c.pivotY=c.height.toFloat()
             c.translationZ=if(i==selected)d*6 else d*2
             if(walk>=1f||!motion){val lift=if(i==selected)-d*10 else 0f;val k=if(i==selected)SEL else 1f;c.translationY=lift;c.scaleX=k;c.scaleY=k}}}
