@@ -151,7 +151,7 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
     private var draw=if(motion)0f else 1f
     private val line=Path();private val area=Path();private val pts=ArrayList<PointF>()
     init{contentDescription=tips.lastOrNull().orEmpty();isClickable=true}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(draw<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=360;interpolator=android.view.animation.PathInterpolator(.3f,0f,.2f,1f);addUpdateListener{draw=it.animatedValue as Float;invalidate()};start()}}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(draw<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=520;interpolator=android.view.animation.PathInterpolator(.3f,0f,.2f,1f);addUpdateListener{draw=it.animatedValue as Float;invalidate()};start()}}
     private val top get()=a.d(40).toFloat();private val bottom get()=height-a.d(26).toFloat()
     private fun xOf(i:Int)=a.d(10)+(width-a.d(20))*(if(values.size<=1).5f else i/(values.size-1f))
     private fun build(){pts.clear();line.reset();area.reset();if(values.isEmpty())return
@@ -248,7 +248,7 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
 internal class SpeedBar(private val a:MainActivity,private val fraction:Float?,private val average:Float,private val motion:Boolean):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var k=if(motion)0f else 1f
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f){val sp=Spring.of(.22,720.0);ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=220;interpolator=sp.interpolator;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f){val sp=Spring.of(.22,720.0);ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=340;interpolator=sp.interpolator;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}}
     override fun onDraw(c:Canvas){val d=a.d(1).toFloat();val cy=height/2f;val h=8*d;val pad=9*d
         p.shader=LinearGradient(pad,0f,width-pad,0f,intArrayOf(0xff2f3f6e.toInt(),0xff4a72c9.toInt(),0xff8ab8ff.toInt()),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
         c.drawRoundRect(pad,cy-h/2,width-pad,cy+h/2,h/2,h/2,p);p.shader=null

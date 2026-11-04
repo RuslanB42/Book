@@ -100,7 +100,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         labels.forEachIndexed{i,s->box.addView(a.text(s,14f).apply{gravity=Gravity.CENTER;minHeight=a.d(34);setOnClickListener{box.choose(i);update(i);onSelect(i)}},LinearLayout.LayoutParams(0,-2,1f))}
         update(selected);return box
     }
-    private fun add(card:View){entrance.add(card);content.addView(card,LinearLayout.LayoutParams(-1,-2));space(content,12)}
+    private fun add(card:View){entrance.add(card);if(deferred){pending.add(card);return};content.addView(card,LinearLayout.LayoutParams(-1,-2));space(content,12)}
     /** Small caps label at the top of a widget («СЕРИЯ», «СКОРОСТЬ»…). */
     private fun kicker(s:String)=label(s.uppercase(),11.5f,if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt(),true).apply{letterSpacing=.06f}
     /** «Добрый вечер» and today's date between Back and Settings. */
@@ -117,21 +117,34 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
-        // first what is on screen; the cards further down are built on the next frames, so the page appears at once
-        streak();speed();readingTime();books()
-        if(!motionOn)return
-        // The cards are built and drawn once while still (almost) invisible — every heavy first draw (blurs, glows,
-        // bitmaps) happens before anything moves; the rise starts two frames later, so no frame of it is dropped.
-        entrance.forEach{v->v.alpha=.004f;v.translationY=a.d(18).toFloat()}
-        val ch=android.view.Choreographer.getInstance()
-        ch.postFrameCallback{ch.postFrameCallback{
-            entrance.forEachIndexed{i,v->v.animate().alpha(1f).translationY(0f).setStartDelay(i*60L).setDuration(560)
-                .setInterpolator(android.view.animation.PathInterpolator(.16f,1f,.3f,1f)).withLayer().start()}}}
+        if(!motionOn){streak();speed();readingTime();books();return}
+        // 1. The page itself is there at once: it fades up with its greeting, nothing waits for the cards.
+        scroll.alpha=0f;scroll.translationY=a.d(12).toFloat()
+        scroll.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withLayer().start()
+        // 2. The cards are built off-screen, one per frame, after that fade (building never stalls a moving frame).
+        deferred=true
+        val builders=listOf({streak()},{speed()},{readingTime()},{books()})
+        fun build(k:Int){if(!scroll.isAttachedToWindow)return
+            if(k<builders.size){builders[k]();scroll.post{build(k+1)};return}
+            // 3. All cards join the page together, invisible, are laid out and drawn once — then they rise.
+            deferred=false
+            pending.forEach{v->v.alpha=0f;v.translationY=a.d(44).toFloat();v.scaleX=.96f;v.scaleY=.96f;v.pivotY=0f
+                content.addView(v,LinearLayout.LayoutParams(-1,-2));space(content,12)}
+            pending.clear()
+            val ch=android.view.Choreographer.getInstance()
+            ch.postFrameCallback{ch.postFrameCallback{reveal()}}}
+        scroll.postDelayed({build(0)},280)
     }
+    private var deferred=false
+    private val pending=mutableListOf<View>()
+    /** One wave from top to bottom: each card glides up and settles with a long, soft deceleration. */
+    private fun reveal(){val ease=PathInterpolator(.05f,.7f,.1f,1f)
+        entrance.forEachIndexed{i,v->v.pivotX=v.width/2f
+            v.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setStartDelay(i*90L).setDuration(760).setInterpolator(ease).withLayer().start()}}
     // ───────────────────────── glass cards ─────────────────────────
     /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
     /** A count starts while its own card rises, not before (cards rise one after another). */
-    private val countDelay get()=180L+entrance.size*60L
+    private val countDelay get()=300L+entrance.size*90L
     private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f,firstOnly:Boolean=false):TextView{
         val tv=a.text("",size,a.fg).apply{typeface=PolkaFonts.display();letterSpacing=-.01f;includeFontPadding=false;fontFeatureSettings="lnum, tnum"}
         fun styled(t:String):CharSequence{val sp=android.text.SpannableString(t);var i=0

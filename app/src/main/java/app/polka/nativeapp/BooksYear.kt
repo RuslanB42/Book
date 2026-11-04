@@ -49,10 +49,10 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     private fun slot(i:Int)=(i+1f)/slots
     private fun at(f:Float):FloatArray{pm.getPosTan(length*f.coerceIn(0f,1f),pos,null);return floatArrayOf(pos[0],pos[1])}
     override fun onAttachedToWindow(){super.onAttachedToWindow()
-        if(walk<1f){ValueAnimator.ofFloat(0f,1f).apply{duration=1100;interpolator=Ease.outCubic;addUpdateListener{walk=it.animatedValue as Float;invalidate()};start()}
+        if(walk<1f){ValueAnimator.ofFloat(0f,1f).apply{duration=1100;startDelay=420;interpolator=Ease.outCubic;addUpdateListener{walk=it.animatedValue as Float;invalidate()};start()}
             covers.forEachIndexed{i,c->c?:return@forEachIndexed;c.alpha=0f;c.translationY=d*16;c.scaleX=BASE*.85f;c.scaleY=BASE*.85f
                 val lift=if(i==selected)-d*8 else 0f;val k=if(i==selected)SEL else BASE
-                c.animate().setUpdateListener{invalidate()}.alpha(1f).translationY(lift).scaleX(k).scaleY(k).setStartDelay(250L+(i-coverFrom)*70L).setDuration(620).setInterpolator(android.view.animation.PathInterpolator(.16f,1f,.3f,1f)).start()}}
+                c.animate().setUpdateListener{invalidate()}.alpha(1f).translationY(lift).scaleX(k).scaleY(k).setStartDelay(480L+(i-coverFrom)*70L).setDuration(620).setInterpolator(android.view.animation.PathInterpolator(.16f,1f,.3f,1f)).start()}}
         if(motion&&books.size<slots)clock=ValueAnimator.ofFloat(0f,1f).apply{duration=1600;repeatCount=ValueAnimator.INFINITE;interpolator=Ease.outQuad;addUpdateListener{pulse=it.animatedValue as Float;invalidate()};start()}}
     override fun onDetachedFromWindow(){clock?.cancel();clock=null;super.onDetachedFromWindow()}
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat();val H=h.toFloat()
