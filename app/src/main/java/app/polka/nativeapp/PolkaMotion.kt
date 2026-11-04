@@ -54,7 +54,9 @@ class ScreenMotion(private val a:MainActivity) {
         a.root.addView(blocker,1.coerceAtMost(a.root.childCount),FrameLayout.LayoutParams(-1,-1))
         // While the two pages slide side by side each is cut to its own width: rows that scroll sideways (shelves,
         // covers) reach past the screen edge and would otherwise show over the neighbouring page.
-        (tabView as? View)?.let{v->v.clipBounds=android.graphics.Rect(0,-v.height,v.width.coerceAtLeast(a.root.width),v.height*2)}
+        // (sized from the screen, not from the new page: that page is not laid out yet, a clip from its zero height hid
+        // it for the whole slide — the screen blinked)
+        (tabView as? View)?.let{v->v.clipBounds=android.graphics.Rect(0,-a.root.height,a.root.width,a.root.height*3)}
         blocker.clipBounds=android.graphics.Rect(0,-a.root.height,a.root.width,a.root.height*2)
         sampleTab(0)
         tabClock=ValueAnimator.ofFloat(0f,1f).apply{duration=300;interpolator=LinearInterpolator();addUpdateListener{sampleTab(currentPlayTime)};start()}
