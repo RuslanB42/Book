@@ -3,6 +3,7 @@ package app.polka.nativeapp
 import android.graphics.*
 import android.graphics.drawable.GradientDrawable
 import android.view.*
+import android.view.animation.PathInterpolator
 import android.widget.*
 import org.json.JSONObject
 import java.time.*
@@ -242,7 +243,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 addView(Glyph(a,"expand",a.fg),FrameLayout.LayoutParams(a.d(15),a.d(15),Gravity.CENTER));a.press(this)}
             top.addView(expand,LinearLayout.LayoutParams(a.d(34),a.d(34)))
             box.addView(top)
-            box.isClickable=true;box.setOnClickListener{openRoad(box,years){bind()}}
             val head=a.column();space(head,10)
             head.addView(if(target>0)big("$done из ${ofBooks(target)}",46f,done,.35f,firstOnly=true) else big(MainActivity.countBooks(done),46f,done,.35f,firstOnly=true));space(head,5)
             head.addView(label(goalPace(goalYear,today,done,target),12.5f))
@@ -254,7 +254,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             fun f(dt:LocalDate)="${dt.dayOfMonth} ${YearRoad.MONTHS_SHORT[dt.monthValue-1]}"+if(dt.year!=goalYear)" ${dt.year}" else ""
             lateinit var road:YearRoad
             var medalHolder:FrameLayout?=null
-            fun medal(r:Int):View=if(r in 1..5)RatingMedal(a,r) else EmptyStar(a)
+            fun medal(r:Int):View=StarRow(a,r,13f,2f)
             fun line(i:Int):View{val yb=list[i]
                 val v=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
                 val texts=a.column()
@@ -264,7 +264,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 val holder=FrameLayout(a).apply{isClickable=true;contentDescription=if(yb.book.optInt("rating") in 1..5)"Оценка ${yb.book.optInt("rating")} из 5, изменить" else "Поставить оценку"}
                 holder.addView(medal(yb.book.optInt("rating")),FrameLayout.LayoutParams(-2,-2,Gravity.CENTER))
                 holder.setOnClickListener{toggleRate(rateRow,road)}
-                v.addView(holder,LinearLayout.LayoutParams(a.d(40),a.d(40)).apply{marginStart=a.d(10)})
+                v.addView(holder,LinearLayout.LayoutParams(-2,a.d(40)).apply{marginStart=a.d(10)})
                 medalHolder=holder
                 return v}
             fun show(i:Int,dir:Int){val old=row.getChildAt(0);val nw=line(i);row.addView(nw,FrameLayout.LayoutParams(-1,-2,Gravity.CENTER_VERTICAL))
@@ -291,7 +291,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                         if(dragging)cur?.translationX=dx*.5f;return true}
                     MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val dx=e.rawX-x0;val go=if(!dragging)0 else if(dx<-a.d(36))1 else if(dx>a.d(36))-1 else 0
                         val target=road.selected+go
-                        if(!dragging&&e.actionMasked==MotionEvent.ACTION_UP){box.performClick();return true}
                         if(go!=0&&target in list.indices){cur?.translationX=0f;road.select(target)}
                         else cur?.let{c->val sp=Spring.of(.4,360.0);c.animate().translationX(0f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
                         return true}}
@@ -301,14 +300,19 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         bind();add(box)
     }
     /** The whole road of the year, opened out of the card; switching the year there switches it on the card too. */
-    private var roadDialog:GoalRoadDialog?=null
-    private fun openRoad(box:View,years:List<Int>,rebind:()->Unit){if(roadDialog?.isShowing==true)return
-        roadDialog=GoalRoadDialog(a,model,data,goalYear,years,motionOn,{box}){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.also{it.show()}}
+    private fun openRoad(box:View,years:List<Int>,rebind:()->Unit){if(a.goalRoad!=null)return
+        GoalRoadOverlay(a,model,data,goalYear,years,motionOn,{box}){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.show()}
     @Suppress("UNCHECKED_CAST")
     private fun toggleRate(rateRow:LinearLayout,road:YearRoad){if(rateRow.visibility==View.VISIBLE){closeRate(rateRow);return}
-        rateRow.removeAllViews();val pick=rateRow.tag as? (Int)->Unit
-        for(v in 1..5)rateRow.addView(RatingMedal(a,v).apply{isClickable=true;setOnClickListener{pick?.invoke(v)}
-            if(motionOn){alpha=0f;translationY=a.d(10).toFloat();scaleX=.5f;scaleY=.5f;val sp=Spring.of(.45,380.0);animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setStartDelay(v*45L).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}},LinearLayout.LayoutParams(0,-2,1f))
+        rateRow.removeAllViews();val pick=rateRow.tag as? (Int)->Unit;val current=road.current.optInt("rating")
+        val stars=(1..5).map{StarGlyph(a,it<=current)}
+        stars.forEachIndexed{i,g->val v=i+1
+            rateRow.addView(FrameLayout(a).apply{isClickable=true;contentDescription="Оценка $v из 5"
+                // tapping a star lights the stars up to it one after another, then the rating is saved
+                setOnClickListener{stars.forEachIndexed{k,o->o.on=k<v;if(k<v&&motionOn){o.scaleX=.6f;o.scaleY=.6f;o.animate().scaleX(1f).scaleY(1f).setStartDelay(k*40L).setDuration(320).setInterpolator(PathInterpolator(.2f,1.6f,.4f,1f)).start()}}
+                    rateRow.postDelayed({pick?.invoke(v)},if(motionOn)360L else 0L)}
+                addView(g,FrameLayout.LayoutParams(a.d(30),a.d(30),Gravity.CENTER))
+                if(motionOn){alpha=0f;translationY=a.d(8).toFloat();animate().alpha(1f).translationY(0f).setStartDelay(v*40L).setDuration(360).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}},LinearLayout.LayoutParams(0,a.d(44),1f))}
         rateRow.visibility=View.VISIBLE}
     private fun closeRate(rateRow:LinearLayout){rateRow.visibility=View.GONE}
     private fun daysWordFull(n:Int)="$n "+if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}

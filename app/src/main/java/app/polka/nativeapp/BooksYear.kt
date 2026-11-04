@@ -34,6 +34,7 @@ internal fun yearBooks(model:ReadingStatistics,data:JSONObject,year:Int):List<Ye
  */
 internal class YearRoad(private val a:MainActivity,private val books:List<YearBook>,private val goal:Int,private val motion:Boolean,private val onPick:(Int,Int)->Unit):FrameLayout(a){
     var selected=books.lastIndex;private set
+    val current get()=books[selected].book
     private val slots=if(goal>0)max(goal,books.size) else books.size+3
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG)
     private val road=Path();private val pm=PathMeasure();private var length=0f

@@ -1,7 +1,6 @@
 package app.polka.nativeapp
 
 import android.animation.ValueAnimator
-import android.app.Dialog
 import android.content.ClipData
 import android.content.Intent
 import android.graphics.*
@@ -13,6 +12,7 @@ import android.view.*
 import android.view.animation.PathInterpolator
 import android.widget.*
 import androidx.core.content.FileProvider
+import androidx.core.view.ViewCompat
 import org.json.JSONObject
 import java.io.File
 import java.time.LocalDate
@@ -87,15 +87,17 @@ internal fun MainActivity.goalYearMenu(anchor:View,years:List<Int>,current:Int,m
 // ───────────────────────── full-screen road ─────────────────────────
 
 /**
- * The goal road opened to the whole screen: it grows out of the card, the year tabs sit on top, and below winds a
- * long road with big covers that alternate sides — under each the number, title, author, dates, days and rating.
- * Empty places up to the goal wait as dashed slots before the finish flag. The walked part draws itself while you
- * scroll and the books rise in one by one. «Поделиться» makes a story-sized picture of the year.
+ * The goal road opened to the whole screen, as a layer over the app (no new window, so nothing stalls the first
+ * frames). It grows out of the card as a container transform: the rounded bounds morph from the card to the screen
+ * while the card's picture fades out and the road, scaled with the bounds, fades in; closing runs it backwards.
+ * Year tabs and the progress sit on top; below winds the road with big covers and their details.
  */
-internal class GoalRoadDialog(private val a:MainActivity,private val model:ReadingStatistics,private val data:JSONObject,private var year:Int,
-    private val years:List<Int>,private val motion:Boolean,private val source:()->View?,private val onYear:(Int)->Unit):Dialog(a,R.style.PolkaSheetTheme){
+internal class GoalRoadOverlay(private val a:MainActivity,private val model:ReadingStatistics,private val data:JSONObject,private var year:Int,
+    private val years:List<Int>,private val motion:Boolean,private val source:()->View?,private val onYear:(Int)->Unit){
     private val today=model.today
-    private lateinit var frame:RevealFrame
+    private val frame=FrameLayout(a)
+    private val col=a.column()
+    private val snapView=ImageView(a).apply{scaleType=ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
     private lateinit var tabs:LinearLayout
     private lateinit var progress:LinearLayout
     private lateinit var scroll:ScrollView
@@ -103,58 +105,71 @@ internal class GoalRoadDialog(private val a:MainActivity,private val model:Readi
     private var column:RoadColumn?=null
     private var share:FrameLayout?=null
     private var closing=false
-    private var insets=android.graphics.Rect()
-    override fun onCreate(state:Bundle?){super.onCreate(state)
-        frame=RevealFrame(a);setContentView(frame)
-        val w=window!!;ReaderWindow.configure(w,false,a.bg);w.setBackgroundDrawable(ColorDrawable(0));w.setLayout(-1,-1);w.setGravity(Gravity.FILL)
-        w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);w.setWindowAnimations(0)
-        if(android.os.Build.VERSION.SDK_INT>=30)w.attributes=w.attributes.apply{setFitInsetsTypes(0);setFitInsetsSides(0)}
-        val col=a.column()
-        // header: collapse, the caption, then the years as big serif tabs and the progress
-        val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),a.d(10),a.d(18),0)}
-        val close=FrameLayout(a).apply{isClickable=true;contentDescription="Свернуть";setOnClickListener{close()}
+    private val insets=android.graphics.Rect()
+    private var from:RectF?=null
+    private var snap:Bitmap?=null
+    private val bounds=RectF();private var radius=0f
+    private var anim:ValueAnimator?=null
+    fun show(){
+        val decor=a.window.decorView as ViewGroup
+        frame.isClickable=true;frame.background=GoalBackdrop(a)
+        frame.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){
+            if(bounds.isEmpty)o.setRect(0,0,v.width,v.height) else o.setRoundRect(bounds.left.roundToInt(),bounds.top.roundToInt(),bounds.right.roundToInt(),bounds.bottom.roundToInt(),radius)}}
+        frame.clipToOutline=true
+        ViewCompat.getRootWindowInsets(decor)?.let{val s=SafeArea.content(it,false);insets.set(s.left,s.top,s.right,s.bottom)}
+        // header: collapse · caption · share, then the years as big serif tabs and the progress
+        val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),a.d(8),a.d(16),0)}
+        fun round(kind:String,desc:String,click:()->Unit)=FrameLayout(a).apply{isClickable=true;contentDescription=desc;setOnClickListener{click()}
             background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x14ffffff)}
-            addView(Glyph(a,"down",a.fg),FrameLayout.LayoutParams(a.d(17),a.d(17),Gravity.CENTER));a.press(this)}
-        bar.addView(close,LinearLayout.LayoutParams(a.d(40),a.d(40)))
+            addView(Glyph(a,kind,a.fg),FrameLayout.LayoutParams(a.d(17),a.d(17),Gravity.CENTER));a.press(this)}
+        bar.addView(round("down","Свернуть"){close()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
         bar.addView(a.text("ЦЕЛЬ НА ГОД",12.5f,a.muted,true).apply{letterSpacing=.06f;gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f))
-        bar.addView(View(a),LinearLayout.LayoutParams(a.d(40),a.d(40)))
+        bar.addView(round("share","Поделиться годом в книгах"){openShare()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
         col.addView(bar)
         tabs=a.line().apply{gravity=Gravity.BOTTOM;setPadding(a.d(18),0,a.d(18),0)}
-        col.addView(HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(tabs)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(12)})
+        col.addView(HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(tabs)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})
         progress=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),0,a.d(18),0)}
         col.addView(progress,LinearLayout.LayoutParams(-1,a.d(30)).apply{topMargin=a.d(12)})
-        scroll=ScrollView(a).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS;clipToPadding=false}
+        scroll=ScrollView(a).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS;clipToPadding=false;setPadding(0,0,0,insets.bottom+a.d(24))}
         roadHost=FrameLayout(a);scroll.addView(roadHost,ViewGroup.LayoutParams(-1,-2))
         scroll.setOnScrollChangeListener{_,_,y,_,_->column?.viewport(y,scroll.height)}
-        val body=FrameLayout(a);body.addView(scroll,FrameLayout.LayoutParams(-1,-1))
-        col.addView(body,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=a.d(6)})
+        col.addView(scroll,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=a.d(6)})
+        col.setPadding(insets.left,insets.top,insets.right,0)
         frame.addView(col,FrameLayout.LayoutParams(-1,-1))
-        val shareBtn=a.line().apply{gravity=Gravity.CENTER;setPadding(a.d(22),0,a.d(22),0);isClickable=true;contentDescription="Поделиться годом в книгах"
-            background=GradientDrawable().apply{setColor(a.fg);cornerRadius=a.d(24).toFloat()};elevation=a.d(10).toFloat()
-            addView(Glyph(a,"share",a.bg),LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{marginEnd=a.d(8)})
-            addView(a.text("Поделиться",14f,a.bg,true));setOnClickListener{openShare()};a.press(this)}
-        val scrim=View(a).apply{background=GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,intArrayOf(a.bg,a.bg and 0x00ffffff or 0xd9000000.toInt(),a.bg and 0x00ffffff))}
-        val scrimLp=FrameLayout.LayoutParams(-1,a.d(130),Gravity.BOTTOM);frame.addView(scrim,scrimLp)
-        val shareLp=FrameLayout.LayoutParams(-2,a.d(48),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
-        frame.addView(shareBtn,shareLp)
-        SafeArea.bind(frame){i->val s=SafeArea.content(i,false);insets.set(s.left,s.top,s.right,s.bottom)
-            col.setPadding(s.left,s.top,s.right,0);scroll.setPadding(0,0,0,s.bottom+a.d(96));shareLp.bottomMargin=s.bottom+a.d(20);shareBtn.layoutParams=shareLp;scrimLp.height=s.bottom+a.d(130);scrim.layoutParams=scrimLp}
+        decor.addView(frame,FrameLayout.LayoutParams(-1,-1))
+        a.goalRoad=this
         bindYear(false)
-        if(motion){capture();frame.t=0f
-            // container transform: the card's picture fades out while the frame grows to the screen and the road fades in
-            ValueAnimator.ofFloat(0f,1f).apply{duration=560;interpolator=PathInterpolator(.3f,0f,0f,1f);addUpdateListener{frame.t=it.animatedValue as Float};start()}
-            roadHost.translationY=a.d(28).toFloat();roadHost.animate().translationY(0f).setStartDelay(120).setDuration(700).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()
-            shareBtn.alpha=0f;shareBtn.translationY=a.d(20).toFloat();shareBtn.animate().alpha(1f).translationY(0f).setStartDelay(360).setDuration(520).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}
+        if(!motion)return
+        capture();apply(0f);col.setLayerType(View.LAYER_TYPE_HARDWARE,null)
+        // start on the first drawn frame, so no step of the morph is skipped
+        frame.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{frame.viewTreeObserver.removeOnPreDrawListener(this)
+            run(0f,1f,520,PathInterpolator(.2f,0f,0f,1f)){col.setLayerType(View.LAYER_TYPE_NONE,null);frame.removeView(snapView);bounds.setEmpty();frame.invalidateOutline()};return true}})
     }
-    /** Where the card is now and how it looks, for the grow / fold transition. */
-    private fun capture(){val v=source();if(v==null||!v.isAttachedToWindow||v.width==0){frame.from=null;frame.setSnapshot(null);return}
-        val l=IntArray(2);v.getLocationOnScreen(l);frame.from=RectF(l[0].toFloat(),l[1].toFloat(),(l[0]+v.width).toFloat(),(l[1]+v.height).toFloat())
-        frame.setSnapshot(try{Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888).also{v.draw(Canvas(it))}}catch(e:Throwable){null})}
+    private fun run(f:Float,t:Float,ms:Long,i:android.animation.TimeInterpolator,end:()->Unit){anim?.cancel()
+        anim=ValueAnimator.ofFloat(f,t).apply{duration=ms;interpolator=i;addUpdateListener{apply(it.animatedValue as Float)}
+            addListener(object:android.animation.AnimatorListenerAdapter(){var cancelled=false
+                override fun onAnimationCancel(x:android.animation.Animator){cancelled=true}
+                override fun onAnimationEnd(x:android.animation.Animator){if(!cancelled)end()}});start()}}
+    private var k=1f
+    /** One step of the morph: [p] 0 is the card, 1 the whole screen. */
+    private fun apply(p:Float){k=p;val W=frame.width.takeIf{it>0}?.toFloat()?:(a.window.decorView.width.toFloat());val H=frame.height.takeIf{it>0}?.toFloat()?:(a.window.decorView.height.toFloat())
+        val f=from?:RectF(0f,0f,W,H)
+        bounds.set(f.left*(1-p),f.top*(1-p),f.right+(W-f.right)*p,f.bottom+(H-f.bottom)*p);radius=a.d(28)*(1-p);frame.invalidateOutline()
+        val sc=bounds.width()/W;col.pivotX=0f;col.pivotY=0f;col.scaleX=sc;col.scaleY=sc;col.translationX=bounds.left;col.translationY=bounds.top
+        col.alpha=((p-.12f)/.42f).coerceIn(0f,1f)
+        val s=snap;if(s!=null){val ss=bounds.width()/s.width;snapView.pivotX=0f;snapView.pivotY=0f;snapView.scaleX=ss;snapView.scaleY=ss;snapView.translationX=bounds.left;snapView.translationY=bounds.top
+            snapView.alpha=(1f-p/.32f).coerceIn(0f,1f)}}
+    /** Where the card is now and a picture of it, for the morph. */
+    private fun capture(){val v=source();frame.removeView(snapView);snapView.setImageDrawable(null);snap?.recycle();snap=null
+        if(v==null||!v.isAttachedToWindow||v.width==0){from=null;return}
+        val l=IntArray(2);v.getLocationOnScreen(l);val o=IntArray(2);a.window.decorView.getLocationOnScreen(o)
+        from=RectF((l[0]-o[0]).toFloat(),(l[1]-o[1]).toFloat(),(l[0]-o[0]+v.width).toFloat(),(l[1]-o[1]+v.height).toFloat())
+        snap=try{Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888).also{v.draw(Canvas(it))}}catch(e:Throwable){null}
+        snap?.let{snapView.setImageBitmap(it);frame.addView(snapView,FrameLayout.LayoutParams(it.width,it.height,Gravity.TOP or Gravity.START))}}
     private fun bindYear(animated:Boolean){
         tabs.removeAllViews()
         years.forEach{y->val on=y==year
             tabs.addView(a.text("$y",28f,if(on)a.fg else if(a.light)0xffbdbdc1.toInt() else 0xff4b4b52.toInt(),true,serif=true).apply{isClickable=true;contentDescription="$y год"
-                pivotX=0f;post{pivotY=height.toFloat()};scaleX=if(on)1.08f else 1f;scaleY=scaleX
                 setOnClickListener{if(y!=year){year=y;onYear(y);bindYear(true)}}},LinearLayout.LayoutParams(-2,-2).apply{marginEnd=a.d(20)})}
         val list=yearBooks(model,data,year);val goal=model.target(year)
         progress.removeAllViews()
@@ -163,38 +178,38 @@ internal class GoalRoadDialog(private val a:MainActivity,private val model:Readi
         val old=column;val nw=RoadColumn(a,list,goal,year,today,motion)
         roadHost.addView(nw,FrameLayout.LayoutParams(-1,-2));column=nw
         scroll.scrollTo(0,0);nw.post{nw.viewport(0,scroll.height)}
-        if(old!=null){if(animated&&motion){old.animate().alpha(0f).setDuration(160).withEndAction{roadHost.removeView(old)}.start()
-            nw.alpha=0f;nw.translationY=a.d(24).toFloat();nw.animate().alpha(1f).translationY(0f).setStartDelay(120).setDuration(420).setInterpolator(Ease.outCubic).start()} else roadHost.removeView(old)}
+        if(old!=null){if(animated&&motion){old.animate().alpha(0f).setDuration(180).withEndAction{roadHost.removeView(old)}.start()
+            nw.alpha=0f;nw.animate().alpha(1f).setStartDelay(120).setDuration(380).setInterpolator(Ease.outCubic).start()} else roadHost.removeView(old)}
     }
-    private fun close(){if(closing)return;closing=true
-        if(share!=null){closeShare()}
-        if(!motion){dismiss();return}
-        capture()
-        ValueAnimator.ofFloat(frame.t,0f).apply{duration=440;interpolator=PathInterpolator(.3f,0f,.1f,1f);addUpdateListener{frame.t=it.animatedValue as Float}
-            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){dismiss()}});start()}}
-    @Deprecated("Back dispatcher") override fun onBackPressed(){if(share!=null)closeShare() else close()}
+    fun back(){if(share!=null)closeShare() else close()}
+    fun close(){if(closing)return;closing=true
+        closeShare()
+        if(!motion){finish();return}
+        capture();bounds.set(0f,0f,frame.width.toFloat(),frame.height.toFloat());col.setLayerType(View.LAYER_TYPE_HARDWARE,null);apply(k)
+        run(k,0f,420,PathInterpolator(.3f,0f,.1f,1f)){finish()}}
+    private fun finish(){(frame.parent as? ViewGroup)?.removeView(frame);if(a.goalRoad===this)a.goalRoad=null;snapView.setImageDrawable(null);snap?.recycle();snap=null;poster?.recycle();poster=null}
 
     // ───── share picture ─────
     private var poster:Bitmap?=null
     private fun openShare(){if(share!=null)return
         val list=yearBooks(model,data,year);val goal=model.target(year);val y=year
-        val layer=FrameLayout(a).apply{setBackgroundColor(if(a.light)0xd9f2f2f0.toInt() else 0xdb08080a.toInt());isClickable=true;setOnClickListener{closeShare()}}
-        val col=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
+        val layer=FrameLayout(a).apply{setBackgroundColor(if(a.light)0xe6f2f2f0.toInt() else 0xe608080a.toInt());isClickable=true;setOnClickListener{closeShare()}}
+        val box=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
         val img=ImageView(a).apply{scaleType=ImageView.ScaleType.FIT_CENTER;elevation=a.d(16).toFloat();clipToOutline=true;contentDescription="Мой год в книгах — $y"
             outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,a.d(22).toFloat())}};isClickable=true}
         val sh=frame.height-insets.top-insets.bottom;val ph=min((sh*.68f).toInt(),a.d(560));val pw=ph*9/16
-        col.addView(img,LinearLayout.LayoutParams(pw,ph))
+        box.addView(img,LinearLayout.LayoutParams(pw,ph))
         val acts=a.line().apply{gravity=Gravity.CENTER}
         fun act(label:String,primary:Boolean,click:()->Unit)=a.text(label,14f,if(primary)a.bg else a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(20),0,a.d(20),0);isClickable=true
             background=GradientDrawable().apply{setColor(if(primary)a.fg else if(a.light)0x14000000 else 0x1affffff);cornerRadius=a.d(22).toFloat()};setOnClickListener{click()};a.press(this)}
         acts.addView(act("Закрыть",false){closeShare()},LinearLayout.LayoutParams(-2,a.d(44)))
         acts.addView(act("Отправить",true){send(y)},LinearLayout.LayoutParams(-2,a.d(44)).apply{marginStart=a.d(10)})
-        col.addView(acts,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(18)})
-        layer.addView(col,FrameLayout.LayoutParams(-2,-2,Gravity.CENTER))
+        box.addView(acts,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(18)})
+        layer.addView(box,FrameLayout.LayoutParams(-2,-2,Gravity.CENTER))
         frame.addView(layer,FrameLayout.LayoutParams(-1,-1));share=layer
-        if(motion){layer.alpha=0f;layer.animate().alpha(1f).setDuration(200).start()
-            img.translationY=a.d(30).toFloat();img.scaleX=.92f;img.scaleY=.92f;img.alpha=0f;val sp=Spring.of(.25,520.0)
-            img.animate().translationY(0f).scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(60).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
+        if(motion){layer.alpha=0f;layer.animate().alpha(1f).setDuration(220).start()
+            img.translationY=a.d(24).toFloat();img.alpha=0f
+            img.animate().translationY(0f).alpha(1f).setStartDelay(60).setDuration(520).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}
         GoalPoster.render(a,list,goal,y){bmp->if(share!==layer){bmp.recycle();return@render};poster?.recycle();poster=bmp;img.setImageBitmap(bmp)}
     }
     private fun closeShare(){val layer=share?:return;share=null
@@ -203,29 +218,53 @@ internal class GoalRoadDialog(private val a:MainActivity,private val model:Readi
         a.work({file.outputStream().use{bmp.compress(Bitmap.CompressFormat.PNG,100,it)}}){
             val uri=FileProvider.getUriForFile(a,"${a.packageName}.calendar",file)
             a.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="image/png";putExtra(Intent.EXTRA_STREAM,uri);clipData=ClipData.newUri(a.contentResolver,"Мой год в книгах",uri);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)},"Поделиться"))}}
-    override fun dismiss(){super.dismiss();poster?.recycle();poster=null;frame.setSnapshot(null)}
 }
 
-/** Full-screen layer for a container transform: its rounded bounds morph from the card to the screen while the card's
- *  picture fades out and the full content fades in (and the reverse on close). */
-internal class RevealFrame(private val a:MainActivity):FrameLayout(a){
-    var from:RectF?=null
-    var t=1f;set(v){field=v;invalidate()}
-    private var snap:Bitmap?=null
-    fun setSnapshot(b:Bitmap?){snap?.recycle();snap=b}
-    private val clip=Path();private val r=RectF();private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val sp=Paint(Paint.FILTER_BITMAP_FLAG)
-    init{setWillNotDraw(false)}
-    override fun dispatchDraw(c:Canvas){val f=from;val W=width.toFloat();val H=height.toFloat();val k=if(f==null)1f else t
-        if(f!=null&&k<1f)r.set(f.left*(1-k),f.top*(1-k),f.right+(W-f.right)*k,f.bottom+(H-f.bottom)*k) else r.set(0f,0f,W,H)
-        val rad=a.d(28)*(1-k);c.save();if(k<1f){clip.reset();clip.addRoundRect(r,rad,rad,Path.Direction.CW);c.clipPath(clip)}
-        c.drawColor(a.bg)
-        p.shader=RadialGradient(W*.82f,0f,W*1.05f,intArrayOf(if(a.light)0x1f2fd38a else 0x292fd38a,0x002fd38a),null,Shader.TileMode.CLAMP);c.drawRect(0f,0f,W,H*.7f,p);p.shader=null
-        if(k<1f){val fade=((k-.18f)/.5f).coerceIn(0f,1f)
-            if(fade>0f){val l=c.saveLayerAlpha(r,(255*fade).toInt());super.dispatchDraw(c);c.restoreToCount(l)}
-            val s=snap;val out=(1f-k/.38f).coerceIn(0f,1f)
-            if(s!=null&&!s.isRecycled&&out>0f){val sc=r.width()/s.width;sp.alpha=(255*out).toInt();c.save();c.translate(r.left,r.top);c.scale(sc,sc);c.drawBitmap(s,0f,0f,sp);c.restore()}}
-        else super.dispatchDraw(c)
-        c.restore()}
+/** The road screen's backdrop: the page colour with a soft green light from the top right. */
+internal class GoalBackdrop(private val a:MainActivity):android.graphics.drawable.Drawable(){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var key=0
+    override fun draw(c:Canvas){val b=bounds;c.drawColor(a.bg);val W=b.width().toFloat()
+        if(key!=b.width()){key=b.width();p.shader=RadialGradient(W*.82f,0f,W*1.05f,intArrayOf(if(a.light)0x1f2fd38a else 0x292fd38a,0x002fd38a),null,Shader.TileMode.CLAMP)}
+        c.drawRect(0f,0f,W,b.height()*.7f,p)}
+    override fun setAlpha(alpha:Int){}
+    override fun setColorFilter(cf:ColorFilter?){}
+    @Deprecated("Deprecated in Java") override fun getOpacity()=PixelFormat.OPAQUE
+}
+
+/** Five plain stars, filled yellow up to the rating. */
+internal class StarRow(private val a:MainActivity,var rating:Int,private val sizeDp:Float,private val gapDp:Float=2f):View(a){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    init{contentDescription=if(rating in 1..5)"Оценка $rating из 5" else "Без оценки"}
+    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension((a.d(1)*(sizeDp*5+gapDp*4)).roundToInt(),(a.d(1)*sizeDp).roundToInt())
+    override fun onDraw(c:Canvas){val s=a.d(1)*sizeDp;val g=a.d(1)*gapDp
+        for(i in 0 until 5){p.color=if(i<rating)starYellow(a) else starEmpty(a);drawStar(c,i*(s+g),0f,s,p)}}
+    companion object{
+        fun starYellow(a:MainActivity)=if(a.light)0xfff5a524.toInt() else 0xffffc53d.toInt()
+        fun starEmpty(a:MainActivity)=if(a.light)0x24000000 else 0x2effffff
+        /** A rounded five-point star filling the [size] square at x, y. */
+        fun drawStar(c:Canvas,x:Float,y:Float,size:Float,p:Paint){val path=Path();val cx=x+size/2;val cy=y+size*.53f;val R=size*.5f;val r=R*.48f
+            for(i in 0 until 10){val rr=if(i%2==0)R else r;val t=Math.toRadians(-90.0+36*i);val px=(cx+rr*cos(t)).toFloat();val py=(cy+rr*sin(t)).toFloat();if(i==0)path.moveTo(px,py) else path.lineTo(px,py)};path.close()
+            p.style=Paint.Style.FILL;p.pathEffect=CornerPathEffect(size*.08f);c.drawPath(path,p);p.pathEffect=null}}
+}
+
+/** One big star of the rating picker: yellow when on, a quiet outline otherwise. */
+internal class StarGlyph(private val a:MainActivity,on:Boolean):View(a){
+    var on=on;set(v){field=v;invalidate()}
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun onDraw(c:Canvas){val s=min(width,height).toFloat();val x=(width-s)/2;val y=(height-s)/2
+        if(on){p.color=StarRow.starYellow(a);StarRow.drawStar(c,x,y,s,p)}
+        else{p.color=if(a.light)0x14000000 else 0x1fffffff;StarRow.drawStar(c,x,y,s,p)}}
+}
+
+/** A flat book cover for the road: the picture with soft rounded corners and a real shadow, no gloss. */
+internal class FlatCover(private val a:MainActivity,private val book:JSONObject):View(a){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private var asked=false;private val art by lazy{CoverView(a,JSONObject())}
+    init{elevation=a.d(8).toFloat();clipToOutline=true;outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,a.d(4).toFloat())}}}
+    override fun onDraw(c:Canvas){val bmp=a.cover(book);val r=RectF(0f,0f,width.toFloat(),height.toFloat())
+        if(bmp==null&&book.optJSONObject("cover")!=null){if(!asked){asked=true;a.requestCover(book){if(it!=null)invalidate()}};c.drawColor(if(a.light)0xffe6e4df.toInt() else 0xff2a2a2d.toInt());return}
+        if(bmp==null){art.drawCover(c,r,book,null);return}
+        val sc=max(r.width()/bmp.width,r.height()/bmp.height);val w=bmp.width*sc;val h=bmp.height*sc
+        c.drawBitmap(bmp,null,RectF(r.centerX()-w/2,r.centerY()-h/2,r.centerX()+w/2,r.centerY()+h/2),p)}
 }
 
 /** The long winding road of the year: one milestone per book of the goal, big covers alternating sides. */
@@ -240,7 +279,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
     private val startLabel=a.text("Старт · 1 января",12f,a.muted).apply{gravity=Gravity.CENTER}
     private val finish=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
     private var reach=0f;private var intro=if(motion)0f else 1f
-    private var glow:Bitmap?=null
+    private var glow:Bitmap?=null;private var glowAlpha=0f;private var glowGen=0
     private val revealed=HashSet<View>()
     init{setWillNotDraw(false);clipChildren=false
         books.forEachIndexed{i,b->val v=item(i,b);items.add(v);addView(v);if(motion){v.alpha=0f;v.translationY=d*18;v.translationX=if(i%2==0)d*28 else -d*28} else revealed.add(v)}
@@ -254,7 +293,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
     /** One book: the cover stands on its milestone at the edge, the details sit beside it towards the middle. */
     private fun item(i:Int,yb:YearBook):View{val right=i%2==0
         val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-        val cover=CoverView(a,yb.book,a.cover(yb.book)).apply{softShadow=true;hiRes=true;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
+        val cover=FlatCover(a,yb.book).apply{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         val g=if(right)Gravity.END else Gravity.START
         val t=a.column().apply{gravity=g}
         fun add(v:TextView,top:Int=0){v.gravity=g;t.addView(v,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(top)})}
@@ -265,18 +304,13 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         add(a.text(if(yb.start==yb.end)f(yb.end) else "${f(yb.start)} — ${f(yb.end)}",12.5f,a.fg),12)
         add(a.text("за "+daysWord((java.time.temporal.ChronoUnit.DAYS.between(yb.start,yb.end)+1).toInt().coerceAtLeast(1)),12f,if(a.light)0xff9a9aa0.toInt() else 0xff74747a.toInt()),3)
         val r=yb.book.optInt("rating")
-        val rate=a.line().apply{gravity=Gravity.CENTER_VERTICAL or g}
-        // the medal views measure themselves at 36dp: shown here scaled down to 22dp
-        val medal=FrameLayout(a);medal.addView((if(r in 1..5)RatingMedal(a,r) else EmptyStar(a)).apply{scaleX=22f/36;scaleY=22f/36},FrameLayout.LayoutParams(-2,-2,Gravity.CENTER))
-        val word=a.text(if(r in 1..5)medalNames[r-1] else "без оценки",12f,a.muted)
-        if(right){rate.addView(word);rate.addView(medal,LinearLayout.LayoutParams(a.d(22),a.d(22)).apply{leftMargin=a.d(6)})}
-        else{rate.addView(medal,LinearLayout.LayoutParams(a.d(22),a.d(22)));rate.addView(word,LinearLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(6)})}
-        t.addView(rate,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(10)})
+        val rate=StarRow(a,r,15f,3f)
+        t.addView(rate,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10);gravity=g})
         val coverLp=LinearLayout.LayoutParams(a.d(96),a.d(144))
         if(right){row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{rightMargin=a.d(16)});row.addView(cover,coverLp)}
         else{row.addView(cover,coverLp);row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=a.d(16)})}
         row.tag=right
-        row.contentDescription="${i+1}-я книга: ${yb.book.str("title")}, ${f(yb.start)} — ${f(yb.end)}"+if(r in 1..5)", ${medalNames[r-1]}" else ""
+        row.contentDescription="${i+1}-я книга: ${yb.book.str("title")}, ${f(yb.start)} — ${f(yb.end)}"+if(r in 1..5)", оценка $r из 5" else ""
         row.isClickable=true;row.setOnClickListener{a.detail(yb.book)}
         return row}
     private var step=d*230;private var first=d*170
@@ -300,10 +334,15 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
             road.cubicTo(a0.x,a0.y+bend,b.x,b.y-bend,b.x,b.y);pm.setPath(seg,false);total+=pm.length;lens[k]=total}
         walked.reset();pm.setPath(road,false);val n=min(books.size,slots);if(n>0)pm.getSegment(0f,lens[n],walked,true)
         walkedEnd=if(n>0)pts[n].y else top
-        glow?.recycle();glow=null
-        if(!a.light&&n>0)try{val k=4;val small=Bitmap.createBitmap(max(1,w/k),max(1,h/k),Bitmap.Config.ARGB_8888);val cv=Canvas(small);cv.scale(1f/k,1f/k)
-            cv.drawPath(walked,Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeWidth=d*16;color=0xff2fd38a.toInt()})
-            glow=ShelfFrost.blur(small,d*6f/k);small.recycle()}catch(e:Throwable){glow=null}}
+        // the soft glow under the walked road is blurred off the main thread and fades in when ready
+        glow?.recycle();glow=null;glowAlpha=0f;val gen=++glowGen
+        if(!a.light&&n>0){val path=Path(walked);var out:Bitmap?=null
+            a.work({val k=4;val small=Bitmap.createBitmap(max(1,w/k),max(1,h/k),Bitmap.Config.ARGB_8888);val cv=Canvas(small);cv.scale(1f/k,1f/k)
+                cv.drawPath(path,Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeWidth=d*16;color=0xff2fd38a.toInt()})
+                out=ShelfFrost.blur(small,d*6f/k);small.recycle()}){val g=out
+                if(g==null)return@work
+                if(gen!=glowGen||!isAttachedToWindow){g.recycle();return@work}
+                glow=g;if(!motion){glowAlpha=1f;invalidate()} else ValueAnimator.ofFloat(0f,1f).apply{duration=500;addUpdateListener{glowAlpha=it.animatedValue as Float;invalidate()};start()}}}}
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){if(pts.isEmpty())return;val W=r-l
         items.forEachIndexed{i,v->val y=pts[i+1].y;val x=a.d(16);val tp=(y-v.measuredHeight/2f).roundToInt();v.layout(x,tp,x+v.measuredWidth,tp+v.measuredHeight)}
         slotViews.forEachIndexed{j,v->val k=books.size+1+j;val x=(pts[k].x-d*32).roundToInt();val y=(pts[k].y-d*48).roundToInt();v.layout(x,y,x+v.measuredWidth,y+v.measuredHeight)}
@@ -324,14 +363,14 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         // the walked part, revealed down to where the reader has scrolled (the road only ever goes down)
         val shown=top+(max(reach,top+d*60)-top)*intro
         if(!walked.isEmpty){c.save();c.clipRect(0f,0f,W,min(shown,walkedEnd+d*20))
-            glow?.let{g->c.drawBitmap(g,null,RectF(0f,0f,W,height.toFloat()),Paint(Paint.FILTER_BITMAP_FLAG).apply{alpha=0x99})}
+            glow?.let{g->c.drawBitmap(g,null,RectF(0f,0f,W,height.toFloat()),Paint(Paint.FILTER_BITMAP_FLAG).apply{alpha=(0x99*glowAlpha).toInt()})}
             p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*7;p.color=Color.WHITE;p.shader=LinearGradient(0f,top,0f,walkedEnd,green,green2,Shader.TileMode.CLAMP);c.drawPath(walked,p);p.shader=null;c.restore()}
         p.style=Paint.Style.FILL
         for(k in 1..slots){val q=pts[k];val done=k<=books.size;p.color=if(done)(if(a.light)green else Color.WHITE) else if(a.light)0x40000000 else 0x4dffffff;c.drawCircle(q.x,q.y,d*(if(done)5f else 3.5f),p)}
         val s=pts[0];p.color=a.bg;c.drawCircle(s.x,s.y,d*9,p);p.style=Paint.Style.STROKE;p.strokeWidth=d*4;p.color=green;c.drawCircle(s.x,s.y,d*9,p);p.style=Paint.Style.FILL
         if(goal>0){val e=pts.last();p.color=a.fg;c.drawRect(e.x-d*1.5f,e.y-d*44,e.x+d*1.5f,e.y,p)
             c.drawPath(Path().apply{moveTo(e.x+d*1.5f,e.y-d*44);lineTo(e.x+d*27,e.y-d*36);lineTo(e.x+d*1.5f,e.y-d*27);close()},p)}}
-    override fun onDetachedFromWindow(){super.onDetachedFromWindow();glow?.recycle();glow=null}
+    override fun onDetachedFromWindow(){super.onDetachedFromWindow();glowGen++;glow?.recycle();glow=null}
 }
 
 /** A place on the road still waiting for its book: a dashed outline with the book's number. */
@@ -372,15 +411,15 @@ internal object GoalPoster{
         // the covers: as large as fit between the heading and the footer
         val gx=88f;val gw=W-2*gx;val gy=580f;val gh=1660f-gy;val gap=30f
         var cols=3;var cell=0f;var rows=0
-        while(true){cell=(gw-(cols-1)*gap)/cols;rows=ceil(list.size/cols.toFloat()).toInt().coerceAtLeast(1);val rowH=cell*1.5f+cell*.3f+gap*1.6f;if(rows*rowH<=gh||cols>=7)break;cols++}
-        val rowH=cell*1.5f+cell*.3f+gap*1.6f;val fit=max(1,(gh/rowH).toInt())*cols
+        while(true){cell=(gw-(cols-1)*gap)/cols;rows=ceil(list.size/cols.toFloat()).toInt().coerceAtLeast(1);val rowH=cell*1.5f+cell*.15f+gap*1.6f;if(rows*rowH<=gh||cols>=7)break;cols++}
+        val rowH=cell*1.5f+cell*.15f+gap*1.6f;val fit=max(1,(gh/rowH).toInt())*cols
         val shown=if(list.size>fit)list.take(fit-1) else list
         val art=CoverView(a,JSONObject())
         shown.forEachIndexed{i,yb->val x=gx+(i%cols)*(cell+gap);val y=gy+(i/cols)*rowH;val r=RectF(x,y,x+cell,y+cell*1.5f)
             p.color=0x66000000;p.maskFilter=null;c.drawRoundRect(r.left+6,r.top+14,r.right-6,r.bottom+16,12f,12f,p)
             art.drawCover(c,r,yb.book,a.cover(yb.book))
-            val m=cell*.3f;val rating=yb.book.optInt("rating")
-            if(rating in 1..5){val v=RatingMedal(a,rating);v.layout(0,0,m.toInt(),m.toInt());c.save();c.translate(x+(cell-m)/2,r.bottom+gap*.4f);v.draw(c);c.restore()}}
+            val st=cell*.15f;val gp=st*.2f;val rating=yb.book.optInt("rating");val sx=x+(cell-(st*5+gp*4))/2
+            for(k in 0 until 5){p.color=if(k<rating)0xffffc53d.toInt() else 0x2effffff;StarRow.drawStar(c,sx+k*(st+gp),r.bottom+gap*.5f,st,p)}}
         if(list.size>fit){val i=fit-1;val x=gx+(i%cols)*(cell+gap);val y=gy+(i/cols)*rowH;val r=RectF(x,y,x+cell,y+cell*1.5f)
             p.color=0x1affffff;c.drawRoundRect(r,14f,14f,p);tp.typeface=PolkaFonts.display(700);tp.textSize=cell*.32f;tp.color=0xfff3f3f5.toInt();tp.textAlign=Paint.Align.CENTER
             c.drawText("+${list.size-fit+1}",r.centerX(),r.centerY()-(tp.ascent()+tp.descent())/2,tp);tp.textAlign=Paint.Align.LEFT}
