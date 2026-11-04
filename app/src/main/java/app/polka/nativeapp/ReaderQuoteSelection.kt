@@ -48,6 +48,25 @@ internal class ChapterSelection {
     fun text(full:CharSequence)=full.subSequence(start.coerceIn(0,full.length),end.coerceIn(0,full.length)).toString()
 }
 
+/** The five highlight colours of quotes; the last one chosen is used for the next quote. */
+internal object QuoteColors{
+    val all=listOf("amber" to 0xf0a742,"mint" to 0x7cc98e,"sky" to 0x6fa8f0,"rose" to 0xef7fa8,"lavender" to 0xa98bf7)
+    fun rgb(key:String?)=all.firstOrNull{it.first==key}?.second?:0xf0a742
+    /** The highlight behind the text (the same soft strength for every colour). */
+    fun ink(key:String?)=(0x48 shl 24) or rgb(key)
+    fun last(a:MainActivity)=a.prefs.str("quoteColor","amber").let{k->if(all.any{it.first==k})k else "amber"}
+}
+
+/** A colour dot of the quote colour strip; the chosen one has a ring. */
+internal class QuoteDot(private val a:MainActivity,val key:String):View(a){
+    var on=false;set(v){field=v;invalidate()}
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun onDraw(c:Canvas){val cx=width/2f;val cy=height/2f;val r=a.d(13).toFloat()
+        if(on){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=a.fg;c.drawCircle(cx,cy,r+a.d(4),p)}
+        p.style=Paint.Style.FILL;p.color=(0xff shl 24) or QuoteColors.rgb(key);c.drawCircle(cx,cy,r,p)
+        p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=0x2effffff;c.drawCircle(cx,cy,r,p)}
+}
+
 internal class ReaderQuoteSelection(private val a:MainActivity,private val reader:NativeReader):FrameLayout(a) {
     val range=ChapterSelection()
     var active=false;private set
@@ -71,6 +90,12 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private var appear=1f
     private var settling=false;private var settleColor=0;private var settleStart=0;private var settleEnd=0;private var settle:android.animation.ValueAnimator?=null
     private lateinit var primary:TextView
+    private lateinit var third:TextView
+    private val strip=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(4),a.d(2),a.d(4),a.d(2));elevation=a.d(8).toFloat();a.controlSurface(this,22f,sheet=true);isClickable=true}
+    private val dots=mutableListOf<QuoteDot>()
+    /** The quote the strip recolours (chapter offsets), set when it opens. */
+    private var stripQuote:Pair<Int,Int>?=null;private var stripOpen=false
+    private val stripTimer=Runnable{hideStrip()}
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private val menu=a.line().apply{gravity=Gravity.CENTER;setPadding(a.d(4),a.d(2),a.d(4),a.d(2));elevation=a.d(8).toFloat();a.controlSurface(this,22f,sheet=true)}
     private val pageTimer=Runnable { val dir=edge;edge=0;if(active&&dragging&&!edgeLocked&&dir!=0){edgeLocked=true;menu.visibility=INVISIBLE;reader.turnWithSelection(dir){ok->edgeLocked=false;if(ok){val full=reader.selectionFullText();var boundary=if(dir>0)reader.pageBase() else (reader.pageLimit()-1).coerceAtLeast(0);if(dir<0)while(boundary>reader.pageBase()&&full[boundary].isWhitespace())boundary--;atStart=range.move(full,boundary,atStart)}else{Toast.makeText(a,"Выделение ограничено текущей главой",Toast.LENGTH_SHORT).show()};invalidate();showMenu();if(dragging){x=if(dir>0)reader.body.paddingLeft+a.d(8).toFloat()else width-reader.body.paddingRight-a.d(8).toFloat();y=if(dir>0)reader.body.paddingTop+a.d(12).toFloat()else min(height-a.d(60).toFloat(),reader.body.height.toFloat());}}} }
@@ -79,8 +104,14 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         fun action(label:String,fn:()->Unit):TextView{val v=a.text(label,14f,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(44);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(a.d(4),0,a.d(4),0);a.press(this);setOnClickListener{fn()}};menu.addView(v,LinearLayout.LayoutParams(0,a.d(44),1f));return v}
         primary=action("Цитата"){quoteAction()}
         action("Копировать"){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата",range.text(reader.selectionFullText())));clear()}
-        action("Заметка"){val text=range.text(reader.selectionFullText());clear();reader.addNote(text)}
+        third=action("Заметка"){thirdAction()}
         menu.addView(a.icon("x","Убрать выделение"){clear()},LinearLayout.LayoutParams(a.d(44),a.d(44)));addView(menu,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
+        // the colour strip: shown right after a quote is saved (or from «Цвет» on a saved one), in the menu's place
+        strip.addView(a.text("Цвет",13f,a.muted).apply{setPadding(a.d(12),0,a.d(6),0)})
+        QuoteColors.all.forEach{(key,_)->val dot=QuoteDot(a,key).apply{isClickable=true;contentDescription="Цвет цитаты";setOnClickListener{recolor(key)}};dots.add(dot);strip.addView(dot,LinearLayout.LayoutParams(a.d(40),a.d(44)))}
+        strip.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
+        strip.addView(a.text("Готово",13.5f,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(12),0,a.d(12),0);minHeight=a.d(44);a.press(this);setOnClickListener{hideStrip()}})
+        strip.visibility=GONE;addView(strip,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
     }
     /** Long press: a saved quote under the finger is picked up whole (so it can be removed); otherwise the word. */
     fun begin(offset:Int){val hit=reader.quoteAt(offset);if(hit!=null)range.set(hit.second.first,hit.second.last+1) else if(!range.begin(reader.selectionFullText(),offset))return;start(true)}
@@ -89,29 +120,52 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private fun start(haptic:Boolean){finishSettle();active=true;visibility=VISIBLE;dragging=false;grabDx=0f;grabDy=0f;contentDescription="Выделено: ${range.text(reader.selectionFullText())}"
         appear=if(reduced)1f else 0f;if(!reduced)android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=200;interpolator=android.view.animation.DecelerateInterpolator();addUpdateListener{appear=it.animatedValue as Float;invalidate()};start()}
         menu.visibility=INVISIBLE;invalidate();post{showMenu()};if(haptic&&a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)}
-    fun clear(){active=false;dragging=false;edgeLocked=false;timer.removeCallbacksAndMessages(null);edge=0;if(!settling)visibility=GONE;invalidate()}
+    fun clear(){active=false;dragging=false;edgeLocked=false;timer.removeCallbacksAndMessages(null);edge=0;if(!settling&&!stripOpen)visibility=GONE;invalidate()}
+    /** The strip with the five colours, in the menu's place, for the quote at [s, e). It goes away by itself. */
+    private fun showStrip(s:Int,e:Int,color:String){stripQuote=s to e;stripOpen=true;visibility=VISIBLE;menu.visibility=INVISIBLE
+        dots.forEach{it.on=it.key==color};strip.translationY=menu.translationY;strip.visibility=VISIBLE
+        if(!reduced){strip.alpha=0f;strip.scaleX=.94f;strip.scaleY=.94f;strip.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200).setInterpolator(android.view.animation.DecelerateInterpolator()).start()}
+        removeCallbacks(stripTimer);postDelayed(stripTimer,3500)}
+    private fun hideStrip(){removeCallbacks(stripTimer);if(!stripOpen)return;stripOpen=false
+        val done={strip.visibility=GONE;if(!active&&!settling)visibility=GONE}
+        if(reduced)done() else strip.animate().alpha(0f).setDuration(160).withEndAction{done()}.start()}
+    private fun recolor(key:String){val (s,e)=stripQuote?:return;val q=reader.quoteOverlapping(s,e)?:return;val old=q.first.optString("color")
+        a.prefs.put("quoteColor",key);a.savePreferences();dots.forEach{it.on=it.key==key}
+        if(old==key){removeCallbacks(stripTimer);postDelayed(stripTimer,2500);return}
+        if(reduced){reader.recolorQuote(q.first,q.second,key)}
+        else{reader.recolorQuote(q.first,q.second,key)}
+        removeCallbacks(stripTimer);postDelayed(stripTimer,2500)}
+    /** Third button: «Заметка» for a new selection, «Убрать» for a saved quote. */
+    private fun thirdAction(){val existing=reader.quoteOverlapping(range.start,range.end)
+        if(existing!=null){val r=existing.second;val ink=QuoteColors.ink(existing.first.optString("color"));reader.removeQuote(existing.first,r);settleOut(r.first,r.last+1,ink,ink and 0x00ffffff,280){};clear();return}
+        val text=range.text(reader.selectionFullText());clear();reader.addNote(text)}
     private fun finishSettle(){settle?.end();settle=null}
     /** «Цитата» marks the selection: the selection tint deepens into the quote tint, then the mark stays in the text.
      *  «Убрать цитату» drops the mark: the tint fades out where it was. */
     private fun quoteAction(){
         val full=reader.selectionFullText();val s=range.start;val e=range.end;val existing=reader.quoteOverlapping(s,e)
-        if(existing!=null){val r=existing.second;reader.removeQuote(existing.first,r);settleOut(r.first,r.last+1,0x44f0a742,0x00f0a742,280){};clear();return}
-        val text=range.text(full);clear()
-        if(reduced){reader.addQuote(s,e,text);return}
-        settleOut(s,e,0x65e7ac48,0x44f0a742,240){reader.addQuote(s,e,text)}
+        // a saved quote: «Цвет» opens the colour strip for it
+        if(existing!=null){val r=existing.second;val y=menu.translationY;clear();menu.translationY=y;showStrip(r.first,r.last+1,existing.first.optString("color","amber"));return}
+        val text=range.text(full);val color=QuoteColors.last(a);val y=menu.translationY;clear();menu.translationY=y
+        if(reduced){reader.addQuote(s,e,text,color);showStrip(s,e,color);return}
+        settleOut(s,e,0x65e7ac48,QuoteColors.ink(color),240){reader.addQuote(s,e,text,color)}
+        showStrip(s,e,color)
     }
     private fun settleOut(s:Int,e:Int,from:Int,to:Int,ms:Long,done:()->Unit){
         if(reduced){done();return}
         settleStart=s;settleEnd=e;settleColor=from;settling=true;visibility=VISIBLE;menu.visibility=INVISIBLE
         settle=android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(),from,to).apply{duration=ms;interpolator=android.view.animation.DecelerateInterpolator()
             addUpdateListener{settleColor=it.animatedValue as Int;invalidate()}
-            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){settling=false;done();if(!active)visibility=GONE;invalidate()}});start()}
+            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){settling=false;done();if(!active&&!stripOpen)visibility=GONE;invalidate()}});start()}
     }
     /** The menu pops in next to the selection and names what the first action will do. */
-    private fun showMenu(){if(!active||dragging||edgeLocked)return;primary.text=if(reader.quoteOverlapping(range.start,range.end)!=null)"Убрать цитату" else "Цитата"
+    private fun showMenu(){if(!active||dragging||edgeLocked)return;val saved=reader.quoteOverlapping(range.start,range.end);hideStrip()
+        primary.text=if(saved!=null)"● Цвет" else "Цитата";third.text=if(saved!=null)"Убрать" else "Заметка"
+        third.setTextColor(if(saved!=null)0xffff8a7a.toInt() else a.fg)
+        if(saved!=null){val sp=android.text.SpannableString("● Цвет");sp.setSpan(android.text.style.ForegroundColorSpan((0xff shl 24) or QuoteColors.rgb(saved.first.optString("color"))),0,1,0);primary.text=sp}
         val wasHidden=menu.visibility!=VISIBLE;positionMenu()
         if(wasHidden&&!reduced){menu.alpha=0f;menu.scaleX=.94f;menu.scaleY=.94f;menu.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200).setInterpolator(android.view.animation.DecelerateInterpolator()).start()}else menu.alpha=1f}
-    override fun onDetachedFromWindow(){timer.removeCallbacksAndMessages(null);super.onDetachedFromWindow()}
+    override fun onDetachedFromWindow(){timer.removeCallbacksAndMessages(null);removeCallbacks(stripTimer);super.onDetachedFromWindow()}
     private fun point(offset:Int,end:Boolean,p:PointF):Boolean {
         val layout=reader.body.layout?:return false;val base=reader.pageBase();val limit=reader.pageLimit()
         if(offset<base || offset>limit || (end&&offset==base)||(!end&&offset==limit))return false

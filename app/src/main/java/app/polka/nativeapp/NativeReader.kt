@@ -227,7 +227,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         }
         layoutJob=a.compute({engine.prepare(key,{
             val rendered=ReadingText(a,size,width,maxImage,images,ink,leading,trimEmpty=trim).render(html);val rich=rendered.text
-            quotes.filter{it.optInt("ch")==targetChapter}.forEach{q->val raw=q.str("rawText",q.str("text"));val range=TextAnchors.locate(rich.toString(),raw,q.optInt("start"));if(range!=null)rich.setSpan(android.text.style.BackgroundColorSpan(0x44f0a742),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
+            quotes.filter{it.optInt("ch")==targetChapter}.forEach{q->val raw=q.str("rawText",q.str("text"));val range=TextAnchors.locate(rich.toString(),raw,q.optInt("start"));if(range!=null)rich.setSpan(android.text.style.BackgroundColorSpan(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
             rendered
         },paint,width,height,justify,hyph,early)},failed={if(generation==layoutGeneration){preparing=false;view.alpha=1f}},done={result->
             if(!disposed && generation==layoutGeneration && chapter==targetChapter){
@@ -298,9 +298,15 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     /** The saved quote that the selection mostly covers (or that covers it), if any. */
     internal fun quoteOverlapping(start:Int,end:Int):Pair<JSONObject,IntRange>? = quoteRanges().map { it to (minOf(end,it.second.last+1)-maxOf(start,it.second.first)) }.filter { it.second>0 && it.second*2>=minOf(end-start,it.first.second.last+1-it.first.second.first) }.maxByOrNull { it.second }?.first
     /** Marks the quote in place: the page's text, line breaks and position stay exactly as they are. */
-    fun addQuote(start:Int,end:Int,text:String) { val quotes=book.optJSONArray("quotes") ?: JSONArray(); if(quotes.objects().none { it.optInt("ch")==chapter && it.str("text")==text }) quotes.put(JSONObject().put("id",uid()).put("ch",chapter).put("start",start).put("end",end).put("block",0).put("text",text).put("rawText",text).put("at",System.currentTimeMillis())); book.put("quotes",quotes)
+    fun addQuote(start:Int,end:Int,text:String,color:String=QuoteColors.last(a)) { val quotes=book.optJSONArray("quotes") ?: JSONArray(); if(quotes.objects().none { it.optInt("ch")==chapter && it.str("text")==text }) quotes.put(JSONObject().put("id",uid()).put("ch",chapter).put("start",start).put("end",end).put("block",0).put("text",text).put("rawText",text).put("color",color).put("at",System.currentTimeMillis())); book.put("quotes",quotes)
         val rich=chapterRich as? android.text.Spannable
-        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.setSpan(android.text.style.BackgroundColorSpan(quoteInk),start.coerceIn(0,rich.length),end.coerceIn(0,rich.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); repaintMarks() }
+        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.setSpan(android.text.style.BackgroundColorSpan(QuoteColors.ink(color)),start.coerceIn(0,rich.length),end.coerceIn(0,rich.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); repaintMarks() }
+        persist() }
+    /** Gives a saved quote another highlight colour, in place. */
+    fun recolorQuote(quote:JSONObject,range:IntRange,color:String) { book.optJSONArray("quotes")?.objects()?.firstOrNull { it.str("id")==quote.str("id") }?.put("color",color); quote.put("color",color)
+        val rich=chapterRich as? android.text.Spannable
+        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.getSpans(range.first,range.last+1,android.text.style.BackgroundColorSpan::class.java).filter { rich.getSpanStart(it)==range.first && rich.getSpanEnd(it)==range.last+1 }.forEach { rich.removeSpan(it) }
+            rich.setSpan(android.text.style.BackgroundColorSpan(QuoteColors.ink(color)),range.first,(range.last+1).coerceAtMost(rich.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); repaintMarks() }
         persist() }
     fun removeQuote(quote:JSONObject,range:IntRange) { val quotes=book.optJSONArray("quotes")?.objects().orEmpty().filterNot { it.str("id")==quote.str("id") }; book.put("quotes",JSONArray(quotes))
         val rich=chapterRich as? android.text.Spannable
@@ -400,7 +406,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         // Warm jobs can share the engine cache; completion is keyed by geometry,
         // theme, chapter content and quote revision, never by page index alone.
         previewJobs[index]=a.compute({previewEngine.prepare(key,{
-            ReadingText(a,size,width,(height-size*3).toInt().coerceAtLeast(a.d(80)),images,ink,leading,trimEmpty=trim).render(html).also{rendered->JSONArray(quotes).objects().filter{it.optInt("ch")==index}.forEach{q->TextAnchors.locate(rendered.text.toString(),q.str("rawText",q.str("text")),q.optInt("start"))?.let{range->rendered.text.setSpan(android.text.style.BackgroundColorSpan(0x44f0a742),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}}}
+            ReadingText(a,size,width,(height-size*3).toInt().coerceAtLeast(a.d(80)),images,ink,leading,trimEmpty=trim).render(html).also{rendered->JSONArray(quotes).objects().filter{it.optInt("ch")==index}.forEach{q->TextAnchors.locate(rendered.text.toString(),q.str("rawText",q.str("text")),q.optInt("start"))?.let{range->rendered.text.setSpan(android.text.style.BackgroundColorSpan(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}}}
         },paint,width,height,justify,hyph)},failed={previewJobs.remove(index);if(isTurning())stopPageMotion()},done={data->previewJobs.remove(index);if(!disposed&&generation==previewGeneration&&chapterKey(index)==key){previewPages[index]=key to data;previewPages.keys.filter{abs(it-chapter)>1}.toList().forEach{previewPages.remove(it)};done(data,key)}})
     }
     private fun warmPages(){if(!paged()||scroll.width<=0)return;if(pageIndex==0&&chapter>0&&!previewJobs.containsKey(chapter-1))preparePreview(chapter-1);if(pageIndex==pageStarts.lastIndex&&chapter<chapters.length()-1&&!previewJobs.containsKey(chapter+1))preparePreview(chapter+1)}
