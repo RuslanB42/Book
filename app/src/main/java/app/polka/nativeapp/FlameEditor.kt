@@ -38,7 +38,8 @@ internal fun MainActivity.flameSheet(initial:Int,saved:(Int)->Unit){
     stage.addView(front,FrameLayout.LayoutParams(-1,-1))
     back.bar=bar;back.setMinutes(value,true)
     var shownStep=stepOf(value);var useA=true
-    bar.onChange={v->val old=value;value=v;number.set("$v","$old",up=v>old);back.setMinutes(v,false)
+    var lastAt=0L
+    bar.onChange={v->val old=value;value=v;val now=android.os.SystemClock.uptimeMillis();if(now-lastAt<130)number.set("$v","$v") else number.set("$v","$old",up=v>old);lastAt=now;back.setMinutes(v,false)
         val s=stepOf(v);if(s!=shownStep){shownStep=s;val (out,inn)=if(useA)nameA to nameB else nameB to nameA;useA=!useA;inn.text=flameSteps[s].second
             if(prefs.str("motion")=="reduced"){out.alpha=0f;inn.alpha=1f}else{out.animate().alpha(0f).translationY(-d(8).toFloat()).setDuration(220).start();inn.translationY=d(8).toFloat();inn.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
     // the stage spans the whole sheet (past the content padding), so the light and the sparks are only ever cut by the sheet's own edge
@@ -180,8 +181,9 @@ internal class HeatBar(private val a:MainActivity,start:Int):View(a){
         p.color=Color.WHITE // the shaders below must not inherit the faint track's alpha
         c.save();val clip=Path().apply{addRoundRect(0f,0f,fx,h,r,r,Path.Direction.CW)};c.clipPath(clip)
         p.shader=LinearGradient(0f,0f,fx,0f,intArrayOf(mix(0xff3a1a12.toInt(),0xff9a2a0c.toInt(),hot),mix(0xff8a3414.toInt(),0xffff5a14.toInt(),hot),mix(0xffc25a26.toInt(),0xffffd25a.toInt(),hot)),floatArrayOf(0f,.6f,1f),Shader.TileMode.CLAMP);c.drawRect(0f,0f,fx,h,p)
-        if(a.prefs.str("motion")!="reduced"){val T=System.nanoTime()/1_000_000f;repeat(3){i->val ph=((T/(1400-hot*700))+i/3f)%1f;val bx=ph*(fx+80*d)-40*d
-            p.shader=LinearGradient(bx-30*d,0f,bx+30*d,0f,intArrayOf(0x00fff0b4,Color.argb(((.08f+.22f*hot)*255).toInt(),255,240,180),0x00fff0b4),null,Shader.TileMode.CLAMP);c.drawRect(bx-30*d,0f,bx+30*d,h,p)}}
+        if(a.prefs.str("motion")!="reduced"&&hot>.08f){val T=System.nanoTime()/1_000_000f;val ph=(T/(3200f-hot*1200f))%1f;val half=max(40*d,fx*.35f);val bx=-half+ph*(fx+2*half)
+            val al=(sin(ph*PI.toFloat())*(.05f+.13f*hot)*((hot-.08f)/.2f).coerceIn(0f,1f)*255).toInt()
+            p.shader=LinearGradient(bx-half,0f,bx+half,0f,intArrayOf(0x00fff0b4,Color.argb(al,255,240,180),0x00fff0b4),null,Shader.TileMode.CLAMP);c.drawRect(0f,0f,fx,h,p)}
         c.restore();p.shader=null
         listOf(15,30,45,60).forEach{tk->val tx=h/2+(w-h)*frac(tk.toFloat());p.color=if(tx<fx-6*d)0x6bffffff else (if(a.light)0x29000000 else 0x29ffffff);c.drawCircle(tx,h/2,3*d,p)}
         t.textSize=16*a.resources.displayMetrics.scaledDensity;t.textAlign=Paint.Align.RIGHT;t.color=if(fx>w-30*d)0xff1d1d20.toInt() else a.fg;c.drawText("$value",w-20*d,h/2-(t.ascent()+t.descent())/2,t)}

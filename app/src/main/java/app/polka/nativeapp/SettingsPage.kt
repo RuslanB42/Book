@@ -119,6 +119,7 @@ internal class PlaqueBackground(private val a:MainActivity,private val glow:Int,
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val r=RectF()
     override fun draw(c:Canvas){val b=bounds;r.set(b);val rad=a.d(24).toFloat()
         p.shader=null;p.color=if(a.light)0x0e000000 else 0x12ffffff;c.drawRoundRect(r,rad,rad,p)
+        p.color=Color.WHITE // the light must not inherit the card's faint alpha (that hid it completely)
         val cx=b.left+b.width()*fx;val cy=b.top+b.height()*fy;val R=max(b.width(),b.height())*.85f
         p.shader=RadialGradient(cx,cy,R,intArrayOf((glow and 0xffffff) or ((if(a.light)0x2e else 0x4a) shl 24),(glow and 0xffffff) or ((if(a.light)0x12 else 0x1c) shl 24),glow and 0xffffff),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP)
         c.save();val path=Path().apply{addRoundRect(r,rad,rad,Path.Direction.CW)};c.clipPath(path);c.drawRect(r,p);c.restore();p.shader=null}

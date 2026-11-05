@@ -26,7 +26,8 @@ internal fun MainActivity.goalSheet(year:Int,initial:Int,done:Int,saved:(Int?)->
     box.addView(pace,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
     val ruler=GoalRuler(this,value)
     box.addView(ruler,LinearLayout.LayoutParams(-1,d(64)).apply{topMargin=d(22);leftMargin=-d(20);rightMargin=-d(20)})
-    ruler.onChange={n->val old=value;value=n;number.set("$n","$old",up=n>old);unit.text=unitFor(n);pace.text=paceFor(n);if(n>0)road.goal=n}
+    var lastAt=0L
+    ruler.onChange={n->val old=value;value=n;val now=android.os.SystemClock.uptimeMillis();if(now-lastAt<130)number.set("$n","$n") else number.set("$n","$old",up=n>old);lastAt=now;unit.text=unitFor(n);pace.text=paceFor(n);if(n>0)road.goal=n}
     ruler.onValue={v->if(v>=1f)road.goalFloat=v}
     val sheet=dialog().setBare().setView(box).show()
     sheet.setOnDismissListener{road.stop();ruler.stop();if(value!=start){val n=value.takeIf{it>0};updateStatistics{changeAnnualGoal(it,year,n)};saved(n)}}
@@ -58,9 +59,11 @@ internal class GoalRoadView(private val a:MainActivity,private val done:Int,star
         val now=System.nanoTime()/1_000_000;val dt=if(last==0L)16f else (now-last).coerceIn(1,48).toFloat();last=now
         val reduced=a.prefs.str("motion")=="reduced";val g=goalFloat.coerceAtLeast(1f);val gi=goal
         // springs: each milestone to its share of the road
-        for(i in 0 until min(f.size,max(gi,60)+2)){val want=(i+1f)/g;val exist=i<gi-1
+        for(i in 0 until min(f.size,max(gi,60)+2)){val exist=i<gi-1;val want=if(exist)(i+1f)/g else 1f
             if(reduced){f[i]=want;al[i]=if(exist)1f else 0f;continue}
-            val acc=(want-f[i])*.0009f-fv[i]*.007f;fv[i]+=acc*dt;f[i]+=fv[i]*dt;al[i]+=((if(exist)1f else 0f)-al[i])*min(1f,dt/140f)}
+            if(exist&&al[i]<.02f){f[i]=1f;fv[i]=0f} // a new milestone comes out of the flag
+            val acc=(want-f[i])*.0011f-fv[i]*.064f;fv[i]+=acc*dt;f[i]+=fv[i]*dt
+            al[i]+=((if(exist)1f else 0f)-al[i])*min(1f,dt/(if(exist)160f else 220f))}
         wave=max(0f,wave-dt/420f)
         val dense=((g-34f)/14f).coerceIn(0f,1f)
         p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND
