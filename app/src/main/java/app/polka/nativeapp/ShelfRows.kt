@@ -95,7 +95,8 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     private fun runAsk(to:Float){askAnim?.cancel();val from=ask;val reduced=a.prefs.str("motion")=="reduced"
         fun set(k:Float){ask=k;val lp=pill.layoutParams;lp.width=(a.d(40)+(a.d(96)-a.d(40))*k).toInt();pill.layoutParams=lp;pill.alpha=(k*1.5f).coerceIn(0f,1f)
             card.setColor(androidx.core.graphics.ColorUtils.blendARGB(cardColor,0xffff5a4c.toInt(),.14f*k));card.alpha=(progress*255).toInt();apply(progress)
-            if(k<=0f)pill.visibility=View.GONE}
+            // the first frame of the opening is k=0: only a finished closing hides the pill
+            pill.visibility=if(k<=0f&&to<=0f)View.GONE else View.VISIBLE}
         if(reduced){set(to);askAnim=null;return}
         askAnim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=if(to>from)280 else 220;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{set(it.animatedValue as Float)}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(askAnim===x)askAnim=null}});start()}}
