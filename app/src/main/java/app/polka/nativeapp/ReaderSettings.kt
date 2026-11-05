@@ -30,7 +30,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
 
     fun show(){
         val dlg=android.app.Dialog(a,R.style.PolkaSheetTheme);dialog=dlg
-        val root=FrameLayout(a).apply{isClickable=true;setOnClickListener{close()}}
+        val root=DragRoot().apply{isClickable=true;setOnClickListener{close()}}
         sheet=a.column().apply{isClickable=true;setPadding(a.d(18),a.d(12),a.d(18),a.d(20));elevation=a.d(16).toFloat()
             background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(30).toFloat();setStroke(1,if(a.light)0x10000000 else 0x10ffffff)}}
         sheet.addView(View(a).apply{background=a.shape(if(a.light)0x33000000 else 0x38ffffff,3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(20)})
@@ -46,9 +46,69 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         SafeArea.bind(root){i->val s=SafeArea.content(i,false);lp.bottomMargin=a.d(8)+s.bottom;lp.leftMargin=a.d(8)+s.left;lp.rightMargin=a.d(8)+s.right;sheet.layoutParams=lp}
         dlg.setOnKeyListener{_,code,e->if(code==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){if(sub!=null)back() else close();true}else false}
         dlg.show()
-        if(!reduced){sheet.translationY=a.d(400).toFloat();sheet.post{sheet.translationY=sheet.height+a.d(20).toFloat();sheet.animate().translationY(0f).setDuration(380).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
-            // rows rise in one after another as the panel arrives
-            (main as? ViewGroup)?.let{g->for(i in 0 until g.childCount){val v=g.getChildAt(i);v.alpha=0f;v.translationY=a.d(14).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(90L+i*45L).setDuration(340).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}}
+        val bar=r.bottomBar
+        if(!reduced&&r.chromeVisible&&bar.width>0&&bar.height>0){sheet.alpha=0f;sheet.post{morphIn(bar,root)}}
+        else if(!reduced){sheet.translationY=a.d(400).toFloat();sheet.post{sheet.translationY=sheet.height+a.d(20).toFloat();sheet.animate().translationY(0f).setDuration(380).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start();riseRows(90)}}
+    }
+    /** Rows rise in one after another as the panel arrives. */
+    private fun riseRows(first:Long){(main as? ViewGroup)?.let{g->for(i in 0 until g.childCount){val v=g.getChildAt(i);v.alpha=0f;v.translationY=a.d(14).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(first+i*45L).setDuration(340).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
+    /** The reader's bottom bar grows into this panel: the same card stretches up from the bar's place to the panel's,
+     *  its colour and corners turn into the panel's, the bar's own content fades away and the settings rise in. */
+    private fun morphIn(bar:View,root:FrameLayout){
+        val sAt=IntArray(2);sheet.getLocationOnScreen(sAt);val bAt=IntArray(2);bar.getLocationOnScreen(bAt);val rAt=IntArray(2);root.getLocationOnScreen(rAt)
+        val from=RectF((bAt[0]-sAt[0]).toFloat(),(bAt[1]-sAt[1]).toFloat(),(bAt[0]-sAt[0]+bar.width).toFloat(),(bAt[1]-sAt[1]+bar.height).toFloat())
+        val to=RectF(0f,0f,sheet.width.toFloat(),sheet.height.toFloat())
+        val fromColor=(bar.background as? OpaqueSurface)?.fillColor?:sheetColor
+        // a picture of the bar's content stays where it was and fades as the card grows
+        val pic=runCatching{Bitmap.createBitmap(bar.width,bar.height,Bitmap.Config.ARGB_8888).also{val c=Canvas(it);val bg=bar.background;bar.background=null;try{bar.draw(c)}finally{bar.background=bg}}}.getOrNull()
+        val ghost=pic?.let{b->ImageView(a).apply{setImageBitmap(b);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;translationX=(bAt[0]-rAt[0]).toFloat();translationY=(bAt[1]-rAt[1]).toFloat()}}
+        ghost?.let{root.addView(it,FrameLayout.LayoutParams(bar.width,bar.height))}
+        r.yieldChromeToSettings()
+        val original=sheet.background;val frame=MorphFrame(a.d(26).toFloat());frame.color=fromColor;frame.rect.set(from)
+        sheet.background=frame;sheet.outlineProvider=frame.outline;sheet.clipToOutline=true;sheet.alpha=1f
+        riseRows(70)
+        val ease=PathInterpolator(.2f,0f,0f,1f)
+        ValueAnimator.ofFloat(0f,1f).apply{duration=540;interpolator=LinearInterpolatorCompat
+            addUpdateListener{val t=it.animatedValue as Float;val k=ease.getInterpolation(t)
+                frame.rect.set(from.left+(to.left-from.left)*k,from.top+(to.top-from.top)*k,from.right+(to.right-from.right)*k,from.bottom+(to.bottom-from.bottom)*k)
+                frame.radius=a.d(26)+(a.d(30)-a.d(26))*k;frame.color=androidx.core.graphics.ColorUtils.blendARGB(fromColor,sheetColor,(t/.6f).coerceIn(0f,1f))
+                frame.invalidateSelf();sheet.invalidateOutline()
+                ghost?.let{g->val f=(t/.32f).coerceIn(0f,1f);g.alpha=1f-f;g.translationY=(bAt[1]-rAt[1])-a.d(10)*f}}
+            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){
+                sheet.background=original;sheet.outlineProvider=ViewOutlineProvider.BACKGROUND;sheet.clipToOutline=false
+                ghost?.let{root.removeView(it);it.setImageDrawable(null)};pic?.recycle()}});start()}
+    }
+    /** The growing card: a rounded rectangle at any rect inside the panel, also used as the panel's outline (it clips the rows). */
+    private class MorphFrame(var radius:Float):android.graphics.drawable.Drawable(){
+        val rect=RectF();var color=0;private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+        val outline=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(rect.left.roundToInt(),rect.top.roundToInt(),rect.right.roundToInt(),rect.bottom.roundToInt(),radius)}}
+        override fun draw(c:Canvas){p.color=color;c.drawRoundRect(rect,radius,radius,p)}
+        override fun setAlpha(alpha:Int){}
+        override fun setColorFilter(cf:ColorFilter?){}
+        @Deprecated("Deprecated in Java") override fun getOpacity()=PixelFormat.TRANSLUCENT
+    }
+    private object LinearInterpolatorCompat:android.animation.TimeInterpolator{override fun getInterpolation(x:Float)=x}
+    /** The panel follows a downward drag (from anywhere on it that is not a control being dragged) and leaves past a
+     *  quarter of its height or on a quick flick; otherwise it settles back. */
+    private inner class DragRoot:FrameLayout(a){
+        private var x0=0f;private var y0=0f;private var dragging=false;private var vt:VelocityTracker?=null
+        private fun inSheet(x:Float,y:Float):Boolean{val r=Rect();sheet.getGlobalVisibleRect(r);return r.contains(x.toInt(),y.toInt())}
+        private fun subScrolled():Boolean{var found=false;fun walk(v:View){if(v is SheetScroll&&v.canScrollVertically(-1))found=true;if(v is ViewGroup)for(i in 0 until v.childCount)walk(v.getChildAt(i))};sub?.let{walk(it)};return found}
+        override fun onInterceptTouchEvent(e:MotionEvent):Boolean{
+            when(e.actionMasked){
+                MotionEvent.ACTION_DOWN->{x0=e.rawX;y0=e.rawY;dragging=false;vt?.recycle();vt=VelocityTracker.obtain();vt?.addMovement(e)}
+                MotionEvent.ACTION_MOVE->{vt?.addMovement(e);val dy=e.rawY-y0;val dx=e.rawX-x0
+                    if(!dragging&&dialog!=null&&dy>a.d(10)&&dy>abs(dx)*1.3f&&inSheet(x0,y0)&&!subScrolled()){dragging=true;sheet.animate().cancel();return true}}}
+            return false}
+        override fun onTouchEvent(e:MotionEvent):Boolean{
+            if(!dragging)return super.onTouchEvent(e)
+            vt?.addMovement(e)
+            when(e.actionMasked){
+                MotionEvent.ACTION_MOVE->{val dy=e.rawY-y0;sheet.translationY=if(dy>0)dy else dy*.2f}
+                MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{dragging=false;vt?.computeCurrentVelocity(1000);val vy=vt?.yVelocity?:0f;vt?.recycle();vt=null
+                    if(e.actionMasked==MotionEvent.ACTION_UP&&(sheet.translationY>sheet.height*.25f||vy>a.d(900)))close()
+                    else{val sp=Spring.of(.2,420.0);sheet.animate().translationY(0f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}}
+            return true}
     }
     private fun close(){val d=dialog?:return;dialog=null
         if(reduced){d.dismiss();return}
@@ -71,6 +131,11 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         refresh();return box
     }
     /** A sub-page slides in over the main one at the main page's height; its content scrolls if longer. */
+    private var heightAnim:ValueAnimator?=null
+    private fun glideHeight(from:Int,to:Int,done:()->Unit={}){heightAnim?.cancel();val lp=pages.layoutParams
+        if(reduced||from==to){lp.height=to;pages.layoutParams=lp;done();return}
+        val sp=Spring.of(.12,520.0);heightAnim=ValueAnimator.ofInt(from,to).apply{duration=sp.duration;interpolator=sp.interpolator;addUpdateListener{lp.height=it.animatedValue as Int;pages.layoutParams=lp}
+            addListener(object:android.animation.AnimatorListenerAdapter(){var cancelled=false;override fun onAnimationCancel(x:android.animation.Animator){cancelled=true};override fun onAnimationEnd(x:android.animation.Animator){if(!cancelled)done()}});start()}}
     private fun open(page:View){if(sub!=null)return;val h=main.height
         val holder=a.column()
         val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
@@ -78,14 +143,22 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         head.addView(a.text(page.tag as? String?:"",15f,a.fg,true).apply{setPadding(a.d(10),0,0,0)})
         holder.addView(head,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(8)})
         val scroll=SheetScroll(a,sheetColor,30,18).apply{addView(page)}
-        holder.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
-        pages.addView(holder,FrameLayout.LayoutParams(-1,h));sub=holder
+        holder.addView(scroll,LinearLayout.LayoutParams(-1,-2))
+        // how tall the page wants to be, capped so the book still shows above the panel
+        holder.measure(View.MeasureSpec.makeMeasureSpec(pages.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
+        val cap=(a.resources.displayMetrics.heightPixels*.8f).toInt()-a.d(80)
+        val target=holder.measuredHeight.coerceAtMost(cap)
+        if(holder.measuredHeight>cap)(scroll.layoutParams as LinearLayout.LayoutParams).apply{height=0;weight=1f}
+        pages.addView(holder,FrameLayout.LayoutParams(-1,target));sub=holder
         main.layoutParams=main.layoutParams.apply{height=h}
+        glideHeight(h,target)
         val w=pages.width.toFloat()
         if(reduced){main.visibility=View.INVISIBLE;return}
         holder.translationX=w;holder.animate().translationX(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
         main.animate().translationX(-w*.3f).alpha(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
     private fun back(){val s=sub?:return;sub=null;val w=pages.width.toFloat();refresh()
+        val mainH=main.height.takeIf{it>0}?:pages.height
+        glideHeight(pages.height,mainH){pages.layoutParams=pages.layoutParams.apply{height=ViewGroup.LayoutParams.WRAP_CONTENT}}
         if(reduced){pages.removeView(s);main.visibility=View.VISIBLE;main.alpha=1f;main.translationX=0f;return}
         s.animate().translationX(w).setDuration(280).setInterpolator(PathInterpolator(.4f,0f,.2f,1f)).withEndAction{pages.removeView(s)}.start()
         main.animate().translationX(0f).alpha(1f).setDuration(280).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
@@ -93,16 +166,23 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     private fun layoutPage():View{
         val box=a.column().apply{tag="Вёрстка"}
         box.addView(modeRow(),LinearLayout.LayoutParams(-1,-2))
-        box.addView(group(
-            inline("Межстрочный",1.2f,2.2f,.05f,r.lineHeight(),1.6f,{fmt(it,2)}){v->a.prefs.put("lhv",v.toDouble())},
-            inline("Поля",8f,48f,2f,a.prefs.optInt("margin",24).toFloat(),24f,{"${it.roundToInt()}"}){v->a.prefs.put("margin",v.roundToInt())},
-            inline("Межбуквенный",-.03f,.12f,.005f,a.prefs.optDouble("ls",0.0).toFloat(),0f,{percent(it)}){v->a.prefs.put("ls",v.toDouble())},
-            *(if(Build.VERSION.SDK_INT>=29)arrayOf(inline("Межсловный",0f,.6f,.02f,a.prefs.optDouble("ws",0.0).toFloat(),0f,{percent(it)}){v->a.prefs.put("ws",v.toDouble())})else emptyArray()),
-            toggle("По ширине","justify",true),
-            toggle("Переносы слов","hyph",true),
-            toggle("Убирать пустые строки","trimEmpty",false)
-        ),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(6)})
-        box.addView(a.text("Сбросить оформление",13.5f,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(14),0,a.d(6));a.press(this);setOnClickListener{reset()}},LinearLayout.LayoutParams(-1,-2))
+        val list=a.column()
+        fun held(bar:LayoutBar):View{val wrap=FrameLayout(a).apply{setPadding(a.d(4),a.d(4),a.d(4),a.d(4))};wrap.addView(bar,FrameLayout.LayoutParams(-1,a.d(40)));bar.onGrab={on->spotlight(wrap,on)};return wrap}
+        fun bar(title:String,from:Float,to:Float,step:Float,value:Float,default:Float,format:(Float)->String,set:(Float)->Unit)=
+            held(LayoutBar(a,title,from,to,step,value,default,format){v,done->set(v);typography();if(done)a.savePreferences()})
+        listOf(
+            bar("Межстрочный",1.2f,2.2f,.05f,r.lineHeight(),1.6f,{fmt(it,2)}){v->a.prefs.put("lhv",v.toDouble())},
+            bar("Поля",8f,48f,2f,a.prefs.optInt("margin",24).toFloat(),24f,{"${it.roundToInt()}"}){v->a.prefs.put("margin",v.roundToInt())},
+            bar("Межбуквенный",-.03f,.12f,.005f,a.prefs.optDouble("ls",0.0).toFloat(),0f,{percent(it)}){v->a.prefs.put("ls",v.toDouble())})
+            .forEach{list.addView(it,LinearLayout.LayoutParams(-1,-2))}
+        if(Build.VERSION.SDK_INT>=29)list.addView(bar("Межсловный",0f,.6f,.02f,a.prefs.optDouble("ws",0.0).toFloat(),0f,{percent(it)}){v->a.prefs.put("ws",v.toDouble())},LinearLayout.LayoutParams(-1,-2))
+        fun sw(title:String,key:String,default:Boolean):View{val wrap=FrameLayout(a).apply{setPadding(a.d(4),a.d(4),a.d(4),a.d(4))}
+            wrap.addView(LayoutToggle(a,title,a.prefs.optBoolean(key,default)){on->r.crossfade{a.prefs.put(key,on);a.savePreferences();typography()}},FrameLayout.LayoutParams(-1,a.d(40)));return wrap}
+        val pair=a.line();pair.addView(sw("По ширине","justify",true),LinearLayout.LayoutParams(0,-2,1f));pair.addView(sw("Переносы","hyph",true),LinearLayout.LayoutParams(0,-2,1f))
+        list.addView(pair,LinearLayout.LayoutParams(-1,-2));list.addView(sw("Убирать пустые строки","trimEmpty",false),LinearLayout.LayoutParams(-1,-2))
+        // the capsules' own 4dp frame (the spotlight card) makes the 8dp gaps; it reaches past the page edges by 4dp
+        box.addView(list,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8);leftMargin=-a.d(4);rightMargin=-a.d(4)})
+        box.addView(a.text("Сбросить вёрстку",13.5f,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(12),0,a.d(4));a.press(this);setOnClickListener{reset()}},LinearLayout.LayoutParams(-1,-2))
         return box
     }
     private fun fontPage():View{
@@ -140,7 +220,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             val (bg,ink)=colors(key)
             val tile=ThemeTile(a,bg,ink).apply{isClickable=true;contentDescription="Тема: $label"}
             refreshers.add{tile.on=a.prefs.str("rt","night")==key}
-            tile.setOnClickListener{a.prefs.put("rt",key);a.savePreferences();typography()}
+            tile.setOnClickListener{if(a.prefs.str("rt","night")!=key)r.crossfade{a.prefs.put("rt",key);a.savePreferences();typography()}}
             a.press(tile);row.addView(tile,LinearLayout.LayoutParams(0,a.d(52),1f).apply{if(i>0)leftMargin=a.d(12)})}
         return row
     }
@@ -390,4 +470,66 @@ internal class SunGlyph(private val a:MainActivity,private val large:Boolean):Vi
         p.style=Paint.Style.STROKE;p.strokeWidth=(1.6f*a.resources.displayMetrics.density)*k
         for(i in 0 until 8){val t=Math.PI*i/4;val r1=(6.5f*a.resources.displayMetrics.density)*k;val r2=(9f*a.resources.displayMetrics.density)*k;c.drawLine(cx+(cos(t)*r1).toFloat(),cy+(sin(t)*r1).toFloat(),cx+(cos(t)*r2).toFloat(),cy+(sin(t)*r2).toFloat(),p)}
     }
+}
+
+/** A layout setting as a capsule like «Размер»: the name on the left in two inks split at the fill, the value on the
+ *  right, a quiet dot at the default (the fill catches on it with a tick). The fill follows the finger and settles on whole steps. */
+internal class LayoutBar(private val a:MainActivity,private val title:String,private val from:Float,private val to:Float,private val step:Float,start:Float,private val default:Float?,private val format:(Float)->String,private val change:(Float,Boolean)->Unit):View(a){
+    var onGrab:((Boolean)->Unit)?=null
+    private fun snap(v:Float)=(from+((v-from)/step).roundToInt()*step).coerceIn(from,to)
+    private var value=snap(start);private var pos=frac(value);private var settle:ValueAnimator?=null
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG);private val face by lazy{a.text("",1f).typeface}
+    private val reduced get()=a.prefs.str("motion")=="reduced"
+    init{contentDescription=title;isClickable=true}
+    private fun frac(v:Float)=((v-from)/(to-from)).coerceIn(0f,1f)
+    private fun knobFrac(x:Float):Float{val h=height.toFloat();return ((x-h*.5f)/(width-h).coerceAtLeast(1f)).coerceIn(0f,1f)}
+    override fun onTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){
+        MotionEvent.ACTION_DOWN->{parent?.requestDisallowInterceptTouchEvent(true);settle?.cancel();onGrab?.invoke(true);track(e.x,false)}
+        MotionEvent.ACTION_MOVE->track(e.x,false)
+        MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{track(e.x,true);glide(frac(value));onGrab?.invoke(false)}};return true}
+    private fun track(x:Float,done:Boolean){var f=knobFrac(x);val d=default;if(d!=null&&abs(f-frac(d))<.025f)f=frac(d)
+        pos=f;val n=snap(from+f*(to-from))
+        if(n!=value){value=n;if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)}
+        invalidate();change(value,done)}
+    private fun glide(target:Float){settle?.cancel();if(reduced||!isAttachedToWindow){pos=target;invalidate();return}
+        settle=ValueAnimator.ofFloat(pos,target).apply{duration=240;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{pos=it.animatedValue as Float;invalidate()};start()}}
+    override fun onDetachedFromWindow(){settle?.cancel();super.onDetachedFromWindow()}
+    override fun onDraw(c:Canvas){val h=height.toFloat();val r=h/2;val w=width.toFloat();val d=a.resources.displayMetrics.density
+        p.shader=null;p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,r,r,p)
+        val fx=h+(w-h)*pos
+        p.color=Color.WHITE;p.shader=LinearGradient(0f,0f,fx,0f,if(a.light)0xff9a9a9e.toInt() else 0xff8c8c90.toInt(),if(a.light)0xff5c5c60.toInt() else 0xffe6e6e8.toInt(),Shader.TileMode.CLAMP)
+        c.drawRoundRect(0f,0f,fx,h,r,r,p);p.shader=null
+        default?.let{dv->val dx=h/2+(w-h)*frac(dv);p.color=if(dx<fx)(if(a.light)0x59ffffff else 0x591d1d20) else (if(a.light)0x29000000 else 0x38ffffff);c.drawCircle(dx,h/2,3*d,p)}
+        val onFill=if(a.light)Color.WHITE else 0xff1d1d20.toInt();val off=if(a.light)0xff55555a.toInt() else 0xffcfcfd4.toInt()
+        t.typeface=face;t.textSize=13f*a.resources.displayMetrics.scaledDensity;t.textAlign=Paint.Align.LEFT
+        val base=h/2f-(t.ascent()+t.descent())/2f;val lx=15*d
+        t.color=off;c.save();c.clipRect(fx,0f,w,h);c.drawText(title,lx,base,t);c.restore()
+        t.color=onFill;c.save();c.clipRect(0f,0f,fx,h);c.drawText(title,lx,base,t);c.restore()
+        val num=format(value);t.textAlign=Paint.Align.RIGHT;t.isFakeBoldText=true
+        val nx=w-15*d;t.color=if(fx>nx-4*d)onFill else (if(a.light)a.fg else 0xfff3f2ef.toInt());c.drawText(num,nx,base,t);t.isFakeBoldText=false}
+}
+
+/** A switch as a capsule: the name on the left, a small switch on the right; the knob glides across. */
+internal class LayoutToggle(private val a:MainActivity,private val title:String,initial:Boolean,private val change:(Boolean)->Unit):View(a){
+    private var on=initial;private var k=if(initial)1f else 0f;private var anim:ValueAnimator?=null
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG);private val face by lazy{a.text("",1f).typeface}
+    init{isClickable=true;contentDescription=title;a.press(this);setOnClickListener{flip()}}
+    override fun onInitializeAccessibilityNodeInfo(info:android.view.accessibility.AccessibilityNodeInfo){super.onInitializeAccessibilityNodeInfo(info);info.isCheckable=true;info.isChecked=on;info.className="android.widget.Switch"}
+    private fun flip(){on=!on;anim?.cancel();if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        if(a.prefs.str("motion")=="reduced"){k=if(on)1f else 0f;invalidate()}
+        else anim=ValueAnimator.ofFloat(k,if(on)1f else 0f).apply{duration=220;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}
+        // let the knob start moving before the page is rebuilt
+        postDelayed({change(on)},60)}
+    override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
+    override fun onDraw(c:Canvas){val h=height.toFloat();val w=width.toFloat();val d=a.resources.displayMetrics.density
+        p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,h/2,h/2,p)
+        t.typeface=face;t.textSize=13f*a.resources.displayMetrics.scaledDensity;t.color=if(a.light)0xff3a3a3e.toInt() else 0xffcfcfd4.toInt()
+        val sw=36*d;val sh=22*d;val sx=w-8*d-sw;val sy=(h-sh)/2
+        val room=sx-14*d-6*d;var label=title;if(t.measureText(label)>room){while(label.length>1&&t.measureText("$label…")>room)label=label.dropLast(1);label="$label…"}
+        c.drawText(label,14*d,h/2f-(t.ascent()+t.descent())/2f,t)
+        val offTrack=if(a.light)0x29000000 else 0xff3a3a3d.toInt();val onTrack=if(a.light)0xff1a1a1c.toInt() else 0xfff3f2ef.toInt()
+        p.color=androidx.core.graphics.ColorUtils.blendARGB(offTrack,onTrack,k);c.drawRoundRect(sx,sy,sx+sw,sy+sh,sh/2,sh/2,p)
+        val kr=(sh-5*d)/2;val kx=sx+2.5f*d+kr+(sw-5*d-2*kr)*k
+        val offKnob=if(a.light)Color.WHITE else 0xffcfcfd4.toInt();val onKnob=if(a.light)Color.WHITE else 0xff1d1d20.toInt()
+        p.color=androidx.core.graphics.ColorUtils.blendARGB(offKnob,onKnob,k);p.setShadowLayer(1.5f*d,0f,.6f*d,0x40000000);c.drawCircle(kx,h/2,kr,p);p.clearShadowLayer()}
 }

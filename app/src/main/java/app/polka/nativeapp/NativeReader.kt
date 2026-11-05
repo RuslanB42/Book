@@ -551,6 +551,20 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     fun finishBook() { a.confirm("Книга прочитана?","Отметить книгу прочитанной?") { completed=true; book.put("completedAt",System.currentTimeMillis()); save(); a.closeReader() } }
     internal fun showChrome(show:Boolean)=setCalm(!show,false)
+    /** The bottom bar, which grows into the reading settings. */
+    internal val bottomBar:View get()=bottom
+    internal val chromeVisible get()=!calm&&bottom.isShown&&bottom.alpha>.5f
+    /** The settings took the bottom bar's place: it is gone at once, the top bar slides away; reading stays calm after. */
+    internal fun yieldChromeToSettings(){bottom.animate().cancel();bottom.alpha=0f;setCalm(true,true)}
+    /** Change how the page looks under a soft crossfade from the old picture, so nothing jumps. */
+    internal fun crossfade(change:()->Unit){
+        if(a.prefs.str("motion")=="reduced"||view.width<=0||view.height<=0){change();return}
+        val pic=runCatching{Bitmap.createBitmap(view.width,view.height,Bitmap.Config.ARGB_8888).also{view.draw(Canvas(it))}}.getOrNull()
+        if(pic==null){change();return}
+        val cover=ImageView(a).apply{setImageBitmap(pic);scaleType=ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
+        view.addView(cover,FrameLayout.LayoutParams(-1,-1))
+        change()
+        cover.animate().alpha(0f).setStartDelay(30).setDuration(320).setInterpolator(MotionSpec.settle).withEndAction{view.removeView(cover);cover.setImageDrawable(null);pic.recycle()}.start()}
     /** While a setting is being dragged the reader's bars fade away (only their opacity: the calm state is not touched). */
     internal fun fadeChrome(hide:Boolean){if(calm)return;val reduced=a.prefs.str("motion")=="reduced";listOf(topBar,bottom).forEach{v->v.animate().cancel();v.translationY=0f;if(reduced)v.alpha=if(hide)0f else 1f else v.animate().alpha(if(hide)0f else 1f).setDuration(if(hide)160 else 240).setInterpolator(MotionSpec.settle).start()}}
     fun toggleChrome(){if(!editorOpen)setCalm(!calm,true)}
