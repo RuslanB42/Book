@@ -11,7 +11,7 @@ import kotlin.math.*
 /** «Огонёк»: minutes a day that keep the streak. A slider that snaps to round values; the flame grows inside its own stage, the number rolls, the pace is named. */
 internal fun MainActivity.editStreakThreshold(saved:(Int)->Unit={}) {
     var current=10
-    work({current=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")?.optInt("goal",10)} ?: 10}){goalSheet(current,saved)}
+    work({current=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")?.optInt("goal",10)} ?: 10}){flameSheet(current,saved)}
 }
 private class GoalLevel(val below:Int,val text:String,val color:Int)
 private val goalLevels=listOf(GoalLevel(15,"Пара страниц перед сном",0xff4f8dff.toInt()),GoalLevel(30,"Спокойный вечер с книгой",0xff35c4a0.toInt()),
