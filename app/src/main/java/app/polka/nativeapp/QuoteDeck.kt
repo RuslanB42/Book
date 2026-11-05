@@ -55,10 +55,13 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             setMeasuredDimension(w,h+if(sheets.isEmpty())0 else a.d(18))}
         override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){for(i in 0 until childCount){val c=getChildAt(i);c.layout(0,0,r-l,c.measuredHeight)};pose(lift)}
         private var lift=0f
-        /** Sheets behind, fanned; [p] (0..1) straightens the first one up into the front position (the second follows halfway). */
+        /** Sheets behind, fanned. [p] (0..1, may overshoot a little) moves every sheet one place forward: the first
+         *  straightens up into the card's place, the second takes the first one's place in the fan. */
         private fun pose(p:Float){lift=p
-            sheets.forEachIndexed{i,s->val k=if(i==0)1f-p else 1f-p*.5f;val w=s.width.toFloat().takeIf{it>0}?:return@forEachIndexed
-                s.pivotX=w/2;s.pivotY=s.height/2f;s.scaleX=1f;s.scaleY=1f;s.rotation=fanRot[i]*k;s.translationX=fanX[i]*k;s.translationY=fanY[i]*k;s.translationZ=-a.d(2)*(i+k)}}
+            sheets.forEachIndexed{i,s->val w=s.width.toFloat().takeIf{it>0}?:return@forEachIndexed
+                val toR=if(i==0)0f else fanRot[i-1];val toX=if(i==0)0f else fanX[i-1];val toY=if(i==0)0f else fanY[i-1]
+                s.pivotX=w/2;s.pivotY=s.height/2f;s.scaleX=1f;s.scaleY=1f
+                s.rotation=fanRot[i]+(toR-fanRot[i])*p;s.translationX=fanX[i]+(toX-fanX[i])*p;s.translationY=fanY[i]+(toY-fanY[i])*p;s.translationZ=-a.d(2)*(i+1-p)}}
         override fun onInterceptTouchEvent(e:MotionEvent):Boolean{
             if(list.size<2||busy)return false
             when(e.actionMasked){MotionEvent.ACTION_DOWN->{downX=e.x;downY=e.y;dragging=false;velocity?.recycle();velocity=VelocityTracker.obtain().also{it.addMovement(e)}}
@@ -68,33 +71,55 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             if(!dragging){if(e.actionMasked==MotionEvent.ACTION_DOWN&&list.size>1&&!busy){downX=e.x;downY=e.y;velocity?.recycle();velocity=VelocityTracker.obtain().also{it.addMovement(e)};return true};return super.onTouchEvent(e)}
             velocity?.addMovement(e);val dx=e.x-downX
             when(e.actionMasked){
-                MotionEvent.ACTION_MOVE->{front.translationX=dx;front.translationY=abs(dx)*.04f;front.rotation=dx/width*9f;pose((abs(dx)/(width*.6f)).coerceIn(0f,1f))}
+                MotionEvent.ACTION_MOVE->{front.translationX=dx;front.translationY=abs(dx)*.05f;front.rotation=dx/width*10f;pose((abs(dx)/(width*.6f)).coerceIn(0f,1f)*.55f)}
                 MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{velocity?.computeCurrentVelocity(1000);val vx=velocity?.xVelocity?:0f;dragging=false;parent?.requestDisallowInterceptTouchEvent(false)
                     val go=e.actionMasked==MotionEvent.ACTION_UP&&(abs(dx)>width*.3f||abs(vx)>a.d(700)&&sign(vx)==sign(dx))
                     if(go)fling(if(dx<0)-1 else 1,vx) else settleBack()}
             };return true}
         private fun settleBack(){front.animate().translationX(0f).translationY(0f).rotation(0f).setDuration(380).setInterpolator(PathInterpolator(.2f,1.25f,.4f,1f)).start()
             val from=lift;ValueAnimator.ofFloat(from,0f).apply{duration=320;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{pose(it.animatedValue as Float)};start()}}
-        /** Swipe left → next quote, right → previous. The card leaves along its path, the next one lands on the risen sheet. */
+        /** Approved «карточка уходит под веер»: the card is thrown aside, then tucks in under the deck as its last sheet,
+         *  while the sheets in front straighten up one place each (a soft spring) and the next quote lands on the first. */
         private fun fling(dir:Int,vx:Float){
-            busy=true;val old=front;val oldH=frontH
-            val dist=width*1.25f*dir;val speed=abs(vx).coerceAtLeast(a.d(1200).toFloat());val ms=((abs(dist-old.translationX)/speed)*1000).toLong().coerceIn(180,320)
-            old.animate().translationX(dist).translationY(a.d(24).toFloat()).rotation(dir*14f).alpha(.0f).setDuration(ms).setInterpolator(PathInterpolator(.3f,0f,.8f,.6f)).withEndAction{removeView(old)}.start()
-            ValueAnimator.ofFloat(lift,1f).apply{duration=ms;addUpdateListener{pose(it.animatedValue as Float)};start()}
+            busy=true;val old=front;val oldH=frontH;val oldTint=a.quoteTint(quoteInk(list[index]),.30f)
+            val glide=PathInterpolator(.2f,0f,0f,1f);val swing=PathInterpolator(.45f,0f,.25f,1f)
             if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            val sx=old.translationX;val sy=old.translationY;val sr=old.rotation;val from=lift
+            val outX=width*.82f*dir;val outY=a.d(28).toFloat();val outR=dir*16f
+            val backI=(sheets.size-1).coerceAtLeast(0)
+            val endX=if(sheets.isEmpty())0f else fanX[backI];val endY=if(sheets.isEmpty())0f else fanY[backI];val endR=if(sheets.isEmpty())0f else fanRot[backI]
             index=Math.floorMod(index+(if(dir<0)1 else -1),list.size);a.quoteDeckIndex[book.str("id")]=index;updateCounter()
-            postDelayed({
-                val next=card(index);heldH=oldH;front=next;next.alpha=0f;next.translationY=a.d(6).toFloat();addView(next)
-                // under the new card the fan takes the colours of the quotes after it (hidden behind it as it lands)
-                tintSheets()
+            // 1 — thrown aside, still on top; the fan keeps moving forward
+            ValueAnimator.ofFloat(0f,1f).apply{duration=230;interpolator=glide
+                addUpdateListener{val t=it.animatedValue as Float;old.translationX=sx+(outX-sx)*t;old.translationY=sy+(outY-sy)*t;old.rotation=sr+(outR-sr)*t;pose(from+(.75f-from)*t)}
+                addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){tuck()}});start()}
+            // 2 — it slips under the deck into the last place of the fan; the sheets settle forward with a spring
+            fun land(){
+                val next=card(index);heldH=oldH;front=next;next.alpha=0f;addView(next)
                 measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED))
                 val newH=next.measuredHeight
-                next.animate().alpha(1f).translationY(0f).setDuration(300).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
-                // height eases to the new card; the risen sheet sinks back behind it
-                ValueAnimator.ofFloat(0f,1f).apply{duration=420;interpolator=PathInterpolator(.2f,0f,0f,1f)
-                    addUpdateListener{val t=it.animatedValue as Float;heldH=(oldH+(newH-oldH)*t).toInt();pose(1f-t);requestLayout()}
-                    addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){heldH=-1;pose(0f);requestLayout();busy=false}});start()}
-            },(ms*.55f).toLong())
+                next.animate().alpha(1f).setDuration(200).setInterpolator(glide).start()
+                ValueAnimator.ofFloat(0f,1f).apply{duration=260;interpolator=glide
+                    addUpdateListener{val t=it.animatedValue as Float;heldH=(oldH+(newH-oldH)*t).toInt();requestLayout()}
+                    addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){
+                        // everything is in place: the fan steps back into its places, now in the next quotes' colours
+                        removeView(old);heldH=-1;tintSheets()
+                        sheets.lastOrNull()?.let{last->val fresh=last.background;last.background=android.graphics.drawable.TransitionDrawable(arrayOf(oldTint,fresh)).apply{isCrossFadeEnabled=true;startTransition(220)}}
+                        pose(0f);requestLayout();busy=false}});start()}
+            }
+            this.tuckAction={
+                old.translationZ=-a.d(12).toFloat()
+                val spring=android.view.animation.OvershootInterpolator(1.1f)
+                val lp=lift;var landed=false
+                ValueAnimator.ofFloat(0f,1f).apply{duration=if(reduced())0 else 520;interpolator=swing
+                    addUpdateListener{val t=it.animatedValue as Float
+                        old.translationX=outX+(endX-outX)*t;old.translationY=outY+(endY-outY)*t;old.rotation=outR+(endR-outR)*t
+                        pose(lp+(1f-lp)*spring.getInterpolation(t))
+                        if(!landed&&t>=.62f){landed=true;land()}}
+                    addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){if(!landed){landed=true;land()}}});start()}
+            }
         }
+        private var tuckAction:(()->Unit)?=null
+        private fun tuck(){val f=tuckAction;tuckAction=null;f?.invoke()}
     }
 }
