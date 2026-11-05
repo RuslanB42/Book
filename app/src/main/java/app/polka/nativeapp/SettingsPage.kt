@@ -44,15 +44,20 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
             val y=scroll.scrollY;settingsPage=null;root.removeView(scroll);render(true,false);if(profileOverlay!=null)refreshProfile();openSettingsPage(false);settingsPage?.let{p->p.post{(p as ScrollView).scrollTo(0,y)}}}}
         press(col);tiles.addView(col,LinearLayout.LayoutParams(0,-2,1f).apply{if(i>0)leftMargin=d(10)})}
     content.addView(tiles)
-    // reading: two plaques (filled in once the statistics are loaded)
+    // reading: two value capsules, the same height as the switches (filled in once the statistics are loaded)
     group("Чтение")
-    val plaques=line()
     val year=LocalDate.now().year
-    val flame=FlamePlaque(this);val goal=GoalPlaque(this,year)
-    plaques.addView(flame,LinearLayout.LayoutParams(0,d(150),1f));plaques.addView(goal,LinearLayout.LayoutParams(0,d(150),1f).apply{leftMargin=d(10)})
-    content.addView(plaques)
+    val capInk=if(light)0xff3a3a3e.toInt() else 0xffcfcfd4.toInt()
+    fun valueRow(title:String):Pair<LinearLayout,TextView>{val row=line().apply{gravity=Gravity.CENTER_VERTICAL;background=shape(pill,24);setPadding(d(18),0,d(16),0);isClickable=true;isFocusable=true;press(this)}
+        row.addView(text(title,14f,capInk),LinearLayout.LayoutParams(0,-2,1f))
+        val v=text("…",14f,fg,true);row.addView(v,LinearLayout.LayoutParams(-2,-2).apply{rightMargin=d(10)})
+        row.addView(Chevron(this),LinearLayout.LayoutParams(d(10),d(16)));return row to v}
+    val (flame,flameValue)=valueRow("Огонёк");val (goal,goalValue)=valueRow("Цель на $year")
+    content.addView(flame,LinearLayout.LayoutParams(-1,d(48)));content.addView(goal,LinearLayout.LayoutParams(-1,d(48)).apply{topMargin=d(10)})
     var stats=JSONObject()
-    fun refreshPlaques(){val model=ReadingStatistics(stats,books);flame.minutes=stats.optInt("goal",10);goal.set(model.target(year),model.finished.count{it.date?.year==year})}
+    fun refreshPlaques(){val model=ReadingStatistics(stats,books);val m=stats.optInt("goal",10);val t=model.target(year)
+        flameValue.text="$m мин в день";flame.contentDescription="Огонёк: $m минут в день"
+        goalValue.text=if(t>0)MainActivity.countBooks(t) else "не задана";goal.contentDescription="Цель на $year: "+goalValue.text}
     work({stats=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")}?:JSONObject()}){refreshPlaques()}
     flame.setOnClickListener{numberSheet("Огонёк",stats.optInt("goal",10),1..240,listOf(10,15,20,30,45,60),{n->"минут в день, чтобы огонёк горел"}){v->stats.put("goal",v);updateStatistics{it.put("goal",v)};refreshPlaques()}}
     goal.setOnClickListener{val model=ReadingStatistics(stats,books);val cur=model.target(year)
