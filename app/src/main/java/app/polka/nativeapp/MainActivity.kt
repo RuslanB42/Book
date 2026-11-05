@@ -177,6 +177,17 @@ class MainActivity : Activity() {
         root.requestApplyInsets()
         root.addView(bootLogo(),FrameLayout.LayoutParams(-1,-1))
         work({ library.initialize(); if(!File(filesDir,"recs.json").exists()) assets.open("recs.json").use { input -> File(filesDir,"recs.json").outputStream().use { input.copyTo(it) } }; loadData() }) { initialized=true; bootFinished=true; savedInstanceState?.getString("calendarImage")?.let{pendingCalendarImage=File(File(cacheDir,"calendar-share"),it)}; savedInstanceState?.getString("exportId")?.let { id -> books.firstOrNull { it.str("id")==id }?.let { pendingExport=it to (savedInstanceState.getString("exportFormat") ?: "fb2") } }; tab=savedInstanceState?.getString("tab") ?: "home"; shelf=savedInstanceState?.getString("shelf"); auto=savedInstanceState?.getString("auto"); query=savedInstanceState?.getString("query").orEmpty();searchOpen=savedInstanceState?.getBoolean("searchOpen",query.isNotEmpty()) ?: false; val bootView=root.findViewWithTag<View>("polka-boot-logo"); render(); revealFromBoot(bootView); savedInstanceState?.getString("readerId")?.let { id -> books.firstOrNull { it.str("id")==id }?.let { openBook(it) } }; pendingActivityResult?.let { pendingActivityResult=null; onActivityResult(it.first,it.second,it.third) } }
+        if(savedInstanceState==null)openIncoming(intent)
+    }
+    override fun onNewIntent(intent:Intent) { super.onNewIntent(intent); setIntent(intent); openIncoming(intent) }
+    /** A book opened from another app («Открыть с помощью» in Telegram, a file manager…) is added like a picked one. */
+    @Suppress("DEPRECATION")
+    private fun openIncoming(incoming:Intent?) {
+        if(incoming?.action!=Intent.ACTION_VIEW)return
+        val uri=incoming.data?:return
+        incoming.action=null
+        if(reader!=null)closeReader()
+        onActivityResult(10,RESULT_OK,Intent().setData(uri))
     }
     fun loadData() {
         prefs=library.prefs(); if(!prefs.has("size")) prefs.put("size",prefs.optInt("fontSize",19)); if(!prefs.has("ui")) prefs.put("ui",prefs.str("theme","dark")); books=library.allBooks(); sort=prefs.str("sort","manual")
