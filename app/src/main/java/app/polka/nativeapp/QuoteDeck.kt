@@ -63,8 +63,10 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
         override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){for(i in 0 until childCount){val c=getChildAt(i);c.layout(0,0,r-l,c.measuredHeight)};pose(lift)}
         /** Place [v] at slot [slot] (−1 = the card's own place, 0/1 = the fan), moved [p] of the way to the slot before it. */
         private fun place(v:View,slot:Int,p:Float){
-            fun r(s:Int)=if(s<0)0f else fanRot[s];fun x(s:Int)=if(s<0)0f else fanX[s];fun y(s:Int)=if(s<0)0f else fanY[s]
-            fun e(s:Int)=a.d(if(s<0)(if(a.light)8 else 10) else if(s==0)(if(a.light)4 else 6) else 3).toFloat()
+            fun r(s:Int):Float{return if(s<0)0f else fanRot[s]}
+            fun x(s:Int):Float{return if(s<0)0f else fanX[s]}
+            fun y(s:Int):Float{return if(s<0)0f else fanY[s]}
+            fun e(s:Int):Float{return a.d(if(s<0)(if(a.light)8 else 10) else if(s==0)(if(a.light)4 else 6) else 3).toFloat()}
             val to=slot-1;v.pivotX=v.width/2f;v.pivotY=v.height/2f
             v.rotation=r(slot)+(r(to)-r(slot))*p;v.translationX=x(slot)+(x(to)-x(slot))*p;v.translationY=y(slot)+(y(to)-y(slot))*p
             v.elevation=e(slot)+(e(to)-e(slot))*p.coerceIn(0f,1f);v.translationZ=-a.d(1)*(slot+1-p)}
