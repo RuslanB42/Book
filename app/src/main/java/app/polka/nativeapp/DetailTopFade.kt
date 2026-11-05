@@ -15,3 +15,17 @@ internal class DetailTopFade(private val a:MainActivity):View(a){
  override fun onSizeChanged(w:Int,h:Int,oldw:Int,oldh:Int){paint.shader=shader(h.toFloat(),if(a.light)0xfff7f7f5.toInt()else 0xff1c1c1e.toInt())}
  override fun onDraw(c:Canvas){c.drawRect(0f,0f,width.toFloat(),height.toFloat(),paint)}
 }
+
+/** A scrolling sheet's content with the book card's top fade: the sheet colour softly covers what scrolls up under the
+ *  top edge (the same smooth curve as [DetailTopFade]); nothing at the bottom. The fade grows in with the first
+ *  [rampDp] of scrolling, so content at rest is never dimmed. */
+internal class SheetScroll(private val a:MainActivity,private val color:Int,depthDp:Int=44,private val rampDp:Int=24):android.widget.ScrollView(a){
+ var fadeEnabled=true;set(v){field=v;invalidate()}
+ private val depth=a.d(depthDp).toFloat()
+ private val paint=Paint(Paint.ANTI_ALIAS_FLAG).apply{shader=DetailTopFade.shader(depth,color)}
+ private val m=Matrix()
+ init{isVerticalFadingEdgeEnabled=false;isVerticalScrollBarEnabled=false}
+ override fun draw(c:Canvas){super.draw(c);if(!fadeEnabled||scrollY<=0)return
+  val k=(scrollY/a.d(rampDp).toFloat()).coerceIn(0f,1f);paint.alpha=(255*k).toInt();m.setTranslate(0f,scrollY.toFloat());paint.shader.setLocalMatrix(m)
+  c.drawRect(scrollX.toFloat(),scrollY.toFloat(),(scrollX+width).toFloat(),scrollY+depth,paint)}
+}

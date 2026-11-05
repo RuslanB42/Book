@@ -77,7 +77,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         head.addView(FrameLayout(a).apply{background=a.shape(pillColor,17);isClickable=true;a.press(this);setOnClickListener{back()};contentDescription="Назад";addView(Chevron(a,true),FrameLayout.LayoutParams(a.d(12),a.d(18),Gravity.CENTER))},LinearLayout.LayoutParams(a.d(34),a.d(34)))
         head.addView(a.text(page.tag as? String?:"",15f,a.fg,true).apply{setPadding(a.d(10),0,0,0)})
         holder.addView(head,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(8)})
-        val scroll=ScrollView(a).apply{isVerticalScrollBarEnabled=false;isVerticalFadingEdgeEnabled=true;setFadingEdgeLength(a.d(24));addView(page)}
+        val scroll=SheetScroll(a,sheetColor,30,18).apply{addView(page)}
         holder.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         pages.addView(holder,FrameLayout.LayoutParams(-1,h));sub=holder
         main.layoutParams=main.layoutParams.apply{height=h}
@@ -190,7 +190,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
                 parent.background?.let{bg->val an=ValueAnimator.ofInt(255,0).apply{duration=if(reduced)0 else 180;addUpdateListener{bg.alpha=it.animatedValue as Int};start()};faded.add(bg to an)}
                 if(parent===sheet)break;child=parent;parent=parent.parent as? ViewGroup}
             // the scroll view's fading edges would still draw over the background; switch them off while focused
-            var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? ScrollView)?.isVerticalFadingEdgeEnabled=false;g=g.parent}
+            var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? SheetScroll)?.fadeEnabled=false;g=g.parent}
             // the held row becomes its own small floating card, so the book text never runs into it; the reader bars step aside
             val card=a.shape(sheetColor,22).apply{alpha=0};row.background=card;row.elevation=0f
             ValueAnimator.ofFloat(0f,1f).apply{duration=if(reduced)0 else 180;addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt();row.elevation=a.d(10)*k};start()}
@@ -202,7 +202,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             r.fadeChrome(false)
             hidden.forEach{(v,alpha)->if(reduced)v.alpha=alpha else v.animate().alpha(alpha).setStartDelay(60).setDuration(240).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()};hidden.clear()
             faded.forEach{(bg,an)->an.cancel();ValueAnimator.ofInt(bg.alpha,255).apply{duration=if(reduced)0 else 240;startDelay=if(reduced)0 else 40;addUpdateListener{bg.alpha=it.animatedValue as Int};start()}};faded.clear()
-            var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? ScrollView)?.isVerticalFadingEdgeEnabled=true;g=g.parent}
+            var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? SheetScroll)?.fadeEnabled=true;g=g.parent}
         }
     }
     private fun toggle(title:String,key:String,default:Boolean)=PolkaSwitch(a).apply{

@@ -153,7 +153,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 }
                 positive?.let { (s,fn) -> a.space(content,12); content.addView(a.button(s,true) { dismiss(); fn?.invoke(this,-1) }) }
                 negative?.let { (s,fn) -> a.space(content,8); content.addView(a.button(s) { dismiss(); fn?.invoke(this,-2) }) }
-                val scroller=ScrollView(a).apply { isFillViewport=false; addView(content) }
+                val scroller=SheetScroll(a,if(a.light) 0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()).apply { isFillViewport=false; addView(content) }
                 box.addView(scroller,if(tall)LinearLayout.LayoutParams(-1,0,1f)else LinearLayout.LayoutParams(-1,-2))
                 val frame=PolkaSheetFrame(a,box,tall,wide).apply {
                     isClickable=true
