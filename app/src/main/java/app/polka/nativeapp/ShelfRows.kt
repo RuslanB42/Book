@@ -34,7 +34,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
     private val lensHost=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
     // the shelf (its front, edge and shadow) lies inside the row's own bounds: drawn outside them it was cut off by
     // the page, so only a thin line of it showed
-    private val stageFull=(if(list.isEmpty())coverH*3/4 else coverH)+a.d(16)+a.d(17)
+    private val stageFull=(if(list.isEmpty())coverH*3/4 else coverH)+a.d(6)+glass.full-glass.sink
     private var progress=0f
     private var anim:android.animation.ValueAnimator?=null
     private var field:EditText?=null
@@ -153,24 +153,31 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
      *  with the books standing towards its back; then the front edge with a faint light line and a soft shadow below.
      *  No glass, no reflections. Drawn behind the covers. */
     private inner class MatteShelf:View(a){
-        /** Approved look Г2: a thin rounded graphite plank under the covers, with a light top edge and a soft shadow. */
+        /** Approved look «Графит, объёмнее»: a real graphite plank — its top face going back (the books stand on it),
+         *  a front edge with a lit bevel, and a soft shadow on the wall under it. */
         private val d=a.d(1).toFloat()
-        private val plank=a.d(11);private val shade=a.d(16)
-        val full=plank+shade
+        val top=a.d(12);val front=a.d(16);private val shade=a.d(20)
+        val full=top+front+shade
+        /** How far the covers' feet sink into the top face (they stand on it, not on its front edge). */
+        val sink=a.d(7)
         private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{isDither=true}
-        private val r=RectF()
+        private val r=RectF();private val m=Matrix()
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         fun refresh(){};fun scrolled(){}
         override fun onTouchEvent(e:MotionEvent)=false
-        override fun onDraw(c:Canvas){val light=a.light;val l=d*16;val rgt=width-d*16;val h=plank.toFloat();val rad=h/2
-            // soft shadow under the plank
-            p.color=Color.WHITE;p.shader=LinearGradient(0f,h*.6f,0f,h+shade,if(light)0x2e000000 else 0xa6000000.toInt(),0,Shader.TileMode.CLAMP)
-            r.set(l+d*6,h*.6f,rgt-d*6,h+shade);c.drawRoundRect(r,shade.toFloat(),shade.toFloat(),p)
-            // the plank: lighter on top, darker underneath (paint opacity reset first — it scales a gradient too)
-            p.color=Color.WHITE;p.shader=LinearGradient(0f,0f,0f,h,intArrayOf(if(light)0xffdcdcd8.toInt() else 0xff56565d.toInt(),if(light)0xffc6c6c2.toInt() else 0xff3b3b41.toInt(),if(light)0xffb3b3af.toInt() else 0xff2a2a2f.toInt()),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
-            r.set(l,0f,rgt,h);c.drawRoundRect(r,rad,rad,p);p.shader=null
-            // a fine light line along the top edge
-            p.color=if(light)0xb3ffffff.toInt() else 0x2effffff;r.set(l+d*4,d,rgt-d*4,d*2);c.drawRoundRect(r,d,d,p)}
+        override fun onDraw(c:Canvas){val light=a.light;val l=d*12;val rgt=width-d*12;val t=top.toFloat();val f=front.toFloat()
+            // soft shadow on the wall under the plank: an elliptical falloff, no edges
+            val cx=width/2f;val cy=t+f+d*2;val rx=(rgt-l)/2f*.92f;val ry=shade*.9f
+            p.color=Color.WHITE;p.shader=RadialGradient(0f,0f,1f,intArrayOf(if(light)0x40000000 else 0x99000000.toInt(),if(light)0x14000000 else 0x33000000,0),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
+            m.setScale(rx,ry);m.postTranslate(cx,cy);p.shader.setLocalMatrix(m);c.drawOval(cx-rx,cy-ry,cx+rx,cy+ry,p)
+            // top face: darker at the back, a touch lighter toward the front edge
+            p.shader=LinearGradient(0f,0f,0f,t,if(light)0xffbebebb.toInt() else 0xff1f1f22.toInt(),if(light)0xffd2d2cf.toInt() else 0xff313135.toInt(),Shader.TileMode.CLAMP)
+            r.set(l+d*2,0f,rgt-d*2,t+d);c.drawRect(r,p)
+            // front edge: lit bevel at the top, falling into shade at the foot
+            p.shader=LinearGradient(0f,t,0f,t+f,intArrayOf(if(light)0xffe9e9e6.toInt() else 0xff4a4a50.toInt(),if(light)0xffd3d3d0.toInt() else 0xff2e2e32.toInt(),if(light)0xffc9c9c6.toInt() else 0xff2a2a2d.toInt(),if(light)0xffb0b0ad.toInt() else 0xff1c1c1f.toInt()),floatArrayOf(0f,.12f,.45f,1f),Shader.TileMode.CLAMP)
+            r.set(l,t,rgt,t+f);c.drawRoundRect(r,d*3,d*3,p);c.drawRect(l,t,rgt,t+d*3,p);p.shader=null
+            p.color=if(light)0xccffffff.toInt() else 0x38ffffff;c.drawRect(l+d,t,rgt-d,t+d,p)
+            p.color=if(light)0x26000000 else 0x80000000.toInt();c.drawRect(l+d*3,t+f-d*.8f,rgt-d*3,t+f,p)}
     }
 
     /** Matte glass shelf with screws, light to draw: every cover has a tiny pre-blurred copy (made once, cached);
