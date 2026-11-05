@@ -17,23 +17,43 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
     private var index=(a.quoteDeckIndex[book.str("id")]?:0).coerceIn(0,(list.size-1).coerceAtLeast(0))
     private val counter=a.text("",12.5f,a.muted)
     private val deck=Deck()
+    private val dots=Dots()
     private fun reduced()=a.prefs.str("motion")=="reduced"
     private fun word(n:Int)=if(n%100 in 11..14)"цитат" else when(n%10){1->"цитата";2,3,4->"цитаты";else->"цитат"}
     init{
         orientation=VERTICAL;clipChildren=false;clipToPadding=false
-        val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(2),0,a.d(2),a.d(12));isClickable=true;setOnClickListener{a.detail(book)};contentDescription="Цитаты из книги ${book.str("title")}"}
-        head.addView(CoverView(a,book),LayoutParams(a.d(30),a.d(45)))
-        val meta=a.column().apply{setPadding(a.d(12),0,a.d(8),0)}
-        meta.addView(a.text(book.str("title"),15f,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
-        meta.addView(a.text(MainActivity.authors(book).ifBlank{"Автор не указан"},12.5f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
-        head.addView(meta,LayoutParams(0,-2,1f));head.addView(counter)
+        // Approved «А1»: a bigger cover and the title in the serif of the quotes, pressed close to the deck; where you are
+        // in the deck is told by quiet dots under it (the current one stretched, in its quote's colour), not «1 из 6».
+        val head=a.line().apply{gravity=Gravity.BOTTOM;setPadding(a.d(4),0,a.d(4),a.d(12));isClickable=true;setOnClickListener{a.detail(book)};contentDescription="Цитаты из книги ${book.str("title")}"}
+        head.addView(CoverView(a,book),LayoutParams(a.d(46),a.d(69)))
+        val meta=a.column().apply{setPadding(a.d(14),0,a.d(4),a.d(4))}
+        meta.addView(a.text(book.str("title"),20f,a.fg,true,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+        meta.addView(a.text(MainActivity.authors(book).ifBlank{"Автор не указан"},13f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(4),0,0)})
+        head.addView(meta,LayoutParams(0,-2,1f))
         if(showHead)addView(head,LayoutParams(-1,-2))
         addView(deck,LayoutParams(-1,-2))
+        if(showHead){if(list.size>1)addView(if(list.size<=14)dots else counter.apply{gravity=Gravity.CENTER},LayoutParams(-1,if(list.size<=14)a.d(8) else -2).apply{topMargin=a.d(2)})}
         // Without the book line (on the book's own card) the position sits under the deck.
-        if(!showHead&&list.size>1){(counter.parent as? ViewGroup)?.removeView(counter);counter.gravity=Gravity.CENTER;addView(counter,LayoutParams(-1,-2).apply{topMargin=a.d(10)})}
+        else if(list.size>1){counter.gravity=Gravity.CENTER;addView(counter,LayoutParams(-1,-2).apply{topMargin=a.d(10)})}
         updateCounter()
     }
-    private fun updateCounter(){counter.text=if(list.size>1)"${index+1} из ${list.size}" else "1 ${word(1)}"}
+    private fun updateCounter(){counter.text=if(list.size>1)"${index+1} из ${list.size}" else "1 ${word(1)}";dots.go(index)}
+    /** Position dots: the current one is a short capsule in its quote's colour, it glides to the next one. */
+    private inner class Dots:View(a){
+        private val p=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        private var at=index.toFloat();private var anim:ValueAnimator?=null
+        private val rest=if(a.light)0xffc9c9cd.toInt() else 0xff5a5a5f.toInt()
+        fun go(i:Int){if(width==0||reduced()){at=i.toFloat();invalidate();return};anim?.cancel();anim=ValueAnimator.ofFloat(at,i.toFloat()).apply{duration=320;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{at=it.animatedValue as Float;invalidate()};start()}}
+        override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
+        override fun onDraw(c:android.graphics.Canvas){val n=list.size;if(n<2)return
+            val dot=a.d(6).toFloat();val gap=a.d(6).toFloat();val wide=a.d(18).toFloat();val h=dot;val y=(height-h)/2f
+            var x=(width-(n*dot+(n-1)*gap+(wide-dot)))/2f
+            val lo=floor(at).toInt();val f=at-lo
+            for(i in 0 until n){val k=when(i){lo->1f-f;lo+1->f;else->0f};val w=dot+(wide-dot)*k
+                p.color=mix(rest,quoteInk(list[i]),k);c.drawRoundRect(x,y,x+w,y+h,h/2f,h/2f,p);x+=w+gap}}
+        private fun mix(c1:Int,c2:Int,t:Float):Int{val u=t.coerceIn(0f,1f);fun ch(sh:Int)=((((c1 shr sh) and 255)*(1-u)+((c2 shr sh) and 255)*u).toInt() and 255) shl sh;return (0xff shl 24) or ch(16) or ch(8) or ch(0)}
+    }
+
     private fun card(i:Int):View=a.quoteCardNative(book,list[i],onOpen?.let{f->{f(list[i])}})
 
     /**
