@@ -156,8 +156,8 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         /** Approved look «Графит, объёмнее»: a real graphite plank — its top face going back (the books stand on it),
          *  a front edge with a lit bevel, and a soft shadow on the wall under it. */
         private val d=a.d(1).toFloat()
-        val top=a.d(12);val front=a.d(16);private val shade=a.d(20)
-        val full=top+front+shade
+        val faceTop=a.d(12);val faceFront=a.d(16);private val shade=a.d(20)
+        val full=faceTop+faceFront+shade
         /** How far the covers' feet sink into the top face (they stand on it, not on its front edge). */
         val sink=a.d(7)
         private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{isDither=true}
@@ -165,7 +165,7 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         fun refresh(){};fun scrolled(){}
         override fun onTouchEvent(e:MotionEvent)=false
-        override fun onDraw(c:Canvas){val light=a.light;val l=d*12;val rgt=width-d*12;val t=top.toFloat();val f=front.toFloat()
+        override fun onDraw(c:Canvas){val light=a.light;val l=d*12;val rgt=width-d*12;val t=faceTop.toFloat();val f=faceFront.toFloat()
             // soft shadow on the wall under the plank: an elliptical falloff, no edges
             val cx=width/2f;val cy=t+f+d*2;val rx=(rgt-l)/2f*.92f;val ry=shade*.9f
             p.color=Color.WHITE;p.shader=RadialGradient(0f,0f,1f,intArrayOf(if(light)0x40000000 else 0x99000000.toInt(),if(light)0x14000000 else 0x33000000,0),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
