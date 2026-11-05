@@ -72,7 +72,7 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         if (bitmap != null) {
             val scale = maxOf(r.width() / bitmap.width, r.height() / bitmap.height); val w = bitmap.width * scale; val h = bitmap.height * scale
-            canvas.drawBitmap(bitmap, null, RectF(r.centerX() - w/2, r.centerY() - h/2, r.centerX() + w/2, r.centerY() + h/2), paint)
+            paint.colorFilter=BookCoverVolume.matte; canvas.drawBitmap(bitmap, null, RectF(r.centerX() - w/2, r.centerY() - h/2, r.centerX() + w/2, r.centerY() + h/2), paint); paint.colorFilter=null
         } else {
             val colors=colors(b); paint.color=colors.first; canvas.drawRect(r, paint)
             val prepared=CoverTypeset.get(context,b,!shelf)

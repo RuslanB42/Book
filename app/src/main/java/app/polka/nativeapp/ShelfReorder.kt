@@ -10,7 +10,7 @@ import kotlin.math.*
 /** Source enableReorder: 360ms hold, 1.08 lift, 18% slot hysteresis, 260/300ms FLIP. */
 internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualGrid,private val items:MutableList<JSONObject>,private val onHold:((JSONObject)->Unit)?=null,private val commit:(List<JSONObject>)->Unit) {
     private var pending=-1;private var pointer=-1;private var sx=0f;private var sy=0f;private var px=0f;private var py=0f
-    private var index=-1;private var original=emptyList<JSONObject>();private var grabbed:View?=null;private var ghost:ImageView?=null;private var image:Bitmap?=null
+    private var index=-1;private var original=emptyList<JSONObject>();private var grabbed:View?=null;private var ghost:ImageView?=null;private var image:Bitmap?=null;private var shade:ImageView?=null;private var shadeImage:Bitmap?=null
     private var gx=0f;private var gy=0f;private var moved=false;private var pad=0;private var lastFrame=0L;private var landing=false
     internal val active get()=index>=0
     private fun reduced()=a.prefs.str("motion")=="reduced"||!android.animation.ValueAnimator.areAnimatorsEnabled()
@@ -42,15 +42,21 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         // The whole card (art AND caption) floats as one picture, so text can never lag behind or stay in the slot.
         val cover=(view as? ViewGroup)?.getChildAt(0)
         val w=view.width;val h=view.height
-        image=liftedPicture(view,w,h)
-        ghost=ImageView(a).apply{setImageBitmap(image);scaleType=ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false}
-        a.root.overlay.add(ghost!!);ghost!!.measure(View.MeasureSpec.makeMeasureSpec(w+pad*2,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(h+pad*2,View.MeasureSpec.EXACTLY));ghost!!.layout(0,0,w+pad*2,h+pad*2);ghost!!.pivotX=(w+pad*2)/2f;ghost!!.pivotY=pad+(cover?.let{(it.top+it.bottom)/2f}?:h/2f)
+        val pictures=liftedPicture(view,w,h);image=pictures.first;shadeImage=pictures.second
+        // Two layers: the card itself is opaque from the very first frame (it replaces the cell pixel for pixel, so the
+        // cover never blinks); only the extra lift shadow under it fades in.
+        fun layer(b:Bitmap)=ImageView(a).apply{setImageBitmap(b);scaleType=ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false
+            measure(View.MeasureSpec.makeMeasureSpec(w+pad*2,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(h+pad*2,View.MeasureSpec.EXACTLY));layout(0,0,w+pad*2,h+pad*2);pivotX=(w+pad*2)/2f;pivotY=pad+(cover?.let{(it.top+it.bottom)/2f}?:h/2f)}
+        shade=layer(shadeImage!!);ghost=layer(image!!)
+        // Replay the cell's own drawing on the GPU (same renderer as the grid), so the lifted cover matches it exactly.
+        if(android.os.Build.VERSION.SDK_INT>=28)runCatching{val pic=Picture();val c=pic.beginRecording(w+pad*2,h+pad*2);c.translate(pad.toFloat(),pad.toFloat());val a0=view.alpha;view.alpha=1f;view.draw(c);view.alpha=a0;pic.endRecording();ghost!!.setImageDrawable(android.graphics.drawable.PictureDrawable(pic))}
+        a.root.overlay.add(shade!!);a.root.overlay.add(ghost!!);position()
         view.alpha=0f;grid.parent.requestDisallowInterceptTouchEvent(true);view.isPressed=false;view.cancelLongPress();view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        if(!reduced()){ghost!!.alpha=.0f;ghost!!.scaleX=1f;ghost!!.scaleY=1f;ghost!!.animate().alpha(1f).scaleX(1.05f).scaleY(1.05f).setDuration(200).setInterpolator(MotionSpec.settle).start()}else ghost!!.alpha=1f
+        if(!reduced()){shade!!.alpha=0f;ghost!!.animate().scaleX(1.05f).scaleY(1.05f).setDuration(200).setInterpolator(MotionSpec.settle).start();shade!!.animate().alpha(1f).scaleX(1.05f).scaleY(1.05f).setDuration(200).setInterpolator(MotionSpec.settle).start()}
         a.shelfReorder=this;position();lastFrame=0;grid.postOnAnimation(frame)
     }
-    /** The card drawn once, over a soft shadow cut from its own opaque silhouette, so the shadow hugs the real edges. */
-    private fun liftedPicture(view:View,w:Int,h:Int):Bitmap {
+    /** The card drawn once (first), and a soft shadow cut from its own opaque silhouette (second), so the shadow hugs the real edges. */
+    private fun liftedPicture(view:View,w:Int,h:Int):Pair<Bitmap,Bitmap> {
         val card=Bitmap.createBitmap(w+pad*2,h+pad*2,Bitmap.Config.ARGB_8888)
         Canvas(card).apply{translate(pad.toFloat(),pad.toFloat());val a0=view.alpha;view.alpha=1f;view.draw(this);view.alpha=a0}
         val n=card.width*card.height;val px=IntArray(n);card.getPixels(px,0,card.width,0,0,card.width,card.height)
@@ -62,10 +68,10 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         val out=Bitmap.createBitmap(card.width,card.height,Bitmap.Config.ARGB_8888);val c=Canvas(out);val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         p.color=0x4d000000;c.drawBitmap(soft,offset[0].toFloat(),offset[1].toFloat()+a.d(10),p)
         p.color=0x40000000;c.drawBitmap(tight,0f,a.d(2).toFloat(),p)
-        c.drawBitmap(card,0f,0f,null);soft.recycle();tight.recycle();card.recycle();return out
+        soft.recycle();tight.recycle();return card to out
     }
     private fun hasShelfArt(v:View):Boolean=v is ShelfArt||(v is ViewGroup&&(0 until v.childCount).any{hasShelfArt(v.getChildAt(it))})
-    private fun position(){if(hypot(px-sx,py-sy)>a.d(12))moved=true;val at=IntArray(2);a.root.getLocationOnScreen(at);ghost?.translationX=px-gx-at[0];ghost?.translationY=py-gy-at[1]}
+    private fun position(){if(hypot(px-sx,py-sy)>a.d(12))moved=true;val at=IntArray(2);a.root.getLocationOnScreen(at);val x=px-gx-at[0];val y=py-gy-at[1];for(g in listOfNotNull(ghost,shade)){g.translationX=x;g.translationY=y}}
     private fun hit(){if(!active)return;val at=IntArray(2);grid.getLocationOnScreen(at);val r=grid.slot(index);val target=grid.nearest(px-gx+pad-at[0]+r.width()/2f,py-gy+pad-at[1]+r.width()*.75f,index);if(target!=index){val from=index;index=target;grid.move(from,target,{items.add(target,items.removeAt(from))},!reduced())}}
     private fun finish(save:Boolean){if(!active)return;grid.removeCallbacks(frame);clearPending();val from=index
         if(!save){val target=original.indexOfFirst{it.str("id")==items[from].str("id")};if(target>=0&&target!=from)grid.move(from,target,{items.clear();items.addAll(original)},false);index=target}
@@ -73,8 +79,10 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         val loc=IntArray(2);view?.getLocationOnScreen(loc);val rootAt=IntArray(2);a.root.getLocationOnScreen(rootAt)
         if(save&&changed)commit(items.toList())
         val done={cleanup();grid.sync();a.flushDeferredRender();tapped?.let{t->onHold?.invoke(t)};Unit}
-        if(floating==null||reduced()||!grid.isAttachedToWindow)done()else floating.animate().translationX((loc[0]-rootAt[0]-pad).toFloat()).translationY((loc[1]-rootAt[1]-pad).toFloat()).scaleX(1f).scaleY(1f).setDuration(300).setInterpolator(MotionSpec.settle).withEndAction{done()}.start()
+        val tx=(loc[0]-rootAt[0]-pad).toFloat();val ty=(loc[1]-rootAt[1]-pad).toFloat()
+        if(floating==null||reduced()||!grid.isAttachedToWindow)done()else{shade?.animate()?.translationX(tx)?.translationY(ty)?.scaleX(1f)?.scaleY(1f)?.alpha(0f)?.setDuration(300)?.setInterpolator(MotionSpec.settle)?.start()
+            floating.animate().translationX(tx).translationY(ty).scaleX(1f).scaleY(1f).setDuration(300).setInterpolator(MotionSpec.settle).withEndAction{done()}.start()}
     }
-    private fun cleanup(){ghost?.animate()?.cancel();ghost?.let{a.root.overlay.remove(it);it.setImageDrawable(null)};ghost=null;image?.recycle();image=null;grabbed?.alpha=1f;grabbed=null;pad=0;grid.pinned=null;landing=false;if(a.shelfReorder===this)a.shelfReorder=null}
+    private fun cleanup(){grabbed?.alpha=1f;for(g in listOfNotNull(ghost,shade)){g.animate().cancel();a.root.overlay.remove(g);g.setImageDrawable(null)};ghost=null;shade=null;image?.recycle();image=null;shadeImage?.recycle();shadeImage=null;grabbed=null;pad=0;grid.pinned=null;landing=false;if(a.shelfReorder===this)a.shelfReorder=null}
     fun cancel(){clearPending();if(active)finish(false);if(landing)cleanup()}
 }

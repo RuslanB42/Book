@@ -49,14 +49,19 @@ internal object BookCoverVolume {
             p.setShadowLayer(14f,2f,7f,if(dark)0x29000000 else 0x19000000);c.drawRoundRect(r,3f,3f,p)
             shadows[index]=b;atlasBuilds++;return b
         }
-        // A standing book (approved, real covers): a firm contact strip where it meets the shelf and a soft cast
-        // onto the wall behind, light from above-left; every edge blurred, no corners. Reference size 240×360.
+        // A hardcover lying on a table, lit from above-left (approved Т2+): a tight dark contact all round, a short cast
+        // to the lower right and a soft penumbra beyond it. Built from the approved CSS layers at reference 240×360.
         val m=THICK_MARGIN;val t=Bitmap.createBitmap(240+2*m,360+2*m,Bitmap.Config.ARGB_8888);val tc=Canvas(t);val tp=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.BLACK}
-        fun blur(sigma:Float)=BlurMaskFilter(((sigma-.5f)/.57735f).coerceAtLeast(.5f),BlurMaskFilter.Blur.NORMAL)
-        tp.maskFilter=blur(28f);tp.alpha=if(dark)140 else 56
-        tc.drawRoundRect(m+14f+16f,m+36f-6f,m+264f+16f,m+360f-6f,30f,30f,tp)
-        tp.maskFilter=blur(8f);tp.alpha=if(dark)204 else 90
-        tc.drawOval(m-7f,m+347f,m+254f,m+370f,tp)
+        val k=240f/170f
+        fun layer(dx:Float,dy:Float,blur:Float,spread:Float,light:Float,darkA:Float){val sigma=blur/2f*k
+            tp.maskFilter=if(sigma<.6f)null else BlurMaskFilter(((sigma-.5f)/.57735f).coerceAtLeast(.5f),BlurMaskFilter.Blur.NORMAL)
+            tp.alpha=(255*(if(dark)darkA else light)).toInt();val g=spread*k
+            tc.drawRoundRect(m+dx*k-g,m+dy*k-g,m+240f+dx*k+g,m+360f+dy*k+g,4f,4f,tp)}
+        layer(7f,11f,16f,-4f,.22f,.85f)
+        layer(3f,5f,7f,-1f,.24f,.90f)
+        layer(1f,2f,2f,0f,.26f,.95f)
+        layer(0f,0f,2f,0f,.12f,.60f)
+        layer(0f,0f,0f,.5f,.14f,.70f)
         shadows[index]=t;atlasBuilds++;return t
     }
     @Synchronized fun shadow(c:Canvas,r:RectF,dark:Boolean,soft:Boolean=false,stack:Boolean=false,fade:Float=1f) {
@@ -68,33 +73,39 @@ internal object BookCoverVolume {
     }
     /** Apple Books style: a flat cover, no board thickness or page block — the face is the whole bounds. */
     @Synchronized fun boards(c:Canvas,r:RectF,color:Int):RectF = RectF(r)
-    /** Covers have the sharp corners of a real book (just enough rounding to stay smooth). */
-    fun radius(w:Float)=w*.006f
-    fun outline(path:Path,r:RectF){val rr=radius(r.width());path.addRoundRect(r,rr,rr,Path.Direction.CW)}
-    /** A matte printed cover (approved): a soft crease near the spine with a faint fold highlight, a slight falloff
-     *  toward the fore-edge and the foot, fine paper grain and a hairline rim. No gloss. */
+    /** Spine-side corners a touch rounder than the fore-edge ones, as on a real hardcover. */
+    fun radius(w:Float)=w*.0147f
+    fun outline(path:Path,r:RectF){val sp=r.width()*.0147f;val fe=r.width()*.0088f;path.addRoundRect(r,floatArrayOf(sp,sp,fe,fe,fe,fe,sp,sp),Path.Direction.CW)}
+    /** A slightly softened print, as on a matte laminated board (a touch less contrast and colour). */
+    val matte=ColorMatrixColorFilter(ColorMatrix().apply{setSaturation(.93f);postConcat(ColorMatrix(floatArrayOf(.94f,0f,0f,0f,10f,0f,.94f,0f,0f,10f,0f,0f,.94f,0f,10f,0f,0f,0f,1f,0f)))})
+    /** Approved Т2+: one light from above-left. A rounded spine with a soft sheen, then a gentle hinge hollow; the
+     *  board a little brighter at the top left and falling into shade toward the lower right; edges rolling off
+     *  (a thin light along the top, shade along the foot and fore-edge); fine matte paper grain. */
     @Synchronized fun material(c:Canvas,r:RectF) {
         c.save();c.translate(r.left,r.top);c.scale(r.width()/400f,r.height()/600f)
         ink.color=Color.WHITE;ink.alpha=255
-        ink.shader=creaseM;c.drawRect(0f,0f,44f,600f,ink)
-        ink.shader=foreM;c.drawRect(376f,0f,400f,600f,ink)
-        ink.shader=footM;c.drawRect(0f,0f,400f,600f,ink)
+        ink.shader=spineT;c.drawRect(0f,0f,56f,600f,ink)
+        ink.shader=lightT;c.drawRect(0f,0f,400f,600f,ink)
+        ink.shader=topT;c.drawRect(0f,0f,400f,9f,ink)
+        ink.shader=footT;c.drawRect(0f,585f,400f,600f,ink)
+        ink.shader=foreT;c.drawRect(388f,0f,400f,600f,ink)
         ink.shader=null;c.restore()
         ink.shader=grain();c.drawRect(r,ink);ink.shader=null
-        val hair=(r.width()*.0055f).coerceAtLeast(.6f)
-        ink.style=Paint.Style.STROKE;ink.strokeWidth=hair;ink.color=0x47000000
-        c.drawRect(r.left+hair/2,r.top+hair/2,r.right-hair/2,r.bottom-hair/2,ink);ink.style=Paint.Style.FILL
+        val hair=(r.width()/170f).coerceAtLeast(.6f)
+        ink.color=0x29ffffff;c.drawRect(r.left,r.top,r.right,r.top+hair,ink)
+        ink.color=0x4d000000;c.drawRect(r.left,r.bottom-hair,r.right,r.bottom,ink)
+        ink.color=0x38000000;c.drawRect(r.right-hair,r.top,r.right,r.bottom,ink)
     }
-    // The spine fold must read on every cover, light or dark: a dark edge, a bright fold ridge, a dark groove right
-    // after it and a soft return — strong enough to be seen at shelf size.
-    private val creaseM=LinearGradient(0f,0f,44f,0f,
-        intArrayOf(0x73000000,0x26000000,0x14000000,0x47ffffff,0x1fffffff,0x5c000000,0x29000000,0x0dffffff,Color.TRANSPARENT),
-        floatArrayOf(0f,.12f,.22f,.32f,.40f,.50f,.62f,.78f,1f),Shader.TileMode.CLAMP)
-    private val foreM=LinearGradient(376f,0f,400f,0f,intArrayOf(Color.TRANSPARENT,0x1a000000),null,Shader.TileMode.CLAMP)
-    private val footM=LinearGradient(0f,0f,0f,600f,intArrayOf(0x0affffff,0x00ffffff,0x00000000,0x1a000000),floatArrayOf(0f,.15f,.88f,1f),Shader.TileMode.CLAMP)
+    private val spineT=LinearGradient(0f,0f,56f,0f,
+        intArrayOf(0x38000000,0x0f000000,0x1affffff,0x08ffffff,0x0f000000,0x1f000000,0x0f000000,0x17ffffff,0x08ffffff,Color.TRANSPARENT),
+        floatArrayOf(0f,.071f,.171f,.286f,.371f,.457f,.543f,.643f,.786f,1f),Shader.TileMode.CLAMP)
+    private val lightT=LinearGradient(0f,0f,400f,600f,intArrayOf(0x12ffffff,0x00ffffff,0x00000000,0x1f000000),floatArrayOf(0f,.4f,.6f,1f),Shader.TileMode.CLAMP)
+    private val topT=LinearGradient(0f,0f,0f,9f,0x1affffff,0x00ffffff,Shader.TileMode.CLAMP)
+    private val footT=LinearGradient(0f,585f,0f,600f,0x00000000,0x2e000000,Shader.TileMode.CLAMP)
+    private val foreT=LinearGradient(388f,0f,400f,0f,0x00000000,0x29000000,Shader.TileMode.CLAMP)
     private var grainShader:BitmapShader?=null
     private fun grain():BitmapShader=grainShader?:run{val n=64;val px=IntArray(n*n);val rnd=java.util.Random(7)
-        for(k in px.indices){val v=rnd.nextInt(256);px[k]=if(v<128)Color.argb(rnd.nextInt(12),0,0,0) else Color.argb(rnd.nextInt(12),255,255,255)}
+        for(k in px.indices){val v=rnd.nextInt(256);px[k]=if(v<128)Color.argb(rnd.nextInt(16),0,0,0) else Color.argb(rnd.nextInt(16),255,255,255)}
         BitmapShader(Bitmap.createBitmap(px,n,n,Bitmap.Config.ARGB_8888),Shader.TileMode.REPEAT,Shader.TileMode.REPEAT).also{grainShader=it}}
     private fun blend(a:Int,b:Int,t:Float)=Color.rgb((Color.red(a)*(1-t)+Color.red(b)*t).toInt(),(Color.green(a)*(1-t)+Color.green(b)*t).toInt(),(Color.blue(a)*(1-t)+Color.blue(b)*t).toInt())
 }
