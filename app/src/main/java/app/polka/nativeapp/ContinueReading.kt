@@ -165,8 +165,16 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    val sink=1f-.16f*k;c.scaleX=sink;c.scaleY=sink;c.rotation=(if(d>0)-1f else 1f)*16f*k*(1f-k);c.translationX=-d.coerceIn(-1f,1f)*a.d(6)
    val rows=texts[i];var n=0
    for(r in 0 until rows.childCount){val v=rows.getChildAt(r);if(v.height<=a.d(2)&&v !is TextView)continue;v.translationX=d.coerceIn(-1f,1f)*a.d(14)*(1+n*.5f);v.alpha=1f-.55f*k;n++}}
-  if(motion&&readingBooks.isNotEmpty()){val f=(x/stride).coerceIn(0f,readingBooks.lastIndex.toFloat());val lo=f.toInt();val hi=(lo+1).coerceAtMost(readingBooks.lastIndex)
-   glow.set(blend(tints[lo],tints[hi],f-lo),a.d(40)+(carousel.stride-a.d(12))/2f,light)}}
+  halos(x)}
+ /** Each card's halo follows the card itself (its place and scale), strongest on the card in focus. */
+ private val gAt=IntArray(2);private val cAt=IntArray(2)
+ private fun halos(x:Int){if(reduced||cards.isEmpty()||glow.width<=0)return;val stride=carousel.stride.toFloat().coerceAtLeast(1f);val anchor=x+a.d(20)
+  glow.getLocationInWindow(gAt);val rects=ArrayList<RectF>();val colors=ArrayList<Int>();val strengths=ArrayList<Float>()
+  cards.forEachIndexed{i,c->if(c.width<=0)return@forEachIndexed;val h=holders[i];val k=kotlin.math.abs((h.left-anchor)/stride).coerceAtMost(1f)
+   c.getLocationInWindow(cAt);val s=h.scaleX;val l=(cAt[0]-gAt[0]).toFloat();val t=(cAt[1]-gAt[1]).toFloat()
+   rects.add(RectF(l,t,l+c.width*s,t+c.height*s));colors.add(tints[i]);strengths.add((1f-k)*(1f-k))}
+  cards.firstOrNull{it.width>0}?.let{glow.baseW=it.width;glow.baseH=it.height}
+  glow.set(rects,colors,strengths,light)}
  private fun blend(p:Int,q:Int,t:Float):Int{
   val r=(Color.red(p)*(1-t)+Color.red(q)*t).roundToInt()
   val g=(Color.green(p)*(1-t)+Color.green(q)*t).roundToInt()
@@ -175,32 +183,46 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  }
 }
 
-/** A wide, very soft ellipse of colour behind the focused card. Cheap: one radial gradient, redrawn on scroll. */
+/** Approved «ореол по периметру, ещё мягче»: a soft light in the cover's colour all round each card (stronger the
+ *  closer the card is to focus, so it travels with the cards as you page). Two gaussian layers — a near one hugging
+ *  the edge and a wide faint one — baked once per card size as an alpha mask and tinted while drawing. */
 internal class AmbientGlow(private val a:MainActivity):View(a){
- private var color=0;private var cx=0f;private var light=false
+ private class Halo(val rect:RectF=RectF(),var color:Int=0,var strength:Float=0f)
+ private val halos=mutableListOf<Halo>()
+ private var light=false
  private val p=Paint(Paint.FILTER_BITMAP_FLAG)
- private var mask:Bitmap?=null;private var maskKey=""
+ private var near:Bitmap?=null;private var far:Bitmap?=null;private var maskKey=""
+ private val pad get()=a.d(70).toFloat()
+ private val dst=RectF()
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
- fun set(c:Int,x:Float,l:Boolean){if(c==color&&x==cx&&l==light)return;color=c;cx=x;light=l;invalidate()}
+ /** Cards in this view's coordinates (already scaled), their light colours and how much each one glows (0..1). */
+ fun set(rects:List<RectF>,colors:List<Int>,strengths:List<Float>,l:Boolean){light=l
+  while(halos.size<rects.size)halos.add(Halo());while(halos.size>rects.size)halos.removeAt(halos.size-1)
+  rects.indices.forEach{i->halos[i].rect.set(rects[i]);halos[i].color=colors[i];halos[i].strength=strengths[i]};invalidate()}
  /** The light's colour at one steady brightness: blends between two books never dip or flare, and a dark (or black)
   *  cover still gives a clearly visible light; a colourless cover gives a soft warm white. */
  fun tone(c:Int):Int{val hsl=FloatArray(3);androidx.core.graphics.ColorUtils.colorToHSL(c,hsl)
   val hsv=FloatArray(3);Color.colorToHSV(c,hsv)
-  if(hsv[1]<=.125f){hsl[0]=36f;hsl[1]=.22f}else hsl[1]=(hsl[1]*1.25f).coerceIn(.45f,.85f)
+  if(hsv[1]<=.125f){hsl[0]=36f;hsl[1]=.3f}else hsl[1]=(hsl[1]*1.4f).coerceIn(.6f,.9f)
   hsl[2]=if(a.light).58f else .62f;return androidx.core.graphics.ColorUtils.HSLToColor(hsl)}
- /** A soft oval of light baked once per size: a gaussian falloff with fine noise in its opacity, so it shows no rings. */
- private fun mask(w:Int,h:Int):Bitmap?{val key="$w:$h:$light";if(key==maskKey&&mask!=null)return mask
-  // the oval is small against the view, so the light has died out completely well before any edge
-  return try{val peak=if(light)52f else 84f;val rx=w*.30f;val ry=h*.25f;val mx=w/2f;val my=h*.53f;val px=IntArray(w*h);var seed=0x1f2e3d4c
-   val gx=FloatArray(w){val d=(it-mx)/rx;kotlin.math.exp(-2.6f*d*d)};val gy=FloatArray(h){val d=(it-my)/ry;kotlin.math.exp(-2.6f*d*d)}
-   for(y in 0 until h){val fy=gy[y];val row=y*w
-    for(x in 0 until w){seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val n1=(seed and 0xffff)/65535f
-     seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val n=(n1-(seed and 0xffff)/65535f)*1.6f
-     val al=(peak*fy*gx[x]+n+.5f).toInt().coerceIn(0,255);px[row+x]=(al shl 24) or 0xffffff}}
-   Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888).also{mask?.recycle();mask=it;maskKey=key}}catch(e:Throwable){null}}
- override fun onDraw(c:Canvas){if(width<1||height<1||color==0)return;val m=mask(width,height)?:return
-  p.colorFilter=PorterDuffColorFilter(color,PorterDuff.Mode.SRC_IN);c.drawBitmap(m,cx-width/2f,0f,p)}
- override fun onDetachedFromWindow(){super.onDetachedFromWindow();mask?.recycle();mask=null;maskKey=""}
+ private fun masks(w:Int,h:Int){val key="$w:$h:$light";if(key==maskKey&&near!=null&&far!=null)return
+  near?.recycle();far?.recycle();near=null;far=null;maskKey=key
+  val P=pad;val W=(w+2*P).toInt();val H=(h+2*P).toInt();val r=a.d(18).toFloat()
+  fun layer(spread:Float,sigma:Float,alpha:Float)=Glow.blurred(W,H,2,sigma){c,paint->paint.color=Color.WHITE;paint.alpha=(255*alpha).toInt()
+   c.drawRoundRect(P-spread,P-spread,P+w+spread,P+h+spread,r+spread,r+spread,paint)}
+  // box-shadow 0 0 22px 2px (.32 / .24) and 0 0 52px 8px (.12 / .09), as in the mockup
+  near=layer(a.d(2).toFloat(),a.d(11).toFloat(),if(light).24f else .32f)
+  far=layer(a.d(8).toFloat(),a.d(26).toFloat(),if(light).09f else .12f)}
+ override fun onDraw(c:Canvas){if(width<1||height<1)return
+  for(hl in halos){if(hl.strength<.01f||hl.color==0||hl.rect.width()<2f)continue
+   masks(baseW,baseH);val n=near?:continue;val f=far?:continue
+   val kx=hl.rect.width()/baseW;val ky=hl.rect.height()/baseH
+   dst.set(hl.rect.left-pad*kx,hl.rect.top-pad*ky,hl.rect.right+pad*kx,hl.rect.bottom+pad*ky)
+   p.colorFilter=PorterDuffColorFilter(hl.color,PorterDuff.Mode.SRC_IN);p.alpha=(255*hl.strength).toInt().coerceIn(0,255)
+   c.drawBitmap(f,null,dst,p);c.drawBitmap(n,null,dst,p)}}
+ /** The unscaled card size the masks are baked for. */
+ var baseW=1;var baseH=1
+ override fun onDetachedFromWindow(){super.onDetachedFromWindow();near?.recycle();far?.recycle();near=null;far=null;maskKey=""}
 }
 
 /** The card's height comes from its text (at least 128dp), never from the cover: the taller cover hangs out above. */
