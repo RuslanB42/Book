@@ -27,9 +27,11 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     val pill=if(light)0x0e000000 else 0x12ffffff
     fun group(title:String,top:Int=26){content.addView(text(title,13f,muted2).apply{setPadding(d(4),0,0,0)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(top);bottomMargin=d(10)})}
     // head: back, then a large serif title
-    val back=icon("back","Назад"){closeSettings()}
-    content.addView(back,LinearLayout.LayoutParams(d(44),d(44)))
-    content.addView(text("Настройки",30f,fg,true,serif=true),LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(16)})
+    // head: the title stands right beside the back button, on one line
+    val head=line().apply{gravity=Gravity.CENTER_VERTICAL}
+    head.addView(icon("back","Назад"){closeSettings()},LinearLayout.LayoutParams(d(44),d(44)))
+    head.addView(text("Настройки",26f,fg,true,serif=true).apply{setPadding(d(6),0,0,0)},LinearLayout.LayoutParams(0,-2,1f))
+    content.addView(head,LinearLayout.LayoutParams(-1,-2))
     // appearance
     group("Оформление",20)
     val themes=listOf("dark" to "Тёмное","light" to "Светлое","system" to "Как в системе")
@@ -41,7 +43,7 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
         col.addView(text(name,12.5f,if(key==current)fg else muted2,key==current).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(8)})
         col.setOnClickListener{if(key!=current){prefs.put("ui",key);savePreferences()
             // the page is rebuilt in the new colours right where it was, without an entrance
-            val y=scroll.scrollY;settingsPage=null;root.removeView(scroll);render(true,false);if(profileOverlay!=null)refreshProfile();openSettingsPage(false);settingsPage?.let{p->p.post{(p as ScrollView).scrollTo(0,y)}}}}
+            val y=scroll.scrollY;themeCrossfade{settingsPage=null;root.removeView(scroll);render(true,false);if(profileOverlay!=null)refreshProfile();openSettingsPage(false);settingsPage?.let{p->(p as ScrollView).scrollTo(0,y);p.post{p.scrollTo(0,y)}}}}}
         press(col);tiles.addView(col,LinearLayout.LayoutParams(0,-2,1f).apply{if(i>0)leftMargin=d(10)})}
     content.addView(tiles)
     // reading: two value capsules, the same height as the switches (filled in once the statistics are loaded)
@@ -82,6 +84,18 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     points.addView(texts,LinearLayout.LayoutParams(0,-2,1f));points.addView(Chevron(this),LinearLayout.LayoutParams(d(12),d(18)))
     content.addView(points,LinearLayout.LayoutParams(-1,d(52)).apply{topMargin=d(10)})
     if(animate&&prefs.str("motion")!="reduced"){scroll.alpha=0f;scroll.translationY=d(18).toFloat();scroll.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withLayer().start()}
+}
+
+/** The whole window changes colours under a soft crossfade from a picture of how it looked a moment ago. */
+internal fun MainActivity.themeCrossfade(change:()->Unit){
+    val decor=window.decorView as? FrameLayout
+    if(decor==null||prefs.str("motion")=="reduced"||decor.width<=0||decor.height<=0){change();return}
+    val pic=runCatching{android.graphics.Bitmap.createBitmap(decor.width,decor.height,android.graphics.Bitmap.Config.ARGB_8888).also{decor.draw(android.graphics.Canvas(it))}}.getOrNull()
+    if(pic==null){change();return}
+    val cover=ImageView(this).apply{setImageBitmap(pic);scaleType=ImageView.ScaleType.FIT_XY;isClickable=true;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;elevation=d(60).toFloat()}
+    decor.addView(cover,FrameLayout.LayoutParams(-1,-1))
+    change()
+    cover.animate().alpha(0f).setStartDelay(60).setDuration(460).setInterpolator(PathInterpolator(.4f,0f,.2f,1f)).withEndAction{decor.removeView(cover);cover.setImageDrawable(null);pic.recycle()}.start()
 }
 
 internal fun MainActivity.closeSettings(){val page=settingsPage?:return;settingsPage=null

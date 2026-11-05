@@ -564,7 +564,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val cover=ImageView(a).apply{setImageBitmap(pic);scaleType=ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
         view.addView(cover,FrameLayout.LayoutParams(-1,-1))
         change()
-        cover.animate().alpha(0f).setStartDelay(30).setDuration(320).setInterpolator(MotionSpec.settle).withEndAction{view.removeView(cover);cover.setImageDrawable(null);pic.recycle()}.start()}
+        cover.animate().alpha(0f).setStartDelay(40).setDuration(420).setInterpolator(MotionSpec.settle).withEndAction{view.removeView(cover);cover.setImageDrawable(null);pic.recycle()}.start()}
     /** While a setting is being dragged the reader's bars fade away (only their opacity: the calm state is not touched). */
     internal fun fadeChrome(hide:Boolean){if(calm)return;val reduced=a.prefs.str("motion")=="reduced";listOf(topBar,bottom).forEach{v->v.animate().cancel();v.translationY=0f;if(reduced)v.alpha=if(hide)0f else 1f else v.animate().alpha(if(hide)0f else 1f).setDuration(if(hide)160 else 240).setInterpolator(MotionSpec.settle).start()}}
     fun toggleChrome(){if(!editorOpen)setCalm(!calm,true)}
@@ -572,8 +572,24 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun applyTypography() {
         quoteSelection.clear();stopPageMotion();cachedNext=null;cachedCurrent=null;snapshotWarm?.let{handler.removeCallbacks(it)};previewGeneration++;previewPages.clear();previewJobs.values.forEach{it.cancel(true)};previewJobs.clear()
         val savedOffset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0
+        applyColors()
+        body.textSize=a.prefs.optDouble("size",19.0).toFloat(); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; stretchLines=SpacedJustify.needed(a); body.justificationMode=if(a.prefs.optBoolean("justify",true)&&!stretchLines) android.text.Layout.JUSTIFICATION_MODE_INTER_WORD else android.text.Layout.JUSTIFICATION_MODE_NONE; stretchedLayout=null; applySpacing(); if(body.paddingLeft!=margin())body.setPadding(margin(),body.paddingTop,margin(),body.paddingBottom); applyBrightness(); if(chapterRich.isNotEmpty()){pendingOffset=savedOffset;handler.removeCallbacks(reflow);handler.postDelayed(reflow,120)} 
+    }
+    /** The reader's own colours (theme): background, bars, icons, text ink. */
+    private fun applyColors(){
         val pair=when(a.prefs.str("rt")) { "black"->0xff000000.toInt() to 0xffc9c7c1.toInt(); "sepia"->0xfff3ead8.toInt() to 0xff3a2e22.toInt(); "paper"->0xfffbfaf7.toInt() to 0xff1e1d1b.toInt(); "night"->0xff18181a.toInt() to 0xffdedcd6.toInt(); else->a.bg to a.fg }
-        readerBackground=pair.first;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{themeLight=android.graphics.Color.red(pair.first)>128;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};footer.setTextColor(pair.second);body.setTextColor(pair.second); body.textSize=a.prefs.optDouble("size",19.0).toFloat(); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; stretchLines=SpacedJustify.needed(a); body.justificationMode=if(a.prefs.optBoolean("justify",true)&&!stretchLines) android.text.Layout.JUSTIFICATION_MODE_INTER_WORD else android.text.Layout.JUSTIFICATION_MODE_NONE; stretchedLayout=null; applySpacing(); if(body.paddingLeft!=margin())body.setPadding(margin(),body.paddingTop,margin(),body.paddingBottom); applyBrightness(); if(chapterRich.isNotEmpty()){pendingOffset=savedOffset;handler.removeCallbacks(reflow);handler.postDelayed(reflow,120)} 
+        readerBackground=pair.first;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{themeLight=android.graphics.Color.red(pair.first)>128;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};footer.setTextColor(pair.second);body.setTextColor(pair.second);
+    }
+    /** A theme change only recolours the page: no reflow (the layout is the same), so the crossfade over it is clean.
+     *  Tables keep their ink inside their own layouts, so a chapter with tables is reflowed once the fade is over. */
+    internal fun applyTheme(){
+        quoteSelection.clear();stopPageMotion();cachedNext=null;cachedCurrent=null;snapshotWarm?.let{handler.removeCallbacks(it)};previewGeneration++;previewPages.clear();previewJobs.values.forEach{it.cancel(true)};previewJobs.clear()
+        applyColors();body.invalidate();quoteSelection.invalidate()
+        val rich=chapterRich
+        if(rich is android.text.Spanned&&rich.getSpans(0,rich.length,TableRowSpan::class.java).isNotEmpty()){
+            pendingOffset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0
+            handler.removeCallbacks(reflow);handler.postDelayed(reflow,520)}
+        else warmSnapshot()
     }
     fun settings()=ReaderSettings(a,this).show()
     internal fun setReadingMode(pagedMode:Boolean){if(pagedMode==paged())return;val offset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0; a.prefs.put("mode",if(pagedMode) "paged" else "scroll"); a.savePreferences(); pendingOffset=offset; pendingFraction=null; setCalm(false,false); paintChapter()}

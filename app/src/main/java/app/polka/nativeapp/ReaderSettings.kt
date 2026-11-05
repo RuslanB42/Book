@@ -22,6 +22,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     private val onColor get()=if(a.light)0x1f000000 else 0x24ffffff
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private var dialog:android.app.Dialog?=null
+    private var entrance:LiquidSpring?=null
     private lateinit var sheet:LinearLayout
     private lateinit var pages:FrameLayout
     private lateinit var main:View
@@ -46,9 +47,8 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         SafeArea.bind(root){i->val s=SafeArea.content(i,false);lp.bottomMargin=a.d(8)+s.bottom;lp.leftMargin=a.d(8)+s.left;lp.rightMargin=a.d(8)+s.right;sheet.layoutParams=lp}
         dlg.setOnKeyListener{_,code,e->if(code==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){if(sub!=null)back() else close();true}else false}
         dlg.show()
-        val bar=r.bottomBar
-        if(!reduced&&r.chromeVisible&&bar.width>0&&bar.height>0){sheet.alpha=0f;sheet.post{morphIn(bar,root)}}
-        else if(!reduced){sheet.translationY=a.d(400).toFloat();sheet.post{sheet.translationY=sheet.height+a.d(20).toFloat();sheet.animate().translationY(0f).setDuration(380).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start();riseRows(90)}}
+        // the usual sheet entrance: the panel slides up from below the screen on the app's sheet spring
+        if(!reduced){sheet.translationY=a.d(1200).toFloat();sheet.post{val h=sheet.height+a.d(24).toFloat();val spring=LiquidSpring{v,_->sheet.translationY=h*v};entrance=spring;spring.snap(1f);spring.to(0f)}}
     }
     /** Rows rise in one after another as the panel arrives. */
     private fun riseRows(first:Long){(main as? ViewGroup)?.let{g->for(i in 0 until g.childCount){val v=g.getChildAt(i);v.alpha=0f;v.translationY=a.d(14).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(first+i*45L).setDuration(340).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
@@ -98,7 +98,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             when(e.actionMasked){
                 MotionEvent.ACTION_DOWN->{x0=e.rawX;y0=e.rawY;dragging=false;vt?.recycle();vt=VelocityTracker.obtain();vt?.addMovement(e)}
                 MotionEvent.ACTION_MOVE->{vt?.addMovement(e);val dy=e.rawY-y0;val dx=e.rawX-x0
-                    if(!dragging&&dialog!=null&&dy>a.d(10)&&dy>abs(dx)*1.3f&&inSheet(x0,y0)&&!subScrolled()){dragging=true;sheet.animate().cancel();return true}}}
+                    if(!dragging&&dialog!=null&&dy>a.d(10)&&dy>abs(dx)*1.3f&&inSheet(x0,y0)&&!subScrolled()){dragging=true;entrance?.stop();sheet.animate().cancel();return true}}}
             return false}
         override fun onTouchEvent(e:MotionEvent):Boolean{
             if(!dragging)return super.onTouchEvent(e)
@@ -110,7 +110,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
                     else{val sp=Spring.of(.2,420.0);sheet.animate().translationY(0f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}}
             return true}
     }
-    private fun close(){val d=dialog?:return;dialog=null
+    private fun close(){val d=dialog?:return;dialog=null;entrance?.stop()
         if(reduced){d.dismiss();return}
         sheet.animate().translationY(sheet.height+a.d(24).toFloat()).setDuration(240).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{d.dismiss()}.start()}
 
@@ -220,7 +220,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             val (bg,ink)=colors(key)
             val tile=ThemeTile(a,bg,ink).apply{isClickable=true;contentDescription="Тема: $label"}
             refreshers.add{tile.on=a.prefs.str("rt","night")==key}
-            tile.setOnClickListener{if(a.prefs.str("rt","night")!=key)r.crossfade{a.prefs.put("rt",key);a.savePreferences();typography()}}
+            tile.setOnClickListener{if(a.prefs.str("rt","night")!=key)r.crossfade{a.prefs.put("rt",key);a.savePreferences();r.applyTheme();refresh()}}
             a.press(tile);row.addView(tile,LinearLayout.LayoutParams(0,a.d(52),1f).apply{if(i>0)leftMargin=a.d(12)})}
         return row
     }

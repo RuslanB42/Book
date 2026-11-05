@@ -77,6 +77,9 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         row.addView(label(title,15f,titleInk),LinearLayout.LayoutParams(0,-2,1f));box.addView(row)
     }
     private val motionOn get()=animate&&a.prefs.str("motion")!="reduced"
+    /** Ambient and touch motion (sparks, pulses, chart glides, menus) — alive even when the screen is rebuilt in place
+     *  without its entrance (after a theme or goal change in the settings); only the entrance follows [animate]. */
+    private val live get()=a.prefs.str("motion")!="reduced"
     /** Big numeral that counts up once when its card first appears (plain text when motion is reduced). */
     private fun count(end:Int,size:Float,play:Boolean=true,format:(Int)->String={it.toString()}):View=Odometer(a,format(end),size,a.fg,true).apply{
         if(play&&motionOn&&end>0)addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false
@@ -180,7 +183,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val box=surface(0xfff9601f.toInt(),.14f,.62f,.75f).apply{clipToOutline=true}
         val n=model.streak;val best=bestStreak();val met=model.met(today)
         val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-        top.addView(StreakFlameView(a,n>0,motionOn),LinearLayout.LayoutParams(a.d(68),a.d(86)).apply{rightMargin=a.d(10)})
+        top.addView(StreakFlameView(a,n>0,live),LinearLayout.LayoutParams(a.d(68),a.d(86)).apply{rightMargin=a.d(10)})
         val col=a.column()
         col.addView(kicker("Серия"));space(col,4)
         col.addView(bigCount(n," ${daysWord(n)} подряд",42f,.38f))
@@ -188,12 +191,12 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         top.addView(col,LinearLayout.LayoutParams(0,-2,1f));box.addView(top);space(box,14)
         val dates=(6 downTo 0).map{today.minusDays(it.toLong())}
         val todayFraction=(model.ms(today).toFloat()/(model.dailyGoal*60000L)).coerceIn(0f,1f)
-        box.addView(WeekFlames(a,dates.map{weekNames[it.dayOfWeek.value-1].lowercase()},BooleanArray(7){model.met(dates[it])},todayFraction,motionOn),LinearLayout.LayoutParams(-1,-2))
+        box.addView(WeekFlames(a,dates.map{weekNames[it.dayOfWeek.value-1].lowercase()},BooleanArray(7){model.met(dates[it])},todayFraction,live),LinearLayout.LayoutParams(-1,-2))
         space(box,20)
         val minutes=(model.ms(today)/60000L).toInt();val left=ceil(max(0L,model.dailyGoal*60000L-model.ms(today))/60000.0).toInt()
         val row=a.line();row.addView(label("Сегодня",13f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13f,a.fg,true));box.addView(row);space(box,8)
         box.addView(ProgressRail(a,animate,todayFraction,if(light)0xffc87600.toInt() else 0xfff09c17.toInt(),if(light)0xffcf5604.toInt() else 0xfff97c3d.toInt(),"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)))
-        val month=StreakMonth(a,model,today,motionOn)
+        val month=StreakMonth(a,model,today,live)
         box.addView(month,LinearLayout.LayoutParams(-1,-2))
         box.contentDescription="Серия чтения: $n ${daysWord(n)}, рекорд $best"
         box.isClickable=true;box.setOnClickListener{month.toggle()};a.press(box)
@@ -209,7 +212,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val diff=((model.speed-200)/2.0).roundToInt()
         box.addView(label(when{model.speed<=0->"появится после пары минут чтения";abs(diff)<3->"как у среднего читателя";diff>0->"на $diff% быстрее среднего читателя";else->"на ${-diff}% медленнее среднего читателя"},12.5f))
         space(box,14)
-        box.addView(SpeedBar(a,if(model.speed>0)(model.speed/400f).coerceIn(0f,1f) else null,.5f,motionOn),LinearLayout.LayoutParams(-1,a.d(26)))
+        box.addView(SpeedBar(a,if(model.speed>0)(model.speed/400f).coerceIn(0f,1f) else null,.5f,live),LinearLayout.LayoutParams(-1,a.d(26)))
         val foot=a.line();foot.addView(label("медленнее",10.5f),LinearLayout.LayoutParams(0,-2,1f));foot.addView(label("~200",10.5f).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f));foot.addView(label("быстрее",10.5f).apply{gravity=Gravity.END},LinearLayout.LayoutParams(0,-2,1f));box.addView(foot)
         box.contentDescription=if(model.speed>0)"Скорость чтения: ${model.speed} слов в минуту" else "Скорость чтения появится после пары минут чтения"
         add(box)
@@ -245,11 +248,11 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             fun fill(){left.removeAllViews()
                 left.addView(big(if(total>0)duration(total) else "0 мин",40f).apply{maxLines=1;isSingleLine=true})
                 space(left,4);left.addView(label(caption,12.5f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})}
-            if(first||!motionOn)fill()
+            if(first||!live)fill()
             else{left.animate().cancel();left.animate().alpha(0f).translationY(-a.d(8).toFloat()).setDuration(150).setInterpolator(Ease.inCubic).withEndAction{fill();left.translationY=a.d(10).toFloat()
                 left.animate().alpha(1f).translationY(0f).setDuration(420).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
             val c=chart
-            if(c==null){val n=ReadingLine(a,values,labels,tips,avg,avgText,motionOn,sparse);chart=n;chartHost.addView(n,FrameLayout.LayoutParams(-1,-1))}
+            if(c==null){val n=ReadingLine(a,values,labels,tips,avg,avgText,live,sparse);chart=n;chartHost.addView(n,FrameLayout.LayoutParams(-1,-1))}
             else c.setData(values,labels,tips,avg,avgText,sparse)
         }
         bind(true);add(box)
@@ -275,9 +278,9 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 addView(chevron,LinearLayout.LayoutParams(a.d(12),a.d(12)).apply{marginStart=a.d(6)});a.press(this)}
             yearBtn.setOnClickListener{if(android.os.SystemClock.uptimeMillis()-menuClosedAt<400)return@setOnClickListener
                 chevron.animate().rotation(180f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
-                a.goalYearMenu(yearBtn,years,goalYear,motionOn,{y->yearBooks(model,data,y).size to model.target(y)},{menuClosedAt=android.os.SystemClock.uptimeMillis();chevron.animate().rotation(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}){y->
+                a.goalYearMenu(yearBtn,years,goalYear,live,{y->yearBooks(model,data,y).size to model.target(y)},{menuClosedAt=android.os.SystemClock.uptimeMillis();chevron.animate().rotation(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}){y->
                     goalYear=y;a.statisticsGoalYear=y
-                    if(motionOn)box.animate().alpha(0f).translationY(a.d(6).toFloat()).setDuration(160).setInterpolator(Ease.inCubic).withEndAction{bind();box.translationY=-a.d(6).toFloat()
+                    if(live)box.animate().alpha(0f).translationY(a.d(6).toFloat()).setDuration(160).setInterpolator(Ease.inCubic).withEndAction{bind();box.translationY=-a.d(6).toFloat()
                         box.animate().alpha(1f).translationY(0f).setDuration(380).setInterpolator(Ease.outCubic).start()}.start() else bind()}}
             top.addView(yearBtn,LinearLayout.LayoutParams(-2,-2));top.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
             val expand=FrameLayout(a).apply{isClickable=true;contentDescription="Открыть дорогу года";setOnClickListener{openRoad(box,years){bind()}}
@@ -291,7 +294,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             box.addView(head)
             if(list.isEmpty()){space(box,14);box.addView(label("Пока ни одной книги за $goalYear — дочитанные появятся здесь, на дороге года.",13f));return}
             // only the road: finished books stand on it as covers; the card opens the whole road
-            val road=YearRoad(a,list,target,motionOn){_,_->}
+            val road=YearRoad(a,list,target,live){_,_->}
             space(box,6);box.addView(road,LinearLayout.LayoutParams(-1,-2))
             box.isClickable=true;box.setOnClickListener{openRoad(box,years){bind()}}
             box.contentDescription="Книги за $goalYear: $done"+if(target>0)" из $target" else ""}
@@ -299,7 +302,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     }
     /** The whole road of the year, opened out of the card; switching the year there switches it on the card too. */
     private fun openRoad(box:View,years:List<Int>,rebind:()->Unit){if(a.goalRoad!=null)return
-        GoalRoadOverlay(a,model,data,goalYear,years,motionOn,{box}){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.show()}
+        GoalRoadOverlay(a,model,data,goalYear,years,live,{box}){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.show()}
     @Suppress("UNCHECKED_CAST")
     private fun toggleRate(rateRow:LinearLayout,road:YearRoad){if(rateRow.visibility==View.VISIBLE){closeRate(rateRow);return}
         rateRow.removeAllViews();val pick=rateRow.tag as? (Int)->Unit;val current=road.current.optInt("rating")
@@ -307,10 +310,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         stars.forEachIndexed{i,g->val v=i+1
             rateRow.addView(FrameLayout(a).apply{isClickable=true;contentDescription="Оценка $v из 5"
                 // tapping a star lights the stars up to it one after another, then the rating is saved
-                setOnClickListener{stars.forEachIndexed{k,o->o.on=k<v;if(k<v&&motionOn){o.scaleX=.6f;o.scaleY=.6f;o.animate().scaleX(1f).scaleY(1f).setStartDelay(k*40L).setDuration(320).setInterpolator(PathInterpolator(.2f,1.6f,.4f,1f)).start()}}
-                    rateRow.postDelayed({pick?.invoke(v)},if(motionOn)360L else 0L)}
+                setOnClickListener{stars.forEachIndexed{k,o->o.on=k<v;if(k<v&&live){o.scaleX=.6f;o.scaleY=.6f;o.animate().scaleX(1f).scaleY(1f).setStartDelay(k*40L).setDuration(320).setInterpolator(PathInterpolator(.2f,1.6f,.4f,1f)).start()}}
+                    rateRow.postDelayed({pick?.invoke(v)},if(live)360L else 0L)}
                 addView(g,FrameLayout.LayoutParams(a.d(30),a.d(30),Gravity.CENTER))
-                if(motionOn){alpha=0f;translationY=a.d(8).toFloat();animate().alpha(1f).translationY(0f).setStartDelay(v*40L).setDuration(360).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}},LinearLayout.LayoutParams(0,a.d(44),1f))}
+                if(live){alpha=0f;translationY=a.d(8).toFloat();animate().alpha(1f).translationY(0f).setStartDelay(v*40L).setDuration(360).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}},LinearLayout.LayoutParams(0,a.d(44),1f))}
         rateRow.visibility=View.VISIBLE}
     private fun closeRate(rateRow:LinearLayout){rateRow.visibility=View.GONE}
     private fun daysWordFull(n:Int)="$n "+if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
