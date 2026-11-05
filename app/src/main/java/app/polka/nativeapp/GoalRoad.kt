@@ -20,8 +20,8 @@ import kotlin.math.*
 
 // ───────────────────────── shared bits ─────────────────────────
 
-internal fun goalGreen(a:MainActivity)=if(a.light)0xff1f9d63.toInt() else 0xff2fd38a.toInt()
-internal fun goalGreen2(a:MainActivity)=if(a.light)0xff52c68f.toInt() else 0xff9df5c8.toInt()
+internal fun goalGreen(a:MainActivity)=if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt()
+internal fun goalGreen2(a:MainActivity)=if(a.light)0xff54b581.toInt() else 0xff7bdca6.toInt()
 internal val medalNames=listOf("бронза","серебро","золото","платина","бриллиант")
 
 /** «ещё 5 — примерно 3 в месяц», «цель достигнута», «не хватило 2 книг». */
@@ -249,7 +249,7 @@ internal class GoalBackdrop(private val a:MainActivity):android.graphics.drawabl
             a.work({bake(a,w)})}
         @Synchronized fun bake(a:MainActivity,w:Int):Bitmap?{if(w<=0)return null;val k="$w${a.light}";if(k==key&&tex!=null)return tex
             val rx=w*1.05f;val h=(rx*1.25f).toInt()
-            val out=Glow.face(w,h,a.bg,0xff2fd38a.toInt(),w*.82f,0f,rx*1.7f,if(a.light).09f else .15f,2.6f*1.7f*1.7f)?:return null;tex=out;key=k;return out}
+            val out=Glow.face(w,h,a.bg,0xff37c080.toInt(),w*.82f,0f,rx*1.7f,if(a.light).09f else .15f,2.6f*1.7f*1.7f)?:return null;tex=out;key=k;return out}
     }
 }
 
@@ -410,7 +410,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         // the soft glow under the walked road is blurred off the main thread and fades in when ready
         glow?.recycle();glow=null;glowAlpha=0f;val gen=++glowGen
         if(!a.light&&n>0){val path=Path(walked);var out:Bitmap?=null
-            a.work({out=Glow.blurred(w,h,4,d*6f){c,p->p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*16;p.color=0xff2fd38a.toInt();c.drawPath(path,p)}}){val g=out
+            a.work({out=Glow.blurred(w,h,4,d*6f){c,p->p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*16;p.color=0xff37c080.toInt();c.drawPath(path,p)}}){val g=out
                 if(g==null)return@work
                 if(gen!=glowGen||!isAttachedToWindow){g.recycle();return@work}
                 glow=g;if(!motion){glowAlpha=1f;invalidate()} else ValueAnimator.ofFloat(0f,1f).apply{duration=500;addUpdateListener{glowAlpha=it.animatedValue as Float;invalidate()};start()}}}}
@@ -476,7 +476,7 @@ internal object GoalPoster{
         p.shader=RadialGradient(W*.82f,0f,W*.95f,intArrayOf(0x592fd38a,0x002fd38a),null,Shader.TileMode.CLAMP);c.drawRect(0f,0f,W,H,p)
         p.shader=RadialGradient(0f,H,W*.9f,intArrayOf(0x407c5cff,0x007c5cff),null,Shader.TileMode.CLAMP);c.drawRect(0f,0f,W,H,p);p.shader=null
         val tp=Paint(Paint.ANTI_ALIAS_FLAG)
-        tp.typeface=PolkaFonts.sans(600);tp.textSize=40f;tp.letterSpacing=.1f;tp.color=0xff9df5c8.toInt();c.drawText("МОЙ ГОД В КНИГАХ",88f,180f,tp)
+        tp.typeface=PolkaFonts.sans(600);tp.textSize=40f;tp.letterSpacing=.1f;tp.color=0xff7bdca6.toInt();c.drawText("МОЙ ГОД В КНИГАХ",88f,180f,tp)
         tp.letterSpacing=0f;tp.typeface=PolkaFonts.display(700);tp.textSize=220f;tp.color=0xfff3f3f5.toInt();c.drawText("$year",80f,400f,tp)
         tp.typeface=PolkaFonts.sans(400);tp.textSize=52f;tp.color=0xffcfcfd4.toInt()
         c.drawText((if(goal>0)"${list.size} из ${ofBooks(goal)}" else MainActivity.countBooks(list.size))+if(goal>0&&list.size>=goal)" · цель достигнута" else "",88f,490f,tp)

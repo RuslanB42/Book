@@ -177,7 +177,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** Streak: the old flame, the number of days, the week as seven day circles (a burning circle = the day counted,
      *  today's ring fills while you read), and today's minutes toward the next flame. Tap — the month calendar. */
     private fun streak(){
-        val box=surface(0xffff5a1e.toInt(),.14f,.62f,.75f).apply{clipToOutline=true}
+        val box=surface(0xfff9601f.toInt(),.14f,.62f,.75f).apply{clipToOutline=true}
         val n=model.streak;val best=bestStreak();val met=model.met(today)
         val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
         top.addView(StreakFlameView(a,n>0,motionOn),LinearLayout.LayoutParams(a.d(68),a.d(86)).apply{rightMargin=a.d(10)})
@@ -192,7 +192,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         space(box,20)
         val minutes=(model.ms(today)/60000L).toInt();val left=ceil(max(0L,model.dailyGoal*60000L-model.ms(today))/60000.0).toInt()
         val row=a.line();row.addView(label("Сегодня",13f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13f,a.fg,true));box.addView(row);space(box,8)
-        box.addView(ProgressRail(a,animate,todayFraction,amber,coral,"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)))
+        box.addView(ProgressRail(a,animate,todayFraction,if(light)0xffc87600.toInt() else 0xfff09c17.toInt(),if(light)0xffcf5604.toInt() else 0xfff97c3d.toInt(),"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)))
         val month=StreakMonth(a,model,today,motionOn)
         box.addView(month,LinearLayout.LayoutParams(-1,-2))
         box.contentDescription="Серия чтения: $n ${daysWord(n)}, рекорд $best"
@@ -202,7 +202,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
 
     /** Speed: the number, how it compares with the average reader, and the blue bar from slower to faster. */
     private fun speed(){
-        val box=surface()
+        val box=surface(if(light)0xff1b8abd.toInt() else 0xff4cb0e5.toInt(),.88f,.15f,.8f)
         box.addView(kicker("Скорость"));space(box,6)
         box.addView(if(model.speed>0)bigCount(model.speed," слов в минуту",40f,.4f) else big("—",40f))
         space(box,4)
@@ -217,7 +217,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
 
     /** Reading time: the total and the daily average, the Week / Month / Year switch, and a glowing line chart. */
     private fun readingTime(){
-        val box=surface(0xff8c5cff.toInt(),.3f,.82f,.7f)
+        val box=surface(if(light)0xff7973ca.toInt() else 0xff9d98f2.toInt(),.3f,.82f,.7f)
         val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL};head.addView(kicker("Время чтения"),LinearLayout.LayoutParams(0,-2,1f))
         val left=a.column()
         val names=listOf("Неделя","Месяц","Год")
@@ -261,7 +261,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private var menuClosedAt=0L
     private fun books(){
         GoalBackdrop.prepare(a)
-        val box=surface(0xff2fd38a.toInt(),.86f,.12f,.8f)
+        val box=surface(if(light)0xff009a5c.toInt() else 0xff37c080.toInt(),.86f,.12f,.8f)
         val years=(model.finished.mapNotNull{it.date?.year}+today.year).distinct().sortedDescending().take(8)
         if(goalYear !in years&&goalYear!=today.year+1)goalYear=today.year
         fun bind(){box.removeAllViews()
@@ -322,7 +322,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
 internal class PagerDots(private val a:MainActivity,private val n:Int,private val at:Int):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c:Canvas){val d=a.d(1).toFloat();var x=0f;val cy=height/2f
-        for(i in 0 until n){val w=if(i==at)16*d else 6*d;p.color=if(i==at)(if(a.light)0xff1f9d63.toInt() else 0xff2fd38a.toInt()) else if(a.light)0x33000000 else 0x4dffffff
+        for(i in 0 until n){val w=if(i==at)16*d else 6*d;p.color=if(i==at)(if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt()) else if(a.light)0x33000000 else 0x4dffffff
             c.drawRoundRect(x,cy-3*d,x+w,cy+3*d,3*d,3*d,p);x+=w+6*d}}
 }
 

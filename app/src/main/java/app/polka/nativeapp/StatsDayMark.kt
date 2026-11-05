@@ -8,7 +8,7 @@ internal class StatsDayMark(private val a:MainActivity,private val met:Boolean,p
   if(today){p.style=Paint.Style.STROKE;p.strokeWidth=ring;p.color=amber;c.drawCircle(cx,cy,outer-ring/2f,p);p.style=Paint.Style.FILL}
   val inner=if(today)outer-a.d(4) else outer
   p.color=if(met)amber else quiet;c.drawCircle(cx,cy,inner,p)
-  if(met){p.color=if(a.light)Color.WHITE else 0xff2a1a05.toInt();p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND;val path=Path();path.moveTo(width*.30f,height*.52f);path.lineTo(width*.44f,height*.66f);path.lineTo(width*.71f,height*.36f);c.drawPath(path,p)}
+  if(met){p.color=if(a.light)Color.WHITE else 0xff161617.toInt();p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND;val path=Path();path.moveTo(width*.30f,height*.52f);path.lineTo(width*.44f,height*.66f);path.lineTo(width*.71f,height*.36f);c.drawPath(path,p)}
   else if(partial&&!today){p.color=amber;c.drawCircle(cx,cy,width*.09f,p)}
  }
 }

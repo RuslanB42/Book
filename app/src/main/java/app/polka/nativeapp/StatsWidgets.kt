@@ -134,7 +134,8 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
         if(i==0||i==last)return true;if(step==1)return true
         return (i+1)%step==0&&last-i>=max(1,step/2)}
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG)
-    private val c1=0xff7c5cff.toInt();private val c2=0xffff5aa0.toInt()
+    /** Dusk indigo, one tone (variant Б): the line deepens to a lighter shade of itself, no second hue. */
+    private val c1 get()=if(a.light)0xff7973ca.toInt() else 0xff9d98f2.toInt();private val c2 get()=if(a.light)0xff918ed9.toInt() else 0xffb6b4ff.toInt()
     private var draw=1f /* shown at rest: the page entrance is a simple fade */
     private val line=Path();private val area=Path();private val pts=ArrayList<PointF>()
     init{contentDescription=tips.lastOrNull().orEmpty();isClickable=true}
@@ -201,7 +202,7 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
             for(i in 1 until n-1){val mx=(xi(i)+xi(i+1))/2;val my=(ys[i]+ys[i+1])/2;morphPath.quadTo(xi(i),ys[i],mx,my)}
             morphPath.lineTo(xi(n-1),ys[n-1])
             morphArea.set(morphPath);morphArea.lineTo(width-a.d(10).toFloat(),bottom+a.d(2));morphArea.lineTo(a.d(10).toFloat(),bottom+a.d(2));morphArea.close();curve=morphPath;fill=morphArea}
-        p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,top,0f,bottom,(c2 and 0xffffff) or ((if(a.light)0x30 else 0x47) shl 24),c2 and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(fill,p)
+        p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,top,0f,bottom,(c1 and 0xffffff) or ((if(a.light)0x30 else 0x47) shl 24),c1 and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(fill,p)
         p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND
         val grad=LinearGradient(0f,0f,width.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP)
         if(!a.light&&morph>=1f&&glowFade>0f)glow()?.let{g->p.shader=null;p.alpha=255;p.style=Paint.Style.FILL;glowPaint.alpha=(0xc0*glowFade).toInt();c.drawBitmap(g,null,RectF(0f,0f,width.toFloat(),height.toFloat()),glowPaint);p.style=Paint.Style.STROKE}
@@ -240,12 +241,12 @@ internal class SpeedBar(private val a:MainActivity,private val fraction:Float?,p
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f){val sp=Spring.of(.22,720.0);ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=StatsEntrance.wait()+80;interpolator=sp.interpolator;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}}
     override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Скорость",pt0)}}
     private fun draw0(c:Canvas){val d=a.d(1).toFloat();val cy=height/2f;val h=8*d;val pad=9*d
-        p.shader=LinearGradient(pad,0f,width-pad,0f,intArrayOf(0xff2f3f6e.toInt(),0xff4a72c9.toInt(),0xff8ab8ff.toInt()),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
+        p.shader=LinearGradient(pad,0f,width-pad,0f,if(a.light)intArrayOf(0xffcce2ef.toInt(),0xff7bb7da.toInt(),0xff008bc2.toInt()) else intArrayOf(0xff18364a.toInt(),0xff1b6a95.toInt(),0xff61c3f9.toInt()),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
         c.drawRoundRect(pad,cy-h/2,width-pad,cy+h/2,h/2,h/2,p);p.shader=null
         val ax=pad+(width-2*pad)*average;p.color=if(a.light)0x66000000 else 0x8cffffff.toInt();c.drawRoundRect(ax-d,cy-9*d,ax+d,cy+9*d,d,d,p)
         val f=fraction?:return;val x=pad+(width-2*pad)*f*k
-        if(!a.light){p.shader=RadialGradient(x,cy,16*d,intArrayOf(0x998ab8ff.toInt(),0x008ab8ff),null,Shader.TileMode.CLAMP);c.drawCircle(x,cy,16*d,p);p.shader=null}
-        p.color=0x408ab8ff;c.drawCircle(x,cy,12*d,p);p.color=Color.WHITE;c.drawCircle(x,cy,8*d,p)
+        if(!a.light){p.shader=RadialGradient(x,cy,16*d,intArrayOf(0x995abdf2.toInt(),0x005abdf2),null,Shader.TileMode.CLAMP);c.drawCircle(x,cy,16*d,p);p.shader=null}
+        p.color=if(a.light)0x402e97ca else 0x405abdf2;c.drawCircle(x,cy,12*d,p);p.color=Color.WHITE;c.drawCircle(x,cy,8*d,p)
         if(a.light){p.style=Paint.Style.STROKE;p.strokeWidth=1.5f*d;p.color=0x33000000;c.drawCircle(x,cy,8*d,p);p.style=Paint.Style.FILL}}
 }
 
@@ -277,18 +278,18 @@ internal class BookRoad(private val a:MainActivity,private val done:Int,private 
         p.color=if(a.light)0x33000000 else 0x38ffffff;p.strokeWidth=1.4f*d;p.pathEffect=DashPathEffect(floatArrayOf(5*d,7*d),0f);c.drawPath(road,p);p.pathEffect=null
         val go=fraction*k
         if(go>0f){val part=Path();measure.getSegment(0f,length*go,part,true)
-            val green=if(a.light)0xff1f9d63.toInt() else 0xff2fd38a.toInt()
+            val green=if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt()
             if(!a.light){p.color=green;p.alpha=0x33;p.strokeWidth=12*d;c.drawPath(part,p);p.alpha=0x55;p.strokeWidth=8*d;c.drawPath(part,p);p.alpha=255}
-            p.shader=LinearGradient(0f,0f,width.toFloat(),0f,green,if(a.light)0xff52c68f.toInt() else 0xff9df5c8.toInt(),Shader.TileMode.CLAMP);p.strokeWidth=5*d;c.drawPath(part,p);p.shader=null}
+            p.shader=LinearGradient(0f,0f,width.toFloat(),0f,green,if(a.light)0xff54b581.toInt() else 0xff7bdca6.toInt(),Shader.TileMode.CLAMP);p.strokeWidth=5*d;c.drawPath(part,p);p.shader=null}
         p.style=Paint.Style.FILL
         // milestones: one per book of the goal (thinned out for very large goals)
         val step=max(1,ceil(goal/40f).toInt())
         var i=step;while(i<goal){val q=at(i/goal.toFloat());val passed=i<=done
-            p.color=if(passed)(if(a.light)0xff1f9d63.toInt() else Color.WHITE) else if(a.light)0x40000000 else 0x47ffffff
+            p.color=if(passed)(if(a.light)0xff009a5c.toInt() else Color.WHITE) else if(a.light)0x40000000 else 0x47ffffff
             c.drawCircle(q[0],q[1],(if(passed)3.2f else 2.2f)*d,p);i+=step}
         // start ring
         val s=at(0f);p.color=if(a.light)Color.WHITE else 0xff1c1c1f.toInt();c.drawCircle(s[0],s[1],6*d,p)
-        p.style=Paint.Style.STROKE;p.strokeWidth=3*d;p.color=if(a.light)0xff1f9d63.toInt() else 0xff2fd38a.toInt();c.drawCircle(s[0],s[1],6*d,p);p.style=Paint.Style.FILL
+        p.style=Paint.Style.STROKE;p.strokeWidth=3*d;p.color=if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt();c.drawCircle(s[0],s[1],6*d,p);p.style=Paint.Style.FILL
         // finish flag
         val e=at(1f);p.color=a.fg;p.strokeWidth=2*d;c.drawRect(e[0]-d,e[1]-28*d,e[0]+d,e[1]+2*d,p)
         val flag=Path().apply{moveTo(e[0]+d,e[1]-28*d);lineTo(e[0]+18*d,e[1]-23*d);lineTo(e[0]+d,e[1]-17*d);close()};c.drawPath(flag,p)}

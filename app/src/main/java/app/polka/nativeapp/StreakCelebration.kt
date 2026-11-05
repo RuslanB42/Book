@@ -25,7 +25,7 @@ internal class StreakCelebration(private val a:MainActivity,private val host:Fra
     private val capsule=WeekCapsule(a,week,today)
     private val weekBox=a.column()
     private val message=a.text(message(),14.5f,a.muted).apply{gravity=Gravity.CENTER;cssLeading(1.35f)}
-    private val go=a.text("Продолжить чтение",16f,0xff1b1204.toInt(),true).apply{gravity=Gravity.CENTER;background=a.shape(amber,28);isClickable=true;isFocusable=true}
+    private val go=a.text("Продолжить чтение",16f,if(a.light)Color.WHITE else 0xff161617.toInt(),true).apply{gravity=Gravity.CENTER;background=a.shape(amber,28);isClickable=true;isFocusable=true}
     private var pill:View?=null
     private var closed=false
     private fun days(n:Int)=if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}

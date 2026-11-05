@@ -117,7 +117,7 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
         return true}
     override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Дорога цели",pt0)}}
     private fun draw0(c:Canvas){if(length<=0f)return
-        val green=if(a.light)0xff1f9d63.toInt() else 0xff2fd38a.toInt();val green2=if(a.light)0xff52c68f.toInt() else 0xff9df5c8.toInt()
+        val green=if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt();val green2=if(a.light)0xff54b581.toInt() else 0xff7bdca6.toInt()
         p.reset();p.isAntiAlias=true;p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND
         p.color=if(a.light)0x0f000000 else 0x12ffffff;p.strokeWidth=d*16;c.drawPath(road,p)
         p.strokeCap=Paint.Cap.BUTT;p.strokeWidth=d*1.4f;p.color=if(a.light)0x38000000 else 0x38ffffff;p.pathEffect=DashPathEffect(floatArrayOf(d*5,d*7),0f);c.drawPath(road,p);p.pathEffect=null
@@ -129,14 +129,14 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
         p.style=Paint.Style.FILL
         if(big){tp.textSize=10*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(500);tp.textAlign=Paint.Align.CENTER
             var m=tickStep;while(m<slots){val f=m.toFloat()/slots;val q=at(f);val reached=f<=done+.001f
-                p.color=if(reached)(if(a.light)0xff1f9d63.toInt() else Color.WHITE) else if(a.light)0x59000000 else 0x66ffffff;c.drawCircle(q[0],q[1],d*3.2f,p)
+                p.color=if(reached)(if(a.light)0xff009a5c.toInt() else Color.WHITE) else if(a.light)0x59000000 else 0x66ffffff;c.drawCircle(q[0],q[1],d*3.2f,p)
                 tp.color=if(reached)a.fg else a.muted;c.drawText("$m",q[0],q[1]+d*20,tp);m+=tickStep}
             tp.textAlign=Paint.Align.LEFT
             if(books.isNotEmpty()){val q=at(books.size.toFloat()/slots);val x=max(q[0],d*46);p.color=if(a.light)0x59000000 else 0x80ffffff.toInt();p.strokeWidth=d*1.5f;c.drawLine(x,q[1]-d*9,q[0],q[1]-d*3,p)
-                p.color=if(a.light)0xff1f9d63.toInt() else Color.WHITE;c.drawCircle(q[0],q[1],d*4f,p)}}
+                p.color=if(a.light)0xff009a5c.toInt() else Color.WHITE;c.drawCircle(q[0],q[1],d*4f,p)}}
         // milestones: one per book of the goal
         if(!big)for(k in 0 until slots){val f=slot(k);val q=at(f);val reached=k<books.size&&f<=done+.001f
-            p.color=if(reached)(if(a.light)0xff1f9d63.toInt() else Color.WHITE) else if(a.light)0x40000000 else 0x4dffffff
+            p.color=if(reached)(if(a.light)0xff009a5c.toInt() else Color.WHITE) else if(a.light)0x40000000 else 0x4dffffff
             c.drawCircle(q[0],q[1],d*(if(reached)3.4f else 2.4f),p)}
         // stems under the covers
         p.color=if(a.light)0x59000000 else 0x80ffffff.toInt();p.strokeWidth=d*1.5f
@@ -157,7 +157,7 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     /** Blurred off the main thread at a third of the size (measured: done in the frame it cost ~140 ms). */
     private var haloPending=false
     private fun haloFor(w:Int,h:Int):Bitmap?{halo?.let{return it};val pad=haloPad
-        halo=Glow.blurred((w+pad*2).toInt(),(h+pad*2).toInt(),3,d*5){c,p->p.color=if(a.light)0xff2fd38a.toInt() else 0xff9df5c8.toInt();c.drawRoundRect(pad,pad,pad+w,pad+h,d*3,d*3,p)}
+        halo=Glow.blurred((w+pad*2).toInt(),(h+pad*2).toInt(),3,d*5){c,p->p.color=if(a.light)0xff37c080.toInt() else 0xff7bdca6.toInt();c.drawRoundRect(pad,pad,pad+w,pad+h,d*3,d*3,p)}
         return halo}
     // soft glow under the walked part: drawn thick at a third of the size and blurred once
     private var glowBmp:Bitmap?=null;private var glowKey=-1f
@@ -165,7 +165,7 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     /** The glow is blurred off the main thread (a blur mid-animation dropped frames) and fades in once ready. */
     private var glowPending=false;private var glowFade=0f
     private fun glowFor(part:Path):Bitmap?{if(walk<1f)return null;val key=width*10000f+height;if(glowKey==key)return glowBmp
-        glowBmp=Glow.blurred(width,height,3,d*3.2f){c,p->p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*9;p.color=0xff2fd38a.toInt();c.drawPath(part,p)}
+        glowBmp=Glow.blurred(width,height,3,d*3.2f){c,p->p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*9;p.color=0xff37c080.toInt();c.drawPath(part,p)}
         glowKey=key;glowFade=1f;return glowBmp}
     companion object{const val SEL=1.12f;const val BASE=.8f;/** every cover on a normal road: one size, none singled out */const val FLAT=.74f;val MONTHS_SHORT=listOf("янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек")}
 }

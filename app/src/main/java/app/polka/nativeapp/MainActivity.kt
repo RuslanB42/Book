@@ -134,8 +134,9 @@ class MainActivity : Activity() {
     val surface get() = if(light) 0xffffffff.toInt() else 0xff1f1f21.toInt()
     val fg get() = if(light) 0xff1a1a1c.toInt() else 0xfff3f2ef.toInt()
     val muted get() = if(light) 0xff686868.toInt() else 0xffa4a4a4.toInt()
-    val accent get() = if(light) 0xff9b5a00.toInt() else 0xfff3b35a.toInt()
-    val accentFill get()=if(light) 0xffd48a1a.toInt() else 0xfff0a742.toInt()
+    /** No coloured accent: highlights use the interface's own ink (near-black / near-white). */
+    val accent get() = if(light) 0xff1a1a1c.toInt() else 0xfff3f2ef.toInt()
+    val accentFill get()=if(light) 0xff1a1a1c.toInt() else 0xfff3f2ef.toInt()
     fun d(value: Int): Int = (value * resources.displayMetrics.density + .5f).toInt()
     fun shape(color: Int, radius: Int = 16): GradientDrawable = GradientDrawable().apply { setColor(color); cornerRadius=d(radius).toFloat() }
     @android.annotation.SuppressLint("WrongConstant")

@@ -30,7 +30,7 @@ class RecommendationCard(val a:MainActivity,val book:JSONObject):FrameLayout(a) 
         super.dispatchDraw(c); c.restoreToCount(layer); val dir=direction ?: return; if(progress<=0) return
         val color=when(dir) { "want"->a.accentFill;"read"->0xff8fd3b0.toInt();else->a.fg }; val p=Paint(3); val density=a.resources.displayMetrics.density; val alpha=progress*.9f
         // CSS 90/270/0 degree gradients, including the transparent stop and inset rim.
-        val tintColor=when(dir){"want"->0xfff0a742.toInt();"read"->0xff3c8c64.toInt();else->Color.BLACK}
+        val tintColor=when(dir){"want"->0xff8e8e93.toInt();"read"->0xff3c8c64.toInt();else->Color.BLACK}
         val tint=(tintColor and 0xffffff) or ((alpha*.45f*255).toInt() shl 24)
         p.shader=when(dir){
             "read"->LinearGradient(0f,height.toFloat(),0f,0f,intArrayOf(Color.TRANSPARENT,Color.TRANSPARENT,tint),floatArrayOf(0f,.3f,1f),Shader.TileMode.CLAMP)
