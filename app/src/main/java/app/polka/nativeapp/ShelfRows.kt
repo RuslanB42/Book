@@ -14,8 +14,9 @@ import org.json.JSONObject
 internal class ShelfRow(private val a:MainActivity,var key:String,private var title:String,private val list:List<JSONObject>,private val open:()->Unit,private val actions:(()->Unit)?,private val rename:((String)->Unit)?,private val remove:(()->Unit)?=null):LinearLayout(a){
     // The shelf shows only what fits, laid out evenly across the page (no sideways scrolling); the whole shelf opens
     // with a tap. Four covers on a phone, more on wider screens.
-    private val gap=a.d(12)
-    private val fit=run{val avail=a.resources.displayMetrics.widthPixels-a.d(40);((avail+gap)/(a.d(76)+gap)).coerceIn(3,8)}
+    private val gap=a.d(10)
+    // at least four covers on a phone (approved «4 в ряд»), more on wider screens
+    private val fit=run{val avail=a.resources.displayMetrics.widthPixels-a.d(40);((avail+gap)/(a.d(64)+gap)).coerceIn(4,8)}
     private val coverW=(a.resources.displayMetrics.widthPixels-a.d(40)-gap*(fit-1))/fit;private val coverH=(coverW*1.5f).toInt()
     private val scroller=object:HorizontalScrollView(a){override fun onInterceptTouchEvent(e:MotionEvent)=false;override fun onTouchEvent(e:MotionEvent)=false}.apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;clipChildren=false}
     private val row=a.row().apply{gravity=Gravity.BOTTOM;clipChildren=false;clipToPadding=false;setPadding(a.d(20),a.d(6),a.d(20),a.d(10))}
@@ -65,6 +66,8 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         if(list.isEmpty())row.addView(View(a),LayoutParams(1,coverH*3/4))
         more(fit)
         scroller.addView(row);lensHost.addView(scroller,FrameLayout.LayoutParams(-1,-2));stage.addView(lensHost,FrameLayout.LayoutParams(-1,-1))
+        // a tap anywhere on the row opens the shelf itself (not the book under the finger)
+        stage.isClickable=true;stage.contentDescription="Открыть полку $title";stage.setOnClickListener{if(!editing)open()}
         scroller.setOnScrollChangeListener{_,_,_,_,_->glass.scrolled()}
         // The glass view is larger than the glass by its shadow; it never takes touches, so the row still scrolls.
         // the matte shelf lies behind the covers: its top surface starts under their lower part, so the books stand on it
@@ -149,7 +152,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     // page has settled — never while the row is being flung (a relayout mid-fling made the scroll stutter back).
     private fun more(n:Int){val until=minOf(list.size,shown+n)
         for(i in shown until until){val b=list[i]
-            val box=FrameLayout(a).apply{clipChildren=false;isClickable=true;contentDescription=b.str("title");setOnClickListener{a.detail(b,this)};a.press(this)}
+            val box=FrameLayout(a).apply{clipChildren=false;isClickable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
             // One CoverView per book; when its picture arrives it only redraws (no view swap, no relayout of the row).
             val cover=CoverView(a,b,a.cover(b)).apply{softShadow=true};box.addView(cover,FrameLayout.LayoutParams(-1,-1))
             if(a.cover(b)==null&&b.optJSONObject("cover")!=null)a.requestCover(b){bmp->if(bmp!=null){cover.invalidate();glass.refresh()}}
