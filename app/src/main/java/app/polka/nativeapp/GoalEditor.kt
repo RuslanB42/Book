@@ -17,7 +17,7 @@ internal fun MainActivity.goalSheet(year:Int,initial:Int,done:Int,saved:(Int?)->
     val road=GoalRoadView(this,done,if(value>0)value else max(done+5,12))
     box.addView(road,LinearLayout.LayoutParams(-1,d(150)).apply{topMargin=d(6)})
     val row=line().apply{gravity=Gravity.BOTTOM}
-    val number=Odometer(this,if(value>0)"$value" else "0",56f,fg,true);row.addView(number)
+    val number=Odometer(this,if(value>0)"$value" else "0",58f,fg,true,serif=true);row.addView(number)
     fun unitFor(n:Int)=if(n<=0)"без цели" else MainActivity.countBooks(n).substringAfter(' ')+" за год"
     val unit=text(unitFor(value),16f,muted).apply{setPadding(d(6),0,0,d(10))};row.addView(unit)
     box.addView(row,LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(14)})
@@ -28,7 +28,7 @@ internal fun MainActivity.goalSheet(year:Int,initial:Int,done:Int,saved:(Int?)->
     box.addView(ruler,LinearLayout.LayoutParams(-1,d(64)).apply{topMargin=d(22);leftMargin=-d(20);rightMargin=-d(20)})
     ruler.onChange={n->val old=value;value=n;number.set("$n","$old",up=n>old);unit.text=unitFor(n);pace.text=paceFor(n);if(n>0)road.goal=n}
     ruler.onValue={v->if(v>=1f)road.goalFloat=v}
-    val sheet=dialog().setView(box).show()
+    val sheet=dialog().setBare().setView(box).show()
     sheet.setOnDismissListener{road.stop();ruler.stop();if(value!=start){val n=value.takeIf{it>0};updateStatistics{changeAnnualGoal(it,year,n)};saved(n)}}
 }
 

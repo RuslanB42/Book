@@ -70,6 +70,9 @@ private fun MainActivity.wideSheet()=resources.configuration.let { it.screenWidt
 class PolkaSheetBuilder(private val a:MainActivity) {
     private var tall=false
     fun setTall(value:Boolean)=apply{tall=value}
+    /** No title row and no close button: the content is the whole sheet (it still closes by swipe or a tap outside). */
+    private var bare=false
+    fun setBare()=apply{bare=true}
     private var title=""; private var message=""; private var view:View?=null; private var cancel=true
     private var items:Array<out CharSequence>?=null; private var onItem:((DialogInterface,Int)->Unit)?=null
     private var itemIcons:List<String>?=null; private var destructiveItems:Set<Int> = emptySet()
@@ -137,7 +140,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 box.addView(handle,LinearLayout.LayoutParams(-1,a.d(18)))
                 val head=FrameLayout(a); head.addView(a.text(title,17f,bold=true).apply { gravity=Gravity.CENTER },FrameLayout.LayoutParams(-1,a.d(48)))
                 if(cancel) head.addView(IconView(a,"x",a.muted).apply { a.controlSurface(this,24f);a.press(this);contentDescription="Закрыть"; setOnClickListener { dismiss() } },FrameLayout.LayoutParams(a.d(32),a.d(32),Gravity.END or Gravity.CENTER_VERTICAL).apply { rightMargin=a.d(12) })
-                box.addView(head)
+                if(!bare) box.addView(head)
                 val content=a.column().apply { setPadding(a.d(20),a.d(6),a.d(20),a.d(24)) }
                 if(message.isNotBlank()) content.addView(a.text(message,16f).apply { setPadding(0,a.d(8),0,a.d(16)) })
                 view?.let { (it.parent as? ViewGroup)?.removeView(it); content.addView(it) }

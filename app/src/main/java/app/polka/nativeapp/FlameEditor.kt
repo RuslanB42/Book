@@ -19,13 +19,13 @@ private val stepFrom=intArrayOf(5,15,30,45,60);private val stepTo=intArrayOf(15,
  *  Saved when the window closes. */
 internal fun MainActivity.flameSheet(initial:Int,saved:(Int)->Unit){
     var value=((initial.coerceIn(5,90)+2)/5)*5;val start=value
-    val stage=FrameLayout(this).apply{clipChildren=false}
+    val stage=FrameLayout(this).apply{clipChildren=false;clipToPadding=false}
     val back=FlameStage(this,true);val front=FlameStage(this,false);front.shared=back
     stage.addView(back,FrameLayout.LayoutParams(-1,-1))
-    val col=column().apply{gravity=Gravity.CENTER_HORIZONTAL}
+    val col=column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(d(20),0,d(20),d(24))}
     col.addView(View(this),LinearLayout.LayoutParams(-1,d(212)))
     val numRow=line().apply{gravity=Gravity.BOTTOM}
-    val number=Odometer(this,"$value",56f,fg,true);numRow.addView(number)
+    val number=Odometer(this,"$value",58f,fg,true,serif=true);numRow.addView(number)
     numRow.addView(text("мин в день",16f,muted).apply{setPadding(d(6),0,0,d(10))})
     col.addView(numRow,LinearLayout.LayoutParams(-2,-2))
     val names=FrameLayout(this)
@@ -41,10 +41,13 @@ internal fun MainActivity.flameSheet(initial:Int,saved:(Int)->Unit){
     bar.onChange={v->val old=value;value=v;number.set("$v","$old",up=v>old);back.setMinutes(v,false)
         val s=stepOf(v);if(s!=shownStep){shownStep=s;val (out,inn)=if(useA)nameA to nameB else nameB to nameA;useA=!useA;inn.text=flameSteps[s].second
             if(prefs.str("motion")=="reduced"){out.alpha=0f;inn.alpha=1f}else{out.animate().alpha(0f).translationY(-d(8).toFloat()).setDuration(220).start();inn.translationY=d(8).toFloat();inn.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
-    val sheet=dialog().setView(stage).show()
+    // the stage spans the whole sheet (past the content padding), so the light and the sparks are only ever cut by the sheet's own edge
+    val holder=FrameLayout(this).apply{clipChildren=false;addView(stage,FrameLayout.LayoutParams(-1,-2).apply{leftMargin=-d(20);rightMargin=-d(20);bottomMargin=-d(24)})}
+    val sheet=dialog().setBare().setView(holder).show()
     // the sheet itself warms with the fire: an ember tint rises from its bottom
-    stage.post{var v:View?=stage.parent as? View;while(v!=null&&v.background !is GradientDrawable)v=v.parent as? View
-        v?.let{panel->val tint=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(0,0)).apply{cornerRadius=d(22).toFloat()}
+    stage.post{run{var g:ViewParent?=holder.parent;while(g is ViewGroup&&g.background==null){g.clipToPadding=false;g.clipChildren=false;g=g.parent}}
+        var v:View?=stage.parent as? View;while(v!=null&&v.background !is OpaqueSurface&&v.background !is GradientDrawable)v=v.parent as? View
+        v?.let{panel->val r=d(22).toFloat();val tint=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(0,0)).apply{cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)}
             panel.background=LayerDrawable(arrayOf(panel.background,tint));back.tint=tint;back.tintCorner=d(22).toFloat()}}
     sheet.setOnDismissListener{back.stop();if(value!=start){val v=value;updateStatistics{it.put("goal",v)};saved(v)}}
 }
@@ -174,6 +177,7 @@ internal class HeatBar(private val a:MainActivity,start:Int):View(a){
     private fun mix(a1:Int,b1:Int,k:Float)=androidx.core.graphics.ColorUtils.blendARGB(a1,b1,k)
     override fun onDraw(c:Canvas){val h=height.toFloat();val w=width.toFloat();val r=h/2;val fx=h+(w-h)*pos;val hot=heat
         p.shader=null;p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,r,r,p)
+        p.color=Color.WHITE // the shaders below must not inherit the faint track's alpha
         c.save();val clip=Path().apply{addRoundRect(0f,0f,fx,h,r,r,Path.Direction.CW)};c.clipPath(clip)
         p.shader=LinearGradient(0f,0f,fx,0f,intArrayOf(mix(0xff3a1a12.toInt(),0xff9a2a0c.toInt(),hot),mix(0xff8a3414.toInt(),0xffff5a14.toInt(),hot),mix(0xffc25a26.toInt(),0xffffd25a.toInt(),hot)),floatArrayOf(0f,.6f,1f),Shader.TileMode.CLAMP);c.drawRect(0f,0f,fx,h,p)
         if(a.prefs.str("motion")!="reduced"){val T=System.nanoTime()/1_000_000f;repeat(3){i->val ph=((T/(1400-hot*700))+i/3f)%1f;val bx=ph*(fx+80*d)-40*d

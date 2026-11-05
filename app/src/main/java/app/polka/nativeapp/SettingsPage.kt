@@ -111,7 +111,7 @@ internal class GoalPlaque(private val a:MainActivity,private val year:Int):Frame
         addView(head,LayoutParams(-1,-2,Gravity.TOP).apply{setMargins(a.d(16),a.d(14),a.d(14),0)})
         val col=a.column();val line=a.line().apply{gravity=Gravity.BOTTOM};line.addView(number);line.addView(unit);col.addView(line);col.addView(read.apply{setPadding(0,a.d(4),0,0)})
         addView(col,LayoutParams(-1,-2,Gravity.TOP).apply{setMargins(a.d(16),a.d(44),a.d(16),0)})
-        addView(road,LayoutParams(-1,a.d(34),Gravity.BOTTOM).apply{setMargins(a.d(12),0,a.d(16),a.d(12))})}
+        addView(road,LayoutParams(-1,a.d(44),Gravity.BOTTOM).apply{setMargins(a.d(12),0,a.d(16),a.d(10))})}
 }
 
 /** The plaques' face: the card colour with one soft light in its own colour (inside the plaque, so nothing is cut). */
@@ -120,7 +120,7 @@ internal class PlaqueBackground(private val a:MainActivity,private val glow:Int,
     override fun draw(c:Canvas){val b=bounds;r.set(b);val rad=a.d(24).toFloat()
         p.shader=null;p.color=if(a.light)0x0e000000 else 0x12ffffff;c.drawRoundRect(r,rad,rad,p)
         val cx=b.left+b.width()*fx;val cy=b.top+b.height()*fy;val R=max(b.width(),b.height())*.85f
-        p.shader=RadialGradient(cx,cy,R,intArrayOf((glow and 0xffffff) or ((if(a.light)0x1c else 0x2a) shl 24),(glow and 0xffffff) or ((if(a.light)0x0a else 0x10) shl 24),glow and 0xffffff),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP)
+        p.shader=RadialGradient(cx,cy,R,intArrayOf((glow and 0xffffff) or ((if(a.light)0x2e else 0x4a) shl 24),(glow and 0xffffff) or ((if(a.light)0x12 else 0x1c) shl 24),glow and 0xffffff),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP)
         c.save();val path=Path().apply{addRoundRect(r,rad,rad,Path.Direction.CW)};c.clipPath(path);c.drawRect(r,p);c.restore();p.shader=null}
     override fun setAlpha(alpha:Int){}
     override fun setColorFilter(cf:ColorFilter?){}
@@ -134,7 +134,7 @@ internal class MiniRoad(private val a:MainActivity):View(a){
     private val path=Path();private val pm=PathMeasure()
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat();val H=h.toFloat();
         fun x(f:Float):Float{return a.d(4)+(W-a.d(20))*f}
-        fun y(f:Float):Float{return H*.25f+H*.6f*f}
+        fun y(f:Float):Float{return H*.5f+H*.42f*f}
         path.reset();path.moveTo(x(0f),y(.9f));path.cubicTo(x(.25f),y(1f),x(.3f),y(.2f),x(.55f),y(.35f));path.cubicTo(x(.75f),y(.5f),x(.8f),y(.9f),x(1f),y(.1f));pm.setPath(path,false)}
     override fun onDraw(c:Canvas){val d=a.d(1).toFloat()
         p.shader=null;p.color=if(a.light)0x24000000 else 0x38808080;p.strokeWidth=6*d;c.drawPath(path,p)
