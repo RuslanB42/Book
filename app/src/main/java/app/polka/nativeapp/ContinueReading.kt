@@ -192,7 +192,8 @@ internal class AmbientGlow(private val a:MainActivity):View(a){
  private var light=false
  private val p=Paint(Paint.FILTER_BITMAP_FLAG)
  private var near:Bitmap?=null;private var far:Bitmap?=null;private var maskKey=""
- private val pad get()=a.d(70).toFloat()
+ private val pad get()=a.d(110).toFloat()
+ private val clip=Path()
  private val dst=RectF()
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
  /** Cards in this view's coordinates (already scaled), their light colours and how much each one glows (0..1). */
@@ -210,16 +211,19 @@ internal class AmbientGlow(private val a:MainActivity):View(a){
   val P=pad;val W=(w+2*P).toInt();val H=(h+2*P).toInt();val r=a.d(18).toFloat()
   fun layer(spread:Float,sigma:Float,alpha:Float)=Glow.blurred(W,H,2,sigma){c,paint->paint.color=Color.WHITE;paint.alpha=(255*alpha).toInt()
    c.drawRoundRect(P-spread,P-spread,P+w+spread,P+h+spread,r+spread,r+spread,paint)}
-  // box-shadow 0 0 22px 2px (.32 / .24) and 0 0 52px 8px (.12 / .09), as in the mockup
-  near=layer(a.d(2).toFloat(),a.d(11).toFloat(),if(light).24f else .32f)
-  far=layer(a.d(8).toFloat(),a.d(26).toFloat(),if(light).09f else .12f)}
+  // more diffuse than the first cut: wider gaussians, the near one a little fainter so the edge is not traced
+  near=layer(a.d(2).toFloat(),a.d(17).toFloat(),if(light).2f else .26f)
+  far=layer(a.d(10).toFloat(),a.d(36).toFloat(),if(light).1f else .13f)}
  override fun onDraw(c:Canvas){if(width<1||height<1)return
   for(hl in halos){if(hl.strength<.01f||hl.color==0||hl.rect.width()<2f)continue
    masks(baseW,baseH);val n=near?:continue;val f=far?:continue
    val kx=hl.rect.width()/baseW;val ky=hl.rect.height()/baseH
    dst.set(hl.rect.left-pad*kx,hl.rect.top-pad*ky,hl.rect.right+pad*kx,hl.rect.bottom+pad*ky)
+   // the light never lies over the neighbouring cards (they are dimmed, so it would show through them)
+   c.save();clip.rewind();halos.forEach{o->if(o!==hl&&o.rect.width()>2f){val rr=a.d(18)*o.rect.width()/baseW;clip.addRoundRect(o.rect,rr,rr,Path.Direction.CW)}}
+   if(!clip.isEmpty)c.clipOutPath(clip)
    p.colorFilter=PorterDuffColorFilter(hl.color,PorterDuff.Mode.SRC_IN);p.alpha=(255*hl.strength).toInt().coerceIn(0,255)
-   c.drawBitmap(f,null,dst,p);c.drawBitmap(n,null,dst,p)}}
+   c.drawBitmap(f,null,dst,p);c.drawBitmap(n,null,dst,p);c.restore()}}
  /** The unscaled card size the masks are baked for. */
  var baseW=1;var baseH=1
  override fun onDetachedFromWindow(){super.onDetachedFromWindow();near?.recycle();far?.recycle();near=null;far=null;maskKey=""}
