@@ -166,6 +166,9 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   // Only while the cover is still in (or just leaving) its slot; once lifted off the shelf it is fully in front.
   val pane=ShelfGlassLink.pane?.takeIf{ShelfGlassLink.front<1f}?.paneRectOnScreen()?.apply{offset(-at[0].toFloat(),-at[1].toFloat())}
   val save=c.save();pane?.let{c.clipOutRect(it)}
+  // The tab bar and the «+» stay in front of the flying cover (as they are in front of its tile on the page), except
+  // where the rising panel already covers them: no cover over the menu that then pops under it on landing.
+  underChrome(c)
   c.translate(v.x,v.y);c.scale(v.scaleX,v.scaleY);v.draw(c);c.restoreToCount(save)
   if(pane!=null&&ShelfGlassLink.front>0f){val l=c.saveLayerAlpha(pane,(ShelfGlassLink.front*255).toInt());c.translate(v.x,v.y);c.scale(v.scaleX,v.scaleY);v.draw(c);c.restoreToCount(l)}
   val amount=landingLight(presentation)
@@ -176,6 +179,14 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
    flightFadeMatrix.setTranslate(0f,panel.top+(v.y-to.top));flightFadePaint.shader.setLocalMatrix(flightFadeMatrix);flightFadePaint.alpha=(amount*255).toInt();c.drawRect(bounds,flightFadePaint);c.restoreToCount(clip)
   }
  }
+ private val chromePath=Path();private val chromePiece=Path();private val chromeOpen=Path()
+ private fun underChrome(c:Canvas){
+  val bars=listOfNotNull(a.nativeNavigation,a.addButton).filter{it.isShown&&it.width>0}
+  if(bars.isEmpty())return
+  val open=rect(panel);chromePath.rewind()
+  chromeOpen.rewind();chromeOpen.addRect(0f,0f,width.toFloat(),open.top.coerceAtLeast(0f),Path.Direction.CW)
+  bars.forEach{b->val r=rect(b);chromePiece.rewind();chromePiece.addRoundRect(r,r.height()/2f,r.height()/2f,Path.Direction.CW);chromePiece.op(chromeOpen,Path.Op.INTERSECT);chromePath.op(chromePiece,Path.Op.UNION)}
+  if(!chromePath.isEmpty)c.clipOutPath(chromePath)}
  private fun pct()=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
  private fun hair()=if(a.light)0x18161617 else 0x18ffffff
  private fun hairlines()=object:android.graphics.drawable.Drawable(){val p=Paint().apply{color=hair()};override fun draw(c:Canvas){c.drawRect(0f,0f,bounds.width().toFloat(),1f,p);c.drawRect(0f,bounds.height()-1f,bounds.width().toFloat(),bounds.height().toFloat(),p)};override fun setAlpha(x:Int){};override fun setColorFilter(x:ColorFilter?){};@Deprecated("Drawable")override fun getOpacity()=PixelFormat.TRANSLUCENT}

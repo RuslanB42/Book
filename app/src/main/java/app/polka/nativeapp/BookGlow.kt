@@ -45,6 +45,20 @@ internal object BookGlowRaster {
    return out
   }finally{layer.recycle()}
  }
+ /** The overall colour of the light [build] makes from this cover (the same lift and saturation, averaged), so a
+  *  light elsewhere — the halo of «Продолжить чтение» — reads as the same light as in the book card. */
+ fun tone(artwork:Bitmap):Int{
+  val probe=Bitmap.createScaledBitmap(artwork,16,24,true);var sum=0f;var n=0
+  for(y in 0 until probe.height)for(x in 0 until probe.width){val p=probe.getPixel(x,y);sum+=maxOf(Color.red(p),Color.green(p),Color.blue(p));n++}
+  val mean=(sum/maxOf(1,n)/255f).coerceAtLeast(.04f);val lift=(.62f/mean).coerceIn(1f,5f)
+  val cm=ColorMatrix().apply{setSaturation(1.25f)};cm.postConcat(ColorMatrix(floatArrayOf(lift,0f,0f,0f,0f, 0f,lift,0f,0f,0f, 0f,0f,lift,0f,0f, 0f,0f,0f,1f,0f)))
+  val lit=Bitmap.createBitmap(16,24,Bitmap.Config.ARGB_8888);Canvas(lit).drawBitmap(probe,0f,0f,Paint(Paint.FILTER_BITMAP_FLAG).apply{colorFilter=ColorMatrixColorFilter(cm)})
+  if(probe!==artwork)probe.recycle()
+  var r=0f;var g=0f;var b=0f
+  for(y in 0 until 24)for(x in 0 until 16){val p=lit.getPixel(x,y);r+=Color.red(p);g+=Color.green(p);b+=Color.blue(p)}
+  lit.recycle();val k=16f*24f
+  return Color.rgb((r/k).toInt().coerceIn(0,255),(g/k).toInt().coerceIn(0,255),(b/k).toInt().coerceIn(0,255))
+ }
  fun prepare(artwork:Bitmap,done:(Bitmap?)->Unit){executor.execute{
   val result=try{build(artwork)}catch(_:Exception){null}finally{artwork.recycle()}
   main.post{done(result)}

@@ -34,7 +34,7 @@ class MainActivity : Activity() {
     lateinit var root: FrameLayout
     lateinit var page: LinearLayout
     internal lateinit var scroll: ScrollView
-    private var nativeNavigation:PolkaNavigation?=null
+    internal var nativeNavigation:PolkaNavigation?=null
     internal var tab = "home"
     internal var shelf: String? = null
     internal var auto: String? = null

@@ -108,12 +108,13 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  /** Card fill: the cover's colour, lighter on the left (next to the cover) and deepening to the right, like Kindle. */
  private fun floating(card:FrameLayout,book:JSONObject,i:Int){
   val radius=a.d(18).toFloat()
-  fun paint(c:IntArray){tints[i]=glow.tone(c[0]);glow.invalidate()}
+  // the halo has the colour of the book card's own light (the same lifted cover), so both read as one light
+  fun paint(c:IntArray,b:Bitmap?=null){tints[i]=b?.let{runCatching{BookGlowRaster.tone(it)}.getOrNull()}?:glow.tone(c[0]);glow.invalidate()}
   val first=shades(null,book);paint(first)
   // the usual card grey; the cover's colour only tints the glow behind the cards
   val fill=GradientDrawable().apply{setColor(if(light)Color.WHITE else 0xff242426.toInt());cornerRadius=radius}
   card.background=fill
-  a.cover(book).let{b->if(b!=null)shades(b,book).let{paint(it)} else if(book.optJSONObject("cover")!=null)a.requestCover(book){bmp->if(bmp!=null)shades(bmp,book).let{paint(it);focus(carousel.scrollX)}}}
+  a.cover(book).let{b->if(b!=null)shades(b,book).let{paint(it,b)} else if(book.optJSONObject("cover")!=null)a.requestCover(book){bmp->if(bmp!=null)shades(bmp,book).let{paint(it,bmp);focus(carousel.scrollX)}}}
   card.elevation=a.d(if(light)8 else 10).toFloat()
   card.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,radius)}}
   if(Build.VERSION.SDK_INT>=28){card.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();card.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
