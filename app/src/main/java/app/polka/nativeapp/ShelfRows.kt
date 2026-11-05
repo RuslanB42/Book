@@ -172,10 +172,11 @@ internal class ShelfRow(private val a:MainActivity,val key:String,private val ti
             m.setScale(rx,ry);m.postTranslate(cx,cy);p.shader.setLocalMatrix(m);c.drawOval(cx-rx,cy-ry,cx+rx,cy+ry,p)
             // top face: darker at the back, a touch lighter toward the front edge
             p.shader=LinearGradient(0f,0f,0f,t,if(light)0xffbebebb.toInt() else 0xff1f1f22.toInt(),if(light)0xffd2d2cf.toInt() else 0xff313135.toInt(),Shader.TileMode.CLAMP)
-            r.set(l+d*2,0f,rgt-d*2,t+d);c.drawRect(r,p)
+            // in perspective: the back edge a little shorter than the front, both ends slanting evenly
+            val back=d*7;val face=Path().apply{moveTo(l+back,0f);lineTo(rgt-back,0f);lineTo(rgt,t+d);lineTo(l,t+d);close()};c.drawPath(face,p)
             // front edge: lit bevel at the top, falling into shade at the foot
             p.shader=LinearGradient(0f,t,0f,t+f,intArrayOf(if(light)0xffe9e9e6.toInt() else 0xff4a4a50.toInt(),if(light)0xffd3d3d0.toInt() else 0xff2e2e32.toInt(),if(light)0xffc9c9c6.toInt() else 0xff2a2a2d.toInt(),if(light)0xffb0b0ad.toInt() else 0xff1c1c1f.toInt()),floatArrayOf(0f,.12f,.45f,1f),Shader.TileMode.CLAMP)
-            r.set(l,t,rgt,t+f);c.drawRoundRect(r,d*3,d*3,p);c.drawRect(l,t,rgt,t+d*3,p);p.shader=null
+            val rr=d*3;val edge=Path().apply{addRoundRect(RectF(l,t,rgt,t+f),floatArrayOf(0f,0f,0f,0f,rr,rr,rr,rr),Path.Direction.CW)};c.drawPath(edge,p);p.shader=null
             p.color=if(light)0xccffffff.toInt() else 0x38ffffff;c.drawRect(l+d,t,rgt-d,t+d,p)
             p.color=if(light)0x26000000 else 0x80000000.toInt();c.drawRect(l+d*3,t+f-d*.8f,rgt-d*3,t+f,p)}
     }

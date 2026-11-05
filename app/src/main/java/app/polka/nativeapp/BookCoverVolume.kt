@@ -85,9 +85,11 @@ internal object BookCoverVolume {
         ink.style=Paint.Style.STROKE;ink.strokeWidth=hair;ink.color=0x47000000
         c.drawRect(r.left+hair/2,r.top+hair/2,r.right-hair/2,r.bottom-hair/2,ink);ink.style=Paint.Style.FILL
     }
+    // The spine fold must read on every cover, light or dark: a dark edge, a bright fold ridge, a dark groove right
+    // after it and a soft return — strong enough to be seen at shelf size.
     private val creaseM=LinearGradient(0f,0f,44f,0f,
-        intArrayOf(0x47000000,0x0f000000,0x29ffffff,0x1a000000,0x08000000,Color.TRANSPARENT),
-        floatArrayOf(0f,.182f,.327f,.545f,.727f,1f),Shader.TileMode.CLAMP)
+        intArrayOf(0x73000000,0x26000000,0x14000000,0x47ffffff,0x1fffffff,0x5c000000,0x29000000,0x0dffffff,Color.TRANSPARENT),
+        floatArrayOf(0f,.12f,.22f,.32f,.40f,.50f,.62f,.78f,1f),Shader.TileMode.CLAMP)
     private val foreM=LinearGradient(376f,0f,400f,0f,intArrayOf(Color.TRANSPARENT,0x1a000000),null,Shader.TileMode.CLAMP)
     private val footM=LinearGradient(0f,0f,0f,600f,intArrayOf(0x0affffff,0x00ffffff,0x00000000,0x1a000000),floatArrayOf(0f,.15f,.88f,1f),Shader.TileMode.CLAMP)
     private var grainShader:BitmapShader?=null
