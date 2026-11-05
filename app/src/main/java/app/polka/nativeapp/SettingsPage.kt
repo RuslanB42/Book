@@ -132,7 +132,9 @@ internal class MiniRoad(private val a:MainActivity):View(a){
     var fraction=0f;set(v){field=v;invalidate()}
     private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND}
     private val path=Path();private val pm=PathMeasure()
-    override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat();val H=h.toFloat();fun x(f:Float)=a.d(4)+(W-a.d(20))*f;fun y(f:Float)=H*.25f+H*.6f*f
+    override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat();val H=h.toFloat();
+        fun x(f:Float):Float{return a.d(4)+(W-a.d(20))*f}
+        fun y(f:Float):Float{return H*.25f+H*.6f*f}
         path.reset();path.moveTo(x(0f),y(.9f));path.cubicTo(x(.25f),y(1f),x(.3f),y(.2f),x(.55f),y(.35f));path.cubicTo(x(.75f),y(.5f),x(.8f),y(.9f),x(1f),y(.1f));pm.setPath(path,false)}
     override fun onDraw(c:Canvas){val d=a.d(1).toFloat()
         p.shader=null;p.color=if(a.light)0x24000000 else 0x38808080;p.strokeWidth=6*d;c.drawPath(path,p)

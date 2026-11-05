@@ -49,7 +49,8 @@ internal class GoalRoadView(private val a:MainActivity,private val done:Int,star
     init{for(i in f.indices){f[i]=(i+1f)/start;al[i]=if(i<start-1)1f else 0f};importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     fun stop(){running=false}
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat();val H=h.toFloat()
-        fun x(t:Float)=14*d+(W-48*d)*t;fun y(t:Float)=32*d+(H-44*d)*t
+        fun x(t:Float):Float{return 14*d+(W-48*d)*t}
+        fun y(t:Float):Float{return 32*d+(H-44*d)*t}
         road.reset();road.moveTo(x(0f),y(.92f));road.cubicTo(x(.16f),y(1f),x(.24f),y(.45f),x(.44f),y(.5f));road.cubicTo(x(.64f),y(.55f),x(.7f),y(.95f),x(.86f),y(.7f));road.cubicTo(x(.95f),y(.56f),x(.98f),y(.3f),x(1f),y(.2f))
         pm.setPath(road,false);length=pm.length}
     private fun at(t:Float):FloatArray{pm.getPosTan(length*t.coerceIn(0f,1f),pos,null);return floatArrayOf(pos[0],pos[1])}
