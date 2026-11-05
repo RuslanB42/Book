@@ -54,9 +54,10 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     var stats=JSONObject()
     fun refreshPlaques(){val model=ReadingStatistics(stats,books);flame.minutes=stats.optInt("goal",10);goal.set(model.target(year),model.finished.count{it.date?.year==year})}
     work({stats=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")}?:JSONObject()}){refreshPlaques()}
-    flame.setOnClickListener{flameSheet(stats.optInt("goal",10)){v->stats.put("goal",v);refreshPlaques()}}
-    goal.setOnClickListener{val model=ReadingStatistics(stats,books);goalSheet(year,model.target(year),model.finished.count{it.date?.year==year}){n->
-        (stats.optJSONObject("annualGoals")?:JSONObject().also{stats.put("annualGoals",it)}).apply{if(n==null)remove("$year") else put("$year",n)};refreshPlaques()}}
+    flame.setOnClickListener{numberSheet("Огонёк",stats.optInt("goal",10),1..240,listOf(10,15,20,30,45,60),{n->"минут в день, чтобы огонёк горел"}){v->stats.put("goal",v);updateStatistics{it.put("goal",v)};refreshPlaques()}}
+    goal.setOnClickListener{val model=ReadingStatistics(stats,books);val cur=model.target(year)
+        fun store(n:Int?){(stats.optJSONObject("annualGoals")?:JSONObject().also{stats.put("annualGoals",it)}).apply{if(n==null)remove("$year") else put("$year",n)};updateStatistics{changeAnnualGoal(it,year,n)};refreshPlaques()}
+        numberSheet("Цель на $year",cur,1..9999,listOf(12,24,36,52),{n->if(n<=0)"книг за год" else MainActivity.countBooks(n).substringAfter(' ')+" за год · примерно ${max(1,(n/12f).roundToInt())} в месяц"},if(cur>0)("Убрать цель" to {store(null)}) else null){n->store(n)}}
     // behaviour
     group("Поведение")
     fun sw(title:String,on:Boolean,change:(Boolean)->Unit)=LayoutToggle(this,title,on,change)
@@ -142,4 +143,33 @@ internal class MiniRoad(private val a:MainActivity):View(a){
         if(fraction>0f){val seg=Path();pm.getSegment(0f,pm.length*fraction,seg,true);p.color=if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt();p.strokeWidth=3.5f*d;c.drawPath(seg,p)}
         val e=FloatArray(2);pm.getPosTan(pm.length,e,null);val fp=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=a.fg}
         c.drawRect(e[0]-d,e[1]-16*d,e[0]+d,e[1],fp);c.drawPath(Path().apply{moveTo(e[0]+d,e[1]-16*d);lineTo(e[0]+11*d,e[1]-13*d);lineTo(e[0]+d,e[1]-10*d);close()},fp)}
+}
+
+/** A number typed in, with quick choices: a big serif field in the middle, the unit under it, presets as capsules, «Готово».
+ *  [extra] adds a quiet action under the button (e.g. removing the goal). */
+internal fun MainActivity.numberSheet(title:String,initial:Int,range:IntRange,presets:List<Int>,unit:(Int)->String,extra:Pair<String,()->Unit>?=null,saved:(Int)->Unit){
+    val box=column().apply{gravity=Gravity.CENTER_HORIZONTAL}
+    val pill=if(light)0x0e000000 else 0x12ffffff
+    box.addView(text(title,15f,fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
+    val field=edit(if(initial>0)"$initial" else "","0").apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER;filters=arrayOf(android.text.InputFilter.LengthFilter(range.last.toString().length))
+        textSize=56f;typeface=PolkaFonts.serif(this@numberSheet,true);gravity=Gravity.CENTER;background=null;setTextColor(fg);setHintTextColor(if(light)0x33000000 else 0x33ffffff);setPadding(0,0,0,0);imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE;setSelection(text.length);contentDescription=title}
+    box.addView(field,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(14)})
+    val caption=text(unit(initial),14f,muted).apply{gravity=Gravity.CENTER}
+    box.addView(caption,LinearLayout.LayoutParams(-1,-2))
+    val chips=line()
+    val views=presets.map{n->text("$n",14f,fg,true).apply{gravity=Gravity.CENTER;isClickable=true;isFocusable=true;contentDescription="$n";press(this)}}
+    fun paint(){val cur=field.text.toString().toIntOrNull();views.forEachIndexed{i,v->val on=presets[i]==cur;v.background=shape(if(on)fg else pill,19);v.setTextColor(if(on)bg else fg)}}
+    views.forEachIndexed{i,v->v.setOnClickListener{field.setText("${presets[i]}");field.setSelection(field.length())};chips.addView(v,LinearLayout.LayoutParams(0,d(38),1f).apply{if(i>0)leftMargin=d(8)})}
+    box.addView(chips,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(20)})
+    field.addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){}
+        override fun afterTextChanged(s:android.text.Editable?){caption.text=unit(s.toString().toIntOrNull()?:0);paint()}})
+    paint()
+    lateinit var sheet:android.app.AlertDialog
+    fun done(){val n=field.text.toString().toIntOrNull();if(n==null||n !in range){field.animate().translationX(d(8).toFloat()).setDuration(60).withEndAction{field.animate().translationX(0f).setDuration(160).setInterpolator(android.view.animation.OvershootInterpolator(3f)).start()}.start();return}
+        saved(n);sheet.dismiss()}
+    field.setOnEditorActionListener{_,act,_->if(act==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){done();true}else false}
+    box.addView(text("Готово",16f,bg,true).apply{gravity=Gravity.CENTER;background=shape(fg,26);isClickable=true;isFocusable=true;press(this);setOnClickListener{done()}},LinearLayout.LayoutParams(-1,d(52)).apply{topMargin=d(18)})
+    extra?.let{(label,fn)->box.addView(text(label,14f,muted).apply{gravity=Gravity.CENTER;setPadding(0,d(14),0,d(2));isClickable=true;setOnClickListener{fn();sheet.dismiss()}},LinearLayout.LayoutParams(-1,-2))}
+    sheet=dialog().setBare().setView(box).show()
+    field.post{field.requestFocus();(getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(field,0)}
 }
