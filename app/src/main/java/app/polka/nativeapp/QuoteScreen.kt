@@ -88,18 +88,53 @@ internal fun MainActivity.quoteStack(b:JSONObject,qs:List<JSONObject>,onOpen:(()
     excerpt.addView(text(qs.first().str("text"),16f,(fg and 0x00ffffff) or 0xd9000000.toInt(),serif=true).apply{cssLeading(1.5f);maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=d(4)})
     card.addView(excerpt);return stack
 }
+private fun mix(a:Int,b:Int,t:Float)=Color.rgb((Color.red(a)*(1-t)+Color.red(b)*t).toInt(),(Color.green(a)*(1-t)+Color.green(b)*t).toInt(),(Color.blue(a)*(1-t)+Color.blue(b)*t).toInt())
+/** The quote's own colour (as chosen when it was saved). */
+internal fun quoteInk(q:JSONObject)=(0xff shl 24) or QuoteColors.rgb(q.optString("color").ifBlank{"amber"})
+/** Approved «тонированная карточка»: the card glows with the quote's colour from its top-left corner, with a thin edge of it. */
+internal fun MainActivity.quoteTint(col:Int,strength:Float=.22f):android.graphics.drawable.GradientDrawable{val base=if(light)Color.WHITE else 0xff242426.toInt()
+    return android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,intArrayOf(mix(base,col,if(light)strength*.9f else strength),mix(base,col,.05f),base)).apply{cornerRadius=d(22).toFloat();setStroke(d(1).coerceAtLeast(1),(0x38 shl 24) or (col and 0xffffff))}}
+/** Copy / delete drawn as line icons (two sheets with rounded corners; a bin with a lid and slots). */
+internal class QuoteActionIcon(c:Context,private val kind:String,private val ink:Int):View(c){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND;color=ink}
+    private val path=Path()
+    override fun onDraw(cv:Canvas){val s=minOf(width,height)/24f*.84f;cv.save();cv.translate(width/2f-12f*s,height/2f-12f*s);cv.scale(s,s);p.strokeWidth=1.8f
+        path.rewind()
+        if(kind=="copy"){path.addRoundRect(RectF(8.5f,8.5f,19.5f,20.5f),2.6f,2.6f,Path.Direction.CW)
+            path.moveTo(15.5f,8.5f);path.lineTo(15.5f,6.6f);path.quadTo(15.5f,4.5f,13.4f,4.5f);path.lineTo(6.6f,4.5f);path.quadTo(4.5f,4.5f,4.5f,6.6f);path.lineTo(4.5f,14.4f);path.quadTo(4.5f,16.5f,6.6f,16.5f);path.lineTo(8.5f,16.5f)}
+        else{path.moveTo(4.5f,6.8f);path.lineTo(19.5f,6.8f)
+            path.moveTo(9.3f,6.8f);path.lineTo(9.3f,5.2f);path.quadTo(9.3f,3.8f,10.7f,3.8f);path.lineTo(13.3f,3.8f);path.quadTo(14.7f,3.8f,14.7f,5.2f);path.lineTo(14.7f,6.8f)
+            path.moveTo(6.6f,6.8f);path.lineTo(7.4f,18.2f);path.quadTo(7.5f,20.2f,9.5f,20.2f);path.lineTo(14.5f,20.2f);path.quadTo(16.5f,20.2f,16.6f,18.2f);path.lineTo(17.4f,6.8f)
+            path.moveTo(10.4f,10.8f);path.lineTo(10.4f,16.2f);path.moveTo(13.6f,10.8f);path.lineTo(13.6f,16.2f)}
+        cv.drawPath(path,p);cv.restore()}
+}
 internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->Unit)?=null):View {
-    val card=column().apply{floatCard(this,22);setPadding(d(18),d(16),d(10),d(6))}
+    val col=quoteInk(q);val chipInk=if(light)mix(col,Color.BLACK,.28f) else col
+    val card=column().apply{floatCard(this,22);background=quoteTint(col);setPadding(d(18),d(14),d(14),d(10))}
     val open={if(onOpen!=null)onOpen()else openBookAt(b,q.optInt("ch"),q.optInt("start"))}
-    card.addView(quoteMark(),LinearLayout.LayoutParams(d(26),d(24)))
-    card.addView(text(q.str("text"),17f,serif=true).apply{cssLeading(1.55f);maxLines=9;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,d(2),d(8),0);setOnClickListener{open()}})
-    b.optJSONArray("notes")?.objects().orEmpty().filter{it.str("quoteId")==q.str("id")}.forEach{n->val note=column().apply{background=shape(if(light)0xfff4f4f1.toInt() else 0xff2e2e31.toInt(),14);setPadding(d(14),d(12),d(14),d(12));setOnClickListener{editThought(b,n,quote=q)}};note.addView(text("Моя мысль",12f,accent,true));space(note,5);note.addView(text(n.str("text"),15f).apply{cssLeading(1.5f)});card.addView(note,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,d(12),d(8),0)})}
-    card.addView(View(this).apply{setBackgroundColor(if(light)0x14000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,1).apply{topMargin=d(14);rightMargin=d(8)})
-    val foot=line().apply{setPadding(0,d(2),0,0)};val date=java.text.SimpleDateFormat("d MMMM",java.util.Locale("ru")).format(java.util.Date(q.optLong("at",System.currentTimeMillis())))
-    foot.addView(text(date,12.5f,muted),LinearLayout.LayoutParams(0,-2,1f))
-    foot.addView(icon("copy","Копировать цитату"){(getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата","«${q.str("text")}»\n— ${MainActivity.authors(b)}, «${b.str("title")}»"))}.apply{background=null;alpha=.75f},LinearLayout.LayoutParams(d(40),d(40)))
-    foot.addView(icon("trash","Удалить цитату"){
+    // the quote mark in the quote's colour, the date quietly opposite it
+    val top=line().apply{gravity=Gravity.TOP}
+    top.addView(text("\u201c",46f,col,true,true).apply{includeFontPadding=false;gravity=Gravity.TOP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(d(30),d(30)))
+    top.addView(View(this),LinearLayout.LayoutParams(0,1,1f))
+    val date=java.text.SimpleDateFormat("d MMMM",java.util.Locale("ru")).format(java.util.Date(q.optLong("at",System.currentTimeMillis())))
+    top.addView(text(date,12f,muted).apply{setPadding(0,d(4),0,0)})
+    card.addView(top,LinearLayout.LayoutParams(-1,-2))
+    card.addView(text(q.str("text"),17f,serif=true).apply{cssLeading(1.55f);maxLines=9;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,d(4),d(4),0);setOnClickListener{open()}})
+    b.optJSONArray("notes")?.objects().orEmpty().filter{it.str("quoteId")==q.str("id")}.forEach{n->val note=column().apply{background=shape(if(light)0xfff4f4f1.toInt() else 0xff2e2e31.toInt(),14);setPadding(d(14),d(12),d(14),d(12));setOnClickListener{editThought(b,n,quote=q)}};note.addView(text("Моя мысль",12f,accent,true));space(note,5);note.addView(text(n.str("text"),15f).apply{cssLeading(1.5f)});card.addView(note,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,d(12),d(4),0)})}
+    card.addView(View(this).apply{setBackgroundColor((0x33 shl 24) or (col and 0xffffff))},LinearLayout.LayoutParams(-1,1).apply{topMargin=d(14)})
+    val foot=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(10),0,d(2))}
+    // where the quote is from: a chip in its colour
+    val chapter=q.str("chTitle").trim().takeIf{it.isNotBlank()&&it.length<=40}?:"Глава ${q.optInt("ch")+1}"
+    foot.addView(text(chapter,12.5f,chipInk,true).apply{background=shape((0x2e shl 24) or (col and 0xffffff),14);setPadding(d(10),d(4),d(10),d(5));maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=d(190)},LinearLayout.LayoutParams(-2,-2))
+    foot.addView(View(this),LinearLayout.LayoutParams(0,1,1f))
+    fun round(kind:String,desc:String,act:()->Unit)=FrameLayout(this).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor((0x29 shl 24) or (col and 0xffffff))}
+        isClickable=true;contentDescription=desc;addView(QuoteActionIcon(this@quoteCardNative,kind,col),FrameLayout.LayoutParams(d(22),d(22),Gravity.CENTER))
+        setOnTouchListener{v,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->v.animate().scaleX(.88f).scaleY(.88f).setDuration(90).start();MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->v.animate().scaleX(1f).scaleY(1f).setDuration(240).setInterpolator(android.view.animation.OvershootInterpolator(2f)).start()};false}
+        setOnClickListener{act()}}
+    foot.addView(round("copy","Копировать цитату"){(getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата","«${q.str("text")}»\n— ${MainActivity.authors(b)}, «${b.str("title")}»"));Toast.makeText(this,"Цитата скопирована",Toast.LENGTH_SHORT).show()},LinearLayout.LayoutParams(d(38),d(38)))
+    foot.addView(round("trash","Удалить цитату"){
         val remove={saveBook(b.copyJson().put("quotes",JSONArray(b.optJSONArray("quotes")!!.objects().filterNot{it.str("id")==q.str("id")})))}
         if(prefs.str("motion")=="reduced")remove() else NativeMotion(card,MotionPose(),MotionPose(0f,scale=.96f),200,curve=android.view.animation.AccelerateInterpolator(),complete=remove).start()
-    }.apply{background=null;alpha=.75f},LinearLayout.LayoutParams(d(40),d(40)));card.addView(foot);return card
+    },LinearLayout.LayoutParams(d(38),d(38)).apply{leftMargin=d(8)})
+    card.addView(foot);return card
 }

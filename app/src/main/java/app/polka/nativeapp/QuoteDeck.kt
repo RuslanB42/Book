@@ -38,23 +38,27 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
 
     private inner class Deck:FrameLayout(a){
         private val step=a.d(9).toFloat();private val inset=a.d(12).toFloat()
-        private val sheets=List((list.size-1).coerceIn(0,2)){i->View(a).apply{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;a.floatCard(this,22,if(a.light)(if(i==0)0xfff7f7f5.toInt() else 0xffefefec.toInt()) else (if(i==0)0xff202022.toInt() else 0xff1c1c1e.toInt()),if(a.light)5-i*2 else 7-i*2)}}
+        private val sheets=List((list.size-1).coerceIn(0,2)){i->View(a).apply{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;a.floatCard(this,22,lift=if(a.light)5-i else 8-i*2)}}
+        /** The sheets fanned under the card wear the colours of the quotes that come next. */
+        fun tintSheets(){sheets.forEachIndexed{i,s->s.background=a.quoteTint(quoteInk(list[Math.floorMod(index+1+i,list.size)]),.30f)}}
+        // the fan (approved С2): each sheet turned a little its own way and peeking out at the sides and below
+        private val fanRot=floatArrayOf(-2.4f,3.2f);private val fanX=floatArrayOf(-a.d(4).toFloat(),a.d(6).toFloat());private val fanY=floatArrayOf(a.d(6).toFloat(),a.d(9).toFloat())
         private var front:View=card(index)
         private var frontH=0;private var heldH=-1
         private var downX=0f;private var downY=0f;private var dragging=false;private var velocity:VelocityTracker?=null
         private var busy=false
-        init{clipChildren=false;clipToPadding=false;sheets.asReversed().forEach{addView(it)};addView(front);pose(0f)}
+        init{clipChildren=false;clipToPadding=false;sheets.asReversed().forEach{addView(it)};addView(front);tintSheets();pose(0f)}
         override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws)
             for(i in 0 until childCount){val c=getChildAt(i);if(c in sheets)continue;c.measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED))}
             frontH=front.measuredHeight;val h=if(heldH>=0)heldH else frontH
             sheets.forEach{it.measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))}
-            setMeasuredDimension(w,h+(sheets.size*step).toInt())}
+            setMeasuredDimension(w,h+if(sheets.isEmpty())0 else a.d(18))}
         override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){for(i in 0 until childCount){val c=getChildAt(i);c.layout(0,0,r-l,c.measuredHeight)};pose(lift)}
         private var lift=0f
-        /** Sheets behind: narrower and lower; [p] (0..1) raises the first one toward the front position. */
+        /** Sheets behind, fanned; [p] (0..1) straightens the first one up into the front position (the second follows halfway). */
         private fun pose(p:Float){lift=p
-            sheets.forEachIndexed{i,s->val k=(i+1)-if(i==0)p else p*.5f;val w=s.width.toFloat().takeIf{it>0}?:return@forEachIndexed
-                s.pivotX=w/2;s.pivotY=0f;s.scaleX=(w-2*inset*k)/w;s.scaleY=1f;s.translationY=step*k;s.translationZ=-a.d(2)*k}}
+            sheets.forEachIndexed{i,s->val k=if(i==0)1f-p else 1f-p*.5f;val w=s.width.toFloat().takeIf{it>0}?:return@forEachIndexed
+                s.pivotX=w/2;s.pivotY=s.height/2f;s.scaleX=1f;s.scaleY=1f;s.rotation=fanRot[i]*k;s.translationX=fanX[i]*k;s.translationY=fanY[i]*k;s.translationZ=-a.d(2)*(i+k)}}
         override fun onInterceptTouchEvent(e:MotionEvent):Boolean{
             if(list.size<2||busy)return false
             when(e.actionMasked){MotionEvent.ACTION_DOWN->{downX=e.x;downY=e.y;dragging=false;velocity?.recycle();velocity=VelocityTracker.obtain().also{it.addMovement(e)}}
@@ -81,6 +85,8 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             index=Math.floorMod(index+(if(dir<0)1 else -1),list.size);a.quoteDeckIndex[book.str("id")]=index;updateCounter()
             postDelayed({
                 val next=card(index);heldH=oldH;front=next;next.alpha=0f;next.translationY=a.d(6).toFloat();addView(next)
+                // under the new card the fan takes the colours of the quotes after it (hidden behind it as it lands)
+                tintSheets()
                 measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED))
                 val newH=next.measuredHeight
                 next.animate().alpha(1f).translationY(0f).setDuration(300).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
