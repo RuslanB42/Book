@@ -51,7 +51,13 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             val lo=floor(at).toInt();val f=at-lo
             for(i in 0 until n){val k=when(i){lo->1f-f;lo+1->f;else->0f};val w=dot+(wide-dot)*k
                 p.color=mix(rest,quoteInk(list[i]),k);c.drawRoundRect(x,y,x+w,y+h,h/2f,h/2f,p);x+=w+gap}}
-        private fun mix(c1:Int,c2:Int,t:Float):Int{val u=t.coerceIn(0f,1f);fun ch(sh:Int)=((((c1 shr sh) and 255)*(1-u)+((c2 shr sh) and 255)*u).toInt() and 255) shl sh;return (0xff shl 24) or ch(16) or ch(8) or ch(0)}
+        private fun mix(c1:Int,c2:Int,t:Float):Int{
+            val u=t.coerceIn(0f,1f)
+            val r=(((c1 shr 16) and 255)*(1-u)+((c2 shr 16) and 255)*u).toInt()
+            val g=(((c1 shr 8) and 255)*(1-u)+((c2 shr 8) and 255)*u).toInt()
+            val b=((c1 and 255)*(1-u)+(c2 and 255)*u).toInt()
+            return android.graphics.Color.rgb(r,g,b)
+        }
     }
 
     private fun card(i:Int):View=a.quoteCardNative(book,list[i],onOpen?.let{f->{f(list[i])}})
