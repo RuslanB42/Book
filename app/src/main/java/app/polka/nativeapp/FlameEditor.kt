@@ -64,7 +64,7 @@ internal class FlameStage(private val a:MainActivity,private val behind:Boolean)
     private class Ring(var t:Float)
     private class Star(var x:Float,var y:Float,var vx:Float,var vy:Float,var life:Float,val r:Float,var rot:Float,val spin:Float,val color:Int)
     private class Spark(var x:Float,var y:Float,var vx:Float,var vy:Float,var life:Float,val dur:Float)
-    private val rings=mutableListOf<Ring>();private val stars=mutableListOf<Star>();private val twinkles=mutableListOf<Star>();internal val sparks=mutableListOf<Spark>()
+    private val rings=mutableListOf<Ring>();private val stars=mutableListOf<Star>();private val twinkles=mutableListOf<Star>();private val sparks=mutableListOf<Spark>()
     private val rnd=java.util.Random(7)
     private var last=0L;private var running=true
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
