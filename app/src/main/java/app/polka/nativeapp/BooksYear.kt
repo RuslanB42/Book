@@ -51,34 +51,45 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     private fun stack():List<Int>{val order=(selected downTo 0)+(selected+1..books.lastIndex);return order.take(3)}
     private fun place(i:Int,c:View,animate:Boolean){val depth=stack().indexOf(i);val dd=if(depth<0)2 else depth
         val tx=floatArrayOf(0f,-d*12,-d*22)[dd];val ty=floatArrayOf(-d*8,d*2,d*8)[dd];val sc=floatArrayOf(SEL,BASE*.95f,BASE*.88f)[dd];val rot=floatArrayOf(0f,-7f,-13f)[dd]
-        val al=if(depth<0)0f else if(dd==2).9f else 1f;c.translationZ=floatArrayOf(d*6,d*4,d*2)[dd];c.isClickable=depth>=0
+        val al=if(depth<0)0f else if(dd==2).9f else 1f;c.translationZ=floatArrayOf(d*6,d*4,d*2)[dd];c.isClickable=false
         if(animate&&motion)c.animate().setUpdateListener{invalidate()}.translationX(tx).translationY(ty).scaleX(sc).scaleY(sc).rotation(rot).alpha(al).setStartDelay(0).setDuration(480).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()
         else{c.translationX=tx;c.translationY=ty;c.scaleX=sc;c.scaleY=sc;c.rotation=rot;c.alpha=al}}
     private var walk=1f;private var pulse=0f;private var clock:ValueAnimator?=null
     private val pos=FloatArray(2)
     init{setWillNotDraw(false);clipChildren=false;clipToPadding=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
-        covers.forEachIndexed{i,c->c?:return@forEachIndexed;addView(c,LayoutParams(a.d(40),a.d(60)));c.isClickable=true;c.contentDescription="${i+1}-я книга: ${books[i].book.str("title")}"
-            c.setOnClickListener{if(big)select(if(selected>0)selected-1 else books.lastIndex) else select(i)}}
+        covers.forEachIndexed{i,c->c?:return@forEachIndexed;addView(c,LayoutParams(a.d(40),a.d(60)));c.isClickable=false;c.contentDescription="${i+1}-я книга: ${books[i].book.str("title")}"}
         badge?.let{addView(it,LayoutParams(-2,-2))}}
     // a big goal needs no room for covers along the whole road (they stand in one stack), so its road is lower and
     // ends lower — no empty field above the flag
-    override fun onMeasure(w:Int,h:Int){super.onMeasure(w,MeasureSpec.makeMeasureSpec(a.d(if(big)178 else 232),MeasureSpec.EXACTLY))}
-    private fun slot(i:Int)=(i+1f)/slots
+    override fun onMeasure(w:Int,h:Int){super.onMeasure(w,MeasureSpec.makeMeasureSpec(a.d(if(big)178 else 160),MeasureSpec.EXACTLY))}
+    /** Where book [i] stands; on a normal road the last milestone sits just before the flag, not under it. */
+    private fun slot(i:Int)=if(big)(i+1f)/slots else (i+.85f)/(slots+.35f)
+    /** How far the green way has come. */
+    private fun reachedFraction()=if(books.isEmpty())0f else if(big)books.size.toFloat()/slots else slot(books.size-1)
     private fun at(f:Float):FloatArray{pm.getPosTan(length*f.coerceIn(0f,1f),pos,null);return floatArrayOf(pos[0],pos[1])}
     override fun onAttachedToWindow(){super.onAttachedToWindow()
         if(walk<1f){val wait=StatsEntrance.wait();ValueAnimator.ofFloat(0f,1f).apply{duration=1100;startDelay=wait+120;interpolator=Ease.outCubic;addUpdateListener{walk=it.animatedValue as Float;invalidate()};start()}
-            covers.forEachIndexed{i,c->c?:return@forEachIndexed;c.alpha=0f;c.translationY=d*16;c.scaleX=BASE*.85f;c.scaleY=BASE*.85f
+            if(big)covers.forEachIndexed{i,c->c?:return@forEachIndexed;c.alpha=0f;c.translationY=d*16;c.scaleX=BASE*.85f;c.scaleY=BASE*.85f
                 val lift=if(i==selected)-d*8 else 0f;val k=if(i==selected)SEL else BASE
-                c.animate().setUpdateListener{invalidate()}.alpha(1f).translationY(lift).scaleX(k).scaleY(k).setStartDelay(wait+180L+(i-coverFrom)*70L).setDuration(620).setInterpolator(android.view.animation.PathInterpolator(.16f,1f,.3f,1f)).start()}}
+                c.animate().setUpdateListener{invalidate()}.alpha(1f).translationY(lift).scaleX(k).scaleY(k).setStartDelay(wait+180L+(i-coverFrom)*70L).setDuration(620).setInterpolator(android.view.animation.PathInterpolator(.16f,1f,.3f,1f)).start()}
+            else covers.forEachIndexed{i,c->c?:return@forEachIndexed;c.alpha=0f;c.translationY=-d*24;c.scaleX=FLAT*.82f;c.scaleY=FLAT*.82f
+                c.animate().setUpdateListener{invalidate()}.alpha(1f).translationY(0f).scaleX(FLAT).scaleY(FLAT).setStartDelay(wait+260L+(i-coverFrom)*110L).setDuration(560).setInterpolator(android.view.animation.OvershootInterpolator(1.4f)).start()}}
         if(motion&&books.size<slots)clock=ValueAnimator.ofFloat(0f,1f).apply{duration=1600;repeatCount=ValueAnimator.INFINITE;interpolator=Ease.outQuad;addUpdateListener{pulse=it.animatedValue as Float;invalidate()};start()}}
     override fun onDetachedFromWindow(){clock?.cancel();clock=null;super.onDetachedFromWindow()}
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat();val H=h.toFloat()
         fun x(f:Float):Float{return d*12+(W-d*40)*f}
-        fun y(f:Float):Float{return d*70+(H-d*84)*f}
-        road.reset();road.moveTo(x(0f),y(.95f))
-        road.cubicTo(x(.2f),y(1f),x(.2f),y(.56f),x(.41f),y(.56f))
-        road.cubicTo(x(.62f),y(.56f),x(.64f),y(.92f),x(.82f),y(.7f))
-        if(big)road.cubicTo(x(1f),y(.55f),x(1f),y(.36f),x(1f),y(.3f)) else road.cubicTo(x(1f),y(.48f),x(1f),y(.2f),x(1f),y(.14f))
+        road.reset()
+        if(big){fun y(f:Float):Float{return d*70+(H-d*84)*f}
+            road.moveTo(x(0f),y(.95f))
+            road.cubicTo(x(.2f),y(1f),x(.2f),y(.56f),x(.41f),y(.56f))
+            road.cubicTo(x(.62f),y(.56f),x(.64f),y(.92f),x(.82f),y(.7f))
+            road.cubicTo(x(1f),y(.55f),x(1f),y(.36f),x(1f),y(.3f))}
+        else{fun y(f:Float):Float{return d*44+(H-d*54)*f}
+            // a gentle wave, so the covers stand in an even row and only the last stretch climbs to the flag
+            road.moveTo(x(0f),y(.92f))
+            road.cubicTo(x(.16f),y(1f),x(.24f),y(.45f),x(.44f),y(.5f))
+            road.cubicTo(x(.64f),y(.55f),x(.7f),y(.95f),x(.86f),y(.7f))
+            road.cubicTo(x(.95f),y(.56f),x(.98f),y(.3f),x(1f),y(.2f))}
         pm.setPath(road,false);length=pm.length;requestLayout()}
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){if(length<=0f)return
         if(big){val q=at(books.size.toFloat()/slots);val x=max(q[0],d*46);val w=d*40;val h=d*60
@@ -87,9 +98,9 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
                 bg.layout(left.roundToInt(),(top-bh/2f).roundToInt(),(left+bw).roundToInt(),(top+bh/2f).roundToInt())}
             return}
         covers.forEachIndexed{i,c->c?:return@forEachIndexed;val q=at(slot(i));val w=d*40;val h=d*60
-            c.layout((q[0]-w/2).roundToInt(),(q[1]-d*9-h).roundToInt(),(q[0]+w/2).roundToInt(),(q[1]-d*9).roundToInt());c.pivotX=c.width/2f;c.pivotY=c.height.toFloat()
-            c.translationZ=if(i==selected)d*6 else d*2
-            if(walk>=1f||!motion){val lift=if(i==selected)-d*8 else 0f;val k=if(i==selected)SEL else BASE;c.translationY=lift;c.scaleX=k;c.scaleY=k}}}
+            c.layout((q[0]-w/2).roundToInt(),(q[1]-d*7-h).roundToInt(),(q[0]+w/2).roundToInt(),(q[1]-d*7).roundToInt());c.pivotX=c.width/2f;c.pivotY=c.height.toFloat()
+            c.translationZ=d*2
+            if(walk>=1f||!motion){c.translationY=0f;c.scaleX=FLAT;c.scaleY=FLAT}}}
     /** Show book [i]: its cover springs up, grows and lights up softly (no frame); the previous one settles back. */
     fun select(i:Int){if(i !in books.indices||i==selected)return;val dir=if(i>selected)1 else -1;val old=selected;selected=i
         if(big){covers.forEachIndexed{k,c->c?:return@forEachIndexed;place(k,c,true)};invalidate();onPick(i,dir);return}
@@ -98,7 +109,7 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
             if(motion){c.animate().setUpdateListener{invalidate()}.translationY(lift).scaleX(s).scaleY(s).setStartDelay(0).setDuration(460).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()} else {c.translationY=lift;c.scaleX=s;c.scaleY=s}}
         invalidate();onPick(i,dir)}
     // earlier books shown as milestones (very large goals) are picked by a tap near them
-    override fun onTouchEvent(e:MotionEvent):Boolean{if(coverFrom==0)return false
+    override fun onTouchEvent(e:MotionEvent):Boolean{if(coverFrom==0||!big)return false
         if(e.actionMasked==MotionEvent.ACTION_DOWN)return true
         if(e.actionMasked==MotionEvent.ACTION_UP){var best=-1;var bd=d*18
             for(i in 0 until coverFrom){val q=at(slot(i));val dist=hypot(e.x-q[0],e.y-q[1]);if(dist<bd){bd=dist;best=i}}
@@ -111,7 +122,7 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
         p.color=if(a.light)0x0f000000 else 0x12ffffff;p.strokeWidth=d*16;c.drawPath(road,p)
         p.strokeCap=Paint.Cap.BUTT;p.strokeWidth=d*1.4f;p.color=if(a.light)0x38000000 else 0x38ffffff;p.pathEffect=DashPathEffect(floatArrayOf(d*5,d*7),0f);c.drawPath(road,p);p.pathEffect=null
         // the way walked so far
-        val done=(books.size.toFloat()/slots).coerceIn(0f,1f)*walk
+        val done=reachedFraction().coerceIn(0f,1f)*walk
         if(done>0f){val part=Path();pm.getSegment(0f,length*done,part,true);p.strokeCap=Paint.Cap.ROUND
             if(!a.light)glowFor(part)?.let{glowPaint.alpha=(0x8c*glowFade).toInt();c.drawBitmap(it,null,RectF(0f,0f,width.toFloat(),height.toFloat()),glowPaint)}
             p.shader=LinearGradient(0f,0f,width.toFloat(),0f,green,green2,Shader.TileMode.CLAMP);p.strokeWidth=d*5;c.drawPath(part,p);p.shader=null}
@@ -124,14 +135,13 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
             if(books.isNotEmpty()){val q=at(books.size.toFloat()/slots);val x=max(q[0],d*46);p.color=if(a.light)0x59000000 else 0x80ffffff.toInt();p.strokeWidth=d*1.5f;c.drawLine(x,q[1]-d*9,q[0],q[1]-d*3,p)
                 p.color=if(a.light)0xff1f9d63.toInt() else Color.WHITE;c.drawCircle(q[0],q[1],d*4f,p)}}
         // milestones: one per book of the goal
-        if(!big)for(k in 1 until slots){val q=at(k.toFloat()/slots);val reached=k<=books.size&&k.toFloat()/slots<=done+.001f
+        if(!big)for(k in 0 until slots){val f=slot(k);val q=at(f);val reached=k<books.size&&f<=done+.001f
             p.color=if(reached)(if(a.light)0xff1f9d63.toInt() else Color.WHITE) else if(a.light)0x40000000 else 0x4dffffff
-            c.drawCircle(q[0],q[1],d*(if(reached)(if(k-1<coverFrom&&k-1==selected)4.6f else 3.4f) else 2.4f),p)}
+            c.drawCircle(q[0],q[1],d*(if(reached)3.4f else 2.4f),p)}
         // stems under the covers
         p.color=if(a.light)0x59000000 else 0x80ffffff.toInt();p.strokeWidth=d*1.5f
-        if(!big)for(i in coverFrom until books.size){val q=at(slot(i));c.drawLine(q[0],q[1]-d*9,q[0],q[1]-d*3,p)}
         // the next milestone breathes
-        if(!big&&books.size<slots&&walk>=1f){val q=at((books.size+1f)/slots);p.style=Paint.Style.STROKE;p.strokeWidth=d*2;p.color=green;p.alpha=(255*(1-pulse)).toInt();c.drawCircle(q[0],q[1],d*(5+6*pulse),p);p.alpha=255;p.style=Paint.Style.FILL}
+        if(!big&&books.size<slots&&walk>=1f){val q=at(slot(books.size));p.style=Paint.Style.STROKE;p.strokeWidth=d*2;p.color=green;p.alpha=(255*(1-pulse)).toInt();c.drawCircle(q[0],q[1],d*(5+6*pulse),p);p.alpha=255;p.style=Paint.Style.FILL}
         // start ring and the flag with the goal
         val s0=at(0f);p.color=if(a.light)Color.WHITE else 0xff1c1c1f.toInt();c.drawCircle(s0[0],s0[1],d*5.5f,p)
         p.style=Paint.Style.STROKE;p.strokeWidth=d*3;p.color=green;c.drawCircle(s0[0],s0[1],d*5.5f,p);p.style=Paint.Style.FILL
@@ -157,7 +167,7 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     private fun glowFor(part:Path):Bitmap?{if(walk<1f)return null;val key=width*10000f+height;if(glowKey==key)return glowBmp
         glowBmp=Glow.blurred(width,height,3,d*3.2f){c,p->p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*9;p.color=0xff2fd38a.toInt();c.drawPath(part,p)}
         glowKey=key;glowFade=1f;return glowBmp}
-    companion object{const val SEL=1.12f;const val BASE=.8f;val MONTHS_SHORT=listOf("янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек")}
+    companion object{const val SEL=1.12f;const val BASE=.8f;/** every cover on a normal road: one size, none singled out */const val FLAT=.74f;val MONTHS_SHORT=listOf("янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек")}
 }
 
 /** An empty, dashed star: the book has no rating yet. */

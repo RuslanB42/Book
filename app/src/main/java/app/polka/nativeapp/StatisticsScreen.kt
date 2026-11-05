@@ -290,53 +290,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             head.addView(label(goalPace(goalYear,today,done,target),12.5f))
             box.addView(head)
             if(list.isEmpty()){space(box,14);box.addView(label("Пока ни одной книги за $goalYear — дочитанные появятся здесь, на дороге года.",13f));return}
-            // under the road: one line for the chosen book — title, «N-я книга · start — end», and its star
-            val row=FrameLayout(a).apply{clipChildren=false}
-            val rateRow=a.line().apply{visibility=View.GONE}
-            fun f(dt:LocalDate)="${dt.dayOfMonth} ${YearRoad.MONTHS_SHORT[dt.monthValue-1]}"+if(dt.year!=goalYear)" ${dt.year}" else ""
-            lateinit var road:YearRoad
-            var medalHolder:FrameLayout?=null
-            fun medal(r:Int):View=StarRow(a,r,13f,2f)
-            fun line(i:Int):View{val yb=list[i]
-                val v=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-                val texts=a.column()
-                texts.addView(a.text(yb.book.str("title"),17f,a.fg,true,serif=true).apply{maxLines=1;isSingleLine=true;ellipsize=android.text.TextUtils.TruncateAt.END})
-                space(texts,4);texts.addView(label("${i+1}-я книга · ${f(yb.start)} — ${f(yb.end)}",12.5f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
-                v.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
-                val holder=FrameLayout(a).apply{isClickable=true;contentDescription=if(yb.book.optInt("rating") in 1..5)"Оценка ${yb.book.optInt("rating")} из 5, изменить" else "Поставить оценку"}
-                holder.addView(medal(yb.book.optInt("rating")),FrameLayout.LayoutParams(-2,-2,Gravity.CENTER))
-                holder.setOnClickListener{toggleRate(rateRow,road)}
-                v.addView(holder,LinearLayout.LayoutParams(-2,a.d(40)).apply{marginStart=a.d(10)})
-                medalHolder=holder
-                return v}
-            fun show(i:Int,dir:Int){val old=row.getChildAt(0);val nw=line(i);row.addView(nw,FrameLayout.LayoutParams(-1,-2,Gravity.CENTER_VERTICAL))
-                closeRate(rateRow)
-                if(old==null||dir==0||!motionOn){if(old!=null)row.removeView(old);return}
-                old.animate().translationX(-dir*a.d(24).toFloat()).alpha(0f).setDuration(180).setInterpolator(Ease.inCubic).withEndAction{row.removeView(old)}.start()
-                nw.translationX=dir*a.d(28).toFloat();nw.alpha=0f
-                nw.animate().translationX(0f).alpha(1f).setStartDelay(80).setDuration(460).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()
-                medalHolder?.let{m->m.alpha=0f;m.translationX=dir*a.d(12).toFloat();m.animate().alpha(1f).translationX(0f).setStartDelay(160).setDuration(420).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}}
-            road=YearRoad(a,list,target,motionOn){i,dir->show(i,dir)}
+            // only the road: finished books stand on it as covers; the card opens the whole road
+            val road=YearRoad(a,list,target,motionOn){_,_->}
             space(box,6);box.addView(road,LinearLayout.LayoutParams(-1,-2))
-            space(box,12);box.addView(row,LinearLayout.LayoutParams(-1,a.d(56)))
-            box.addView(rateRow,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
-            rateRow.tag={v:Int->val b=list[road.selected].book;b.put("rating",v);a.saveBook(b)
-                medalHolder?.let{m->m.removeAllViews();m.addView(medal(v),FrameLayout.LayoutParams(-2,-2,Gravity.CENTER));m.contentDescription="Оценка $v из 5, изменить"
-                    if(motionOn){m.scaleX=.3f;m.scaleY=.3f;val sp=Spring.of(.5,520.0);m.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}
-                closeRate(rateRow)}
-            // swipe the line to move between books (horizontal drags only; vertical ones scroll the page)
-            row.setOnTouchListener(object:View.OnTouchListener{var x0=0f;var y0=0f;var dragging=false
-                override fun onTouch(v:View,e:MotionEvent):Boolean{val cur=row.getChildAt(row.childCount-1);when(e.actionMasked){
-                    MotionEvent.ACTION_DOWN->{x0=e.rawX;y0=e.rawY;dragging=false;return true}
-                    MotionEvent.ACTION_MOVE->{val dx=e.rawX-x0;if(!dragging&&abs(dx)>a.d(10)&&abs(dx)>abs(e.rawY-y0)){dragging=true;v.parent?.requestDisallowInterceptTouchEvent(true)}
-                        if(dragging)cur?.translationX=dx*.5f;return true}
-                    MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val dx=e.rawX-x0;val go=if(!dragging)0 else if(dx<-a.d(36))1 else if(dx>a.d(36))-1 else 0
-                        val target=road.selected+go
-                        if(go!=0&&target in list.indices){cur?.translationX=0f;road.select(target)}
-                        else cur?.let{c->val sp=Spring.of(.4,360.0);c.animate().translationX(0f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
-                        return true}}
-                    return false}})
-            show(road.selected,0)
+            box.isClickable=true;box.setOnClickListener{openRoad(box,years){bind()}}
             box.contentDescription="Книги за $goalYear: $done"+if(target>0)" из $target" else ""}
         bind();add(box)
     }
