@@ -99,7 +99,6 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         if(reduced){set(to);askAnim=null;return}
         askAnim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=if(to>from)280 else 220;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{set(it.animatedValue as Float)}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(askAnim===x)askAnim=null}});start()}}
-    override fun onDetachedFromWindow(){a.touchWatchers.remove(outside);super.onDetachedFromWindow()}
     /** Margins follow the new order after a drag. */
     fun settleMargin(){apply(progress)}
     // ── inline rename ──
@@ -161,7 +160,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     private var lastFeedX=-1
     private fun busy()=false
     override fun onAttachedToWindow(){super.onAttachedToWindow()}
-    override fun onDetachedFromWindow(){removeCallbacks(feed);super.onDetachedFromWindow()}
+    override fun onDetachedFromWindow(){removeCallbacks(feed);a.touchWatchers.remove(outside);super.onDetachedFromWindow()}
 
     private companion object{val shared=HashMap<String,Triple<Bitmap,Bitmap,ColorFilter?>>()}
 
@@ -346,17 +345,17 @@ internal fun MainActivity.shelfRows(){
 
 /** Drag-to-reorder for the shelf cards in edit mode: the held card lifts and follows the finger, the others slide
  *  aside with a short glide to show where it will land; on release it settles into the gap and the order is saved. */
-internal class ShelfEditor(private val a:MainActivity,private val page:LinearLayout,private val rows:MutableList<ShelfRow>,private val slot:ShelfSlot?=null){
+internal class ShelfEditor(private val a:MainActivity,private val page:LinearLayout,private val rows:MutableList<ShelfRow>,private val place:ShelfSlot?=null){
     private var held:ShelfRow?=null;private var from=0;private var target=0;private var startY=0f;private var slot=1
     private var startScroll=0;private var lastY=0f
     private val glide=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
     init{rows.forEach{r->r.handle.setOnTouchListener{_,e->touch(r,e);true}}}
-    fun setEditing(on:Boolean){a.shelvesEditing=on;val delays=Stagger.delays(rows.size+1,30,ease=Ease.outQuad);rows.forEachIndexed{i,r->r.setEditing(on,true,delays[i])};slot?.setEditing(on,true,delays.last())}
+    fun setEditing(on:Boolean){a.shelvesEditing=on;val delays=Stagger.delays(rows.size+1,30,ease=Ease.outQuad);rows.forEachIndexed{i,r->r.setEditing(on,true,delays[i])};place?.setEditing(on,true,delays.last())}
     private fun saveOrder(){a.prefs.put("shelfOrder",org.json.JSONArray(rows.map{it.key}));a.savePreferences()}
     private val reduced get()=a.prefs.str("motion")=="reduced"
     /** A new shelf grows out of the empty place, just above it: its height opens, it rises a little and fades in. */
     fun grow(r:ShelfRow){r.handle.setOnTouchListener{_,e->touch(r,e);true}
-        val at=slot?.let{page.indexOfChild(it)}?.takeIf{it>=0}?:page.childCount
+        val at=place?.let{page.indexOfChild(it)}?.takeIf{it>=0}?:page.childCount
         val lp=LinearLayout.LayoutParams(-1,-2).apply{if(at>0)topMargin=a.d(if(a.shelvesEditing)10 else 26)}
         page.addView(r,at,lp);rows.add(r);r.setEditing(a.shelvesEditing,false);saveOrder()
         if(reduced)return
