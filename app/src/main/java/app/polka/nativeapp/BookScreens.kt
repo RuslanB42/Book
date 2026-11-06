@@ -66,10 +66,13 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     },LinearLayout.LayoutParams(-1,d(52)))
     sheet=dialog().setTitle("Данные книги").setView(box).setTall(true).show()
 }
-fun MainActivity.bookActions(book:JSONObject) {
-    val actions=mutableListOf("О книге","Изменить данные","Переместить на полку","Оценить","Прикрепить файл","Отметить прочитанной")
-    if(!book.optBoolean("noFile")) actions.addAll(listOf("Скачать FB2","Скачать EPUB")); actions.add("Удалить книгу")
-    dialog().setTitle(book.str("title")).setItemIcons(*(listOf("information","pen","move","star","paperclip","check")+if(!book.optBoolean("noFile"))listOf("download","download","trash")else listOf("trash")).toTypedArray()).setDestructiveItems(actions.lastIndex).setItems(actions.toTypedArray()) { _,i -> when(actions[i]) {
+fun MainActivity.bookActions(book:JSONObject,fromDetail:Boolean=false) {
+    // from the book card itself: no «О книге» (it is open), and the shelf and rating are set right on the card
+    val all=mutableListOf("О книге" to "information","Изменить данные" to "pen","Переместить на полку" to "move","Оценить" to "star","Прикрепить файл" to "paperclip","Отметить прочитанной" to "check")
+    if(!book.optBoolean("noFile")) all.addAll(listOf("Скачать FB2" to "download","Скачать EPUB" to "download")); all.add("Удалить книгу" to "trash")
+    if(fromDetail) all.removeAll{it.first in setOf("О книге","Переместить на полку","Оценить")}
+    val actions=all.map{it.first}
+    dialog().setTitle(book.str("title")).setItemIcons(*all.map{it.second}.toTypedArray()).setDestructiveItems(actions.lastIndex).setItems(actions.toTypedArray()) { _,i -> when(actions[i]) {
         "О книге"->detail(book); "Изменить данные"->metadataEditor(book); "Переместить на полку"->moveBook(book); "Оценить"->dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().put("rating",it)) {} }).show()
         "Прикрепить файл" -> { attachId=book.str("id"); pickBooks(14) }; "Отметить прочитанной" -> saveBook(book.copyJson().put("progress",(book.optJSONObject("progress")?.copyJson() ?: JSONObject()).put("pct",1.0)).put("completedAt",System.currentTimeMillis()))
         "Скачать FB2"->exportBook(book,"fb2"); "Скачать EPUB"->exportBook(book,"epub")

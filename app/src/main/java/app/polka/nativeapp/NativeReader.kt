@@ -615,7 +615,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     internal fun applyBrightness(){val v=a.prefs.optDouble("bright",-1.0).toFloat();val target=if(v<0f)android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE else v.coerceIn(.01f,1f);if(a.window.attributes.screenBrightness!=target)a.window.attributes=a.window.attributes.apply{screenBrightness=target}}
     fun readerMenu() { a.dialog().setTitle(book.str("title")).setItemIcons("search","notebook","pen","download").setItems(arrayOf("Поиск по книге","Блокнот: цитаты и мысли","Данные книги","Скачать файл")) { _,i -> when(i) { 0->navigation(2); 1->notebook(); 2->a.metadataEditor(book); 3->a.dialog().setTitle("Скачать файл").setItemIcons("download","download").setItems(arrayOf("FB2","EPUB")){_,type->a.exportBook(book,if(type==0)"fb2" else "epub")}.show() } }.show() }
     fun fullSearch() {
-        val input=a.edit("","Слово или фраза")
+        val input=a.edit("","Поиск")
         a.dialog().setTitle("Поиск по книге").setView(input).setPositiveButton("Найти") { _,_ ->
             val term=input.text.toString().trim(); if(term.isBlank()) return@setPositiveButton
             val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(a.d(100)); val height=(scroll.height-body.paddingTop-body.paddingBottom-body.textSize*3f).toInt().coerceAtLeast(a.d(80)); val fontSize=body.textSize; val ink=body.currentTextColor; val leading=lineHeight(); val trim=trimEmpty()

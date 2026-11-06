@@ -18,13 +18,20 @@ internal class OpaqueSurface(private val a:MainActivity,private val radiusDp:Flo
   *  and a short contact shade, instead of a shadow cast downward. Drawn outside the bounds: the parent must not clip. */
  internal var float=false
  internal fun refresh(){onBoundsChange(bounds);invalidateSelf()}
- internal val fillColor:Int get(){val light=themeLight?:a.light;return when{pressed&&light->0xffdedee2.toInt();pressed->0xff414145.toInt();selected&&light->0xffdedee2.toInt();selected->0xff48484c.toInt();sheet&&light->0xfff7f7f5.toInt();sheet->0xff1c1c1e.toInt();light->Color.WHITE;else->0xff242426.toInt()}}
+ /** The colour at rest; [fillColor] blends it toward the pressed shade as [press] eases in and out. */
+ private val restColor:Int get(){val light=themeLight?:a.light;return when{selected&&light->0xffdedee2.toInt();selected->0xff48484c.toInt();sheet&&light->0xfff7f7f5.toInt();sheet->0xff1c1c1e.toInt();light->Color.WHITE;else->0xff242426.toInt()}}
+ private val pressColor:Int get()=if(themeLight?:a.light)0xffe6e6e9.toInt() else 0xff38383c.toInt()
+ private var press=0f;private var pressAnim:android.animation.ValueAnimator?=null
+ internal val fillColor:Int get()=if(press<=0f)restColor else androidx.core.graphics.ColorUtils.blendARGB(restColor,pressColor,press)
  override fun onBoundsChange(bounds:Rect){val r=RectF(bounds);val radius=radiusDp*a.resources.displayMetrics.density;path.rewind();if(flushBottom||flushTop)path.addRoundRect(r,floatArrayOf(if(flushTop)0f else radius,if(flushTop)0f else radius,if(flushTop)0f else radius,if(flushTop)0f else radius,if(flushBottom)0f else radius,if(flushBottom)0f else radius,if(flushBottom)0f else radius,if(flushBottom)0f else radius),Path.Direction.CW)else path.addRoundRect(r,radius,radius,Path.Direction.CW)}
  override fun draw(c:Canvas){if(float&&!flushTop&&!flushBottom)FloatShade.draw(c,a,RectF(bounds),radiusDp*a.resources.displayMetrics.density,themeLight?:a.light,opacity)
   else if(float)FloatShade.drawPath(c,a,path,themeLight?:a.light,opacity)
   paint.color=fillColor;paint.alpha=opacity;c.drawPath(path,paint)}
  override fun isStateful()=true
- override fun onStateChange(state:IntArray):Boolean{val next=state.contains(android.R.attr.state_pressed);if(next==pressed)return false;pressed=next;invalidateSelf();return true}
+ // a soft press: the shade eases in under the finger and fades out slowly after it (no white flash)
+ override fun onStateChange(state:IntArray):Boolean{val next=state.contains(android.R.attr.state_pressed);if(next==pressed)return false;pressed=next
+  pressAnim?.cancel();pressAnim=android.animation.ValueAnimator.ofFloat(press,if(next)1f else 0f).apply{duration=if(next)140 else 420;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{press=it.animatedValue as Float;invalidateSelf()};start()}
+  return false}
  override fun getOutline(outline:Outline){if(flushBottom||flushTop)outline.setConvexPath(path)else outline.setRoundRect(bounds,radiusDp*a.resources.displayMetrics.density);outline.alpha=1f}
  override fun setAlpha(alpha:Int){opacity=alpha;invalidateSelf()}
  override fun setColorFilter(filter:ColorFilter?){paint.colorFilter=filter;invalidateSelf()}

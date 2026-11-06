@@ -210,10 +210,10 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
         // the light under the curve fades out at both ends instead of stopping at a hard vertical edge
         val gp0=GLOW_PAD;val fl=c.saveLayer(-gp0,-gp0,width+gp0,height+gp0,null)
         p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,top,0f,bottom,(c1 and 0xffffff) or ((if(a.light)0x30 else 0x47) shl 24),c1 and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(fill,p)
-        if(!a.light&&morph>=1f&&glowFade>0f)glow()?.let{g->p.shader=null;p.alpha=255;glowPaint.alpha=(0xe0*glowFade).toInt();glowPaint.isDither=true;c.drawBitmap(g,null,RectF(-gp0,-gp0,width+gp0,height+gp0),glowPaint)}
         run{val e=a.d(34).toFloat();val wd=width.toFloat();p.shader=LinearGradient(0f,0f,wd,0f,intArrayOf(0,Color.BLACK,Color.BLACK,0),floatArrayOf(0f,(e/wd).coerceAtMost(.3f),1f-(e/wd).coerceAtMost(.3f),1f),Shader.TileMode.CLAMP)
             p.xfermode=PorterDuffXfermode(PorterDuff.Mode.DST_IN);p.alpha=255;c.drawRect(-gp0,-gp0,wd+gp0,height+gp0,p);p.xfermode=null;p.shader=null}
         c.restoreToCount(fl)
+        if(!a.light&&morph>=1f&&glowFade>0f)glow()?.let{g->p.shader=null;p.alpha=255;glowPaint.alpha=(0xe0*glowFade).toInt();glowPaint.isDither=true;c.drawBitmap(g,null,RectF(-gp0,-gp0,width+gp0,height+gp0),glowPaint)}
         p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND
         val grad=LinearGradient(0f,0f,width.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP)
         p.shader=grad;p.alpha=255;p.strokeWidth=3*d;c.drawPath(curve,p);p.shader=null;p.style=Paint.Style.FILL
