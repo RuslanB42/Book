@@ -36,10 +36,10 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     fun show(){
         val dlg=android.app.Dialog(a,R.style.PolkaSheetTheme);dialog=dlg
         val root=DragRoot().apply{isClickable=true;setOnClickListener{close()}}
-        sheet=a.column().apply{isClickable=true;setPadding(a.d(18),a.d(12),a.d(18),a.d(20));elevation=a.d(16).toFloat()
+        sheet=a.column().apply{clipToPadding=false;clipChildren=false;isClickable=true;setPadding(a.d(18),a.d(12),a.d(18),a.d(20));elevation=a.d(16).toFloat()
             background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(30).toFloat();setStroke(1,if(a.light)0x10000000 else 0x10ffffff)}}
         sheet.addView(View(a).apply{background=a.shape(if(a.light)0x33000000 else 0x38ffffff,3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(18)})
-        pages=FrameLayout(a).apply{clipChildren=true}
+        pages=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
         main=mainPage();pages.addView(main,FrameLayout.LayoutParams(-1,-2))
         sheet.addView(pages,LinearLayout.LayoutParams(-1,-2))
         val lp=FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{setMargins(a.d(8),0,a.d(8),a.d(8))}
@@ -161,13 +161,13 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         glideHeight(h,target)
         val w=pages.width.toFloat()
         if(reduced){main.visibility=View.INVISIBLE;return}
-        holder.translationX=w;holder.animate().translationX(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
+        pages.clipChildren=true;holder.translationX=w;holder.animate().translationX(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withEndAction{pages.clipChildren=false}.start()
         main.animate().translationX(-w*.3f).alpha(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
     private fun back(){val s=sub?:return;sub=null;val w=pages.width.toFloat();refresh()
         val mainH=main.height.takeIf{it>0}?:pages.height
         glideHeight(pages.height,mainH){pages.layoutParams=pages.layoutParams.apply{height=ViewGroup.LayoutParams.WRAP_CONTENT}}
         if(reduced){pages.removeView(s);main.visibility=View.VISIBLE;main.alpha=1f;main.translationX=0f;return}
-        s.animate().translationX(w).setDuration(280).setInterpolator(PathInterpolator(.4f,0f,.2f,1f)).withEndAction{pages.removeView(s)}.start()
+        pages.clipChildren=true;s.animate().translationX(w).setDuration(280).setInterpolator(PathInterpolator(.4f,0f,.2f,1f)).withEndAction{pages.removeView(s);pages.clipChildren=false}.start()
         main.animate().translationX(0f).alpha(1f).setDuration(280).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
 
     private fun layoutPage():View{
@@ -305,7 +305,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         val labels=listOf("Страницы","Прокрутка");val selected=if(r.paged())0 else 1
         val seg=SlidingSegment(a,selected,2,pillColor,if(a.light)Color.WHITE else 0xfff2f2f2.toInt(),25)
         fun tint(index:Int){for(i in 0 until seg.childCount)(seg.getChildAt(i) as TextView).setTextColor(if(i==index)(if(a.light)a.fg else 0xff111111.toInt()) else a.muted)}
-        labels.forEachIndexed{i,s->seg.addView(a.text(s,13.5f,bold=true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);a.press(this);setOnClickListener{seg.choose(i);tint(i);r.setReadingMode(i==0);refresh()}},LinearLayout.LayoutParams(0,-1,1f))}
+        labels.forEachIndexed{i,s->seg.addView(a.text(s,13.5f,bold=true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);a.press(this);setOnClickListener{seg.choose(i);tint(i);val paged=i==0;seg.removeCallbacks(seg.tag as? Runnable);val go=Runnable{if(r.paged()!=paged)r.crossfade{r.setReadingMode(paged)};refresh()};seg.tag=go;seg.postDelayed(go,if(reduced)0L else 340L)}},LinearLayout.LayoutParams(0,-1,1f))}
         tint(selected);return seg
     }
 
