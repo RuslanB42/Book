@@ -289,7 +289,7 @@ class MainActivity : Activity() {
     fun backAndCount() { val r=row(); val leave={ pendingMotion=MotionPose(.4f,x=-d(18).toFloat()) to MotionSpec.SHELF;shelf=null;auto=null;query="";tab="shelves";render(false,false) }
         r.addView(icon("back","Назад к полкам") { leave() },LinearLayout.LayoutParams(d(44),d(44)))
         r.addView(text(title(),22f,fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(d(12),0,d(8),0)},LinearLayout.LayoutParams(0,-2,1f))
-        r.addView(text(countBooks(currentBooks().size),14f,muted)); addIcon(r,"filter","Фильтры и сортировка") { filters() }; page.addView(r); space(page,18) }
+        addIcon(r,"filter","Фильтры и сортировка") { filters() }; page.addView(r); space(page,18) }
     fun emptyState(label:String,lottieName:String?=null) { space(page,12); if(lottieName!=null) page.addView(lottie(lottieName,if(lottieName=="empty_books")60 else null),LinearLayout.LayoutParams(-1,d(220))) else { val covers=FloatingCovers(this); floatingCovers=covers; page.addView(covers,LinearLayout.LayoutParams(-1,d(240))) }; space(page,16); page.addView(text(label,25f,bold=true,serif=true).apply { gravity=Gravity.CENTER }); space(page,24) }
     internal var continueBookId:String?=null
     private var continueCarousel:ContinueReading?=null
