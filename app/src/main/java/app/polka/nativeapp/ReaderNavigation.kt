@@ -124,13 +124,32 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
     val card=a.quoteCardNative(r.book,item,onOpen=go,onGo=go,onThought={n->a.editThought(r.book,n,quote=item,ch=item.optInt("ch"))},onDelete={
      a.confirm("Удалить цитату?","Мысли к этому фрагменту останутся в блокноте."){r.book.put("quotes",JSONArray(r.book.optJSONArray("quotes")?.objects().orEmpty().filter{it.str("id")!=item.str("id")}));r.persist();r.paginate();drawNotebook()}})
     notebookResults.addView(card,LinearLayout.LayoutParams(-1,-2));a.space(notebookResults,14);return@forEach}
-   notebookResults.addView(entryCard(kind,item),LinearLayout.LayoutParams(-1,-2));a.space(notebookResults,14)
+   notebookResults.addView(entryCard(kind,item),LinearLayout.LayoutParams(-1,-2));a.space(notebookResults,if(kind==2)10 else 14)
   }
   fadeResults(animate)
  }
  /** Notes and bookmarks as the same kind of card as the quotes (approved look), in a quiet neutral tone: a small
   *  label and the date on top, the fragment in the book's serif, the thought, then the chapter and round buttons. */
+ /** A bookmark: one compact line — the chapter once, the page and the date under it, go and remove on the right. */
+ private fun bookmarkCard(item:JSONObject):View{
+  val tone=a.fg and 0xffffff
+  val go={close();r.goToLocation(item.optInt("ch"),item.optInt("start",item.optInt("nativeOffset",0)))}
+  val card=a.line().apply{gravity=Gravity.CENTER_VERTICAL;a.floatCard(this,20);background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(20).toFloat();setStroke(1,(0x14 shl 24) or tone)}
+   setPadding(a.d(14),a.d(10),a.d(10),a.d(10));isClickable=true;setOnClickListener{go()};a.press(this);contentDescription="Закладка: ${r.chapterName(item.optInt("ch"))}"}
+  card.addView(IconView(a,"bookmark",a.muted),LinearLayout.LayoutParams(a.d(20),a.d(20)).apply{rightMargin=a.d(12)})
+  val texts=a.column()
+  texts.addView(a.text(r.chapterName(item.optInt("ch")),15.5f,a.fg,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+  val page=r.pageOf(item.optInt("ch"),item.optInt("nativeOffset",0),item.optInt("page"))
+  val date=java.text.SimpleDateFormat("d MMMM",java.util.Locale.forLanguageTag("ru")).format(java.util.Date(item.optLong("at",System.currentTimeMillis())))
+  texts.addView(a.text(listOfNotNull(page?.let{"стр. $it"},date).joinToString(" · "),12.5f,a.muted).apply{setPadding(0,a.d(2),0,0)})
+  card.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
+  card.addView(FrameLayout(a).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor((0x14 shl 24) or tone)};isClickable=true;contentDescription="Удалить закладку"
+   addView(QuoteActionIcon(a,"trash",a.fg),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER));a.press(this)
+   setOnClickListener{a.confirm("Удалить закладку?","Удалить выбранную запись?"){r.book.put("bookmarks",JSONArray(r.book.optJSONArray("bookmarks")?.objects().orEmpty().filter{it.str("id")!=item.str("id")}));r.persist();drawNotebook();r.refreshBookmark()}}},LinearLayout.LayoutParams(a.d(36),a.d(36)))
+  return card
+ }
  private fun entryCard(kind:Int,item:JSONObject):View{
+  if(kind==2)return bookmarkCard(item)
   val whole=kind==1&&item.str("scope")=="book";val ink=a.fg;val tone=(ink and 0xffffff)
   val card=a.column().apply{a.floatCard(this,22);background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(22).toFloat();setStroke(1,(0x14 shl 24) or tone)}
    setPadding(a.d(18),a.d(14),a.d(14),a.d(10));contentDescription="${listOf("Цитата","Заметка","Закладка")[kind]}: ${item.str("text")}"}
