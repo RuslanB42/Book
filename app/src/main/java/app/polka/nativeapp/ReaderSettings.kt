@@ -123,7 +123,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     private fun mainPage():View{
         val box=a.column().apply{clipChildren=false;clipToPadding=false};val gap=GAP
         box.addView(brightnessRow())
-        box.addView(themeTiles(),LinearLayout.LayoutParams(-1,-2).apply{topMargin=gap})
+        box.addView(themeTiles(),LinearLayout.LayoutParams(-1,-2).apply{topMargin=gap-a.d(4);bottomMargin=-a.d(4);leftMargin=-a.d(4);rightMargin=-a.d(4)})
         // the size slider is the wider one (it is dragged); held, it lifts on its own card and the rest steps aside
         val fontSize=a.line().apply{gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false}
         val sizeWrap=FrameLayout(a).apply{setPadding(RIM,RIM,RIM,RIM);clipChildren=false}
@@ -131,7 +131,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         fontSize.addView(sizeWrap,LinearLayout.LayoutParams(0,H+2*RIM,1.45f).apply{leftMargin=-RIM;topMargin=-RIM;bottomMargin=-RIM;rightMargin=-RIM})
         fontSize.addView(fontButton(),LinearLayout.LayoutParams(0,H,1f).apply{leftMargin=a.d(10)})
         box.addView(fontSize,LinearLayout.LayoutParams(-1,-2).apply{topMargin=gap})
-        val more=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),0,a.d(16),0);background=a.shape(pillColor,18);isClickable=true;a.press(this);setOnClickListener{open(layoutPage())}}
+        val more=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),0,a.d(16),0);background=a.shape(pillColor,100);isClickable=true;a.press(this);setOnClickListener{open(layoutPage())}}
         more.addView(a.text("Вёрстка",14.5f),LinearLayout.LayoutParams(0,-2,1f))
         more.addView(Chevron(a),LinearLayout.LayoutParams(a.d(12),a.d(18)))
         box.addView(more,LinearLayout.LayoutParams(-1,H).apply{topMargin=gap})
@@ -228,11 +228,11 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             val tile=ThemeTile(a,bg,ink).apply{isClickable=true;contentDescription="Тема: $label"}
             refreshers.add{tile.on=a.prefs.str("rt","night")==key}
             tile.setOnClickListener{if(a.prefs.str("rt","night")!=key)r.crossfade{a.prefs.put("rt",key);a.savePreferences();r.applyTheme();refresh()}}
-            a.press(tile);row.addView(tile,LinearLayout.LayoutParams(0,a.d(58),1f).apply{if(i>0)leftMargin=a.d(10)})}
+            a.press(tile);row.addView(tile,LinearLayout.LayoutParams(0,a.d(66),1f).apply{if(i>0)leftMargin=a.d(2)})}
         return row
     }
     private fun fontButton():View{
-        val v=a.line().apply{gravity=Gravity.CENTER_VERTICAL;background=a.shape(pillColor,22);setPadding(a.d(14),0,a.d(14),0);isClickable=true;a.press(this);setOnClickListener{open(fontPage())};contentDescription="Шрифт"}
+        val v=a.line().apply{gravity=Gravity.CENTER_VERTICAL;background=a.shape(pillColor,100);setPadding(a.d(14),0,a.d(14),0);isClickable=true;a.press(this);setOnClickListener{open(fontPage())};contentDescription="Шрифт"}
         val sample=TextView(a).apply{text="Аа";textSize=19f;setTextColor(a.fg);includeFontPadding=false}
         v.addView(sample)
         val texts=a.column().apply{setPadding(a.d(10),0,a.d(10),0)}
@@ -269,7 +269,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     }
     private val hidden=mutableListOf<Pair<View,Float>>();private val faded=mutableListOf<Pair<android.graphics.drawable.Drawable,ValueAnimator>>()
     /** While a slider is held, everything but its row fades away (panel included), so only the text and that one control remain. */
-    private val unclip=mutableListOf<Pair<ViewGroup,Boolean>>()
+    private val unclip=mutableListOf<Pair<ViewGroup,Pair<Boolean,Boolean>>>()
     private fun spotlight(row:View,on:Boolean){
         val reduced=this.reduced
         if(on){hidden.clear();faded.forEach{it.second.cancel()};faded.clear()
@@ -282,7 +282,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             // the held row becomes its own small floating card, so the book text never runs into it; the reader bars step aside
             // the card stays inside the page (the row's frame reaches 4dp past its edges and was cut off on the right) and
             // casts no shadow: it only has to keep the text off the capsule
-            unclip.clear();var up:ViewParent?=row.parent;while(up is ViewGroup&&up!==sheet){unclip.add(up to up.clipChildren);up.clipChildren=false;up=up.parent}
+            unclip.clear();var up:ViewParent?=row.parent;while(up is ViewGroup){unclip.add(up to (up.clipChildren to up.clipToPadding));up.clipChildren=false;up.clipToPadding=false;if(up===sheet)break;up=up.parent}
             val card=GradientDrawable().apply{setColor(sheetColor);cornerRadius=row.height/2f;alpha=0};val pad=intArrayOf(row.paddingLeft,row.paddingTop,row.paddingRight,row.paddingBottom);row.background=card;row.setPadding(pad[0],pad[1],pad[2],pad[3]);row.elevation=0f
             ValueAnimator.ofFloat(0f,1f).apply{duration=if(reduced)0 else 180;addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt()};start()}
             r.fadeChrome(true)
@@ -294,7 +294,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             hidden.forEach{(v,alpha)->if(reduced)v.alpha=alpha else v.animate().alpha(alpha).setStartDelay(60).setDuration(240).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()};hidden.clear()
             faded.forEach{(bg,an)->an.cancel();ValueAnimator.ofInt(bg.alpha,255).apply{duration=if(reduced)0 else 240;startDelay=if(reduced)0 else 40;addUpdateListener{bg.alpha=it.animatedValue as Int};start()}};faded.clear()
             var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? SheetScroll)?.fadeEnabled=true;g=g.parent}
-            val restore=unclip.toList();unclip.clear();row.postDelayed({restore.forEach{(v,c)->v.clipChildren=c;v.invalidate()}},if(reduced)0L else 320L)
+            val restore=unclip.toList();unclip.clear();row.postDelayed({restore.forEach{(v,c)->v.clipChildren=c.first;v.clipToPadding=c.second;v.invalidate()}},if(reduced)0L else 320L)
         }
     }
     private fun toggle(title:String,key:String,default:Boolean)=PolkaSwitch(a).apply{
@@ -303,7 +303,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     }
     private fun modeRow():View{
         val labels=listOf("Страницы","Прокрутка");val selected=if(r.paged())0 else 1
-        val seg=SlidingSegment(a,selected,2,pillColor,if(a.light)Color.WHITE else 0xfff2f2f2.toInt(),16)
+        val seg=SlidingSegment(a,selected,2,pillColor,if(a.light)Color.WHITE else 0xfff2f2f2.toInt(),25)
         fun tint(index:Int){for(i in 0 until seg.childCount)(seg.getChildAt(i) as TextView).setTextColor(if(i==index)(if(a.light)a.fg else 0xff111111.toInt()) else a.muted)}
         labels.forEachIndexed{i,s->seg.addView(a.text(s,13.5f,bold=true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);a.press(this);setOnClickListener{seg.choose(i);tint(i);r.setReadingMode(i==0);refresh()}},LinearLayout.LayoutParams(0,-1,1f))}
         tint(selected);return seg
@@ -337,8 +337,9 @@ internal class BrightBar(private val a:MainActivity,start:Float,private val chan
         val fx=(w*value).coerceAtLeast(h)
         p.color=Color.WHITE;p.shader=LinearGradient(0f,0f,fx,0f,if(a.light)0xff9a9a9e.toInt() else 0xff8c8c90.toInt(),if(a.light)0xff5c5c60.toInt() else 0xffe6e6e8.toInt(),Shader.TileMode.CLAMP)
         p.alpha=if(dim)110 else 255;c.drawRoundRect(0f,0f,fx,h,r,r,p);p.shader=null;p.alpha=255
-        fun sun(cx:Float,big:Boolean,ink:Int){val k=if(big)1f else .7f;p.color=ink;p.style=Paint.Style.FILL;c.drawCircle(cx,h/2,3.6f*d*k,p)
-            if(big){p.style=Paint.Style.STROKE;p.strokeWidth=1.6f*d;for(i in 0 until 8){val t=Math.PI*i/4;c.drawLine(cx+(cos(t)*6.5f*d).toFloat(),h/2+(sin(t)*6.5f*d).toFloat(),cx+(cos(t)*9f*d).toFloat(),h/2+(sin(t)*9f*d).toFloat(),p)}}}
+        fun sun(cx:Float,big:Boolean,ink:Int){val k=if(big)1f else .78f;p.color=ink;p.style=Paint.Style.FILL;c.drawCircle(cx,h/2,(if(big)3.6f else 2.9f)*d,p)
+            p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=(if(big)1.6f else 1.4f)*d;val r0=(if(big)6.5f else 5.2f)*d;val r1=(if(big)9f else 6.9f)*d
+            for(i in 0 until 8){val t=Math.PI*i/4;c.drawLine(cx+(cos(t)*r0).toFloat(),h/2+(sin(t)*r0).toFloat(),cx+(cos(t)*r1).toFloat(),h/2+(sin(t)*r1).toFloat(),p)};p.style=Paint.Style.FILL}
         sun(h/2,false,if(a.light)Color.WHITE else 0xff1d1d20.toInt());sun(w-h/2,true,if(fx>w-h)(if(a.light)Color.WHITE else 0xff1d1d20.toInt()) else a.muted)}
 }
 
@@ -350,10 +351,10 @@ internal class ThemeTile(private val a:MainActivity,private val bg:Int,private v
         anim?.cancel();anim=ValueAnimator.ofFloat(k,target).apply{duration=300;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
-    override fun onDraw(c:Canvas){val d=a.resources.displayMetrics.density;val r=RectF(.5f*d,.5f*d,width-.5f*d,height-.5f*d);val rad=16*d
+    override fun onDraw(c:Canvas){val d=a.resources.displayMetrics.density;val inset=4*d;val r=RectF(inset,inset,width-inset,height-inset);val rad=16*d
+        if(k>0f){p.style=Paint.Style.STROKE;p.strokeWidth=2*d;p.color=a.fg;p.alpha=(255*k).toInt();val o=d+(1f-k)*2f*d;c.drawRoundRect(RectF(o,o,width-o,height-o),rad+inset-o,rad+inset-o,p);p.alpha=255}
         p.style=Paint.Style.FILL;p.color=bg;c.drawRoundRect(r,rad,rad,p)
         p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=if(Color.red(bg)>128)0x1a000000 else 0x24ffffff;c.drawRoundRect(r,rad,rad,p)
-        if(k>0f){p.strokeWidth=2*d;p.color=ink;p.alpha=(255*k).toInt();val o=(3.5f+(1f-k)*2f)*d;c.drawRoundRect(RectF(o,o,width-o,height-o),rad-o+d,rad-o+d,p);p.alpha=255}
         p.style=Paint.Style.FILL;p.color=ink;p.textSize=17*a.resources.displayMetrics.scaledDensity;p.typeface=PolkaFonts.reader(a,"literata");p.textAlign=Paint.Align.CENTER
         c.drawText("Аа",width/2f,height/2f-(p.ascent()+p.descent())/2f,p)}
 }
@@ -471,7 +472,7 @@ internal class AutoChip(private val a:MainActivity,initial:Boolean):TextView(a){
     var on=initial;private set
     init{text="Авто";textSize=13f;gravity=Gravity.CENTER;setPadding(a.d(14),a.d(6),a.d(14),a.d(6));minHeight=a.d(30);a.press(this);paint()}
     fun set(value:Boolean){if(value==on)return;on=value;paint()}
-    private fun paint(){background=a.shape(if(on)a.fg else (if(a.light)0xffe6e6e3.toInt() else 0xff333336.toInt()),15);setTextColor(if(on)a.bg else a.muted)}
+    private fun paint(){background=a.shape(if(on)a.fg else (if(a.light)0xffe6e6e3.toInt() else 0xff333336.toInt()),100);setTextColor(if(on)a.bg else a.muted)}
 }
 
 /** Small sun for the brightness ends. */
