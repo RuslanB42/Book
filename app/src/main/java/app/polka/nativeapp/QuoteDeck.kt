@@ -33,8 +33,8 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
         if(showHead)addView(head,LayoutParams(-1,-2))
         addView(deck,LayoutParams(-1,-2))
         if(showHead){if(list.size>1)addView(if(list.size<=14)dots else counter.apply{gravity=Gravity.CENTER},LayoutParams(-1,if(list.size<=14)a.d(8) else -2).apply{topMargin=a.d(2)})}
-        // Without the book line (on the book's own card) the position sits under the deck.
-        else if(list.size>1){counter.gravity=Gravity.CENTER;addView(counter,LayoutParams(-1,-2).apply{topMargin=a.d(10)})}
+        // Without the book line (on the book's own card) the position is told by the same dots under the deck.
+        else if(list.size>1)addView(if(list.size<=14)dots else counter.apply{gravity=Gravity.CENTER},LayoutParams(-1,if(list.size<=14)a.d(8) else -2).apply{topMargin=a.d(10)})
         updateCounter()
     }
     private fun updateCounter(){counter.text=if(list.size>1)"${index+1} из ${list.size}" else "1 ${word(1)}";dots.go(index)}
