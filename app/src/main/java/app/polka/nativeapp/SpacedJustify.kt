@@ -17,7 +17,7 @@ internal class LineStretch(val extra:Float):CharacterStyle(){
  * so lines broke as if the spaces were narrow and then ran past the right edge. A horizontal scale on each space is
  * counted everywhere — line breaking, measuring, drawing, page pictures — so the lines simply hold fewer words.
  */
-internal class WordGap(private val scale:Float):android.text.style.MetricAffectingSpan(){
+internal class WordGap(val scale:Float):android.text.style.MetricAffectingSpan(){
     override fun updateMeasureState(tp:TextPaint){tp.textScaleX*=scale}
     override fun updateDrawState(tp:TextPaint){tp.textScaleX*=scale}
     companion object{

@@ -56,7 +56,10 @@ internal object JustifiedGeometry {
     private fun stretchedX(tv:TextView,l:Layout,line:Int,o:Int,st:LineStretch):Float{
         val t=l.text;val start=l.getLineStart(line);val vis=visibleEnd(l,line);val upto=o.coerceIn(start,vis)
         val plain=t.subSequence(start,upto).toString()
-        return l.getPrimaryHorizontal(start)+tv.paint.measureText(plain)+st.extra*spacesIn(t,start,upto)
+        // word spacing widens the plain spaces themselves ([WordGap]): count that too, or quotes and selection drift right
+        val gap=(t as? android.text.Spanned)?.getSpans(start,vis,WordGap::class.java)?.firstOrNull()
+        val wide=if(gap==null)0f else tv.paint.measureText(" ")*(gap.scale-1f)*t.subSequence(start,upto).count{it==' '}
+        return l.getPrimaryHorizontal(start)+tv.paint.measureText(plain)+wide+st.extra*spacesIn(t,start,upto)
     }
     /** Drawn x (layout coordinates) of the caret position [o] on [line]. */
     fun x(tv:TextView,l:Layout,line:Int,o:Int):Float{
