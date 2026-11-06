@@ -18,6 +18,7 @@ import kotlin.math.abs
 class NativeReader(private val a:MainActivity, val book:JSONObject, private val content:JSONObject, private val images:Map<String,ByteArray>) {
     val view=FrameLayout(a).apply { setBackgroundColor(a.bg);clipToPadding=false }
     private lateinit var topBar:LinearLayout
+    private var titleText:TextView?=null
     private val folio=TextView(a)
     private val bookmarkIcon by lazy{BookmarkIcon(a,a.fg)}
     private val ribbon by lazy{BookmarkRibbon(a)}
@@ -130,7 +131,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         fun action(label:String,kind:String,fn:()->Unit) { bar.addView(IconView(a,kind,a.fg).apply { chromeIcons.add(this);a.press(this);contentDescription=label; setOnClickListener { fn() } },LinearLayout.LayoutParams(a.d(48),a.d(48))) }
         topBar=bar
         action("Закрыть книгу","chevdown") { a.closeReader() }
-        val metadata=a.column();metadata.addView(a.text(book.str("title"),15f,bold=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});metadata.addView(a.text(MainActivity.authors(book),13f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});bar.addView(metadata,LinearLayout.LayoutParams(0,-2,1f))
+        val metadata=a.column();metadata.addView(a.text(book.str("title"),15f,bold=true).also{titleText=it}.apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});metadata.addView(a.text(MainActivity.authors(book),13f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});bar.addView(metadata,LinearLayout.LayoutParams(0,-2,1f))
          action("Меню книги","more") { readerMenu() }; view.addView(bar,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
         body.setTextColor(a.fg); body.setTextSize(a.prefs.optDouble("size",a.prefs.optDouble("fontSize",19.0)).toFloat()); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; body.setPadding(margin(),a.d(22),margin(),a.d(42)); body.breakStrategy=android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY; applySpacing(); body.setTextIsSelectable(true); body.defaultFocusHighlightEnabled=false; body.background=null; body.foreground=null; body.linksClickable=true; body.movementMethod=android.text.method.LinkMovementMethod.getInstance();body.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){v.viewTreeObserver.addOnPreDrawListener(stretchWatch)};override fun onViewDetachedFromWindow(v:View){v.viewTreeObserver.removeOnPreDrawListener(stretchWatch)}})
         body.customSelectionActionModeCallback=object:ActionMode.Callback {
@@ -562,7 +563,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val pic=runCatching{Bitmap.createBitmap(view.width,view.height,Bitmap.Config.ARGB_8888).also{view.draw(Canvas(it))}}.getOrNull()
         if(pic==null){change();return}
         val cover=ImageView(a).apply{setImageBitmap(pic);scaleType=ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
-        view.addView(cover,FrameLayout.LayoutParams(-1,-1))
+        view.addView(cover,FrameLayout.LayoutParams(view.width,view.height).apply{leftMargin=-view.paddingLeft;topMargin=-view.paddingTop;rightMargin=-view.paddingRight;bottomMargin=-view.paddingBottom})
         change()
         cover.animate().alpha(0f).setStartDelay(40).setDuration(420).setInterpolator(MotionSpec.settle).withEndAction{view.removeView(cover);cover.setImageDrawable(null);pic.recycle()}.start()}
     /** While a setting is being dragged the reader's bars fade away (only their opacity: the calm state is not touched). */
@@ -578,7 +579,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     /** The reader's own colours (theme): background, bars, icons, text ink. */
     private fun applyColors(){
         val pair=when(a.prefs.str("rt")) { "black"->0xff000000.toInt() to 0xffc9c7c1.toInt(); "sepia"->0xfff3ead8.toInt() to 0xff3a2e22.toInt(); "paper"->0xfffbfaf7.toInt() to 0xff1e1d1b.toInt(); "night"->0xff18181a.toInt() to 0xffdedcd6.toInt(); else->a.bg to a.fg }
-        readerBackground=pair.first;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{themeLight=android.graphics.Color.red(pair.first)>128;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};footer.setTextColor(pair.second);body.setTextColor(pair.second);
+        readerBackground=pair.first;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{themeLight=android.graphics.Color.red(pair.first)>128;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};footer.setTextColor(pair.second);body.setTextColor(pair.second);titleText?.setTextColor(pair.second);
     }
     /** A theme change only recolours the page: no reflow (the layout is the same), so the crossfade over it is clean.
      *  Tables keep their ink inside their own layouts, so a chapter with tables is reflowed once the fade is over. */

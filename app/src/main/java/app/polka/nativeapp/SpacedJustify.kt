@@ -28,16 +28,29 @@ internal object SpacedJustify {
         val t=(l.text as? Spannable)?:(tv.text as? Spannable)?.takeIf{it===l.text}?:return
         try{apply(l,t)}catch(e:Exception){lastError=e.toString();android.util.Log.w("Polka","line stretch skipped",e);clear(t)}}
     @Volatile internal var lastError:String?=null
+    private var probedFor=Float.NaN;private var probed=true
+    /** Whether Layout's line measurement leaves the paint's word spacing out (it differs between Android builds). */
+    private fun countsWordSpacing(p:android.text.TextPaint):Boolean{val ws=p.wordSpacing;if(ws==0f)return true
+        if(ws==probedFor)return probed
+        val with=android.text.TextPaint(p);val without=android.text.TextPaint(p).apply{wordSpacing=0f}
+        fun width(tp:android.text.TextPaint)=android.text.StaticLayout.Builder.obtain("a b c d",0,7,tp,100000).build().getLineRight(0)
+        probed=width(with)-width(without)>ws*1.5f;probedFor=ws;return probed}
+    private var uncounted=false;private var ws=0f
     private fun apply(l:Layout,t:Spannable){
         clear(t)
+        ws=if(android.os.Build.VERSION.SDK_INT>=29)l.paint.wordSpacing else 0f
+        uncounted=ws!=0f&&!countsWordSpacing(l.paint)
         for(line in 0 until l.lineCount){
             val s=l.getLineStart(line);val e=l.getLineEnd(line).coerceAtMost(t.length)
             if(e>=t.length||e<=s||t[e-1]=='\n')continue // a paragraph's last line stays as it is
             var vis=e;while(vis>s&&t[vis-1].isWhitespace())vis--
             var spaces=0;for(i in s until vis)if(t[i]==' '||t[i]==' ')spaces++
             if(spaces==0)continue
-            val gap=l.getParagraphRight(line)-l.getLineRight(line)
-            if(gap<=.5f||gap.isNaN())continue
+            // Layout measures a line without the paint's word spacing while it is drawn with it: take that share off,
+            // or every justified line would run past the right edge by spaces × word spacing.
+            val gap=l.getParagraphRight(line)-l.getLineRight(line)-if(uncounted)spaces*ws else 0f
+            // negative too: a line that came out wider than the column (spacing the breaker did not count) is tightened back
+            if(gap.isNaN()||kotlin.math.abs(gap)<=.5f||(!uncounted&&gap<=.5f))continue
             t.setSpan(LineStretch(gap/spaces),s,vis,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
