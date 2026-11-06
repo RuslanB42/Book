@@ -158,7 +158,7 @@ class MainActivity : Activity() {
         attachId=savedInstanceState?.getString("attachId"); coverTarget=savedInstanceState?.getString("coverTarget")
         window.statusBarColor=Color.TRANSPARENT; window.navigationBarColor=Color.TRANSPARENT
         library=Library(LibraryDb.open(applicationContext))
-        root=FrameLayout(this); root.setBackgroundColor(bg)
+        root=FrameLayout(this).apply{clipChildren=false}; root.setBackgroundColor(bg)
         ReaderWindow.configure(window,false,bg)
         SafeArea.bind(root) { insets -> ReaderWindow.apply(this,insets.toWindowInsets()!!) }
         // follow the keyboard's slide instead of jumping to its final height
@@ -358,7 +358,7 @@ class MainActivity : Activity() {
         }
         root.addView(nav,FrameLayout.LayoutParams(d(230),d(58),Gravity.BOTTOM or Gravity.START))
         followInsets(nav){i->nav.layoutParams=(nav.layoutParams as FrameLayout.LayoutParams).apply{leftMargin=d(16)+i.left;bottomMargin=navigationBottom(baseInsets)}}
-        val add=icon("plus","Добавить",true) { if(addMenu!=null) addMenu?.close() else AddMenu(this).open() }; addButton=add
+        val add=icon("plus","Добавить",true) { if(addMenu!=null) addMenu?.close() else AddMenu(this).open() }; addButton=add;add.background=Floating(this,add.background,d(29).toFloat());add.elevation=0f
         root.addView(add,FrameLayout.LayoutParams(d(58),d(58),Gravity.BOTTOM or Gravity.END))
         followInsets(add){i->add.layoutParams=(add.layoutParams as FrameLayout.LayoutParams).apply{rightMargin=d(16)+i.right;bottomMargin=navigationBottom(baseInsets)}}
     }

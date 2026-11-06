@@ -262,7 +262,9 @@ internal class LiftedPill(private val a:MainActivity,private val fill:Int):andro
     private val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply{color=fill}
     override fun draw(c:android.graphics.Canvas){val b=android.graphics.RectF(bounds);val r=b.height()/2f
         shadow.color=if(a.light)0x55000000 else 0xff000000.toInt();shadow.maskFilter=android.graphics.BlurMaskFilter(a.d(7).toFloat(),android.graphics.BlurMaskFilter.Blur.NORMAL)
-        c.drawRoundRect(b.left+a.d(2),b.top+a.d(5),b.right-a.d(2),b.bottom+a.d(5),r,r,shadow)
+        // the active tab floats too: its shade all round, hardly offset (not dropped below it)
+        shadow.maskFilter=android.graphics.BlurMaskFilter(a.d(9).toFloat(),android.graphics.BlurMaskFilter.Blur.NORMAL);shadow.color=if(a.light)0x33000000 else 0xcc000000.toInt()
+        c.drawRoundRect(b.left,b.top+a.d(2),b.right,b.bottom+a.d(2),r,r,shadow)
         c.drawRoundRect(b,r,r,paint)}
     override fun setAlpha(alpha:Int){paint.alpha=alpha}
     override fun setColorFilter(f:android.graphics.ColorFilter?){paint.colorFilter=f}
@@ -283,14 +285,14 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
     private var material=OpaqueSurface(a,30f)
     private val spring=LiquidSpring{value,speed->pill.translationX=value;val stretch=(kotlin.math.abs(speed)/a.d(2000)).coerceAtMost(.09f);pill.scaleX=1+stretch;pill.scaleY=1-stretch*.45f}
     init {
-        background=material;elevation=a.d(3).toFloat();clipChildren=false;clipToPadding=false
+        material.float=true;background=material;elevation=0f;clipChildren=false;clipToPadding=false
         addView(pill,LayoutParams(a.d(52),a.d(48)).apply { leftMargin=a.d(5); topMargin=a.d(5) })
         // The active tab's pill floats: a soft shadow under it; icons sit above it.
         val row=a.line();keys.forEachIndexed { i,key->val button=IconView(a,key,a.muted).apply{contentDescription=listOf("Мои книги","Полки","Цитаты","Для вас")[i];isClickable=true;isFocusable=true;a.press(this)};buttons.add(button);row.addView(button,LinearLayout.LayoutParams(a.d(52),a.d(48)).apply{if(i>0)marginStart=a.d(4)}) };addView(row,LayoutParams(-2,a.d(48)).apply{leftMargin=a.d(5);topMargin=a.d(5)})
     }
     fun bind(tab:String,onSelect:(String)->Unit) {
         choose=onSelect;
-        if(theme!=a.light){theme=a.light;material.refresh();pill.background=LiftedPill(a,a.fg)}
+        if(theme!=a.light){theme=a.light;material.float=true;material.refresh();pill.background=LiftedPill(a,a.fg)}
         val index=keys.indexOf(tab).coerceAtLeast(0);val x=a.d(index*56).toFloat()
         if(selected<0||a.prefs.str("motion")=="reduced")spring.snap(x)else if(selected!=index)spring.to(x);selected=index
         buttons.forEachIndexed{i,b->b.ink=if(i==index)a.bg else a.muted;b.isSelected=i==index;b.invalidate();b.setOnClickListener{onSelect(keys[i])}}

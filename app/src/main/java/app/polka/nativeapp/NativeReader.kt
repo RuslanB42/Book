@@ -16,7 +16,7 @@ import kotlin.math.abs
 
 @android.annotation.SuppressLint("WrongConstant")
 class NativeReader(private val a:MainActivity, val book:JSONObject, private val content:JSONObject, private val images:Map<String,ByteArray>) {
-    val view=FrameLayout(a).apply { setBackgroundColor(a.bg);clipToPadding=false }
+    val view=FrameLayout(a).apply { setBackgroundColor(a.bg);clipToPadding=false;clipChildren=false }
     private lateinit var topBar:LinearLayout
     private var titleText:TextView?=null
     private val folio=TextView(a)
@@ -585,7 +585,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     /** The reader's own colours (theme): background, bars, icons, text ink. */
     private fun applyColors(){
         val pair=when(a.prefs.str("rt")) { "black"->0xff000000.toInt() to 0xffc9c7c1.toInt(); "sepia"->0xfff3ead8.toInt() to 0xff3a2e22.toInt(); "paper"->0xfffbfaf7.toInt() to 0xff1e1d1b.toInt(); "night"->0xff18181a.toInt() to 0xffdedcd6.toInt(); else->a.bg to a.fg }
-        readerBackground=pair.first;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{themeLight=android.graphics.Color.red(pair.first)>128;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};footer.setTextColor(pair.second);body.setTextColor(pair.second);titleText?.setTextColor(pair.second);
+        readerBackground=pair.first;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{float=true;themeLight=android.graphics.Color.red(pair.first)>128;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};footer.setTextColor(pair.second);body.setTextColor(pair.second);titleText?.setTextColor(pair.second);
     }
     /** A theme change only recolours the page: no reflow (the layout is the same), so the crossfade over it is clean.
      *  Tables keep their ink inside their own layouts, so a chapter with tables is reflowed once the fade is over. */

@@ -113,9 +113,9 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   val first=shades(null,book);paint(first)
   // the usual card grey; the cover's colour only tints the glow behind the cards
   val fill=GradientDrawable().apply{setColor(if(light)Color.WHITE else 0xff242426.toInt());cornerRadius=radius}
-  card.background=fill
+  card.background=Floating(a,fill,radius)
   a.cover(book).let{b->if(b!=null)shades(b,book).let{paint(it,b)} else if(book.optJSONObject("cover")!=null)a.requestCover(book){bmp->if(bmp!=null)shades(bmp,book).let{paint(it,bmp);focus(carousel.scrollX)}}}
-  card.elevation=a.d(if(light)8 else 10).toFloat()
+  card.elevation=0f
   card.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,radius)}}
   if(Build.VERSION.SDK_INT>=28){card.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();card.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
  }
@@ -160,7 +160,6 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    if(k<.08f)bars[i].reveal()
    if(holders.size<=1)return@forEachIndexed
    val s=1f-.07f*k;h.pivotX=if(d>0)0f else h.width.toFloat();h.pivotY=h.height.toFloat();h.scaleX=s;h.scaleY=s;h.alpha=1f-.4f*k
-   cards[i].translationZ=a.d(6)*(1f-k)
    if(!motion)return@forEachIndexed
    val c=covers[i];c.pivotX=c.width/2f;c.pivotY=c.height.toFloat()
    val sink=1f-.16f*k;c.scaleX=sink;c.scaleY=sink;c.rotation=(if(d>0)-1f else 1f)*16f*k*(1f-k);c.translationX=-d.coerceIn(-1f,1f)*a.d(6)
@@ -207,27 +206,23 @@ internal class AmbientGlow(private val a:MainActivity):View(a){
   val hsv=FloatArray(3);Color.colorToHSV(c,hsv)
   if(hsv[1]<=.125f){hsl[0]=36f;hsl[1]=.3f}else hsl[1]=(hsl[1]*1.4f).coerceIn(.6f,.9f)
   hsl[2]=if(a.light).58f else .62f;return androidx.core.graphics.ColorUtils.HSLToColor(hsl)}
- private fun masks(w:Int,h:Int){val key="$w:$h:$light";if(key==maskKey&&near!=null&&far!=null)return
-  near?.recycle();far?.recycle();near=null;far=null;maskKey=key
-  val P=pad;val W=(w+2*P).toInt();val H=(h+2*P).toInt();val r=a.d(18).toFloat()
-  fun layer(spread:Float,sigma:Float,alpha:Float)=Glow.blurred(W,H,2,sigma){c,paint->paint.color=Color.WHITE;paint.alpha=(255*alpha).toInt()
-   c.drawRoundRect(P-spread,P-spread,P+w+spread,P+h+spread,r+spread,r+spread,paint)}
-  // more diffuse than the first cut: wider gaussians, the near one a little fainter so the edge is not traced
-  near=layer(a.d(2).toFloat(),a.d(17).toFloat(),if(light).2f else .26f)
-  far=layer(a.d(10).toFloat(),a.d(36).toFloat(),if(light).1f else .13f)}
+ /** A soft light BEHIND the card (as in the statistics plaques): one smooth radial falloff in the cover's colour,
+  *  wider than the card so it shows round all its sides, dithered so it never bands or ripples. */
+ private val m=Matrix()
+ private fun light(c:Canvas,hl:Halo){val r=hl.rect;val cx=r.centerX();val cy=r.centerY()
+  val rx=r.width()/2f+a.d(64);val ry=r.height()/2f+a.d(58)
+  val peak=(if(light).42f else .62f)*hl.strength;val rgb=hl.color and 0xffffff
+  val n=12;val stops=FloatArray(n){it/(n-1f)};val cols=IntArray(n){val t=stops[it];(((255*peak*kotlin.math.exp(-3.2f*t*t)).toInt().coerceIn(0,255)) shl 24) or rgb};cols[n-1]=rgb
+  p.isDither=true;p.shader=RadialGradient(0f,0f,1f,cols,stops,Shader.TileMode.CLAMP);m.setScale(rx,ry);m.postTranslate(cx,cy);p.shader.setLocalMatrix(m)
+  c.drawOval(cx-rx,cy-ry,cx+rx,cy+ry,p);p.shader=null}
  override fun onDraw(c:Canvas){if(width<1||height<1)return
   for(hl in halos){if(hl.strength<.01f||hl.color==0||hl.rect.width()<2f)continue
-   masks(baseW,baseH);val n=near?:continue;val f=far?:continue
-   val kx=hl.rect.width()/baseW;val ky=hl.rect.height()/baseH
-   dst.set(hl.rect.left-pad*kx,hl.rect.top-pad*ky,hl.rect.right+pad*kx,hl.rect.bottom+pad*ky)
    // the light never lies over the neighbouring cards (they are dimmed, so it would show through them)
    c.save();clip.rewind();halos.forEach{o->if(o!==hl&&o.rect.width()>2f){val rr=a.d(18)*o.rect.width()/baseW;clip.addRoundRect(o.rect,rr,rr,Path.Direction.CW)}}
    if(!clip.isEmpty)c.clipOutPath(clip)
-   p.colorFilter=PorterDuffColorFilter(hl.color,PorterDuff.Mode.SRC_IN);p.alpha=(255*hl.strength).toInt().coerceIn(0,255)
-   c.drawBitmap(f,null,dst,p);c.drawBitmap(n,null,dst,p);c.restore()}}
+   light(c,hl);c.restore()}}
  /** The unscaled card size the masks are baked for. */
  var baseW=1;var baseH=1
- override fun onDetachedFromWindow(){super.onDetachedFromWindow();near?.recycle();far?.recycle();near=null;far=null;maskKey=""}
 }
 
 /** The card's height comes from its text (at least 128dp), never from the cover: the taller cover hangs out above. */
