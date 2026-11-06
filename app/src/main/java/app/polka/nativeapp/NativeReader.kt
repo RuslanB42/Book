@@ -380,11 +380,16 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         ribbon.visibility=if(paged()&&!editorOpen&&curl==null)View.VISIBLE else View.INVISIBLE
         if(!pulling)ribbon.settle(if(on)ribbon.rest else 0f,on,animate)
     }
-    fun addBookmark() { val list=book.optJSONArray("bookmarks")?.objects().orEmpty().toMutableList(); val offset=if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0; val existing=currentBookmarks().map{it.str("id")}.toSet(); if(existing.isNotEmpty()) list.removeAll{it.str("id") in existing} else list.add(JSONObject().put("id",uid()).put("ch",chapter).put("block",0).put("nativeOffset",offset).put("text",chapters.getJSONObject(chapter).str("title")).put("nativeFraction",fraction()).put("at",System.currentTimeMillis())); book.put("bookmarks",JSONArray(list)); persist(); syncBookmark(true); if(a.prefs.optBoolean("haptics",true)) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+    fun addBookmark() { val list=book.optJSONArray("bookmarks")?.objects().orEmpty().toMutableList(); val offset=if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0; val existing=currentBookmarks().map{it.str("id")}.toSet(); if(existing.isNotEmpty()) list.removeAll{it.str("id") in existing} else list.add(JSONObject().put("id",uid()).put("ch",chapter).put("block",0).put("nativeOffset",offset).put("text",chapters.getJSONObject(chapter).str("title")).put("nativeFraction",fraction()).put("page",if(paged())pageIndex+1 else 0).put("at",System.currentTimeMillis())); book.put("bookmarks",JSONArray(list)); persist(); syncBookmark(true); if(a.prefs.optBoolean("haptics",true)) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
     fun jumpProgress(pct:Double) { val total=chapters.objects().sumOf { it.optInt("len") }.coerceAtLeast(1); var at=(pct*total).toInt(); var next=0; while(next<chapters.length()-1 && at>=chapters.getJSONObject(next).optInt("len")) { at-=chapters.getJSONObject(next).optInt("len"); next++ }; changeChapter(next); val offset=at; body.post { jumpOffset(offset); save() } }
     fun navigation(tab:Int=0){ReaderNavigation(a,this,tab).show()}
     fun contents()=content.optJSONArray("toc")?.objects().orEmpty().ifEmpty{chapters.objects().mapIndexed{index,ch->ch.copyJson().put("ch",index)}}
     fun chapterName(index:Int)=chapters.optJSONObject(index)?.str("title")?:"Книга"
+    /** Page of [offset] in chapter [ch] (from the laid-out pages when known, else the page saved with the bookmark). */
+    fun pageOf(ch:Int,offset:Int,saved:Int=0):Int?{
+        val starts=if(ch==chapter&&pageStarts.isNotEmpty())pageStarts else previewPages[ch]?.second?.starts
+        if(paged()&&starts!=null&&starts.isNotEmpty())return starts.indexOfLast{it<=offset}.coerceAtLeast(0)+1
+        return saved.takeIf{it>0}}
     fun goToLocation(next:Int,offset:Int=0,anchor:String=""){
         if(next !in 0 until chapters.length())return
         quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=offset;pendingFraction=null;pendingAnchor=anchor.takeIf{it.isNotBlank()};paintChapter()

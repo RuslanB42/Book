@@ -72,7 +72,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private lateinit var notebookResults:LinearLayout
  private val chipViews=mutableListOf<TextView>()
  private val chipAnimators=mutableMapOf<TextView,android.animation.ValueAnimator>()
- private val chipLabels=listOf("Все","Цитаты","Заметки","Закладки")
+ private val chipLabels=listOf("Все","Цитаты","Закладки")
  private fun quiet()=if(a.light)0xffeeeeec.toInt() else 0xff2f2f31.toInt()
  private fun notebook(){
   // Filter chips are built once; selecting one only recolours them (no rebuild), and the list below fades in.
@@ -87,7 +87,10 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  }
  private fun selectFilter(index:Int){if(index==filter)return;filter=index;updateChips(true);drawNotebook(true)}
  private fun updateChips(animate:Boolean){
-  val counts=fields.map{r.book.optJSONArray(it)?.length()?:0};val all=listOf(counts.sum())+counts
+  // a thought tied to a quote is part of that quote: counted once, with the quotes
+  val quoteIds=r.book.optJSONArray("quotes")?.objects().orEmpty().map{it.str("id")}.toSet()
+  val loose=r.book.optJSONArray("notes")?.objects().orEmpty().count{it.str("quoteId").isBlank()||it.str("quoteId") !in quoteIds}
+  val q=(r.book.optJSONArray("quotes")?.length()?:0)+loose;val b=r.book.optJSONArray("bookmarks")?.length()?:0;val all=listOf(q+b,q,b)
   chipViews.forEachIndexed{i,chip->
    chip.text="${chipLabels[i]} ${all[i]}";val on=i==filter;chip.isSelected=on
    val shape=chip.tag as android.graphics.drawable.GradientDrawable;val bg=if(on)a.fg else quiet();val ink=if(on)a.bg else a.fg
@@ -101,15 +104,16 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   if(!::notebookResults.isInitialized||selected!=1)return
   if(chipViews.isNotEmpty()&&!animate)updateChips(false)
   notebookResults.removeAllViews()
-  val rows=fields.flatMapIndexed{index,key->r.book.optJSONArray(key)?.objects().orEmpty().map{index to it}}.filter{(kind,item)->(filter==0||kind==filter-1)&&("${item.str("text")} ${fragment(kind,item)} ${r.chapterName(item.optInt("ch"))}").contains(query,true)}.sortedByDescending{it.second.optLong("updatedAt",it.second.optLong("at"))}
+  val quoteIds=r.book.optJSONArray("quotes")?.objects().orEmpty().map{it.str("id")}.toSet()
+  val rows=fields.flatMapIndexed{index,key->r.book.optJSONArray(key)?.objects().orEmpty().map{index to it}}.filter{(kind,item)->!(kind==1&&item.str("quoteId") in quoteIds&&item.str("quoteId").isNotBlank())}.filter{(kind,item)->(filter==0||(filter==1&&kind<=1)||(filter==2&&kind==2))&&("${item.str("text")} ${fragment(kind,item)} ${r.chapterName(item.optInt("ch"))}").contains(query,true)}.sortedByDescending{it.second.optLong("updatedAt",it.second.optLong("at"))}
   if(rows.isEmpty()){
    // a quiet empty state: an icon, a short title and one hint
    val box=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(a.d(24),a.d(44),a.d(24),a.d(24))}
-   val icon=listOf("quotes","quotes","pen","bookmark")[filter.coerceIn(0,3)]
+   val icon=listOf("quotes","quotes","bookmark")[filter.coerceIn(0,2)]
    box.addView(FrameLayout(a).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(quiet())};addView(IconView(a,if(query.isNotBlank())"search" else icon,a.muted),FrameLayout.LayoutParams(a.d(30),a.d(30),Gravity.CENTER))},LinearLayout.LayoutParams(a.d(72),a.d(72)))
-   val title=if(query.isNotBlank())"Ничего не нашлось" else listOf("Пока нет записей","Пока нет цитат","Пока нет заметок","Пока нет закладок")[filter.coerceIn(0,3)]
+   val title=if(query.isNotBlank())"Ничего не нашлось" else listOf("Пока нет записей","Пока нет цитат","Пока нет закладок")[filter.coerceIn(0,2)]
    box.addView(a.text(title,22f,a.fg,true,serif=true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(18)})
-   val hint=if(query.isNotBlank())"Попробуйте другое слово." else if(filter==3)"Добавьте закладку кнопкой в нижней панели — она появится здесь." else "Выделите текст в книге и нажмите «Цитата» или «Заметка» — запись появится здесь."
+   val hint=if(query.isNotBlank())"Попробуйте другое слово." else if(filter==2)"Добавьте закладку кнопкой в нижней панели — она появится здесь." else "Выделите текст в книге и нажмите «Цитата» или «Заметка» — запись появится здесь."
    box.addView(a.text(hint,14f,a.muted).apply{gravity=Gravity.CENTER;cssLeading(1.5f)},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(8)})
    notebookResults.addView(box,LinearLayout.LayoutParams(-1,-2));fadeResults(animate);return
   }
@@ -142,6 +146,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   card.addView(View(a).apply{setBackgroundColor((0x1f shl 24) or tone)},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14)})
   val foot=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(10),0,a.d(2))}
   foot.addView(a.text(if(whole)"Вся книга" else r.chapterName(item.optInt("ch")),12.5f,a.fg,true).apply{background=a.shape((0x14 shl 24) or tone,14);setPadding(a.d(10),a.d(4),a.d(10),a.d(5));maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)})
+  if(kind==2)r.pageOf(item.optInt("ch"),item.optInt("nativeOffset",0),item.optInt("page"))?.let{p->foot.addView(a.text("стр. $p",12.5f,a.fg,true).apply{background=a.shape((0x14 shl 24) or tone,14);setPadding(a.d(10),a.d(4),a.d(10),a.d(5))},LinearLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(6)})}
   foot.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
   fun round(icon:String,desc:String,fn:()->Unit){foot.addView(FrameLayout(a).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor((0x14 shl 24) or tone)};isClickable=true;contentDescription=desc
    addView(QuoteActionIcon(a,icon,a.fg),FrameLayout.LayoutParams(a.d(22),a.d(22),Gravity.CENTER));a.press(this);setOnClickListener{fn()}},LinearLayout.LayoutParams(a.d(38),a.d(38)).apply{leftMargin=a.d(8)})}
