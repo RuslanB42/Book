@@ -24,7 +24,7 @@ fun MainActivity.openQuoteGroup(id:String?) {
 }
 fun MainActivity.quotes() {
     val groups=quoteGroups()
-    if(groups.isEmpty()){quoteBookId=null;space(page,40);page.addView(lottie("empty_quotes",40),LinearLayout.LayoutParams(-1,d(190)));space(page,16);page.addView(text("Здесь будут ваши цитаты",25f,bold=true,serif=true).apply{gravity=Gravity.CENTER});return}
+    if(groups.isEmpty()){quoteBookId=null;space(page,40);page.addView(lottie(if(query.isNotBlank())"empty_search" else "empty_quotes",40),LinearLayout.LayoutParams(-1,d(190)));space(page,16);page.addView(text(if(query.isNotBlank())"Ничего не нашлось" else "Здесь будут ваши цитаты",25f,bold=true,serif=true).apply{gravity=Gravity.CENTER});return}
     val group=groups.firstOrNull{it.book.str("id")==quoteBookId};if(quoteBookId!=null && group==null)quoteBookId=null
     val sec=line().apply{tag="quote-header"}
     if(group==null){space(page,8)

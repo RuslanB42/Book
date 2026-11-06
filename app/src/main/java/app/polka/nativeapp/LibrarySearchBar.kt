@@ -34,7 +34,7 @@ internal class LibrarySearchBar(private val a:MainActivity,private val compact:B
   val controls=a.line();addView(controls,LayoutParams(-2,a.d(44)))
   fun paintToggle(){toggleButton?.let{controls.removeView(it)};val open=a.searchOpen||a.query.isNotEmpty();val v=a.icon(if(open)"x" else "search",if(open)"Закрыть поиск" else "Поиск",open){toggle()};toggleButton=v;controls.addView(v,0,LayoutParams(a.d(44),a.d(44)))}
   if(persistent){
-   input.background=OpaqueSurface(a,22f);input.setPadding(a.d(42),0,a.d(36),0);input.hint=if(a.tab=="quotes")"Поиск по книгам" else "Поиск книг"
+   input.background=OpaqueSurface(a,22f);input.setPadding(a.d(42),0,a.d(36),0);input.hint=if(a.tab=="quotes")"Цитаты и книги" else "Поиск книг"
    field.addView(IconView(a,"search",a.muted).apply{importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false;elevation=input.elevation+1f},FrameLayout.LayoutParams(a.d(40),a.d(44),Gravity.START))
    // The field never takes focus by itself (Android hands focus to the first text field — a blinking caret and a
    // keyboard popping up on other screens). It becomes focusable only when tapped, and lets go again when left empty.

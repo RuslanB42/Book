@@ -134,6 +134,9 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val bar=LinearLayout(a).apply { gravity=Gravity.CENTER_VERTICAL; setPadding(a.d(8),a.d(4),a.d(8),a.d(4)) }
         fun action(label:String,kind:String,fn:()->Unit) { bar.addView(IconView(a,kind,a.fg).apply { chromeIcons.add(this);a.press(this);contentDescription=label; setOnClickListener { fn() } },LinearLayout.LayoutParams(a.d(48),a.d(48))) }
         topBar=bar
+        // fading the bars must not render them into a layer clipped to their bounds: their soft shade lies outside
+        // them, so it popped in only once the fade had ended
+        topBar.forceHasOverlappingRendering(false);bottom.forceHasOverlappingRendering(false)
         action("Закрыть книгу","chevdown") { a.closeReader() }
         val metadata=a.column();metadata.addView(a.text(book.str("title"),15f,bold=true).also{titleText=it}.apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});metadata.addView(a.text(MainActivity.authors(book),13f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});bar.addView(metadata,LinearLayout.LayoutParams(0,-2,1f))
          action("Меню книги","more") { readerMenu() }; view.addView(bar,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
@@ -301,7 +304,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
                 ReadingStatistics(data,emptyList()).let{if(!metBefore&&it.met(it.today)){streakUp=it.streak;val monday=it.today.minusDays(it.today.dayOfWeek.value-1L);streakToday=it.today.dayOfWeek.value-1;streakWeek=BooleanArray(7){d->it.met(monday.plusDays(d.toLong()))}}}
                 val records=data.optJSONObject("books") ?: JSONObject().also { data.put("books",it) }; val b=records.optJSONObject(id) ?: JSONObject().put("sessions",0).put("first",openedAt).put("chars",0).also { records.put(id,it) }; b.put("ms",b.optLong("ms")+elapsed).put("chars",b.optLong("chars")+credit).put("sessions",b.optInt("sessions")+if(newSession) 1 else 0).put("total",chapters.objects().sumOf { it.optInt("len") }).put("last",now).put("title",snap.str("title")); a.library.dao.putMeta(MetaRow("stats",meta.toString()))
             }
-        }) { a.checkpointSoon(); if(streakUp>0&&!disposed)showStreak(streakUp,streakWeek,streakToday) }
+        }) { a.checkpointSoon(); }
     }
     /** The day's goal was just reached: celebrate it on top of the page, clear of the status bar. */
     private fun showStreak(n:Int,week:BooleanArray,today:Int){a.streakCelebration?.dismiss();StreakCelebration(a,view,n,week,today).show()}

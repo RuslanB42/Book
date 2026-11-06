@@ -289,7 +289,10 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
         label.addView(a.text("Новая полка",15f,a.muted,true))
         addView(label,LayoutParams(-1,-1))
         setOnClickListener{start()};a.press(this)}
-    override fun onMeasure(w:Int,h:Int)=super.onMeasure(w,MeasureSpec.makeMeasureSpec(a.d(52),MeasureSpec.EXACTLY))
+    /** The place for a new shelf exists only while editing: it opens and fades in with the edit mode. */
+    private var shown=if(a.shelvesEditing)1f else 0f
+    private fun reveal(k:Float){shown=k;alpha=k;visibility=if(k<=0.001f)View.GONE else View.VISIBLE;requestLayout()}
+    override fun onMeasure(w:Int,h:Int)=super.onMeasure(w,MeasureSpec.makeMeasureSpec((a.d(52)*shown).toInt(),MeasureSpec.EXACTLY))
     override fun onDraw(c:Canvas){val i=dash.strokeWidth/2;val r=a.d(16).toFloat()
         if(lit>0f){fill.color=(((.03f*lit)*255).toInt() shl 24) or ink;c.drawRoundRect(i,i,width-i,height-i,r,r,fill)}
         dash.color=((((.18f+.22f*lit)*(if(a.light).8f else 1f))*255).toInt() shl 24) or ink;c.drawRoundRect(i,i,width-i,height-i,r,r,dash)}
@@ -316,9 +319,10 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
         light(0f);isClickable=true}
     /** Same spacing as the shelves: 26dp apart, 10dp between the edit cards. */
     private var marginAnim:android.animation.ValueAnimator?=null
-    fun setEditing(on:Boolean,animate:Boolean,delay:Long=0){if(!on)commit();val lp=layoutParams as? LinearLayout.LayoutParams?:return;val to=a.d(if(on)10 else 26);marginAnim?.cancel()
-        if(!animate||a.prefs.str("motion")=="reduced"){lp.topMargin=to;layoutParams=lp;return}
-        val sp=Spring.of(.1,460.0);marginAnim=android.animation.ValueAnimator.ofInt(lp.topMargin,to).apply{duration=sp.duration;startDelay=delay;interpolator=sp.interpolator;addUpdateListener{lp.topMargin=it.animatedValue as Int;layoutParams=lp};start()}}
+    fun setEditing(on:Boolean,animate:Boolean,delay:Long=0){if(!on)commit();val lp=layoutParams as? LinearLayout.LayoutParams?:return;val to=a.d(if(on)10 else 0);marginAnim?.cancel()
+        if(!animate||a.prefs.str("motion")=="reduced"){lp.topMargin=to;layoutParams=lp;reveal(if(on)1f else 0f);return}
+        val m0=lp.topMargin;val s0=shown;val s1=if(on)1f else 0f
+        val sp=Spring.of(.1,460.0);marginAnim=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=delay;interpolator=sp.interpolator;addUpdateListener{val k=it.animatedValue as Float;lp.topMargin=(m0+(to-m0)*k).toInt();layoutParams=lp;reveal((s0+(s1-s0)*k).coerceIn(0f,1f))};start()}}
 }
 
 /** «Полки»: every shelf as a row of covers on our glass shelf, in the saved order, then the place for a new shelf.
@@ -331,10 +335,10 @@ internal fun MainActivity.shelfRows(){
     val motion={MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF}
     /** One of your shelves. Its name can change while the page stays up, so everything asks for the current one. */
     fun own(name0:String,list:List<JSONObject>):ShelfRow{var cur=name0;lateinit var row:ShelfRow
-        row=ShelfRow(this,"s:$name0",name0,list.sortedByDescending{b->maxOf(b.optLong("openedAt"),b.optLong("addedAt"))},{pendingMotion=motion();shelf=cur;render(false,false)},{shelfActions(cur)},
+        row=ShelfRow(this,"s:$name0",name0,sortBooks(list),{pendingMotion=motion();shelf=cur;render(false,false)},{shelfActions(cur)},
             {next:String->val old=cur;cur=next;renameShelf(old,next,quiet=true)},{val gone=cur;editor.delete(row){removeShelfQuietly(gone)}})
         return row}
-    val autos=listOf("reading","want","done").map{key->ShelfRow(this,"a:$key",MainActivity.autoTitle(key),books.groupBy{Library.status(it)}[key].orEmpty().sortedByDescending{b->maxOf(b.optLong("openedAt"),b.optLong("addedAt"))},{pendingMotion=motion();auto=key;render(false,false)},null,null)}
+    val autos=listOf("reading","want","done").map{key->ShelfRow(this,"a:$key",MainActivity.autoTitle(key),sortBooks(books.groupBy{Library.status(it)}[key].orEmpty()),{pendingMotion=motion();auto=key;render(false,false)},null,null)}
     val saved=prefs.optJSONArray("shelfOrder")?.strings().orEmpty()
     val rows=(manual.map{own(it,byShelf[it].orEmpty())}+autos).sortedBy{saved.indexOf(it.key).let{i->if(i<0)Int.MAX_VALUE else i}}
     rows.forEachIndexed{i,r->page.addView(r,LinearLayout.LayoutParams(-1,-2).apply{if(i>0)topMargin=d(26)})}
@@ -342,7 +346,7 @@ internal fun MainActivity.shelfRows(){
         val taken=(prefs.optJSONArray("shelves")?.strings().orEmpty()+books.map{it.str("shelf")}).any{it.equals(name,true)}
         if(taken){android.widget.Toast.makeText(this,"Полка «$name» уже есть",android.widget.Toast.LENGTH_SHORT).show();false}
         else{prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct()));savePreferences();editor.grow(own(name,emptyList()));true}}
-    page.addView(slot,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(if(rows.isEmpty())0 else 26)})
+    page.addView(slot,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(if(rows.isEmpty()||!shelvesEditing)0 else 10)});if(!shelvesEditing)slot.visibility=View.GONE
     editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor
     if(shelvesEditing){rows.forEach{it.setEditing(true,false)};slot.setEditing(true,false)}
 }
@@ -412,11 +416,12 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
 /** Top of «Полки»: only «Изменить» on the right. In edit mode it turns into a filled «Готово». */
 internal fun MainActivity.shelvesTopBar():View{
     val bar=FrameLayout(this)
-    val label=text(if(shelvesEditing)"Готово" else "Изменить",15f,fg,true).apply{gravity=Gravity.CENTER;setPadding(d(18),0,d(18),0);isClickable=true;isFocusable=true;contentDescription="Изменить полки"}
+    bar.addView(text("Полки",26f,fg,true,serif=true),FrameLayout.LayoutParams(-2,-2,Gravity.START or Gravity.CENTER_VERTICAL).apply{leftMargin=d(2)})
+    val label=text(if(shelvesEditing)"Готово" else "Редактировать",15f,fg,true).apply{gravity=Gravity.CENTER;setPadding(d(18),0,d(18),0);isClickable=true;isFocusable=true;contentDescription="Редактировать полки"}
     fun paint(){val on=shelvesEditing;label.setTextColor(if(on)bg else fg);label.background=if(on)shape(fg,20) else controlSurface(label,20f)}
     paint();shelvesTopBarLabel=label
     label.setOnClickListener{val on=!shelvesEditing;shelfEditor?.setEditing(on)
-        label.animate().alpha(0f).scaleX(.92f).scaleY(.92f).setDuration(110).withEndAction{label.text=if(on)"Готово" else "Изменить";paint();label.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
+        label.animate().alpha(0f).scaleX(.92f).scaleY(.92f).setDuration(110).withEndAction{label.text=if(on)"Готово" else "Редактировать";paint();label.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
     press(label)
     bar.addView(label,FrameLayout.LayoutParams(-2,d(40),Gravity.END or Gravity.CENTER_VERTICAL))
     return bar

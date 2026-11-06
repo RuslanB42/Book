@@ -59,10 +59,11 @@ if(thumbColor!=null){ink.color=thumbColor;c.drawRoundRect(pad+cell*index,pad,pad
     override fun onDetachedFromWindow() { spring.stop(); super.onDetachedFromWindow() }
 }
 fun MainActivity.press(v:View) {
-    val spring=LiquidSpring{value,_->v.scaleX=value;v.scaleY=value};spring.snap(1f)
-    v.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(view:View){};override fun onViewDetachedFromWindow(view:View){spring.stop();v.scaleX=1f;v.scaleY=1f}})
+    v.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(view:View){};override fun onViewDetachedFromWindow(view:View){v.animate().cancel();v.scaleX=1f;v.scaleY=1f}})
     v.setOnTouchListener { view,e -> view.background?.setHotspot(e.x,e.y);if(prefs.str("motion")=="reduced")return@setOnTouchListener false
-        when(e.actionMasked){MotionEvent.ACTION_DOWN->{spring.to(.965f)};MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->spring.to(1f)};false }
+        // a gentle eased dip under the finger and a soft settle on release (no snap, no bounce)
+        when(e.actionMasked){MotionEvent.ACTION_DOWN->{v.animate().cancel();v.animate().scaleX(.955f).scaleY(.955f).setDuration(160).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{v.animate().cancel();v.animate().scaleX(1f).scaleY(1f).setDuration(380).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}};false }
 }
 private fun MainActivity.wideSheet()=resources.configuration.let { it.screenWidthDp>=720 && it.screenHeightDp>=600 }
 

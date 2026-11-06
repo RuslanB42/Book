@@ -155,9 +155,14 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
     /** The halo is blurred off the main thread (measured: a blur in the first frame cost ~220 ms) and fades in. */
     private var glowGen=0;private var glowFor=-1
     private fun glow():Bitmap?{glowBitmap?.let{return it};if(width<3||height<3||pts.isEmpty())return null
-        val w=width;glowBitmap=Glow.blurred(width,height,3,a.d(9).toFloat()/2.2f){c,gp->gp.style=Paint.Style.STROKE;gp.strokeCap=Paint.Cap.ROUND;gp.strokeJoin=Paint.Join.ROUND
-            gp.strokeWidth=a.d(6).toFloat();gp.shader=LinearGradient(0f,0f,w.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP);c.drawPath(line,gp)}
-        return glowBitmap}
+        // a wide, soft light with room round it (it was cut at the view's edges and showed a rim all along the line)
+        val w=width;val pad=GLOW_PAD;val shifted=Path(line).apply{offset(pad,pad)}
+        fun layer(sigma:Float,stroke:Float,alpha:Int)=Glow.blurred(width+2*pad.toInt(),height+2*pad.toInt(),2,sigma){c,gp->gp.style=Paint.Style.STROKE;gp.strokeCap=Paint.Cap.ROUND;gp.strokeJoin=Paint.Join.ROUND
+            gp.strokeWidth=stroke;gp.shader=LinearGradient(pad,0f,pad+w,0f,c1,c2,Shader.TileMode.CLAMP);gp.alpha=alpha;c.drawPath(shifted,gp)}
+        val wide=layer(a.d(14).toFloat(),a.d(8).toFloat(),150)?:return null;val near=layer(a.d(5).toFloat(),a.d(5).toFloat(),170)
+        near?.let{Canvas(wide).drawBitmap(it,0f,0f,Paint(Paint.FILTER_BITMAP_FLAG));it.recycle()}
+        glowBitmap=wide;return glowBitmap}
+    private val GLOW_PAD get()=a.d(28).toFloat()
     // ── details on long press (same behaviour as the chart it replaces) ──
     private var tipIndex=-1;private var tipShow=0f;private var tipX=0f
     private var showAnim:ValueAnimator?=null;private var moveAnim:ValueAnimator?=null
@@ -193,7 +198,7 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
         c.drawLine(0f,ay,width.toFloat(),ay,p);p.pathEffect=null
         
         // the line draws itself in from the left
-        c.save();c.clipRect(0f,0f,width*draw+2*d,height.toFloat())
+        c.save();c.clipRect(-GLOW_PAD,-GLOW_PAD,width*draw+2*d+(if(draw>=1f)GLOW_PAD else 0f),height+GLOW_PAD)
         var curve=line;var fill=area
         if(morph<1f&&fromYs!=null){val ys=current();morphPath.reset();val n=ys.size
             // through the midpoints with quadratic joins: a smooth, round curve at every moment of the morph
@@ -203,11 +208,11 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
             morphPath.lineTo(xi(n-1),ys[n-1])
             morphArea.set(morphPath);morphArea.lineTo(width-a.d(10).toFloat(),bottom+a.d(2));morphArea.lineTo(a.d(10).toFloat(),bottom+a.d(2));morphArea.close();curve=morphPath;fill=morphArea}
         // the light under the curve fades out at both ends instead of stopping at a hard vertical edge
-        val fl=c.saveLayer(0f,0f,width.toFloat(),height.toFloat(),null)
+        val gp0=GLOW_PAD;val fl=c.saveLayer(-gp0,-gp0,width+gp0,height+gp0,null)
         p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,top,0f,bottom,(c1 and 0xffffff) or ((if(a.light)0x30 else 0x47) shl 24),c1 and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(fill,p)
-        if(!a.light&&morph>=1f&&glowFade>0f)glow()?.let{g->p.shader=null;p.alpha=255;glowPaint.alpha=(0xc0*glowFade).toInt();c.drawBitmap(g,null,RectF(0f,0f,width.toFloat(),height.toFloat()),glowPaint)}
+        if(!a.light&&morph>=1f&&glowFade>0f)glow()?.let{g->p.shader=null;p.alpha=255;glowPaint.alpha=(0xe0*glowFade).toInt();glowPaint.isDither=true;c.drawBitmap(g,null,RectF(-gp0,-gp0,width+gp0,height+gp0),glowPaint)}
         run{val e=a.d(34).toFloat();val wd=width.toFloat();p.shader=LinearGradient(0f,0f,wd,0f,intArrayOf(0,Color.BLACK,Color.BLACK,0),floatArrayOf(0f,(e/wd).coerceAtMost(.3f),1f-(e/wd).coerceAtMost(.3f),1f),Shader.TileMode.CLAMP)
-            p.xfermode=PorterDuffXfermode(PorterDuff.Mode.DST_IN);p.alpha=255;c.drawRect(0f,0f,wd,height.toFloat(),p);p.xfermode=null;p.shader=null}
+            p.xfermode=PorterDuffXfermode(PorterDuff.Mode.DST_IN);p.alpha=255;c.drawRect(-gp0,-gp0,wd+gp0,height+gp0,p);p.xfermode=null;p.shader=null}
         c.restoreToCount(fl)
         p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND
         val grad=LinearGradient(0f,0f,width.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP)

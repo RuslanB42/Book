@@ -52,13 +52,14 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private fun contents(){
   val toc=r.contents()
   var here:View?=null
-  toc.forEach{item->val current=item.optInt("ch")==r.chapter;pane.addView(a.text(item.str("title"),16f,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),14);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
+  // the chapters scroll on their own, under the tabs: opening at the current chapter never hides «Оглавление / Блокнот / Поиск»
+  val list=a.column();val holder=SheetScroll(a,if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt(),30,18).apply{isVerticalScrollBarEnabled=false;addView(list)}
+  pane.addView(holder,LinearLayout.LayoutParams(-1,(a.resources.displayMetrics.heightPixels*.6f).toInt()))
+  toc.forEach{item->val current=item.optInt("ch")==r.chapter;list.addView(a.text(item.str("title"),16f,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),14);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
   // the list opens at the chapter being read (a little of the one before it still showing above)
-  here?.let{row->pane.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
-   if(row.height==0)return true;pane.viewTreeObserver.removeOnPreDrawListener(this)
-   val sv=generateSequence(pane.parent){it.parent}.filterIsInstance<android.widget.ScrollView>().firstOrNull()?:return true
-   var y=row.top;var v:View?=row.parent as? View;while(v!=null&&v!==sv.getChildAt(0)){y+=v.top;v=v.parent as? View}
-   sv.scrollTo(0,(y-a.d(56)).coerceAtLeast(0));return true}})}
+  here?.let{row->holder.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
+   if(row.height==0)return true;holder.viewTreeObserver.removeOnPreDrawListener(this)
+   holder.scrollTo(0,(row.top-a.d(56)).coerceAtLeast(0));return true}})}
  }
  private lateinit var notebookResults:LinearLayout
  private val chipViews=mutableListOf<TextView>()
