@@ -13,6 +13,22 @@ internal class LineStretch(val extra:Float):CharacterStyle(){
 }
 
 /**
+ * Word spacing as a wider space glyph. The paint's own word spacing is drawn but not counted by the line breaker,
+ * so lines broke as if the spaces were narrow and then ran past the right edge. A horizontal scale on each space is
+ * counted everywhere — line breaking, measuring, drawing, page pictures — so the lines simply hold fewer words.
+ */
+internal class WordGap(private val scale:Float):android.text.style.MetricAffectingSpan(){
+    override fun updateMeasureState(tp:TextPaint){tp.textScaleX*=scale}
+    override fun updateDrawState(tp:TextPaint){tp.textScaleX*=scale}
+    companion object{
+        /** How much wider a space must be for an extra [ws] (share of the text size) at this paint. */
+        fun scale(paint:TextPaint,ws:Float):Float{if(ws==0f)return 1f;val space=paint.measureText(" ").coerceAtLeast(.5f);return ((space+ws*paint.textSize)/space).coerceIn(.3f,6f)}
+        fun apply(t:android.text.Spannable,scale:Float){if(scale==1f)return
+            for(i in 0 until t.length)if(t[i]==' ')t.setSpan(WordGap(scale),i,i+1,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
+    }
+}
+
+/**
  * Android's own inter-word justification resets the paint's letter and word spacing on the lines it stretches
  * (the lines are broken with the spacing but drawn without it: they overflow or fall short of the right edge).
  * So the layout is left unjustified and each line is stretched here instead:

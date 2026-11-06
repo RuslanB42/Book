@@ -222,7 +222,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val top=if(paged())22 else 84;val bottomInset=if(paged())42 else 110;if(body.paddingTop!=a.d(top)||body.paddingBottom!=a.d(bottomInset)||body.paddingLeft!=margin()||body.paddingRight!=margin())body.setPadding(margin(),a.d(top),margin(),a.d(bottomInset))
         val width=(scroll.width-body.paddingLeft-body.paddingRight).takeIf{it>0}?: (a.resources.displayMetrics.widthPixels-a.d(48))
         val height=(scroll.height-body.paddingTop-body.paddingBottom-a.d(6)).takeIf{it>a.d(100)}?: (a.resources.displayMetrics.heightPixels-a.d(230))
-        val html=chapterHtml(chapter);val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val paint=android.text.TextPaint(body.paint);val justify=body.justificationMode;val trim=trimEmpty();val hyph=hyphenFreq()
+        val html=chapterHtml(chapter);val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val paint=android.text.TextPaint(body.paint);val justify=body.justificationMode;val trim=trimEmpty();val hyph=hyphenFreq();val gapScale=WordGap.scale(paint,a.prefs.optDouble("ws",0.0).toFloat())
         val quoteSnapshot=book.optJSONArray("quotes")?.toString()?:"[]";val key="$chapter:$width:$height:$size:$ink:$leading:${a.prefs.str("font")}:$justify:${paged()}:${html.hashCode()}:${quoteSnapshot.hashCode()}:${typoKey()}"
         if(key==requestKey && preparing)return
         if(key==committedKey && loadedChapter==chapter){val offset=pendingAnchor?.let{chapterAnchors[it]} ?: pendingOffset;pendingAnchor=null;pendingOffset=null;pendingFraction=null;if(offset!=null)jumpOffset(offset);return}
@@ -239,6 +239,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         }
         layoutJob=a.compute({engine.prepare(key,{
             val rendered=ReadingText(a,size,width,maxImage,images,ink,leading,trimEmpty=trim).render(html);val rich=rendered.text
+            WordGap.apply(rich,gapScale)
             quotes.filter{it.optInt("ch")==targetChapter}.forEach{q->val raw=q.str("rawText",q.str("text"));val range=TextAnchors.locate(rich.toString(),raw,q.optInt("start"));if(range!=null)rich.setSpan(QuoteInk(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
             rendered
         },paint,width,height,justify,hyph,early)},failed={if(generation==layoutGeneration){preparing=false;view.alpha=1f;reflowAfterLayout()}},done={result->
@@ -432,11 +433,11 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(index !in 0 until chapters.length()||disposed)return
         val key=chapterKey(index);previewPages[index]?.takeIf{it.first==key}?.let{done(it.second,key);return}
         val generation=previewGeneration;val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(1);val height=(scroll.height-body.paddingTop-body.paddingBottom-a.d(6)).coerceAtLeast(1)
-        val paint=android.text.TextPaint(body.paint);val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val justify=body.justificationMode;val html=chapterHtml(index);val quotes=book.optJSONArray("quotes")?.toString()?:"[]";val trim=trimEmpty();val hyph=hyphenFreq()
+        val paint=android.text.TextPaint(body.paint);val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val justify=body.justificationMode;val html=chapterHtml(index);val quotes=book.optJSONArray("quotes")?.toString()?:"[]";val trim=trimEmpty();val hyph=hyphenFreq();val previewGap=WordGap.scale(paint,a.prefs.optDouble("ws",0.0).toFloat())
         // Warm jobs can share the engine cache; completion is keyed by geometry,
         // theme, chapter content and quote revision, never by page index alone.
         previewJobs[index]=a.compute({previewEngine.prepare(key,{
-            ReadingText(a,size,width,(height-size*3).toInt().coerceAtLeast(a.d(80)),images,ink,leading,trimEmpty=trim).render(html).also{rendered->JSONArray(quotes).objects().filter{it.optInt("ch")==index}.forEach{q->TextAnchors.locate(rendered.text.toString(),q.str("rawText",q.str("text")),q.optInt("start"))?.let{range->rendered.text.setSpan(QuoteInk(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}}}
+            ReadingText(a,size,width,(height-size*3).toInt().coerceAtLeast(a.d(80)),images,ink,leading,trimEmpty=trim).render(html).also{WordGap.apply(it.text,previewGap)}.also{rendered->JSONArray(quotes).objects().filter{it.optInt("ch")==index}.forEach{q->TextAnchors.locate(rendered.text.toString(),q.str("rawText",q.str("text")),q.optInt("start"))?.let{range->rendered.text.setSpan(QuoteInk(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}}}
         },paint,width,height,justify,hyph)},failed={previewJobs.remove(index);if(isTurning())stopPageMotion()},done={data->previewJobs.remove(index);if(!disposed&&generation==previewGeneration&&chapterKey(index)==key){previewPages[index]=key to data;previewPages.keys.filter{abs(it-chapter)>1}.toList().forEach{previewPages.remove(it)};done(data,key)}})
     }
     private fun warmPages(){if(!paged()||scroll.width<=0)return;if(pageIndex==0&&chapter>0&&!previewJobs.containsKey(chapter-1))preparePreview(chapter-1);if(pageIndex==pageStarts.lastIndex&&chapter<chapters.length()-1&&!previewJobs.containsKey(chapter+1))preparePreview(chapter+1)}
@@ -607,7 +608,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     /** Hyphenation follows the text's language, not the phone's: Russian books hyphenate with Russian rules even on an English phone. */
     // A function, not a property: applySpacing() runs from init before later properties exist.
     private fun bookLocale():java.util.Locale{val lang=book.str("lang").trim().lowercase().take(2);return if(lang.isNotBlank())java.util.Locale(lang) else if((book.str("title")+chapters.optJSONObject(0)?.str("title").orEmpty()).any{it in '\u0400'..'\u04ff'})java.util.Locale("ru") else java.util.Locale.getDefault()}
-    internal fun applySpacing(){body.textLocale=bookLocale();body.letterSpacing=a.prefs.optDouble("ls",0.0).toFloat();if(android.os.Build.VERSION.SDK_INT>=29){val ws=a.prefs.optDouble("ws",0.0).toFloat()*body.textSize;if(body.paint.wordSpacing!=ws){body.paint.wordSpacing=ws;(body.text as? android.text.Spannable)?.let{SpacedJustify.clear(it)};stretchedLayout=null;body.textScaleX=if(body.textScaleX==1f).99999f else 1f}};body.hyphenationFrequency=hyphenFreq()}
+    internal fun applySpacing(){body.textLocale=bookLocale();body.letterSpacing=a.prefs.optDouble("ls",0.0).toFloat();if(android.os.Build.VERSION.SDK_INT>=29)body.paint.wordSpacing=0f;body.textScaleX=1f;body.hyphenationFrequency=hyphenFreq()}
     internal fun applyBrightness(){val v=a.prefs.optDouble("bright",-1.0).toFloat();val target=if(v<0f)android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE else v.coerceIn(.01f,1f);if(a.window.attributes.screenBrightness!=target)a.window.attributes=a.window.attributes.apply{screenBrightness=target}}
     fun readerMenu() { a.dialog().setTitle(book.str("title")).setItemIcons("search","notebook","pen","download").setItems(arrayOf("Поиск по книге","Блокнот: цитаты и мысли","Данные книги","Скачать файл")) { _,i -> when(i) { 0->navigation(2); 1->notebook(); 2->a.metadataEditor(book); 3->a.dialog().setTitle("Скачать файл").setItemIcons("download","download").setItems(arrayOf("FB2","EPUB")){_,type->a.exportBook(book,if(type==0)"fb2" else "epub")}.show() } }.show() }
     fun fullSearch() {

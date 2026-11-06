@@ -274,13 +274,13 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             // the held row becomes its own small floating card, so the book text never runs into it; the reader bars step aside
             // the card stays inside the page (the row's frame reaches 4dp past its edges and was cut off on the right) and
             // casts no shadow: it only has to keep the text off the capsule
-            val card=android.graphics.drawable.InsetDrawable(a.shape(sheetColor,22),a.d(4),0,a.d(4),0).apply{alpha=0};row.background=card;row.elevation=0f
+            val card=android.graphics.drawable.InsetDrawable(a.shape(sheetColor,22),a.d(4),0,a.d(4),0).apply{alpha=0};val pad=intArrayOf(row.paddingLeft,row.paddingTop,row.paddingRight,row.paddingBottom);row.background=card;row.setPadding(pad[0],pad[1],pad[2],pad[3]);row.elevation=0f
             ValueAnimator.ofFloat(0f,1f).apply{duration=if(reduced)0 else 180;addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt()};start()}
             r.fadeChrome(true)
         }else{
             (row.background as? android.graphics.drawable.Drawable)?.let{card->ValueAnimator.ofFloat(1f,0f).apply{duration=if(reduced)0 else 220;startDelay=if(reduced)0 else 80
                 addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt()}
-                addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(row.background===card){row.background=null;row.elevation=0f}}});start()}}
+                addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(row.background===card){val pad=intArrayOf(row.paddingLeft,row.paddingTop,row.paddingRight,row.paddingBottom);row.background=null;row.setPadding(pad[0],pad[1],pad[2],pad[3]);row.elevation=0f}}});start()}}
             r.fadeChrome(false)
             hidden.forEach{(v,alpha)->if(reduced)v.alpha=alpha else v.animate().alpha(alpha).setStartDelay(60).setDuration(240).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()};hidden.clear()
             faded.forEach{(bg,an)->an.cancel();ValueAnimator.ofInt(bg.alpha,255).apply{duration=if(reduced)0 else 240;startDelay=if(reduced)0 else 40;addUpdateListener{bg.alpha=it.animatedValue as Int};start()}};faded.clear()
