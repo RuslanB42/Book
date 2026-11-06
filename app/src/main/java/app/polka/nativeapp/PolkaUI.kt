@@ -63,7 +63,7 @@ fun MainActivity.press(v:View) {
     v.setOnTouchListener { view,e -> view.background?.setHotspot(e.x,e.y);if(prefs.str("motion")=="reduced")return@setOnTouchListener false
         // a gentle eased dip under the finger and a soft settle on release (no snap, no bounce)
         when(e.actionMasked){MotionEvent.ACTION_DOWN->{v.animate().cancel();v.animate().scaleX(.955f).scaleY(.955f).setDuration(160).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}
-            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{v.animate().cancel();v.animate().scaleX(1f).scaleY(1f).setDuration(380).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}};false }
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{v.animate().cancel();v.animate().scaleX(1f).scaleY(1f).setDuration(280).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}};false }
 }
 private fun MainActivity.wideSheet()=resources.configuration.let { it.screenWidthDp>=720 && it.screenHeightDp>=600 }
 
