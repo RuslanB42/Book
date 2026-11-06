@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
     namespace = "app.polka.nativeapp"
     compileSdk = 35
-    defaultConfig { applicationId = "app.polka.nativeapp"; minSdk = 26; targetSdk = 35; versionCode = 340; versionName = "1.2.84"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    defaultConfig { applicationId = "app.polka.nativeapp"; minSdk = 26; targetSdk = 35; versionCode = 341; versionName = "1.2.85"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     signingConfigs { create("localTest") { storeFile = rootProject.file("signing/polka-local.keystore"); storePassword = "android"; keyAlias = "androiddebugkey"; keyPassword = "android" } }

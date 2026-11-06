@@ -104,7 +104,11 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     var lastLayoutWorker="";private set
     val layoutBuilds get()=engine.builds
     val isPreparing get()=preparing
-    private val reflow=Runnable { if(opening){openingReflowPending=true}else if(!editorOpen && !disposed)paintChapter() }
+    // While a setting is dragged the chapter is laid out again at a steady pace (not only once the finger stops), and
+    // a change that arrives while a layout is still running waits for it instead of cancelling it over and over.
+    private var reflowQueued=false;private var reflowAgain=false
+    private val reflow=Runnable { reflowQueued=false; if(opening){openingReflowPending=true}else if(!editorOpen && !disposed){if(preparing&&loadedChapter==chapter)reflowAgain=true else paintChapter()} }
+    private fun reflowAfterLayout(){if(reflowAgain){reflowAgain=false;handler.post(reflow)}}
 
     private var readerBackground=a.bg
     private var curl:PageCurlView?=null
@@ -237,7 +241,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             val rendered=ReadingText(a,size,width,maxImage,images,ink,leading,trimEmpty=trim).render(html);val rich=rendered.text
             quotes.filter{it.optInt("ch")==targetChapter}.forEach{q->val raw=q.str("rawText",q.str("text"));val range=TextAnchors.locate(rich.toString(),raw,q.optInt("start"));if(range!=null)rich.setSpan(QuoteInk(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
             rendered
-        },paint,width,height,justify,hyph,early)},failed={if(generation==layoutGeneration){preparing=false;view.alpha=1f}},done={result->
+        },paint,width,height,justify,hyph,early)},failed={if(generation==layoutGeneration){preparing=false;view.alpha=1f;reflowAfterLayout()}},done={result->
             if(!disposed && generation==layoutGeneration && chapter==targetChapter){
                 chapterRich=android.text.SpannableStringBuilder(result.text);chapterAnchors=result.anchors;pageStarts=result.starts;lastLayoutWorker=result.worker;committedKey=key;loadedChapter=chapter
                 val rich=chapterRich as android.text.SpannableStringBuilder
@@ -247,6 +251,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
                 if(paged()){pageIndex=pageStarts.indexOfLast{it<=offset}.coerceAtLeast(0);paintPage();revealPage()}else{body.text=rich;stretchNow();body.post{jumpOffset(offset)}}
                 body.post{restoring=false;lastPosition=position();lastCredit=System.currentTimeMillis();updateFooter()}
             }
+            reflowAfterLayout()
         })
     }
     fun pageBase()=if(paged()) pageStarts.getOrElse(pageIndex) { 0 } else 0
@@ -574,7 +579,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         quoteSelection.clear();stopPageMotion();cachedNext=null;cachedCurrent=null;snapshotWarm?.let{handler.removeCallbacks(it)};previewGeneration++;previewPages.clear();previewJobs.values.forEach{it.cancel(true)};previewJobs.clear()
         val savedOffset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0
         applyColors()
-        body.textSize=a.prefs.optDouble("size",19.0).toFloat(); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; stretchLines=SpacedJustify.needed(a); body.justificationMode=if(a.prefs.optBoolean("justify",true)&&!stretchLines) android.text.Layout.JUSTIFICATION_MODE_INTER_WORD else android.text.Layout.JUSTIFICATION_MODE_NONE; stretchedLayout=null; applySpacing(); if(body.paddingLeft!=margin())body.setPadding(margin(),body.paddingTop,margin(),body.paddingBottom); applyBrightness(); if(chapterRich.isNotEmpty()){pendingOffset=savedOffset;handler.removeCallbacks(reflow);handler.postDelayed(reflow,120)} 
+        body.textSize=a.prefs.optDouble("size",19.0).toFloat(); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; stretchLines=SpacedJustify.needed(a); body.justificationMode=if(a.prefs.optBoolean("justify",true)&&!stretchLines) android.text.Layout.JUSTIFICATION_MODE_INTER_WORD else android.text.Layout.JUSTIFICATION_MODE_NONE; stretchedLayout=null; applySpacing(); if(body.paddingLeft!=margin())body.setPadding(margin(),body.paddingTop,margin(),body.paddingBottom); applyBrightness(); if(chapterRich.isNotEmpty()){pendingOffset=savedOffset;if(!reflowQueued){reflowQueued=true;handler.postDelayed(reflow,90)}} 
     }
     /** The reader's own colours (theme): background, bars, icons, text ink. */
     private fun applyColors(){
@@ -602,7 +607,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     /** Hyphenation follows the text's language, not the phone's: Russian books hyphenate with Russian rules even on an English phone. */
     // A function, not a property: applySpacing() runs from init before later properties exist.
     private fun bookLocale():java.util.Locale{val lang=book.str("lang").trim().lowercase().take(2);return if(lang.isNotBlank())java.util.Locale(lang) else if((book.str("title")+chapters.optJSONObject(0)?.str("title").orEmpty()).any{it in '\u0400'..'\u04ff'})java.util.Locale("ru") else java.util.Locale.getDefault()}
-    internal fun applySpacing(){body.textLocale=bookLocale();body.letterSpacing=a.prefs.optDouble("ls",0.0).toFloat();if(android.os.Build.VERSION.SDK_INT>=29)body.paint.wordSpacing=a.prefs.optDouble("ws",0.0).toFloat()*body.textSize;body.hyphenationFrequency=hyphenFreq()}
+    internal fun applySpacing(){body.textLocale=bookLocale();body.letterSpacing=a.prefs.optDouble("ls",0.0).toFloat();if(android.os.Build.VERSION.SDK_INT>=29){val ws=a.prefs.optDouble("ws",0.0).toFloat()*body.textSize;if(body.paint.wordSpacing!=ws){body.paint.wordSpacing=ws;(body.text as? android.text.Spannable)?.let{SpacedJustify.clear(it)};stretchedLayout=null;body.textScaleX=if(body.textScaleX==1f).99999f else 1f}};body.hyphenationFrequency=hyphenFreq()}
     internal fun applyBrightness(){val v=a.prefs.optDouble("bright",-1.0).toFloat();val target=if(v<0f)android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE else v.coerceIn(.01f,1f);if(a.window.attributes.screenBrightness!=target)a.window.attributes=a.window.attributes.apply{screenBrightness=target}}
     fun readerMenu() { a.dialog().setTitle(book.str("title")).setItemIcons("search","notebook","pen","download").setItems(arrayOf("Поиск по книге","Блокнот: цитаты и мысли","Данные книги","Скачать файл")) { _,i -> when(i) { 0->navigation(2); 1->notebook(); 2->a.metadataEditor(book); 3->a.dialog().setTitle("Скачать файл").setItemIcons("download","download").setItems(arrayOf("FB2","EPUB")){_,type->a.exportBook(book,if(type==0)"fb2" else "epub")}.show() } }.show() }
     fun fullSearch() {
@@ -656,7 +661,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         // The page view may end with a typographic hyphen that is not part of the book text.
         val draft=PageDraft(chapter,start,end,android.text.SpannableStringBuilder(body.text,if(paged())0 else start,if(paged())minOf(body.text.length,end-start) else end),full,images,calm)
         editShift=if(paged())0 else body.layout?.let{scroll.scrollY-it.getLineTop(it.getLineForVertical(scroll.scrollY))}?:0
-        editorOpen=true;handler.removeCallbacks(reflow);pageEditor=ChapterEditor(a,this,book,content,draft).also{it.show()}
+        editorOpen=true;handler.removeCallbacks(reflow);reflowQueued=false;pageEditor=ChapterEditor(a,this,book,content,draft).also{it.show()}
     }
     private var editShift=0
     /** Edit mode swaps the page for its editable twin in place; only the chrome changes, with a soft crossfade. */

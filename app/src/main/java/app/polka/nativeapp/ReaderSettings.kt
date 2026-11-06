@@ -272,12 +272,14 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             // the scroll view's fading edges would still draw over the background; switch them off while focused
             var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? SheetScroll)?.fadeEnabled=false;g=g.parent}
             // the held row becomes its own small floating card, so the book text never runs into it; the reader bars step aside
-            val card=a.shape(sheetColor,22).apply{alpha=0};row.background=card;row.elevation=0f
-            ValueAnimator.ofFloat(0f,1f).apply{duration=if(reduced)0 else 180;addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt();row.elevation=a.d(10)*k};start()}
+            // the card stays inside the page (the row's frame reaches 4dp past its edges and was cut off on the right) and
+            // casts no shadow: it only has to keep the text off the capsule
+            val card=android.graphics.drawable.InsetDrawable(a.shape(sheetColor,22),a.d(4),0,a.d(4),0).apply{alpha=0};row.background=card;row.elevation=0f
+            ValueAnimator.ofFloat(0f,1f).apply{duration=if(reduced)0 else 180;addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt()};start()}
             r.fadeChrome(true)
         }else{
             (row.background as? android.graphics.drawable.Drawable)?.let{card->ValueAnimator.ofFloat(1f,0f).apply{duration=if(reduced)0 else 220;startDelay=if(reduced)0 else 80
-                addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt();row.elevation=a.d(10)*k}
+                addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt()}
                 addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(row.background===card){row.background=null;row.elevation=0f}}});start()}}
             r.fadeChrome(false)
             hidden.forEach{(v,alpha)->if(reduced)v.alpha=alpha else v.animate().alpha(alpha).setStartDelay(60).setDuration(240).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()};hidden.clear()
