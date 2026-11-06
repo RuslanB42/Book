@@ -358,8 +358,7 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
         val g=if(right)Gravity.END else Gravity.START
         val t=a.column().apply{gravity=g}
         fun add(v:TextView,top:Int=0){v.gravity=g;t.addView(v,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(top)})}
-        add(a.text("№ ${i+1}",11f,goalGreen2(a),true).apply{letterSpacing=.08f})
-        add(a.text(yb.book.str("title"),19f,a.fg,true,serif=true).apply{maxLines=3;ellipsize=TextUtils.TruncateAt.END},4)
+        add(a.text(yb.book.str("title"),19f,a.fg,true,serif=true).apply{maxLines=3;ellipsize=TextUtils.TruncateAt.END})
         val author=MainActivity.authors(yb.book);if(author.isNotBlank())add(a.text(author,12.5f,a.muted).apply{maxLines=2;ellipsize=TextUtils.TruncateAt.END},4)
         fun f(dt:LocalDate)="${dt.dayOfMonth} ${YearRoad.MONTHS_SHORT[dt.monthValue-1]}"+if(dt.year!=year)" ${dt.year}" else ""
         add(a.text(if(yb.start==yb.end)f(yb.end) else "${f(yb.start)} — ${f(yb.end)}",12.5f,a.fg),12)

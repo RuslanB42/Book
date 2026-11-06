@@ -202,10 +202,15 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
             for(i in 1 until n-1){val mx=(xi(i)+xi(i+1))/2;val my=(ys[i]+ys[i+1])/2;morphPath.quadTo(xi(i),ys[i],mx,my)}
             morphPath.lineTo(xi(n-1),ys[n-1])
             morphArea.set(morphPath);morphArea.lineTo(width-a.d(10).toFloat(),bottom+a.d(2));morphArea.lineTo(a.d(10).toFloat(),bottom+a.d(2));morphArea.close();curve=morphPath;fill=morphArea}
+        // the light under the curve fades out at both ends instead of stopping at a hard vertical edge
+        val fl=c.saveLayer(0f,0f,width.toFloat(),height.toFloat(),null)
         p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,top,0f,bottom,(c1 and 0xffffff) or ((if(a.light)0x30 else 0x47) shl 24),c1 and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(fill,p)
+        if(!a.light&&morph>=1f&&glowFade>0f)glow()?.let{g->p.shader=null;p.alpha=255;glowPaint.alpha=(0xc0*glowFade).toInt();c.drawBitmap(g,null,RectF(0f,0f,width.toFloat(),height.toFloat()),glowPaint)}
+        run{val e=a.d(34).toFloat();val wd=width.toFloat();p.shader=LinearGradient(0f,0f,wd,0f,intArrayOf(0,Color.BLACK,Color.BLACK,0),floatArrayOf(0f,(e/wd).coerceAtMost(.3f),1f-(e/wd).coerceAtMost(.3f),1f),Shader.TileMode.CLAMP)
+            p.xfermode=PorterDuffXfermode(PorterDuff.Mode.DST_IN);p.alpha=255;c.drawRect(0f,0f,wd,height.toFloat(),p);p.xfermode=null;p.shader=null}
+        c.restoreToCount(fl)
         p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND
         val grad=LinearGradient(0f,0f,width.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP)
-        if(!a.light&&morph>=1f&&glowFade>0f)glow()?.let{g->p.shader=null;p.alpha=255;p.style=Paint.Style.FILL;glowPaint.alpha=(0xc0*glowFade).toInt();c.drawBitmap(g,null,RectF(0f,0f,width.toFloat(),height.toFloat()),glowPaint);p.style=Paint.Style.STROKE}
         p.shader=grad;p.alpha=255;p.strokeWidth=3*d;c.drawPath(curve,p);p.shader=null;p.style=Paint.Style.FILL
         c.restore()
         // day labels; the open one sits in a light pill
@@ -217,7 +222,8 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
             if(!on&&!labelShown(i,values.size))continue
             val x=xOf(i);val y=height-7*d
             if(on){val w=tp.measureText(labels[i])+12*d;val k=tipShow.coerceIn(0f,1f);p.color=if(a.light)0xff161617.toInt() else 0xfff2f2f2.toInt();p.alpha=(255*k).toInt();c.drawRoundRect(x-w/2,y-13*d,x+w/2,y+5*d,6*d,6*d,p);p.alpha=255}
-            tp.typeface=PolkaFonts.sans(if(on||last)600 else 400);tp.color=if(on)(if(a.light)Color.WHITE else 0xff111111.toInt()) else if(last)a.fg else a.muted
+            val base=if(last)a.fg else a.muted;val onInk=if(a.light)Color.WHITE else 0xff111111.toInt()
+            tp.typeface=PolkaFonts.sans(if(on||last)600 else 400);tp.color=if(on)androidx.core.graphics.ColorUtils.blendARGB(base,onInk,tipShow.coerceIn(0f,1f)) else base
             tp.alpha=(255*newAlpha).toInt();c.drawText(labels[i],x,y,tp);tp.alpha=255}
         drawTip(c)}
     private fun drawTip(c:Canvas){val i=tipIndex;if(i<0||tipShow<=0.001f||i>=pts.size)return;val d=a.d(1).toFloat();val k=tipShow.coerceIn(0f,1.15f);val alpha=(255*k.coerceAtMost(1f)).toInt()

@@ -42,14 +42,14 @@ class NativeRating(val a:MainActivity,initial:Int=0,val toggle:Boolean=true,val 
         }
         override fun onDraw(c:Canvas) {
             val size=a.d(30).toFloat(); val cx=width/2f; val cy=height/2f
-            if(rays in 0f..1f) { p.style=Paint.Style.STROKE; p.strokeCap=Paint.Cap.ROUND; p.strokeWidth=a.d(2).toFloat(); p.color=a.accentFill; p.alpha=(255*(1f-rays)).toInt()
+            if(rays in 0f..1f) { p.style=Paint.Style.STROKE; p.strokeCap=Paint.Cap.ROUND; p.strokeWidth=a.d(2).toFloat(); p.color=StarRow.starYellow(a); p.alpha=(255*(1f-rays)).toInt()
                 val r0=size*.55f+size*.25f*rays; val r1=r0+size*.22f*(1f-rays*.6f)
                 for(k in 0 until 6) { val ang=Math.toRadians((k*60-90).toDouble()); val dx=Math.cos(ang).toFloat(); val dy=Math.sin(ang).toFloat(); c.drawLine(cx+dx*r0,cy+dy*r0,cx+dx*r1,cy+dy*r1,p) }
                 p.alpha=255 }
             c.save(); c.translate(cx-size/2,cy-size/2); c.scale(size/24,size/24)
             p.strokeWidth=1.6f; p.strokeJoin=Paint.Join.ROUND
             p.style=Paint.Style.STROKE; p.color=a.muted; p.alpha=(255*(1f-fill.coerceIn(0f,1f))).toInt().coerceAtLeast(0); if(fill<1f) c.drawPath(path,p)
-            if(fill>0f) { p.alpha=255; p.color=a.accentFill; p.style=Paint.Style.FILL_AND_STROKE; c.save(); val f=fill.coerceAtLeast(0f); c.scale(f,f,12f,12.4f); c.drawPath(path,p); c.restore() }
+            if(fill>0f) { p.alpha=255; p.color=StarRow.starYellow(a); p.style=Paint.Style.FILL_AND_STROKE; c.save(); val f=fill.coerceAtLeast(0f); c.scale(f,f,12f,12.4f); c.drawPath(path,p); c.restore() }
             c.restore()
         }
         override fun onInitializeAccessibilityNodeInfo(info:android.view.accessibility.AccessibilityNodeInfo) { super.onInitializeAccessibilityNodeInfo(info); info.className="android.widget.RadioButton"; info.isCheckable=true; info.isChecked=n==value }

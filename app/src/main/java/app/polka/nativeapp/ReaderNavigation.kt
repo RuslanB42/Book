@@ -51,7 +51,14 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  }
  private fun contents(){
   val toc=r.contents()
-  toc.forEach{item->val current=item.optInt("ch")==r.chapter;pane.addView(a.text(item.str("title"),16f,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),14);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}})}
+  var here:View?=null
+  toc.forEach{item->val current=item.optInt("ch")==r.chapter;pane.addView(a.text(item.str("title"),16f,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),14);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
+  // the list opens at the chapter being read (a little of the one before it still showing above)
+  here?.let{row->pane.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
+   if(row.height==0)return true;pane.viewTreeObserver.removeOnPreDrawListener(this)
+   val sv=generateSequence(pane.parent){it.parent}.filterIsInstance<android.widget.ScrollView>().firstOrNull()?:return true
+   var y=row.top;var v:View?=row.parent as? View;while(v!=null&&v!==sv.getChildAt(0)){y+=v.top;v=v.parent as? View}
+   sv.scrollTo(0,(y-a.d(56)).coerceAtLeast(0));return true}})}
  }
  private lateinit var notebookResults:LinearLayout
  private val chipViews=mutableListOf<TextView>()
@@ -133,7 +140,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   input.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){input.removeCallbacks(searchTask);searchTask=Runnable{run()};input.postDelayed(searchTask,250)};override fun afterTextChanged(s:Editable?){} });run()
  }
  private fun searchField(input:EditText):View{
-  val field=FrameLayout(a);input.setPadding(a.d(38),0,a.d(12),0);input.textSize=16f;a.controlSurface(input,11f);field.addView(input,FrameLayout.LayoutParams(-1,a.d(38)));field.addView(IconView(a,"search",a.muted),FrameLayout.LayoutParams(a.d(18),a.d(18),Gravity.CENTER_VERTICAL).apply{leftMargin=a.d(12)});return field
+  val field=FrameLayout(a);input.setPadding(a.d(38),0,a.d(12),0);input.textSize=16f;input.background=OpaqueSurface(a,22f);field.addView(input,FrameLayout.LayoutParams(-1,a.d(44)));field.addView(IconView(a,"search",a.muted),FrameLayout.LayoutParams(a.d(18),a.d(18),Gravity.CENTER_VERTICAL).apply{leftMargin=a.d(12)});return field
  }
  private var searchTask=Runnable{}
 }
