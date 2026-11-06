@@ -19,6 +19,8 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     val view=FrameLayout(a).apply { setBackgroundColor(a.bg);clipToPadding=false;clipChildren=false }
     private lateinit var topBar:LinearLayout
     private var titleText:TextView?=null
+    // declared before init: setCalm runs while the reader is still being built
+    private val chromeSprings=HashMap<View,LiquidSpring>()
     private val folio=TextView(a)
     private val bookmarkIcon by lazy{BookmarkIcon(a,a.fg)}
     private val ribbon by lazy{BookmarkRibbon(a)}
@@ -578,7 +580,6 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     /** While a setting is being dragged the reader's bars fade away (only their opacity: the calm state is not touched). */
     internal fun fadeChrome(hide:Boolean){if(calm)return;val reduced=a.prefs.str("motion")=="reduced";listOf(topBar,bottom).forEach{v->v.animate().cancel();v.translationY=0f;if(reduced)v.alpha=if(hide)0f else 1f else v.animate().alpha(if(hide)0f else 1f).setDuration(if(hide)160 else 240).setInterpolator(MotionSpec.settle).start()}}
     fun toggleChrome(){if(!editorOpen)setCalm(!calm,true)}
-    private val chromeSprings=HashMap<View,LiquidSpring>()
     private fun setCalm(value:Boolean,animate:Boolean){calm=value;chromeSprings.values.forEach{it.stop()};val reduced=!animate||a.prefs.str("motion")=="reduced";listOf(topBar to -1,bottom to 1).forEach{(v,sign)->v.animate().cancel();if(reduced){v.alpha=if(value)0f else 1f;v.translationY=if(value)sign*v.height.toFloat() else 0f;v.visibility=if(value)View.INVISIBLE else View.VISIBLE;if(value)v.post{if(calm&&v.visibility==View.INVISIBLE)v.translationY=sign*v.height.toFloat()}}else{v.visibility=View.VISIBLE
             // the same spring as the sheets that rise from below: the bars glide in and out instead of fading on a curve
             val h=v.height.toFloat().coerceAtLeast(1f);val off=sign*h;val start=(v.translationY/off).coerceIn(0f,1f)
