@@ -209,7 +209,11 @@ internal class PolkaSheetFrame(private val a:MainActivity,internal val panel:Lin
     internal fun safeArea(value:androidx.core.graphics.Insets) {
         safe=value
         // Background belongs to panel, so its bottom padding is opaque as well.
-        panel.setPadding(if(wide)0 else value.left,0,if(wide)0 else value.right,if(wide)0 else value.bottom)
+        // a tall sheet runs to the bottom edge of the screen: its list scrolls on under the gesture bar (the room for
+        // the bar is a padding inside the list, not an empty band under the sheet)
+        val runDown=tall&&!wide
+        panel.setPadding(if(wide)0 else value.left,0,if(wide)0 else value.right,if(wide||runDown)0 else value.bottom)
+        if(runDown)for(i in 0 until panel.childCount)(panel.getChildAt(i) as? SheetScroll)?.let{it.clipToPadding=false;it.setPadding(it.paddingLeft,it.paddingTop,it.paddingRight,value.bottom)}
         requestLayout()
     }
     override fun onMeasure(widthSpec:Int,heightSpec:Int) {

@@ -55,6 +55,14 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   // the chapters scroll on their own, under the tabs: opening at the current chapter never hides «Оглавление / Блокнот / Поиск»
   val list=a.column();val holder=SheetScroll(a,if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt(),30,18).apply{isVerticalScrollBarEnabled=false;addView(list)}
   pane.addView(holder,LinearLayout.LayoutParams(-1,(a.resources.displayMetrics.heightPixels*.6f).toInt()))
+  // the list runs down to the bottom edge of the screen (under the gesture bar), like every other list in the app
+  holder.clipToPadding=false;holder.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
+   val sv=generateSequence(holder.parent){it.parent}.filterIsInstance<android.widget.ScrollView>().firstOrNull()?:return true
+   val at=IntArray(2);holder.getLocationOnScreen(at);val s=IntArray(2);sv.getLocationOnScreen(s);val c=IntArray(2);sv.getChildAt(0).getLocationOnScreen(c)
+   val below=(c[1]+sv.getChildAt(0).height)-(at[1]+holder.height)
+   val want=(s[1]+sv.height-at[1]-below).coerceAtLeast(a.d(200))
+   holder.setPadding(0,0,0,sv.paddingBottom+a.d(16))
+   val lp=holder.layoutParams;if(lp.height!=want){lp.height=want;holder.layoutParams=lp;return false};return true}})
   toc.forEach{item->val current=item.optInt("ch")==r.chapter;list.addView(a.text(item.str("title"),16f,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),14);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
   // the list opens at the chapter being read (a little of the one before it still showing above)
   here?.let{row->holder.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
@@ -112,34 +120,40 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
     val card=a.quoteCardNative(r.book,item,onOpen=go,onGo=go,onThought={n->a.editThought(r.book,n,quote=item,ch=item.optInt("ch"))},onDelete={
      a.confirm("Удалить цитату?","Мысли к этому фрагменту останутся в блокноте."){r.book.put("quotes",JSONArray(r.book.optJSONArray("quotes")?.objects().orEmpty().filter{it.str("id")!=item.str("id")}));r.persist();r.paginate();drawNotebook()}})
     notebookResults.addView(card,LinearLayout.LayoutParams(-1,-2));a.space(notebookResults,14);return@forEach}
-   val card=a.column().apply{background=a.controlSurface(this,18f);setPadding(a.d(16),a.d(16),a.d(16),a.d(16));contentDescription="${listOf("Цитата","Заметка","Закладка")[kind]}: ${item.str("text")}"}
-   val whole=kind==1&&item.str("scope")=="book"
-   val meta=a.line();meta.addView(a.text(if(whole)"О книге" else listOf("Цитата","Заметка","Закладка")[kind],12f,a.muted),LinearLayout.LayoutParams(0,-2,1f));meta.addView(a.text(java.text.SimpleDateFormat("d MMMM yyyy 'г.'",java.util.Locale.forLanguageTag("ru")).format(java.util.Date(item.optLong("at",System.currentTimeMillis()))),12f,a.muted));card.addView(meta)
-   val fragment=fragment(kind,item)
-   if(fragment.isNotBlank()){a.space(card,12);card.addView(a.text(fragment,16f,a.muted,serif=true).apply{cssLeading(1.55f);setPadding(a.d(12),0,0,0);background=object:android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT){override fun draw(c:android.graphics.Canvas){super.draw(c);c.drawRect(0f,0f,a.d(2).toFloat(),bounds.height().toFloat(),android.graphics.Paint().apply{color=a.accent})}}})}
-   if(kind==1){a.space(card,12);card.addView(a.text(item.str("text"),16f))}
-   if(kind==0&&filter==1)r.book.optJSONArray("notes")?.objects().orEmpty().filter{it.str("quoteId")==item.str("id")}.forEach{note->
-    a.space(card,12);val thought=a.column().apply{background=a.controlSurface(this,12f);setPadding(a.d(12),a.d(12),a.d(12),a.d(12));setOnClickListener{a.editThought(r.book,note,quote=item)}}
-    thought.addView(a.text("Моя мысль",12f,a.accent));a.space(thought,5);thought.addView(a.text(note.str("text"),15f).apply{cssLeading(1.5f)});card.addView(thought)
-   }
-   a.space(card,12);card.addView(a.text(if(whole)"Впечатления о книге" else r.chapterName(item.optInt("ch")),12f,a.muted));a.space(card,8)
-   a.space(card,4);card.addView(View(a).apply{setBackgroundColor(if(a.light)0x18000000 else 0x17ffffff)},LinearLayout.LayoutParams(-1,a.d(1)));a.space(card,6)
-   val actions=a.line()
-   actions.addView(a.text(if(whole)"О всей книге" else "К фрагменту",13f,if(whole)a.muted else a.accent).apply{minHeight=a.d(44);gravity=Gravity.CENTER_VERTICAL;if(!whole)setOnClickListener{close();r.goToLocation(item.optInt("ch"),item.optInt("start",item.optInt("nativeOffset",0))) }},LinearLayout.LayoutParams(0,-2,1f))
-   fun icon(kind:String,label:String,fn:()->Unit){actions.addView(IconView(a,kind,a.fg).apply{contentDescription=label;setOnClickListener{fn()}},LinearLayout.LayoutParams(a.d(44),a.d(44)))}
-   if(kind!=2)icon("pen",if(kind==1)"Изменить мысль" else "Добавить мысль"){if(kind==1)a.editThought(r.book,item,item.str("scope","chapter"),ch=item.optInt("ch"))else a.editThought(r.book,quote=item,ch=item.optInt("ch"))}
-   icon("copy","Копировать запись"){
-    val text=if(kind==1)(if(fragment.isBlank())"" else "«$fragment»\n\n")+item.str("text")else "«${item.str("text") }»\n— ${MainActivity.authors(r.book)}, «${r.book.str("title") }»"
-    (a.getSystemService(Context.CLIPBOARD_SERVICE)as android.content.ClipboardManager).setPrimaryClip(ClipData.newPlainText("Блокнот",text))
-   }
-   icon("trash","Удалить ${listOf("цитату","мысль","закладку")[kind]}"){
-    a.confirm("Удалить ${listOf("цитату","мысль","закладку")[kind]}?",if(kind==0)"Мысли к этому фрагменту останутся в блокноте." else "Удалить выбранную запись?"){
-     val field=fields[kind];r.book.put(field,JSONArray(r.book.optJSONArray(field)?.objects().orEmpty().filter{it.str("id")!=item.str("id")}));r.persist();if(kind==0)r.paginate();drawNotebook();r.refreshBookmark()
-    }
-   }
-   card.addView(actions);notebookResults.addView(card);a.space(notebookResults,12)
+   notebookResults.addView(entryCard(kind,item),LinearLayout.LayoutParams(-1,-2));a.space(notebookResults,14)
   }
   fadeResults(animate)
+ }
+ /** Notes and bookmarks as the same kind of card as the quotes (approved look), in a quiet neutral tone: a small
+  *  label and the date on top, the fragment in the book's serif, the thought, then the chapter and round buttons. */
+ private fun entryCard(kind:Int,item:JSONObject):View{
+  val whole=kind==1&&item.str("scope")=="book";val ink=a.fg;val tone=(ink and 0xffffff)
+  val card=a.column().apply{a.floatCard(this,22);background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(22).toFloat();setStroke(1,(0x14 shl 24) or tone)}
+   setPadding(a.d(18),a.d(14),a.d(14),a.d(10));contentDescription="${listOf("Цитата","Заметка","Закладка")[kind]}: ${item.str("text")}"}
+  val go={close();r.goToLocation(item.optInt("ch"),item.optInt("start",item.optInt("nativeOffset",0)))}
+  val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+  top.addView(IconView(a,if(kind==2)"bookmark" else "pen",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{rightMargin=a.d(6)})
+  top.addView(a.text(if(whole)"О книге" else listOf("Цитата","Заметка","Закладка")[kind],12f,a.muted,true),LinearLayout.LayoutParams(0,-2,1f))
+  top.addView(a.text(java.text.SimpleDateFormat("d MMMM",java.util.Locale.forLanguageTag("ru")).format(java.util.Date(item.optLong("at",System.currentTimeMillis()))),12f,a.muted))
+  card.addView(top)
+  val fragment=fragment(kind,item)
+  if(fragment.isNotBlank())card.addView(a.text(fragment,if(kind==2)17f else 15.5f,if(kind==2)a.fg else a.muted,serif=true).apply{cssLeading(1.55f);maxLines=if(kind==2)6 else 4;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(10),0,0);if(!whole)setOnClickListener{go()}})
+  if(kind==1)card.addView(a.text(item.str("text"),16f).apply{cssLeading(1.5f);setPadding(0,a.d(10),0,0);setOnClickListener{a.editThought(r.book,item,item.str("scope","chapter"),ch=item.optInt("ch"))}})
+  card.addView(View(a).apply{setBackgroundColor((0x1f shl 24) or tone)},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14)})
+  val foot=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(10),0,a.d(2))}
+  foot.addView(a.text(if(whole)"Вся книга" else r.chapterName(item.optInt("ch")),12.5f,a.fg,true).apply{background=a.shape((0x14 shl 24) or tone,14);setPadding(a.d(10),a.d(4),a.d(10),a.d(5));maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)})
+  foot.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
+  fun round(icon:String,desc:String,fn:()->Unit){foot.addView(FrameLayout(a).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor((0x14 shl 24) or tone)};isClickable=true;contentDescription=desc
+   addView(QuoteActionIcon(a,icon,a.fg),FrameLayout.LayoutParams(a.d(22),a.d(22),Gravity.CENTER));a.press(this);setOnClickListener{fn()}},LinearLayout.LayoutParams(a.d(38),a.d(38)).apply{leftMargin=a.d(8)})}
+  if(!whole)round("go","К месту в книге"){go()}
+  if(kind==1)round("pen","Изменить мысль"){a.editThought(r.book,item,item.str("scope","chapter"),ch=item.optInt("ch"))}
+  if(kind!=2)round("copy","Копировать запись"){
+   val text=(if(fragment.isBlank())"" else "«$fragment»\n\n")+item.str("text")
+   (a.getSystemService(Context.CLIPBOARD_SERVICE)as android.content.ClipboardManager).setPrimaryClip(ClipData.newPlainText("Блокнот",text))}
+  round("trash","Удалить ${listOf("цитату","мысль","закладку")[kind]}"){
+   a.confirm("Удалить ${listOf("цитату","мысль","закладку")[kind]}?","Удалить выбранную запись?"){
+    val field=fields[kind];r.book.put(field,JSONArray(r.book.optJSONArray(field)?.objects().orEmpty().filter{it.str("id")!=item.str("id")}));r.persist();drawNotebook();r.refreshBookmark()}}
+  card.addView(foot);return card
  }
  private fun fadeResults(animate:Boolean){
   notebookResults.animate().cancel()
