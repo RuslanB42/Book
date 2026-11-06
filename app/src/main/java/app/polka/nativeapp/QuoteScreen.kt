@@ -100,7 +100,9 @@ internal class QuoteActionIcon(c:Context,private val kind:String,private val ink
     private val path=Path()
     override fun onDraw(cv:Canvas){val s=minOf(width,height)/24f*.84f;cv.save();cv.translate(width/2f-12f*s,height/2f-12f*s);cv.scale(s,s);p.strokeWidth=1.8f
         path.rewind()
-        if(kind=="copy"){path.addRoundRect(RectF(8.5f,8.5f,19.5f,20.5f),2.6f,2.6f,Path.Direction.CW)
+        if(kind=="go"){path.moveTo(5f,12f);path.lineTo(18f,12f);path.moveTo(13f,6.5f);path.lineTo(18.5f,12f);path.lineTo(13f,17.5f)}
+        else if(kind=="pen"){path.moveTo(4.5f,19.5f);path.lineTo(5.5f,15.5f);path.lineTo(15.8f,5.2f);path.quadTo(17.25f,3.75f,18.7f,5.2f);path.lineTo(18.8f,5.3f);path.quadTo(20.25f,6.75f,18.8f,8.2f);path.lineTo(8.5f,18.5f);path.close()}
+        else if(kind=="copy"){path.addRoundRect(RectF(8.5f,8.5f,19.5f,20.5f),2.6f,2.6f,Path.Direction.CW)
             path.moveTo(15.5f,8.5f);path.lineTo(15.5f,6.6f);path.quadTo(15.5f,4.5f,13.4f,4.5f);path.lineTo(6.6f,4.5f);path.quadTo(4.5f,4.5f,4.5f,6.6f);path.lineTo(4.5f,14.4f);path.quadTo(4.5f,16.5f,6.6f,16.5f);path.lineTo(8.5f,16.5f)}
         else{path.moveTo(4.5f,6.8f);path.lineTo(19.5f,6.8f)
             path.moveTo(9.3f,6.8f);path.lineTo(9.3f,5.2f);path.quadTo(9.3f,3.8f,10.7f,3.8f);path.lineTo(13.3f,3.8f);path.quadTo(14.7f,3.8f,14.7f,5.2f);path.lineTo(14.7f,6.8f)
@@ -108,7 +110,8 @@ internal class QuoteActionIcon(c:Context,private val kind:String,private val ink
             path.moveTo(10.4f,10.8f);path.lineTo(10.4f,16.2f);path.moveTo(13.6f,10.8f);path.lineTo(13.6f,16.2f)}
         cv.drawPath(path,p);cv.restore()}
 }
-internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->Unit)?=null):View {
+/** [onGo], [onThought] and [onDelete] are the notebook's: go to the place, write or edit the thought, remove. */
+internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->Unit)?=null,onGo:(()->Unit)?=null,onThought:((JSONObject?)->Unit)?=null,onDelete:(()->Unit)?=null):View {
     val col=quoteInk(q);val chipInk=if(light)mix(col,Color.BLACK,.28f) else col
     val card=column().apply{floatCard(this,22);background=quoteTint(col);setPadding(d(18),d(14),d(14),d(10))}
     val open={if(onOpen!=null)onOpen()else openBookAt(b,q.optInt("ch"),q.optInt("start"))}
@@ -120,7 +123,7 @@ internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->
     top.addView(text(date,12f,muted).apply{setPadding(0,d(4),0,0)})
     card.addView(top,LinearLayout.LayoutParams(-1,-2))
     card.addView(text(q.str("text"),17f,serif=true).apply{cssLeading(1.55f);maxLines=9;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,d(4),d(4),0);setOnClickListener{open()}})
-    b.optJSONArray("notes")?.objects().orEmpty().filter{it.str("quoteId")==q.str("id")}.forEach{n->val note=column().apply{background=shape(if(light)0xfff4f4f1.toInt() else 0xff2e2e31.toInt(),14);setPadding(d(14),d(12),d(14),d(12));setOnClickListener{editThought(b,n,quote=q)}};note.addView(text("Моя мысль",12f,accent,true));space(note,5);note.addView(text(n.str("text"),15f).apply{cssLeading(1.5f)});card.addView(note,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,d(12),d(4),0)})}
+    b.optJSONArray("notes")?.objects().orEmpty().filter{it.str("quoteId")==q.str("id")}.forEach{n->val note=column().apply{background=shape((0x1a shl 24) or (col and 0xffffff),16);setPadding(d(14),d(12),d(14),d(12));setOnClickListener{if(onThought!=null)onThought(n) else editThought(b,n,quote=q)}};note.addView(text("Моя мысль",11.5f,chipInk,true));space(note,5);note.addView(text(n.str("text"),15f).apply{cssLeading(1.5f)});card.addView(note,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,d(12),d(4),0)})}
     card.addView(View(this).apply{setBackgroundColor((0x33 shl 24) or (col and 0xffffff))},LinearLayout.LayoutParams(-1,1).apply{topMargin=d(14)})
     val foot=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(10),0,d(2))}
     // where the quote is from: a chip in its colour
@@ -131,8 +134,11 @@ internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->
         isClickable=true;contentDescription=desc;addView(QuoteActionIcon(this@quoteCardNative,kind,col),FrameLayout.LayoutParams(d(22),d(22),Gravity.CENTER))
         setOnTouchListener{v,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->v.animate().scaleX(.88f).scaleY(.88f).setDuration(90).start();MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->v.animate().scaleX(1f).scaleY(1f).setDuration(240).setInterpolator(android.view.animation.OvershootInterpolator(2f)).start()};false}
         setOnClickListener{act()}}
+    onGo?.let{g->foot.addView(round("go","К месту в книге"){g()},LinearLayout.LayoutParams(d(38),d(38)).apply{rightMargin=d(8)})}
+    onThought?.let{t->foot.addView(round("pen","Мысль к цитате"){t(b.optJSONArray("notes")?.objects().orEmpty().firstOrNull{it.str("quoteId")==q.str("id")})},LinearLayout.LayoutParams(d(38),d(38)).apply{rightMargin=d(8)})}
     foot.addView(round("copy","Копировать цитату"){(getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата","«${q.str("text")}»\n— ${MainActivity.authors(b)}, «${b.str("title")}»"));Toast.makeText(this,"Цитата скопирована",Toast.LENGTH_SHORT).show()},LinearLayout.LayoutParams(d(38),d(38)))
     foot.addView(round("trash","Удалить цитату"){
+        if(onDelete!=null){onDelete();return@round}
         val remove={saveBook(b.copyJson().put("quotes",JSONArray(b.optJSONArray("quotes")!!.objects().filterNot{it.str("id")==q.str("id")})))}
         if(prefs.str("motion")=="reduced")remove() else NativeMotion(card,MotionPose(),MotionPose(0f,scale=.96f),200,curve=android.view.animation.AccelerateInterpolator(),complete=remove).start()
     },LinearLayout.LayoutParams(d(38),d(38)).apply{leftMargin=d(8)})

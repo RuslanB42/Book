@@ -95,10 +95,23 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   notebookResults.removeAllViews()
   val rows=fields.flatMapIndexed{index,key->r.book.optJSONArray(key)?.objects().orEmpty().map{index to it}}.filter{(kind,item)->(filter==0||kind==filter-1)&&("${item.str("text")} ${fragment(kind,item)} ${r.chapterName(item.optInt("ch"))}").contains(query,true)}.sortedByDescending{it.second.optLong("updatedAt",it.second.optLong("at"))}
   if(rows.isEmpty()){
-   notebookResults.addView(a.text(if(query.isNotBlank())"Ничего не найдено" else if(fields.all{(r.book.optJSONArray(it)?.length()?:0)==0})"Ваш книжный блокнот" else "Здесь пока нет записей",22f,bold=true,serif=true).apply{gravity=Gravity.CENTER;setPadding(0,a.d(24),0,a.d(12))})
-   notebookResults.addView(a.text(if(query.isNotBlank())"Попробуйте другое слово или выберите «Все»." else "Сохраняйте цитаты, записывайте мысли к выделенному тексту или создайте отдельную заметку. Закладки тоже будут здесь.",15f,a.muted));fadeResults(animate);return
+   // a quiet empty state: an icon, a short title and one hint
+   val box=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(a.d(24),a.d(44),a.d(24),a.d(24))}
+   val icon=listOf("quotes","quotes","pen","bookmark")[filter.coerceIn(0,3)]
+   box.addView(FrameLayout(a).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(quiet())};addView(IconView(a,if(query.isNotBlank())"search" else icon,a.muted),FrameLayout.LayoutParams(a.d(30),a.d(30),Gravity.CENTER))},LinearLayout.LayoutParams(a.d(72),a.d(72)))
+   val title=if(query.isNotBlank())"Ничего не нашлось" else listOf("Пока нет записей","Пока нет цитат","Пока нет заметок","Пока нет закладок")[filter.coerceIn(0,3)]
+   box.addView(a.text(title,22f,a.fg,true,serif=true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(18)})
+   val hint=if(query.isNotBlank())"Попробуйте другое слово." else if(filter==3)"Добавьте закладку кнопкой в нижней панели — она появится здесь." else "Выделите текст в книге и нажмите «Цитата» или «Заметка» — запись появится здесь."
+   box.addView(a.text(hint,14f,a.muted).apply{gravity=Gravity.CENTER;cssLeading(1.5f)},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(8)})
+   notebookResults.addView(box,LinearLayout.LayoutParams(-1,-2));fadeResults(animate);return
   }
   rows.forEach{(kind,item)->
+   // quotes are the same cards as on «Цитаты» and the book card (no fan), the thought inside them
+   if(kind==0){
+    val go={close();r.goToLocation(item.optInt("ch"),item.optInt("start",item.optInt("nativeOffset",0)))}
+    val card=a.quoteCardNative(r.book,item,onOpen=go,onGo=go,onThought={n->a.editThought(r.book,n,quote=item,ch=item.optInt("ch"))},onDelete={
+     a.confirm("Удалить цитату?","Мысли к этому фрагменту останутся в блокноте."){r.book.put("quotes",JSONArray(r.book.optJSONArray("quotes")?.objects().orEmpty().filter{it.str("id")!=item.str("id")}));r.persist();r.paginate();drawNotebook()}})
+    notebookResults.addView(card,LinearLayout.LayoutParams(-1,-2));a.space(notebookResults,14);return@forEach}
    val card=a.column().apply{background=a.controlSurface(this,18f);setPadding(a.d(16),a.d(16),a.d(16),a.d(16));contentDescription="${listOf("Цитата","Заметка","Закладка")[kind]}: ${item.str("text")}"}
    val whole=kind==1&&item.str("scope")=="book"
    val meta=a.line();meta.addView(a.text(if(whole)"О книге" else listOf("Цитата","Заметка","Закладка")[kind],12f,a.muted),LinearLayout.LayoutParams(0,-2,1f));meta.addView(a.text(java.text.SimpleDateFormat("d MMMM yyyy 'г.'",java.util.Locale.forLanguageTag("ru")).format(java.util.Date(item.optLong("at",System.currentTimeMillis()))),12f,a.muted));card.addView(meta)
