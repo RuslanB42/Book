@@ -25,7 +25,9 @@ object ArchiveIO {
             else -> value
         }
     }
-    fun write(library:Library, destination:File) {
+    private val safeDoc=Regex("[A-Za-z0-9_-]{1,64}");private val safePath=Regex("[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*")
+    /** [docs]: the folder of comics and PDF (files/docs); when given, their pages travel inside the archive too. */
+    fun write(library:Library, destination:File, docs:File?=null) {
         val spool=File(destination.parentFile,destination.name+".parts")
         try {
             val parts=JSONArray(); val records=JSONArray(); val indexes=mutableMapOf<String,Int>()
@@ -46,6 +48,17 @@ object ArchiveIO {
                             output.write(encoded); val hashes=JSONArray(); for(off in encoded.indices step CHUNK) hashes.put(digest(encoded.copyOfRange(off,minOf(encoded.size,off+CHUNK))))
                             parts.put(JSONObject().put("size",encoded.size).put("type","application/json").put("hashes",hashes))
                         } }
+                    }
+                }
+                // Comics and PDF live as files beside the database: each of their files becomes a part of its own.
+                if(docs!=null) library.allBooks().mapNotNull { it.optJSONObject("doc")?.str("id") }.filter { safeDoc.matches(it) }.distinct().forEach { docId ->
+                    val root=File(docs,docId); if(!root.isDirectory) return@forEach
+                    root.walkTopDown().filter { it.isFile }.sortedBy { it.path }.forEach { f ->
+                        val rel=f.relativeTo(root).invariantSeparatorsPath; if(!safePath.matches(rel)) return@forEach
+                        val hashes=JSONArray(); var total=0L; val buf=ByteArray(CHUNK)
+                        f.inputStream().use { input -> while(true) { var n=0; while(n<CHUNK) { val r=input.read(buf,n,CHUNK-n); if(r<0) break; n+=r }; if(n==0) break; output.write(buf,0,n); total+=n; hashes.put(digest(if(n==CHUNK) buf else buf.copyOf(n))); if(n<CHUNK) break } }
+                        records.put(JSONObject().put("store","doc").put("id",docId).put("path",rel).put("part",parts.length()))
+                        parts.put(JSONObject().put("size",total).put("type","application/octet-stream").put("hashes",hashes))
                     }
                 }
                 output.fd.sync()
@@ -76,9 +89,16 @@ object ArchiveIO {
         val stage=Room.databaseBuilder(context,LibraryDb::class.java,stageName).build(); val staging=Library(stage)
         try {
             val assets=mutableMapOf<Int,String>(); val seen=mutableSetOf<String>()
+            val docStage=File(context.filesDir,"docs-restore-${uid()}")
             RandomAccessFile(archive,"r").use { input -> stage.runInTransaction {
                 manifest.getJSONArray("records").objects().forEach { record ->
                     val store=record.getString("store"); val id=record.getString("id"); val partIndex=record.getInt("part")
+                    if(store=="doc") {
+                        val rel=record.getString("path"); require(safeDoc.matches(id) && safePath.matches(rel) && rel.split('/').none { it=="." || it==".." } && seen.add("doc:$id/$rel") && partIndex in parts.indices) { "Неверная запись архива" }
+                        val part=parts[partIndex]; val out=File(File(docStage,id),rel); out.parentFile?.mkdirs()
+                        FileOutputStream(out).use { o -> var off=0L; val buf=ByteArray(512*1024); while(off<part.size) { val n=minOf(buf.size.toLong(),part.size-off).toInt(); input.seek(part.offset+off); input.readFully(buf,0,n); o.write(buf,0,n); off+=n } }
+                        return@forEach
+                    }
                     require(store in setOf("books","content","meta") && seen.add("$store:$id") && partIndex in parts.indices) { "Неверная запись архива" }
                     val part=parts[partIndex]; require(part.size<=64L*1024*1024) { "Запись книги больше 64 МБ" }
                     val bytes=ByteArray(part.size.toInt()); input.seek(part.offset); input.readFully(bytes)
@@ -98,7 +118,7 @@ object ArchiveIO {
             val books=staging.allBooks()
             books.forEach { book ->
                 require(book.get("title") is String && book.optJSONArray("authors")!=null)
-                if(!book.optBoolean("noFile")) { val c=staging.dao.content(book.getString("id")) ?: error("Отсутствует текст книги"); val chapters=JSONObject(c.json).getJSONArray("chapters"); require(chapters.length()>0); chapters.objects().forEach { require(it.get("html") is String && it.get("len") is Number) } }
+                if(!book.optBoolean("noFile") && book.optJSONObject("doc")==null) { val c=staging.dao.content(book.getString("id")) ?: error("Отсутствует текст книги"); val chapters=JSONObject(c.json).getJSONArray("chapters"); require(chapters.length()>0); chapters.objects().forEach { require(it.get("html") is String && it.get("len") is Number) } }
             }
             val settings=staging.dao.meta("prefs") ?: error("В архиве нет настроек"); require(JSONObject(settings.json).getJSONObject("data").optJSONArray("shelves")!=null)
             val stats=staging.dao.meta("stats") ?: error("В архиве нет статистики"); require(JSONObject(stats.json).getJSONObject("data").optJSONObject("days")!=null)
@@ -114,6 +134,8 @@ object ArchiveIO {
                 }
                 library.updateMarker()
             }
-        } finally { stage.close(); context.deleteDatabase(stageName) }
+            // the comics and PDF that came in the archive replace their folders; others already on the phone stay
+            docStage.listFiles()?.forEach { d -> val target=File(File(context.filesDir,"docs").apply { mkdirs() },d.name); target.deleteRecursively(); if(!d.renameTo(target)) { d.copyRecursively(target,true) } }
+        } finally { stage.close(); context.deleteDatabase(stageName); docStage.deleteRecursively() }
     }
 }

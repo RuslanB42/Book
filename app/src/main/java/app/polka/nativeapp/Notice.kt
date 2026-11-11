@@ -66,15 +66,16 @@ internal class Notice private constructor(private val a:MainActivity,private val
         }else{
             row.addView(covers,LinearLayout.LayoutParams(-2,a.d(48)).apply{marginEnd=a.d(12)})
             titleRow.addView(dot,LinearLayout.LayoutParams(a.d(18),a.d(18)).apply{marginEnd=a.d(7)})
-            titleRow.addView(title,LinearLayout.LayoutParams(-2,-2))
-            texts.addView(titleRow);texts.addView(sub,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(3)})
+            titleRow.addView(title,LinearLayout.LayoutParams(0,-2,1f))
+            texts.addView(titleRow,LinearLayout.LayoutParams(-1,-2));texts.addView(sub,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(3)})
             row.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
             row.addView(button,LinearLayout.LayoutParams(-2,a.d(34)).apply{marginStart=a.d(12)})
         }
-        card.addView(row,FrameLayout.LayoutParams(-2,-2))
+        card.addView(row,FrameLayout.LayoutParams(if(compact)-2 else -1,-2))
         card.addView(bar,FrameLayout.LayoutParams(-1,a.d(3),Gravity.BOTTOM).apply{leftMargin=a.d(18);rightMargin=a.d(18);bottomMargin=a.d(5)})
         card.isClickable=true
-        frame.addView(card,FrameLayout.LayoutParams(-2,-2,Gravity.CENTER_HORIZONTAL))
+        // A book notice keeps the full width all its life: only its height may change, so the words never get squeezed.
+        frame.addView(card,FrameLayout.LayoutParams(if(compact)-2 else -1,-2,Gravity.CENTER_HORIZONTAL))
         swipe()
     }
 
@@ -105,25 +106,33 @@ internal class Notice private constructor(private val a:MainActivity,private val
         schedule()
     }
 
-    /** Later states: the words melt, the card eases to its new size, the dot pops into its sign. */
+    /** Later states: the old words dissolve while the new ones rise in their place (no empty card in between), the cover
+     *  fades in over the blank one, the dot pops into its sign and the card eases to its new height. */
     fun update(s:State){if(leaving)return
         val old=state;if(old==null){show(s);return}
         if(reduced){put(s,false);schedule();if(s.kind==Kind.ERROR)shake();return}
         val sameText=old.title==s.title&&old.sub==s.sub&&old.action==s.action
-        if(sameText){put(s,false);schedule();return}
-        val w0=card.width;val h0=card.height
-        listOf<View>(texts,button).forEach{it.animate().cancel();it.animate().alpha(0f).translationY(-a.d(3).toFloat()).setDuration(150).setInterpolator(smooth).start()}
-        card.postDelayed({if(leaving||frame.parent==null)return@postDelayed
-            put(s,false)
-            card.layoutParams=card.layoutParams.apply{width=w0;height=h0}
-            row.measure(View.MeasureSpec.makeMeasureSpec(minOf(frame.width-pad*2,a.d(420)),View.MeasureSpec.AT_MOST),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
-            val w1=row.measuredWidth;val h1=row.measuredHeight
-            ValueAnimator.ofFloat(0f,1f).apply{duration=380;interpolator=PathInterpolator(.3f,0f,.1f,1f)
-                addUpdateListener{val t=it.animatedValue as Float;card.layoutParams=card.layoutParams.apply{width=(w0+(w1-w0)*t).roundToInt();height=(h0+(h1-h0)*t).roundToInt()}}
-                addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){card.layoutParams=card.layoutParams.apply{width=FrameLayout.LayoutParams.WRAP_CONTENT;height=FrameLayout.LayoutParams.WRAP_CONTENT}}});start()}
-            listOf<View>(texts,button).forEachIndexed{i,v->v.alpha=0f;v.translationY=a.d(4).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(170L+i*60L).setDuration(300).setInterpolator(smooth).start()}
-            if(s.kind==Kind.ERROR||s.kind==Kind.PARTIAL)card.postDelayed({shake()},260)
-            schedule()},150)
+        if(sameText||card.width==0){put(s,false);schedule();return}
+        // a picture of the old words stays on top and dissolves upward
+        val ghosts=listOf<View>(texts,button).filter{it.visibility==View.VISIBLE&&it.width>0&&it.height>0}.map{v->
+            val b=Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888);v.draw(Canvas(b))
+            val loc=IntArray(2);val base=IntArray(2);v.getLocationInWindow(loc);card.getLocationInWindow(base)
+            android.graphics.drawable.BitmapDrawable(a.resources,b).apply{setBounds(loc[0]-base[0],loc[1]-base[1],loc[0]-base[0]+v.width,loc[1]-base[1]+v.height)}}
+        ghosts.forEach{card.overlay.add(it)};val tops=ghosts.map{it.bounds.top}
+        val h0=card.height
+        put(s,false)
+        row.measure(View.MeasureSpec.makeMeasureSpec(card.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
+        val h1=row.measuredHeight
+        listOf<View>(texts,button).forEachIndexed{i,v->v.animate().cancel();v.alpha=0f;v.translationY=a.d(6).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(60L+i*50L).setDuration(300).setInterpolator(smooth).start()}
+        ValueAnimator.ofFloat(0f,1f).apply{duration=220;interpolator=smooth
+            addUpdateListener{val t=it.animatedValue as Float;ghosts.forEachIndexed{k,g->g.alpha=((1f-t)*255).roundToInt();val b=g.bounds;val top=tops[k]-(a.d(6)*t).roundToInt();g.setBounds(b.left,top,b.right,top+b.height())}}
+            addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){ghosts.forEach{card.overlay.remove(it);(it as android.graphics.drawable.BitmapDrawable).bitmap.recycle()}}});start()}
+        if(h1!=h0&&h0>0){card.layoutParams=card.layoutParams.apply{height=h0}
+            ValueAnimator.ofFloat(0f,1f).apply{duration=340;interpolator=PathInterpolator(.3f,0f,.1f,1f)
+                addUpdateListener{val t=it.animatedValue as Float;card.layoutParams=card.layoutParams.apply{height=(h0+(h1-h0)*t).roundToInt()}}
+                addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){card.layoutParams=card.layoutParams.apply{height=FrameLayout.LayoutParams.WRAP_CONTENT}}});start()}}
+        if(s.kind==Kind.ERROR||s.kind==Kind.PARTIAL)card.postDelayed({shake()},260)
+        schedule()
     }
     fun setProgress(text:String,subtitle:String,fraction:Float?){val s=state?:return
         if(s.title!=text||s.sub!=subtitle)update(State(s.kind,text,subtitle,s.books,s.blank,s.action,s.onAction,fraction)) else{state=State(s.kind,text,subtitle,s.books,s.blank,s.action,s.onAction,fraction);bar.to(fraction,!reduced)}}
@@ -138,8 +147,12 @@ internal class Notice private constructor(private val a:MainActivity,private val
     fun dismiss(fast:Boolean=false){if(leaving)return;leaving=true;card.removeCallbacks(hide);if(Notice.current===this)Notice.current=null
         val gone:()->Unit={(frame.parent as? ViewGroup)?.removeView(frame);covers.stop();onGone?.invoke()}
         if(reduced){gone();return}
-        card.animate().cancel();card.pivotY=0f
-        card.animate().translationY(card.translationY-a.d(if(fast)18 else 26)).alpha(0f).scaleX(.95f).scaleY(.95f).setDuration(if(fast)180 else 260).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction(gone).start()}
+        card.animate().cancel()
+        // Leaves the way it came: slides up past the top edge, fading only near the end, so it never sits half-seen over the page.
+        val from=card.translationY;val to=-(frame.top+pad+card.height+a.d(12)).toFloat()
+        ValueAnimator.ofFloat(0f,1f).apply{duration=if(fast)220 else 320;interpolator=PathInterpolator(.5f,0f,.9f,.6f)
+            addUpdateListener{val t=it.animatedValue as Float;card.translationY=from+(to-from)*t;card.alpha=(1f-((t-.55f)/.45f).coerceIn(0f,1f))}
+            addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){gone()}});start()}}
 
     /** Flick it up to dismiss; a finger on it holds it; dragged down it resists and springs back. */
     private fun swipe(){var y0=0f;var dragging=false;var t0=0L
@@ -173,6 +186,7 @@ internal class Notice private constructor(private val a:MainActivity,private val
             layoutParams=layoutParams?.apply{width=w}
             if(list.isEmpty()||showBlank){addView(blank,LayoutParams(a.d(32),a.d(48)));blank.faded=faded;if(!showBlank||faded)blank.stop() else blank.start();return}
             blank.stop()
+            val under=animate&&!had&&blank.parent==null&&!faded
             list.indices.reversed().forEach{i->val b=list[i]
                 val v=CoverView(a,b,a.cover(b)).apply{softShadow=false;shadowFade=0f
                     outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,a.d(4).toFloat())}};clipToOutline=true
@@ -181,6 +195,8 @@ internal class Notice private constructor(private val a:MainActivity,private val
                     alpha=if(faded).55f else 1f-i*.12f}
                 addView(v,LayoutParams(a.d(32),a.d(48)).apply{leftMargin=a.d(6)*i})
                 if(animate&&!had){v.alpha=0f;v.scaleX=.94f;v.scaleY=.94f;v.animate().alpha(if(faded).55f else 1f-i*.12f).scaleX(1f).scaleY(1f).setStartDelay(i*60L).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}
+            // the blank stays underneath while the cover fades in over it, so the slot is never empty
+            if(under){addView(blank,0,LayoutParams(a.d(32),a.d(48)));postDelayed({if(blank.parent===this)removeView(blank)},420)}
         }
         fun stop(){blank.stop()}
     }
