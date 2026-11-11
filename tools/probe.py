@@ -14,16 +14,23 @@ TYPES={'novel':'Q8261','literary work':'Q7725634','novella':'Q149537','short sto
 for name,q in TYPES.items():
     r=sparql('SELECT (COUNT(DISTINCT ?i) AS ?n) (COUNT(DISTINCT ?ol) AS ?o) (COUNT(DISTINCT ?gr) AS ?g) WHERE{?i wdt:P31 wd:%s. ?a schema:about ?i; schema:isPartOf <https://ru.wikipedia.org/>. OPTIONAL{?i wdt:P648 ?ol} OPTIONAL{?i wdt:P8383 ?gr}}'%q)
     out['counts'][name]={k:int(v['value']) for k,v in r[0].items()} if r else None;print(name,out['counts'][name])
-rows=sparql('SELECT ?i ?a ?ol ?gr ?img ?l WHERE{?i wdt:P31 wd:Q8261. ?a schema:about ?i; schema:isPartOf <https://ru.wikipedia.org/>. ?i wikibase:sitelinks ?l. OPTIONAL{?i wdt:P648 ?ol} OPTIONAL{?i wdt:P8383 ?gr} OPTIONAL{?i wdt:P18 ?img}}') or []
 books={}
-for r in rows:
-    b=books.setdefault(r['i']['value'],{'title':urllib.parse.unquote(r['a']['value'].split('/wiki/')[1]),'links':int(r['l']['value'])})
-    for k in('ol','gr','img'):
-        if k in r:b[k]=r[k]['value']
+for T in('Q7725634','Q47461344','Q8261'):
+    for off in range(0,40000,5000):
+        rows=sparql('SELECT ?i ?a ?l WHERE{?i wdt:P31 wd:%s. ?a schema:about ?i; schema:isPartOf <https://ru.wikipedia.org/>. ?i wikibase:sitelinks ?l} ORDER BY ?i LIMIT 5000 OFFSET %d'%(T,off)) or []
+        for r in rows:books.setdefault(r['i']['value'],{'title':urllib.parse.unquote(r['a']['value'].split('/wiki/')[1]),'links':int(r['l']['value'])})
+        print(T,off,len(rows),len(books))
+        if len(rows)<5000:break
+for prop,k in(('P648','ol'),('P8383','gr'),('P18','img')):
+    for T in('Q7725634','Q47461344','Q8261'):
+        rows=sparql('SELECT ?i ?v WHERE{?i wdt:P31 wd:%s; wdt:%s ?v. ?a schema:about ?i; schema:isPartOf <https://ru.wikipedia.org/>}'%(T,prop)) or []
+        for r in rows:
+            if r['i']['value'] in books:books[r['i']['value']][k]=r['v']['value']
+        print(prop,T,len(rows))
 out['novels']=len(books);print('novels',len(books))
 random.seed(7);items=list(books.values())
 top=sorted(items,key=lambda b:-b['links'])[:3000]
-sample=random.sample(top,150)+random.sample(items,150)
+sample=random.sample(top,min(150,len(top)))+random.sample(items,min(150,len(items)))
 stats={k:0 for k in['extract','extract300','pageimage','ol_id','ol_cover','ol_search_cover','gb_found','gb_cover','gb_desc_ru','p18','any_cover','any_free_cover']}
 ex=[]
 for n,b in enumerate(sample):
