@@ -1,0 +1,18 @@
+name: Sounds
+on: [push]
+permissions:
+  contents: write
+jobs:
+  find:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get -qq update && sudo apt-get -qq install -y ffmpeg >/dev/null
+      - run: pip install requests >/dev/null && python tools/find.py
+      - run: bash tools/measure.sh
+      - name: Publish
+        run: |
+          cd out && git init -q -b sounds-out && git config user.name ci && git config user.email ci@example.com
+          git add -A && git commit -qm out
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" sounds-out
