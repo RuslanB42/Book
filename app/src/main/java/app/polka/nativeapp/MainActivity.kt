@@ -475,7 +475,7 @@ class MainActivity : Activity() {
     fun pickBooks(code:Int=10) { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_ALLOW_MULTIPLE,code==10) },code) }
     private var fontPicked:((String)->Unit)?=null
     /** Picks a TTF/OTF file; [done] gets the new font's key once it is checked and stored. */
-    fun pickFont(done:(String)->Unit) { fontPicked=done; startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_MIME_TYPES,arrayOf("font/*","application/x-font-ttf","application/x-font-otf","application/font-sfnt","application/vnd.ms-opentype","application/octet-stream")) },18) }
+    fun pickFont(done:(String)->Unit) { fontPicked=done; startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_MIME_TYPES,arrayOf("font/*","application/x-font-ttf","application/x-font-otf","application/font-sfnt","application/vnd.ms-opentype","application/zip","application/x-zip-compressed","application/octet-stream")) },18) }
     fun pickBackup() { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE) },11) }
     fun exportBackup() { startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type="application/octet-stream"; putExtra(Intent.EXTRA_TITLE,"polka-${java.time.LocalDate.now()}.polka"); addCategory(Intent.CATEGORY_OPENABLE) },12) }
     fun fileName(uri:Uri):String { contentResolver.query(uri,arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),null,null,null)?.use { if(it.moveToFirst()) return it.getString(0) }; return "book.fb2" }
@@ -483,9 +483,10 @@ class MainActivity : Activity() {
     @Deprecated("Android activity result API") override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?) {
         super.onActivityResult(requestCode,resultCode,data); if(resultCode!=RESULT_OK || data==null) return; if(!bootFinished) { pendingActivityResult=Triple(requestCode,resultCode,data); return }
         when(requestCode) {
-            18 -> data.data?.let { uri -> val done=fontPicked ?: return; fontPicked=null; val name=fileName(uri); var added:Pair<String,String>?=null; var reason=""
-                work({ try { val bytes=readLimited(uri); require(bytes.size<=30*1024*1024) { "Файл слишком большой" }; added=CustomFonts.add(this,bytes,name) } catch(e:Exception) { reason=e.message ?: "Не удалось открыть шрифт" } }) {
-                    val got=added; if(got!=null) { CustomFonts.register(this,got.first,got.second); done(got.first); Notice.short(this,Notice.Kind.OK,"Шрифт «${got.second}» добавлен") } else Notice.short(this,Notice.Kind.ERROR,reason) } }
+            18 -> data.data?.let { uri -> val done=fontPicked ?: return; fontPicked=null; val name=fileName(uri); var added:List<Pair<String,String>> =emptyList(); var reason=""
+                work({ try { val bytes=readLimited(uri); require(bytes.size<=60*1024*1024) { "Файл слишком большой" }; added=CustomFonts.add(this,bytes,name) } catch(e:Exception) { reason=e.message ?: "Не удалось открыть шрифт" } }) {
+                    if(added.isNotEmpty()) { added.forEach { CustomFonts.register(this,it.first,it.second) }; done(added[0].first)
+                        Notice.short(this,Notice.Kind.OK,if(added.size==1) "Шрифт «${added[0].second}» добавлен" else "Добавлено шрифтов: ${added.size}") } else Notice.short(this,Notice.Kind.ERROR,reason) } }
             17 -> data.data?.let { uri -> val file=pendingCalendarImage ?: return;work({contentResolver.openOutputStream(uri,"wt")!!.use{out->file.inputStream().use{it.copyTo(out)}}}) }
             15 -> data.data?.let { uri -> val id=coverTarget ?: return; work({ val bytes=readLimited(uri); require(BitmapFactory.decodeByteArray(bytes,0,bytes.size)!=null) { "Неверный формат изображения" }; val asset=uid(); library.db.runInTransaction { library.dao.putAsset(AssetRow(asset,contentResolver.getType(uri) ?: "image/jpeg",bytes)); val b=JSONObject(library.dao.book(id)!!.json).put("cover",JSONObject().put("__polkaBlob",asset)).put("coverChanged",true); library.save(b) }; loadData() }) { refreshBookViews(id) { render() } } }
             16 -> data.data?.let { uri -> val spec=pendingExport ?: return; work({ val bytes=BookExport.build(library,spec.first,spec.second); contentResolver.openOutputStream(uri,"wt")!!.use { it.write(bytes) } }) }

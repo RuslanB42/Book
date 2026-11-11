@@ -221,7 +221,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
                 addView(a.text("Добавить шрифт",14f,a.fg,true).apply{setPadding(a.d(8),0,0,0)})
                 setOnClickListener{a.pickFont{key->a.prefs.put("font",key);a.savePreferences();build();typography()}}}
             box.addView(add,LinearLayout.LayoutParams(-1,a.d(52)).apply{topMargin=a.d(2)})
-            box.addView(a.text("TTF или OTF с телефона",11.5f,a.muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
+            box.addView(a.text("TTF, OTF или ZIP с телефона",11.5f,a.muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
             paint()}
         build();return box
     }
