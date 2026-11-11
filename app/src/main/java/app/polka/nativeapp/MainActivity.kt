@@ -473,6 +473,9 @@ class MainActivity : Activity() {
     internal fun waitingForReturnDeck()=tab=="foryou"&&recommendationDeck==null
     internal fun finishBookReturn(){bookClosing=false;renderDeferred=false;ReaderWindow.configure(window,false,bg);root.requestApplyInsets()}
     fun pickBooks(code:Int=10) { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_ALLOW_MULTIPLE,code==10) },code) }
+    private var soundPicked:((org.json.JSONObject)->Unit)?=null
+    /** Picks an audio file for the background sounds; [done] gets it once it is checked and stored. */
+    fun pickSound(done:(org.json.JSONObject)->Unit) { soundPicked=done; startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="audio/*"; addCategory(Intent.CATEGORY_OPENABLE) },19) }
     private var fontPicked:((String)->Unit)?=null
     /** Picks a TTF/OTF file; [done] gets the new font's key once it is checked and stored. */
     fun pickFont(done:(String)->Unit) { fontPicked=done; startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_MIME_TYPES,arrayOf("font/*","application/x-font-ttf","application/x-font-otf","application/font-sfnt","application/vnd.ms-opentype","application/zip","application/x-zip-compressed","application/octet-stream")) },18) }
@@ -483,6 +486,9 @@ class MainActivity : Activity() {
     @Deprecated("Android activity result API") override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?) {
         super.onActivityResult(requestCode,resultCode,data); if(resultCode!=RESULT_OK || data==null) return; if(!bootFinished) { pendingActivityResult=Triple(requestCode,resultCode,data); return }
         when(requestCode) {
+            19 -> data.data?.let { uri -> val done=soundPicked ?: return; soundPicked=null; val name=fileName(uri); var added:org.json.JSONObject?=null; var reason=""
+                work({ try { val bytes=readLimited(uri); require(bytes.size<=80*1024*1024) { "Файл слишком большой" }; added=Ambience.add(this,bytes,name) } catch(e:Exception) { reason=e.message ?: "Не удалось открыть звук" } }) {
+                    val got=added; if(got!=null) { Ambience.register(this,got); savePreferences(); done(got); Notice.short(this,Notice.Kind.OK,"Звук «${got.str("name")}» добавлен") } else Notice.short(this,Notice.Kind.ERROR,reason) } }
             18 -> data.data?.let { uri -> val done=fontPicked ?: return; fontPicked=null; val name=fileName(uri); var added:List<Pair<String,String>> =emptyList(); var reason=""
                 work({ try { val bytes=readLimited(uri); require(bytes.size<=60*1024*1024) { "Файл слишком большой" }; added=CustomFonts.add(this,bytes,name) } catch(e:Exception) { reason=e.message ?: "Не удалось открыть шрифт" } }) {
                     if(added.isNotEmpty()) { added.forEach { CustomFonts.register(this,it.first,it.second) }; done(added[0].first)
