@@ -292,7 +292,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             head.addView(if(target>0)bigCount(done," из ${ofBooks(target)}",46f,.35f) else bigCount(done," "+MainActivity.countBooks(done).substringAfter(' '),46f,.35f));space(head,5)
             head.addView(label(goalPace(goalYear,today,done,target),12.5f))
             box.addView(head)
-            if(list.isEmpty()){space(box,14);box.addView(label("Пока ни одной книги за $goalYear — дочитанные появятся здесь, на дороге года.",13f));return}
+            if(list.isEmpty()){space(box,16);box.addView(a.emptyGoal(goalYear),LinearLayout.LayoutParams(-1,-2));return}
             // only the road: finished books stand on it as covers; the card opens the whole road
             val road=YearRoad(a,list,target,live){_,_->}
             space(box,6);box.addView(road,LinearLayout.LayoutParams(-1,-2))

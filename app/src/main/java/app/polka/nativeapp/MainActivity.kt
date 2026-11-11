@@ -272,15 +272,15 @@ class MainActivity : Activity() {
 
         when {
             tab=="quotes" -> quotes()
-            query.isNotBlank() -> {val found=searchBooks();if(found.isEmpty()){space(page,8);page.addView(lottie("empty_search"),LinearLayout.LayoutParams(-1,d(200)));space(page,8);page.addView(text("Ничего не нашлось",22f,bold=true,serif=true).apply{gravity=Gravity.CENTER});space(page,8);page.addView(text("По запросу «${query.trim()}» нет книг. Поиск идёт по названию, автору, серии и полке.",15f,muted).apply{gravity=Gravity.CENTER})}else{val row=line();row.addView(text("Найдено",20f,bold=true),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(countBooks(found.size),14f,muted));page.addView(row);space(page,14);bookGrid(found)}}
-            shelf!=null || auto!=null -> { backAndCount(); val list=currentBooks(); if(list.isEmpty()) emptyState(if(auto=="reading") "Пока ничего не читаете" else "На полке пока пусто",lottieName="empty_books") else bookGrid(list) }
+            query.isNotBlank() -> {val found=searchBooks();if(found.isEmpty()){space(page,96);page.addView(emptyView("search","Ничего не нашлось","Попробуйте название, автора или серию."),LinearLayout.LayoutParams(-1,-2))}else{val row=line();row.addView(text("Найдено",20f,bold=true),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(countBooks(found.size),14f,muted));page.addView(row);space(page,14);bookGrid(found)}}
+            shelf!=null || auto!=null -> { backAndCount(); val list=currentBooks(); if(list.isEmpty()){space(page,96);page.addView(if(auto=="reading")emptyView("open","Ничего не читаете","Откройте любую книгу — она появится здесь.") else emptyView("shelf","Полка пустая","Добавьте книги через «О книге» или в режиме редактирования."),LinearLayout.LayoutParams(-1,-2))} else bookGrid(list) }
             tab=="shelves" && query.isBlank() -> shelfRows()
             tab=="quotes" -> quotes()
             tab=="foryou" -> recommendations()
             else -> {
                 if(query.isBlank()) continueCard()
                 val list=currentBooks()
-                if(list.isEmpty()) { emptyState(if(query.isNotBlank()) "Ничего не найдено" else "Здесь будут ваши книги",lottieName=if(query.isNotBlank())"empty_search" else null); if(query.isBlank()) page.addView(button("＋  Добавить книги",true) { pickBooks() }) } else bookGrid(list)
+                if(list.isEmpty()) { space(page,96); page.addView(if(query.isNotBlank()) emptyView("search","Ничего не нашлось","Попробуйте название, автора или серию.") else emptyView("books","Пока нет книг","Добавьте epub или fb2 — с телефона или из Telegram.",action="＋  Добавить книги"){ pickBooks() },LinearLayout.LayoutParams(-1,-2)) } else bookGrid(list)
             }
         }
 

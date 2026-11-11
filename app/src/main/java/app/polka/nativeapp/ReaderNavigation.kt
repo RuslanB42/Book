@@ -109,14 +109,8 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   val quoteIds=r.book.optJSONArray("quotes")?.objects().orEmpty().map{it.str("id")}.toSet()
   val rows=fields.flatMapIndexed{index,key->r.book.optJSONArray(key)?.objects().orEmpty().map{index to it}}.filter{(kind,item)->!(kind==1&&item.str("quoteId") in quoteIds&&item.str("quoteId").isNotBlank())}.filter{(kind,item)->(filter==0||(filter==1&&kind<=1)||(filter==2&&kind==2))&&("${item.str("text")} ${fragment(kind,item)} ${r.chapterName(item.optInt("ch"))}").contains(query,true)}.sortedByDescending{it.second.optLong("updatedAt",it.second.optLong("at"))}
   if(rows.isEmpty()){
-   // a quiet empty state: an icon, a short title and one hint
-   val box=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(a.d(24),a.d(44),a.d(24),a.d(24))}
-   val icon=listOf("quotes","quotes","bookmark")[filter.coerceIn(0,2)]
-   box.addView(FrameLayout(a).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(quiet())};addView(IconView(a,if(query.isNotBlank())"search" else icon,a.muted),FrameLayout.LayoutParams(a.d(30),a.d(30),Gravity.CENTER))},LinearLayout.LayoutParams(a.d(72),a.d(72)))
-   val title=if(query.isNotBlank())"Ничего не нашлось" else listOf("Пока нет записей","Пока нет цитат","Пока нет закладок")[filter.coerceIn(0,2)]
-   box.addView(a.text(title,22f,a.fg,true,serif=true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(18)})
-   val hint=if(query.isNotBlank())"Попробуйте другое слово." else if(filter==2)"Добавьте закладку кнопкой в нижней панели — она появится здесь." else "Выделите текст в книге и нажмите «Цитата» или «Заметка» — запись появится здесь."
-   box.addView(a.text(hint,14f,a.muted).apply{gravity=Gravity.CENTER;cssLeading(1.5f)},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(8)})
+   val box=if(query.isNotBlank())a.emptyView("search","Ничего не нашлось","Попробуйте другое слово.",100) else if(filter==2)a.emptyView("bookmark","Пока нет закладок","Нажмите на закладку в нижней панели.",100) else a.emptyView("note",if(filter==1)"Пока нет цитат" else "Пока нет записей","Выделите текст и нажмите «Цитата» или «Заметка».",100)
+   box.setPadding(0,a.d(52),0,a.d(24))
    notebookResults.addView(box,LinearLayout.LayoutParams(-1,-2));fadeResults(animate);return
   }
   rows.forEach{(kind,item)->
@@ -190,7 +184,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private fun fragment(kind:Int,item:JSONObject):String=if(kind!=1)item.str("text")else r.book.optJSONArray("quotes")?.objects()?.firstOrNull{it.str("id")==item.str("quoteId")&&item.str("quoteId").isNotBlank()}?.str("text")?:item.str("quoteText",item.str("quote"))
  private fun search(){
   val input=a.edit("","Поиск").apply{contentDescription="Поиск по книге";imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH};val results=a.column();pane.addView(searchField(input));a.space(pane,14);pane.addView(results)
-  fun run(){val generation=++searchGeneration;val q=input.text.toString().trim();results.removeAllViews();if(q.length<2)return;results.addView(a.text("Поиск…",15f,a.muted));r.searchEntries(q){rows->if(generation==searchGeneration&&selected==2&&box.isAttachedToWindow){results.removeAllViews();results.addView(a.text("Найдено: ${rows.size}",13f,a.muted));rows.forEach{row->results.addView(a.text(row.third,15f).apply{setPadding(0,a.d(12),0,a.d(12));setOnClickListener{close();r.goToLocation(row.first,row.second)}})}}}}
+  fun run(){val generation=++searchGeneration;val q=input.text.toString().trim();results.removeAllViews();if(q.length<2)return;results.addView(a.text("Поиск…",15f,a.muted));r.searchEntries(q){rows->if(generation==searchGeneration&&selected==2&&box.isAttachedToWindow){results.removeAllViews();if(rows.isEmpty()){results.addView(a.emptyView("search","Ничего не нашлось","Этого слова нет в книге.",100).apply{setPadding(0,a.d(52),0,a.d(24))},LinearLayout.LayoutParams(-1,-2));return@searchEntries};results.addView(a.text("Найдено: ${rows.size}",13f,a.muted));rows.forEach{row->results.addView(a.text(row.third,15f).apply{setPadding(0,a.d(12),0,a.d(12));setOnClickListener{close();r.goToLocation(row.first,row.second)}})}}}}
   input.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){input.removeCallbacks(searchTask);searchTask=Runnable{run()};input.postDelayed(searchTask,250)};override fun afterTextChanged(s:Editable?){} });run()
  }
  private fun searchField(input:EditText):View{
