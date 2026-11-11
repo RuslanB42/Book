@@ -21,7 +21,7 @@ import kotlin.math.*
  * melts into the new one while the card eases to its new size; a failure shakes the card once. It leaves upwards
  * and can be flicked away.
  */
-internal class Notice private constructor(private val a:MainActivity,private val compact:Boolean){
+internal class Notice private constructor(internal val a:MainActivity,private val compact:Boolean){
     enum class Kind(val color:Int,val glyph:String){
         LOADING(0xfff0a742.toInt(),""),OK(0xff34b866.toInt(),"check"),PARTIAL(0xfff0a742.toInt(),"bang"),ERROR(0xffef5b4c.toInt(),"x"),
         KNOWN(0xff6e6e74.toInt(),"book"),ATTACHED(0xff4cb0e5.toInt(),"clip"),DELETED(0xffef5b4c.toInt(),"trash"),
@@ -39,7 +39,7 @@ internal class Notice private constructor(private val a:MainActivity,private val
     private val fill=GradientDrawable().apply{setColor(if(a.light)Color.WHITE else 0xff242426.toInt());cornerRadius=radius;setStroke(maxOf(1,a.d(1)/2),if(a.light)0x0a000000 else 0x0dffffff)}
     private val card=FrameLayout(a).apply{background=Floating(a,fill,radius);clipChildren=false
         outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,radius)}}}
-    private val row=LinearLayout(a).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
+    private val row=LinearLayout(a).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false
         if(compact)setPadding(a.d(8),0,a.d(18),0) else setPadding(a.d(10),a.d(10),a.d(14),a.d(10));minimumHeight=a.d(if(compact)46 else 68)}
     private val covers=CoverSlot(a)
     private val icon=FrameLayout(a)
@@ -47,8 +47,8 @@ internal class Notice private constructor(private val a:MainActivity,private val
     private val dot=Dot(a,false)
     private val title=a.text("",15f,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
     private val sub=a.text("",12.5f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
-    private val texts=LinearLayout(a).apply{orientation=LinearLayout.VERTICAL}
-    private val titleRow=LinearLayout(a).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
+    private val texts=LinearLayout(a).apply{orientation=LinearLayout.VERTICAL;clipChildren=false;clipToPadding=false}
+    private val titleRow=LinearLayout(a).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false}
     private val button=a.text("",13f,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(14),0,a.d(14),0);maxLines=1
         background=GradientDrawable().apply{setColor(if(a.light)0x0f000000 else 0x17ffffff);cornerRadius=a.d(17).toFloat()};a.press(this)}
     private val bar=Bar(a)
@@ -65,7 +65,8 @@ internal class Notice private constructor(private val a:MainActivity,private val
             row.addView(title,LinearLayout.LayoutParams(-2,-2))
         }else{
             row.addView(covers,LinearLayout.LayoutParams(-2,a.d(48)).apply{marginEnd=a.d(12)})
-            titleRow.addView(dot,LinearLayout.LayoutParams(a.d(18),a.d(18)).apply{marginEnd=a.d(7)})
+            // the dot's box is larger than the dot itself: its pop overshoots and must never touch the box's edge
+            titleRow.addView(dot,LinearLayout.LayoutParams(a.d(28),a.d(28)).apply{marginStart=-a.d(5);marginEnd=a.d(2);topMargin=-a.d(5);bottomMargin=-a.d(5)})
             titleRow.addView(title,LinearLayout.LayoutParams(0,-2,1f))
             texts.addView(titleRow,LinearLayout.LayoutParams(-1,-2));texts.addView(sub,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(3)})
             row.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
@@ -93,7 +94,7 @@ internal class Notice private constructor(private val a:MainActivity,private val
 
     /** First appearance: drops in from above and settles with a soft spring. */
     private fun show(s:State){
-        Notice.current?.let{if(it!==this)it.dismiss(true)};Notice.current=this
+        Notice.current?.let{if(it!==this){if(it.a===a)it.dismiss(true) else it.dismissNow()}};Notice.current=this
         put(s,true)
         val top=a.appInsets.top+a.d(8)-pad
         host.addView(frame,FrameLayout.LayoutParams(-1,-2,Gravity.TOP).apply{topMargin=top;leftMargin=a.d(16)-pad;rightMargin=a.d(16)-pad})
@@ -123,8 +124,8 @@ internal class Notice private constructor(private val a:MainActivity,private val
         put(s,false)
         row.measure(View.MeasureSpec.makeMeasureSpec(card.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
         val h1=row.measuredHeight
-        listOf<View>(texts,button).forEachIndexed{i,v->v.animate().cancel();v.alpha=0f;v.translationY=a.d(6).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(60L+i*50L).setDuration(300).setInterpolator(smooth).start()}
-        ValueAnimator.ofFloat(0f,1f).apply{duration=220;interpolator=smooth
+        listOf<View>(texts,button).forEachIndexed{i,v->v.animate().cancel();v.alpha=0f;v.translationY=a.d(6).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(110L+i*50L).setDuration(280).setInterpolator(smooth).start()}
+        ValueAnimator.ofFloat(0f,1f).apply{duration=150;interpolator=smooth
             addUpdateListener{val t=it.animatedValue as Float;ghosts.forEachIndexed{k,g->g.alpha=((1f-t)*255).roundToInt();val b=g.bounds;val top=tops[k]-(a.d(6)*t).roundToInt();g.setBounds(b.left,top,b.right,top+b.height())}}
             addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){ghosts.forEach{card.overlay.remove(it);(it as android.graphics.drawable.BitmapDrawable).bitmap.recycle()}}});start()}
         if(h1!=h0&&h0>0){card.layoutParams=card.layoutParams.apply{height=h0}
@@ -144,7 +145,10 @@ internal class Notice private constructor(private val a:MainActivity,private val
     private fun shake(){if(reduced)return
         ValueAnimator.ofFloat(0f,1f).apply{duration=420;addUpdateListener{val t=it.animatedFraction;card.translationX=a.d(7)*sin(t*PI.toFloat()*4f)*(1f-t)};start()}}
 
-    fun dismiss(fast:Boolean=false){if(leaving)return;leaving=true;card.removeCallbacks(hide);if(Notice.current===this)Notice.current=null
+    /** Gone at once, no motion (its screen is closing); its pending action (an undoable delete) still completes. */
+    fun dismissNow(){if(leaving)return;leaving=true;card.removeCallbacks(hide);if(Notice.current===this)Notice.current=null
+        card.animate().cancel();(frame.parent as? ViewGroup)?.removeView(frame);covers.stop();onGone?.invoke()}
+    fun dismiss(fast:Boolean=false){if(a.isFinishing||a.isDestroyed){dismissNow();return};if(leaving)return;leaving=true;card.removeCallbacks(hide);if(Notice.current===this)Notice.current=null
         val gone:()->Unit={(frame.parent as? ViewGroup)?.removeView(frame);covers.stop();onGone?.invoke()}
         if(reduced){gone();return}
         card.animate().cancel()
@@ -217,6 +221,8 @@ internal class Notice private constructor(private val a:MainActivity,private val
     /** The status dot: a spinner while working; on the result a coloured disc pops and its sign draws itself.
      *  [bare]: the sign alone (the compact capsule's icon, drawn on a tinted circle). */
     private class Dot(private val a:MainActivity,private val bare:Boolean):View(a){
+        /** Room round the drawing: 5dp for the status dot, so its 18dp disc may grow by half while it pops. */
+        private val inset=if(bare)0f else a.d(5).toFloat()
         private var kind:Kind?=null;private var color=0
         private var pop=1f;private var ink=1f;private var spin=0f;private var spinner:ValueAnimator?=null
         private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND}
@@ -232,7 +238,7 @@ internal class Notice private constructor(private val a:MainActivity,private val
         private fun startSpin(){if(spinner!=null)return;if(a.prefs.str("motion")=="reduced"){invalidate();return}
             spinner=ValueAnimator.ofFloat(0f,360f).apply{duration=900;repeatCount=ValueAnimator.INFINITE;interpolator=LinearInterpolator();addUpdateListener{spin=it.animatedValue as Float;invalidate()};start()}}
         override fun onDetachedFromWindow(){spinner?.cancel();spinner=null;super.onDetachedFromWindow()}
-        override fun onDraw(c:Canvas){val k=kind?:return;val s=width/24f;c.save();c.scale(s,s)
+        override fun onDraw(c:Canvas){val k=kind?:return;val s=(width-2*inset)/24f;c.save();c.translate(inset,inset);c.scale(s,s)
             if(k==Kind.LOADING){p.style=Paint.Style.STROKE;p.strokeWidth=2.6f;p.color=(color and 0xffffff) or 0x40000000;c.drawCircle(12f,12f,8.5f,p)
                 p.color=color;c.drawArc(3.5f,3.5f,20.5f,20.5f,spin-90f,100f,false,p);c.restore();return}
             if(!bare){p.style=Paint.Style.FILL;p.color=color;c.drawCircle(12f,12f,12f*pop,p)}

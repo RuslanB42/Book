@@ -214,7 +214,7 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
         off=a.text("Выключить",13f,a.muted).apply{setPadding(a.d(10),a.d(8),a.d(4),a.d(8));isClickable=true;a.press(this);setOnClickListener{Ambience.stop(a)}}
         head.addView(off);sheet.addView(head,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(10);leftMargin=a.d(2)})
         // two rows of two tiles; each tile carries its own ring room (4) so nothing sticks out of the rows
-        Ambience.builtIn.chunked(2).forEachIndexed{ri,pair->val row=a.line()
+        Ambience.builtIn.chunked(2).forEachIndexed{ri,pair->val row=a.line().apply{clipChildren=false;clipToPadding=false}
             pair.forEachIndexed{i,s->val t=Tile(s);tiles.add(t);t.setOnClickListener{toggle(s.key)};a.press(t);row.addView(t,LinearLayout.LayoutParams(0,a.d(104),1f).apply{if(i>0)leftMargin=a.d(2)})}
             sheet.addView(row,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=-a.d(4);rightMargin=-a.d(4);if(ri>0)topMargin=a.d(2)})}
         sheet.addView(VolumeBar(),LinearLayout.LayoutParams(-1,a.d(50)).apply{topMargin=a.d(10)})
@@ -293,7 +293,8 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
             val to=if(now)1f else 0f;anim?.cancel()
             if(!motion){on=to;invalidate();return}
             if(becameOn){scaleX=.96f;scaleY=.96f;animate().scaleX(1f).scaleY(1f).setDuration(420).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()}
-            anim=ValueAnimator.ofFloat(on,to).apply{duration=if(now)380 else 240;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{on=it.animatedValue as Float;invalidate()}
+            drawing=now
+            anim=ValueAnimator.ofFloat(on,to).apply{duration=if(now)420 else 220;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{on=it.animatedValue as Float;invalidate()}
                 addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){anim=null}});start()}}
         override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val r=a.d(20).toFloat()
             val l=ring;val t=ring;val rr=w-ring;val b=h-ring
@@ -302,9 +303,15 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
             val glow=(s.glow and 0xffffff) or ((0x66+(0xcc-0x66)*on).toInt() shl 24)
             p.shader=RadialGradient(rr,t,(rr-l)*(1.05f+.15f*on),intArrayOf(glow,(s.glow and 0xffffff) or 0x18000000,0),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(l,t,rr,b,r,r,p);p.shader=null
             Ambience.icon(c,s.icon,l+a.d(14),t+a.d(14),a.d(28).toFloat(),Color.WHITE,p)
-            // the ring draws in: it fades up while closing in from a little further out
-            if(on>0f){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=a.fg;p.alpha=(255*on).toInt();val k=a.d(1).toFloat()+ring*(1f-on)*.0f
-                val grow=a.d(3)*(1f-on);c.drawRoundRect(k-grow,k-grow,w-k+grow,h-k+grow,r+ring-k+grow,r+ring-k+grow,p);p.alpha=255;p.style=Paint.Style.FILL}}
+            // the ring draws itself round the tile (two strokes meeting at the bottom), always inside the tile's own
+            // bounds, so no parent can cut it; switching off it simply fades
+            if(on>0f){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=a.fg;val k=a.d(1).toFloat()+p.strokeWidth/2f-a.d(1)
+                if(!drawing){p.alpha=(255*on).toInt();c.drawRoundRect(k,k,w-k,h-k,r+ring-k,r+ring-k,p)}
+                else{ringPath.reset();val rr2=r+ring-k;ringPath.moveTo(w/2f,k);ringPath.lineTo(w-k-rr2,k);ringPath.arcTo(w-k-2*rr2,k,w-k,k+2*rr2,-90f,90f,false);ringPath.lineTo(w-k,h-k-rr2);ringPath.arcTo(w-k-2*rr2,h-k-2*rr2,w-k,h-k,0f,90f,false);ringPath.lineTo(w/2f,h-k)
+                    ringMeasure.setPath(ringPath,false);val len=ringMeasure.length*on;ringPart.reset();ringMeasure.getSegment(0f,len,ringPart,true)
+                    p.alpha=255;c.drawPath(ringPart,p);c.save();c.scale(-1f,1f,w/2f,0f);c.drawPath(ringPart,p);c.restore()}
+                p.alpha=255;p.style=Paint.Style.FILL}}
+        private var drawing=false;private val ringPath=Path();private val ringPart=Path();private val ringMeasure=PathMeasure()
     }
     /** Your own sound: a note, its name and length, dancing bars when it plays, a bin to remove it. */
     private inner class MineRow(val o:JSONObject):LinearLayout(a){
