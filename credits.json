@@ -1,0 +1,45 @@
+{
+ "rain": {
+  "title": "Light Rain Distant Thunder July 5th 2016.wav",
+  "license": "CC0",
+  "artist": "https://freesound.org/people/kvgarlic/",
+  "url": "https://commons.wikimedia.org/wiki/File:Light_Rain_Distant_Thunder_July_5th_2016.wav",
+  "segment": [
+   12,
+   92
+  ],
+  "crossfade": 4
+ },
+ "sea": {
+  "title": "Ocean Waves on a Tropical Beach.ogg",
+  "license": "CC0",
+  "artist": "Jarrod stanley",
+  "url": "https://commons.wikimedia.org/wiki/File:Ocean_Waves_on_a_Tropical_Beach.ogg",
+  "segment": [
+   60,
+   124
+  ],
+  "crossfade": 6
+ },
+ "forest": {
+  "title": "Waidachswald Oberschefflenz Abend 20250616 2005.ogg",
+  "license": "CC0",
+  "artist": "Evillan",
+  "url": "https://commons.wikimedia.org/wiki/File:Waidachswald_Oberschefflenz_Abend_20250616_2005.ogg",
+  "segment": [
+   22,
+   124
+  ],
+  "crossfade": 5
+ },
+ "fire": {
+  "title": "https://opengameart.org/sites/default/files/fire.wav",
+  "license": "CC0 (OpenGameArt)",
+  "url": "https://opengameart.org/content/fireplace-sound-loop",
+  "segment": [
+   0,
+   29.26
+  ],
+  "crossfade": 0
+ }
+}
