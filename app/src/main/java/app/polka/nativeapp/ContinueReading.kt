@@ -101,7 +101,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   // a soft glow in the focused book's colour behind the cards; it changes colour as you scroll
   val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
   // the light layer reaches well above and below the cards, so its soft edge is never cut
-  if(!reduced)stage.addView(glow,FrameLayout.LayoutParams(-1,-1).apply{topMargin=-a.d(90);bottomMargin=-a.d(90)})
+  // (the glow behind the cards was removed on request — the cards sit on the plain page)
   stage.addView(carousel,FrameLayout.LayoutParams(-1,-2))
   addView(stage,LayoutParams(-1,-2).apply{marginStart=-a.d(20);marginEnd=-a.d(20);bottomMargin=-a.d(14)})
  }

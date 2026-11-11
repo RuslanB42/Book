@@ -1,5 +1,6 @@
 package app.polka.nativeapp
 
+import kotlin.math.roundToInt
 import android.graphics.*
 import android.os.Handler
 import android.os.Looper
@@ -33,17 +34,39 @@ internal object BookGlowRaster {
    // A wide, very soft gaussian (computed at a quarter of the size), then fine noise at full size so the long
    // falloff never shows steps.
    val small=Bitmap.createScaledBitmap(layer,maxOf(1,layer.width/4),maxOf(1,layer.height/4),true)
-   val soft=try{ShelfFrost.blur(small,7f)}finally{small.recycle()}
-   // enlarged to about the size it is shown at, so the noise grains are screen pixels
-   val blurred=Bitmap.createScaledBitmap(soft,layer.width*3,layer.height*3,true).also{soft.recycle()}
-   val w=blurred.width;val h=blurred.height;val px=IntArray(w*h);blurred.getPixels(px,0,w,0,0,w,h);var seed=0x5bd1e995
-   for(k in px.indices){val c=px[k];val al=c ushr 24;if(al==0)continue
-    seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val n1=(seed and 0xffff)/65535f
-    seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);val nz=(n1-(seed and 0xffff)/65535f)*1.5f
-    val na=(al+nz).toInt().coerceIn(0,255);px[k]=(na shl 24) or (c and 0xffffff)}
-   val out=Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888);blurred.recycle()
-   return out
+   // The whole light stays in floating point — blur, enlargement and all — and is rounded to 8 bits only once, at
+   // the very end and with dither. (Rounding the small blurred picture first and then stretching it 12× is what
+   // made visible rings: every 8-bit step became a 12-pixel-wide terrace.)
+   try{return softLight(small,7f,layer.width*3,layer.height*3)}finally{small.recycle()}
   }finally{layer.recycle()}
+ }
+ private fun softLight(src:Bitmap,sigma:Float,ow:Int,oh:Int):Bitmap{
+  val w=src.width;val h=src.height;val n=w*h;val px=IntArray(n);src.getPixels(px,0,w,0,0,w,h)
+  // premultiplied float planes
+  val A=FloatArray(n);val R=FloatArray(n);val G=FloatArray(n);val B=FloatArray(n)
+  for(i in 0 until n){val c=px[i];val a=(c ushr 24)/255f;A[i]=a;R[i]=((c shr 16) and 255)/255f*a;G[i]=((c shr 8) and 255)/255f*a;B[i]=(c and 255)/255f*a}
+  val radius=kotlin.math.ceil(sigma*3).toInt();val ker=FloatArray(radius*2+1){i->kotlin.math.exp(-((i-radius)*(i-radius))/(2*sigma*sigma))};val ks=ker.sum();for(i in ker.indices)ker[i]/=ks
+  fun pass(planes:Array<FloatArray>,horizontal:Boolean):Array<FloatArray>{val out=Array(4){FloatArray(n)}
+   for(y in 0 until h)for(x in 0 until w){var a=0f;var r=0f;var g=0f;var b=0f
+    for(k in -radius..radius){val xx=if(horizontal)x+k else x;val yy=if(horizontal)y else y+k;if(xx<0||xx>=w||yy<0||yy>=h)continue;val j=yy*w+xx;val q=ker[k+radius];a+=planes[0][j]*q;r+=planes[1][j]*q;g+=planes[2][j]*q;b+=planes[3][j]*q}
+    val i=y*w+x;out[0][i]=a;out[1][i]=r;out[2][i]=g;out[3][i]=b};return out}
+  val blurred=pass(pass(arrayOf(A,R,G,B),true),false)
+  // enlarge with a cubic B-spline: smooth to the second derivative, so no facets or creases appear
+  fun bs(t:Float,wt:FloatArray){val t2=t*t;val t3=t2*t;val u=1-t;wt[0]=u*u*u/6f;wt[1]=(3*t3-6*t2+4)/6f;wt[2]=(-3*t3+3*t2+3*t+1)/6f;wt[3]=t3/6f}
+  val mid=Array(4){FloatArray(ow*h)};val wt=FloatArray(4)
+  for(x in 0 until ow){val u=(x+.5f)*w/ow-.5f;val x0=kotlin.math.floor(u).toInt();bs(u-x0,wt)
+   for(y in 0 until h)for(c in 0 until 4){var v=0f;for(k in 0..3){val xx=x0-1+k;if(xx<0||xx>=w)continue;v+=blurred[c][y*w+xx]*wt[k]};mid[c][y*ow+x]=v}}
+  val out=IntArray(ow*oh);var seed=0x5bd1e995
+  fun rnd():Float{seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5);return (seed and 0xffff)/65535f}
+  for(y in 0 until oh){val v=(y+.5f)*h/oh-.5f;val y0=kotlin.math.floor(v).toInt();bs(v-y0,wt)
+   for(x in 0 until ow){var a=0f;var r=0f;var g=0f;var b=0f
+    for(k in 0..3){val yy=y0-1+k;if(yy<0||yy>=h)continue;val j=yy*ow+x;val q=wt[k];a+=mid[0][j]*q;r+=mid[1][j]*q;g+=mid[2][j]*q;b+=mid[3][j]*q}
+    if(a<=.0005f){out[y*ow+x]=0;continue}
+    // triangular dither of one 8-bit step on every channel
+    val d=rnd()-rnd()
+    val ai=(a*255f+d).roundToInt().coerceIn(0,255);if(ai==0){out[y*ow+x]=0;continue}
+    out[y*ow+x]=(ai shl 24) or (((r/a)*255f+d).roundToInt().coerceIn(0,255) shl 16) or (((g/a)*255f+d).roundToInt().coerceIn(0,255) shl 8) or ((b/a)*255f+d).roundToInt().coerceIn(0,255)}}
+  return Bitmap.createBitmap(out,ow,oh,Bitmap.Config.ARGB_8888)
  }
  /** The overall colour of the light [build] makes from this cover (the same lift and saturation, averaged), so a
   *  light elsewhere — the halo of «Продолжить чтение» — reads as the same light as in the book card. */

@@ -361,7 +361,10 @@ internal class BrightBar(private val a:MainActivity,start:Float,private val chan
         fun sun(cx:Float,big:Boolean,ink:Int){val k=if(big)1f else .78f;p.color=ink;p.style=Paint.Style.FILL;c.drawCircle(cx,h/2,(if(big)3.6f else 2.9f)*d,p)
             p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=(if(big)1.6f else 1.4f)*d;val r0=(if(big)6.5f else 5.2f)*d;val r1=(if(big)9f else 6.9f)*d
             for(i in 0 until 8){val t=Math.PI*i/4;c.drawLine(cx+(cos(t)*r0).toFloat(),h/2+(sin(t)*r0).toFloat(),cx+(cos(t)*r1).toFloat(),h/2+(sin(t)*r1).toFloat(),p)};p.style=Paint.Style.FILL}
-        sun(h/2,false,if(fx>h*.7f)(if(a.light)Color.WHITE else 0xff1d1d20.toInt()) else a.muted);sun(w-h/2,true,if(fx>w-h)(if(a.light)Color.WHITE else 0xff1d1d20.toInt()) else a.muted)}
+        // both suns in two inks, split exactly at the fill's edge — like the labels of the other sliders
+        val onFill=if(a.light)Color.WHITE else 0xff1d1d20.toInt();val off=if(a.light)0xff55555a.toInt() else 0xffcfcfd4.toInt()
+        c.save();c.clipRect(fx,0f,w,h);sun(h/2,false,off);sun(w-h/2,true,off);c.restore()
+        c.save();c.clipRect(0f,0f,fx,h);sun(h/2,false,onFill);sun(w-h/2,true,onFill);c.restore()}
 }
 
 /** A theme as a rounded tile with «Аа» in its own ink; the ring around the chosen one draws in softly. */
