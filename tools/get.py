@@ -1,10 +1,9 @@
 import requests,json,os,io,time
 from PIL import Image,ImageDraw
 os.makedirs("out/full",exist_ok=True)
-Q={"sea":["aerial beach waves","beach shore waves from above","ocean waves sand aerial","sea foam shore"],
-   "fire":["fireplace fire","burning logs fireplace","fire flames logs dark"],
-   "rain":["rain drops window","raindrops glass night","rain on window"],
-   "forest":["pine forest dusk","forest evening light","coniferous forest fog"]}
+Q={"fire":["fireplace","fire logs","campfire night","bonfire","flames","fire wood burning"],
+   "rain":["rain window","raindrops","rain drops glass","rainy window","rain","wet window"],
+   "forest":["forest sunset","pine forest","forest dusk","woods evening","forest sunlight trees"]}
 H={"User-Agent":"PolkaReader/1.0 (photo picker)"}
 meta={}
 def wiki(q):
@@ -18,8 +17,9 @@ def wiki(q):
     return out
 def ov(q):
     try:
-        r=requests.get("https://api.openverse.org/v1/images/",params={"q":q,"license":"cc0,pdm","page_size":20,"aspect_ratio":"wide","size":"large"},headers=H,timeout=30).json()
+        r=requests.get("https://api.openverse.org/v1/images/",params={"q":q,"license":"cc0,pdm","page_size":20,"size":"large"},headers=H,timeout=30).json()
     except Exception as e:print("ov",e);return []
+    print(q,r.get("result_count"),r.get("detail"))
     return [{"src":"openverse/"+x.get("source",""),"url":x["url"],"page":x.get("foreign_landing_url"),"license":x.get("license"),"creator":x.get("creator")} for x in r.get("results",[])]
 for k,qs in Q.items():
     cands=[];seen=set()
@@ -27,13 +27,13 @@ for k,qs in Q.items():
         for c in ov(q)+wiki(q):
             if c["url"] in seen:continue
             seen.add(c["url"]);cands.append(c)
-        time.sleep(1)
+        time.sleep(5)
     got=[]
     for c in cands:
-        if len(got)>=24:break
+        if len(got)>=30:break
         try:
             b=requests.get(c["url"],headers=H,timeout=30).content;im=Image.open(io.BytesIO(b)).convert("RGB")
-            if im.width<900:continue
+            if im.width<900 or im.width<im.height:continue
             im.thumbnail((1000,1000));n=f"{k}{len(got):02d}.jpg";im.save("out/full/"+n,quality=88);c["file"]=n;got.append(c)
         except Exception as e:print("dl",e)
     meta[k]=got
@@ -45,5 +45,5 @@ for k,qs in Q.items():
         l=(im.width-tw)//2;t=(im.height-th)//2;sh.paste(im.crop((l,t,l+tw,t+th)),((i%cols)*tw,(i//cols)*(th+24)))
         d.text(((i%cols)*tw+6,(i//cols)*(th+24)+th+4),f"{i} {c['src'][:22]} {c['license']}",fill=(220,220,220))
     sh.save(f"out/{k}.jpg",quality=85)
-json.dump(meta,open("out/meta.json","w"),ensure_ascii=False,indent=1)
+json.dump(meta,open("out/meta2.json","w"),ensure_ascii=False,indent=1)
 print({k:len(v) for k,v in meta.items()})
