@@ -345,7 +345,7 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
  *  «Изменить» turns the rows into cards that can be dragged into a new order, renamed in place, and removed —
  *  all in place: nothing on the page is rebuilt. */
 internal fun MainActivity.shelfRows(){
-    val byShelf=books.groupBy{it.str("shelf")};val names=(prefs.optJSONArray("shelves")?.strings().orEmpty()+byShelf.keys.filter{it.isNotBlank()}+REC_SHELF).distinct()
+    val byShelf=books.groupBy{it.str("shelf")};val names=(prefs.optJSONArray("shelves")?.strings().orEmpty()+byShelf.keys.filter{it.isNotBlank()}).distinct()
     val manual=names.sortedWith(compareByDescending<String>{byShelf[it]?.size ?: 0}.thenBy{it})
     lateinit var editor:ShelfEditor
     val motion={MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF}

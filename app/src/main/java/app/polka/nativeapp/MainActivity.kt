@@ -325,7 +325,7 @@ class MainActivity : Activity() {
         },::cell);virtual.reorder=ShelfReorder(this,virtual,list) { saveGridOrder(it) };page.addView(col().apply{clipChildren=false;clipToPadding=false;setPadding(d(2),d(6),d(5),0);addView(virtual,LinearLayout.LayoutParams(-1,-2))},LinearLayout.LayoutParams(-1,-2))
     }
     fun shelfGrid() {
-        val byShelf=books.groupBy{it.str("shelf")};val names=(prefs.optJSONArray("shelves")?.strings().orEmpty()+byShelf.keys.filter{it.isNotBlank()}+REC_SHELF).distinct()
+        val byShelf=books.groupBy{it.str("shelf")};val names=(prefs.optJSONArray("shelves")?.strings().orEmpty()+byShelf.keys.filter{it.isNotBlank()}).distinct()
         val manual=names.sortedWith(compareByDescending<String>{byShelf[it]?.size ?: 0}.thenBy{it})
         data class ShelfItem(val name:String,val list:List<JSONObject>,val add:Boolean=false,val action:()->Unit)
         val all=manual.map{name->"s:$name" to ShelfItem(name,byShelf[name].orEmpty()){pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;shelf=name;render(false,false)}}+
@@ -357,13 +357,13 @@ class MainActivity : Activity() {
     fun navigation() {
         val nav=nativeNavigation ?: PolkaNavigation(this).also { nativeNavigation=it }
         nav.bind(tab) { key ->
-            if(tab!=key || shelf!=null || auto!=null || quoteBookId!=null) { val from=listOf("home","shelves","quotes","foryou").indexOf(tab);val to=listOf("home","shelves","quotes","foryou").indexOf(key);tabScroll[tab]=scroll.scrollY;val oldScroll=scroll;screenMotion.stop();pendingMotion=null;librarySearch?.close(false);tab=key;shelf=null;auto=null;quoteBookId=null;query="";render(false,false)
+            if(tab!=key || shelf!=null || auto!=null || quoteBookId!=null) { val from=listOf("home","shelves","quotes").indexOf(tab);val to=listOf("home","shelves","quotes").indexOf(key);tabScroll[tab]=scroll.scrollY;val oldScroll=scroll;screenMotion.stop();pendingMotion=null;librarySearch?.close(false);tab=key;shelf=null;auto=null;quoteBookId=null;query="";render(false,false)
                 // Restore the tab's scroll after layout but BEFORE the first frame (a posted scroll showed one frame
                 // at the top — with its top buttons — and then jumped).
                 val target=tabScroll[key] ?: 0;val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this);sv.scrollTo(0,target);return true}})
                 screenMotion.pushTab(oldScroll,to>from) } else scroll.smoothScrollTo(0,0)
         }
-        root.addView(nav,FrameLayout.LayoutParams(d(230),d(58),Gravity.BOTTOM or Gravity.START))
+        root.addView(nav,FrameLayout.LayoutParams(d(174),d(58),Gravity.BOTTOM or Gravity.START))
         followInsets(nav){i->nav.layoutParams=(nav.layoutParams as FrameLayout.LayoutParams).apply{leftMargin=d(16)+i.left;bottomMargin=navigationBottom(baseInsets)}}
         val add=icon("plus","Добавить",true) { if(addMenu!=null) addMenu?.close() else AddMenu(this).open() }; addButton=add;add.background=Floating(this,add.background,d(29).toFloat());add.elevation=0f
         root.addView(add,FrameLayout.LayoutParams(d(58),d(58),Gravity.BOTTOM or Gravity.END))
@@ -371,7 +371,6 @@ class MainActivity : Activity() {
     }
     fun filters() {
         val box=column()
-        if(tab=="home" && shelf==null && auto==null) { label("Фильтры",box); val row=line(); val caption=column(); caption.addView(text("Рекомендации на главной",16f)); space(caption,6); caption.addView(text("Показывать в «Мои книги» вместе с вашими файлами",14f,muted)); row.addView(caption,LinearLayout.LayoutParams(0,-2,1f)); row.addView(PolkaSwitch(this).apply { contentDescription="Рекомендации на главной"; isChecked=prefs.optBoolean("showRecommendations"); thumbTintList=android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE); trackTintList=android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked),intArrayOf()),intArrayOf(0xff2ec95b.toInt(),0xff66666a.toInt())); setOnCheckedChangeListener { _,checked -> prefs.put("showRecommendations",checked); savePreferences(); render() } }); box.addView(row) }
         label("Сортировка книг",box)
         val group=RadioGroup(this); listOf("manual","recent","title","author").forEach { value -> group.addView(RadioButton(this).apply { id=View.generateViewId(); text=sortName(value); setTextColor(fg); textSize=16f; minHeight=d(48); buttonTintList=android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked),intArrayOf()),intArrayOf(accent,muted)); tag=value; isChecked=sort==value; setOnClickListener { sort=value; prefs.put("sort",value); savePreferences(); render() } }) }; box.addView(group)
         dialog().setTitle("Фильтры и сортировка").setView(box).show()
