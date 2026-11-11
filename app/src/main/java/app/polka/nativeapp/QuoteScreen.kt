@@ -136,7 +136,7 @@ internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->
         setOnClickListener{act()}}
     onGo?.let{g->foot.addView(round("go","К месту в книге"){g()},LinearLayout.LayoutParams(d(38),d(38)).apply{rightMargin=d(8)})}
     onThought?.let{t->foot.addView(round("pen","Мысль к цитате"){t(b.optJSONArray("notes")?.objects().orEmpty().firstOrNull{it.str("quoteId")==q.str("id")})},LinearLayout.LayoutParams(d(38),d(38)).apply{rightMargin=d(8)})}
-    foot.addView(round("copy","Копировать цитату"){(getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата","«${q.str("text")}»\n— ${MainActivity.authors(b)}, «${b.str("title")}»"));Toast.makeText(this,"Цитата скопирована",Toast.LENGTH_SHORT).show()},LinearLayout.LayoutParams(d(38),d(38)))
+    foot.addView(round("copy","Копировать цитату"){(getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата","«${q.str("text")}»\n— ${MainActivity.authors(b)}, «${b.str("title")}»"));Notice.short(this,Notice.Kind.COPIED,"Цитата скопирована")},LinearLayout.LayoutParams(d(38),d(38)))
     foot.addView(round("trash","Удалить цитату"){
         if(onDelete!=null){onDelete();return@round}
         val remove={saveBook(b.copyJson().put("quotes",JSONArray(b.optJSONArray("quotes")!!.objects().filterNot{it.str("id")==q.str("id")})))}

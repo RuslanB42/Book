@@ -363,7 +363,7 @@ internal fun MainActivity.shelfRows(){
     rows.forEachIndexed{i,r->page.addView(r,LinearLayout.LayoutParams(-1,-2).apply{if(i>0)topMargin=d(26)})}
     val slot=ShelfSlot(this){name->
         val taken=(prefs.optJSONArray("shelves")?.strings().orEmpty()+books.map{it.str("shelf")}).any{it.equals(name,true)}
-        if(taken){android.widget.Toast.makeText(this,"Полка «$name» уже есть",android.widget.Toast.LENGTH_SHORT).show();false}
+        if(taken){Notice.short(this,Notice.Kind.SHELF,"Полка «$name» уже есть");false}
         else{prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct()));savePreferences();editor.grow(own(name,emptyList()));true}}
     page.addView(slot,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(if(rows.isEmpty()||!shelvesEditing)0 else 10)});if(!shelvesEditing)slot.visibility=View.GONE
     editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor

@@ -87,7 +87,9 @@ class MainActivity : Activity() {
     internal var shelfReorder:ShelfReorder?=null
     var sort = "manual"
     var attachId: String? = null
-    private var importDialog: ImportNotice? = null
+    private var importDialog: Notice? = null
+    /** Books deleted a moment ago that can still be brought back («Вернуть»): hidden, removed when the notice goes. */
+    internal val pendingDeletes=mutableSetOf<String>()
     internal var streakCelebration:StreakCelebration?=null
     internal var freshBookIds=mutableSetOf<String>()
     internal var floatingCovers:FloatingCovers?=null
@@ -190,7 +192,7 @@ class MainActivity : Activity() {
         onActivityResult(10,RESULT_OK,Intent().setData(uri))
     }
     fun loadData() {
-        prefs=library.prefs(); if(!prefs.has("size")) prefs.put("size",prefs.optInt("fontSize",19)); if(!prefs.has("ui")) prefs.put("ui",prefs.str("theme","dark")); books=library.allBooks(); sort=prefs.str("sort","manual")
+        prefs=library.prefs(); if(!prefs.has("size")) prefs.put("size",prefs.optInt("fontSize",19)); if(!prefs.has("ui")) prefs.put("ui",prefs.str("theme","dark")); books=library.allBooks().filterNot { it.str("id") in pendingDeletes }; sort=prefs.str("sort","manual")
     }
     fun requestCover(book:JSONObject,done:(Bitmap?)->Unit) {
         val id=book.optJSONObject("cover")?.str("__polkaBlob")?.takeIf { it.isNotBlank() } ?: return
@@ -483,13 +485,15 @@ class MainActivity : Activity() {
             16 -> data.data?.let { uri -> val spec=pendingExport ?: return; work({ val bytes=BookExport.build(library,spec.first,spec.second); contentResolver.openOutputStream(uri,"wt")!!.use { it.write(bytes) } }) }
             10,14 -> {
                 val uris=if(data.clipData!=null) (0 until data.clipData!!.itemCount).map { data.clipData!!.getItemAt(it).uri } else listOfNotNull(data.data)
-                importDialog=ImportNotice(this,if(requestCode==14) "Прикрепляю файл…" else "Добавляю книгу…")
-                val target=if(requestCode==14) attachId else null
+                val attaching=requestCode==14
+                importDialog=Notice.card(this,Notice.State(Notice.Kind.LOADING,if(attaching) "Прикрепляю файл…" else if(uris.size==1) "Добавляю книгу…" else "Добавляю книги",if(uris.size==1) fileName(uris[0]) else "1 из ${uris.size}",blank=true,progress=if(uris.size>1) 0f else null))
+                val target=if(attaching) attachId else null
                 work({
-                    val parsed=mutableListOf<Imported>(); val errors=mutableListOf<String>(); val existing=library.allBooks(); var mismatch=""
+                    val parsed=mutableListOf<Imported>(); val failures=mutableListOf<String>(); val known=mutableListOf<JSONObject>(); val existing=library.allBooks(); var mismatch=""
                     uris.forEachIndexed { i,uri -> try {
-                        runOnUiThread { if(requestCode!=14) importDialog?.setMessage(if(uris.size==1) "Добавляю книгу…" else "Добавляю книги"); if(uris.size>1) importDialog?.setDetail("${i+1} из ${uris.size}") }
-                        val name=fileName(uri); var item=BookParser.parse(readLimited(uri),name)
+                        val name=fileName(uri)
+                        runOnUiThread { if(uris.size>1) importDialog?.setProgress("Добавляю книги","${i+1} из ${uris.size} · $name",i/uris.size.toFloat()) }
+                        var item=BookParser.parse(readLimited(uri),name)
                         val old=if(target!=null) existing.firstOrNull { it.str("id")==target } else existing.firstOrNull { it.optBoolean("noFile") && it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) }
                         if(old!=null) {
                             if(target!=null && (!old.str("title").equals(item.book.str("title"),true) || !authors(old).equals(authors(item.book),true))) mismatch="В файле: «${item.book.str("title")}», ${authors(item.book)}.\n\nПрикрепить его к «${old.str("title")}»?"
@@ -497,18 +501,28 @@ class MainActivity : Activity() {
                             listOf("quotes","notes","bookmarks","rating","rec","origin","addedAt","progress","openedAt","completedAt","pos","coverChanged","title","authors","series","seriesNo","annotation","genres","lang").forEach { key -> if(old.has(key)) merged.put(key,old.get(key)) }
                             item=Imported(merged,item.content.copyJson().put("id",old.getString("id")),item.assets)
                         } else if(shelf!=null) item.book.put("shelf",shelf)
-                        if(old==null && (existing+parsed.map { it.book }).any { it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) && !it.optBoolean("noFile") }) errors.add("$name: уже добавлена") else parsed.add(item)
-                    } catch(e:Exception) { errors.add("${fileName(uri)}: ${e.message}") } }
+                        val same=if(old==null) (existing+parsed.map { it.book }).firstOrNull { it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) && !it.optBoolean("noFile") } else null
+                        if(same!=null) known.add(same) else parsed.add(item)
+                    } catch(e:Exception) { failures.add("${fileName(uri)}: ${e.message ?: "не удалось прочитать файл"}") } }
                     runOnUiThread {
                         val loader=importDialog; importDialog=null
-                        fun commit(loader:ImportNotice?) { work({ if(target!=null && parsed.isNotEmpty()) ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); if(parsed.isNotEmpty()) library.importBooks(parsed); loadData() },{ loader?.dismiss() }) {
-                            val result=if(target!=null&&parsed.isNotEmpty())"Файл прикреплён" else if(parsed.isEmpty()) "Книги не добавлены" else "Добавлено книг: ${parsed.size}"
+                        fun commit(loader:Notice?) { work({ if(target!=null && parsed.isNotEmpty()) ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); if(parsed.isNotEmpty()) library.importBooks(parsed); loadData() },{ e -> val n=loader ?: Notice.card(this,Notice.State(Notice.Kind.LOADING,"",blank=true)); n.update(Notice.State(Notice.Kind.ERROR,if(uris.size==1) "Книга не добавлена" else "Книги не добавлены","Не удалось сохранить в библиотеку",blank=true)) }) {
                             if(target==null) freshBookIds.addAll(parsed.map { it.book.str("id") })
-                            val show={ reader=null; gridMotion=true; refreshBookViews(target) { render(true,false) }; root.postDelayed({ freshBookIds.clear() },1500); checkpointSoon()
-                                if(errors.isNotEmpty()) dialog().setTitle("Не добавлены файлы").setMessage(errors.joinToString("\n\n")).setPositiveButton("Закрыть",null).show() }
-                            val names=parsed.joinToString(", ") { it.book.str("title") }; if(loader!=null) loader.finish(result,names) { show() } else { show(); val resultNotice=ImportNotice(this,result,false,"done",names); android.os.Handler(mainLooper).postDelayed({ resultNotice.dismiss() },2400) }
+                            reader=null; gridMotion=true; refreshBookViews(target) { render(true,false) }; root.postDelayed({ freshBookIds.clear() },1500); checkpointSoon()
+                            val ids=parsed.map { it.book.str("id") }; val added=ids.mapNotNull { id -> books.firstOrNull { it.str("id")==id } }
+                            val details={ val lines=failures+known.map { "«${it.str("title")}»: уже в библиотеке" }; dialog().setTitle("Не добавлено").setMessage(lines.joinToString("\n\n")).setPositiveButton("Закрыть",null).show() }
+                            val reasons=listOfNotNull(failures.size.takeIf { it>0 }?.let { n -> if(n==1) "1 файл не удалось прочитать" else "$n ${fileWord(n)} не удалось прочитать" },known.size.takeIf { it>0 }?.let { n -> if(n==1) "1 уже в библиотеке" else "$n уже в библиотеке" }).joinToString(" · ")
+                            val state=when {
+                                target!=null && added.isNotEmpty() -> Notice.State(Notice.Kind.ATTACHED,"Файл прикреплён",added[0].str("title"),added)
+                                added.isEmpty() && failures.isEmpty() && known.size==1 -> known[0].let { k -> Notice.State(Notice.Kind.KNOWN,"Уже в библиотеке",k.str("title"),listOf(k),action="Открыть",onAction={ books.firstOrNull { it.str("id")==k.str("id") }?.let { detail(it) } }) }
+                                added.isEmpty() && failures.isEmpty() -> Notice.State(Notice.Kind.KNOWN,"Уже в библиотеке","Все ${countBooks(known.size)}",known)
+                                added.isEmpty() -> Notice.State(Notice.Kind.ERROR,if(uris.size==1) (if(attaching) "Файл не прикреплён" else "Книга не добавлена") else "Книги не добавлены",if(uris.size==1) "Не удалось прочитать файл" else reasons,blank=true,action="Подробнее",onAction=details)
+                                failures.isEmpty() && known.isEmpty() -> Notice.State(Notice.Kind.OK,if(added.size==1) "Книга добавлена" else "Добавлено ${countBooks(added.size)}",added.joinToString(", ") { it.str("title") },added)
+                                else -> Notice.State(Notice.Kind.PARTIAL,"Добавлено ${added.size} из ${uris.size}",reasons,added,action="Подробнее",onAction=details)
+                            }
+                            if(loader!=null) loader.update(state) else Notice.card(this,state)
                         } }
-                        if(mismatch.isNotBlank()) { loader?.dismiss(); confirm("Данные книги отличаются",mismatch) { commit(ImportNotice(this,"Прикрепляю файл…")) } } else commit(loader)
+                        if(mismatch.isNotBlank()) { loader?.dismiss(); confirm("Данные книги отличаются",mismatch) { commit(Notice.card(this,Notice.State(Notice.Kind.LOADING,"Прикрепляю файл…",blank=true))) } } else commit(loader)
                     }
                 })
             }
@@ -533,6 +547,7 @@ class MainActivity : Activity() {
     companion object {
         fun authors(book:JSONObject)=book.optJSONArray("authors")?.strings()?.joinToString(", ").orEmpty()
         fun autoTitle(key:String)=when(key) { "reading"->"Читаю"; "done"->"Прочитано"; else->"Хочу прочитать" }
+        fun fileWord(n:Int)=if(n%100 in 11..14) "файлов" else when(n%10) { 1->"файл";2,3,4->"файла";else->"файлов" }
         fun countBooks(n:Int):String { val word=if(n%100 in 11..14) "книг" else when(n%10) { 1->"книга";2,3,4->"книги";else->"книг" }; return "$n $word" }
     }
 }

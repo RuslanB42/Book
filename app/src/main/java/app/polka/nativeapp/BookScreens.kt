@@ -121,6 +121,8 @@ internal fun MainActivity.deleteBook(book:JSONObject) {
     gridMotion=true
     val sheet=bookDetailSheet?.takeIf { it.isShowing && it.bookId==id }
     render(true,false); sheet?.discard()
-    val notice=ImportNotice(this,"Книга удалена",false,"deleted",book.str("title")); android.os.Handler(mainLooper).postDelayed({ notice.dismiss() },2200)
-    work({ ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); ChapterStore.drop(filesDir,id); PageImages.drop(this,id); library.db.runInTransaction { library.dao.deleteBook(id); library.dao.deleteContent(id); library.pruneAssets(); library.updateMarker() } },{ reload() }) { if(profileOverlay!=null) refreshProfile(); checkpointSoon() }
+    // the book is only hidden while its notice is up: «Вернуть» brings it back, otherwise it is removed when the notice goes
+    pendingDeletes.add(id)
+    val commit={ if(pendingDeletes.remove(id)) work({ ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); ChapterStore.drop(filesDir,id); PageImages.drop(this,id); library.db.runInTransaction { library.dao.deleteBook(id); library.dao.deleteContent(id); library.pruneAssets(); library.updateMarker() } },{ reload() }) { if(profileOverlay!=null) refreshProfile(); checkpointSoon() } }
+    Notice.card(this,Notice.State(Notice.Kind.DELETED,"Книга удалена",book.str("title"),listOf(book),faded=true,action="Вернуть",onAction={ if(pendingDeletes.remove(id)){ gridMotion=true; reload() } })).onGone=commit
 }
