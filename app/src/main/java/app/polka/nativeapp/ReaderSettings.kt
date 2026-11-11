@@ -198,17 +198,32 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     private fun fontPage():View{
         val box=a.column().apply{tag="Шрифт"}
         val rows=mutableListOf<Pair<String,LinearLayout>>()
-        fun paint(){val cur=a.prefs.str("font","literata");rows.forEach{(k,v)->v.background=a.shape(if(k==cur)onColor else pillColor,16);(v.getChildAt(1) as View).visibility=if(k==cur)View.VISIBLE else View.INVISIBLE}}
-        fonts.forEach{(key,label,note)->
-            val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(14),0);isClickable=true;a.press(this)}
-            val texts=a.column()
-            texts.addView(TextView(a).apply{text=label;textSize=19f;setTextColor(a.fg);typeface=PolkaFonts.reader(a,key);includeFontPadding=false})
-            texts.addView(a.text(note,11f,a.muted).apply{setPadding(0,a.d(3),0,0)})
-            row.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
-            row.addView(a.text("✓",13f,a.bg,true).apply{gravity=Gravity.CENTER;background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(a.fg)}},LinearLayout.LayoutParams(a.d(22),a.d(22)))
-            row.setOnClickListener{a.prefs.put("font",key);a.savePreferences();paint();typography()}
-            rows.add(key to row);box.addView(row,LinearLayout.LayoutParams(-1,a.d(58)).apply{bottomMargin=a.d(6)})}
-        paint();return box
+        fun paint(){val cur=a.prefs.str("font","literata");rows.forEach{(k,v)->v.background=a.shape(if(k==cur)onColor else pillColor,16);v.findViewWithTag<View>("tick")?.visibility=if(k==cur)View.VISIBLE else View.INVISIBLE}}
+        fun build(){box.removeAllViews();rows.clear()
+            val all=fonts.map{Triple(it.first,it.second,it.third)}+CustomFonts.list(a).map{Triple(it.first,it.second,"ваш шрифт")}
+            all.forEach{(key,label,note)->
+                val custom=key.startsWith(CustomFonts.PREFIX)
+                val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(if(custom)6 else 14),0);isClickable=true;a.press(this)}
+                val texts=a.column()
+                texts.addView(TextView(a).apply{text=label;textSize=19f;setTextColor(a.fg);typeface=PolkaFonts.reader(a,key);includeFontPadding=false;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+                texts.addView(a.text(note,11f,a.muted).apply{setPadding(0,a.d(3),0,0)})
+                row.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
+                row.addView(a.text("✓",13f,a.bg,true).apply{tag="tick";gravity=Gravity.CENTER;background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(a.fg)}},LinearLayout.LayoutParams(a.d(22),a.d(22)))
+                // your own fonts can be removed again (the book falls back to Literata if it was in use)
+                if(custom)row.addView(IconView(a,"trash",a.muted).apply{isClickable=true;contentDescription="Удалить шрифт";setPadding(a.d(9),a.d(9),a.d(9),a.d(9));a.press(this)
+                    setOnClickListener{a.confirm("Удалить шрифт?","«$label» пропадёт из списка шрифтов."){CustomFonts.remove(a,key);a.savePreferences();build();typography()}}},LinearLayout.LayoutParams(a.d(40),a.d(40)).apply{leftMargin=a.d(4)})
+                row.setOnClickListener{a.prefs.put("font",key);a.savePreferences();paint();typography()}
+                rows.add(key to row);box.addView(row,LinearLayout.LayoutParams(-1,a.d(58)).apply{bottomMargin=a.d(6)})}
+            // add a font from a file: the new one is chosen at once
+            val add=a.line().apply{gravity=Gravity.CENTER;isClickable=true;a.press(this);contentDescription="Добавить шрифт"
+                background=GradientDrawable().apply{cornerRadius=a.d(16).toFloat();setStroke(a.d(1),if(a.light)0x26000000 else 0x2effffff,a.d(5).toFloat(),a.d(4).toFloat())}
+                addView(a.text("＋",17f,a.fg,true),LinearLayout.LayoutParams(-2,-2))
+                addView(a.text("Добавить шрифт",14f,a.fg,true).apply{setPadding(a.d(8),0,0,0)})
+                setOnClickListener{a.pickFont{key->a.prefs.put("font",key);a.savePreferences();build();typography()}}}
+            box.addView(add,LinearLayout.LayoutParams(-1,a.d(52)).apply{topMargin=a.d(2)})
+            box.addView(a.text("TTF или OTF с телефона",11.5f,a.muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
+            paint()}
+        build();return box
     }
 
     // ---- building blocks -----------------------------------------------------------------------
@@ -244,7 +259,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         texts.addView(name,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(2)})
         v.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
         v.addView(Chevron(a),LinearLayout.LayoutParams(a.d(10),a.d(16)))
-        refreshers.add{val k=a.prefs.str("font","literata");name.text=fonts.firstOrNull{it.first==k}?.second?:"Literata";val tf=PolkaFonts.reader(a,k);name.typeface=tf;sample.typeface=tf}
+        refreshers.add{val k=a.prefs.str("font","literata");name.text=fonts.firstOrNull{it.first==k}?.second?:CustomFonts.name(a,k)?:"Literata";val tf=PolkaFonts.reader(a,k);name.typeface=tf;sample.typeface=tf}
         return v
     }
     /** Text size as a capsule like brightness: «Размер» on the left, the number on the right. */

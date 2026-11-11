@@ -30,7 +30,9 @@ object PolkaFonts {
     fun literata(a:android.content.Context,bold:Boolean=false,italic:Boolean=false):Typeface = cache.getOrPut("lit-$bold-$italic") {
         Typeface.createFromAsset(a.assets,"fonts/literata-static-${if(bold) 600 else 400}${if(italic) "-italic" else ""}.ttf")
     }
-    fun reader(a:android.content.Context,font:String):Typeface=when(font) { "sans"->Typeface.create("sans-serif",Typeface.NORMAL); "ptserif"->cache.getOrPut("pt") { Typeface.createFromAsset(a.assets,"fonts/ptserif-PT_Serif-Web-Regular.ttf") }; else->literata(a) }
+    fun reader(a:android.content.Context,font:String):Typeface=when { font=="sans"->Typeface.create("sans-serif",Typeface.NORMAL); font=="ptserif"->cache.getOrPut("pt") { Typeface.createFromAsset(a.assets,"fonts/ptserif-PT_Serif-Web-Regular.ttf") }
+        font.startsWith(CustomFonts.PREFIX)->cache[font] ?: CustomFonts.typeface(a,font)?.also { cache[font]=it } ?: literata(a); else->literata(a) }
+    fun forget(key:String){cache.remove(key)}
 }
 fun TextView.cssLeading(factor:Float) { setLineSpacing(textSize*factor-paint.fontSpacing,1f) }
 fun MainActivity.column()=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
