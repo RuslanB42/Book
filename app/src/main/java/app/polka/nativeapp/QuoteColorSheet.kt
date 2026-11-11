@@ -48,11 +48,11 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         // the pickers reach into the sheet's side padding, which is where their knobs have room
         pad=SvPad();sheet.addView(pad,LinearLayout.LayoutParams(-1,a.d(170)+knobRoom*2).apply{leftMargin=-knobRoom;rightMargin=-knobRoom;topMargin=-knobRoom+a.d(4)})
         hue=HueBar();sheet.addView(hue,LinearLayout.LayoutParams(-1,a.d(30)+knobRoom*2).apply{leftMargin=-knobRoom;rightMargin=-knobRoom;topMargin=-knobRoom+a.d(14)-knobRoom})
-        val cur=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(7),0,a.d(6),0);background=GradientDrawable().apply{setColor(if(a.light)0x0c000000 else 0x0dffffff);cornerRadius=a.d(16).toFloat()}}
+        val cur=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(8),0,a.d(8),0);background=GradientDrawable().apply{setColor(if(a.light)0x0c000000 else 0x0dffffff);cornerRadius=a.d(23).toFloat()}}
         swatch=Chip();cur.addView(swatch,LinearLayout.LayoutParams(a.d(30),a.d(30)))
         code=a.text("",14f,if(a.light)0xff55555a.toInt() else 0xffcfcfd4.toInt(),true).apply{letterSpacing=.04f};cur.addView(code,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(12)})
         save=SaveButton().apply{setOnClickListener{if(editing)setEditing(false) else store()}}
-        cur.addView(save,LinearLayout.LayoutParams(a.d(124),a.d(32)))
+        cur.addView(save,LinearLayout.LayoutParams(a.d(124),a.d(30)))
         sheet.addView(cur,LinearLayout.LayoutParams(-1,a.d(46)).apply{topMargin=a.d(14)-knobRoom})
         val sect=a.text("",12f,a.muted,true).apply{letterSpacing=.06f};sectLabel=sect
         sheet.addView(sect,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18);bottomMargin=a.d(6);leftMargin=a.d(2)})
@@ -108,7 +108,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
     /** The picked colour, beside its code. */
     private inner class Chip:View(a){
         private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-        override fun onDraw(c:Canvas){val r=a.d(9).toFloat();p.style=Paint.Style.FILL;p.color=color;c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),r,r,p)
+        override fun onDraw(c:Canvas){val r=height/2f;p.style=Paint.Style.FILL;p.color=color;c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),r,r,p)
             p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=if(a.light)0x22000000 else 0x33ffffff;c.drawRoundRect(.5f,.5f,width-.5f,height-.5f,r,r,p)}
     }
     /** «Сохранить» → «Сохранён»: the filled pill eases into a quiet one while the words trade places (the old one rises
@@ -182,9 +182,9 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
             hsv[1]=((e.x-b.left)/b.width()).coerceIn(0f,1f);hsv[2]=1f-((e.y-b.top)/b.height()).coerceIn(0f,1f)
             changed(e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL);return true}
         override fun onDraw(c:Canvas){val b=area();val pure=Color.HSVToColor(floatArrayOf(hsv[0],1f,1f))
-            c.save();c.clipPath(Path().apply{addRoundRect(b,r,r,Path.Direction.CW)})
-            p.shader=LinearGradient(b.left,0f,b.right,0f,Color.WHITE,pure,Shader.TileMode.CLAMP);c.drawRect(b,p)
-            p.shader=LinearGradient(0f,b.top,0f,b.bottom,0,Color.BLACK,Shader.TileMode.CLAMP);c.drawRect(b,p);p.shader=null;c.restore()
+            // two anti-aliased rounded fills (a clip path is not smoothed and left jagged corners)
+            p.shader=LinearGradient(b.left,0f,b.right,0f,Color.WHITE,pure,Shader.TileMode.CLAMP);c.drawRoundRect(b,r,r,p)
+            p.shader=LinearGradient(0f,b.top,0f,b.bottom,0,Color.BLACK,Shader.TileMode.CLAMP);c.drawRoundRect(b,r,r,p);p.shader=null
             knob(c,p,b.left+b.width()*hsv[1],b.top+b.height()*(1-hsv[2]),a.d(13).toFloat(),color)}
     }
     /** The rainbow of hues. */
