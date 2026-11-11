@@ -355,13 +355,13 @@ internal class BrightBar(private val a:MainActivity,start:Float,private val chan
     private fun set(x:Float,done:Boolean){value=(x/width).coerceIn(.02f,1f);dim=false;invalidate();change(value,done)}
     override fun onDraw(c:Canvas){val h=height.toFloat();val r=h/2;val w=width.toFloat();val d=a.resources.displayMetrics.density
         p.style=Paint.Style.FILL;p.shader=null;p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,r,r,p)
-        val fx=(w*value).coerceAtLeast(h)
-        p.color=Color.WHITE;p.shader=LinearGradient(0f,0f,fx,0f,if(a.light)0xff9a9a9e.toInt() else 0xff8c8c90.toInt(),if(a.light)0xff5c5c60.toInt() else 0xffe6e6e8.toInt(),Shader.TileMode.CLAMP)
-        p.alpha=if(dim)110 else 255;c.drawRoundRect(0f,0f,fx,h,r,r,p);p.shader=null;p.alpha=255
+        val fx=w*value
+        p.shader=null;p.color=SliderInk.fill(a)
+        SliderInk.fillTo(c,p,w,h,fx)
         fun sun(cx:Float,big:Boolean,ink:Int){val k=if(big)1f else .78f;p.color=ink;p.style=Paint.Style.FILL;c.drawCircle(cx,h/2,(if(big)3.6f else 2.9f)*d,p)
             p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=(if(big)1.6f else 1.4f)*d;val r0=(if(big)6.5f else 5.2f)*d;val r1=(if(big)9f else 6.9f)*d
             for(i in 0 until 8){val t=Math.PI*i/4;c.drawLine(cx+(cos(t)*r0).toFloat(),h/2+(sin(t)*r0).toFloat(),cx+(cos(t)*r1).toFloat(),h/2+(sin(t)*r1).toFloat(),p)};p.style=Paint.Style.FILL}
-        sun(h/2,false,if(a.light)Color.WHITE else 0xff1d1d20.toInt());sun(w-h/2,true,if(fx>w-h)(if(a.light)Color.WHITE else 0xff1d1d20.toInt()) else a.muted)}
+        sun(h/2,false,if(fx>h*.7f)(if(a.light)Color.WHITE else 0xff1d1d20.toInt()) else a.muted);sun(w-h/2,true,if(fx>w-h)(if(a.light)Color.WHITE else 0xff1d1d20.toInt()) else a.muted)}
 }
 
 /** A theme as a rounded tile with «Аа» in its own ink; the ring around the chosen one draws in softly. */
@@ -418,9 +418,9 @@ internal class SizeBar(private val a:MainActivity,start:Float,private val change
     override fun onDetachedFromWindow(){settle?.cancel();pulseAnim?.cancel();super.onDetachedFromWindow()}
     override fun onDraw(c:Canvas){val h=height.toFloat();val r=h/2;val w=width.toFloat();val d=a.resources.displayMetrics.density
         p.shader=null;p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,r,r,p)
-        val fx=h+(w-h)*pos
-        p.color=Color.WHITE;p.shader=LinearGradient(0f,0f,fx,0f,if(a.light)0xff9a9a9e.toInt() else 0xff8c8c90.toInt(),if(a.light)0xff5c5c60.toInt() else 0xffe6e6e8.toInt(),Shader.TileMode.CLAMP)
-        c.drawRoundRect(0f,0f,fx,h,r,r,p);p.shader=null
+        val fx=w*pos
+        p.shader=null;p.color=SliderInk.fill(a)
+        SliderInk.fillTo(c,p,w,h,fx)
         val onFill=if(a.light)Color.WHITE else 0xff1d1d20.toInt();val off=if(a.light)0xff55555a.toInt() else 0xffcfcfd4.toInt()
         t.typeface=face;t.textSize=13.5f*a.resources.displayMetrics.scaledDensity;t.textAlign=Paint.Align.LEFT
         val base=h/2f-(t.ascent()+t.descent())/2f;val lx=16*d
@@ -531,9 +531,9 @@ internal class LayoutBar(private val a:MainActivity,private val title:String,pri
     override fun onDetachedFromWindow(){settle?.cancel();super.onDetachedFromWindow()}
     override fun onDraw(c:Canvas){val h=height.toFloat();val r=h/2;val w=width.toFloat();val d=a.resources.displayMetrics.density
         p.shader=null;p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,r,r,p)
-        val fx=h+(w-h)*pos
-        p.color=Color.WHITE;p.shader=LinearGradient(0f,0f,fx,0f,if(a.light)0xff9a9a9e.toInt() else 0xff8c8c90.toInt(),if(a.light)0xff5c5c60.toInt() else 0xffe6e6e8.toInt(),Shader.TileMode.CLAMP)
-        c.drawRoundRect(0f,0f,fx,h,r,r,p);p.shader=null
+        val fx=w*pos
+        p.shader=null;p.color=SliderInk.fill(a)
+        SliderInk.fillTo(c,p,w,h,fx)
         default?.let{dv->val dx=h/2+(w-h)*frac(dv);p.color=if(dx<fx)(if(a.light)0x59ffffff else 0x591d1d20) else (if(a.light)0x29000000 else 0x38ffffff);c.drawCircle(dx,h/2,3*d,p)}
         val onFill=if(a.light)Color.WHITE else 0xff1d1d20.toInt();val off=if(a.light)0xff55555a.toInt() else 0xffcfcfd4.toInt()
         t.typeface=face;t.textSize=13f*a.resources.displayMetrics.scaledDensity;t.textAlign=Paint.Align.LEFT
@@ -567,4 +567,12 @@ internal class LayoutToggle(private val a:MainActivity,private val title:String,
         val kr=(sh-5*d)/2;val kx=sx+2.5f*d+kr+(sw-5*d-2*kr)*k
         val offKnob=if(a.light)Color.WHITE else 0xffcfcfd4.toInt();val onKnob=if(a.light)Color.WHITE else 0xff1d1d20.toInt()
         p.color=androidx.core.graphics.ColorUtils.blendARGB(offKnob,onKnob,k);p.setShadowLayer(1.5f*d,0f,.6f*d,0x40000000);c.drawCircle(kx,h/2,kr,p);p.clearShadowLayer()}
+}
+
+/** One look for every pill slider: a solid fill in the text colour (no grey gradient, never dimmed), growing exactly
+ *  with the value inside the rounded track — empty at zero, full at the end. */
+internal object SliderInk{
+    fun fill(a:MainActivity)=if(a.light)0xff1d1d1f.toInt() else 0xfff3f2ef.toInt()
+    fun fillTo(c:Canvas,p:Paint,w:Float,h:Float,fx:Float){if(fx<=0f)return;val r=h/2;c.save();c.clipPath(Path().apply{addRoundRect(0f,0f,w,h,r,r,Path.Direction.CW)})
+        c.drawRoundRect(-r,0f,fx.coerceAtMost(w),h,r,r,p);c.restore()}
 }

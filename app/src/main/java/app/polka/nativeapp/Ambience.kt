@@ -240,9 +240,7 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
         dlg.setOnDismissListener{Ambience.unlisten(update)}
         Ambience.listen(update);paint(false)
         dlg.show()
-        if(!reduced){scroll.translationY=a.d(1200).toFloat();scroll.post{val h=scroll.height+a.d(24).toFloat();LiquidSpring{v,_->scroll.translationY=h*v}.apply{snap(1f);to(0f)}
-            // the rows rise in one after another as the panel arrives
-            for(i in 1 until sheet.childCount){val v=sheet.getChildAt(i);v.alpha=0f;v.translationY=a.d(16).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(90L+i*40L).setDuration(360).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
+        if(!reduced){scroll.translationY=a.d(1200).toFloat();scroll.post{val h=scroll.height+a.d(24).toFloat();LiquidSpring{v,_->scroll.translationY=h*v}.apply{snap(1f);to(0f)}}}
     }
     private fun close(velocity:Float=0f){val d=dialog?:return;dialog=null
         if(reduced){d.dismiss();return}
@@ -342,14 +340,14 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
             MotionEvent.ACTION_DOWN->{parent?.requestDisallowInterceptTouchEvent(true);held=true;press(true);set(e.x,false,true)}
             MotionEvent.ACTION_MOVE->set(e.x,false,false)
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{held=false;press(false);set(e.x,true,false)}};return true}
-        private fun press(on:Boolean){if(reduced){lift=0f;return};ValueAnimator.ofFloat(lift,if(on)1f else 0f).apply{duration=if(on)140 else 280;addUpdateListener{lift=it.animatedValue as Float;scaleX=1f+.015f*lift;scaleY=1f+.04f*lift;invalidate()};start()}}
+        private fun press(on:Boolean){}
         /** A tap jumps there smoothly; dragging follows the finger. */
         private fun set(x:Float,done:Boolean,tap:Boolean){v=(x/width).coerceIn(0f,1f);Ambience.setVolume(a,v,done)
             glide?.cancel();if(tap&&!reduced){glide=ValueAnimator.ofFloat(shown,v).apply{duration=220;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}else{shown=v;invalidate()}}
         override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val r=h/2;val dk=a.d(1).toFloat()
             p.style=Paint.Style.FILL;p.shader=null;p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,r,r,p)
-            val fx=h+(w-h)*shown
-            p.shader=LinearGradient(0f,0f,fx,0f,if(a.light)0xff8e8e93.toInt() else 0xff8e8e93.toInt(),if(a.light)0xff5c5c60.toInt() else 0xffe6e6e8.toInt(),Shader.TileMode.CLAMP);c.drawRoundRect(0f,0f,fx,h,r,r,p);p.shader=null
+            val fx=w*shown
+            p.shader=null;p.color=SliderInk.fill(a);SliderInk.fillTo(c,p,w,h,fx)
             val onFill=if(a.light)Color.WHITE else 0xff1d1d1f.toInt();val onTrack=a.fg
             fun content(ink:Int,value:Int){p.color=ink
                 c.save();c.translate(dk*17,h/2-dk*9);c.scale(dk*18/24f,dk*18/24f);p.style=Paint.Style.STROKE;p.strokeWidth=1.9f;p.strokeJoin=Paint.Join.ROUND;p.strokeCap=Paint.Cap.ROUND
