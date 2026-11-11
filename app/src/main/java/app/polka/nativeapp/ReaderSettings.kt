@@ -41,6 +41,9 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         sheet.addView(View(a).apply{background=a.shape(if(a.light)0x33000000 else 0x38ffffff,3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(18)})
         pages=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
         main=mainPage();pages.addView(main,FrameLayout.LayoutParams(-1,-2))
+        // the page fades while it slides: drawn through an offscreen layer that layer would end at the page's edges
+        // and cut the ring around the chosen theme (it sits outside its tile); drawn directly, nothing is cut
+        main.forceHasOverlappingRendering(false)
         sheet.addView(pages,LinearLayout.LayoutParams(-1,-2))
         val lp=FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{setMargins(a.d(8),0,a.d(8),a.d(8))}
         root.addView(sheet,lp)
