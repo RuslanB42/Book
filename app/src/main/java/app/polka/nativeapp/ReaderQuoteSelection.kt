@@ -108,13 +108,16 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private lateinit var third:TextView
     private val strip=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(4),a.d(2),a.d(4),a.d(2));elevation=a.d(8).toFloat();a.controlSurface(this,22f,sheet=true);isClickable=true}
     private val dots=mutableListOf<QuoteDot>()
-    private val dotRow=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+    private val dotRow=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(4),0,a.d(4),0)}
+    private val dotScroll=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;isHorizontalFadingEdgeEnabled=true;setFadingEdgeLength(a.d(18));addView(dotRow)}
+    private val rainbow=QuoteDot(a,"rainbow").apply{isClickable=true;contentDescription="Свой цвет";setOnClickListener{openCustom()}}
     /** Five presets, then up to two of the reader's own colours (the one in use first), then the rainbow «свой цвет». */
     private fun rebuildDots(){dotRow.removeAllViews();dots.clear()
-        val cur=QuoteColors.last(a);val own=(listOfNotNull(cur.takeIf{QuoteColors.isHex(it)})+QuoteColors.saved(a)).distinct().take(2)
-        val keys=QuoteColors.all.map{it.first}+own+"rainbow";val w=if(keys.size>7)a.d(36) else a.d(40)
-        keys.forEach{key->val dot=QuoteDot(a,key).apply{isClickable=true;contentDescription=if(key=="rainbow")"Свой цвет" else "Цвет цитаты";setOnClickListener{if(key=="rainbow")openCustom() else recolor(key)}}
-            if(key!="rainbow")dots.add(dot);dot.on=key==cur;dotRow.addView(dot,LinearLayout.LayoutParams(w,a.d(44)))}}
+        val cur=QuoteColors.last(a);val own=(listOfNotNull(cur.takeIf{QuoteColors.isHex(it)&&it !in QuoteColors.saved(a)})+QuoteColors.saved(a)).distinct()
+        (QuoteColors.all.map{it.first}+own).forEach{key->val dot=QuoteDot(a,key).apply{isClickable=true;contentDescription="Цвет цитаты";setOnClickListener{recolor(key)}}
+            dots.add(dot);dot.on=key==cur;dotRow.addView(dot,LinearLayout.LayoutParams(a.d(40),a.d(44)))}
+        // keep the colour in use in view
+        dotScroll.post{dots.firstOrNull{it.on}?.let{d->val x=d.left+d.width/2-dotScroll.width/2;dotScroll.scrollTo(x.coerceAtLeast(0),0)}}}
     private var customOpen=false
     /** «Свой цвет»: the sheet recolours the quote live; the strip waits while it is open. */
     private fun openCustom(){if(customOpen)return;customOpen=true;removeCallbacks(stripTimer)
@@ -137,9 +140,9 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         third=action("Заметка"){thirdAction()}
         menu.addView(IconView(a,"x",a.muted).apply{contentDescription="Убрать выделение";isClickable=true;setPadding(a.d(12),a.d(12),a.d(12),a.d(12));setOnClickListener{clear()};pressable(this)},LinearLayout.LayoutParams(a.d(44),a.d(44)));addView(menu,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
         // the colour strip: shown right after a quote is saved (or from «Цвет» on a saved one), in the menu's place
-        strip.addView(a.text("Цвет",13f,a.muted).apply{setPadding(a.d(12),0,a.d(6),0)})
-        strip.addView(dotRow,LinearLayout.LayoutParams(-2,a.d(44)));rebuildDots()
-        strip.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
+        // the colours scroll on their own; «свой цвет» and «Готово» stay pinned at the right
+        strip.addView(dotScroll,LinearLayout.LayoutParams(0,a.d(44),1f));rebuildDots()
+        strip.addView(rainbow,LinearLayout.LayoutParams(a.d(40),a.d(44)))
         strip.addView(a.text("Готово",13.5f,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(12),0,a.d(12),0);minHeight=a.d(44);a.press(this);setOnClickListener{done()}})
         strip.visibility=GONE;addView(strip,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
     }
@@ -160,8 +163,8 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     /** The strip with the five colours, in the menu's place, for the quote at [s, e). It goes away by itself. */
     private fun showStrip(s:Int,e:Int,color:String){stripQuote=s to e;stripOpen=true;visibility=VISIBLE
         rebuildDots();dots.forEach{it.on=it.key==color};strip.translationY=menu.translationY;strip.visibility=VISIBLE
-        if(!reduced){popIn(strip);(0 until dotRow.childCount).map{dotRow.getChildAt(it)}.forEachIndexed{i,d->d.scaleX=.4f;d.scaleY=.4f;d.alpha=0f
-            d.animate().scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(60L+i*35L).setDuration(300).setInterpolator(android.view.animation.OvershootInterpolator(1.8f)).start()}}
+        if(!reduced){popIn(strip);((0 until dotRow.childCount).map{dotRow.getChildAt(it)}+rainbow).forEachIndexed{i,d->d.scaleX=.4f;d.scaleY=.4f;d.alpha=0f
+            d.animate().scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(60L+minOf(i,8)*35L).setDuration(300).setInterpolator(android.view.animation.OvershootInterpolator(1.8f)).start()}}
         removeCallbacks(stripTimer);if(pend==null&&!customOpen)postDelayed(stripTimer,3500)}
     /** A new quote waits for «Готово»: until then it is only a preview in the chosen colour, nothing is saved. */
     private var pend:Triple<Int,Int,String>?=null;private var pendColor=0;private var pendAnim:android.animation.ValueAnimator?=null

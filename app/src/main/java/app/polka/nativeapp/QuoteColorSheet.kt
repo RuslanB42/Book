@@ -17,6 +17,9 @@ import org.json.JSONArray
  *
  * Every knob and ring is drawn inside its own view (the views carry the room for them), so nothing can be clipped.
  */
+private const val S_SAVE=0
+private const val S_SAVED=1
+private const val S_DONE=2
 internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:Int,start:String,private val pick:(String,Boolean)->Unit){
     var onClose:(()->Unit)?=null
     private val reduced get()=a.prefs.str("motion")=="reduced"
@@ -27,7 +30,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
     private val color get()=Color.HSVToColor(hsv)
     private val hex get()=QuoteColors.hex(color)
     private lateinit var pad:SvPad;private lateinit var hue:HueBar
-    private lateinit var swatch:View;private lateinit var code:TextView;private lateinit var save:TextView
+    private lateinit var swatch:Chip;private lateinit var code:TextView;private lateinit var save:SaveButton
     private lateinit var row:LinearLayout
     private var editing=false
     private val knobRoom=a.d(20)
@@ -46,10 +49,10 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         pad=SvPad();sheet.addView(pad,LinearLayout.LayoutParams(-1,a.d(170)+knobRoom*2).apply{leftMargin=-knobRoom;rightMargin=-knobRoom;topMargin=-knobRoom+a.d(4)})
         hue=HueBar();sheet.addView(hue,LinearLayout.LayoutParams(-1,a.d(30)+knobRoom*2).apply{leftMargin=-knobRoom;rightMargin=-knobRoom;topMargin=-knobRoom+a.d(14)-knobRoom})
         val cur=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(7),0,a.d(6),0);background=GradientDrawable().apply{setColor(if(a.light)0x0c000000 else 0x0dffffff);cornerRadius=a.d(16).toFloat()}}
-        swatch=View(a);cur.addView(swatch,LinearLayout.LayoutParams(a.d(30),a.d(30)))
+        swatch=Chip();cur.addView(swatch,LinearLayout.LayoutParams(a.d(30),a.d(30)))
         code=a.text("",14f,if(a.light)0xff55555a.toInt() else 0xffcfcfd4.toInt(),true).apply{letterSpacing=.04f};cur.addView(code,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(12)})
-        save=a.text("Сохранить",13.5f,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(14),0,a.d(14),0);isClickable=true;a.press(this);setOnClickListener{if(editing)setEditing(false) else store()}}
-        cur.addView(save,LinearLayout.LayoutParams(-2,a.d(32)))
+        save=SaveButton().apply{setOnClickListener{if(editing)setEditing(false) else store()}}
+        cur.addView(save,LinearLayout.LayoutParams(a.d(124),a.d(32)))
         sheet.addView(cur,LinearLayout.LayoutParams(-1,a.d(46)).apply{topMargin=a.d(14)-knobRoom})
         val sect=a.text("",12f,a.muted,true).apply{letterSpacing=.06f};sectLabel=sect
         sheet.addView(sect,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18);bottomMargin=a.d(6);leftMargin=a.d(2)})
@@ -78,38 +81,69 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         v.animate().translationY(v.height+a.d(24).toFloat()).setDuration((if(velocity>0f)(left/velocity*1000f).toLong() else 240L).coerceIn(140L,260L)).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{d.dismiss()}.start()}
 
     /** Everything that shows the current colour. */
-    private fun paint(){pad.invalidate();hue.invalidate()
-        swatch.background=GradientDrawable().apply{setColor(color);cornerRadius=a.d(10).toFloat();setStroke(1,0x33ffffff)}
+    private fun paint(){pad.invalidate();hue.invalidate();swatch.invalidate()
         code.text=hex
-        if(!editing&&!justSaved)setSave(if(hex in QuoteColors.saved(a))"Сохранён" else "Сохранить",hex !in QuoteColors.saved(a))
+        if(!editing)save.set(if(hex in QuoteColors.saved(a))S_SAVED else S_SAVE)
         for(i in 0 until row.childCount)(row.getChildAt(i) as? Swatch)?.let{it.on=!editing&&it.hex==hex}
         (row.getChildAt(0) as? AddDot)?.invalidate()}
-    private fun setSave(label:String,primary:Boolean){save.text=label
-        save.background=GradientDrawable().apply{setColor(if(primary)a.fg else (if(a.light)0x14000000 else 0x14ffffff));cornerRadius=a.d(16).toFloat()}
-        save.setTextColor(if(primary)a.bg else if(label.startsWith("✓"))0xff4fb06a.toInt() else a.fg)}
     private fun changed(final:Boolean){paint();pick(hex,final)}
 
-    private var justSaved=false
     private fun store(){val h=hex;val list=QuoteColors.saved(a).toMutableList()
-        if(h in list){return}
+        if(h in list)return
         list.add(0,h);QuoteColors.setSaved(a,list)
-        justSaved=true;setSave("✓ Сохранён",false)
-        save.postDelayed({justSaved=false;if(!editing)paint()},1200)
-        buildRow(h)}
+        save.set(S_SAVED);buildRow(h)}
     private fun setEditing(on:Boolean){editing=on
-        sectLabel?.text=if(on)"МОИ ЦВЕТА · нажмите ×, чтобы убрать" else "МОИ ЦВЕТА"
-        if(on)setSave("Готово",false) else paint()
+        if(on)save.set(S_DONE) else paint()
         buildRow(null)}
     /** [fresh]: a colour just saved — it hops in. */
     private fun buildRow(fresh:String?){row.removeAllViews()
         val saved=QuoteColors.saved(a)
-        sectLabel?.text=if(editing)"МОИ ЦВЕТА · нажмите ×, чтобы убрать" else "МОИ ЦВЕТА"
+        sectLabel?.text="МОИ ЦВЕТА"
         if(!editing)row.addView(AddDot(),LinearLayout.LayoutParams(a.d(52),a.d(52)))
         saved.forEach{h->val s=Swatch(h);row.addView(s,LinearLayout.LayoutParams(a.d(52),a.d(52)))
             if(h==fresh&&!reduced){s.scaleX=.3f;s.scaleY=.3f;s.alpha=0f;s.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(380).setInterpolator(OvershootInterpolator(2f)).start()}}
         if(saved.isEmpty()&&editing)setEditing(false)
         for(i in 0 until row.childCount)(row.getChildAt(i) as? Swatch)?.let{it.on=!editing&&it.hex==hex}}
 
+    /** The picked colour, beside its code. */
+    private inner class Chip:View(a){
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+        override fun onDraw(c:Canvas){val r=a.d(9).toFloat();p.style=Paint.Style.FILL;p.color=color;c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),r,r,p)
+            p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=if(a.light)0x22000000 else 0x33ffffff;c.drawRoundRect(.5f,.5f,width-.5f,height-.5f,r,r,p)}
+    }
+    /** «Сохранить» → «Сохранён»: the filled pill eases into a quiet one while the words trade places (the old one rises
+     *  and fades, the new one rises in) and a check draws itself in front of «Сохранён». In editing it reads «Готово». */
+    private inner class SaveButton:View(a){
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply{typeface=PolkaFonts.sans(600);textSize=13.5f*a.resources.displayMetrics.scaledDensity;textAlign=Paint.Align.CENTER}
+        private var state=-1;private var from=-1;private var k=1f;private var anim:ValueAnimator?=null
+        private val quiet get()=if(a.light)0x12000000 else 0x14ffffff
+        init{isClickable=true;a.press(this)}
+        fun set(s:Int){if(s==state)return;from=state;state=s;anim?.cancel();contentDescription=label(s)
+            if(from<0||reduced||!isAttachedToWindow){k=1f;invalidate();return}
+            k=0f;anim=ValueAnimator.ofFloat(0f,1f).apply{duration=420;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
+        private fun label(s:Int)=when(s){S_SAVE->"Сохранить";S_SAVED->"Сохранён";else->"Готово"}
+        private fun fill(s:Int)=if(s==S_SAVE)a.fg else quiet
+        private fun ink(s:Int)=if(s==S_SAVE)a.bg else a.fg
+        override fun onDraw(c:Canvas){if(state<0)return;val w=width.toFloat();val h=height.toFloat();val r=h/2
+            val bg=if(from<0)fill(state) else android.animation.ArgbEvaluator().evaluate(k,fill(from),fill(state)) as Int
+            p.style=Paint.Style.FILL;p.color=bg;c.drawRoundRect(0f,0f,w,h,r,r,p)
+            val base=h/2-(t.ascent()+t.descent())/2;val lift=a.d(8).toFloat()
+            c.save();c.clipRect(0f,0f,w,h)
+            if(from>=0&&k<1f){val out=(1f-k*1.6f).coerceIn(0f,1f);t.color=ink(from);t.alpha=(255*out).toInt();drawLabel(c,from,w,base-lift*k,1f)}
+            val inK=if(from<0)1f else ((k-.25f)/.75f).coerceIn(0f,1f);t.color=ink(state);t.alpha=(255*inK).toInt()
+            drawLabel(c,state,w,base+lift*(1f-inK),if(from<0)1f else ((k-.35f)/.65f).coerceIn(0f,1f))
+            c.restore();t.alpha=255}
+        private val check=Path();private val part=Path();private val pm=PathMeasure()
+        private fun drawLabel(c:Canvas,s:Int,w:Float,y:Float,draw:Float){val text=label(s)
+            if(s!=S_SAVED){c.drawText(text,w/2,y,t);return}
+            // «✓ Сохранён»: a drawn check, then the word
+            val tw=t.measureText(text);val cs=a.d(12).toFloat();val gap=a.d(5).toFloat();val x0=w/2-(tw+cs+gap)/2
+            val cy=y-(-t.ascent()-t.descent())/2-a.d(.5f)
+            check.reset();check.moveTo(x0,cy);check.lineTo(x0+cs*.36f,cy+cs*.34f);check.lineTo(x0+cs,cy-cs*.38f)
+            pm.setPath(check,false);part.reset();pm.getSegment(0f,pm.length*draw,part,true)
+            p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2f);p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND;p.color=0xff4fb06a.toInt();p.alpha=t.alpha;c.drawPath(part,p);p.alpha=255;p.style=Paint.Style.FILL
+            t.textAlign=Paint.Align.LEFT;c.drawText(text,x0+cs+gap,y,t);t.textAlign=Paint.Align.CENTER}
+    }
     /** «+»: saves the colour shown — a small dot of it inside a dashed ring. */
     private inner class AddDot:View(a){
         private val p=Paint(Paint.ANTI_ALIAS_FLAG)
