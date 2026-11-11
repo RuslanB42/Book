@@ -510,7 +510,7 @@ class MainActivity : Activity() {
                             if(target==null) freshBookIds.addAll(parsed.map { it.book.str("id") })
                             reader=null; gridMotion=true; refreshBookViews(target) { render(true,false) }; root.postDelayed({ freshBookIds.clear() },1500); checkpointSoon()
                             val ids=parsed.map { it.book.str("id") }; val added=ids.mapNotNull { id -> books.firstOrNull { it.str("id")==id } }
-                            val details={ val lines=failures+known.map { "«${it.str("title")}»: уже в библиотеке" }; dialog().setTitle("Не добавлено").setMessage(lines.joinToString("\n\n")).setPositiveButton("Закрыть",null).show() }
+                            val details:()->Unit={ val lines=failures+known.map { "«${it.str("title")}»: уже в библиотеке" }; dialog().setTitle("Не добавлено").setMessage(lines.joinToString("\n\n")).setPositiveButton("Закрыть",null).show() }
                             val reasons=listOfNotNull(failures.size.takeIf { it>0 }?.let { n -> if(n==1) "1 файл не удалось прочитать" else "$n ${fileWord(n)} не удалось прочитать" },known.size.takeIf { it>0 }?.let { n -> if(n==1) "1 уже в библиотеке" else "$n уже в библиотеке" }).joinToString(" · ")
                             val state=when {
                                 target!=null && added.isNotEmpty() -> Notice.State(Notice.Kind.ATTACHED,"Файл прикреплён",added[0].str("title"),added)

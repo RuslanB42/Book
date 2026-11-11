@@ -136,7 +136,7 @@ internal class Notice private constructor(private val a:MainActivity,private val
         ValueAnimator.ofFloat(0f,1f).apply{duration=420;addUpdateListener{val t=it.animatedFraction;card.translationX=a.d(7)*sin(t*PI.toFloat()*4f)*(1f-t)};start()}}
 
     fun dismiss(fast:Boolean=false){if(leaving)return;leaving=true;card.removeCallbacks(hide);if(Notice.current===this)Notice.current=null
-        val gone={(frame.parent as? ViewGroup)?.removeView(frame);covers.stop();onGone?.invoke()}
+        val gone:()->Unit={(frame.parent as? ViewGroup)?.removeView(frame);covers.stop();onGone?.invoke()}
         if(reduced){gone();return}
         card.animate().cancel();card.pivotY=0f
         card.animate().translationY(card.translationY-a.d(if(fast)18 else 26)).alpha(0f).scaleX(.95f).scaleY(.95f).setDuration(if(fast)180 else 260).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction(gone).start()}
