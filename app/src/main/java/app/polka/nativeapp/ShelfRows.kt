@@ -175,15 +175,15 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
      *  dark line falls into a long soft shadow. This back layer draws the wall; [ShelfLip] draws over the covers. */
     private inner class MatteShelf:View(a){
         private val d=a.d(1).toFloat()
-        /** Below the covers' feet: the lip (20) and the shadow under it (26). */
-        val full=a.d(46);val sink=0
+        /** Below the covers' feet: the rest of the lip (9) and room for the shadow under it to fade out completely (40). */
+        val full=a.d(49);val sink=0
         private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply{isDither=true}
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         fun refresh(){invalidate();lip.invalidate()};fun scrolled()=refresh()
         override fun onTouchEvent(e:MotionEvent)=false
-        override fun onDraw(c:Canvas){val light=a.light;val l=d*10;val rgt=width-d*10;val top0=height-full-d*4
-            // the wall darkens toward the shelf
-            p.shader=LinearGradient(0f,top0-d*70,0f,top0,0,if(light)0x1a3c3228 else 0x59000000,Shader.TileMode.CLAMP);c.drawRect(l,top0-d*70,rgt,top0,p);p.shader=null
+        override fun onDraw(c:Canvas){if(width<1)return;val light=a.light;val feet=height-full.toFloat()
+            // the wall darkens toward the shelf, fading out toward both ends
+            c.drawBitmap(ShelfShade.wall(a,width,light),0f,feet-a.d(70),p)
             // every book's soft shadow on the wall, baked once
             val sh=ShelfShade.book(a,coverW,coverH,light);val pad=ShelfShade.pad(a)
             forCovers{x,y->c.drawBitmap(sh,x-pad,y-pad,p)}}
@@ -191,26 +191,26 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     /** Calls [f] with the top-left corner of every visible cover, in this stage's coordinates. */
     private inline fun forCovers(f:(Float,Float)->Unit){val ox=(scroller.left+row.left-scroller.scrollX).toFloat();val oy=(scroller.top+row.top).toFloat()
         for(i in 0 until row.childCount){val box=row.getChildAt(i) as? ViewGroup?:continue;if(box.getChildAt(0) !is CoverView||box.visibility!=View.VISIBLE)continue;f(ox+box.left,oy+box.top)}}
-    /** Over the covers: their feet in the shelf's shade, then the lip that hides them, and the shelf's shadow below. */
+    /** Over the covers: their feet in the shelf's shade, then the thin lip that hides them, and the shelf's shadow below. */
     private inner class ShelfLip:View(a){
         private val d=a.d(1).toFloat()
         private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply{isDither=true}
         private val path=Path()
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         override fun onTouchEvent(e:MotionEvent)=false
-        override fun onDraw(c:Canvas){val light=a.light;val l=d*10;val rgt=width-d*10;val feet=height-glass.full.toFloat()
+        override fun onDraw(c:Canvas){if(width<1)return;val light=a.light;val l=d*10;val rgt=width-d*10;val feet=height-glass.full.toFloat()
             // the books' lower part in the shelf's shade, the top a touch brighter
             p.shader=LinearGradient(0f,0f,0f,coverH.toFloat(),intArrayOf(0x0fffffff,0,if(light)0x24000000 else 0x4d000000),floatArrayOf(0f,.75f,1f),Shader.TileMode.CLAMP)
             forCovers{x,y->c.save();c.translate(x,y);c.drawRect(0f,0f,coverW.toFloat(),coverH.toFloat(),p);c.restore()};p.shader=null
-            // the shadow under the shelf, baked
-            val fy=feet-d*5;val h=d*25
-            c.drawBitmap(ShelfShade.under(a,(rgt-l).toInt(),light),l-ShelfShade.pad(a),fy+h-ShelfShade.pad(a),p)
+            // the shadow under the shelf: it fades to nothing before the view ends, so nothing is ever cut
+            val fy=feet-d*4;val h=d*13
+            c.drawBitmap(ShelfShade.under(a,width,light),0f,fy+h-d,p)
             // the lip: matte stone, lit along the top edge, falling into shade at the foot, its ends a little darker
-            path.reset();val t=d*1.5f;val b=d*3;path.addRoundRect(RectF(l,fy,rgt,fy+h),floatArrayOf(t,t,t,t,b,b,b,b),Path.Direction.CW)
+            path.reset();val t=d*1.5f;val b=d*2.5f;path.addRoundRect(RectF(l,fy,rgt,fy+h),floatArrayOf(t,t,t,t,b,b,b,b),Path.Direction.CW)
             c.save();c.clipPath(path)
             p.color=if(light)0xffd9d8d4.toInt() else 0xff38383c.toInt();c.drawRect(l,fy,rgt,fy+h,p)
             p.shader=ShelfShade.stone(light);c.save();c.translate(l,fy);c.drawRect(0f,0f,rgt-l,h,p);c.restore()
-            p.shader=LinearGradient(0f,fy,0f,fy+h,intArrayOf(if(light)0x73ffffff else 0x29ffffff,0x08ffffff,0,if(light)0x2e000000 else 0x73000000),floatArrayOf(0f,.12f,.55f,1f),Shader.TileMode.CLAMP);c.drawRect(l,fy,rgt,fy+h,p)
+            p.shader=LinearGradient(0f,fy,0f,fy+h,intArrayOf(if(light)0x73ffffff else 0x29ffffff,0x08ffffff,0,if(light)0x2e000000 else 0x73000000),floatArrayOf(0f,.16f,.55f,1f),Shader.TileMode.CLAMP);c.drawRect(l,fy,rgt,fy+h,p)
             p.shader=LinearGradient(l,0f,rgt,0f,intArrayOf(0x33000000,0,0,0x3d000000),floatArrayOf(0f,.1f,.9f,1f),Shader.TileMode.CLAMP);c.drawRect(l,fy,rgt,fy+h,p)
             p.shader=null;c.restore()
             p.color=if(light)0xe6ffffff.toInt() else 0x3dffffff;c.drawRect(l+t,fy,rgt-t,fy+d,p)}
@@ -443,22 +443,25 @@ internal fun MainActivity.shelvesTopBar():View{
     return bar
 }
 
-/** Baked parts of the eye-level shelf, made once per size and theme. */
+/** Baked parts of the eye-level shelf, made once per size and theme: every shade is a smooth function of the
+ *  distance, computed pixel by pixel with a grain of noise — no blurred shapes (their edges were cut by the view)
+ *  and no visible steps. */
 internal object ShelfShade{
     private val cache=HashMap<String,Bitmap>()
     fun pad(a:MainActivity)=a.d(24).toFloat()
-    /** A book's soft shadow on the wall: light from above-left, so it falls right and a little down. */
-    fun book(a:MainActivity,w:Int,h:Int,light:Boolean):Bitmap=cache.getOrPut("b$w:$h:$light"){val d=a.d(1).toFloat();val pad=pad(a)
-        Bitmap.createBitmap((w+pad*2).toInt(),(h+pad*2).toInt(),Bitmap.Config.ARGB_8888).also{bmp->val c=Canvas(bmp);c.translate(pad,pad)
-            val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=if(light)0x33281e14 else 0xb3000000.toInt();maskFilter=BlurMaskFilter(d*7,BlurMaskFilter.Blur.NORMAL)}
-            c.drawPath(Path().apply{moveTo(d*8,d*6);lineTo(w+d*7,d*10);lineTo(w+d*7,h.toFloat());lineTo(d*8,h.toFloat());close()},p)}}
-    /** Under the shelf: a dark line right below it, then a long soft shadow. */
-    fun under(a:MainActivity,w:Int,light:Boolean):Bitmap=cache.getOrPut("u$w:$light"){val d=a.d(1).toFloat();val pad=pad(a)
-        Bitmap.createBitmap((w+pad*2).toInt(),(d*30+pad*2).toInt(),Bitmap.Config.ARGB_8888).also{bmp->val c=Canvas(bmp);c.translate(pad,pad)
-            val p=Paint(Paint.ANTI_ALIAS_FLAG)
-            p.color=if(light)0x29281e14 else 0x8c000000.toInt();p.maskFilter=BlurMaskFilter(d*12,BlurMaskFilter.Blur.NORMAL)
-            c.drawPath(Path().apply{moveTo(d*10,0f);lineTo(w-d*10,0f);lineTo(w-d*30,d*26);lineTo(d*30,d*26);close()},p)
-            p.color=if(light)0x40281e14 else 0xb3000000.toInt();p.maskFilter=BlurMaskFilter(d*2,BlurMaskFilter.Blur.NORMAL);c.drawRect(d*4,-d,w-d*4,d*3,p)}}
+    private fun step(e0:Float,e1:Float,x:Float):Float{val t=((x-e0)/(e1-e0)).coerceIn(0f,1f);return t*t*(3-2*t)}
+    /** A book's soft shadow on the wall: light from above-left, so it lies to the right and a little down. */
+    fun book(a:MainActivity,w:Int,h:Int,light:Boolean):Bitmap=cache.getOrPut("b$w:$h:$light"){val d=a.d(1).toFloat();val pad=pad(a);val s=d*11
+        SoftShade.bake((w+pad*2).toInt(),(h+pad*2).toInt(),if(light)0x281e14 else 0,if(light).20f else .62f){px,py->val x=px-pad;val y=py-pad
+            step(d*8-s,d*8+s,x)*(1-step(w+d*7-s,w+d*7+s,x))*step(d*10-s,d*10+s*1.4f,y)*(1-step(h-d*2,h+d*7,y))}}
+    /** Under the shelf: darkest right below it, then a long soft falloff that reaches nothing well before the edge. */
+    fun under(a:MainActivity,w:Int,light:Boolean):Bitmap=cache.getOrPut("u$w:$light"){val d=a.d(1).toFloat();val l=d*10;val r=w-d*10
+        SoftShade.bake(w,a.d(41),if(light)0x281e14 else 0,if(light).30f else .78f){x,y->val k=y/d
+            val side=step(l-d*2,l+d*26+k*1.2f*d,x)*(1-step(r-d*26-k*1.2f*d,r+d*2,x))
+            (.55f*kotlin.math.exp(-(k/3.2f)*(k/3.2f))+.45f*kotlin.math.exp(-(k/13f)*(k/13f)))*side*(1-step(d*30,d*40,y))}}
+    /** The wall above the shelf, darker toward it. */
+    fun wall(a:MainActivity,w:Int,light:Boolean):Bitmap=cache.getOrPut("w$w:$light"){val d=a.d(1).toFloat();val hh=d*70;val l=d*10;val r=w-d*10
+        SoftShade.bake(w,a.d(70),if(light)0x3c3228 else 0,if(light).10f else .34f){x,y->val t=y/hh;t*t*step(l-d*6,l+d*40,x)*(1-step(r-d*40,r+d*6,x))}}
     /** Fine matte stone grain, tiled. */
     private val stones=HashMap<Boolean,BitmapShader>()
     fun stone(light:Boolean):BitmapShader=stones.getOrPut(light){val n=96;val px=IntArray(n*n);val rnd=java.util.Random(11)
@@ -466,4 +469,13 @@ internal object ShelfShade{
         for(y in 0 until n)for(x in 0 until n){val v=(rnd.nextFloat()-.5f)*.9f+(low[(x*7+y*3)%n]-.5f)*.4f;val alpha=(kotlin.math.abs(v)*(if(light)26 else 34)).toInt().coerceIn(0,255)
             px[y*n+x]=if(v<0)Color.argb(alpha,0,0,0) else Color.argb(alpha,255,255,255)}
         BitmapShader(Bitmap.createBitmap(px,n,n,Bitmap.Config.ARGB_8888),Shader.TileMode.REPEAT,Shader.TileMode.REPEAT)}
+}
+/** A shade or glow as a picture: [f] gives its strength (0..1) at every pixel, [max] is the opacity at full
+ *  strength. Each pixel gets a grain of noise before rounding, so a gentle falloff never shows steps. */
+internal object SoftShade{
+    fun bake(w:Int,h:Int,rgb:Int,max:Float,f:(Float,Float)->Float):Bitmap{val px=IntArray(w*h);var seed=0x9e3779b9.toInt();val c=rgb and 0xffffff
+        for(y in 0 until h)for(x in 0 until w){seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5)
+            val v=f(x+.5f,y+.5f)*max*255f;val al=if(v<=0f)0 else (v+((seed ushr 8) and 0xffff)/65536f-.5f+.5f).toInt().coerceIn(0,255)
+            px[y*w+x]=(al shl 24) or c}
+        return Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888)}
 }

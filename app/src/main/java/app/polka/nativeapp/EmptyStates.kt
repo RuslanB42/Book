@@ -33,21 +33,14 @@ internal class EmptyArt(private val a:MainActivity,private val kind:String,priva
     private val dash=DashPathEffect(floatArrayOf(2.5f,3.6f),0f)
     /** The glow reaches beyond the disc, so the view is larger than the disc itself. */
     val pad=a.d(26)
-    init{setLayerType(LAYER_TYPE_HARDWARE,null)}
     override fun onMeasure(w:Int,h:Int){val s=a.d(discDp)+pad*2;setMeasuredDimension(s,s)}
     override fun onDraw(c:Canvas){
         val cx=width/2f;val cy=height/2f;val r=a.d(discDp)/2f;val light=a.light
-        // faint glow of the accent behind the disc
+        // the glow of the accent and the shade under the disc: baked once with noise, so the falloff has no rings
+        c.drawBitmap(back(light,r),0f,0f,p)
         p.style=Paint.Style.FILL;p.pathEffect=null
-        p.shader=RadialGradient(cx,cy,r+pad,intArrayOf(withA(accent,if(light)0x10 else 0x16),withA(accent,if(light)0x08 else 0x0c),0),floatArrayOf(0f,.6f,1f),Shader.TileMode.CLAMP)
-        c.drawCircle(cx,cy,r+pad,p)
-        // soft shadow under the disc and the disc itself, a touch lighter at the top
-        p.shader=RadialGradient(cx,cy+a.d(8),r+a.d(14),intArrayOf(if(light)0x14000000 else 0x55000000,0),floatArrayOf(.7f,1f),Shader.TileMode.CLAMP)
-        c.drawCircle(cx,cy+a.d(8),r+a.d(14),p)
         p.shader=RadialGradient(cx,cy-r*.4f,r*1.4f,if(light)intArrayOf(0xffffffff.toInt(),0xffefefed.toInt()) else intArrayOf(0xff26262a.toInt(),0xff1d1d20.toInt()),null,Shader.TileMode.CLAMP)
         c.drawCircle(cx,cy,r,p);p.shader=null
-        p.style=Paint.Style.STROKE;p.strokeWidth=a.d(1).toFloat()*.75f;p.color=if(light)0x0d000000 else 0x0dffffff
-        c.drawArc(cx-r+1,cy-r+1,cx+r-1,cy+r-1,200f,140f,false,p)
         // the drawing, 60% of the disc
         val v=r*2*.6f;c.save();c.translate(cx-v/2,cy-v/2);c.scale(v/64f,v/64f)
         val grey=if(light)0xff9a9aa0.toInt() else 0xff8e8e94.toInt()
@@ -58,6 +51,12 @@ internal class EmptyArt(private val a:MainActivity,private val kind:String,priva
         c.restore()
     }
     private fun withA(c:Int,alpha:Int)=(c and 0xffffff) or (alpha shl 24)
+    private fun back(light:Boolean,r:Float):Bitmap=cache.getOrPut("$kind:$width:$light"){val cx=width/2f;val cy=height/2f;val out=cx
+        fun fall(dist:Float,from:Float,to:Float):Float{val t=((dist-from)/(to-from)).coerceIn(0f,1f);val k=1-t;return k*k*(3-2*k)*k}
+        val glow=SoftShade.bake(width,height,accent,if(light).07f else .10f){x,y->fall(kotlin.math.hypot(x-cx,y-cy),r*.5f,out)}
+        val sy=cy+a.d(6);val shade=SoftShade.bake(width,height,0,if(light).10f else .30f){x,y->fall(kotlin.math.hypot(x-cx,y-sy),r*.82f,r+a.d(16))}
+        Canvas(glow).drawBitmap(shade,0f,0f,null);glow}
+    private companion object{val cache=HashMap<String,Bitmap>()}
 }
 
 /** The road of the year in miniature, for the empty goal card: no disc, just the road with its start and flag. */
