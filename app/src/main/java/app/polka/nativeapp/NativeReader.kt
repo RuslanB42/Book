@@ -38,12 +38,10 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private val remaining=TextView(a)
     private val chromeIcons=mutableListOf<IconView>()
     private var soundButton:SoundButton?=null
-    /** While a background sound plays: its name in a small tinted chip in the top bar; a tap opens «Звуки». */
-    private val soundChip by lazy{a.text("",12f,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(11),0,a.d(11),0);maxLines=1;isClickable=true;contentDescription="Фоновые звуки";setOnClickListener{AmbienceSheet(a,readerBackground).show()};a.press(this)}}
-    private val soundWatch:()->Unit={paintSoundChip()}
-    private fun paintSoundChip(){val k=Ambience.key;soundChip.visibility=if(k==null)View.GONE else View.VISIBLE;if(k==null)return
-        val col=Ambience.color(a,k);soundChip.text=Ambience.name(a,k);soundChip.setTextColor(if(a.light)col else androidx.core.graphics.ColorUtils.blendARGB(col,0xffffffff.toInt(),.4f))
-        soundChip.background=a.shape((col and 0xffffff) or 0x38000000,14)}
+    /** While a background sound plays: a small chip with dancing bars and its name in the top bar; a tap opens «Звуки». */
+    private val soundChip by lazy{SoundChip(a){AmbienceSheet(a,readerBackground).show()}}
+    private val soundWatch:()->Unit={}
+    private fun paintSoundChip(){soundChip.repaint()}
     private val bottom=LinearLayout(a).apply { orientation=LinearLayout.VERTICAL; setPadding(a.d(18),a.d(8),a.d(18),a.d(4)) }
     private val slider=ReaderRange(a)
     private val percent=TextView(a)
@@ -148,7 +146,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         topBar.forceHasOverlappingRendering(false);bottom.forceHasOverlappingRendering(false)
         action("Закрыть книгу","chevdown") { a.closeReader() }
         val metadata=a.column();metadata.addView(a.text(book.str("title"),15f,bold=true).also{titleText=it}.apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});metadata.addView(a.text(MainActivity.authors(book),13f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});bar.addView(metadata,LinearLayout.LayoutParams(0,-2,1f))
-         bar.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2)});Ambience.listen(soundWatch);paintSoundChip()
+         bar.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
          action("Меню книги","more") { readerMenu() }; view.addView(bar,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
         body.setTextColor(a.fg); body.setTextSize(a.prefs.optDouble("size",a.prefs.optDouble("fontSize",19.0)).toFloat()); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; body.setPadding(margin(),a.d(22),margin(),a.d(42)); body.breakStrategy=android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY; applySpacing(); body.setTextIsSelectable(true); body.defaultFocusHighlightEnabled=false; body.background=null; body.foreground=null; body.linksClickable=true; body.movementMethod=android.text.method.LinkMovementMethod.getInstance();body.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){v.viewTreeObserver.addOnPreDrawListener(stretchWatch)};override fun onViewDetachedFromWindow(v:View){v.viewTreeObserver.removeOnPreDrawListener(stretchWatch)}})
         body.customSelectionActionModeCallback=object:ActionMode.Callback {
