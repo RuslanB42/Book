@@ -55,10 +55,16 @@ class QuoteInk(var color:Int):android.text.style.CharacterStyle(),android.text.s
 }
 internal object QuoteColors{
     val all=listOf("amber" to 0xf0a742,"mint" to 0x7cc98e,"sky" to 0x6fa8f0,"rose" to 0xef7fa8,"lavender" to 0xa98bf7)
-    fun rgb(key:String?)=all.firstOrNull{it.first==key}?.second?:0xf0a742
+    fun isHex(k:String?)=k!=null&&k.length==7&&k[0]=='#'&&k.substring(1).toIntOrNull(16)!=null
+    /** A preset name or a colour of the reader's own, «#RRGGBB». */
+    fun rgb(key:String?):Int{if(isHex(key))return key!!.substring(1).toInt(16);return all.firstOrNull{it.first==key}?.second?:0xf0a742}
+    fun hex(color:Int)="#%06X".format(color and 0xffffff)
+    /** «Мои цвета», newest first. */
+    fun saved(a:MainActivity):List<String> =a.prefs.optJSONArray("quoteSaved")?.let{arr->(0 until arr.length()).map{arr.optString(it)}.filter{isHex(it)}}?:emptyList()
+    fun setSaved(a:MainActivity,list:List<String>){a.prefs.put("quoteSaved",org.json.JSONArray(list.distinct().take(24)));a.savePreferences()}
     /** The highlight behind the text (the same soft strength for every colour). */
     fun ink(key:String?)=(0x48 shl 24) or rgb(key)
-    fun last(a:MainActivity)=a.prefs.str("quoteColor","amber").let{k->if(all.any{it.first==k})k else "amber"}
+    fun last(a:MainActivity)=a.prefs.str("quoteColor","amber").let{k->if(all.any{it.first==k}||isHex(k))k else "amber"}
 }
 
 /** A colour dot of the quote colour strip; the chosen one has a ring. */
@@ -70,7 +76,9 @@ internal class QuoteDot(private val a:MainActivity,val key:String):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c:Canvas){val cx=width/2f;val cy=height/2f;val r=a.d(13).toFloat()
         if(ring>0f){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=a.fg;p.alpha=(255*ring).toInt();c.drawCircle(cx,cy,r+a.d(2)+a.d(2)*ring,p);p.alpha=255}
-        p.style=Paint.Style.FILL;p.color=(0xff shl 24) or QuoteColors.rgb(key);c.drawCircle(cx,cy,r,p)
+        p.style=Paint.Style.FILL
+        if(key=="rainbow"){p.shader=SweepGradient(cx,cy,IntArray(13){Color.HSVToColor(floatArrayOf(it*30f%360f,.75f,1f))},null);c.drawCircle(cx,cy,r,p);p.shader=null}
+        else{p.color=(0xff shl 24) or QuoteColors.rgb(key);c.drawCircle(cx,cy,r,p)}
         p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=0x2effffff;c.drawCircle(cx,cy,r,p)}
 }
 
@@ -100,6 +108,21 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private lateinit var third:TextView
     private val strip=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(4),a.d(2),a.d(4),a.d(2));elevation=a.d(8).toFloat();a.controlSurface(this,22f,sheet=true);isClickable=true}
     private val dots=mutableListOf<QuoteDot>()
+    private val dotRow=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+    /** Five presets, then up to two of the reader's own colours (the one in use first), then the rainbow «свой цвет». */
+    private fun rebuildDots(){dotRow.removeAllViews();dots.clear()
+        val cur=QuoteColors.last(a);val own=(listOfNotNull(cur.takeIf{QuoteColors.isHex(it)})+QuoteColors.saved(a)).distinct().take(2)
+        val keys=QuoteColors.all.map{it.first}+own+"rainbow";val w=if(keys.size>7)a.d(36) else a.d(40)
+        keys.forEach{key->val dot=QuoteDot(a,key).apply{isClickable=true;contentDescription=if(key=="rainbow")"Свой цвет" else "Цвет цитаты";setOnClickListener{if(key=="rainbow")openCustom() else recolor(key)}}
+            if(key!="rainbow")dots.add(dot);dot.on=key==cur;dotRow.addView(dot,LinearLayout.LayoutParams(w,a.d(44)))}}
+    private var customOpen=false
+    /** «Свой цвет»: the sheet recolours the quote live; the strip waits while it is open. */
+    private fun openCustom(){if(customOpen)return;customOpen=true;removeCallbacks(stripTimer)
+        QuoteColorSheet(a,reader.backgroundColor,QuoteColors.last(a)){hex,final->pickCustom(hex,final)}.apply{onClose={customOpen=false;rebuildDots();if(stripOpen&&pend==null){removeCallbacks(stripTimer);postDelayed(stripTimer,2500)}}}.show()}
+    private fun pickCustom(hex:String,final:Boolean){
+        if(pend!=null){pendAnim?.cancel();pendColor=QuoteColors.ink(hex);invalidate()}
+        else stripQuote?.let{(s,e)->reader.quoteOverlapping(s,e)?.let{q->reader.recolorQuote(q.first,q.second,hex,false,save=final)}}
+        if(final){if(QuoteColors.last(a)!=hex){a.prefs.put("quoteColor",hex);a.savePreferences()};dots.forEach{it.on=it.key==hex}}}
     /** The quote the strip recolours (chapter offsets), set when it opens. */
     private var stripQuote:Pair<Int,Int>?=null;private var stripOpen=false
     private val stripTimer=Runnable{hideStrip()}
@@ -115,7 +138,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         menu.addView(IconView(a,"x",a.muted).apply{contentDescription="Убрать выделение";isClickable=true;setPadding(a.d(12),a.d(12),a.d(12),a.d(12));setOnClickListener{clear()};pressable(this)},LinearLayout.LayoutParams(a.d(44),a.d(44)));addView(menu,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
         // the colour strip: shown right after a quote is saved (or from «Цвет» on a saved one), in the menu's place
         strip.addView(a.text("Цвет",13f,a.muted).apply{setPadding(a.d(12),0,a.d(6),0)})
-        QuoteColors.all.forEach{(key,_)->val dot=QuoteDot(a,key).apply{isClickable=true;contentDescription="Цвет цитаты";setOnClickListener{recolor(key)}};dots.add(dot);strip.addView(dot,LinearLayout.LayoutParams(a.d(40),a.d(44)))}
+        strip.addView(dotRow,LinearLayout.LayoutParams(-2,a.d(44)));rebuildDots()
         strip.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
         strip.addView(a.text("Готово",13.5f,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(12),0,a.d(12),0);minHeight=a.d(44);a.press(this);setOnClickListener{done()}})
         strip.visibility=GONE;addView(strip,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
@@ -136,10 +159,10 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private var fade=0f;private var fadeStart=0;private var fadeEnd=0;private var fadeAnim:android.animation.ValueAnimator?=null
     /** The strip with the five colours, in the menu's place, for the quote at [s, e). It goes away by itself. */
     private fun showStrip(s:Int,e:Int,color:String){stripQuote=s to e;stripOpen=true;visibility=VISIBLE
-        dots.forEach{it.on=it.key==color};strip.translationY=menu.translationY;strip.visibility=VISIBLE
-        if(!reduced){popIn(strip);dots.forEachIndexed{i,d->d.scaleX=.4f;d.scaleY=.4f;d.alpha=0f
+        rebuildDots();dots.forEach{it.on=it.key==color};strip.translationY=menu.translationY;strip.visibility=VISIBLE
+        if(!reduced){popIn(strip);(0 until dotRow.childCount).map{dotRow.getChildAt(it)}.forEachIndexed{i,d->d.scaleX=.4f;d.scaleY=.4f;d.alpha=0f
             d.animate().scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(60L+i*35L).setDuration(300).setInterpolator(android.view.animation.OvershootInterpolator(1.8f)).start()}}
-        removeCallbacks(stripTimer);if(pend==null)postDelayed(stripTimer,3500)}
+        removeCallbacks(stripTimer);if(pend==null&&!customOpen)postDelayed(stripTimer,3500)}
     /** A new quote waits for «Готово»: until then it is only a preview in the chosen colour, nothing is saved. */
     private var pend:Triple<Int,Int,String>?=null;private var pendColor=0;private var pendAnim:android.animation.ValueAnimator?=null
     private fun tintPending(to:Int,end:()->Unit={}){pendAnim?.cancel();if(reduced){pendColor=to;invalidate();end();return}
