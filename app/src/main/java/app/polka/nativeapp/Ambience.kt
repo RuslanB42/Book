@@ -293,25 +293,25 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
             val to=if(now)1f else 0f;anim?.cancel()
             if(!motion){on=to;invalidate();return}
             if(becameOn){scaleX=.96f;scaleY=.96f;animate().scaleX(1f).scaleY(1f).setDuration(420).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()}
-            drawing=now
             anim=ValueAnimator.ofFloat(on,to).apply{duration=if(now)420 else 220;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{on=it.animatedValue as Float;invalidate()}
                 addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){anim=null}});start()}}
-        override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val r=a.d(20).toFloat()
+        /** The scene's photo (assets/sounds/<key>.jpg), decoded once. */
+        private val photo:Bitmap?=try{a.assets.open("sounds/${s.key}.jpg").use{BitmapFactory.decodeStream(it)}}catch(_:Exception){null}
+        private val gray=ColorMatrix();private val mix=ColorMatrix()
+        // Approved «Окна» on photos: the chosen scene in full colour, the others dimmed and desaturated;
+        // a soft dark fall at the foot keeps the name readable. No frame round the tile — nothing to clip.
+        override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val r=a.d(22).toFloat()
             val l=ring;val t=ring;val rr=w-ring;val b=h-ring
-            p.style=Paint.Style.FILL
-            p.shader=LinearGradient(l,t,rr,b,s.deep,if(a.light)0xff2a2a2d.toInt() else 0xff1b1b1d.toInt(),Shader.TileMode.CLAMP);c.drawRoundRect(l,t,rr,b,r,r,p)
-            val glow=(s.glow and 0xffffff) or ((0x66+(0xcc-0x66)*on).toInt() shl 24)
-            p.shader=RadialGradient(rr,t,(rr-l)*(1.05f+.15f*on),intArrayOf(glow,(s.glow and 0xffffff) or 0x18000000,0),floatArrayOf(0f,.45f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(l,t,rr,b,r,r,p);p.shader=null
-            Ambience.icon(c,s.icon,l+a.d(14),t+a.d(14),a.d(28).toFloat(),Color.WHITE,p)
-            // the ring draws itself round the tile (two strokes meeting at the bottom), always inside the tile's own
-            // bounds, so no parent can cut it; switching off it simply fades
-            if(on>0f){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=a.fg;val k=a.d(1).toFloat()+p.strokeWidth/2f-a.d(1)
-                if(!drawing){p.alpha=(255*on).toInt();c.drawRoundRect(k,k,w-k,h-k,r+ring-k,r+ring-k,p)}
-                else{ringPath.reset();val rr2=r+ring-k;ringPath.moveTo(w/2f,k);ringPath.lineTo(w-k-rr2,k);ringPath.arcTo(w-k-2*rr2,k,w-k,k+2*rr2,-90f,90f,false);ringPath.lineTo(w-k,h-k-rr2);ringPath.arcTo(w-k-2*rr2,h-k-2*rr2,w-k,h-k,0f,90f,false);ringPath.lineTo(w/2f,h-k)
-                    ringMeasure.setPath(ringPath,false);val len=ringMeasure.length*on;ringPart.reset();ringMeasure.getSegment(0f,len,ringPart,true)
-                    p.alpha=255;c.drawPath(ringPart,p);c.save();c.scale(-1f,1f,w/2f,0f);c.drawPath(ringPart,p);c.restore()}
-                p.alpha=255;p.style=Paint.Style.FILL}}
-        private var drawing=false;private val ringPath=Path();private val ringPart=Path();private val ringMeasure=PathMeasure()
+            val clip=Path().apply{addRoundRect(l,t,rr,b,r,r,Path.Direction.CW)}
+            c.save();c.clipPath(clip)
+            p.style=Paint.Style.FILL;p.shader=null
+            val ph=photo
+            if(ph!=null){val k=maxOf((rr-l)/ph.width,(b-t)/ph.height);val pw=ph.width*k;val phh=ph.height*k;val x0=(l+rr-pw)/2;val y0=(t+b-phh)/2
+                gray.setSaturation(.5f+.5f*on);val dim=.5f+.4f*on;mix.set(floatArrayOf(dim,0f,0f,0f,0f, 0f,dim,0f,0f,0f, 0f,0f,dim,0f,0f, 0f,0f,0f,1f,0f));mix.preConcat(gray)
+                p.colorFilter=ColorMatrixColorFilter(mix);p.isFilterBitmap=true;c.drawBitmap(ph,null,RectF(x0,y0,x0+pw,y0+phh),p);p.colorFilter=null}
+            else{p.color=s.deep;c.drawRect(l,t,rr,b,p)}
+            p.shader=LinearGradient(0f,t+(b-t)*.35f,0f,b,0,0xb0000000.toInt(),Shader.TileMode.CLAMP);c.drawRect(l,t,rr,b,p);p.shader=null
+            c.restore()}
     }
     /** Your own sound: a note, its name and length, dancing bars when it plays, a bin to remove it. */
     private inner class MineRow(val o:JSONObject):LinearLayout(a){

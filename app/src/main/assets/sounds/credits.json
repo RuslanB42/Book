@@ -41,5 +41,27 @@
    29.26
   ],
   "crossfade": 0
+ },
+ "photos": {
+  "fire": {
+   "page": "https://stocksnap.io/photo/bonfire-fire-7B16BB1A9A",
+   "license": "cc0",
+   "creator": "Tatiana Lapina"
+  },
+  "rain": {
+   "page": "https://stocksnap.io/photo/rain-window-UL48EW7VNB",
+   "license": "cc0",
+   "creator": "Mary"
+  },
+  "sea": {
+   "page": "https://stocksnap.io/photo/sea-ocean-J218I4AZ05",
+   "license": "cc0",
+   "creator": "Lance Asper"
+  },
+  "forest": {
+   "page": "https://www.rawpixel.com/image/6029915/photo-image-background-aesthetic-public-domain",
+   "license": "cc0",
+   "creator": null
+  }
  }
 }
