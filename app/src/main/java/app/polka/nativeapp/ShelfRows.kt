@@ -210,10 +210,13 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
             c.save();c.clipPath(path)
             p.color=if(light)0xffd9d8d4.toInt() else 0xff38383c.toInt();c.drawRect(l,fy,rgt,fy+h,p)
             p.shader=ShelfShade.stone(light);c.save();c.translate(l,fy);c.drawRect(0f,0f,rgt-l,h,p);c.restore()
-            p.shader=LinearGradient(0f,fy,0f,fy+h,intArrayOf(if(light)0x73ffffff else 0x29ffffff,0x08ffffff,0,if(light)0x2e000000 else 0x73000000),floatArrayOf(0f,.16f,.55f,1f),Shader.TileMode.CLAMP);c.drawRect(l,fy,rgt,fy+h,p)
+            p.shader=LinearGradient(0f,fy,0f,fy+h,intArrayOf(0,0,if(light)0x2e000000 else 0x73000000),floatArrayOf(0f,.5f,1f),Shader.TileMode.CLAMP);c.drawRect(l,fy,rgt,fy+h,p)
+            // a soft highlight along the rounded top edge: brightest a little left of the middle (the light is
+            // above-left), dissolving toward both ends and down the face
+            p.shader=null;c.drawBitmap(ShelfShade.gleam(a,(rgt-l).toInt(),h.toInt(),light),l,fy,p)
             p.shader=LinearGradient(l,0f,rgt,0f,intArrayOf(0x33000000,0,0,0x3d000000),floatArrayOf(0f,.1f,.9f,1f),Shader.TileMode.CLAMP);c.drawRect(l,fy,rgt,fy+h,p)
             p.shader=null;c.restore()
-            p.color=if(light)0xe6ffffff.toInt() else 0x3dffffff;c.drawRect(l+t,fy,rgt-t,fy+d,p)}
+}
     }
 
     /** Matte glass shelf with screws, light to draw: every cover has a tiny pre-blurred copy (made once, cached);
@@ -459,6 +462,10 @@ internal object ShelfShade{
         SoftShade.bake(w,a.d(41),if(light)0x281e14 else 0,if(light).30f else .78f){x,y->val k=y/d
             val side=step(l-d*2,l+d*26+k*1.2f*d,x)*(1-step(r-d*26-k*1.2f*d,r+d*2,x))
             (.55f*kotlin.math.exp(-(k/3.2f)*(k/3.2f))+.45f*kotlin.math.exp(-(k/13f)*(k/13f)))*side*(1-step(d*30,d*40,y))}}
+    /** The lip's highlight: a soft band just under its top edge, strongest left of the middle. */
+    fun gleam(a:MainActivity,w:Int,h:Int,light:Boolean):Bitmap=cache.getOrPut("g$w:$h:$light"){val d=a.d(1).toFloat()
+        SoftShade.bake(w,h,0xffffff,if(light).55f else .17f){x,y->val k=(y-d*1.4f)/(d*1.7f);val m=(x-w*.38f)/(w*.42f)
+            kotlin.math.exp(-k*k)*(.3f+.7f*kotlin.math.exp(-m*m))*step(0f,d*26,x)*(1-step(w-d*26,w.toFloat(),x))}}
     /** The wall above the shelf, darker toward it. */
     fun wall(a:MainActivity,w:Int,light:Boolean):Bitmap=cache.getOrPut("w$w:$light"){val d=a.d(1).toFloat();val hh=d*70;val l=d*10;val r=w-d*10
         SoftShade.bake(w,a.d(70),if(light)0x3c3228 else 0,if(light).10f else .34f){x,y->val t=y/hh;t*t*step(l-d*6,l+d*40,x)*(1-step(r-d*40,r+d*6,x))}}
@@ -473,9 +480,9 @@ internal object ShelfShade{
 /** A shade or glow as a picture: [f] gives its strength (0..1) at every pixel, [max] is the opacity at full
  *  strength. Each pixel gets a grain of noise before rounding, so a gentle falloff never shows steps. */
 internal object SoftShade{
-    fun bake(w:Int,h:Int,rgb:Int,max:Float,f:(Float,Float)->Float):Bitmap{val px=IntArray(w*h);var seed=0x9e3779b9.toInt();val c=rgb and 0xffffff
+    fun bake(w:Int,h:Int,rgb:Int,max:Float,f:(Float,Float)->Float):Bitmap{val px=IntArray(maxOf(w,0)*maxOf(h,0));var seed=0x9e3779b9.toInt();val c=rgb and 0xffffff
         for(y in 0 until h)for(x in 0 until w){seed=seed xor (seed shl 13);seed=seed xor (seed ushr 17);seed=seed xor (seed shl 5)
             val v=f(x+.5f,y+.5f)*max*255f;val al=if(v<=0f)0 else (v+((seed ushr 8) and 0xffff)/65536f-.5f+.5f).toInt().coerceIn(0,255)
             px[y*w+x]=(al shl 24) or c}
-        return Bitmap.createBitmap(px,w,h,Bitmap.Config.ARGB_8888)}
+        return Bitmap.createBitmap(maxOf(w,1),maxOf(h,1),Bitmap.Config.ARGB_8888).also{if(w>0&&h>0)it.setPixels(px,0,w,0,0,w,h)}}
 }
