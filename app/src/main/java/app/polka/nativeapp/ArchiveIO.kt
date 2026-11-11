@@ -87,9 +87,9 @@ object ArchiveIO {
         val (manifest,parts)=inspect(archive)
         val stageName="polka-restore-${uid()}.sqlite"
         val stage=Room.databaseBuilder(context,LibraryDb::class.java,stageName).build(); val staging=Library(stage)
+        val docStage=File(context.filesDir,"docs-restore-${uid()}")
         try {
             val assets=mutableMapOf<Int,String>(); val seen=mutableSetOf<String>()
-            val docStage=File(context.filesDir,"docs-restore-${uid()}")
             RandomAccessFile(archive,"r").use { input -> stage.runInTransaction {
                 manifest.getJSONArray("records").objects().forEach { record ->
                     val store=record.getString("store"); val id=record.getString("id"); val partIndex=record.getInt("part")
