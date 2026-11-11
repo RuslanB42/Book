@@ -21,6 +21,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     private val scroller=object:HorizontalScrollView(a){override fun onInterceptTouchEvent(e:MotionEvent)=false;override fun onTouchEvent(e:MotionEvent)=false}.apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;clipChildren=false}
     private val row=a.row().apply{gravity=Gravity.BOTTOM;clipChildren=false;clipToPadding=false;setPadding(a.d(20),a.d(6),a.d(20),a.d(10))}
     private val glass=MatteShelf()
+    private val lip=ShelfLip()
     private var shown=0
     // ── edit mode: the header becomes a card with a drag handle, the covers fold away ──
     private val head=a.row().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(40)}
@@ -71,7 +72,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         scroller.setOnScrollChangeListener{_,_,_,_,_->glass.scrolled()}
         // The glass view is larger than the glass by its shadow; it never takes touches, so the row still scrolls.
         // the matte shelf lies behind the covers: its top surface starts under their lower part, so the books stand on it
-        stage.addView(glass,0,FrameLayout.LayoutParams(-1,glass.full,Gravity.BOTTOM))
+        stage.addView(glass,0,FrameLayout.LayoutParams(-1,-1));stage.addView(lip,FrameLayout.LayoutParams(-1,-1))
         addView(stage,LayoutParams(-1,stageFull).apply{leftMargin=-a.d(20);rightMargin=-a.d(20)})
         apply(0f)
     }
@@ -154,7 +155,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         for(i in shown until until){val b=list[i]
             val box=FrameLayout(a).apply{clipChildren=false;isClickable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
             // One CoverView per book; when its picture arrives it only redraws (no view swap, no relayout of the row).
-            val cover=CoverView(a,b,a.cover(b)).apply{softShadow=true};box.addView(cover,FrameLayout.LayoutParams(-1,-1))
+            val cover=CoverView(a,b,a.cover(b)).apply{softShadow=true;shadowFade=0f};box.addView(cover,FrameLayout.LayoutParams(-1,-1))
             if(a.cover(b)==null&&b.optJSONObject("cover")!=null)a.requestCover(b){bmp->if(bmp!=null){cover.invalidate();glass.refresh()}}
             row.addView(box,LayoutParams(coverW,coverH).apply{if(i>0)leftMargin=gap})}
         shown=until;glass.refresh()}
@@ -168,36 +169,51 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
 
     private companion object{val shared=HashMap<String,Triple<Bitmap,Bitmap,ColorFilter?>>()}
 
-    /** A matte wall shelf from edge to edge (approved design В3): the shelf's top surface, seen from a little above,
-     *  with the books standing towards its back; then the front edge with a faint light line and a soft shadow below.
-     *  No glass, no reflections. Drawn behind the covers. */
+    /** Approved «Графит, на уровне глаз»: we look straight at a matte graphite shelf; its front lip hides the books'
+     *  feet, so they stand in its depth. One light from above-left: each book casts a soft shadow onto the wall
+     *  (right and down), the wall darkens toward the shelf, the books' feet sit in its shade, and under the shelf a
+     *  dark line falls into a long soft shadow. This back layer draws the wall; [ShelfLip] draws over the covers. */
     private inner class MatteShelf:View(a){
-        /** Approved look «Графит, объёмнее»: a real graphite plank — its top face going back (the books stand on it),
-         *  a front edge with a lit bevel, and a soft shadow on the wall under it. */
         private val d=a.d(1).toFloat()
-        val faceTop=a.d(12);val faceFront=a.d(16);private val shade=a.d(20)
-        val full=faceTop+faceFront+shade
-        /** How far the covers' feet sink into the top face (they stand on it, not on its front edge). */
-        val sink=a.d(7)
-        private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{isDither=true}
-        private val r=RectF();private val m=Matrix()
+        /** Below the covers' feet: the lip (20) and the shadow under it (26). */
+        val full=a.d(46);val sink=0
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply{isDither=true}
         init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-        fun refresh(){};fun scrolled(){}
+        fun refresh(){invalidate();lip.invalidate()};fun scrolled()=refresh()
         override fun onTouchEvent(e:MotionEvent)=false
-        override fun onDraw(c:Canvas){val light=a.light;val l=d*12;val rgt=width-d*12;val t=faceTop.toFloat();val f=faceFront.toFloat()
-            // soft shadow on the wall under the plank: an elliptical falloff, no edges
-            val cx=width/2f;val cy=t+f+d*2;val rx=(rgt-l)/2f*.92f;val ry=shade*.9f
-            p.color=Color.WHITE;p.shader=RadialGradient(0f,0f,1f,intArrayOf(if(light)0x40000000 else 0x99000000.toInt(),if(light)0x14000000 else 0x33000000,0),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
-            m.setScale(rx,ry);m.postTranslate(cx,cy);p.shader.setLocalMatrix(m);c.drawOval(cx-rx,cy-ry,cx+rx,cy+ry,p)
-            // top face: darker at the back, a touch lighter toward the front edge
-            p.shader=LinearGradient(0f,0f,0f,t,if(light)0xffbebebb.toInt() else 0xff1f1f22.toInt(),if(light)0xffd2d2cf.toInt() else 0xff313135.toInt(),Shader.TileMode.CLAMP)
-            // in perspective: the back edge a little shorter than the front, both ends slanting evenly
-            val back=d*7;val face=Path().apply{moveTo(l+back,0f);lineTo(rgt-back,0f);lineTo(rgt,t+d);lineTo(l,t+d);close()};c.drawPath(face,p)
-            // front edge: lit bevel at the top, falling into shade at the foot
-            p.shader=LinearGradient(0f,t,0f,t+f,intArrayOf(if(light)0xffe9e9e6.toInt() else 0xff4a4a50.toInt(),if(light)0xffd3d3d0.toInt() else 0xff2e2e32.toInt(),if(light)0xffc9c9c6.toInt() else 0xff2a2a2d.toInt(),if(light)0xffb0b0ad.toInt() else 0xff1c1c1f.toInt()),floatArrayOf(0f,.12f,.45f,1f),Shader.TileMode.CLAMP)
-            val rr=d*3;val edge=Path().apply{addRoundRect(RectF(l,t,rgt,t+f),floatArrayOf(0f,0f,0f,0f,rr,rr,rr,rr),Path.Direction.CW)};c.drawPath(edge,p);p.shader=null
-            p.color=if(light)0xccffffff.toInt() else 0x38ffffff;c.drawRect(l+d,t,rgt-d,t+d,p)
-            p.color=if(light)0x26000000 else 0x80000000.toInt();c.drawRect(l+d*3,t+f-d*.8f,rgt-d*3,t+f,p)}
+        override fun onDraw(c:Canvas){val light=a.light;val l=d*10;val rgt=width-d*10;val top0=height-full-d*4
+            // the wall darkens toward the shelf
+            p.shader=LinearGradient(0f,top0-d*70,0f,top0,0,if(light)0x1a3c3228 else 0x59000000,Shader.TileMode.CLAMP);c.drawRect(l,top0-d*70,rgt,top0,p);p.shader=null
+            // every book's soft shadow on the wall, baked once
+            val sh=ShelfShade.book(a,coverW,coverH,light);val pad=ShelfShade.pad(a)
+            forCovers{x,y->c.drawBitmap(sh,x-pad,y-pad,p)}}
+    }
+    /** Calls [f] with the top-left corner of every visible cover, in this stage's coordinates. */
+    private inline fun forCovers(f:(Float,Float)->Unit){val ox=(scroller.left+row.left-scroller.scrollX).toFloat();val oy=(scroller.top+row.top).toFloat()
+        for(i in 0 until row.childCount){val box=row.getChildAt(i) as? ViewGroup?:continue;if(box.getChildAt(0) !is CoverView||box.visibility!=View.VISIBLE)continue;f(ox+box.left,oy+box.top)}}
+    /** Over the covers: their feet in the shelf's shade, then the lip that hides them, and the shelf's shadow below. */
+    private inner class ShelfLip:View(a){
+        private val d=a.d(1).toFloat()
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply{isDither=true}
+        private val path=Path()
+        init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
+        override fun onTouchEvent(e:MotionEvent)=false
+        override fun onDraw(c:Canvas){val light=a.light;val l=d*10;val rgt=width-d*10;val feet=height-glass.full.toFloat()
+            // the books' lower part in the shelf's shade, the top a touch brighter
+            p.shader=LinearGradient(0f,0f,0f,coverH.toFloat(),intArrayOf(0x0fffffff,0,if(light)0x24000000 else 0x4d000000),floatArrayOf(0f,.75f,1f),Shader.TileMode.CLAMP)
+            forCovers{x,y->c.save();c.translate(x,y);c.drawRect(0f,0f,coverW.toFloat(),coverH.toFloat(),p);c.restore()};p.shader=null
+            // the shadow under the shelf, baked
+            val fy=feet-d*5;val h=d*25
+            c.drawBitmap(ShelfShade.under(a,(rgt-l).toInt(),light),l-ShelfShade.pad(a),fy+h-ShelfShade.pad(a),p)
+            // the lip: matte stone, lit along the top edge, falling into shade at the foot, its ends a little darker
+            path.reset();val t=d*1.5f;val b=d*3;path.addRoundRect(RectF(l,fy,rgt,fy+h),floatArrayOf(t,t,t,t,b,b,b,b),Path.Direction.CW)
+            c.save();c.clipPath(path)
+            p.color=if(light)0xffd9d8d4.toInt() else 0xff38383c.toInt();c.drawRect(l,fy,rgt,fy+h,p)
+            p.shader=ShelfShade.stone(light);c.save();c.translate(l,fy);c.drawRect(0f,0f,rgt-l,h,p);c.restore()
+            p.shader=LinearGradient(0f,fy,0f,fy+h,intArrayOf(if(light)0x73ffffff else 0x29ffffff,0x08ffffff,0,if(light)0x2e000000 else 0x73000000),floatArrayOf(0f,.12f,.55f,1f),Shader.TileMode.CLAMP);c.drawRect(l,fy,rgt,fy+h,p)
+            p.shader=LinearGradient(l,0f,rgt,0f,intArrayOf(0x33000000,0,0,0x3d000000),floatArrayOf(0f,.1f,.9f,1f),Shader.TileMode.CLAMP);c.drawRect(l,fy,rgt,fy+h,p)
+            p.shader=null;c.restore()
+            p.color=if(light)0xe6ffffff.toInt() else 0x3dffffff;c.drawRect(l+t,fy,rgt-t,fy+d,p)}
     }
 
     /** Matte glass shelf with screws, light to draw: every cover has a tiny pre-blurred copy (made once, cached);
@@ -425,4 +441,29 @@ internal fun MainActivity.shelvesTopBar():View{
     press(label)
     bar.addView(label,FrameLayout.LayoutParams(-2,d(40),Gravity.END or Gravity.CENTER_VERTICAL))
     return bar
+}
+
+/** Baked parts of the eye-level shelf, made once per size and theme. */
+internal object ShelfShade{
+    private val cache=HashMap<String,Bitmap>()
+    fun pad(a:MainActivity)=a.d(24).toFloat()
+    /** A book's soft shadow on the wall: light from above-left, so it falls right and a little down. */
+    fun book(a:MainActivity,w:Int,h:Int,light:Boolean):Bitmap=cache.getOrPut("b$w:$h:$light"){val d=a.d(1).toFloat();val pad=pad(a)
+        Bitmap.createBitmap((w+pad*2).toInt(),(h+pad*2).toInt(),Bitmap.Config.ARGB_8888).also{bmp->val c=Canvas(bmp);c.translate(pad,pad)
+            val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=if(light)0x33281e14 else 0xb3000000.toInt();maskFilter=BlurMaskFilter(d*7,BlurMaskFilter.Blur.NORMAL)}
+            c.drawPath(Path().apply{moveTo(d*8,d*6);lineTo(w+d*7,d*10);lineTo(w+d*7,h.toFloat());lineTo(d*8,h.toFloat());close()},p)}}
+    /** Under the shelf: a dark line right below it, then a long soft shadow. */
+    fun under(a:MainActivity,w:Int,light:Boolean):Bitmap=cache.getOrPut("u$w:$light"){val d=a.d(1).toFloat();val pad=pad(a)
+        Bitmap.createBitmap((w+pad*2).toInt(),(d*30+pad*2).toInt(),Bitmap.Config.ARGB_8888).also{bmp->val c=Canvas(bmp);c.translate(pad,pad)
+            val p=Paint(Paint.ANTI_ALIAS_FLAG)
+            p.color=if(light)0x29281e14 else 0x8c000000.toInt();p.maskFilter=BlurMaskFilter(d*12,BlurMaskFilter.Blur.NORMAL)
+            c.drawPath(Path().apply{moveTo(d*10,0f);lineTo(w-d*10,0f);lineTo(w-d*30,d*26);lineTo(d*30,d*26);close()},p)
+            p.color=if(light)0x40281e14 else 0xb3000000.toInt();p.maskFilter=BlurMaskFilter(d*2,BlurMaskFilter.Blur.NORMAL);c.drawRect(d*4,-d,w-d*4,d*3,p)}}
+    /** Fine matte stone grain, tiled. */
+    private val stones=HashMap<Boolean,BitmapShader>()
+    fun stone(light:Boolean):BitmapShader=stones.getOrPut(light){val n=96;val px=IntArray(n*n);val rnd=java.util.Random(11)
+        val low=FloatArray(n){rnd.nextFloat()}
+        for(y in 0 until n)for(x in 0 until n){val v=(rnd.nextFloat()-.5f)*.9f+(low[(x*7+y*3)%n]-.5f)*.4f;val alpha=(kotlin.math.abs(v)*(if(light)26 else 34)).toInt().coerceIn(0,255)
+            px[y*n+x]=if(v<0)Color.argb(alpha,0,0,0) else Color.argb(alpha,255,255,255)}
+        BitmapShader(Bitmap.createBitmap(px,n,n,Bitmap.Config.ARGB_8888),Shader.TileMode.REPEAT,Shader.TileMode.REPEAT)}
 }
