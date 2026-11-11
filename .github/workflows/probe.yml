@@ -1,19 +1,19 @@
-name: Catalog probe
+name: Catalog collect
 on: [push]
 permissions:
   contents: write
 jobs:
-  probe:
+  collect:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - run: pip install requests >/dev/null && python tools/probe.py
+      - run: pip install requests >/dev/null && python tools/collect.py 6000
         env:
           PYTHONUNBUFFERED: "1"
       - name: Publish
         run: |
-          mkdir out && cp probe.json out/
+          mkdir out && gzip -9 raw.json && cp raw.json.gz out/
           cd out && git init -q -b catalog-out && git config user.name ci && git config user.email ci@example.com
-          git add -A && git commit -qm probe
+          git add -A && git commit -qm raw
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" catalog-out
