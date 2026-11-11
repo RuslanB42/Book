@@ -143,6 +143,9 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         if(reduced||from==to){lp.height=to;pages.layoutParams=lp;done();return}
         val sp=Spring.of(.12,520.0);heightAnim=ValueAnimator.ofInt(from,to).apply{duration=sp.duration;interpolator=sp.interpolator;addUpdateListener{lp.height=it.animatedValue as Int;pages.layoutParams=lp}
             addListener(object:android.animation.AnimatorListenerAdapter(){var cancelled=false;override fun onAnimationCancel(x:android.animation.Animator){cancelled=true};override fun onAnimationEnd(x:android.animation.Animator){if(!cancelled)done()}});start()}}
+    /** While a page slides, it is cut at the sheet's own edges — not at the pages' edges, which run through the
+     *  ring around the chosen theme (it sits outside its tile) and cut it off for the length of the slide. */
+    private fun slideClip(on:Boolean){pages.clipBounds=if(on)android.graphics.Rect(-sheet.paddingLeft,-a.d(14),pages.width+sheet.paddingRight,pages.height+a.d(600)) else null}
     private fun open(page:View){if(sub!=null)return;val h=main.height
         val holder=a.column()
         val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
@@ -161,13 +164,13 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         glideHeight(h,target)
         val w=pages.width.toFloat()
         if(reduced){main.visibility=View.INVISIBLE;return}
-        pages.clipChildren=true;holder.translationX=w;holder.animate().translationX(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withEndAction{pages.clipChildren=false}.start()
+        slideClip(true);holder.translationX=w;holder.animate().translationX(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withEndAction{slideClip(false)}.start()
         main.animate().translationX(-w*.3f).alpha(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
     private fun back(){val s=sub?:return;sub=null;val w=pages.width.toFloat();refresh()
         val mainH=main.height.takeIf{it>0}?:pages.height
         glideHeight(pages.height,mainH){pages.layoutParams=pages.layoutParams.apply{height=ViewGroup.LayoutParams.WRAP_CONTENT}}
         if(reduced){pages.removeView(s);main.visibility=View.VISIBLE;main.alpha=1f;main.translationX=0f;return}
-        pages.clipChildren=true;s.animate().translationX(w).setDuration(280).setInterpolator(PathInterpolator(.4f,0f,.2f,1f)).withEndAction{pages.removeView(s);pages.clipChildren=false}.start()
+        slideClip(true);s.animate().translationX(w).setDuration(280).setInterpolator(PathInterpolator(.4f,0f,.2f,1f)).withEndAction{pages.removeView(s);slideClip(false)}.start()
         main.animate().translationX(0f).alpha(1f).setDuration(280).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
 
     private fun layoutPage():View{
