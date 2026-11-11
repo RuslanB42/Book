@@ -107,11 +107,11 @@ internal object TextFormats {
             if(!images.has(path)){val mime=when(path.substringAfterLast('.').lowercase()){"png"->"image/png";"gif"->"image/gif";else->"image/jpeg"};val a=AssetRow(uid(),mime,data);assets.add(a);images.put(path,JSONObject().put("__polkaBlob",a.id))};return path}
         fun local(e:Element)=e.tagName().substringAfter(':')
         val body=doc.getElementsByTag("w:body").firstOrNull()?:error("Пустой документ")
-        body.getAllElements().filter{local(it)=="p"&&it.parents().none{p->local(p)=="p"}}.forEach{p->
+        body.getAllElements().toList().filter{local(it)=="p"&&it.parents().none{p->local(p)=="p"}}.forEach{p->
             val style=p.getElementsByTag("w:pStyle").firstOrNull()?.attr("w:val").orEmpty().lowercase()
             val level=when{style=="title"->1;style.startsWith("heading")->style.removePrefix("heading").toIntOrNull()?:1;style.matches(Regex("\\d"))->style.toInt();style.startsWith("заголовок")->1;else->0}
             val sb=StringBuilder()
-            p.getAllElements().filter{local(it)=="r"}.forEach{r->
+            p.getAllElements().toList().filter{local(it)=="r"}.forEach{r->
                 val pr=r.getElementsByTag("w:rPr").firstOrNull();val b=pr?.getElementsByTag("w:b")?.isNotEmpty()==true;val it=pr?.getElementsByTag("w:i")?.isNotEmpty()==true
                 val t=StringBuilder();r.children().forEach{c->when(local(c)){"t"->t.append(esc(c.text()));"tab"->t.append(" ");"br"->t.append("<br>")
                     "drawing","pict"->c.getAllElements().firstOrNull{x->x.hasAttr("r:embed")||x.hasAttr("r:id")}?.let{x->image(x.attr("r:embed").ifBlank{x.attr("r:id")})}?.let{path->t.append("<img src=\"").append(path).append("\">")}}}
