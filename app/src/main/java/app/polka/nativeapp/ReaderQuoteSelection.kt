@@ -77,7 +77,7 @@ internal class QuoteDot(private val a:MainActivity,val key:String):View(a){
     override fun onDraw(c:Canvas){val cx=width/2f;val cy=height/2f;val r=a.d(13).toFloat()
         if(ring>0f){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=a.fg;p.alpha=(255*ring).toInt();c.drawCircle(cx,cy,r+a.d(2)+a.d(2)*ring,p);p.alpha=255}
         p.style=Paint.Style.FILL
-        if(key=="rainbow"){p.shader=SweepGradient(cx,cy,IntArray(13){Color.HSVToColor(floatArrayOf(it*30f%360f,.75f,1f))},null);c.drawCircle(cx,cy,r,p);p.shader=null}
+        if(key=="rainbow"){p.color=Color.WHITE;p.shader=SweepGradient(cx,cy,IntArray(13){Color.HSVToColor(floatArrayOf(it*30f%360f,.75f,1f))},null);c.drawCircle(cx,cy,r,p);p.shader=null}
         else{p.color=(0xff shl 24) or QuoteColors.rgb(key);c.drawCircle(cx,cy,r,p)}
         p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=0x2effffff;c.drawCircle(cx,cy,r,p)}
 }
@@ -116,6 +116,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         val cur=QuoteColors.last(a);val own=(listOfNotNull(cur.takeIf{QuoteColors.isHex(it)&&it !in QuoteColors.saved(a)})+QuoteColors.saved(a)).distinct()
         (QuoteColors.all.map{it.first}+own).forEach{key->val dot=QuoteDot(a,key).apply{isClickable=true;contentDescription="Цвет цитаты";setOnClickListener{recolor(key)}}
             dots.add(dot);dot.on=key==cur;dotRow.addView(dot,LinearLayout.LayoutParams(a.d(40),a.d(44)))}
+        (rainbow.parent as? ViewGroup)?.removeView(rainbow);dotRow.addView(rainbow,LinearLayout.LayoutParams(a.d(40),a.d(44)))
         // keep the colour in use in view
         dotScroll.post{dots.firstOrNull{it.on}?.let{d->val x=d.left+d.width/2-dotScroll.width/2;dotScroll.scrollTo(x.coerceAtLeast(0),0)}}}
     private var customOpen=false
@@ -140,9 +141,8 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         third=action("Заметка"){thirdAction()}
         menu.addView(IconView(a,"x",a.muted).apply{contentDescription="Убрать выделение";isClickable=true;setPadding(a.d(12),a.d(12),a.d(12),a.d(12));setOnClickListener{clear()};pressable(this)},LinearLayout.LayoutParams(a.d(44),a.d(44)));addView(menu,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
         // the colour strip: shown right after a quote is saved (or from «Цвет» on a saved one), in the menu's place
-        // the colours scroll on their own; «свой цвет» and «Готово» stay pinned at the right
+        // the colours (with «свой цвет» last) scroll on their own; «Готово» stays pinned at the right
         strip.addView(dotScroll,LinearLayout.LayoutParams(0,a.d(44),1f));rebuildDots()
-        strip.addView(rainbow,LinearLayout.LayoutParams(a.d(40),a.d(44)))
         strip.addView(a.text("Готово",13.5f,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(12),0,a.d(12),0);minHeight=a.d(44);a.press(this);setOnClickListener{done()}})
         strip.visibility=GONE;addView(strip,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
     }
@@ -163,7 +163,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     /** The strip with the five colours, in the menu's place, for the quote at [s, e). It goes away by itself. */
     private fun showStrip(s:Int,e:Int,color:String){stripQuote=s to e;stripOpen=true;visibility=VISIBLE
         rebuildDots();dots.forEach{it.on=it.key==color};strip.translationY=menu.translationY;strip.visibility=VISIBLE
-        if(!reduced){popIn(strip);((0 until dotRow.childCount).map{dotRow.getChildAt(it)}+rainbow).forEachIndexed{i,d->d.scaleX=.4f;d.scaleY=.4f;d.alpha=0f
+        if(!reduced){popIn(strip);(0 until dotRow.childCount).map{dotRow.getChildAt(it)}.forEachIndexed{i,d->d.scaleX=.4f;d.scaleY=.4f;d.alpha=0f
             d.animate().scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(60L+minOf(i,8)*35L).setDuration(300).setInterpolator(android.view.animation.OvershootInterpolator(1.8f)).start()}}
         removeCallbacks(stripTimer);if(pend==null&&!customOpen)postDelayed(stripTimer,3500)}
     /** A new quote waits for «Готово»: until then it is only a preview in the chosen colour, nothing is saved. */

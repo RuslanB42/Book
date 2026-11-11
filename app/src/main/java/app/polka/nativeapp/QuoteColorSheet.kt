@@ -52,7 +52,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         swatch=Chip();cur.addView(swatch,LinearLayout.LayoutParams(a.d(30),a.d(30)))
         code=a.text("",14f,if(a.light)0xff55555a.toInt() else 0xffcfcfd4.toInt(),true).apply{letterSpacing=.04f};cur.addView(code,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(12)})
         save=SaveButton().apply{setOnClickListener{if(editing)setEditing(false) else store()}}
-        cur.addView(save,LinearLayout.LayoutParams(a.d(124),a.d(30)))
+        cur.addView(save,LinearLayout.LayoutParams(a.d(30),a.d(30)))
         sheet.addView(cur,LinearLayout.LayoutParams(-1,a.d(46)).apply{topMargin=a.d(14)-knobRoom})
         val sect=a.text("",12f,a.muted,true).apply{letterSpacing=.06f};sectLabel=sect
         sheet.addView(sect,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18);bottomMargin=a.d(6);leftMargin=a.d(2)})
@@ -111,38 +111,33 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         override fun onDraw(c:Canvas){val r=height/2f;p.style=Paint.Style.FILL;p.color=color;c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),r,r,p)
             p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=if(a.light)0x22000000 else 0x33ffffff;c.drawRoundRect(.5f,.5f,width-.5f,height-.5f,r,r,p)}
     }
-    /** «Сохранить» → «Сохранён»: the filled pill eases into a quiet one while the words trade places (the old one rises
-     *  and fades, the new one rises in) and a check draws itself in front of «Сохранён». In editing it reads «Готово». */
+    /** Save, as an icon: a «+» on a filled circle; once saved the circle quiets down and a green check draws itself
+     *  where the «+» was (the «+» turns away and shrinks). In editing, a plain check means «Готово». */
     private inner class SaveButton:View(a){
-        private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply{typeface=PolkaFonts.sans(600);textSize=13.5f*a.resources.displayMetrics.scaledDensity;textAlign=Paint.Align.CENTER}
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG)
         private var state=-1;private var from=-1;private var k=1f;private var anim:ValueAnimator?=null
         private val quiet get()=if(a.light)0x12000000 else 0x14ffffff
         init{isClickable=true;a.press(this)}
-        fun set(s:Int){if(s==state)return;from=state;state=s;anim?.cancel();contentDescription=label(s)
+        fun set(s:Int){if(s==state)return;from=state;state=s;anim?.cancel();contentDescription=when(s){S_SAVE->"Сохранить цвет";S_SAVED->"Цвет сохранён";else->"Готово"}
             if(from<0||reduced||!isAttachedToWindow){k=1f;invalidate();return}
-            k=0f;anim=ValueAnimator.ofFloat(0f,1f).apply{duration=420;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
-        private fun label(s:Int)=when(s){S_SAVE->"Сохранить";S_SAVED->"Сохранён";else->"Готово"}
+            k=0f;anim=ValueAnimator.ofFloat(0f,1f).apply{duration=440;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
         private fun fill(s:Int)=if(s==S_SAVE)a.fg else quiet
-        private fun ink(s:Int)=if(s==S_SAVE)a.bg else a.fg
-        override fun onDraw(c:Canvas){if(state<0)return;val w=width.toFloat();val h=height.toFloat();val r=h/2
-            val bg=if(from<0)fill(state) else android.animation.ArgbEvaluator().evaluate(k,fill(from),fill(state)) as Int
-            p.style=Paint.Style.FILL;p.color=bg;c.drawRoundRect(0f,0f,w,h,r,r,p)
-            val base=h/2-(t.ascent()+t.descent())/2;val lift=a.d(8).toFloat()
-            c.save();c.clipRect(0f,0f,w,h)
-            if(from>=0&&k<1f){val out=(1f-k*1.6f).coerceIn(0f,1f);t.color=ink(from);t.alpha=(255*out).toInt();drawLabel(c,from,w,base-lift*k,1f)}
-            val inK=if(from<0)1f else ((k-.25f)/.75f).coerceIn(0f,1f);t.color=ink(state);t.alpha=(255*inK).toInt()
-            drawLabel(c,state,w,base+lift*(1f-inK),if(from<0)1f else ((k-.35f)/.65f).coerceIn(0f,1f))
-            c.restore();t.alpha=255}
+        private fun ink(s:Int)=when(s){S_SAVE->a.bg;S_SAVED->0xff4fb06a.toInt();else->a.fg}
         private val check=Path();private val part=Path();private val pm=PathMeasure()
-        private fun drawLabel(c:Canvas,s:Int,w:Float,y:Float,draw:Float){val text=label(s)
-            if(s!=S_SAVED){c.drawText(text,w/2,y,t);return}
-            // «✓ Сохранён»: a drawn check, then the word
-            val tw=t.measureText(text);val cs=a.d(12).toFloat();val gap=a.d(5).toFloat();val x0=w/2-(tw+cs+gap)/2
-            val cy=y-(-t.ascent()-t.descent())/2-a.d(.5f)
-            check.reset();check.moveTo(x0,cy);check.lineTo(x0+cs*.36f,cy+cs*.34f);check.lineTo(x0+cs,cy-cs*.38f)
-            pm.setPath(check,false);part.reset();pm.getSegment(0f,pm.length*draw,part,true)
-            p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2f);p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND;p.color=0xff4fb06a.toInt();p.alpha=t.alpha;c.drawPath(part,p);p.alpha=255;p.style=Paint.Style.FILL
-            t.textAlign=Paint.Align.LEFT;c.drawText(text,x0+cs+gap,y,t);t.textAlign=Paint.Align.CENTER}
+        override fun onDraw(c:Canvas){if(state<0)return;val w=width.toFloat();val h=height.toFloat();val cx=w/2;val cy=h/2;val r=minOf(w,h)/2
+            val bg=if(from<0)fill(state) else android.animation.ArgbEvaluator().evaluate(k,fill(from),fill(state)) as Int
+            p.style=Paint.Style.FILL;p.color=bg;c.drawCircle(cx,cy,r,p)
+            if(from>=0&&k<1f){val out=(1f-k*1.8f).coerceIn(0f,1f);if(out>0f)icon(c,from,cx,cy,1f,.6f+.4f*out,-90f*k,(255*out).toInt())}
+            val inK=if(from<0)1f else ((k-.2f)/.8f).coerceIn(0f,1f)
+            icon(c,state,cx,cy,inK,if(from<0)1f else .8f+.2f*inK,if(state==S_SAVE&&from>=0)90f*(1f-inK) else 0f,(255*minOf(1f,inK*2f)).toInt())}
+        /** [draw]: how much of a check is drawn; [scale], [turn] (degrees) and [alpha] shape the motion. */
+        private fun icon(c:Canvas,s:Int,cx:Float,cy:Float,draw:Float,scale:Float,turn:Float,alpha:Int){
+            p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2.2f);p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND;p.color=ink(s);p.alpha=alpha
+            c.save();c.translate(cx,cy);c.rotate(turn);c.scale(scale,scale);val k=a.d(5.5f)
+            if(s==S_SAVE){c.drawLine(-k,0f,k,0f,p);c.drawLine(0f,-k,0f,k,p)}
+            else{check.reset();check.moveTo(-k,0f);check.lineTo(-k*.25f,k*.72f);check.lineTo(k*1.05f,-k*.7f)
+                pm.setPath(check,false);part.reset();pm.getSegment(0f,pm.length*draw,part,true);c.drawPath(part,p)}
+            c.restore();p.alpha=255;p.style=Paint.Style.FILL}
     }
     /** «+»: saves the colour shown — a small dot of it inside a dashed ring. */
     private inner class AddDot:View(a){
