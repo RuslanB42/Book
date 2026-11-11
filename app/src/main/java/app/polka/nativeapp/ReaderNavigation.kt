@@ -82,7 +82,9 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
    chipViews.add(chip);chips.addView(chip,LinearLayout.LayoutParams(-2,a.d(38)).apply{if(index>0)leftMargin=a.d(8)})
   }
   val strip=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(chips);setPadding(0,a.d(2),0,a.d(4))};pane.addView(strip)
-  a.space(pane,16);notebookResults=a.column();pane.addView(notebookResults)
+  a.space(pane,16);notebookResults=a.column().apply{clipChildren=false;clipToPadding=false};pane.addView(notebookResults)
+  // the cards' shadows are wider than the cards: no container between them and the scrolling sheet may cut them
+  pane.post{var v:android.view.ViewParent?=pane;while(v is ViewGroup&&v !is android.widget.ScrollView){v.clipChildren=false;v.clipToPadding=false;v=v.parent};(v as? ViewGroup)?.clipToPadding=false}
   updateChips(false);drawNotebook()
  }
  private fun selectFilter(index:Int){if(index==filter)return;filter=index;updateChips(true);drawNotebook(true)}
@@ -141,7 +143,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   texts.addView(a.text(r.chapterName(item.optInt("ch")),15.5f,a.fg,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
   val page=r.pageOf(item.optInt("ch"),item.optInt("nativeOffset",0),item.optInt("page"))
   val date=java.text.SimpleDateFormat("d MMMM",java.util.Locale.forLanguageTag("ru")).format(java.util.Date(item.optLong("at",System.currentTimeMillis())))
-  texts.addView(a.text(listOfNotNull(page?.let{"стр. $it"},date).joinToString(" · "),12.5f,a.muted).apply{setPadding(0,a.d(2),0,0)})
+  texts.addView(a.text(listOfNotNull(page?.let{"стр. $it"},date).joinToString("   "),12.5f,a.muted).apply{setPadding(0,a.d(2),0,0)})
   card.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
   card.addView(FrameLayout(a).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor((0x14 shl 24) or tone)};isClickable=true;contentDescription="Удалить закладку"
    addView(QuoteActionIcon(a,"trash",a.fg),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER));a.press(this)
