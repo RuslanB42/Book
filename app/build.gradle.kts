@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
     namespace = "app.polka.nativeapp"
     compileSdk = 35
-    defaultConfig { applicationId = "app.polka.nativeapp"; minSdk = 26; targetSdk = 35; versionCode = 372; versionName = "1.4.6"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    defaultConfig { applicationId = "app.polka.nativeapp"; minSdk = 26; targetSdk = 35; versionCode = 373; versionName = "1.4.7"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     signingConfigs { create("localTest") { storeFile = rootProject.file("signing/polka-local.keystore"); storePassword = "android"; keyAlias = "androiddebugkey"; keyPassword = "android" } }
@@ -16,6 +16,9 @@ dependencies {
     implementation("androidx.core:core:1.13.1")
     kapt("androidx.room:room-compiler:2.6.1")
     implementation("org.jsoup:jsoup:1.18.3")
+    implementation("com.github.junrar:junrar:7.5.5")
+    implementation("org.apache.commons:commons-compress:1.26.2")
+    implementation("org.tukaani:xz:1.9")
     implementation("com.caverock:androidsvg-aar:1.4")
     implementation("com.airbnb.android:lottie:6.4.1")
     testImplementation("junit:junit:4.13.2")

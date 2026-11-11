@@ -69,13 +69,13 @@ fun MainActivity.metadataEditor(book:JSONObject) {
 fun MainActivity.bookActions(book:JSONObject,fromDetail:Boolean=false) {
     // from the book card itself: no «О книге» (it is open), and the shelf and rating are set right on the card
     val all=mutableListOf("О книге" to "information","Изменить данные" to "pen","Переместить на полку" to "move","Оценить" to "star","Прикрепить файл" to "paperclip","Отметить прочитанной" to "check")
-    if(!book.optBoolean("noFile")) all.addAll(listOf("Скачать FB2" to "download","Скачать EPUB" to "download")); all.add("Удалить книгу" to "trash")
+    if(PageDocs.isDoc(book)) all.add("Скачать файл" to "download") else if(!book.optBoolean("noFile")) all.addAll(listOf("Скачать FB2" to "download","Скачать EPUB" to "download")); all.add("Удалить книгу" to "trash")
     if(fromDetail) all.removeAll{it.first in setOf("О книге","Переместить на полку","Оценить")}
     val actions=all.map{it.first}
     dialog().setTitle(book.str("title")).setItemIcons(*all.map{it.second}.toTypedArray()).setDestructiveItems(actions.lastIndex).setItems(actions.toTypedArray()) { _,i -> when(actions[i]) {
         "О книге"->detail(book); "Изменить данные"->metadataEditor(book); "Переместить на полку"->moveBook(book); "Оценить"->dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().put("rating",it)) {} }).show()
         "Прикрепить файл" -> { attachId=book.str("id"); pickBooks(14) }; "Отметить прочитанной" -> saveBook(book.copyJson().put("progress",(book.optJSONObject("progress")?.copyJson() ?: JSONObject()).put("pct",1.0)).put("completedAt",System.currentTimeMillis()))
-        "Скачать FB2"->exportBook(book,"fb2"); "Скачать EPUB"->exportBook(book,"epub")
+        "Скачать FB2"->exportBook(book,"fb2"); "Скачать файл"->exportBook(book,"doc"); "Скачать EPUB"->exportBook(book,"epub")
         "Удалить книгу" -> confirm("Удалить книгу?","Текст, цитаты и заметки этой книги будут удалены из библиотеки.") { deleteBook(book) }
     } }.show()
 }
@@ -108,7 +108,7 @@ fun MainActivity.saveGridOrder(ordered:List<JSONObject>) {
     }
 }
 fun MainActivity.openBookAt(book:JSONObject,ch:Int,offset:Int) { val p=book.optJSONObject("progress")?.copyJson() ?: JSONObject(); p.put("ch",ch).put("nativeOffset",offset).remove("nativeFraction"); openBook(book.copyJson().put("progress",p)) }
-fun MainActivity.exportBook(book:JSONObject,format:String) { pendingExport=book to format; startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type=if(format=="epub") "application/epub+zip" else "application/x-fictionbook+xml"; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_TITLE,book.str("title").replace(Regex("[/\\\\:*?\"<>|]"),"_")+".$format") },16) }
+fun MainActivity.exportBook(book:JSONObject,format:String) { pendingExport=book to format; startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { val pdf=book.optJSONObject("doc")?.str("type")=="pdf"; val ext=if(format=="doc") (if(pdf) "pdf" else "cbz") else format; type=when(format) { "epub"->"application/epub+zip"; "doc"->if(pdf) "application/pdf" else "application/vnd.comicbook+zip"; else->"application/x-fictionbook+xml" }; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_TITLE,book.str("title").replace(Regex("[/\\\\:*?\"<>|]"),"_")+".$ext") },16) }
 fun MainActivity.recoveryScreen(error:Throwable) {
     root.removeAllViews(); val box=column().apply { setPadding(d(24),d(40),d(24),d(40)); setBackgroundColor(bg) }; root.addView(box,FrameLayout.LayoutParams(-1,-1)); box.addView(text("Библиотека не загружена",28f,bold=true,serif=true)); space(box,16); box.addView(text("Запись остановлена. Прежние данные и локальные копии не заменяются пустой библиотекой.",16f,muted)); space(box,12); box.addView(text(error.message ?: error.javaClass.simpleName,14f,muted)); space(box,24); box.addView(button("Локальные точки восстановления",true) { localRecovery() }); space(box,10); box.addView(button("Восстановить из .polka") { pickBackup() }); space(box,10); box.addView(button("Попробовать создать внешнюю копию") { exportBackup() })
 }
@@ -123,6 +123,6 @@ internal fun MainActivity.deleteBook(book:JSONObject) {
     render(true,false); sheet?.discard()
     // the book is only hidden while its notice is up: «Вернуть» brings it back, otherwise it is removed when the notice goes
     pendingDeletes.add(id)
-    val commit={ if(pendingDeletes.remove(id)) work({ ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); ChapterStore.drop(filesDir,id); PageImages.drop(this,id); library.db.runInTransaction { library.dao.deleteBook(id); library.dao.deleteContent(id); library.pruneAssets(); library.updateMarker() } },{ reload() }) { if(profileOverlay!=null) refreshProfile(); checkpointSoon() } }
+    val commit={ if(pendingDeletes.remove(id)) work({ ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); ChapterStore.drop(filesDir,id); PageImages.drop(this,id); PageDocs.drop(this,book); library.db.runInTransaction { library.dao.deleteBook(id); library.dao.deleteContent(id); library.pruneAssets(); library.updateMarker() } },{ reload() }) { if(profileOverlay!=null) refreshProfile(); checkpointSoon() } }
     Notice.card(this,Notice.State(Notice.Kind.DELETED,"Книга удалена",book.str("title"),listOf(book),faded=true,action="Вернуть",onAction={ if(pendingDeletes.remove(id)){ gridMotion=true; reload() } })).onGone=commit
 }

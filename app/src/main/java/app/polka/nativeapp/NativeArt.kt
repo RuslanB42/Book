@@ -35,7 +35,7 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
         val bitmap=currentArtwork()
         if(bitmap==null && activity!=null && book.optJSONObject("cover")!=null && requestedId!=book.optJSONObject("cover")?.str("__polkaBlob")) { requestedId=book.optJSONObject("cover")?.str("__polkaBlob"); val expected=book.optJSONObject("cover")?.toString().orEmpty();activity.requestCover(book) { loaded -> if(loaded==null){missing=true;invalidate()} else if(expected==book.optJSONObject("cover")?.toString().orEmpty()) {retainedArtwork=loaded;retainedKey=expected;invalidate();artworkChanged?.invoke()} } }
         val bounds=RectF(0f,0f,width.toFloat(),height.toFloat())
-        BookCoverVolume.shadow(canvas,bounds,activity?.light==false,softShadow,stackShadow,shadowFade)
+        if(book.optBoolean("comic"))ComicCover.shadow(canvas,bounds,activity?.light==false) else BookCoverVolume.shadow(canvas,bounds,activity?.light==false,softShadow,stackShadow,shadowFade)
         // A book with a picture whose bitmap is still decoding: a quiet blank cover, never the typeset placeholder
         // (that flashed a different cover for a moment); the picture then fades in.
         if(bitmap==null&&book.optJSONObject("cover")!=null&&!missing){waiting=true;blank(canvas,bounds);return}
@@ -67,6 +67,7 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
     internal fun glowKey():String {val art=currentArtwork();return book.str("title")+MainActivity.authors(book)+book.optJSONObject("cover")?.toString().orEmpty()+System.identityHashCode(art)+":"+(art?.generationId?:0)}
     internal fun glowArtwork():Bitmap = Bitmap.createBitmap(96,144,Bitmap.Config.ARGB_8888).also{drawCover(Canvas(it),RectF(0f,0f,96f,144f),book,currentArtwork())}
     fun drawCover(canvas: Canvas, bounds: RectF, b: JSONObject, bitmap: Bitmap? = null, shelf:Boolean=false) {
+        if(b.optBoolean("comic")){ComicCover.draw(canvas,bounds,bitmap,colors(b).first);return}
         val r=BookCoverVolume.boards(canvas,bounds,BookCoverVolume.binding(bitmap,colors(b).first))
         canvas.save(); val path = Path().apply { BookCoverVolume.outline(this,r) }; canvas.clipPath(path)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -105,7 +106,7 @@ class ShelfArt(context: Context, val previews: List<Pair<JSONObject, Bitmap?>>, 
         if(!add && books.isEmpty()) { p.color=if(light) 0x55808080 else 0x44777777; p.style=Paint.Style.STROKE; p.strokeWidth=density; p.pathEffect=DashPathEffect(floatArrayOf(5*density,4*density),0f); c.drawRoundRect(w*.27f,h*.90f-w*.69f,w*.73f,h*.90f,3*density,3*density,p); p.pathEffect=null; p.style=Paint.Style.FILL }
         
         fun covers(canvas:Canvas) { books.indices.reversed().forEach { i -> val (book,bitmap)=books[i]; val x=left(i,books.size,w);val r=RectF(x,h*.90f-w*.69f,x+w*.46f,h*.90f)
-            BookCoverVolume.shadow(canvas,r,!light);renderer.drawCover(canvas,r,book,bitmap,true) } }
+            if(book.optBoolean("comic"))ComicCover.shadow(canvas,r,!light) else BookCoverVolume.shadow(canvas,r,!light);renderer.drawCover(canvas,r,book,bitmap,true) } }
         covers(c)
         val key="$width:$height:$light:"+books.joinToString { it.first.str("id")+it.first.str("title")+it.first.str("authors")+System.identityHashCode(it.second) }
         if(key!=frostKey) {

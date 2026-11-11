@@ -430,6 +430,7 @@ class MainActivity : Activity() {
     fun openBook(book:JSONObject,source:View?=null) {
         if(reader!=null || loadingReader || bookClosing)return
         if(book.optBoolean("noFile")) { bookActions(book); return }
+        if(PageDocs.isDoc(book)) { if(!PageDocs.dir(this,book).exists()) { Notice.short(this,Notice.Kind.ERROR,"Файл книги не найден"); return }; try { PageReader(this,book.copyJson()).show() } catch(e:Exception) { Notice.short(this,Notice.Kind.ERROR,e.message ?: "Не удалось открыть") }; return }
         if(bookDetailSheet==null)returnDetailId=null
         loadingReader=true
         val veil=if(prefs.str("motion")=="reduced") null else fadeVeil().also{root.addView(it,FrameLayout.LayoutParams(-1,-1))}
@@ -495,7 +496,7 @@ class MainActivity : Activity() {
                         Notice.short(this,Notice.Kind.OK,if(added.size==1) "Шрифт «${added[0].second}» добавлен" else "Добавлено шрифтов: ${added.size}") } else Notice.short(this,Notice.Kind.ERROR,reason) } }
             17 -> data.data?.let { uri -> val file=pendingCalendarImage ?: return;work({contentResolver.openOutputStream(uri,"wt")!!.use{out->file.inputStream().use{it.copyTo(out)}}}) }
             15 -> data.data?.let { uri -> val id=coverTarget ?: return; work({ val bytes=readLimited(uri); require(BitmapFactory.decodeByteArray(bytes,0,bytes.size)!=null) { "Неверный формат изображения" }; val asset=uid(); library.db.runInTransaction { library.dao.putAsset(AssetRow(asset,contentResolver.getType(uri) ?: "image/jpeg",bytes)); val b=JSONObject(library.dao.book(id)!!.json).put("cover",JSONObject().put("__polkaBlob",asset)).put("coverChanged",true); library.save(b) }; loadData() }) { refreshBookViews(id) { render() } } }
-            16 -> data.data?.let { uri -> val spec=pendingExport ?: return; work({ val bytes=BookExport.build(library,spec.first,spec.second); contentResolver.openOutputStream(uri,"wt")!!.use { it.write(bytes) } }) }
+            16 -> data.data?.let { uri -> val spec=pendingExport ?: return; work({ val bytes=if(spec.second=="doc") PageDocs.export(this,spec.first).second else BookExport.build(library,spec.first,spec.second); contentResolver.openOutputStream(uri,"wt")!!.use { it.write(bytes) } }) }
             10,14 -> {
                 val uris=if(data.clipData!=null) (0 until data.clipData!!.itemCount).map { data.clipData!!.getItemAt(it).uri } else listOfNotNull(data.data)
                 val attaching=requestCode==14
@@ -506,7 +507,9 @@ class MainActivity : Activity() {
                     uris.forEachIndexed { i,uri -> try {
                         val name=fileName(uri)
                         runOnUiThread { if(uris.size>1) importDialog?.setProgress("Добавляю книги","${i+1} из ${uris.size} · $name",i/uris.size.toFloat()) }
-                        var item=BookParser.parse(readLimited(uri),name)
+                        var item=if(PageDocs.isPagesName(name)) PageDocs.import(this,uri,null,name) else { val bytes=readLimited(uri); val kind=TextFormats.kind(name,bytes.copyOf(minOf(bytes.size,128)))
+                            fun magic(m:String)=bytes.size>=m.length&&m.indices.all{bytes[it]==m[it].code.toByte()}
+                            if(magic("%PDF")||magic("Rar!")||magic("7z\u00bc\u00af")||(magic("PK")&&PageDocs.zipIsComic(bytes))) PageDocs.import(this,null,bytes,name) else if(kind!=null) TextFormats.parse(kind,bytes,name) else BookParser.parse(bytes,name) }
                         val old=if(target!=null) existing.firstOrNull { it.str("id")==target } else existing.firstOrNull { it.optBoolean("noFile") && it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) }
                         if(old!=null) {
                             if(target!=null && (!old.str("title").equals(item.book.str("title"),true) || !authors(old).equals(authors(item.book),true))) mismatch="В файле: «${item.book.str("title")}», ${authors(item.book)}.\n\nПрикрепить его к «${old.str("title")}»?"
