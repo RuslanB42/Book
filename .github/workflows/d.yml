@@ -3,10 +3,22 @@ on: [push]
 permissions:
   contents: write
 jobs:
-  probe:
+  build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     steps:
+      - uses: actions/checkout@v4
       - run: |
-          for u in https://kaikki.org/dictionary/downloads/ru/ru-extract.jsonl.gz https://kaikki.org/dictionary/downloads/en/en-extract.jsonl.gz https://kaikki.org/dictionary/Russian/kaikki.org-dictionary-Russian.jsonl https://kaikki.org/dictionary/Russian/kaikki.org-dictionary-Russian.jsonl.gz https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl.gz https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz https://kaikki.org/ruwiktionary/raw-wiktextract-data.jsonl.gz https://kaikki.org/dictionary/downloads/en/kaikki.org-dictionary-English.jsonl.gz; do
-            echo "$u $(curl -sIL -o /dev/null -w '%{http_code}' $u) $(curl -sIL $u | grep -i content-length | tail -1)"; done
-          curl -sL https://kaikki.org/dictionary/rawdata.html | sed 's/<[^>]*>/ /g' | grep -iE "jsonl|ru-|Russian|MB|GB" | head -60
+          mkdir -p src out
+          pip install orjson >/dev/null
+          curl -sSL --retry 3 -o src/ru-ru.jsonl.gz https://kaikki.org/dictionary/downloads/ru/ru-extract.jsonl.gz &
+          curl -sSL --retry 3 -o src/ru-en.jsonl.gz https://kaikki.org/dictionary/Russian/kaikki.org-dictionary-Russian.jsonl.gz &
+          curl -sSL --retry 3 -o src/en.jsonl.gz https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl.gz &
+          wait; ls -la src
+      - run: python3 tools/build.py
+      - run: |
+          ls -la out; gzip -9 -k out/dict.db; ls -la out
+          gh release delete dict-v1 -R ${{ github.repository }} -y --cleanup-tag || true
+          gh release create dict-v1 out/dict.db.gz -R ${{ github.repository }} -t "Словарь" -n "Офлайн-словарь: русский и английский, из Викисловаря (CC BY-SA 4.0)." --latest=false
+        env:
+          GH_TOKEN: ${{ github.token }}
