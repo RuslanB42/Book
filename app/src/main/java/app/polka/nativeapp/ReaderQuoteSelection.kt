@@ -142,6 +142,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         action("translate","Перевод"){val text=range.text(reader.selectionFullText());clear();LookupSheet(a,reader.backgroundColor,text){reader.addNote(it)}.translation()}
         action("dictionary","Словарь"){val full=reader.selectionFullText();val text=range.text(full);val src=WordSource(Words.sentence(full,range.start,range.end),reader.book.str("id"),reader.book.str("title"));clear();LookupSheet(a,reader.backgroundColor,text,src){reader.addNote(it)}.dictionary()}
         action("copy","Копировать"){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата",range.text(reader.selectionFullText())));clear()}
+        action("speaker","Читать отсюда"){val from=range.start;clear();reader.speakFrom(from)}
         addView(menu,LayoutParams(-2,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL))
         // the colour strip: shown right after a quote is saved (or from «Цвет» on a saved one), in the menu's place
         // the colours (with «свой цвет» last) scroll on their own; «Готово» stays pinned at the right
