@@ -302,7 +302,7 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
         if(theme!=a.light){theme=a.light;material.float=true;material.refresh();pill.background=LiftedPill(a,a.fg)}
         val index=keys.indexOf(tab).coerceAtLeast(0);val x=a.d(index*56).toFloat()
         if(selected<0||a.prefs.str("motion")=="reduced")spring.snap(x)else if(selected!=index)spring.to(x);selected=index
-        buttons.forEachIndexed{i,b->b.ink=if(i==index)a.bg else a.muted;b.isSelected=i==index;b.invalidate();b.setOnClickListener{onSelect(keys[i])}}
+        buttons.forEachIndexed{i,b->b.ink=if(i==index)a.bg else a.muted;b.cut=a.fg;b.isSelected=i==index;b.invalidate();b.setOnClickListener{onSelect(keys[i])}}
     }
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(selected>=0&&kotlin.math.abs(spring.value-a.d(selected*56))>.01f){if(a.prefs.str("motion")=="reduced")spring.snap(a.d(selected*56).toFloat())else spring.to(a.d(selected*56).toFloat())}}
     override fun onDetachedFromWindow(){spring.stop();super.onDetachedFromWindow()}

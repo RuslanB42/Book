@@ -5,6 +5,7 @@ import org.json.*
 object OriginalIcons {
     var source:JSONObject?=null
     fun draw(context:Context,c:Canvas,kind:String,ink:Int):Boolean {
+        if(IosIcons.draw(c,kind,ink)) return true
         if(kind=="foryou"){ // sparkles: the usual sign for picks and recommendations
             val p=Paint(3).apply{color=ink;style=Paint.Style.STROKE;strokeWidth=1.6f;strokeJoin=Paint.Join.ROUND;strokeCap=Paint.Cap.ROUND}
             c.drawPath(androidx.core.graphics.PathParser.createPathFromPathData("M10 3.5c.7 4.3 2.7 6.3 7 7-4.3.7-6.3 2.7-7 7-.7-4.3-2.7-6.3-7-7 4.3-.7 6.3-2.7 7-7Z")!!,p)

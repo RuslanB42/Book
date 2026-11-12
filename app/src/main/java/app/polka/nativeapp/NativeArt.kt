@@ -139,8 +139,11 @@ class ShelfArt(context: Context, val previews: List<Pair<JSONObject, Bitmap?>>, 
     override fun onDetachedFromWindow() { pendingKey="";frost=null;frostKey="";super.onDetachedFromWindow() }
 }
 open class IconView(context: Context, private val kind: String, var ink: Int) : View(context) {
+    /** Colour behind the icon; when set and the view is selected, the filled variant is drawn with details cut in this colour. */
+    var cut:Int?=null
     override fun onDraw(c: Canvas) {
         super.onDraw(c); c.save(); val size=(if(kind=="plus") 26f else if(minOf(width,height)<=context.resources.displayMetrics.density*30f) 16f else if(minOf(width,height)<=context.resources.displayMetrics.density*44.5f) 22f else 24f)*context.resources.displayMetrics.density; c.translate((width-size)/2,(height-size)/2); c.scale(size/24,size/24)
+        if(IosIcons.draw(c,kind,ink,isSelected&&cut!=null&&IosIcons.hasFilled(kind),cut?:0)) { c.restore(); return }
         if(OriginalIcons.draw(context,c,kind,ink)) { c.restore(); return }
         val p=Paint(Paint.ANTI_ALIAS_FLAG).apply { color=ink; style=Paint.Style.STROKE; strokeWidth=1.6f; strokeCap=Paint.Cap.ROUND; strokeJoin=Paint.Join.ROUND }
         fun line(vararg a:Float) { val path=Path(); path.moveTo(a[0],a[1]); for(i in 2 until a.size step 2) path.lineTo(a[i],a[i+1]); c.drawPath(path,p) }

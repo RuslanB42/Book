@@ -31,7 +31,7 @@ internal class LineIcon(c:Context,private var kind:String,var ink:Int):View(c){
     override fun onDraw(c:Canvas){val px=size*resources.displayMetrics.density;val s=px/24f
         c.save();c.translate((width-px)/2f,(height-px)/2f);c.scale(s,s);p.color=ink;p.strokeWidth=1.8f;p.style=Paint.Style.STROKE
         if(kind=="colordot"){p.style=Paint.Style.FILL;p.color=dot?:ink;c.drawCircle(12f,12f,8f,p);p.style=Paint.Style.STROKE;p.color=0x40ffffff;p.strokeWidth=1f;c.drawCircle(12f,12f,8f,p);c.restore();return}
-        PATHS[kind]?.forEach{c.drawPath(it,p)};c.restore()}
+        if(!IosIcons.draw(c,kind,ink))PATHS[kind]?.forEach{c.drawPath(it,p)};c.restore()}
     companion object{
         private fun parse(vararg d:String)=d.map{androidx.core.graphics.PathParser.createPathFromPathData(it)!!}
         val PATHS:Map<String,List<Path>> by lazy{mapOf(
