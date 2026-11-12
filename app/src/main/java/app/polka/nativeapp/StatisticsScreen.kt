@@ -122,7 +122,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
         streak();speed();readingTime();books()
-        celebrateOnce()
         if(!motionOn)return
         // a simple, calm entrance: the whole page fades in, everything on it already in place
         // starts after the page's first (heavier) frame has been drawn, so no part of it is skipped; the still page
@@ -180,47 +179,33 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
 
     /** Streak: the old flame, the number of days, the week as seven day circles (a burning circle = the day counted,
      *  today's ring fills while you read), and today's minutes toward the next flame. Tap — the month calendar. */
-    /** «Серия» (approved «стеклянная карточка», in the card's own shape, type and glow): the flame with the count and the
-     *  record, a hairline, the week as circles (kept days ticked, today a ring that fills), then today's minutes and the bar. */
     private fun streak(){
         val box=surface(0xfff9601f.toInt(),.14f,.62f,.75f).apply{clipToOutline=true}
-        val n=model.streak;val best=bestStreak()
+        val n=model.streak;val best=bestStreak();val met=model.met(today)
         val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-        top.addView(StreakFlameView(a,n>0,live),LinearLayout.LayoutParams(a.d(52),a.d(64)).apply{rightMargin=a.d(12)})
+        top.addView(StreakFlameView(a,n>0,live),LinearLayout.LayoutParams(a.d(68),a.d(86)).apply{rightMargin=a.d(10)})
         val col=a.column()
-        col.addView(kicker("Серия"));space(col,2)
-        col.addView(bigCount(n," ${daysWord(n)}",34f,.42f))
+        col.addView(kicker("Серия"));space(col,4)
+        col.addView(bigCount(n," ${daysWord(n)} подряд",42f,.38f))
+        space(col,4);col.addView(label(if(n>0)"рекорд — $best ${daysWord(best)}" else "серии пока нет",12.5f))
         top.addView(col,LinearLayout.LayoutParams(0,-2,1f))
-        val rec=a.column().apply{gravity=Gravity.END}
-        rec.addView(label("рекорд",11.5f).apply{gravity=Gravity.END});rec.addView(label("$best",17f,a.fg,true).apply{gravity=Gravity.END})
-        if(n>0||best>0)top.addView(rec,LinearLayout.LayoutParams(-2,-2))
-        box.addView(top)
-        box.addView(View(a).apply{setBackgroundColor(if(light)0x14000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})
+        // the card opens into the month: a small arrow in the corner says so, and turns over when it is open
+        val more=IconView(a,"chevdown",captionInk).apply{contentDescription="Показать месяц";background=a.shape(if(light)0x0d000000 else 0x12ffffff,15);setPadding(a.d(6),a.d(6),a.d(6),a.d(6))}
+        top.addView(more,LinearLayout.LayoutParams(a.d(30),a.d(30)).apply{gravity=Gravity.TOP})
+        box.addView(top);space(box,14)
         val dates=(6 downTo 0).map{today.minusDays(it.toLong())}
         val todayFraction=(model.ms(today).toFloat()/(model.dailyGoal*60000L)).coerceIn(0f,1f)
-        box.addView(WeekDots(a,dates.map{weekNames[it.dayOfWeek.value-1].lowercase()},BooleanArray(7){model.met(dates[it])},todayFraction),LinearLayout.LayoutParams(-1,-2))
-        space(box,16)
-        val minutes=(model.ms(today)/60000L).toInt()
-        box.addView(kicker("Сегодня"));space(box,2)
-        val row=a.line().apply{gravity=Gravity.BOTTOM}
-        row.addView(bigCount(min(minutes,model.dailyGoal)," / ${model.dailyGoal} мин",34f,.42f),LinearLayout.LayoutParams(0,-2,1f))
-        row.addView(label("${(todayFraction*100).roundToInt()}%",14f).apply{setPadding(0,0,0,a.d(6))})
-        box.addView(row);space(box,8)
+        box.addView(WeekFlames(a,dates.map{weekNames[it.dayOfWeek.value-1].lowercase()},BooleanArray(7){model.met(dates[it])},todayFraction,live),LinearLayout.LayoutParams(-1,-2))
+        space(box,20)
+        val minutes=(model.ms(today)/60000L).toInt();val left=ceil(max(0L,model.dailyGoal*60000L-model.ms(today))/60000.0).toInt()
+        val row=a.line();row.addView(label("Сегодня",13f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13f,a.fg,true));box.addView(row);space(box,8)
         box.addView(ProgressRail(a,animate,todayFraction,if(light)0xffc87600.toInt() else 0xfff09c17.toInt(),if(light)0xffcf5604.toInt() else 0xfff97c3d.toInt(),"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)))
         val month=StreakMonth(a,model,today,live)
         box.addView(month,LinearLayout.LayoutParams(-1,-2))
         box.contentDescription="Серия чтения: $n ${daysWord(n)}, рекорд $best"
+        month.onToggle=month.onToggle.let{prev->{open:Boolean->prev?.invoke(open);more.contentDescription=if(open)"Скрыть месяц" else "Показать месяц";val to=if(open)180f else 0f;if(live){more.animate().rotation(to).setDuration(260).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}else{more.rotation=to};Unit}}
         box.isClickable=true;box.setOnClickListener{month.toggle()};a.press(box)
         add(box)
-    }
-    /** Once a day, the first time the statistics open after the day's goal was met, the streak is celebrated. */
-    private fun celebrateOnce(){
-        if(!model.met(today)||model.streak<=0)return
-        val key=today.toString();if(a.prefs.str("streakCelebrated")==key)return
-        a.prefs.put("streakCelebrated",key);a.savePreferences()
-        val monday=today.minusDays(today.dayOfWeek.value-1L)
-        val week=BooleanArray(7){model.met(monday.plusDays(it.toLong()))}
-        scroll.postDelayed({if(scroll.isAttachedToWindow){a.streakCelebration?.dismiss();StreakCelebration(a,a.root,model.streak,week,today.dayOfWeek.value-1).show()}},450)
     }
 
     /** Speed: the number, how it compares with the average reader, and the blue bar from slower to faster. */
