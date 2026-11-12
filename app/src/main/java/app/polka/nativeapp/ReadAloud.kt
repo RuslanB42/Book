@@ -374,15 +374,14 @@ internal class ReadAloudSheet(private val a:MainActivity,private val ra:ReadAlou
         val vc=a.column();vc.addView(a.text("Голос",15f,a.fg));vc.addView(a.text("Системный, ${r.bookLocale().getDisplayLanguage(java.util.Locale("ru"))}",12.5f,a.muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(2)})
         voice.addView(vc,LinearLayout.LayoutParams(0,-2,1f));voice.addView(a.text("Изменить",14f,a.muted))
         body.addView(voice,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18)})
-        val duckRow=a.line().apply{isClickable=true;setOnClickListener{ra.duck=!ra.duck;refresh()}}
+        // the same switch as everywhere else in the app (animated knob, the app's green)
+        val sw=PolkaSwitch(a).apply{isChecked=ra.duck;setOnCheckedChangeListener{_,on->ra.duck=on}}
+        val duckRow=a.line().apply{isClickable=true;setOnClickListener{sw.isChecked=!sw.isChecked}}
         val dc=a.column();dc.addView(a.text("Тише фоновые звуки",15f,a.fg));dc.addView(a.text("Камин и дождь приглушаются, пока звучит голос",12.5f,a.muted).apply{cssLeading(1.35f)},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(2)})
         duckRow.addView(dc,LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=a.d(12)})
-        duckRow.addView(Toggle(ra.duck),LinearLayout.LayoutParams(a.d(46),a.d(28)))
+        duckRow.addView(sw,LinearLayout.LayoutParams(-2,-2))
         body.addView(duckRow,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16)})
     }
-    private inner class Toggle(val on:Boolean):View(a){private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-        override fun onDraw(c:Canvas){val h=height.toFloat();p.color=if(on)0xff34b866.toInt() else (a.fg and 0xffffff) or (0x26 shl 24);c.drawRoundRect(0f,0f,width.toFloat(),h,h/2,h/2,p)
-            p.color=Color.WHITE;val r0=h/2-a.d(3);c.drawCircle(if(on)width-h/2 else h/2,h/2,r0,p)}}
 }
 
 /** Keeps reading when the screen is off: a media notification with the lock-screen and headphone controls. */
