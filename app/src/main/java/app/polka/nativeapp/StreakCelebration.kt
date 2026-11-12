@@ -25,7 +25,7 @@ internal class StreakCelebration(private val a:MainActivity,private val host:Fra
     private val capsule=WeekCapsule(a,week,today)
     private val weekBox=a.column()
     private val message=a.text(message(),14.5f,a.muted).apply{gravity=Gravity.CENTER;cssLeading(1.35f)}
-    private val go=a.text("Продолжить чтение",16f,if(a.light)Color.WHITE else 0xff161617.toInt(),true).apply{gravity=Gravity.CENTER;background=a.shape(amber,28);isClickable=true;isFocusable=true}
+    private val go=a.text("Отлично",16f,if(a.light)Color.WHITE else 0xff161617.toInt(),true).apply{gravity=Gravity.CENTER;background=a.shape(amber,28);isClickable=true;isFocusable=true}
     private var pill:View?=null
     private var closed=false
     private fun days(n:Int)=if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
@@ -41,7 +41,7 @@ internal class StreakCelebration(private val a:MainActivity,private val host:Fra
     fun show(){
         build()
         if(reduced){flame.lit=1f;glow.level=1f;number.set("$streak");listOf(caption,weekBox,message).forEach{it.alpha=1f};go.translationY=0f
-            overlay.alpha=0f;host.addView(overlay,FrameLayout.LayoutParams(-1,-1));overlay.animate().alpha(1f).setDuration(200).start();a.streakCelebration=this;haptic();return}
+            overlay.alpha=0f;overlay.elevation=a.d(60).toFloat();host.addView(overlay,FrameLayout.LayoutParams(-1,-1));overlay.animate().alpha(1f).setDuration(200).start();a.streakCelebration=this;haptic();return}
         dropPill()
     }
     private fun build(){
@@ -95,7 +95,7 @@ internal class StreakCelebration(private val a:MainActivity,private val host:Fra
     /** The pill's rounded rectangle grows to the whole screen (a container transform), the scene plays inside. */
     private fun expand(card:View){
         if(overlay.parent!=null||closed)return
-        host.addView(overlay,FrameLayout.LayoutParams(-1,-1))
+        overlay.elevation=a.d(60).toFloat();host.addView(overlay,FrameLayout.LayoutParams(-1,-1))
         val hostAt=IntArray(2);val at=IntArray(2);host.getLocationInWindow(hostAt);card.getLocationInWindow(at)
         val from=RectF((at[0]-hostAt[0]).toFloat(),(at[1]-hostAt[1]).toFloat(),(at[0]-hostAt[0]+card.width).toFloat(),(at[1]-hostAt[1]+card.height).toFloat())
         var f=0f;val r0=card.height/2f

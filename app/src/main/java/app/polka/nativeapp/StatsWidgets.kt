@@ -395,3 +395,29 @@ internal object Glow{
             val cols=IntArray(n){val t=pos[it];(((255*peak*exp(-fall*t*t)).roundToInt().coerceIn(0,255)) shl 24) or rgb};cols[n-1]=rgb
             c.drawRect(0f,0f,w.toFloat(),h.toFloat(),Paint(Paint.ANTI_ALIAS_FLAG).apply{isDither=true;shader=RadialGradient(cx,cy,r,cols,pos,Shader.TileMode.CLAMP)});b}catch(e:Throwable){null}}
 }
+
+/** The week of «Серия»: a circle a day — kept days filled amber with a tick and a soft glow, today (not yet kept)
+ *  a ring that fills with today's minutes, the rest quiet. Glows are drawn inside the view's own bounds. */
+internal class WeekDots(private val a:MainActivity,private val names:List<String>,private val kept:BooleanArray,private val todayFraction:Float):View(a){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER;typeface=PolkaFonts.sans(500)}
+    private val tick=Path()
+    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
+    override fun onMeasure(w:Int,h:Int){setMeasuredDimension(MeasureSpec.getSize(w),a.d(64))}
+    override fun onDraw(c:Canvas){val n=names.size;if(n==0)return;val d=a.resources.displayMetrics.density
+        val slot=width/n.toFloat();val r=minOf(17*d,slot/2f-6*d);val cy=r+6*d;val light=a.light
+        tp.textSize=11.5f*a.resources.displayMetrics.scaledDensity
+        for(i in 0 until n){val cx=slot*i+slot/2;val today=i==n-1;val done=kept[i]
+            if(done){
+                p.shader=RadialGradient(cx,cy,r+6*d,intArrayOf(0x55ff7a22,0x00ff7a22),floatArrayOf(r/(r+6*d),1f),Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r+6*d,p)
+                p.shader=LinearGradient(0f,cy-r,0f,cy+r,0xffffb04a.toInt(),0xffff7a22.toInt(),Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r,p);p.shader=null
+                p.style=Paint.Style.STROKE;p.strokeWidth=2.4f*d;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND;p.color=0xff2a1608.toInt()
+                val k=r*.42f;tick.reset();tick.moveTo(cx-k,cy+k*.05f);tick.lineTo(cx-k*.25f,cy+k*.75f);tick.lineTo(cx+k,cy-k*.6f);c.drawPath(tick,p);p.style=Paint.Style.FILL
+            } else if(today){
+                val rr=r-1.6f*d;p.style=Paint.Style.STROKE;p.strokeWidth=3f*d;p.color=if(light)0x14000000 else 0x14ffffff;c.drawCircle(cx,cy,rr,p)
+                if(todayFraction>0f){p.strokeCap=Paint.Cap.ROUND;p.shader=SweepGradient(cx,cy,intArrayOf(0xffff7a22.toInt(),0xffffb04a.toInt(),0xffff7a22.toInt()),null)
+                    c.save();c.rotate(-90f,cx,cy);c.drawArc(cx-rr,cy-rr,cx+rr,cy+rr,0f,360f*todayFraction,false,p);c.restore();p.shader=null}
+                p.style=Paint.Style.FILL
+            } else{p.color=if(light)0x0f000000 else 0x10ffffff;c.drawCircle(cx,cy,r,p)}
+            tp.color=if(today)a.fg else if(light)0xff86868b.toInt() else 0xff8a8a8e.toInt()
+            c.drawText(names[i],cx,cy+r+16*d,tp)}}
+}
