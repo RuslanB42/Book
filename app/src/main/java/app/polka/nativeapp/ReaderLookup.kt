@@ -76,7 +76,8 @@ internal object Dictionary{
         val out=ArrayList<Pair<String,JSONObject>>()
         for(k in keys){d.rawQuery("SELECT e.lang,e.data FROM k JOIN e ON e.id=k.id WHERE k.key=? LIMIT 6",arrayOf(k)).use{cur->while(cur.moveToNext())out.add(cur.getString(0) to JSONObject(cur.getString(1)))};if(out.isNotEmpty())break}
         val cyr=clean.any{it in 'а'..'я'||it in 'А'..'Я'||it=='ё'||it=='Ё'}
-        return out.sortedBy{if((it.first=="ru")==cyr)0 else 1}.map{it.second.put("lang",it.first)}}
+        // the language of the letters first, then the more common word (so «ran» finds «run» before the rare noun «ran»)
+        return out.sortedWith(compareBy<Pair<String,JSONObject>>{if((it.first=="ru")==cyr)0 else 1}.thenByDescending{it.second.optDouble("f",0.0)}).map{it.second.put("lang",it.first)}}
 }
 
 /** On-device translation (Google ML Kit): the language is recognised, the model is fetched once per language. */
@@ -163,7 +164,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
     private fun offerDownload(){
         content{val head=a.line()
             head.addView(FrameLayout(a).apply{background=a.shape(quiet,16);addView(LineIcon(a,"dictionary",a.fg),FrameLayout.LayoutParams(-1,-1))},LinearLayout.LayoutParams(a.d(48),a.d(48)))
-            val t=a.column();t.addView(a.text("Словарь без интернета",16f,a.fg,true));t.addView(a.text("Русский и английский, из Викисловаря. Скачивается один раз, около 30 МБ",13f,a.muted).apply{cssLeading(1.35f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(2)})
+            val t=a.column();t.addView(a.text("Словарь без интернета",16f,a.fg,true));t.addView(a.text("Русский и английский, из Викисловаря. Скачивается один раз, около 35 МБ",13f,a.muted).apply{cssLeading(1.35f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(2)})
             head.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(14)});addView(head)
             addView(a.text("Скачать",14f,a.bg,true).apply{gravity=Gravity.CENTER;background=a.shape(a.fg,22);isClickable=true;a.press(this);setOnClickListener{download()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}}
     private fun download(){
@@ -200,7 +201,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
             sb.append(first.optString("w").replace("́",""))
             first.optJSONArray("t")?.let{tr->val s=(0 until tr.length()).joinToString(", "){tr.getString(it)}
                 addView(TextView(a).apply{text=s;textSize=17f;setTextColor(a.fg);typeface=serif},LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(12)});sb.append(" — ").append(s)}
-            list.take(3).forEachIndexed{ei,e->
+            list.filter{it.optString("w")==first.optString("w")&&it.optString("lang")==lang}.take(3).forEachIndexed{ei,e->
                 if(ei>0){addView(a.text(e.optString("p"),12.5f,a.muted,true),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16);bottomMargin=a.d(8)})}
                 val senses=e.optJSONArray("s")?:JSONArray()
                 for(i in 0 until senses.length()){val s=senses.getJSONArray(i)
