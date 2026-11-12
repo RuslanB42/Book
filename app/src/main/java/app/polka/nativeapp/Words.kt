@@ -309,7 +309,7 @@ internal class WordReview(private val a:MainActivity){
     private fun finish(){
         bar.v=1f;counter.text="$total из $total";buttons.visibility=View.GONE;hint.visibility=View.GONE
         val box=a.column().apply{gravity=Gravity.CENTER}
-        box.addView(a.text("Готово",28f,a.fg,true,serif=true).apply{gravity=Gravity.CENTER})
+        box.addView(a.text("Готово",24f,a.fg,true).apply{gravity=Gravity.CENTER})
         box.addView(a.text("Повторено слов: $total. Следующие придут, когда их пора будет вспомнить.",14f,a.muted).apply{gravity=Gravity.CENTER;cssLeading(1.45f);maxWidth=a.d(260)},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(8);gravity=Gravity.CENTER_HORIZONTAL})
         box.addView(a.text("Закрыть",15f,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(28),0,a.d(28),0);background=a.shape(a.fg,24);isClickable=true;a.press(this);setOnClickListener{close()}},LinearLayout.LayoutParams(-2,a.d(48)).apply{topMargin=a.d(22);gravity=Gravity.CENTER_HORIZONTAL})
         deck.removeAllViews();deck.addView(box,FrameLayout.LayoutParams(-1,-1))

@@ -80,7 +80,7 @@ internal fun MainActivity.emptyView(kind:String,title:String,hint:String,disc:In
     val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_HORIZONTAL;clipChildren=false;clipToPadding=false}
     val art=EmptyArt(this,kind,disc)
     box.addView(art,LinearLayout.LayoutParams(-2,-2).apply{topMargin=-art.pad;bottomMargin=-art.pad})
-    box.addView(text(title,22f,fg,true,serif=true).apply{gravity=Gravity.CENTER;maxLines=1;letterSpacing=-.005f},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(22)})
+    box.addView(text(title,20f,fg,true).apply{gravity=Gravity.CENTER;maxLines=1;letterSpacing=-.005f},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(22)})
     box.addView(text(hint,13.5f,muted).apply{gravity=Gravity.CENTER;cssLeading(1.5f);maxWidth=d(236);breakStrategy=android.text.Layout.BREAK_STRATEGY_BALANCED},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(8)})
     if(action!=null&&onAction!=null)box.addView(text(action,13.5f,bg,true).apply{gravity=Gravity.CENTER;setPadding(d(20),0,d(20),0);background=shape(fg,20);setOnClickListener{onAction()};press(this)},LinearLayout.LayoutParams(-2,d(44)).apply{topMargin=d(22)})
     return box

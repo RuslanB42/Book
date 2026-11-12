@@ -111,7 +111,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun greeting():View{val h=java.time.LocalTime.now().hour
         val hello=when(h){in 5..11->"Доброе утро";in 12..16->"Добрый день";in 17..22->"Добрый вечер";else->"Доброй ночи"}
         val date=today.format(DateTimeFormatter.ofPattern("d MMMM, EEEE",ru))
-        return a.column().apply{setPadding(a.d(12),0,a.d(8),0);addView(label(date,12.5f));addView(a.text(hello,23f,a.fg,true,serif=true).apply{maxLines=1})}}
+        return a.column().apply{setPadding(a.d(12),0,a.d(8),0);addView(label(date,12.5f));addView(a.text(hello,26f,a.fg,true,serif=true).apply{maxLines=1})}}
     private fun daysWord(n:Int)=if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
     private fun minutesShort(n:Int)="мин"
     private fun minutesGen(n:Int)=if(n%100 in 11..14)"минут" else if(n%10==1)"минуты" else "минут"

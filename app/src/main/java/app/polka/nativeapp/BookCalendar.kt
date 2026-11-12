@@ -45,7 +45,7 @@ internal class BookCalendarDialog(private val a:MainActivity,data:JSONObject,ini
     internal fun choosePeriod(first:LocalDate,last:LocalDate){period=CalendarPeriod(first,last);focusedMonth=YearMonth.from(first);mode=2;pageIndex=0;rebuild()}
     internal fun selectMode(index:Int){when(index){0->{mode=0;val m=focusedMonth;period=CalendarPeriod(m.atDay(1),minOf(m.atEndOfMonth(),today));pageIndex=0;rebuild()};1->{mode=1;val y=focusedMonth.year;period=CalendarPeriod(LocalDate.of(y,1,1),minOf(LocalDate.of(y,12,31),today));pageIndex=0;rebuild()};else->rangeEditor()}}
     private fun rebuild(){content.removeAllViews()
-        val toolbar=a.line().apply{setPadding(a.d(12),a.d(8),a.d(12),a.d(8))};toolbar.addView(a.icon("back","Закрыть календарь"){dismiss()},LinearLayout.LayoutParams(a.d(44),a.d(44)));toolbar.addView(a.text("Календарь",24f,bold=true),LinearLayout.LayoutParams(0,-2,1f));toolbar.addView(a.icon("download","Сохранить календарь в PNG"){export(false)},LinearLayout.LayoutParams(a.d(44),a.d(44)));toolbar.addView(a.icon("share","Поделиться календарём"){export(true)},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(toolbar)
+        val toolbar=a.line().apply{setPadding(a.d(12),a.d(8),a.d(12),a.d(8))};toolbar.addView(a.icon("back","Закрыть календарь"){dismiss()},LinearLayout.LayoutParams(a.d(44),a.d(44)));toolbar.addView(a.text("Календарь",26f,bold=true,serif=true),LinearLayout.LayoutParams(0,-2,1f));toolbar.addView(a.icon("download","Сохранить календарь в PNG"){export(false)},LinearLayout.LayoutParams(a.d(44),a.d(44)));toolbar.addView(a.icon("share","Поделиться календарём"){export(true)},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(toolbar)
         val controls=a.column().apply{setPadding(a.d(20),0,a.d(20),a.d(12))};controls.addView(a.segment(listOf("Месяц","Год","Период"),mode){selectMode(it)});val nav=a.line()
         val prev=a.icon("back","Предыдущий период"){shift(-1)}.apply{isEnabled=mode<2 && period.first.year>1900;alpha=if(isEnabled)1f else .25f};nav.addView(prev,LinearLayout.LayoutParams(a.d(44),a.d(44)))
         val format=if(mode==0)"LLLL yyyy" else  if(mode==1)"yyyy" else  "d MMM yyyy";val text=if(mode<2)period.first.format(DateTimeFormatter.ofPattern(format,locale)).replaceFirstChar{it.titlecase(locale)}else "${period.first.format(DateTimeFormatter.ofPattern(format,locale))} — ${period.last.format(DateTimeFormatter.ofPattern(format,locale))}"
@@ -192,6 +192,6 @@ internal class BookCalendarPoster(private val a:MainActivity,private val model:R
                 text("$count",1040f,top+70,if(count>999)30f else 40f,if(count>0)blue else inactive,true,right=true)
             }
         }
-        text("POLKA",pad,naturalHeight-32f,28f,secondary,true)
+        text("GLYPH",pad,naturalHeight-32f,28f,secondary,true)
     }
 }

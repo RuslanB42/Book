@@ -16,7 +16,7 @@ internal class RatingPrompt(private val a:MainActivity,private val book:JSONObje
     private val shade=View(a).apply{setBackgroundColor(0x8c000000.toInt())}
     private val card=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;clipChildren=false;clipToPadding=false}
     private val cover=CoverView(a,book,a.cover(book))
-    private val heading=a.text("Книга дочитана",22f,bold=true,serif=true).apply{gravity=Gravity.CENTER}
+    private val heading=a.text("Книга дочитана",20f,bold=true).apply{gravity=Gravity.CENTER}
     private val subtitle=a.text(book.str("title"),14f,a.muted).apply{gravity=Gravity.CENTER;maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END}
     private val hint=a.text("Как вам книга?",16f).apply{gravity=Gravity.CENTER}
     private val stars=NativeRating(a,0,false){n->choose(n)}

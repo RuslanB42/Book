@@ -279,7 +279,7 @@ class MainActivity : Activity() {
         when {
             tab=="words" -> wordsPage()
             tab=="quotes" -> quotes()
-            query.isNotBlank() -> {val found=searchBooks();if(found.isEmpty()){space(page,96);page.addView(emptyView("search","Ничего не нашлось","Попробуйте название, автора или серию."),LinearLayout.LayoutParams(-1,-2))}else{val row=line();row.addView(text("Найдено",20f,bold=true),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(countBooks(found.size),14f,muted));page.addView(row);space(page,14);bookGrid(found)}}
+            query.isNotBlank() -> {val found=searchBooks();if(found.isEmpty()){space(page,96);page.addView(emptyView("search","Ничего не нашлось","Попробуйте название, автора или серию."),LinearLayout.LayoutParams(-1,-2))}else{val row=line();row.addView(text("Найдено",17f,bold=true),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(countBooks(found.size),14f,muted));page.addView(row);space(page,14);bookGrid(found)}}
             shelf!=null || auto!=null -> { backAndCount(); val list=currentBooks(); if(list.isEmpty()){space(page,96);page.addView(if(auto=="reading")emptyView("open","Ничего не читаете","Откройте любую книгу — она появится здесь.") else emptyView("shelf","Полка пустая","Добавьте книги через «О книге» или в режиме редактирования."),LinearLayout.LayoutParams(-1,-2))} else bookGrid(list) }
             tab=="shelves" && query.isBlank() -> shelfRows()
             tab=="quotes" -> quotes()
@@ -295,7 +295,7 @@ class MainActivity : Activity() {
     fun countRow(n:Int) { val r=row(); r.addView(text(countBooks(n),20f,bold=true),LinearLayout.LayoutParams(0,-2,1f)); r.addView(text(sortName(),14f,muted).apply { sortControl=this; setPadding(d(8),0,0,0); gravity=Gravity.CENTER_VERTICAL; minHeight=d(36); setOnClickListener { filters() } }); page.addView(r,LinearLayout.LayoutParams(-1,d(36))); space(page,14) }
     fun backAndCount() { val r=row(); val leave={ pendingMotion=MotionPose(.4f,x=-d(18).toFloat()) to MotionSpec.SHELF;shelf=null;auto=null;query="";tab="shelves";render(false,false) }
         r.addView(icon("back","Назад к полкам") { leave() },LinearLayout.LayoutParams(d(44),d(44)))
-        r.addView(text(title(),22f,fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(d(12),0,d(8),0)},LinearLayout.LayoutParams(0,-2,1f))
+        r.addView(text(title(),26f,fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(d(12),0,d(8),0)},LinearLayout.LayoutParams(0,-2,1f))
         addIcon(r,"filter","Фильтры и сортировка") { filters() }; page.addView(r); space(page,18) }
     fun emptyState(label:String,lottieName:String?=null) { space(page,12); if(lottieName!=null) page.addView(lottie(lottieName,if(lottieName=="empty_books")60 else null),LinearLayout.LayoutParams(-1,d(220))) else { val covers=FloatingCovers(this); floatingCovers=covers; page.addView(covers,LinearLayout.LayoutParams(-1,d(240))) }; space(page,16); page.addView(text(label,25f,bold=true,serif=true).apply { gravity=Gravity.CENTER }); space(page,24) }
     internal var continueBookId:String?=null

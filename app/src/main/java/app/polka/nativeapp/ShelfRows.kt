@@ -26,7 +26,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     // ── edit mode: the header becomes a card with a drag handle, the covers fold away ──
     private val head=a.row().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(40)}
     private val card=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(16).toFloat();alpha=0}
-    private val name=a.text(title,17f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
+    private val name=a.text(title,17f,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
     private val pen=IconView(a,"pen",a.muted).apply{alpha=0f;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     private val tail=a.row().apply{gravity=Gravity.CENTER_VERTICAL}
     /** Edit mode: removes a shelf of the user's own (the books stay in the library). */
@@ -317,7 +317,7 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
         dash.color=((((.18f+.22f*lit)*(if(a.light).8f else 1f))*255).toInt() shl 24) or ink;c.drawRoundRect(i,i,width-i,height-i,r,r,dash)}
     private fun light(to:Float){android.animation.ValueAnimator.ofFloat(lit,to).apply{duration=220;addUpdateListener{lit=it.animatedValue as Float;invalidate()};start()}}
     private fun start(){if(field!=null||!isAttachedToWindow)return
-        val f=a.edit("","Название полки").apply{setSingleLine(true);textSize=17f;typeface=PolkaFonts.display();setTextColor(a.fg);setHintTextColor(a.muted);background=null;setPadding(a.d(14),0,a.d(14),0);minHeight=0;minimumHeight=0
+        val f=a.edit("","Название полки").apply{setSingleLine(true);textSize=17f;typeface=PolkaFonts.sans(600);setTextColor(a.fg);setHintTextColor(a.muted);background=null;setPadding(a.d(14),0,a.d(14),0);minHeight=0;minimumHeight=0
             gravity=Gravity.CENTER_VERTICAL;imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE;alpha=0f
             setOnEditorActionListener{_,act,_->if(act==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){commit();true}else false}
             setOnFocusChangeListener{v,has->if(!has)v.post{if(field===v)commit()}}}

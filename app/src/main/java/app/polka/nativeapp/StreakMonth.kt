@@ -17,7 +17,7 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
     private var month=YearMonth.from(today)
     private var open=false
     var onToggle:((Boolean)->Unit)?=null
-    private val title=a.text("",17f,a.fg,true,serif=true)
+    private val title=a.text("",17f,a.fg,true)
     private val year=a.text("",13f,a.muted)
     private val grid=MonthGrid()
     private fun arrow(kind:String,label:String,click:()->Unit)=FrameLayout(a).apply{contentDescription=label;isClickable=true;setOnClickListener{click()}

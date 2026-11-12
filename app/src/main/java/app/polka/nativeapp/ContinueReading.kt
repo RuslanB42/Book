@@ -65,7 +65,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  }
  init{
   orientation=VERTICAL;clipChildren=false;clipToPadding=false
-  addView(a.text("Продолжить чтение",20f,bold=true,serif=true))
+  addView(a.text("Продолжить чтение",17f,bold=true))
   readingBooks.forEachIndexed{i,book->
    val card=RisingCoverCard(a).apply{clipChildren=false;clipToPadding=false;isFocusable=true;contentDescription="Продолжить: ${book.str("title")}"}
    floating(card,book,i)
