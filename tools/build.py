@@ -12,7 +12,7 @@ db.execute('CREATE TABLE k(key TEXT, id INTEGER)')
 stats=collections.Counter()
 POSRU={'noun':'существительное','verb':'глагол','adj':'прилагательное','adv':'наречие','pron':'местоимение','prep':'предлог','conj':'союз','particle':'частица','intj':'междометие','num':'числительное','phrase':'фраза','name':'имя собственное','det':'определитель','participle':'причастие','predicative':'предикатив','prefix':'приставка','suffix':'суффикс','abbrev':'сокращение','proverb':'пословица','idiom':'идиома','article':'артикль','contraction':'сокращение','postp':'послелог'}
 OLD=re.compile('[ſꝛ]|\b(thee|thou|hath|doth)\b',re.I)
-def senses_of(o,nlimit=3,glen=170,elen=110):
+def senses_of(o,nlimit=3,glen=150,elen=100):
     out=[]
     for s in o.get('senses',[]):
         if s.get('form_of') or s.get('alt_of'): continue
@@ -56,7 +56,7 @@ with gzip.open('src/ru-ru.jsonl.gz','rb') as f:
         if o.get('lang_code')!='ru': continue
         w=o.get('word','')
         if not w or len(w)>40: continue
-        if ' ' not in w and zf(key(w),'ru')<1.2: continue
+        if ' ' in w or zf(key(w),'ru')<1.6: continue
         ss=senses_of(o)
         if not ss: continue
         syn=[s.get('word') for s in (o.get('synonyms') or []) if s.get('word')][:5]
@@ -68,7 +68,7 @@ with gzip.open('src/ru-ru.jsonl.gz','rb') as f:
 for k,ids in rukeys.items():
     for i in ids: db.execute('INSERT INTO k VALUES(?,?)',(k,i))
 for form,lemmas in ruforms.items():
-    if zf(form,'ru')<=0: continue
+    if zf(form,'ru')<1.0: continue
     for l in lemmas:
         if form==l: continue
         for i in rukeys.get(l,[]): db.execute('INSERT INTO k VALUES(?,?)',(form,i)); stats['ru_formkeys']+=1
@@ -89,8 +89,8 @@ with gzip.open('src/en.jsonl.gz','rb') as f:
             ff=fm.get('form',''); tg=fm.get('tags') or []
             if ff and 'table-tags' not in tg and len(ff)<40: enforms[key(ff)].add(k)
         if o.get('pos')=='name' and not w[:1].islower(): continue
-        if zf(w.lower(),'en')<1.8: continue
-        ss=senses_of(o,3,170,110)
+        if ' ' in w or zf(w.lower(),'en')<2.4: continue
+        ss=senses_of(o,3,150,100)
         if not ss: continue
         tr=[]
         pool=list(o.get('translations',[]) or [])
@@ -98,7 +98,8 @@ with gzip.open('src/en.jsonl.gz','rb') as f:
         for t in pool:
             if t.get('lang_code')=='ru' or t.get('code')=='ru' or t.get('lang')=='Russian':
                 ww=t.get('word') or ''
-                if ww and ww not in tr and len(ww)<40: tr.append(ww)
+                kk=key(ww)
+                if ww and len(ww)<40 and not any(key(x)[:max(3,len(kk)-2)]==kk[:max(3,len(kk)-2)] for x in tr): tr.append(ww)
             if len(tr)>=4: break
         ipa=''
         for s in o.get('sounds',[]) or []:
@@ -111,7 +112,7 @@ with gzip.open('src/en.jsonl.gz','rb') as f:
 for k,ids in enkeys.items():
     for i in ids: db.execute('INSERT INTO k VALUES(?,?)',(k,i))
 for form,lemmas in enforms.items():
-    if zf(form,'en')<=0: continue
+    if zf(form,'en')<1.5: continue
     for l in lemmas:
         if form==l: continue
         for i in enkeys.get(l,[]): db.execute('INSERT INTO k VALUES(?,?)',(form,i)); stats['en_formkeys']+=1
