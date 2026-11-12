@@ -83,6 +83,10 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     texts.addView(text("последняя копия — "+(if(time==0L)"ещё не было" else java.text.SimpleDateFormat("d MMM, HH:mm",java.util.Locale("ru")).format(java.util.Date(time))),11.5f,muted2).apply{setPadding(0,d(2),0,0)})
     points.addView(texts,LinearLayout.LayoutParams(0,-2,1f));points.addView(Chevron(this),LinearLayout.LayoutParams(d(12),d(18)))
     content.addView(points,LinearLayout.LayoutParams(-1,d(52)).apply{topMargin=d(10)})
+    // where the reading tools come from
+    group("О приложении")
+    content.addView(text("Листай ${packageManager.getPackageInfo(packageName,0).versionName}",14f,fg).apply{setPadding(d(4),0,0,0)})
+    content.addView(text("Перевод: Google Переводчик (на устройстве). Словарь: Викисловарь, CC BY-SA 4.0. Фоновые звуки: свободная лицензия CC0.",12.5f,muted2).apply{setPadding(d(4),d(6),d(4),0);cssLeading(1.4f)})
     if(animate&&prefs.str("motion")!="reduced"){scroll.alpha=0f;scroll.translationY=d(18).toFloat();scroll.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withLayer().start()}
 }
 

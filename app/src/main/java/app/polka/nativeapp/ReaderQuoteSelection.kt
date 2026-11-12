@@ -104,9 +104,9 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         dragLine=line;return (reader.pageBase()+JustifiedGeometry.offset(reader.body,l,line,px-reader.body.paddingLeft).coerceIn(0,reader.body.length())).coerceAtMost(reader.pageLimit())}
     private var appear=1f
     private var settling=false;private var settleColor=0;private var settleStart=0;private var settleEnd=0;private var settle:android.animation.ValueAnimator?=null
-    private lateinit var primary:TextView
-    private lateinit var third:TextView
-    private val strip=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(4),a.d(2),a.d(4),a.d(2));elevation=a.d(8).toFloat();a.controlSurface(this,22f,sheet=true);isClickable=true}
+    private lateinit var primary:LineIcon
+    private lateinit var third:LineIcon
+    private val strip=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(6),a.d(2),a.d(6),a.d(2));elevation=a.d(8).toFloat();a.controlSurface(this,26f,sheet=true);isClickable=true}
     private val dots=mutableListOf<QuoteDot>()
     private val dotRow=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(4),0,a.d(4),0)}
     private val dotScroll=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;isHorizontalFadingEdgeEnabled=true;setFadingEdgeLength(a.d(18));addView(dotRow)}
@@ -135,11 +135,14 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private val pageTimer=Runnable { val dir=edge;edge=0;if(active&&dragging&&!edgeLocked&&dir!=0){edgeLocked=true;menu.visibility=INVISIBLE;reader.turnWithSelection(dir){ok->edgeLocked=false;if(ok){val full=reader.selectionFullText();var boundary=if(dir>0)reader.pageBase() else (reader.pageLimit()-1).coerceAtLeast(0);if(dir<0)while(boundary>reader.pageBase()&&full[boundary].isWhitespace())boundary--;atStart=range.move(full,boundary,atStart)}else{Notice.short(a,Notice.Kind.INFO,"Выделение ограничено главой")};invalidate();showMenu();if(dragging){x=if(dir>0)reader.body.paddingLeft+a.d(8).toFloat()else width-reader.body.paddingRight-a.d(8).toFloat();y=if(dir>0)reader.body.paddingTop+a.d(12).toFloat()else min(height-a.d(60).toFloat(),reader.body.height.toFloat());}}} }
     init {
         setWillNotDraw(false);clipChildren=false;visibility=GONE;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES
-        fun action(label:String,fn:()->Unit):TextView{val v=a.text(label,14f,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(44);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(a.d(4),0,a.d(4),0);pressable(this);setOnClickListener{fn()}};menu.addView(v,LinearLayout.LayoutParams(0,a.d(44),1f));return v}
-        primary=action("Цитата"){quoteAction()}
-        action("Копировать"){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата",range.text(reader.selectionFullText())));clear()}
-        third=action("Заметка"){thirdAction()}
-        menu.addView(IconView(a,"x",a.muted).apply{contentDescription="Убрать выделение";isClickable=true;setPadding(a.d(12),a.d(12),a.d(12),a.d(12));setOnClickListener{clear()};pressable(this)},LinearLayout.LayoutParams(a.d(44),a.d(44)));addView(menu,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
+        // five icons, no words (approved): quote, note, translate, dictionary, copy
+        fun action(kind:String,desc:String,fn:()->Unit):LineIcon{val v=LineIcon(a,kind,a.fg).apply{contentDescription=desc;isClickable=true;pressable(this);setOnClickListener{fn()}};menu.addView(v,LinearLayout.LayoutParams(a.d(52),a.d(48)));return v}
+        primary=action("quote","Цитата"){quoteAction()}
+        third=action("note","Заметка"){thirdAction()}
+        action("translate","Перевод"){val text=range.text(reader.selectionFullText());clear();LookupSheet(a,reader.backgroundColor,text){reader.addNote(it)}.translation()}
+        action("dictionary","Словарь"){val text=range.text(reader.selectionFullText());clear();LookupSheet(a,reader.backgroundColor,text){reader.addNote(it)}.dictionary()}
+        action("copy","Копировать"){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата",range.text(reader.selectionFullText())));clear()}
+        addView(menu,LayoutParams(-2,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL))
         // the colour strip: shown right after a quote is saved (or from «Цвет» on a saved one), in the menu's place
         // the colours (with «свой цвет» last) scroll on their own; «Готово» stays pinned at the right
         strip.addView(dotScroll,LinearLayout.LayoutParams(0,a.d(44),1f));rebuildDots()
@@ -213,9 +216,9 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     }
     /** The menu pops in next to the selection and names what the first action will do. */
     private fun showMenu(){if(!active||dragging||edgeLocked)return;val saved=reader.quoteOverlapping(range.start,range.end);hideStrip()
-        primary.text=if(saved!=null)"● Цвет" else "Цитата";third.text=if(saved!=null)"Убрать" else "Заметка"
-        third.setTextColor(if(saved!=null)0xffff8a7a.toInt() else a.fg)
-        if(saved!=null){val sp=android.text.SpannableString("● Цвет");sp.setSpan(android.text.style.ForegroundColorSpan((0xff shl 24) or QuoteColors.rgb(saved.first.optString("color"))),0,1,0);primary.text=sp}
+        // a saved quote: its colour (to change it) and a bin (to remove it) instead of «quote» and «note»
+        if(saved!=null){primary.set("colordot",a.fg);primary.dot=(0xff shl 24) or QuoteColors.rgb(saved.first.optString("color"));primary.contentDescription="Цвет цитаты";third.set("trash",0xffff8a7a.toInt());third.contentDescription="Убрать цитату"}
+        else{primary.set("quote",a.fg);primary.contentDescription="Цитата";third.set("note",a.fg);third.contentDescription="Заметка"}
         val wasHidden=menu.visibility!=VISIBLE;positionMenu()
         if(wasHidden&&!reduced)popIn(menu) else{menu.alpha=1f;menu.scaleX=1f;menu.scaleY=1f}}
     private val glide=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
