@@ -39,11 +39,7 @@ internal object Ambience {
 
     fun volume(a:MainActivity)=a.prefs.optDouble("ambVol",.6).toFloat().coerceIn(0f,1f)
     fun setVolume(a:MainActivity,v:Float,save:Boolean){a.prefs.put("ambVol",v.toDouble());if(save)a.savePreferences();apply(a)}
-    /** Lowered while a voice reads the book aloud. */
-    private var duckGain=1f;private var ducker:ValueAnimator?=null
-    fun duck(a:MainActivity,on:Boolean){val to=if(on).35f else 1f;if(duckGain==to)return;ducker?.cancel()
-        ducker=ValueAnimator.ofFloat(duckGain,to).apply{duration=500;addUpdateListener{duckGain=it.animatedValue as Float;apply(a)};start()}}
-    private fun apply(a:MainActivity){val v=volume(a)*gain*duckGain;try{cur?.setVolume(v,v);queued?.setVolume(v,v)}catch(_:Exception){}}
+    private fun apply(a:MainActivity){val v=volume(a)*gain;try{cur?.setVolume(v,v);queued?.setVolume(v,v)}catch(_:Exception){}}
 
     fun color(a:MainActivity,k:String?)=builtIn.firstOrNull{it.key==k}?.glow?:MINE_COLOR
     fun name(a:MainActivity,k:String?)=builtIn.firstOrNull{it.key==k}?.name?:mine(a).firstOrNull{CUSTOM+it.str("id")==k}?.str("name")?:""

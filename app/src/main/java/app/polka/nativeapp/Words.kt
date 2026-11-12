@@ -21,9 +21,6 @@ internal class LearnMark(val id:String):android.text.style.CharacterStyle(){over
 /** Reading text view that draws a thin dotted underline under words being learned. */
 internal open class MarkedTextView(c:Context):TextView(c){
     private val dot=Paint(Paint.ANTI_ALIAS_FLAG)
-    /** Called whenever the shown text is replaced (a new page), so read-aloud colouring can be put back. */
-    var onNewText:(()->Unit)?=null
-    override fun onTextChanged(text:CharSequence?,start:Int,before:Int,after:Int){super.onTextChanged(text,start,before,after);onNewText?.invoke()}
     override fun onDraw(canvas:Canvas){
         super.onDraw(canvas)
         val l=layout?:return;val t=text as? Spanned?:return
