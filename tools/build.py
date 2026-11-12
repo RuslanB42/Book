@@ -1,4 +1,5 @@
 import gzip, json, sqlite3, re, sys, os, collections
+from wordfreq import zipf_frequency as zf
 try:
     import orjson; loads=orjson.loads
 except Exception: loads=json.loads
@@ -10,7 +11,8 @@ db.execute('CREATE TABLE e(id INTEGER PRIMARY KEY, lang TEXT, word TEXT, data TE
 db.execute('CREATE TABLE k(key TEXT, id INTEGER)')
 stats=collections.Counter()
 POSRU={'noun':'существительное','verb':'глагол','adj':'прилагательное','adv':'наречие','pron':'местоимение','prep':'предлог','conj':'союз','particle':'частица','intj':'междометие','num':'числительное','phrase':'фраза','name':'имя собственное','det':'определитель','participle':'причастие','predicative':'предикатив','prefix':'приставка','suffix':'суффикс','abbrev':'сокращение','proverb':'пословица','idiom':'идиома','article':'артикль','contraction':'сокращение','postp':'послелог'}
-def senses_of(o,nlimit=4,glen=200,elen=140):
+OLD=re.compile('[ſꝛ]|\b(thee|thou|hath|doth)\b',re.I)
+def senses_of(o,nlimit=3,glen=170,elen=110):
     out=[]
     for s in o.get('senses',[]):
         if s.get('form_of') or s.get('alt_of'): continue
@@ -19,9 +21,11 @@ def senses_of(o,nlimit=4,glen=200,elen=140):
         t=clip(g[-1],glen)
         if not t or t.startswith('Отсутствует пример'): continue
         ex=''
-        for e in s.get('examples',[]) or []:
+        if len(out)<2:
+          for e in s.get('examples',[]) or []:
             tx=e.get('text') or ''
-            if 8<len(tx)<=elen*2: ex=clip(tx,elen); break
+            if e.get('type')=='quotation' or e.get('ref') or OLD.search(tx): continue
+            if 8<len(tx)<=elen: ex=clip(tx,elen); break
         tags=[x for x in (s.get('raw_tags') or []) if len(x)<24][:2]
         out.append([t,ex,', '.join(tags)])
         if len(out)>=nlimit: break
@@ -52,6 +56,7 @@ with gzip.open('src/ru-ru.jsonl.gz','rb') as f:
         if o.get('lang_code')!='ru': continue
         w=o.get('word','')
         if not w or len(w)>40: continue
+        if ' ' not in w and zf(key(w),'ru')<1.2: continue
         ss=senses_of(o)
         if not ss: continue
         syn=[s.get('word') for s in (o.get('synonyms') or []) if s.get('word')][:5]
@@ -63,8 +68,9 @@ with gzip.open('src/ru-ru.jsonl.gz','rb') as f:
 for k,ids in rukeys.items():
     for i in ids: db.execute('INSERT INTO k VALUES(?,?)',(k,i))
 for form,lemmas in ruforms.items():
-    if form in rukeys: continue
+    if zf(form,'ru')<=0: continue
     for l in lemmas:
+        if form==l: continue
         for i in rukeys.get(l,[]): db.execute('INSERT INTO k VALUES(?,?)',(form,i)); stats['ru_formkeys']+=1
 # 3. English
 enkeys={}; enforms=collections.defaultdict(set)
@@ -83,14 +89,17 @@ with gzip.open('src/en.jsonl.gz','rb') as f:
             ff=fm.get('form',''); tg=fm.get('tags') or []
             if ff and 'table-tags' not in tg and len(ff)<40: enforms[key(ff)].add(k)
         if o.get('pos')=='name' and not w[:1].islower(): continue
-        ss=senses_of(o,3,180,120)
+        if zf(w.lower(),'en')<1.8: continue
+        ss=senses_of(o,3,170,110)
         if not ss: continue
         tr=[]
-        for t in o.get('translations',[]) or []:
-            if t.get('lang_code')=='ru' or t.get('code')=='ru':
+        pool=list(o.get('translations',[]) or [])
+        for s_ in o.get('senses',[]) or []: pool+=s_.get('translations',[]) or []
+        for t in pool:
+            if t.get('lang_code')=='ru' or t.get('code')=='ru' or t.get('lang')=='Russian':
                 ww=t.get('word') or ''
-                if ww and ww not in tr: tr.append(ww)
-            if len(tr)>=5: break
+                if ww and ww not in tr and len(ww)<40: tr.append(ww)
+            if len(tr)>=4: break
         ipa=''
         for s in o.get('sounds',[]) or []:
             if s.get('ipa'): ipa=s['ipa']; break
@@ -102,13 +111,15 @@ with gzip.open('src/en.jsonl.gz','rb') as f:
 for k,ids in enkeys.items():
     for i in ids: db.execute('INSERT INTO k VALUES(?,?)',(k,i))
 for form,lemmas in enforms.items():
-    if form in enkeys: continue
+    if zf(form,'en')<=0: continue
     for l in lemmas:
+        if form==l: continue
         for i in enkeys.get(l,[]): db.execute('INSERT INTO k VALUES(?,?)',(form,i)); stats['en_formkeys']+=1
+db.execute('CREATE TABLE k2 AS SELECT DISTINCT key,id FROM k');db.execute('DROP TABLE k');db.execute('ALTER TABLE k2 RENAME TO k')
 db.execute('CREATE INDEX ki ON k(key)'); db.commit(); db.execute('VACUUM'); db.close()
 print(dict(stats))
 # samples
 db=sqlite3.connect('out/dict.db')
-for w in ['предостерегая','предостерегать','посмотрела','ёлка','nuzzled','striking','glass','ran','книга']:
+for w in ['ran','went','better','предостерегая','предостерегать','посмотрела','ёлка','nuzzled','striking','glass','ran','книга']:
     r=db.execute('SELECT e.data FROM k JOIN e ON e.id=k.id WHERE k.key=? LIMIT 2',(key(w),)).fetchall()
     print(w,'→',[x[0][:220] for x in r])

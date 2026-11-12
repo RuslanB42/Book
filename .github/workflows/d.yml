@@ -10,7 +10,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           mkdir -p src out
-          pip install orjson >/dev/null
+          pip install orjson wordfreq >/dev/null
           curl -sSL --retry 3 -o src/ru-ru.jsonl.gz https://kaikki.org/dictionary/downloads/ru/ru-extract.jsonl.gz &
           curl -sSL --retry 3 -o src/ru-en.jsonl.gz https://kaikki.org/dictionary/Russian/kaikki.org-dictionary-Russian.jsonl.gz &
           curl -sSL --retry 3 -o src/en.jsonl.gz https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl.gz &
