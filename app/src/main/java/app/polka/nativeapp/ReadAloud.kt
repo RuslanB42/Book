@@ -156,7 +156,7 @@ internal class ReadAloud(private val a:MainActivity,private val r:NativeReader){
     fun prev(){val cur=sentences.getOrNull(sIndex)?:return
         // back to the start of this sentence; a quick second tap goes to the one before
         val i=if(pos-cur.first<12&&sIndex>0)sIndex-1 else sIndex;speakFrom(sentences[i].first)}
-    fun setRate(v:Float){rate=v;tts?.setSpeechRate(v);if(playing){val at=if(lastWordStart>=0)lastWordStart else sentences.getOrNull(sIndex)?.first?:0;speakFrom(at)};syncPlayer();sheet?.refresh()}
+    fun changeRate(v:Float){rate=v;tts?.setSpeechRate(v);if(playing){val at=if(lastWordStart>=0)lastWordStart else sentences.getOrNull(sIndex)?.first?:0;speakFrom(at)};syncPlayer();sheet?.refresh()}
     fun setSleep(mode:String){sleepMode=mode;sleepAt=when(mode){"15"->System.currentTimeMillis()+15*60_000L;"30"->System.currentTimeMillis()+30*60_000L;else->0L};sheet?.refresh()}
     fun stop(){
         playing=false;tts?.stop();tts?.shutdown();tts=null;ttsReady=false;utter.clear()
@@ -245,7 +245,7 @@ internal class ReadAloud(private val a:MainActivity,private val r:NativeReader){
         playerSub=a.text("",12.5f,0xff8b8b91.toInt()).apply{maxLines=1};mid.addView(playerSub)
         pill.addView(mid,LinearLayout.LayoutParams(0,-2,1f))
         speedChip=a.text("",13f,fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(11),0,a.d(11),0);background=a.shape(if(dark)0x12ffffff else 0x0d000000,17);isClickable=true;a.press(this)
-            setOnClickListener{val i=rates.indexOfFirst{abs(it-rate)<.01f};setRate(rates[(i+1)%rates.size])}}
+            setOnClickListener{val i=rates.indexOfFirst{abs(it-rate)<.01f};changeRate(rates[(i+1)%rates.size])}}
         pill.addView(speedChip,LinearLayout.LayoutParams(-2,a.d(34)).apply{marginEnd=a.d(2)})
         pill.addView(IconView(a,"x",if(dark)0xffa9a9ae.toInt() else 0xff6e6e73.toInt()).apply{isClickable=true;contentDescription="Остановить чтение";setOnClickListener{stop()}},LinearLayout.LayoutParams(a.d(44),a.d(44)))
         r.view.addView(pill,FrameLayout.LayoutParams(-1,a.d(64),Gravity.BOTTOM).apply{leftMargin=a.d(16);rightMargin=a.d(16);bottomMargin=a.d(24)})
@@ -307,7 +307,7 @@ internal class ReadAloudSheet(private val a:MainActivity,private val ra:ReadAlou
         ctl.addView(MediaGlyph(a,"next",a.fg).apply{size=26f;isClickable=true;contentDescription="Предложение вперёд";a.press(this);setOnClickListener{ra.next()}},LinearLayout.LayoutParams(a.d(56),a.d(56)))
         body.addView(ctl,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})
         body.addView(label("Скорость"),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18);bottomMargin=a.d(8)})
-        val sp=a.line();ReadAloud.rates.forEach{v->sp.addView(chip((if(v==v.roundToInt().toFloat())"${v.roundToInt()}" else "%.1f".format(java.util.Locale("ru"),v))+"×",abs(v-ra.rate)<.01f){ra.setRate(v)},LinearLayout.LayoutParams(-2,a.d(36)).apply{marginEnd=a.d(6)})};body.addView(sp)
+        val sp=a.line();ReadAloud.rates.forEach{v->sp.addView(chip((if(v==v.roundToInt().toFloat())"${v.roundToInt()}" else "%.1f".format(java.util.Locale("ru"),v))+"×",abs(v-ra.rate)<.01f){ra.changeRate(v)},LinearLayout.LayoutParams(-2,a.d(36)).apply{marginEnd=a.d(6)})};body.addView(sp)
         body.addView(label("Таймер сна"),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18);bottomMargin=a.d(8)})
         val sl=a.line();listOf("off" to "Выкл","15" to "15 мин","30" to "30 мин","chapter" to "Конец главы").forEach{(k,l)->sl.addView(chip(l,ra.sleepMode==k){ra.setSleep(k)},LinearLayout.LayoutParams(-2,a.d(36)).apply{marginEnd=a.d(6)})}
         body.addView(HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(sl)})
