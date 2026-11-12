@@ -256,7 +256,9 @@ internal class ReadAloud(private val a:MainActivity,private val r:NativeReader){
         val t=prepareText()?:return
         val c=ink();val cRest=mix(c,withAlpha(c,.4f),dim);val cUp=withAlpha(c,.66f);val cRead=withAlpha(c,1f)
         var changed=false
-        rest?.let{if(it.color!=cRest){it.color=cRest;changed=true}}
+        // the reader's text is selectable, so it is drawn from cached blocks: every colour change is re-announced
+        // on the text (setSpan again), which refreshes exactly the blocks it touches
+        rest?.let{if(it.color!=cRest){it.color=cRest;t.setSpan(it,0,t.length,Spanned.SPAN_INCLUSIVE_INCLUSIVE);changed=true}}
         val l=body.layout
         if(l!=null&&r.chapter==chapterIdx&&sentences.isNotEmpty()){
             if(spannedLayout!==l){dropLines();spannedLayout=l}
@@ -278,7 +280,7 @@ internal class ReadAloud(private val a:MainActivity,private val r:NativeReader){
                         val x=x0+(x1-x0)*f
                         col=mix(cRest,cRead,v)
                         sh=LinearGradient(x-soft,0f,x+soft*.6f,0f,mix(cRest,cRead,v),mix(cRest,cUp,v),Shader.TileMode.CLAMP)}
-                    if(sp.color!=col||sh!=null||sp.shader!=null){sp.color=col;sp.shader=sh;changed=true}}}}
+                    if(sp.color!=col||sh!=null||sp.shader!=null){sp.color=col;sp.shader=sh;val st=t.getSpanStart(sp);val en=t.getSpanEnd(sp);if(st>=0&&en>st)t.setSpan(sp,st,en,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);changed=true}}}}
         if(changed)r.body.invalidate()
     }
 
