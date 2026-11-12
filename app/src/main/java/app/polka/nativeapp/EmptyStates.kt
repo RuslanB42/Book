@@ -10,7 +10,7 @@ import androidx.core.graphics.PathParser
  *  (stroked and softly filled), inside a soft disc with a faint glow of the same colour behind it. */
 internal class EmptyArt(private val a:MainActivity,private val kind:String,private val discDp:Int):View(a){
     private class Part(val d:String,val accent:Boolean=false,val fill:Int=0,val dashed:Boolean=false,val width:Float=2f)
-    private val accent=when(kind){"books","bookmark"->0xfff9601f.toInt();"search"->0xff4cb0e5.toInt();"shelf"->0xff9d98f2.toInt();"open"->0xff37c080.toInt();else->0xfff0a742.toInt()}
+    private val accent=when(kind){"books","bookmark"->0xfff9601f.toInt();"search"->0xff4cb0e5.toInt();"shelf"->0xff9d98f2.toInt();"open"->0xff37c080.toInt();"words"->0xff4cb0e5.toInt();else->0xfff0a742.toInt()}
     private val parts:List<Part> = when(kind){
         "books"->listOf(Part("M8 50h48"),Part("M14 22h6a2 2 0 0 1 2 2v26h-10V24a2 2 0 0 1 2-2z"),Part("M44 22h6a2 2 0 0 1 2 2v26h-10V24a2 2 0 0 1 2-2z"),Part("M15.5 28h3M45.5 28h3"),
             Part("M29 16h6a2 2 0 0 1 2 2v32h-10V18a2 2 0 0 1 2-2z",true,0x2e),Part("M30.5 22h3",true))
@@ -21,6 +21,7 @@ internal class EmptyArt(private val a:MainActivity,private val kind:String,priva
         "open"->listOf(Part("M32 18c-6-4-13-5-21-4v26c8-1 15 0 21 4 6-4 13-5 21-4V14c-8-1-15 0-21 4z"),Part("M32 18v26"),
             Part("M16 22c4-.5 8 0 11 1.5M16 29c4-.5 8 0 11 1.5M37 23.5c3-1.5 7-2 11-1.5M37 30.5c3-1.5 7-2 11-1.5"),Part("M14 53h36"),
             Part("M14 53h13",true,width=3.2f),Part("M24 53a3 3 0 1 0 6 0a3 3 0 1 0-6 0z",true,0xff))
+        "words"->listOf(Part("M15 19v26a5 5 0 0 0 5 5h18"),Part("M27 10h18a5 5 0 0 1 5 5v24a5 5 0 0 1-5 5H27a5 5 0 0 1-5-5V15a5 5 0 0 1 5-5z",true,0x2e),Part("M30 36l6-16 6 16M32.2 30.5h7.6",true))
         "quote"->listOf(Part("M14 14h36a6 6 0 0 1 6 6v18a6 6 0 0 1-6 6H28l-9 7v-7h-5a6 6 0 0 1-6-6V20a6 6 0 0 1 6-6z"),
             Part("M21.4 31a3.6 3.6 0 1 0 7.2 0a3.6 3.6 0 1 0-7.2 0zM33.4 31a3.6 3.6 0 1 0 7.2 0a3.6 3.6 0 1 0-7.2 0z",true,0xff),Part("M21.4 31c0-5 1.6-8.2 5.4-10M33.4 31c0-5 1.6-8.2 5.4-10",true))
         "note"->listOf(Part("M17 8h22a4 4 0 0 1 4 4v32a4 4 0 0 1-4 4H17a4 4 0 0 1-4-4V12a4 4 0 0 1 4-4z"),Part("M19 17h18M19 24h18M19 31h10"),

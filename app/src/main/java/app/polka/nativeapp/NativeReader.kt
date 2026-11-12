@@ -24,7 +24,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private val folio=TextView(a)
     private val bookmarkIcon by lazy{BookmarkIcon(a,a.fg)}
     private val ribbon by lazy{BookmarkRibbon(a)}
-    val body=TextView(a)
+    val body:TextView=MarkedTextView(a)
     /** Custom letter/word spacing with justification: lines are stretched by [SpacedJustify] instead of by Android. */
     private var stretchLines=false;private var stretchedLayout:android.text.Layout?=null
     /** Stretches the shown page's lines right away (when its layout exists), so no frame or page picture is ever taken unstretched. */
@@ -181,7 +181,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             override fun onSingleTapConfirmed(e:MotionEvent):Boolean {
                 if(touchHeld||quoteSelection.active)return true
                 if(openPageLink(e.x,e.y))return true
-                if(e.x in body.width*.25f..body.width*.75f&&!isTurning()){quoteAt(selectionOffset(e.x,e.y))?.let{quoteSelection.select(it.second);return true}}
+                if(e.x in body.width*.25f..body.width*.75f&&!isTurning()){val off=selectionOffset(e.x,e.y);if(openWordAt(off))return true;quoteAt(off)?.let{quoteSelection.select(it.second);return true}}
                 if(e.x<body.width*.25f)turn(-1)else if(e.x>body.width*.75f)turn(1)else toggleChrome();return true
             }
         }
@@ -234,7 +234,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val width=(scroll.width-body.paddingLeft-body.paddingRight).takeIf{it>0}?: (a.resources.displayMetrics.widthPixels-a.d(48))
         val height=(scroll.height-body.paddingTop-body.paddingBottom-a.d(6)).takeIf{it>a.d(100)}?: (a.resources.displayMetrics.heightPixels-a.d(230))
         val html=chapterHtml(chapter);val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val paint=android.text.TextPaint(body.paint);val justify=body.justificationMode;val trim=trimEmpty();val hyph=hyphenFreq();val gapScale=WordGap.scale(paint,a.prefs.optDouble("ws",0.0).toFloat())
-        val quoteSnapshot=book.optJSONArray("quotes")?.toString()?:"[]";val key="$chapter:$width:$height:$size:$ink:$leading:${a.prefs.str("font")}:$justify:${paged()}:${html.hashCode()}:${quoteSnapshot.hashCode()}:${typoKey()}"
+        val quoteSnapshot=book.optJSONArray("quotes")?.toString()?:"[]";val marks=Words.index(a);val key="${marks.hashCode()}:$chapter:$width:$height:$size:$ink:$leading:${a.prefs.str("font")}:$justify:${paged()}:${html.hashCode()}:${quoteSnapshot.hashCode()}:${typoKey()}"
         if(key==requestKey && preparing)return
         if(key==committedKey && loadedChapter==chapter){val offset=pendingAnchor?.let{chapterAnchors[it]} ?: pendingOffset;pendingAnchor=null;pendingOffset=null;pendingFraction=null;if(offset!=null)jumpOffset(offset);return}
         if(!preparing && loadedChapter==chapter && pendingOffset==null && pendingFraction==null)pendingOffset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0
@@ -252,6 +252,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             val rendered=ReadingText(a,size,width,maxImage,images,ink,leading,trimEmpty=trim).render(html);val rich=rendered.text
             WordGap.apply(rich,gapScale)
             quotes.filter{it.optInt("ch")==targetChapter}.forEach{q->val raw=q.str("rawText",q.str("text"));val range=TextAnchors.locate(rich.toString(),raw,q.optInt("start"));if(range!=null)rich.setSpan(QuoteInk(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
+            Words.mark(rich,marks)
             rendered
         },paint,width,height,justify,hyph,early)},failed={if(generation==layoutGeneration){preparing=false;view.alpha=1f;reflowAfterLayout()}},done={result->
             if(!disposed && generation==layoutGeneration && chapter==targetChapter){
@@ -417,6 +418,13 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     fun paintPage() {body.text=pageText(chapterRich,pageStarts,pageIndex);stretchNow();scroll.scrollTo(0,0);updateFooter();positionSelection();quoteSelection.invalidate();warmPages();warmSnapshot()}
     internal fun selectionFullText()=chapterRich
+    /** A tap on an underlined word opens its dictionary card. */
+    private fun openWordAt(offset:Int):Boolean{val t=chapterRich as? android.text.Spanned?:return false;if(t.isEmpty())return false
+        val m=t.getSpans((offset-1).coerceAtLeast(0),(offset+1).coerceAtMost(t.length),LearnMark::class.java).firstOrNull{t.getSpanStart(it)<=offset&&offset<t.getSpanEnd(it)}?:return false
+        val s=t.getSpanStart(m);val e=t.getSpanEnd(m)
+        LookupSheet(a,backgroundColor,t.subSequence(s,e).toString(),WordSource(Words.sentence(t,s,e),book.str("id"),book.str("title"))){addNote(it)}.dictionary();return true}
+    /** Words were added or removed: lay the chapter out again with the new underlines. */
+    fun refreshWordMarks(){if(disposed)return;previewPages.clear();paintChapter()}
     internal fun pageLimit()=pageStarts.getOrElse(pageIndex+1){chapterRich.length}
     internal fun selectionOffset(x:Float,y:Float):Int {val layout=body.layout?:return pageBase();val line=layout.getLineForVertical((y-body.paddingTop).toInt());return (pageBase()+JustifiedGeometry.offset(body,layout,line,x-body.paddingLeft).coerceIn(0,body.length())).coerceAtMost(pageLimit())}
     private fun positionSelection(){if(quoteSelection.parent!=view)return;quoteSelection.layoutParams=(quoteSelection.layoutParams as FrameLayout.LayoutParams).apply{width=scroll.width; height=scroll.height;leftMargin=scroll.left-view.paddingLeft;topMargin=scroll.top-view.paddingTop}}
@@ -443,17 +451,17 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     private fun chapterKey(index:Int):String {
         val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(1);val height=(scroll.height-body.paddingTop-body.paddingBottom-a.d(6)).coerceAtLeast(1)
-        return "$index:${view.width}:${view.height}:${scroll.left}:${scroll.top}:$width:$height:${body.textSize}:${body.currentTextColor}:${lineHeight()}:${a.prefs.str("font")}:${body.justificationMode}:${paged()}:${chapterHtml(index).hashCode()}:${(book.optJSONArray("quotes")?.toString()?:"[]").hashCode()}:${typoKey()}"
+        return "${Words.index(a).hashCode()}:$index:${view.width}:${view.height}:${scroll.left}:${scroll.top}:$width:$height:${body.textSize}:${body.currentTextColor}:${lineHeight()}:${a.prefs.str("font")}:${body.justificationMode}:${paged()}:${chapterHtml(index).hashCode()}:${(book.optJSONArray("quotes")?.toString()?:"[]").hashCode()}:${typoKey()}"
     }
     private fun preparePreview(index:Int,done:(ReaderLayoutEngine.PageData,String)->Unit={_,_->}){
         if(index !in 0 until chapters.length()||disposed)return
         val key=chapterKey(index);previewPages[index]?.takeIf{it.first==key}?.let{done(it.second,key);return}
         val generation=previewGeneration;val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(1);val height=(scroll.height-body.paddingTop-body.paddingBottom-a.d(6)).coerceAtLeast(1)
-        val paint=android.text.TextPaint(body.paint);val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val justify=body.justificationMode;val html=chapterHtml(index);val quotes=book.optJSONArray("quotes")?.toString()?:"[]";val trim=trimEmpty();val hyph=hyphenFreq();val previewGap=WordGap.scale(paint,a.prefs.optDouble("ws",0.0).toFloat())
+        val paint=android.text.TextPaint(body.paint);val size=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val justify=body.justificationMode;val html=chapterHtml(index);val quotes=book.optJSONArray("quotes")?.toString()?:"[]";val marks=Words.index(a);val trim=trimEmpty();val hyph=hyphenFreq();val previewGap=WordGap.scale(paint,a.prefs.optDouble("ws",0.0).toFloat())
         // Warm jobs can share the engine cache; completion is keyed by geometry,
         // theme, chapter content and quote revision, never by page index alone.
         previewJobs[index]=a.compute({previewEngine.prepare(key,{
-            ReadingText(a,size,width,(height-size*3).toInt().coerceAtLeast(a.d(80)),images,ink,leading,trimEmpty=trim).render(html).also{WordGap.apply(it.text,previewGap)}.also{rendered->JSONArray(quotes).objects().filter{it.optInt("ch")==index}.forEach{q->TextAnchors.locate(rendered.text.toString(),q.str("rawText",q.str("text")),q.optInt("start"))?.let{range->rendered.text.setSpan(QuoteInk(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}}}
+            ReadingText(a,size,width,(height-size*3).toInt().coerceAtLeast(a.d(80)),images,ink,leading,trimEmpty=trim).render(html).also{WordGap.apply(it.text,previewGap)}.also{rendered->JSONArray(quotes).objects().filter{it.optInt("ch")==index}.forEach{q->TextAnchors.locate(rendered.text.toString(),q.str("rawText",q.str("text")),q.optInt("start"))?.let{range->rendered.text.setSpan(QuoteInk(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}};Words.mark(rendered.text,marks)}
         },paint,width,height,justify,hyph)},failed={previewJobs.remove(index);if(isTurning())stopPageMotion()},done={data->previewJobs.remove(index);if(!disposed&&generation==previewGeneration&&chapterKey(index)==key){previewPages[index]=key to data;previewPages.keys.filter{abs(it-chapter)>1}.toList().forEach{previewPages.remove(it)};done(data,key)}})
     }
     private fun warmPages(){if(!paged()||scroll.width<=0)return;if(pageIndex==0&&chapter>0&&!previewJobs.containsKey(chapter-1))preparePreview(chapter-1);if(pageIndex==pageStarts.lastIndex&&chapter<chapters.length()-1&&!previewJobs.containsKey(chapter+1))preparePreview(chapter+1)}
@@ -494,7 +502,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         canvas.save();canvas.translate(scroll.left.toFloat(),scroll.top.toFloat());canvas.clipRect(0,0,scroll.width,scroll.height)
         body.isPressed=false;scroll.isPressed=false;body.cancelLongPress()
         if(text==null){stretchNow();scroll.draw(canvas)}else{
-            val preview=TextView(a);preview.paint.set(body.paint);preview.setTextColor(body.currentTextColor);preview.typeface=body.typeface;preview.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,body.textSize);preview.includeFontPadding=body.includeFontPadding;preview.setLineSpacing(0f,1f);preview.breakStrategy=body.breakStrategy;preview.hyphenationFrequency=body.hyphenationFrequency;preview.justificationMode=body.justificationMode;preview.textDirection=body.textDirection;preview.setPadding(body.paddingLeft,body.paddingTop,body.paddingRight,body.paddingBottom);preview.layoutParams=ViewGroup.LayoutParams(scroll.width,ViewGroup.LayoutParams.WRAP_CONTENT);if(stretchLines)preview.setTextIsSelectable(true);preview.setText(text,TextView.BufferType.SPANNABLE)
+            val preview=MarkedTextView(a);preview.paint.set(body.paint);preview.setTextColor(body.currentTextColor);preview.typeface=body.typeface;preview.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,body.textSize);preview.includeFontPadding=body.includeFontPadding;preview.setLineSpacing(0f,1f);preview.breakStrategy=body.breakStrategy;preview.hyphenationFrequency=body.hyphenationFrequency;preview.justificationMode=body.justificationMode;preview.textDirection=body.textDirection;preview.setPadding(body.paddingLeft,body.paddingTop,body.paddingRight,body.paddingBottom);preview.layoutParams=ViewGroup.LayoutParams(scroll.width,ViewGroup.LayoutParams.WRAP_CONTENT);if(stretchLines)preview.setTextIsSelectable(true);preview.setText(text,TextView.BufferType.SPANNABLE)
             preview.measure(View.MeasureSpec.makeMeasureSpec(scroll.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));preview.layout(0,0,scroll.width,preview.measuredHeight);if(stretchLines)SpacedJustify.apply(preview);preview.draw(canvas)
         };canvas.restore();drawFolio(canvas,label);if(marked&&paged())drawRibbon(canvas);return b
     }

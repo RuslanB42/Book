@@ -280,13 +280,13 @@ internal class LiftedPill(private val a:MainActivity,private val fill:Int):andro
 class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
     private val pill=View(a)
     private val buttons=mutableListOf<IconView>()
-    private val keys=listOf("home","shelves","quotes")
+    private val keys=listOf("home","shelves","quotes","words")
     internal val indicatorOffset get()=spring.value
     internal fun sampleIndicator(ms:Long)=spring.sample(ms)
     private var choose:((String)->Unit)?=null
     private var dragStart=0f;private var dragOrigin=0f;private var dragging=false
     override fun onInterceptTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){MotionEvent.ACTION_DOWN->{dragStart=e.x;dragOrigin=spring.value;dragging=false};MotionEvent.ACTION_MOVE->if(kotlin.math.abs(e.x-dragStart)>a.d(8)){dragging=true;parent?.requestDisallowInterceptTouchEvent(true);return true}};return false}
-    override fun onTouchEvent(e:MotionEvent):Boolean{if(!dragging)return super.onTouchEvent(e);when(e.actionMasked){MotionEvent.ACTION_MOVE->{spring.snap((dragOrigin+e.x-dragStart).coerceIn(0f,a.d(112).toFloat()));};MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{if(e.actionMasked==MotionEvent.ACTION_UP)spring.snap((dragOrigin+e.x-dragStart).coerceIn(0f,a.d(112).toFloat()));val index=if(e.actionMasked==MotionEvent.ACTION_CANCEL)selected else kotlin.math.round(spring.value/a.d(56)).toInt().coerceIn(0,keys.size-1);dragging=false;spring.to(a.d(index*56).toFloat());if(index!=selected)choose?.invoke(keys[index])}};return true}
+    override fun onTouchEvent(e:MotionEvent):Boolean{if(!dragging)return super.onTouchEvent(e);when(e.actionMasked){MotionEvent.ACTION_MOVE->{spring.snap((dragOrigin+e.x-dragStart).coerceIn(0f,a.d((keys.size-1)*56).toFloat()));};MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{if(e.actionMasked==MotionEvent.ACTION_UP)spring.snap((dragOrigin+e.x-dragStart).coerceIn(0f,a.d((keys.size-1)*56).toFloat()));val index=if(e.actionMasked==MotionEvent.ACTION_CANCEL)selected else kotlin.math.round(spring.value/a.d(56)).toInt().coerceIn(0,keys.size-1);dragging=false;spring.to(a.d(index*56).toFloat());if(index!=selected)choose?.invoke(keys[index])}};return true}
     private var selected=-1
     private var theme:Boolean?=null
     private var material=OpaqueSurface(a,30f)
@@ -295,7 +295,7 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
         material.float=true;background=material;elevation=0f;clipChildren=false;clipToPadding=false
         addView(pill,LayoutParams(a.d(52),a.d(48)).apply { leftMargin=a.d(5); topMargin=a.d(5) })
         // The active tab's pill floats: a soft shadow under it; icons sit above it.
-        val row=a.line();keys.forEachIndexed { i,key->val button=IconView(a,key,a.muted).apply{contentDescription=listOf("Мои книги","Полки","Цитаты","Для вас")[i];isClickable=true;isFocusable=true;a.press(this)};buttons.add(button);row.addView(button,LinearLayout.LayoutParams(a.d(52),a.d(48)).apply{if(i>0)marginStart=a.d(4)}) };addView(row,LayoutParams(-2,a.d(48)).apply{leftMargin=a.d(5);topMargin=a.d(5)})
+        val row=a.line();keys.forEachIndexed { i,key->val button=IconView(a,key,a.muted).apply{contentDescription=listOf("Мои книги","Полки","Цитаты","Слова")[i];isClickable=true;isFocusable=true;a.press(this)};buttons.add(button);row.addView(button,LinearLayout.LayoutParams(a.d(52),a.d(48)).apply{if(i>0)marginStart=a.d(4)}) };addView(row,LayoutParams(-2,a.d(48)).apply{leftMargin=a.d(5);topMargin=a.d(5)})
     }
     fun bind(tab:String,onSelect:(String)->Unit) {
         choose=onSelect;

@@ -69,6 +69,10 @@ internal object Dictionary{
         finally{conn.disconnect();if(tmp.exists()&&cancel)tmp.delete()}}
     private fun open(c:Context):SQLiteDatabase?=synchronized(this){db?:if(ready(c))SQLiteDatabase.openDatabase(file(c).path,null,SQLiteDatabase.OPEN_READONLY).also{db=it} else null}
     fun key(w:String)=w.replace("́","").replace("̀","").lowercase(Locale.ROOT).replace('ё','е').trim()
+    /** Every form the dictionary knows for [word] in [lang] (as lookup keys), for underlining it in books. */
+    fun forms(c:Context,word:String,lang:String):List<String>{val d=open(c)?:return emptyList();val out=LinkedHashSet<String>()
+        d.rawQuery("SELECT DISTINCT k2.key FROM k k1 JOIN e ON e.id=k1.id JOIN k k2 ON k2.id=k1.id WHERE k1.key=? AND e.lang=? LIMIT 80",arrayOf(key(word),lang)).use{cur->while(cur.moveToNext())out.add(cur.getString(0))}
+        return out.filter{it.length>1}}
     /** Entries for a word as it stands in the text, in the language of its letters first. */
     fun lookup(c:Context,word:String):List<JSONObject>{val d=open(c)?:return emptyList()
         val clean=word.trim().trim{!it.isLetterOrDigit()&&it!='-'&&it!='\''}
@@ -102,7 +106,7 @@ internal object Translation{
 
 /** The card under the page for «Словарь» and «Перевод» (approved): word or languages on top, a hairline, the content,
  *  and two equal buttons «Копировать» and «В заметку». Pulled down or tapped outside, it leaves. */
-internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,private val selected:String,private val toNote:(String)->Unit){
+internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,private val selected:String,private val source:WordSource?=null,private val toNote:(String)->Unit){
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1f1f22.toInt()
     private val quiet get()=if(a.light)0x0f000000 else 0x0fffffff
@@ -148,13 +152,27 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
     private fun hairline(p:LinearLayout)=p.addView(View(a).apply{setBackgroundColor(if(a.light)0x14000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})
     private fun round(kind:String,desc:String,fn:()->Unit)=FrameLayout(a).apply{background=a.shape(quiet,20);isClickable=true;contentDescription=desc;a.press(this);setOnClickListener{fn()}
         addView(LineIcon(a,kind,a.fg).apply{size=20f},FrameLayout.LayoutParams(-1,-1))}
-    private fun actions(p:LinearLayout){
+    private fun actions(p:LinearLayout,learn:JSONObject?=null){
         val row=a.line().apply{gravity=Gravity.CENTER}
+        val three=learn!=null
         fun btn(kind:String,label:String,fn:()->Unit)=a.line().apply{gravity=Gravity.CENTER;background=a.shape(quiet,22);isClickable=true;a.press(this);setOnClickListener{fn()}
-            addView(LineIcon(a,kind,a.fg).apply{size=18f},LinearLayout.LayoutParams(a.d(20),a.d(20)));addView(a.text(label,14f,a.fg,true),LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(8)})}
+            addView(LineIcon(a,kind,a.fg).apply{size=18f;tag="icon"},LinearLayout.LayoutParams(a.d(20),a.d(20)));addView(a.text(label,if(three)13.5f else 14f,a.fg,true).apply{maxLines=1;tag="label"},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(if(three)6 else 8)})}
         row.addView(btn("copy","Копировать"){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Листай",copyText));Notice.short(a,Notice.Kind.COPIED,"Скопировано");close()},LinearLayout.LayoutParams(0,a.d(44),1f))
         row.addView(View(a),LinearLayout.LayoutParams(a.d(10),1))
         row.addView(btn("note","В заметку"){close();toNote(copyText)},LinearLayout.LayoutParams(0,a.d(44),1f))
+        if(learn!=null){
+            val lemma=learn.optString("w");val lang=learn.optString("lang","ru")
+            fun saved()=Words.find(a,Dictionary.key(lemma),lang)
+            lateinit var b:LinearLayout
+            fun paint(){val on=saved()!=null;(b.findViewWithTag<LineIcon>("icon")).set(if(on)"check" else "learn",a.fg);b.findViewWithTag<TextView>("label").text=if(on)"Учу" else "Учить";b.contentDescription=if(on)"Убрать из изучения" else "Учить слово"}
+            b=btn("learn","Учить"){val have=saved()
+                if(have!=null){Words.remove(a,have.str("id"));paint();a.reader?.refreshWordMarks()}
+                else{val surface=selected.trim().split(Regex("\\s+")).firstOrNull()?.trim{!it.isLetter()&&it!='-'&&it!='\''&&it!='’'}?:lemma
+                    io.execute{val forms=try{Dictionary.forms(a,lemma,lang)}catch(_:Exception){emptyList()}
+                        holder.post{if(saved()==null)Words.add(a,learn,surface,source,forms);paint();a.reader?.refreshWordMarks()}}}}
+            paint()
+            row.addView(View(a),LinearLayout.LayoutParams(a.d(8),1))
+            row.addView(b,LinearLayout.LayoutParams(0,a.d(44),1f))}
         p.addView(row,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18)})}
     private fun message(title:String,sub:String?,action:String?=null,fn:(()->Unit)?=null)=content{
         addView(a.text(title,16f,a.fg,true));if(sub!=null)addView(a.text(sub,13.5f,a.muted).apply{cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})
@@ -215,7 +233,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
             first.optJSONArray("y")?.let{y->val s=(0 until y.length()).joinToString(", "){y.getString(it)}
                 addView(a.text("СИНОНИМЫ",11f,a.muted,true).apply{letterSpacing=.06f},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})
                 addView(TextView(a).apply{text=s;textSize=14.5f;setTextColor(a.fg);typeface=serif},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(3)})}
-            copyText=sb.toString();actions(this)}}
+            copyText=sb.toString();actions(this,first)}}
     private fun speak(text:String,lang:String){
         val go={tts?.language=Locale(lang);tts?.speak(text,TextToSpeech.QUEUE_FLUSH,null,"w")}
         if(tts==null)tts=TextToSpeech(a){if(it==TextToSpeech.SUCCESS)go()} else go()}

@@ -174,7 +174,14 @@ internal object IosIcons {
       Op(false,false,1.7f,true,"M12.00 5.80L12.00 3.00",null),
       Op(false,false,1.7f,true,"M16.38 7.62L18.36 5.64",null)),
     "moon" to listOf(
-      Op(false,false,1.7f,true,"M19.8 14.6A8.2 8.2 0 0 1 9.4 4.2a8.3 8.3 0 1 0 10.4 10.4Z",null)))}
+      Op(false,false,1.7f,true,"M19.8 14.6A8.2 8.2 0 0 1 9.4 4.2a8.3 8.3 0 1 0 10.4 10.4Z",null)),
+    "words" to listOf(
+      Op(false,false,1.7f,true,"M10.1 3.5H17.9A2.6 2.6 0 0 1 20.5 6.1V15.9A2.6 2.6 0 0 1 17.9 18.5H10.1A2.6 2.6 0 0 1 7.5 15.9V6.1A2.6 2.6 0 0 1 10.1 3.5Z",null),
+      Op(false,false,1.7f,true,"M4.5 7.2v10.5a2.8 2.8 0 0 0 2.8 2.8h8.5",null),
+      Op(false,false,1.7f,true,"M11 14.5l3-7.5 3 7.5M12 12.3h4",null)),
+    "learn" to listOf(
+      Op(false,false,1.7f,true,"M12 5 2.5 9.5 12 14l9.5-4.5Z",null),
+      Op(false,false,1.7f,true,"M6.5 11.8v4c0 1.4 2.5 2.9 5.5 2.9s5.5-1.5 5.5-2.9v-4M21.5 9.5V15",null)))}
   private val FILLED:Map<String,List<Op>> by lazy{mapOf(
     "home" to listOf(
       Op(true,false,0f,true,"M12.8 3.1a1.3 1.3 0 0 0-1.6 0L3.4 9.4c-.6.5-.2 1.4.5 1.4H5.5V19a1.5 1.5 0 0 0 1.5 1.5h3V15a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5.5h3a1.5 1.5 0 0 0 1.5-1.5v-8.2h1.6c.7 0 1.1-.9.5-1.4Z",null)),
@@ -198,5 +205,10 @@ internal object IosIcons {
       Op(false,false,1.7f,true,"M18 2.8c.2 1.1.7 1.6 1.8 1.8-1.1.2-1.6.7-1.8 1.8-.2-1.1-.7-1.6-1.8-1.8 1.1-.2 1.6-.7 1.8-1.8Z",null)),
     "bookmark" to listOf(
       Op(true,false,0f,true,"M7.3 3.5h9.4a1.3 1.3 0 0 1 1.3 1.3v15.4a.5.5 0 0 1-.8.4L12 16.8l-5.2 3.8a.5.5 0 0 1-.8-.4V4.8a1.3 1.3 0 0 1 1.3-1.3Z",null),
-      Op(false,false,1.7f,true,"M7.3 3.5h9.4a1.3 1.3 0 0 1 1.3 1.3v15.4a.5.5 0 0 1-.8.4L12 16.8l-5.2 3.8a.5.5 0 0 1-.8-.4V4.8a1.3 1.3 0 0 1 1.3-1.3Z",null)))}
+      Op(false,false,1.7f,true,"M7.3 3.5h9.4a1.3 1.3 0 0 1 1.3 1.3v15.4a.5.5 0 0 1-.8.4L12 16.8l-5.2 3.8a.5.5 0 0 1-.8-.4V4.8a1.3 1.3 0 0 1 1.3-1.3Z",null)),
+    "words" to listOf(
+      Op(true,false,0f,true,"M10.1 3.5H17.9A2.6 2.6 0 0 1 20.5 6.1V15.9A2.6 2.6 0 0 1 17.9 18.5H10.1A2.6 2.6 0 0 1 7.5 15.9V6.1A2.6 2.6 0 0 1 10.1 3.5Z",null),
+      Op(false,false,1.7f,true,"M10.1 3.5H17.9A2.6 2.6 0 0 1 20.5 6.1V15.9A2.6 2.6 0 0 1 17.9 18.5H10.1A2.6 2.6 0 0 1 7.5 15.9V6.1A2.6 2.6 0 0 1 10.1 3.5Z",null),
+      Op(false,false,1.7f,true,"M4.5 7.2v10.5a2.8 2.8 0 0 0 2.8 2.8h8.5",null),
+      Op(false,true,1.7f,true,"M11 14.5l3-7.5 3 7.5M12 12.3h4",null)))}
 }

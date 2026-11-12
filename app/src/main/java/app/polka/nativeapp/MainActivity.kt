@@ -221,7 +221,7 @@ class MainActivity : Activity() {
     fun checkpointSoon() { checkpointTask?.cancel(false); checkpointTask=io.schedule({ try { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints")); getSharedPreferences("health",0).edit().remove("checkpointError").apply() } catch(e:Exception) { getSharedPreferences("health",0).edit().putString("checkpointError",e.message).apply() } }, 3, TimeUnit.SECONDS) }
     fun saveBook(book:JSONObject, done:()->Unit={}) { val copy=book.copyJson().put("modifiedAt",System.currentTimeMillis()); reader?.book?.takeIf { it.str("id")==copy.str("id") && it!==book }?.let { replaceJson(it,copy) }; work({library.save(copy)}) { publishBook(copy); if(reader==null) { render(true,false); if(profileOverlay!=null) refreshProfile() }; checkpointSoon(); done() } }
     fun savePreferences() { val copy=prefs.copyJson(); work({ library.savePrefs(copy) }) { checkpointSoon() } }
-    fun title():String = when { query.isNotBlank() -> "Поиск"; shelf!=null -> shelf!!; auto!=null -> autoTitle(auto!!); tab=="shelves" -> "Полки"; tab=="quotes" -> "Цитаты"; tab=="foryou" -> "Для вас"; else -> "Мои книги" }
+    fun title():String = when { query.isNotBlank() -> "Поиск"; shelf!=null -> shelf!!; auto!=null -> autoTitle(auto!!); tab=="shelves" -> "Полки"; tab=="quotes" -> "Цитаты"; tab=="words" -> "Слова"; tab=="foryou" -> "Для вас"; else -> "Мои книги" }
     fun homeBooks()=Library.home(books,prefs.optBoolean("showRecommendations"))
     fun currentBooks():List<JSONObject> {
         if(query.isNotBlank())return searchBooks()
@@ -259,6 +259,7 @@ class MainActivity : Activity() {
             tab=="quotes"->{val head=row();head.addView(text("Цитаты",26f,fg,true,serif=true).apply{setPadding(d(2),0,d(14),0)},LinearLayout.LayoutParams(-2,-2))
                 val top=LibrarySearchBar(this,compact=true).apply{elevation=d(12).toFloat()};librarySearch=top;head.addView(top,LinearLayout.LayoutParams(0,d(48),1f));page.addView(head,LinearLayout.LayoutParams(-1,d(48)));space(page,20)}
             tab=="shelves"&&!inShelf->{query="";searchOpen=false;page.addView(shelvesTopBar(),LinearLayout.LayoutParams(-1,d(48)));space(page,12)}
+            tab=="words"->{query="";searchOpen=false;page.addView(text("Слова",26f,fg,true,serif=true).apply{setPadding(d(2),0,0,0);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(-1,d(48)));space(page,14)}
             else->{query="";searchOpen=false;space(page,if(tab=="foryou")4 else 6)}
         }
         // The entry fade must not render the page into an offscreen layer: such a layer is clipped to the page,
@@ -273,6 +274,7 @@ class MainActivity : Activity() {
         screenMotion.stop();page.removeAllViews()
 
         when {
+            tab=="words" -> wordsPage()
             tab=="quotes" -> quotes()
             query.isNotBlank() -> {val found=searchBooks();if(found.isEmpty()){space(page,96);page.addView(emptyView("search","Ничего не нашлось","Попробуйте название, автора или серию."),LinearLayout.LayoutParams(-1,-2))}else{val row=line();row.addView(text("Найдено",20f,bold=true),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(countBooks(found.size),14f,muted));page.addView(row);space(page,14);bookGrid(found)}}
             shelf!=null || auto!=null -> { backAndCount(); val list=currentBooks(); if(list.isEmpty()){space(page,96);page.addView(if(auto=="reading")emptyView("open","Ничего не читаете","Откройте любую книгу — она появится здесь.") else emptyView("shelf","Полка пустая","Добавьте книги через «О книге» или в режиме редактирования."),LinearLayout.LayoutParams(-1,-2))} else bookGrid(list) }
@@ -359,13 +361,13 @@ class MainActivity : Activity() {
     fun navigation() {
         val nav=nativeNavigation ?: PolkaNavigation(this).also { nativeNavigation=it }
         nav.bind(tab) { key ->
-            if(tab!=key || shelf!=null || auto!=null || quoteBookId!=null) { val from=listOf("home","shelves","quotes").indexOf(tab);val to=listOf("home","shelves","quotes").indexOf(key);tabScroll[tab]=scroll.scrollY;val oldScroll=scroll;screenMotion.stop();pendingMotion=null;librarySearch?.close(false);tab=key;shelf=null;auto=null;quoteBookId=null;query="";render(false,false)
+            if(tab!=key || shelf!=null || auto!=null || quoteBookId!=null) { val from=listOf("home","shelves","quotes","words").indexOf(tab);val to=listOf("home","shelves","quotes","words").indexOf(key);tabScroll[tab]=scroll.scrollY;val oldScroll=scroll;screenMotion.stop();pendingMotion=null;librarySearch?.close(false);tab=key;shelf=null;auto=null;quoteBookId=null;query="";render(false,false)
                 // Restore the tab's scroll after layout but BEFORE the first frame (a posted scroll showed one frame
                 // at the top — with its top buttons — and then jumped).
                 val target=tabScroll[key] ?: 0;val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this);sv.scrollTo(0,target);return true}})
                 screenMotion.pushTab(oldScroll,to>from) } else scroll.smoothScrollTo(0,0)
         }
-        root.addView(nav,FrameLayout.LayoutParams(d(174),d(58),Gravity.BOTTOM or Gravity.START))
+        root.addView(nav,FrameLayout.LayoutParams(d(230),d(58),Gravity.BOTTOM or Gravity.START))
         followInsets(nav){i->nav.layoutParams=(nav.layoutParams as FrameLayout.LayoutParams).apply{leftMargin=d(16)+i.left;bottomMargin=navigationBottom(baseInsets)}}
         val add=icon("plus","Добавить",true) { if(addMenu!=null) addMenu?.close() else AddMenu(this).open() }; addButton=add;add.background=Floating(this,add.background,d(29).toFloat());add.elevation=0f
         root.addView(add,FrameLayout.LayoutParams(d(58),d(58),Gravity.BOTTOM or Gravity.END))
