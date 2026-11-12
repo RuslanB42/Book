@@ -112,26 +112,27 @@ internal class QuoteActionIcon(c:Context,private val kind:String,private val ink
 }
 /** [onGo], [onThought] and [onDelete] are the notebook's: go to the place, write or edit the thought, remove. */
 internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->Unit)?=null,onGo:(()->Unit)?=null,onThought:((JSONObject?)->Unit)?=null,onDelete:(()->Unit)?=null):View {
-    val col=quoteInk(q);val chipInk=if(light)mix(col,Color.BLACK,.28f) else col
-    val card=column().apply{floatCard(this,24);background=quoteTint(col);setPadding(d(18),d(14),d(14),d(10))}
+    // approved «кавычка над чертой»: a grey card like everywhere else; the quote's colour is only its mark and the line in the margin
+    val col=quoteInk(q);val quiet=if(light)0x0d000000 else 0x12ffffff
+    val card=column().apply{floatCard(this,24);setPadding(d(18),d(14),d(14),d(10))}
     val open={if(onOpen!=null)onOpen()else openBookAt(b,q.optInt("ch"),q.optInt("start"))}
-    // the quote mark in the quote's colour, the date quietly opposite it
-    val top=line().apply{gravity=Gravity.TOP}
-    top.addView(text("\u201c",46f,col,true,true).apply{includeFontPadding=false;gravity=Gravity.TOP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(d(30),d(30)))
-    top.addView(View(this),LinearLayout.LayoutParams(0,1,1f))
+    // the quote mark above, in the quote's colour; the text with a line of the same colour in its margin
+    card.addView(text("\u201c",40f,col,true,true).apply{includeFontPadding=false;gravity=Gravity.TOP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(d(30),d(26)).apply{topMargin=d(4)})
     val date=java.text.SimpleDateFormat("d MMMM",java.util.Locale("ru")).format(java.util.Date(q.optLong("at",System.currentTimeMillis())))
-    top.addView(text(date,12f,muted).apply{setPadding(0,d(4),0,0)})
-    card.addView(top,LinearLayout.LayoutParams(-1,-2))
-    card.addView(text(q.str("text"),17f,serif=true).apply{cssLeading(1.55f);maxLines=9;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,d(4),d(4),0);setOnClickListener{open()}})
-    b.optJSONArray("notes")?.objects().orEmpty().filter{it.str("quoteId")==q.str("id")}.forEach{n->val note=column().apply{background=shape((0x1a shl 24) or (col and 0xffffff),16);setPadding(d(14),d(12),d(14),d(12));setOnClickListener{if(onThought!=null)onThought(n) else editThought(b,n,quote=q)}};note.addView(text("Моя мысль",11.5f,chipInk,true));space(note,5);note.addView(text(n.str("text"),15f).apply{cssLeading(1.5f)});card.addView(note,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,d(12),d(4),0)})}
-    card.addView(View(this).apply{setBackgroundColor((0x33 shl 24) or (col and 0xffffff))},LinearLayout.LayoutParams(-1,1).apply{topMargin=d(14)})
+    val body=line().apply{gravity=Gravity.TOP}
+    body.addView(View(this).apply{background=shape(col,2);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(d(3),-1).apply{rightMargin=d(14)})
+    body.addView(text(q.str("text"),17f,serif=true).apply{cssLeading(1.55f);maxLines=9;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,0,d(4),0);setOnClickListener{open()}},LinearLayout.LayoutParams(0,-2,1f))
+    card.addView(body,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(6)})
+    b.optJSONArray("notes")?.objects().orEmpty().filter{it.str("quoteId")==q.str("id")}.forEach{n->val note=column().apply{background=shape(quiet,16);setPadding(d(14),d(12),d(14),d(12));setOnClickListener{if(onThought!=null)onThought(n) else editThought(b,n,quote=q)}};note.addView(text("Моя мысль",11.5f,muted,true));space(note,5);note.addView(text(n.str("text"),15f).apply{cssLeading(1.5f)});card.addView(note,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,d(12),d(4),0)})}
+    card.addView(View(this).apply{setBackgroundColor(if(light)0x10000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1).apply{topMargin=d(16)})
     val foot=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(10),0,d(2))}
-    // where the quote is from: a chip in its colour
+    // where the quote is from and when it was saved, quietly
     val chapter=q.str("chTitle").trim().takeIf{it.isNotBlank()&&it.length<=40}?:"Глава ${q.optInt("ch")+1}"
-    foot.addView(text(chapter,12.5f,chipInk,true).apply{background=shape((0x2e shl 24) or (col and 0xffffff),14);setPadding(d(10),d(4),d(10),d(5));maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=d(190)},LinearLayout.LayoutParams(-2,-2))
-    foot.addView(View(this),LinearLayout.LayoutParams(0,1,1f))
-    fun round(kind:String,desc:String,act:()->Unit)=FrameLayout(this).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor((0x29 shl 24) or (col and 0xffffff))}
-        isClickable=true;contentDescription=desc;addView(QuoteActionIcon(this@quoteCardNative,kind,col),FrameLayout.LayoutParams(d(22),d(22),Gravity.CENTER))
+    val where=column();where.addView(text(chapter,12.5f,muted).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+    where.addView(text(date,11.5f,if(light)0xff86868b.toInt() else 0xff8a8a8e.toInt()).apply{setPadding(0,d(2),0,0)})
+    foot.addView(where,LinearLayout.LayoutParams(0,-2,1f).apply{rightMargin=d(8)})
+    fun round(kind:String,desc:String,act:()->Unit)=FrameLayout(this).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(quiet)}
+        isClickable=true;contentDescription=desc;addView(QuoteActionIcon(this@quoteCardNative,kind,fg),FrameLayout.LayoutParams(d(22),d(22),Gravity.CENTER))
         setOnTouchListener{v,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->v.animate().scaleX(.88f).scaleY(.88f).setDuration(90).start();MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->v.animate().scaleX(1f).scaleY(1f).setDuration(240).setInterpolator(android.view.animation.OvershootInterpolator(2f)).start()};false}
         setOnClickListener{act()}}
     onGo?.let{g->foot.addView(round("go","К месту в книге"){g()},LinearLayout.LayoutParams(d(38),d(38)).apply{rightMargin=d(8)})}
