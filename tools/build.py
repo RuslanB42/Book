@@ -61,7 +61,7 @@ with gzip.open('src/ru-ru.jsonl.gz','rb') as f:
         if not ss: continue
         syn=[s.get('word') for s in (o.get('synonyms') or []) if s.get('word')][:5]
         k=key(w)
-        d={'w':stress.get(k,w),'p':POSRU.get(o.get('pos',''),o.get('pos_title') or ''),'s':ss}
+        d={'w':stress.get(k,w),'p':POSRU.get(o.get('pos',''),o.get('pos_title') or ''),'s':ss,'f':round(zf(k,'ru'),1)}
         if syn: d['y']=syn
         cur=db.execute('INSERT INTO e(lang,word,data) VALUES(?,?,?)',('ru',k,json.dumps(d,ensure_ascii=False,separators=(',',':'))))
         rukeys.setdefault(k,[]).append(cur.lastrowid); stats['ru_entries']+=1
@@ -103,7 +103,7 @@ with gzip.open('src/en.jsonl.gz','rb') as f:
         ipa=''
         for s in o.get('sounds',[]) or []:
             if s.get('ipa'): ipa=s['ipa']; break
-        d={'w':w,'p':POSEN.get(o.get('pos',''),o.get('pos','')),'s':ss}
+        d={'w':w,'p':POSEN.get(o.get('pos',''),o.get('pos','')),'s':ss,'f':round(zf(w.lower(),'en'),1)}
         if tr: d['t']=tr
         if ipa: d['i']=ipa
         cur=db.execute('INSERT INTO e(lang,word,data) VALUES(?,?,?)',('en',k,json.dumps(d,ensure_ascii=False,separators=(',',':'))))
