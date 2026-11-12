@@ -271,6 +271,8 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         if(now!=before)frame.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
     }
 
+    /** The main screen is rebuilt when a book is saved (a rating set here): the list stays open on top of it. */
+    fun reattach(){if(closing||frame.parent===a.root)return;(frame.parent as? ViewGroup)?.removeView(frame);a.root.addView(frame,FrameLayout.LayoutParams(-1,-1))}
     fun back(){if(share!=null)closeShare() else close()}
     fun close(){if(closing)return;closing=true;closeShare()
         val d=drag;if(d!=null){frame.removeView(d.float);drag=null}

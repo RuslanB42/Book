@@ -308,7 +308,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun tiers(){
         val ys=Tiers.years(model);if(ys.isEmpty())return
         TierBackdrop.prepare(a)
-        val box=surface(StarRow.starYellow(a),.86f,.1f,.8f)
+        val box=surface(StarRow.starYellow(a),.86f,.1f,.8f);a.tierCard=box
         fun bind(){box.removeAllViews()
             val y=if(today.year in ys)today.year else ys.first()
             val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
@@ -323,7 +323,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 Tiers.sorted(list.filter{Tiers.of(it)==k}).take(fit).forEach{b->row.addView(MiniCover(a,b).apply{elevation=a.d(2).toFloat()},LinearLayout.LayoutParams(a.d(30),a.d(45)).apply{marginStart=a.d(if(row.childCount==1)14 else 4)})}
                 box.addView(row,LinearLayout.LayoutParams(-1,a.d(54)))}
             box.contentDescription="Тир-лист за $y"}
-        box.isClickable=true;box.setOnClickListener{if(a.tierList==null)TierListOverlay(a,model,if(today.year in ys)today.year else ys.first(),{box}){bind()}.show()}
+        box.isClickable=true;box.setOnClickListener{if(a.tierList==null)TierListOverlay(a,model,if(today.year in ys)today.year else ys.first(),{a.tierCard?.takeIf{it.isAttachedToWindow}?:box}){bind()}.show()}
         a.press(box)
         bind();add(box)
     }

@@ -99,6 +99,8 @@ class MainActivity : Activity() {
     internal var bookCalendar:BookCalendarDialog?=null
     internal var goalRoad:GoalRoadOverlay?=null
     internal var tierList:TierListOverlay?=null
+    /** The tier-list card on the statistics screen now (the screen is rebuilt when a book is saved). */
+    internal var tierCard:View?=null
     var pendingCalendarImage:File?=null
     var profileOverlay:View?=null
     var profileStats:JSONObject?=null
@@ -269,7 +271,7 @@ class MainActivity : Activity() {
         // which cut off the shelf glass (it reaches into the side margins) until the fade ended.
         page=col().apply{clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)};wrapper.addView(page,LinearLayout.LayoutParams(-1,-2))
         renderLibraryResults()
-        navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; readBooksOverlay?.let { (it.parent as? ViewGroup)?.removeView(it); root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; if(preservePosition) scroll.post { scroll.scrollTo(0,oldY) }; gridSnap?.let { playGrid(it,if(preservePosition) oldY else null) }; val motion=pendingMotion;pendingMotion=null;if(gridSnap==null){if(motion!=null)screenMotion.play(page,motion.first,motion.second) else if(animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),450,curve=MotionSpec.settle)}
+        navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; readBooksOverlay?.let { (it.parent as? ViewGroup)?.removeView(it); root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; tierList?.reattach(); if(preservePosition) scroll.post { scroll.scrollTo(0,oldY) }; gridSnap?.let { playGrid(it,if(preservePosition) oldY else null) }; val motion=pendingMotion;pendingMotion=null;if(gridSnap==null){if(motion!=null)screenMotion.play(page,motion.first,motion.second) else if(animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),450,curve=MotionSpec.settle)}
     }
     internal fun searchBooks():List<JSONObject> {val q=query.trim();return (if(tab=="home")homeBooks()else books).filter{(it.str("title")+" "+authors(it)+" "+it.str("series")+" "+it.str("shelf")).contains(q,true)}.sortedByDescending{maxOf(it.optLong("openedAt"),it.optLong("addedAt"))}}
     internal fun renderLibraryResults(){
