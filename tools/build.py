@@ -25,7 +25,7 @@ def senses_of(o,nlimit=3,glen=150,elen=100):
           for e in s.get('examples',[]) or []:
             tx=e.get('text') or ''
             if e.get('type')=='quotation' or e.get('ref') or OLD.search(tx): continue
-            if 8<len(tx)<=elen: ex=clip(tx,elen); break
+            if elen and 8<len(tx)<=elen: ex=clip(tx,elen); break
         tags=[x for x in (s.get('raw_tags') or []) if len(x)<24][:2]
         out.append([t,ex,', '.join(tags)])
         if len(out)>=nlimit: break
@@ -56,8 +56,10 @@ with gzip.open('src/ru-ru.jsonl.gz','rb') as f:
         if o.get('lang_code')!='ru': continue
         w=o.get('word','')
         if not w or len(w)>40: continue
-        if ' ' in w or zf(key(w),'ru')<1.6: continue
-        ss=senses_of(o)
+        if ' ' in w: continue
+        fr=zf(key(w),'ru')
+        if fr<1.0: continue
+        ss=senses_of(o,3 if fr>=3 else 2,150,100 if fr>=2.5 else 0)
         if not ss: continue
         syn=[s.get('word') for s in (o.get('synonyms') or []) if s.get('word')][:5]
         k=key(w)
@@ -68,7 +70,7 @@ with gzip.open('src/ru-ru.jsonl.gz','rb') as f:
 for k,ids in rukeys.items():
     for i in ids: db.execute('INSERT INTO k VALUES(?,?)',(k,i))
 for form,lemmas in ruforms.items():
-    if zf(form,'ru')<1.0: continue
+    if zf(form,'ru')<=0: continue
     for l in lemmas:
         if form==l: continue
         for i in rukeys.get(l,[]): db.execute('INSERT INTO k VALUES(?,?)',(form,i)); stats['ru_formkeys']+=1
@@ -89,8 +91,10 @@ with gzip.open('src/en.jsonl.gz','rb') as f:
             ff=fm.get('form',''); tg=fm.get('tags') or []
             if ff and 'table-tags' not in tg and len(ff)<40: enforms[key(ff)].add(k)
         if o.get('pos')=='name' and not w[:1].islower(): continue
-        if ' ' in w or zf(w.lower(),'en')<2.4: continue
-        ss=senses_of(o,3,150,100)
+        if ' ' in w: continue
+        fr=zf(w.lower(),'en')
+        if fr<1.3: continue
+        ss=senses_of(o,3 if fr>=3.5 else 2,150,100 if fr>=3 else 0)
         if not ss: continue
         tr=[]
         pool=list(o.get('translations',[]) or [])
@@ -112,7 +116,7 @@ with gzip.open('src/en.jsonl.gz','rb') as f:
 for k,ids in enkeys.items():
     for i in ids: db.execute('INSERT INTO k VALUES(?,?)',(k,i))
 for form,lemmas in enforms.items():
-    if zf(form,'en')<1.5: continue
+    if zf(form,'en')<=0: continue
     for l in lemmas:
         if form==l: continue
         for i in enkeys.get(l,[]): db.execute('INSERT INTO k VALUES(?,?)',(form,i)); stats['en_formkeys']+=1
