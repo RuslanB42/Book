@@ -23,7 +23,7 @@ private const val S_DONE=2
 internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:Int,start:String,private val pick:(String,Boolean)->Unit){
     var onClose:(()->Unit)?=null
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1f1f22.toInt()
+    private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()
     private var dialog:android.app.Dialog?=null
     private lateinit var holder:View
     private val hsv=FloatArray(3).also{Color.colorToHSV((0xff shl 24) or QuoteColors.rgb(start),it)}

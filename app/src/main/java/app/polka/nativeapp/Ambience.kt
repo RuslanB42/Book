@@ -192,7 +192,7 @@ internal class SoundChip(private val a:MainActivity,open:()->Unit):LinearLayout(
 /** The «Звуки» panel (approved «А»): four tiles, the volume, your own sounds and «Добавить свой звук».
  *  It slides up on the sheet spring with its rows rising in, follows the finger when pulled down and closes. */
 internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int){
-    private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1f1f22.toInt()
+    private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()
     private val pillColor get()=if(a.light)0x0f000000 else 0x11ffffff
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private var dialog:android.app.Dialog?=null

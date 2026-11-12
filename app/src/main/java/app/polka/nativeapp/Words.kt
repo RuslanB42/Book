@@ -165,7 +165,7 @@ fun MainActivity.wordsPage(){
     val due=Words.due(this)
     if(due.isNotEmpty()){
         val stack=QuoteStackLayer(this,3)
-        val card=line().apply{floatCard(this,22);setPadding(d(20),d(18),d(18),d(18))}
+        val card=line().apply{floatCard(this,24);setPadding(d(20),d(18),d(18),d(18))}
         card.addView(TextView(this).apply{text="${due.size}";textSize=36f;setTextColor(fg);typeface=PolkaFonts.sans(600);includeFontPadding=false})
         val t=column();t.addView(text("Пора повторить",16f,fg,true));t.addView(text("около ${maxOf(1,(due.size*15+59)/60)} мин",13.5f,muted))
         card.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=d(14)})
@@ -177,7 +177,7 @@ fun MainActivity.wordsPage(){
 }
 
 private fun MainActivity.wordCard(w:JSONObject):View{
-    val card=column().apply{floatCard(this,20);setPadding(d(18),d(16),d(16),d(14))}
+    val card=column().apply{floatCard(this,24);setPadding(d(18),d(16),d(16),d(14))}
     val head=TextView(this).apply{val sb=SpannableStringBuilder(w.str("w"));if(w.str("i").isNotBlank()){val st=sb.length+2;sb.append("  ").append(w.str("i"));sb.setSpan(android.text.style.AbsoluteSizeSpan(13,true),st,sb.length,0);sb.setSpan(android.text.style.ForegroundColorSpan(muted),st,sb.length,0);sb.setSpan(TypefaceSpanCompat(PolkaFonts.sans(400)),st,sb.length,0)}
         text=sb;textSize=22f;setTextColor(fg);typeface=PolkaFonts.literata(this@wordCard,true)}
     card.addView(head)
@@ -238,7 +238,7 @@ internal class WordReview(private val a:MainActivity){
     private fun close(){dialog?.dismiss();dialog=null;if(a.tab=="words")a.renderLibraryResults()}
     private fun status(){counter.text="${minOf(done+1,total)} из $total";bar.v=done.toFloat()/total}
 
-    private fun sheet(level:Int):View=View(a).apply{a.floatCard(this,28,if(a.light)(if(level==1)0xfff7f7f5.toInt() else 0xffefefec.toInt()) else (if(level==1)0xff202022.toInt() else 0xff1c1c1e.toInt()),if(a.light)5-level else 7-level)}
+    private fun sheet(level:Int):View=View(a).apply{a.floatCard(this,24,if(a.light)(if(level==1)0xfff7f7f5.toInt() else 0xffefefec.toInt()) else (if(level==1)0xff202022.toInt() else 0xff1c1c1e.toInt()),if(a.light)5-level else 7-level)}
     /** Lays the next card with the pile under it. */
     private fun deal(first:Boolean){
         deck.removeAllViews();front=null;flipped=false;busy=false
@@ -246,7 +246,7 @@ internal class WordReview(private val a:MainActivity){
         val left=queue.size
         if(left>2)deck.addView(sheet(2),FrameLayout.LayoutParams(-1,-1).apply{setMargins(a.d(28),0,a.d(28),a.d(24))})
         if(left>1)deck.addView(sheet(1),FrameLayout.LayoutParams(-1,-1).apply{setMargins(a.d(14),a.d(11),a.d(14),a.d(12))})
-        val card=FrameLayout(a).apply{a.floatCard(this,28,if(a.light)Color.WHITE else 0xff242426.toInt(),if(a.light)10 else 14);cameraDistance=a.d(9000).toFloat()}
+        val card=FrameLayout(a).apply{a.floatCard(this,24,if(a.light)Color.WHITE else 0xff242426.toInt(),if(a.light)10 else 14);cameraDistance=a.d(9000).toFloat()}
         card.addView(face(w,false),FrameLayout.LayoutParams(-1,-1))
         deck.addView(card,FrameLayout.LayoutParams(-1,-1).apply{topMargin=a.d(22)});front=card
         touch(card,w)

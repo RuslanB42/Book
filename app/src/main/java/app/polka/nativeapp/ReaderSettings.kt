@@ -17,7 +17,7 @@ import kotlin.math.sin
 internal class ReaderSettings(private val a:MainActivity,private val r:NativeReader) {
     private val themes=listOf("night" to "Ночь","black" to "Чёрная","sepia" to "Сепия","paper" to "Бумага")
     private val fonts=listOf(Triple("literata","Literata","для долгого чтения"),Triple("ptserif","PT Serif","классическая книжная"),Triple("sans","Без засечек","чистая и простая"))
-    private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1f1f22.toInt()
+    private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()
     private val pillColor get()=if(a.light)0x0f000000 else 0x11ffffff
     private val onColor get()=if(a.light)0x1f000000 else 0x24ffffff
     private val reduced get()=a.prefs.str("motion")=="reduced"

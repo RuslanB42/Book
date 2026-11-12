@@ -112,7 +112,7 @@ internal object Translation{
  *  and two equal buttons «Копировать» and «В заметку». Pulled down or tapped outside, it leaves. */
 internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,private val selected:String,private val source:WordSource?=null,private val toNote:(String)->Unit){
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1f1f22.toInt()
+    private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()
     private val quiet get()=if(a.light)0x0f000000 else 0x0fffffff
     private var dialog:android.app.Dialog?=null
     private lateinit var holder:LinearLayout;private lateinit var body:LinearLayout

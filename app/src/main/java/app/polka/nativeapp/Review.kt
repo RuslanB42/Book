@@ -142,7 +142,7 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
     private val collapseTask=Runnable{if(!field.hasFocus()&&hasContent())show(Mode.NOTE,true)}
 
     init{orientation=VERTICAL;clipChildren=false;clipToPadding=false
-        a.floatCard(this,20);setPadding(a.d(16),a.d(16),a.d(16),a.d(14));clipToOutline=true
+        a.floatCard(this,24);setPadding(a.d(16),a.d(16),a.d(16),a.d(14));clipToOutline=true
         head.addView(a.text("Ваша оценка",12f,a.muted),FrameLayout.LayoutParams(-2,-2,Gravity.START or Gravity.CENTER_VERTICAL))
         head.addView(verdict,FrameLayout.LayoutParams(-2,-2,Gravity.END or Gravity.CENTER_VERTICAL))
         addView(head,LayoutParams(-1,-2))

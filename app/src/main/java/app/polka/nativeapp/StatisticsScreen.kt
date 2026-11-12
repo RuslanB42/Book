@@ -60,7 +60,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** White (dark: graphite) card with a hairline edge and a soft, wide shadow underneath so it hovers over the page. */
     private fun surface(glow:Int?=null,fx:Float=.5f,fy:Float=.5f,reach:Float=.8f)=a.column().apply {
         tag="statistics-card"
-        val radius=a.d(28).toFloat()
+        val radius=a.d(24).toFloat()
         background=WidgetCardDrawable(a,radius,glow,fx,fy,reach)
         setPadding(a.d(18),a.d(18),a.d(18),a.d(18));clipChildren=false;clipToPadding=false
         elevation=a.d(if(light)6 else 10).toFloat()
@@ -324,7 +324,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 Tiers.sorted(list.filter{Tiers.of(it)==k}).take(fit).forEach{b->row.addView(MiniCover(a,b).apply{elevation=a.d(2).toFloat()},LinearLayout.LayoutParams(a.d(30),a.d(45)).apply{marginStart=a.d(if(row.childCount==1)14 else 4)})}
                 box.addView(row,LinearLayout.LayoutParams(-1,a.d(54)))}
             box.contentDescription="Тир-лист за $y"}
-        box.isClickable=true;box.setOnClickListener{if(a.tierList==null)TierListOverlay(a,model,if(today.year in ys)today.year else ys.first()){bind()}.show()}
+        box.isClickable=true;box.setOnClickListener{if(a.tierList==null)TierListOverlay(a,model,if(today.year in ys)today.year else ys.first(),{box}){bind()}.show()}
         a.press(box)
         bind();add(box)
     }

@@ -34,8 +34,8 @@ internal fun MainActivity.readBooksPage(model:ReadingStatistics,startYear:Int){
     val chips=HorizontalScrollView(this).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false}
     val chipRow=line();chips.addView(chipRow);content.addView(chips,LinearLayout.LayoutParams(-1,-2));space(content,18)
     val body=column().apply{clipChildren=false;clipToPadding=false};content.addView(body,LinearLayout.LayoutParams(-1,-2))
-    fun card()=column().apply{background=GlassCardDrawable(this@readBooksPage,d(26).toFloat());setPadding(d(16),d(16),d(16),d(16));elevation=d(if(light)6 else 10).toFloat()
-        outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,d(26).toFloat())}}
+    fun card()=column().apply{background=GlassCardDrawable(this@readBooksPage,d(24).toFloat());setPadding(d(16),d(16),d(16),d(16));elevation=d(if(light)6 else 10).toFloat()
+        outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,d(24).toFloat())}}
         if(android.os.Build.VERSION.SDK_INT>=28){outlineAmbientShadowColor=if(light)0x1a000000 else 0x99000000.toInt();outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}}
     fun row(b:JSONObject,date:LocalDate?):View{val r=line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=d(92);isClickable=true}
         val cv=CoverView(this,b,cover(b)).apply{softShadow=true};if(cover(b)==null&&b.optJSONObject("cover")!=null)requestCover(b){cv.invalidate()}

@@ -53,7 +53,7 @@ internal fun MainActivity.noticeSurface(v:View){
     v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,view.height/2f)}}
     if(android.os.Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();v.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
 }
-internal fun MainActivity.floatCard(v:View,radiusDp:Int=20,color:Int=if(light)Color.WHITE else 0xff242426.toInt(),lift:Int=if(light)8 else 10){
+internal fun MainActivity.floatCard(v:View,radiusDp:Int=24,color:Int=if(light)Color.WHITE else 0xff242426.toInt(),lift:Int=if(light)8 else 10){
     val r=d(radiusDp).toFloat();v.background=android.graphics.drawable.GradientDrawable().apply{setColor(color);cornerRadius=r};v.elevation=d(lift).toFloat()
     v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,r)}}
     if(android.os.Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();v.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
@@ -61,7 +61,7 @@ internal fun MainActivity.floatCard(v:View,radiusDp:Int=20,color:Int=if(light)Co
 /** A real pile: one or two narrower sheets peek out under the front card, each with its own shadow. */
 internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){
     private val layers=(count-1).coerceIn(0,2)
-    private val sheets=List(layers){i->View(a).apply{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;a.floatCard(this,20,if(a.light)(if(i==0)0xfff7f7f5.toInt() else 0xffefefec.toInt()) else (if(i==0)0xff202022.toInt() else 0xff1c1c1e.toInt()),if(a.light)5-i*2 else 7-i*2)}}
+    private val sheets=List(layers){i->View(a).apply{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;a.floatCard(this,24,if(a.light)(if(i==0)0xfff7f7f5.toInt() else 0xffefefec.toInt()) else (if(i==0)0xff202022.toInt() else 0xff1c1c1e.toInt()),if(a.light)5-i*2 else 7-i*2)}}
     private val step get()=a.d(9)
     init{clipChildren=false;clipToPadding=false;sheets.asReversed().forEach{addView(it)}}
     private fun front():View?=if(childCount>layers)getChildAt(childCount-1) else null
@@ -77,7 +77,7 @@ internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){
 }
 private fun MainActivity.quoteMark()=text("\u201c",38f,accent,true,true).apply{includeFontPadding=false;gravity=Gravity.TOP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
 internal fun MainActivity.quoteStack(b:JSONObject,qs:List<JSONObject>,onOpen:(()->Unit)?=null):View {
-    val stack=QuoteStackLayer(this,qs.size);val card=column().apply{floatCard(this,20);setPadding(d(16),d(16),d(16),d(18))}
+    val stack=QuoteStackLayer(this,qs.size);val card=column().apply{floatCard(this,24);setPadding(d(16),d(16),d(16),d(18))}
     stack.addView(card,FrameLayout.LayoutParams(-1,-2));stack.contentDescription="${b.str("title")}: ${qs.size} ${quoteWord(qs.size)}";stack.isFocusable=true;stack.setOnClickListener{if(onOpen!=null)onOpen()else openQuoteGroup(b.str("id"))};press(stack)
     val top=line();top.addView(CoverView(this,b),LinearLayout.LayoutParams(d(36),d(54)))
     val meta=column().apply{setPadding(d(12),0,d(12),0)};meta.addView(text(b.str("title"),15f,bold=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});space(meta,2);meta.addView(text(MainActivity.authors(b).ifBlank{"Автор не указан"},12.5f,muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});top.addView(meta,LinearLayout.LayoutParams(0,-2,1f))
@@ -113,7 +113,7 @@ internal class QuoteActionIcon(c:Context,private val kind:String,private val ink
 /** [onGo], [onThought] and [onDelete] are the notebook's: go to the place, write or edit the thought, remove. */
 internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->Unit)?=null,onGo:(()->Unit)?=null,onThought:((JSONObject?)->Unit)?=null,onDelete:(()->Unit)?=null):View {
     val col=quoteInk(q);val chipInk=if(light)mix(col,Color.BLACK,.28f) else col
-    val card=column().apply{floatCard(this,22);background=quoteTint(col);setPadding(d(18),d(14),d(14),d(10))}
+    val card=column().apply{floatCard(this,24);background=quoteTint(col);setPadding(d(18),d(14),d(14),d(10))}
     val open={if(onOpen!=null)onOpen()else openBookAt(b,q.optInt("ch"),q.optInt("start"))}
     // the quote mark in the quote's colour, the date quietly opposite it
     val top=line().apply{gravity=Gravity.TOP}

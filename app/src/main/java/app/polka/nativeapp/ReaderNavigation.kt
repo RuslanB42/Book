@@ -130,7 +130,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private fun bookmarkCard(item:JSONObject):View{
   val tone=a.fg and 0xffffff
   val go={close();r.goToLocation(item.optInt("ch"),item.optInt("start",item.optInt("nativeOffset",0)))}
-  val card=a.line().apply{gravity=Gravity.CENTER_VERTICAL;a.floatCard(this,20);background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(20).toFloat();setStroke(1,(0x14 shl 24) or tone)}
+  val card=a.line().apply{gravity=Gravity.CENTER_VERTICAL;a.floatCard(this,24);background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(24).toFloat();setStroke(1,(0x14 shl 24) or tone)}
    setPadding(a.d(14),a.d(10),a.d(10),a.d(10));isClickable=true;setOnClickListener{go()};a.press(this);contentDescription="Закладка: ${r.chapterName(item.optInt("ch"))}"}
   card.addView(IconView(a,"bookmark",a.muted),LinearLayout.LayoutParams(a.d(20),a.d(20)).apply{rightMargin=a.d(12)})
   val texts=a.column()
@@ -147,7 +147,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private fun entryCard(kind:Int,item:JSONObject):View{
   if(kind==2)return bookmarkCard(item)
   val whole=kind==1&&item.str("scope")=="book";val ink=a.fg;val tone=(ink and 0xffffff)
-  val card=a.column().apply{a.floatCard(this,22);background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(22).toFloat();setStroke(1,(0x14 shl 24) or tone)}
+  val card=a.column().apply{a.floatCard(this,24);background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(24).toFloat();setStroke(1,(0x14 shl 24) or tone)}
    setPadding(a.d(18),a.d(14),a.d(14),a.d(10));contentDescription="${listOf("Цитата","Заметка","Закладка")[kind]}: ${item.str("text")}"}
   val go={close();r.goToLocation(item.optInt("ch"),item.optInt("start",item.optInt("nativeOffset",0)))}
   val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}

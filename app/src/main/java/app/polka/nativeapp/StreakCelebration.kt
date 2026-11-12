@@ -75,7 +75,7 @@ internal class StreakCelebration(private val a:MainActivity,private val host:Fra
     /** Small glass pill at the top of the page, then it opens into the whole screen. */
     private fun dropPill(){
         val card=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-        a.floatCard(card,26,if(a.light)Color.WHITE else 0xff2a2a2d.toInt(),if(a.light)12 else 14)
+        a.floatCard(card,24,if(a.light)Color.WHITE else 0xff242426.toInt(),if(a.light)12 else 14)
         card.setPadding(a.d(10),a.d(8),a.d(20),a.d(8))
         val small=FlameArt(a,1f);card.addView(small,LinearLayout.LayoutParams(a.d(34),a.d(42)).apply{rightMargin=a.d(10)})
         val texts=a.column();texts.addView(a.text("Серия продлена",15f,a.fg,true))

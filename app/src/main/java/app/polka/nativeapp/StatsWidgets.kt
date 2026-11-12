@@ -20,7 +20,7 @@ internal class WidgetCardDrawable(private val a:MainActivity,private val radius:
     private var tex:Bitmap?=null;private var texKey="";private var fade=1f
     override fun draw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Фон плашек",pt0)}}
     private fun draw0(c:Canvas){val b=bounds;if(b.width()<=0||b.height()<=0)return;r.set(b)
-        base.color=if(a.light)Color.WHITE else 0xff1c1c1f.toInt();c.drawRoundRect(r,radius,radius,base)
+        base.color=if(a.light)Color.WHITE else 0xff242426.toInt();c.drawRoundRect(r,radius,radius,base)
         val g=glow?:return
         // one soft light, pre-rendered with a gaussian falloff and fine noise so the 8-bit steps never show as rings
         // rendered once per card width; when the card's height changes (a section opens) the light is simply stretched

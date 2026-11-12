@@ -33,9 +33,9 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   // Floating controls, not an opaque full-width toolbar. The panel outline is the
   // only clipping boundary; content and halo continue behind controls to its real top edge.
   val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(18),a.d(12),0)}
-  top.addView(a.icon("chevdown","Закрыть"){dismiss()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+  top.addView(a.icon("chevdown","Закрыть"){dismiss()}.apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x14ffffff)}},LinearLayout.LayoutParams(a.d(40),a.d(40)))
   top.addView(View(a),LinearLayout.LayoutParams(0,-1,1f))
-  top.addView(a.icon("more","Ещё"){a.bookActions(book,true)},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+  top.addView(a.icon("more","Ещё"){a.bookActions(book,true)}.apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x14ffffff)}},LinearLayout.LayoutParams(a.d(40),a.d(40)))
   panel.addView(top,LayoutParams(-1,a.d(68),Gravity.TOP))
   a.space(content,78)
   val hero=FrameLayout(a).apply{clipChildren=false;clipToPadding=false};heroCover=CoverView(a,book,a.cover(book)).apply{softShadow=true;hiRes=true}
@@ -48,7 +48,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   a.space(main,8);val author=a.text("",14f,a.muted).apply{gravity=Gravity.CENTER};live(author){MainActivity.authors(book).ifBlank{"Автор не указан"}};main.addView(author)
   val series=a.text("",12f,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(7),0,0)};main.addView(series);updates.add{series.text=book.str("series");series.visibility=if(series.text.isBlank())View.GONE else View.VISIBLE}
   a.space(main,24)
-  fun insetCard()=a.column().apply{a.floatCard(this,20);setPadding(a.d(16),a.d(16),a.d(16),a.d(16))}
+  fun insetCard()=a.column().apply{a.floatCard(this,24);setPadding(a.d(16),a.d(16),a.d(16),a.d(16))}
   fun divider(parent:LinearLayout){parent.addView(View(a).apply{setBackgroundColor(hair())},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})}
   val reading=insetCard();main.addView(reading)
   val progressRow=a.line();val status=a.text("",14f,bold=true);val percent=a.text("",13f,a.muted);progressRow.addView(status,LinearLayout.LayoutParams(0,-2,1f));progressRow.addView(percent);reading.addView(progressRow)

@@ -13,7 +13,7 @@ import kotlin.math.*
 internal class GlassCardDrawable(private val a:MainActivity,private val radius:Float):Drawable(){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val r=RectF()
     override fun draw(c:Canvas){val b=bounds;if(b.width()<=0)return;r.set(b);val light=a.light
-        p.shader=null;p.style=Paint.Style.FILL;p.color=if(light)0xffffffff.toInt() else 0xff1e1e20.toInt();c.drawRoundRect(r,radius,radius,p)
+        p.shader=null;p.style=Paint.Style.FILL;p.color=if(light)0xffffffff.toInt() else 0xff242426.toInt();c.drawRoundRect(r,radius,radius,p)
         p.color=Color.WHITE;p.shader=LinearGradient(r.left,r.top,r.right,r.bottom,
             if(light)intArrayOf(0x00ffffff,0x05000000,0x02000000) else intArrayOf(0x0cffffff,0x02ffffff,0x04ffffff),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
         c.drawRoundRect(r,radius,radius,p);p.shader=null
