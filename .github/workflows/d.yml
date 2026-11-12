@@ -1,0 +1,12 @@
+name: Dict
+on: [push]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          for u in https://kaikki.org/dictionary/downloads/ru/ru-extract.jsonl.gz https://kaikki.org/dictionary/downloads/en/en-extract.jsonl.gz https://kaikki.org/dictionary/Russian/kaikki.org-dictionary-Russian.jsonl https://kaikki.org/dictionary/Russian/kaikki.org-dictionary-Russian.jsonl.gz https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl.gz https://kaikki.org/dictionary/raw-wiktextract-data.jsonl.gz https://kaikki.org/ruwiktionary/raw-wiktextract-data.jsonl.gz https://kaikki.org/dictionary/downloads/en/kaikki.org-dictionary-English.jsonl.gz; do
+            echo "$u $(curl -sIL -o /dev/null -w '%{http_code}' $u) $(curl -sIL $u | grep -i content-length | tail -1)"; done
+          curl -sL https://kaikki.org/dictionary/rawdata.html | sed 's/<[^>]*>/ /g' | grep -iE "jsonl|ru-|Russian|MB|GB" | head -60
