@@ -151,6 +151,8 @@ class MainActivity : Activity() {
     fun space(parent: LinearLayout, height: Int) { parent.addView(View(this),LinearLayout.LayoutParams(1,d(height))) }
     fun addIcon(parent: LinearLayout, kind:String,label:String,action:()->Unit) { parent.addView(icon(kind,label,action=action),LinearLayout.LayoutParams(d(44),d(44)).apply { marginStart=if(parent.childCount==0) -d(4) else d(8) }) }
     /** Called with every finger-down anywhere in the window — lets a popover close on a tap outside of it. */
+    /** Taps inside these do not take focus away from the text field being typed in. */
+    internal val focusKeepers=java.util.Collections.newSetFromMap(java.util.WeakHashMap<View,Boolean>())
     internal val touchWatchers=java.util.concurrent.CopyOnWriteArrayList<(android.view.MotionEvent)->Unit>()
     override fun dispatchTouchEvent(ev:android.view.MotionEvent):Boolean{if(ev.actionMasked==android.view.MotionEvent.ACTION_DOWN)touchWatchers.forEach{it(ev)};return super.dispatchTouchEvent(ev)}
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -174,7 +176,7 @@ class MainActivity : Activity() {
                 imeAnimating=false;val now=androidx.core.view.ViewCompat.getRootWindowInsets(root);val ime=now?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0
                 if(reader==null){val f=imeFollower;if(f!=null){f(ime);if(ime==0)imeFollower=null}else setIme(ime)};imeVisible(ime>0)}})
         // a tap anywhere outside the focused text field closes the keyboard and lets the field go
-        touchWatchers.add{e->val f=currentFocus as? android.widget.EditText;if(f!=null&&reader==null){val r=android.graphics.Rect();f.getGlobalVisibleRect(r);if(!r.contains(e.rawX.toInt(),e.rawY.toInt()))root.post{releaseTextFocus()}}}
+        touchWatchers.add{e->val f=currentFocus as? android.widget.EditText;if(f!=null&&reader==null){val r=android.graphics.Rect();f.getGlobalVisibleRect(r);val x=e.rawX.toInt();val y=e.rawY.toInt();if(!r.contains(x,y)&&focusKeepers.none{k->k.isAttachedToWindow&&android.graphics.Rect().also{q->k.getGlobalVisibleRect(q)}.contains(x,y)})root.post{releaseTextFocus()}}}
         setContentView(root)
         root.requestApplyInsets()
         root.addView(bootLogo(),FrameLayout.LayoutParams(-1,-1))
@@ -516,7 +518,7 @@ class MainActivity : Activity() {
                         if(old!=null) {
                             if(target!=null && (!old.str("title").equals(item.book.str("title"),true) || !authors(old).equals(authors(item.book),true))) mismatch="В файле: «${item.book.str("title")}», ${authors(item.book)}.\n\nПрикрепить его к «${old.str("title")}»?"
                             val merged=item.book.copyJson().put("id",old.getString("id")).put("shelf",old.str("shelf"))
-                            listOf("quotes","notes","bookmarks","rating","rec","origin","addedAt","progress","openedAt","completedAt","pos","coverChanged","title","authors","series","seriesNo","annotation","genres","lang").forEach { key -> if(old.has(key)) merged.put(key,old.get(key)) }
+                            listOf("quotes","notes","bookmarks","rating","review","reviewTags","reviewAt","rec","origin","addedAt","progress","openedAt","completedAt","pos","coverChanged","title","authors","series","seriesNo","annotation","genres","lang").forEach { key -> if(old.has(key)) merged.put(key,old.get(key)) }
                             item=Imported(merged,item.content.copyJson().put("id",old.getString("id")),item.assets)
                         } else if(shelf!=null) item.book.put("shelf",shelf)
                         val same=if(old==null) (existing+parsed.map { it.book }).firstOrNull { it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) && !it.optBoolean("noFile") } else null
