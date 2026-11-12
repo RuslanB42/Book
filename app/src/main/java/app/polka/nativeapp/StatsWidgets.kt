@@ -14,7 +14,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import kotlin.math.*
 
-/** Statistics widgets (approved mockup «вариант A»): dark cards, each with its own colour glowing softly from inside. */
+/** Statistics widgets: flat grey cards like the rest of the app; colour only in the data (approved «Цвет только в данных»). */
 internal class WidgetCardDrawable(private val a:MainActivity,private val radius:Float,private val glow:Int?,private val fx:Float,private val fy:Float,private val reach:Float):Drawable(){
     private val base=Paint(Paint.ANTI_ALIAS_FLAG);private val light=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private val r=RectF()
     private var tex:Bitmap?=null;private var texKey="";private var fade=1f
@@ -61,7 +61,6 @@ internal class WeekFlames(private val a:MainActivity,private val names:List<Stri
             // the days light up one after another
             val t=((k*(n+2))-i).coerceIn(0f,1f);val pop=if(t<1f)Ease.outBack(1.8f).getInterpolation(t) else 1f
             if(kept[i]){c.save();c.scale(pop,pop,cx,cy);p.color=Color.WHITE
-                p.shader=RadialGradient(cx,cy,r*1.45f,intArrayOf(0x2eff6e28,0x00ff6e28),null,Shader.TileMode.CLAMP);if(!a.light)c.drawCircle(cx,cy,r*1.45f,p)
                 p.shader=LinearGradient(cx-r,cy-r,cx+r*.4f,cy+r,0xffffb522.toInt(),0xffff5a1e.toInt(),Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r,p);p.shader=null
                 val s=r*1.0f/150f*1.05f;c.save();c.translate(cx-60*s,cy-80*s);c.scale(s,s);p.color=Color.WHITE;c.drawPath(FlameGlyph.path,p);c.restore()
                 c.restore()}
@@ -76,21 +75,20 @@ internal class WeekFlames(private val a:MainActivity,private val names:List<Stri
 internal class PeriodPills(private val a:MainActivity,labels:List<String>,selected:Int,private val onSelect:(Int)->Unit):FrameLayout(a){
     /** Capsule segmented control: a light capsule glides under the chosen period and the labels change colour with it. */
     private val row=LinearLayout(a).apply{orientation=LinearLayout.HORIZONTAL}
-    private val items=labels.map{s->a.text(s,12.5f,a.muted).apply{gravity=Gravity.CENTER;setPadding(a.d(13),a.d(7),a.d(13),a.d(7));isClickable=true}}
-    private val thumb=View(a).apply{background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)0xff161617.toInt() else 0xfff2f2f2.toInt());cornerRadius=a.d(40).toFloat()}}
+    private val items=labels.map{s->a.text(s,13f,a.muted).apply{gravity=Gravity.CENTER;setPadding(a.d(14),a.d(7),a.d(14),a.d(7));isClickable=true}}
+    private val thumb=View(a).apply{background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)Color.WHITE else 0xff48484c.toInt());cornerRadius=a.d(21).toFloat()}}
     private var current=selected;private var slide:ValueAnimator?=null
-    private val on get()=if(a.light)Color.WHITE else 0xff111111.toInt()
+    private val on get()=a.fg
     init{setPadding(a.d(3),a.d(3),a.d(3),a.d(3))
-        background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)0x0d000000 else 0x12ffffff);cornerRadius=a.d(40).toFloat()}
+        background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)0xffeeeeec.toInt() else 0xff2f2f31.toInt());cornerRadius=a.d(24).toFloat()}
         addView(thumb,LayoutParams(0,0));addView(row,LayoutParams(-2,-2))
         items.forEachIndexed{i,t->row.addView(t);t.setOnClickListener{if(i!=current)select(i)}}
-        items.forEachIndexed{i,t->t.setTextColor(if(i==current)on else a.muted);t.typeface=PolkaFonts.sans(if(i==current)600 else 500)}}
+        items.forEachIndexed{i,t->t.setTextColor(if(i==current)on else a.muted);t.typeface=PolkaFonts.sans(400)}}
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(slide?.isRunning!=true)place(items[current].left.toFloat(),items[current].width.toFloat())}
     private fun place(x:Float,w:Float){val lp=thumb.layoutParams;val h=items[0].height;if(lp.width!=w.toInt()||lp.height!=h){lp.width=w.toInt();lp.height=h;thumb.layoutParams=lp}
         thumb.translationX=x;thumb.translationY=0f}
     private fun select(i:Int){val from=current;current=i;onSelect(i)
         val x0=thumb.translationX;val w0=thumb.layoutParams.width.toFloat();val x1=items[i].left.toFloat();val w1=items[i].width.toFloat()
-        items[from].typeface=PolkaFonts.sans(500);items[i].typeface=PolkaFonts.sans(600)
         if(a.prefs.str("motion")=="reduced"){place(x1,w1);items.forEachIndexed{k,t->t.setTextColor(if(k==i)on else a.muted)};return}
         val ev=android.animation.ArgbEvaluator()
         slide?.cancel();slide=ValueAnimator.ofFloat(0f,1f).apply{duration=420;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
@@ -213,7 +211,7 @@ internal class ReadingLine(private val a:MainActivity,private var values:List<Do
         run{val e=a.d(34).toFloat();val wd=width.toFloat();p.shader=LinearGradient(0f,0f,wd,0f,intArrayOf(0,Color.BLACK,Color.BLACK,0),floatArrayOf(0f,(e/wd).coerceAtMost(.3f),1f-(e/wd).coerceAtMost(.3f),1f),Shader.TileMode.CLAMP)
             p.xfermode=PorterDuffXfermode(PorterDuff.Mode.DST_IN);p.alpha=255;c.drawRect(-gp0,-gp0,wd+gp0,height+gp0,p);p.xfermode=null;p.shader=null}
         c.restoreToCount(fl)
-        if(!a.light&&morph>=1f&&glowFade>0f)glow()?.let{g->p.shader=null;p.alpha=255;glowPaint.alpha=(0xe0*glowFade).toInt();glowPaint.isDither=true;c.drawBitmap(g,null,RectF(-gp0,-gp0,width+gp0,height+gp0),glowPaint)}
+        if(false&&morph>=1f&&glowFade>0f)glow()?.let{g->p.shader=null;p.alpha=255;glowPaint.alpha=(0xe0*glowFade).toInt();glowPaint.isDither=true;c.drawBitmap(g,null,RectF(-gp0,-gp0,width+gp0,height+gp0),glowPaint)}
         p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND
         val grad=LinearGradient(0f,0f,width.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP)
         p.shader=grad;p.alpha=255;p.strokeWidth=3*d;c.drawPath(curve,p);p.shader=null;p.style=Paint.Style.FILL
@@ -256,7 +254,6 @@ internal class SpeedBar(private val a:MainActivity,private val fraction:Float?,p
         c.drawRoundRect(pad,cy-h/2,width-pad,cy+h/2,h/2,h/2,p);p.shader=null
         val ax=pad+(width-2*pad)*average;p.color=if(a.light)0x66000000 else 0x8cffffff.toInt();c.drawRoundRect(ax-d,cy-9*d,ax+d,cy+9*d,d,d,p)
         val f=fraction?:return;val x=pad+(width-2*pad)*f*k
-        if(!a.light){p.shader=RadialGradient(x,cy,16*d,intArrayOf(0x995abdf2.toInt(),0x005abdf2),null,Shader.TileMode.CLAMP);c.drawCircle(x,cy,16*d,p);p.shader=null}
         p.color=if(a.light)0x402e97ca else 0x405abdf2;c.drawCircle(x,cy,12*d,p);p.color=Color.WHITE;c.drawCircle(x,cy,8*d,p)
         if(a.light){p.style=Paint.Style.STROKE;p.strokeWidth=1.5f*d;p.color=0x33000000;c.drawCircle(x,cy,8*d,p);p.style=Paint.Style.FILL}}
 }

@@ -61,11 +61,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun surface(glow:Int?=null,fx:Float=.5f,fy:Float=.5f,reach:Float=.8f)=a.column().apply {
         tag="statistics-card"
         val radius=a.d(24).toFloat()
-        background=WidgetCardDrawable(a,radius,glow,fx,fy,reach)
+        // flat grey card like everywhere else in the app: the colour lives only in the data, not in the card
+        background=WidgetCardDrawable(a,radius,null,fx,fy,reach)
         setPadding(a.d(18),a.d(18),a.d(18),a.d(18));clipChildren=false;clipToPadding=false
-        elevation=a.d(if(light)6 else 10).toFloat()
         outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,radius)}}
-        if(android.os.Build.VERSION.SDK_INT>=28){outlineAmbientShadowColor=if(light)0x1a000000 else 0x99000000.toInt();outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
     }
     private fun tile(kind:String,color:Int):View=FrameLayout(a).apply{
         background=pill((color and 0xffffff) or ((if(light)0x26 else 0x33) shl 24),11);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -313,7 +312,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         fun bind(){box.removeAllViews()
             val y=if(today.year in ys)today.year else ys.first()
             val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-            top.addView(kicker("Тир-лист · $y"),LinearLayout.LayoutParams(0,-2,1f))
+            top.addView(kicker("Тир-лист $y"),LinearLayout.LayoutParams(0,-2,1f))
             top.addView(label("Открыть ›",13f,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(12),0,a.d(12),0);minHeight=a.d(30)
                 background=GradientDrawable().apply{setColor(if(light)0x0d000000 else 0x1fffffff);cornerRadius=a.d(15).toFloat()}},LinearLayout.LayoutParams(-2,a.d(30)))
             box.addView(top);space(box,8)
