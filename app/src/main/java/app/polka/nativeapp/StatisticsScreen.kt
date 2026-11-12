@@ -121,7 +121,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
-        streak();speed();readingTime();books()
+        streak();speed();readingTime();books();tiers()
         if(!motionOn)return
         // a simple, calm entrance: the whole page fades in, everything on it already in place
         // starts after the page's first (heavier) frame has been drawn, so no part of it is skipped; the still page
@@ -303,6 +303,29 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             space(box,6);box.addView(road,LinearLayout.LayoutParams(-1,-2))
             box.isClickable=true;box.setOnClickListener{openRoad(box,years){bind()}}
             box.contentDescription="Книги за $goalYear: $done"+if(target>0)" из $target" else ""}
+        bind();add(box)
+    }
+    /** «Тир-лист»: the year's ratings as five short rows of small covers; the card opens the whole list. */
+    private fun tiers(){
+        val ys=Tiers.years(model);if(ys.isEmpty())return
+        TierBackdrop.prepare(a)
+        val box=surface(StarRow.starYellow(a),.86f,.1f,.8f)
+        fun bind(){box.removeAllViews()
+            val y=if(today.year in ys)today.year else ys.first()
+            val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+            top.addView(kicker("Тир-лист · $y"),LinearLayout.LayoutParams(0,-2,1f))
+            top.addView(label("Открыть ›",13f,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(12),0,a.d(12),0);minHeight=a.d(30)
+                background=GradientDrawable().apply{setColor(if(light)0x0d000000 else 0x1fffffff);cornerRadius=a.d(15).toFloat()}},LinearLayout.LayoutParams(-2,a.d(30)))
+            box.addView(top);space(box,8)
+            val list=Tiers.books(model,y)
+            val fit=((a.resources.configuration.screenWidthDp-32-36-22-14)/34).coerceIn(3,10)
+            for(k in 0..4){val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(54)}
+                row.addView(TierLetter(a,k,22f,false),LinearLayout.LayoutParams(a.d(22),-2))
+                Tiers.sorted(list.filter{Tiers.of(it)==k}).take(fit).forEach{b->row.addView(MiniCover(a,b).apply{elevation=a.d(2).toFloat()},LinearLayout.LayoutParams(a.d(30),a.d(45)).apply{marginStart=a.d(if(row.childCount==1)14 else 4)})}
+                box.addView(row,LinearLayout.LayoutParams(-1,a.d(54)))}
+            box.contentDescription="Тир-лист за $y"}
+        box.isClickable=true;box.setOnClickListener{if(a.tierList==null)TierListOverlay(a,model,if(today.year in ys)today.year else ys.first()){bind()}.show()}
+        a.press(box)
         bind();add(box)
     }
     /** The whole road of the year, opened out of the card; switching the year there switches it on the card too. */

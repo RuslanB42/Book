@@ -33,7 +33,7 @@ internal object Reviews {
  * Wraps its children into rows. When a child moves to another row it glides there instead of jumping,
  * and the height follows on a short ease, so chips that grow or shrink never make the card snap.
  */
-internal class FlowRow(c:Context,private val hGap:Int,private val vGap:Int,private val smooth:()->Boolean):ViewGroup(c){
+internal class FlowRow(c:Context,private val hGap:Int,private val vGap:Int,private val glideAll:Boolean=false,private val smooth:()->Boolean):ViewGroup(c){
     private var shownH=-1;private var targetH=-1;private var hAnim:ValueAnimator?=null
     private val spots=HashMap<View,Point>()
     init{clipChildren=false;clipToPadding=false}
@@ -43,7 +43,9 @@ internal class FlowRow(c:Context,private val hGap:Int,private val vGap:Int,priva
             each(ch,x,y);x+=ch.measuredWidth+hGap;rowH=maxOf(rowH,ch.measuredHeight)}
         return if(rowH==0)0 else y+rowH}
     override fun onMeasure(ws:Int,hs:Int){val maxW=MeasureSpec.getSize(ws)
-        for(i in 0 until childCount)getChildAt(i).measure(MeasureSpec.makeMeasureSpec(maxW,MeasureSpec.AT_MOST),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED))
+        for(i in 0 until childCount){val ch=getChildAt(i);val lp=ch.layoutParams
+            ch.measure(if(lp!=null&&lp.width>0)MeasureSpec.makeMeasureSpec(lp.width,MeasureSpec.EXACTLY) else MeasureSpec.makeMeasureSpec(maxW,MeasureSpec.AT_MOST),
+                if(lp!=null&&lp.height>0)MeasureSpec.makeMeasureSpec(lp.height,MeasureSpec.EXACTLY) else MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED))}
         val h=place(maxW){_,_,_->}
         if(shownH<0||!smooth()||!isLaidOut){hAnim?.cancel();shownH=h;targetH=h}
         else if(h!=targetH){targetH=h;val from=shownH;hAnim?.cancel()
@@ -52,7 +54,7 @@ internal class FlowRow(c:Context,private val hGap:Int,private val vGap:Int,priva
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){val glide=smooth()&&isLaidOut
         place(r-l){ch,x,y->val old=spots[ch]
             ch.layout(x,y,x+ch.measuredWidth,y+ch.measuredHeight)
-            if(glide&&old!=null&&old.y!=y){ // moved to another row: start from where it was
+            if(glide&&old!=null&&(old.y!=y||(glideAll&&old.x!=x))){ // moved to another row: start from where it was
                 ch.animate().cancel();ch.translationX+=(old.x-x).toFloat();ch.translationY+=(old.y-y).toFloat()
                 ch.animate().translationX(0f).translationY(0f).setStartDelay(0).setDuration(340).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
             spots[ch]=Point(x,y)}}

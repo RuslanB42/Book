@@ -161,7 +161,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         // icons only (approved): equal buttons, the label goes to accessibility
         fun btn(kind:String,label:String,fn:()->Unit)=a.line().apply{gravity=Gravity.CENTER;background=a.shape(quiet,22);isClickable=true;contentDescription=label;a.press(this);setOnClickListener{fn()}
             addView(LineIcon(a,kind,a.fg).apply{size=21f;tag="icon"},LinearLayout.LayoutParams(a.d(24),a.d(24)))}
-        row.addView(btn("copy","Копировать"){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Листай",copyText));Notice.short(a,Notice.Kind.COPIED,"Скопировано");close()},LinearLayout.LayoutParams(0,a.d(44),1f))
+        row.addView(btn("copy","Копировать"){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Glyph",copyText));Notice.short(a,Notice.Kind.COPIED,"Скопировано");close()},LinearLayout.LayoutParams(0,a.d(44),1f))
         row.addView(View(a),LinearLayout.LayoutParams(a.d(10),1))
         row.addView(btn("note","В заметку"){close();toNote(copyText)},LinearLayout.LayoutParams(0,a.d(44),1f))
         if(learn!=null){

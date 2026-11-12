@@ -1,10 +1,3 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-<path android:pathData="M54 43 Q66 40.5 78 41.5 L78 75 Q66 74 54 77.5 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.35"/>
-<path android:pathData="M54 43 Q42 40.5 30 41.5 L30 75 Q42 74 54 77.5 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.35"/>
-<path android:pathData="M54 40 Q66 38.4 76 39.5 L76 71.5 Q66 70.4 54 72 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.72"/>
-<path android:pathData="M54 40 Q42 38.4 32 39.5 L32 71.5 Q42 70.4 54 72 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.72"/>
-<path android:pathData="M54 40 Q65 32.5 73 34.5 L73 66.5 Q65 67 54 72 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.86"/>
-<path android:pathData="M54 40 Q43 32.5 35 34.5 L35 66.5 Q43 67 54 72 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.86"/>
-<path android:pathData="M54 40 Q60.5 28.25 65 30.5 L65 62.5 Q60.5 62.75 54 72 Z" android:fillColor="#FFFFFF"/>
-<path android:pathData="M54 40 Q47.5 28.25 43 30.5 L43 62.5 Q47.5 62.75 54 72 Z" android:fillColor="#FFFFFF"/>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+<group android:translateX="29.2257" android:translateY="86.0283" android:scaleX="0.076844" android:scaleY="-0.076844"><path android:fillColor="#FFFFFFFF" android:pathData="M361 -16Q253 -16 179.0 31.5Q105 79 69.5 160.0Q34 241 39 340Q42 408 67.0 475.0Q92 542 138.5 596.5Q185 651 252.0 683.5Q319 716 406 716Q432 716 466.0 710.5Q500 705 534.0 694.0Q568 683 593 667V709H670L658 476H592Q586 532 562.0 569.0Q538 606 500.5 625.0Q463 644 416 644Q364 644 323.5 620.0Q283 596 255.5 556.0Q228 516 212.5 465.0Q197 414 194 360Q190 274 210.5 207.0Q231 140 276.5 101.5Q322 63 390 63Q409 63 436.0 66.0Q463 69 489.5 75.0Q516 81 535 90L540 183Q542 210 544.0 235.0Q546 260 548 273Q532 272 508.0 271.5Q484 271 473 270L477 347H740L737 281Q720 280 707.5 277.0Q695 274 686.0 265.5Q677 257 672.5 240.0Q668 223 666 194L658 34H633Q607 34 580.5 27.5Q554 21 525 12Q491 2 451.0 -7.0Q411 -16 361 -16Z"/></group>
 </vector>

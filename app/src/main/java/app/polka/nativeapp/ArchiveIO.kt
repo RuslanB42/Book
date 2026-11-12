@@ -70,7 +70,7 @@ object ArchiveIO {
         } finally { spool.delete() }
     }
     private fun inspect(file:File):Pair<JSONObject,List<Part>> = RandomAccessFile(file,"r").use { input ->
-        val got=ByteArray(magic.size); input.readFully(got); require(got.contentEquals(magic)) { "Это не резервная копия «Листай»" }
+        val got=ByteArray(magic.size); input.readFully(got); require(got.contentEquals(magic)) { "Это не резервная копия Glyph" }
         val n=input.readLong(); require(n in 2..16L*1024*1024) { "Повреждён каталог архива" }
         val hashBytes=ByteArray((((n+CHUNK-1)/CHUNK)*64).toInt()); input.readFully(hashBytes); val manifestOffset=input.filePointer
         val bytes=ByteArray(n.toInt()); input.readFully(bytes); require(hashFile(input,manifestOffset,n).joinToString("")==String(hashBytes,Charsets.US_ASCII)) { "Каталог архива повреждён" }

@@ -44,7 +44,7 @@ object Backup {
         parts.forEach { stream.write(it.second) }; stream.flush()
     }
     fun read(input: InputStream): Snapshot {
-        require(readExact(input, magic.size).contentEquals(magic)) { "Это не резервная копия «Листай»" }
+        require(readExact(input, magic.size).contentEquals(magic)) { "Это не резервная копия Glyph" }
         val n = DataInputStream(input).readLong(); require(n in 2..16L * 1024 * 1024) { "Неверный каталог" }
         val expected = String(readExact(input, (((n + chunk - 1) / chunk) * 64).toInt()), Charsets.US_ASCII)
         val manifestBytes = readExact(input, n.toInt()); require(hashes(manifestBytes).joinToString("") == expected) { "Каталог архива повреждён" }

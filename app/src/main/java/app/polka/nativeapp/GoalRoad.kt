@@ -496,7 +496,7 @@ internal object GoalPoster{
             c.drawText("+${list.size-fit+1}",r.centerX(),r.centerY()-(tp.ascent()+tp.descent())/2,tp);tp.textAlign=Paint.Align.LEFT}
         // footer: the favourite book and the app's name
         val fav=list.firstOrNull{it.book.optInt("rating")==5}
-        tp.typeface=PolkaFonts.display(700);tp.textSize=56f;tp.color=0xfff3f3f5.toInt();tp.textAlign=Paint.Align.RIGHT;c.drawText("Листай",W-88f,1820f,tp);tp.textAlign=Paint.Align.LEFT
+        tp.typeface=PolkaFonts.display(700);tp.textSize=56f;tp.color=0xfff3f3f5.toInt();tp.textAlign=Paint.Align.RIGHT;c.drawText("Glyph",W-88f,1820f,tp);tp.textAlign=Paint.Align.LEFT
         if(fav!=null){tp.typeface=PolkaFonts.sans(400);tp.textSize=34f;tp.color=0xff9b9ba1.toInt()
             val label=TextUtils.ellipsize("любимая: ${fav.book.str("title")}",android.text.TextPaint(tp),W-88f*2-260f,TextUtils.TruncateAt.END).toString();c.drawText(label,88f,1818f,tp)}
         return bmp}
