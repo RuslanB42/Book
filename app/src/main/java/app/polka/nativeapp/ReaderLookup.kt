@@ -71,7 +71,11 @@ internal object Dictionary{
     fun key(w:String)=w.replace("́","").replace("̀","").lowercase(Locale.ROOT).replace('ё','е').trim()
     /** Every form the dictionary knows for [word] in [lang] (as lookup keys), for underlining it in books. */
     fun forms(c:Context,word:String,lang:String):List<String>{val d=open(c)?:return emptyList();val out=LinkedHashSet<String>()
-        d.rawQuery("SELECT DISTINCT k2.key FROM k k1 JOIN e ON e.id=k1.id JOIN k k2 ON k2.id=k1.id WHERE k1.key=? AND e.lang=? LIMIT 80",arrayOf(key(word),lang)).use{cur->while(cur.moveToNext())out.add(cur.getString(0))}
+        val ids=ArrayList<Long>()
+        d.rawQuery("SELECT DISTINCT k.id FROM k JOIN e ON e.id=k.id WHERE k.key=? AND e.lang=? LIMIT 6",arrayOf(key(word),lang)).use{cur->while(cur.moveToNext())ids.add(cur.getLong(0))}
+        if(ids.isEmpty())return emptyList()
+        // k has no index on id: one pass over the table for all ids at once
+        d.rawQuery("SELECT DISTINCT key FROM k WHERE id IN (${ids.joinToString(",")}) LIMIT 80",null).use{cur->while(cur.moveToNext())out.add(cur.getString(0))}
         return out.filter{it.length>1}}
     /** Entries for a word as it stands in the text, in the language of its letters first. */
     fun lookup(c:Context,word:String):List<JSONObject>{val d=open(c)?:return emptyList()
@@ -168,8 +172,10 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
             b=btn("learn","Учить"){val have=saved()
                 if(have!=null){Words.remove(a,have.str("id"));paint();a.reader?.refreshWordMarks()}
                 else{val surface=selected.trim().split(Regex("\\s+")).firstOrNull()?.trim{!it.isLetter()&&it!='-'&&it!='\''&&it!='’'}?:lemma
-                    io.execute{val forms=try{Dictionary.forms(a,lemma,lang)}catch(_:Exception){emptyList()}
-                        holder.post{if(saved()==null)Words.add(a,learn,surface,source,forms);paint();a.reader?.refreshWordMarks()}}}}
+                    // saved at once; the other forms of the word are looked up in the background (a full scan of the keys)
+                    val w=Words.add(a,learn,surface,source,emptyList());paint();a.reader?.refreshWordMarks()
+                    Thread{val forms=try{Dictionary.forms(a,lemma,lang)}catch(_:Exception){emptyList()}
+                        if(forms.isNotEmpty())a.runOnUiThread{Words.setForms(a,w.str("id"),forms);a.reader?.refreshWordMarks()}}.start()}}
             paint()
             row.addView(View(a),LinearLayout.LayoutParams(a.d(10),1))
             row.addView(b,LinearLayout.LayoutParams(0,a.d(44),1f))}

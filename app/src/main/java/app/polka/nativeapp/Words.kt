@@ -70,6 +70,9 @@ internal object Words {
             .put("added",System.currentTimeMillis()).put("due",System.currentTimeMillis()).put("reps",0).put("lapses",0)
         list(a).put(w);a.savePreferences();return w
     }
+    fun setForms(a:MainActivity,id:String,forms:List<String>){val w=all(a).firstOrNull{it.str("id")==id}?:return
+        val have=w.optJSONArray("forms")?.let{f->(0 until f.length()).map{f.getString(it)}}?:emptyList()
+        w.put("forms",JSONArray((have+forms).filter{it.isNotBlank()}.distinct()));a.savePreferences()}
     fun remove(a:MainActivity,id:String){a.prefs.put("words",JSONArray(all(a).filterNot{it.str("id")==id}));a.savePreferences()}
 
     private fun initD(g:Int)=(W[4]-exp(W[5]*(g-1))+1).coerceIn(1.0,10.0)
