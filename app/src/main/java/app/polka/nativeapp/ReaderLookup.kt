@@ -154,9 +154,9 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         addView(LineIcon(a,kind,a.fg).apply{size=20f},FrameLayout.LayoutParams(-1,-1))}
     private fun actions(p:LinearLayout,learn:JSONObject?=null){
         val row=a.line().apply{gravity=Gravity.CENTER}
-        val three=learn!=null
-        fun btn(kind:String,label:String,fn:()->Unit)=a.line().apply{gravity=Gravity.CENTER;background=a.shape(quiet,22);isClickable=true;a.press(this);setOnClickListener{fn()}
-            addView(LineIcon(a,kind,a.fg).apply{size=18f;tag="icon"},LinearLayout.LayoutParams(a.d(20),a.d(20)));addView(a.text(label,if(three)13.5f else 14f,a.fg,true).apply{maxLines=1;tag="label"},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(if(three)6 else 8)})}
+        // icons only (approved): equal buttons, the label goes to accessibility
+        fun btn(kind:String,label:String,fn:()->Unit)=a.line().apply{gravity=Gravity.CENTER;background=a.shape(quiet,22);isClickable=true;contentDescription=label;a.press(this);setOnClickListener{fn()}
+            addView(LineIcon(a,kind,a.fg).apply{size=21f;tag="icon"},LinearLayout.LayoutParams(a.d(24),a.d(24)))}
         row.addView(btn("copy","Копировать"){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Листай",copyText));Notice.short(a,Notice.Kind.COPIED,"Скопировано");close()},LinearLayout.LayoutParams(0,a.d(44),1f))
         row.addView(View(a),LinearLayout.LayoutParams(a.d(10),1))
         row.addView(btn("note","В заметку"){close();toNote(copyText)},LinearLayout.LayoutParams(0,a.d(44),1f))
@@ -164,14 +164,14 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
             val lemma=learn.optString("w");val lang=learn.optString("lang","ru")
             fun saved()=Words.find(a,Dictionary.key(lemma),lang)
             lateinit var b:LinearLayout
-            fun paint(){val on=saved()!=null;(b.findViewWithTag<LineIcon>("icon")).set(if(on)"check" else "learn",a.fg);b.findViewWithTag<TextView>("label").text=if(on)"Учу" else "Учить";b.contentDescription=if(on)"Убрать из изучения" else "Учить слово"}
+            fun paint(){val on=saved()!=null;(b.findViewWithTag<LineIcon>("icon")).set(if(on)"check" else "learn",a.fg);b.contentDescription=if(on)"Убрать из изучения" else "Учить слово"}
             b=btn("learn","Учить"){val have=saved()
                 if(have!=null){Words.remove(a,have.str("id"));paint();a.reader?.refreshWordMarks()}
                 else{val surface=selected.trim().split(Regex("\\s+")).firstOrNull()?.trim{!it.isLetter()&&it!='-'&&it!='\''&&it!='’'}?:lemma
                     io.execute{val forms=try{Dictionary.forms(a,lemma,lang)}catch(_:Exception){emptyList()}
                         holder.post{if(saved()==null)Words.add(a,learn,surface,source,forms);paint();a.reader?.refreshWordMarks()}}}}
             paint()
-            row.addView(View(a),LinearLayout.LayoutParams(a.d(8),1))
+            row.addView(View(a),LinearLayout.LayoutParams(a.d(10),1))
             row.addView(b,LinearLayout.LayoutParams(0,a.d(44),1f))}
         p.addView(row,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18)})}
     private fun message(title:String,sub:String?,action:String?=null,fn:(()->Unit)?=null)=content{
