@@ -293,7 +293,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun changeChapter(next:Int) { if(next !in 0 until chapters.length())return;quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=0;pendingFraction=null;paintChapter() }
     fun persist() { val snap=book.copyJson(); a.saveBook(snap) {} }
     fun pause() { Ambience.pause(a);save();paused=true;handler.removeCallbacks(heartbeat) }
-    fun dispose(){if(disposed)return;readAloud?.stop();Ambience.unlisten(soundWatch);Ambience.stop(a);if(a.window.attributes.screenBrightness!=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};a.ratingPrompt?.let{(it.parent as? ViewGroup)?.removeView(it)};a.ratingPrompt=null;a.streakCelebration=null;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
+    fun dispose(){if(disposed)return;readAloud?.stop(false);Ambience.unlisten(soundWatch);Ambience.stop(a);if(a.window.attributes.screenBrightness!=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};a.ratingPrompt?.let{(it.parent as? ViewGroup)?.removeView(it)};a.ratingPrompt=null;a.streakCelebration=null;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
     fun resume() { Ambience.resume(a);ReaderWindow.configure(a.window,true,readerBackground);a.root.requestApplyInsets();paused=false; activeAt=System.currentTimeMillis(); lastCredit=activeAt; handler.removeCallbacks(heartbeat); handler.postDelayed(heartbeat,5000) }
     fun save() {
         handler.removeCallbacks(saveTask)
@@ -587,6 +587,8 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     fun finishBook() { a.confirm("Книга прочитана?","Отметить книгу прочитанной?") { completed=true; book.put("completedAt",System.currentTimeMillis()); save(); a.closeReader() } }
     internal fun showChrome(show:Boolean)=setCalm(!show,false)
+    /** Bars slide away as when the page is tapped. */
+    internal fun hideChrome(){if(!calm)setCalm(true,true)}
     /** The bottom bar, which grows into the reading settings. */
     internal val bottomBar:View get()=bottom
     internal val chromeVisible get()=!calm&&bottom.isShown&&bottom.alpha>.5f

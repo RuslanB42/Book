@@ -32,6 +32,10 @@ internal class MediaGlyph(c:Context,var kind:String,var ink:Int):View(c){
     private val play=androidx.core.graphics.PathParser.createPathFromPathData("M8.2 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8a1 1 0 0 0-1.5.86Z")
     private val back=androidx.core.graphics.PathParser.createPathFromPathData("M12 7.2v9.6a.8.8 0 0 1-1.25.66L4.6 12.66a.8.8 0 0 1 0-1.32l6.15-4.8A.8.8 0 0 1 12 7.2ZM20 7.2v9.6a.8.8 0 0 1-1.25.66l-6.15-4.8a.8.8 0 0 1 0-1.32l6.15-4.8A.8.8 0 0 1 20 7.2Z")
     var size=20f
+    /** Changes the glyph with a small squeeze, so play and pause never just blink. */
+    fun morph(k:String,animate:Boolean){if(!animate){kind=k;invalidate();return}
+        animate().cancel();animate().scaleX(.55f).scaleY(.55f).alpha(0f).setDuration(110).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{kind=k;invalidate()
+            animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(170).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
     override fun onDraw(c:Canvas){val px=size*resources.displayMetrics.density;c.save();c.translate((width-px)/2f,(height-px)/2f);c.scale(px/24f,px/24f);p.color=ink
         when(kind){"play"->c.drawPath(play,p)
             "pause"->{c.drawRoundRect(6.5f,5f,10.5f,19f,1.6f,1.6f,p);c.drawRoundRect(13.5f,5f,17.5f,19f,1.6f,1.6f,p)}
@@ -40,8 +44,15 @@ internal class MediaGlyph(c:Context,var kind:String,var ink:Int):View(c){
         c.restore()}
 }
 
-/** Reading aloud with the system voice. The text fills with ink letter by letter behind the voice (approved «Чернила»):
- *  the page is dimmed, the sentence being read is brighter, and what has been said is in full colour. */
+/** One line of a sentence being read: a flat colour, or on the line where the voice is, a soft horizontal edge
+ *  between said and unsaid. Whole lines only, so the text is shaped exactly as before (no per-letter pieces). */
+internal class InkLine(val sentence:Int,val line:Int,val from:Int,val to:Int):android.text.style.CharacterStyle(),android.text.style.UpdateAppearance{
+    var color=0;var shader:Shader?=null
+    override fun updateDrawState(tp:android.text.TextPaint){if(shader!=null){tp.color=0xff000000.toInt();tp.shader=shader}else{tp.color=color;tp.shader=null}}
+}
+
+/** Reading aloud with the system voice. The text fills with ink behind the voice (approved «Чернила»): the page is
+ *  dimmed, the sentence being read is brighter, and what has been said is in full colour, sweeping on smoothly. */
 internal class ReadAloud(private val a:MainActivity,private val r:NativeReader){
     companion object{var current:ReadAloud?=null
         val rates=listOf(.8f,1f,1.2f,1.5f,2f)}
@@ -52,13 +63,16 @@ internal class ReadAloud(private val a:MainActivity,private val r:NativeReader){
     private var sentences:List<IntRange> = emptyList()
     private var sIndex=0;private var nextToQueue=0
     private val utter=HashMap<String,Pair<Int,Int>>() // id -> (sentence, start offset in chapter)
-    private var anchorPos=0f;private var anchorAt=0L;private var limit=0
-    private var lastWordStart=-1;private var lastWordAt=0L
-    private var cpm=.0145f // characters per millisecond at speed 1
+    private val startedAt=HashMap<String,Long>()
+    // where the voice is: an anchor (sentence start or the last word the engine reported) moving on at the learned pace
+    private var anchor=0f;private var anchorAt=0L;private var cap=0f;private var sentEnd=0f;private var ranges=false
+    private var lastWordStart=-1
+    private var cpm=.0135f // characters per millisecond at speed 1, learned from what the voice actually takes
     private var pos=0f
     private val amt=HashMap<Int,Float>()
-    private val inks=HashMap<Int,List<Pair<Int,InkSpan>>>()
-    private var rest:InkSpan?=null;private var spannedText:CharSequence?=null
+    private val lines=HashMap<Int,List<InkLine>>()
+    private var rest:InkSpan?=null;private var spannedText:CharSequence?=null;private var spannedLayout:android.text.Layout?=null
+    private var dim=0f;private var stopping=false
     private var lastFrame=0L;private var looping=false
     private var sleepAt=0L;var sleepMode="off";private set
     private var focus:AudioFocusRequest?=null
@@ -69,17 +83,20 @@ internal class ReadAloud(private val a:MainActivity,private val r:NativeReader){
     var rate:Float get()=a.prefs.optDouble("ttsRate",1.0).toFloat();set(v){a.prefs.put("ttsRate",v.toDouble());a.savePreferences()}
     var duck:Boolean get()=a.prefs.optBoolean("ttsDuck",true);set(v){a.prefs.put("ttsDuck",v);a.savePreferences();Ambience.duck(a,v&&playing)}
     private val body get()=r.body as MarkedTextView
+    private val reduced get()=a.prefs.str("motion")=="reduced"
     private val noisy=object:BroadcastReceiver(){override fun onReceive(c:Context,i:Intent){if(i.action==AudioManager.ACTION_AUDIO_BECOMING_NOISY)pause()}}
     private var noisyOn=false
 
     // ── starting and the voice ──
     fun start(offset:Int){
-        current?.takeIf{it!==this}?.stop();current=this
+        current?.takeIf{it!==this}?.stop(false);current=this;stopping=false
         if(tts==null){tts=TextToSpeech(a.applicationContext){st->handler.post{
-            if(st!=TextToSpeech.SUCCESS){Notice.short(a,Notice.Kind.ERROR,"На телефоне нет синтеза речи");stop();return@post}
+            if(st!=TextToSpeech.SUCCESS){Notice.short(a,Notice.Kind.ERROR,"На телефоне нет синтеза речи");stop(false);return@post}
             ttsReady=true;setupVoice();pendingStart?.let{pendingStart=null;speakFrom(it)}}}
             tts?.setOnUtteranceProgressListener(listener)}
-        showPlayer()
+        // the player takes the place of the reader's bars
+        r.hideChrome()
+        showPlayer();loop()
         if(ttsReady)speakFrom(offset) else pendingStart=offset
     }
     private fun setupVoice(){val t=tts?:return
@@ -90,83 +107,93 @@ internal class ReadAloud(private val a:MainActivity,private val r:NativeReader){
     private fun loadChapter(){
         if(chapterIdx==r.chapter&&text.isNotEmpty())return
         chapterIdx=r.chapter
-        val raw=r.selectionFullText().toString()
-        text=raw.replace('￼',' ')
+        text=r.selectionFullText().toString().replace('￼',' ')
         val out=ArrayList<IntRange>();val bi=BreakIterator.getSentenceInstance(r.bookLocale());bi.setText(text)
         var s=bi.first();var e=bi.next()
         while(e!=BreakIterator.DONE){var a0=s;var b0=e;while(a0<b0&&text[a0].isWhitespace())a0++;while(b0>a0&&text[b0-1].isWhitespace())b0--
             if(b0>a0&&text.substring(a0,b0).any{it.isLetterOrDigit()}){
-                // very long sentences are cut at spaces: the engine takes a few thousand characters at most
                 var from=a0;while(b0-from>1200){var cut=text.lastIndexOf(' ',from+1200);if(cut<=from)cut=from+1200;out.add(from until cut);from=cut;while(from<b0&&text[from].isWhitespace())from++}
                 if(b0>from)out.add(from until b0)}
             s=e;e=bi.next()}
-        sentences=out;amt.clear();clearInk()
+        sentences=out;amt.clear();dropLines()
     }
     fun speakFrom(offset:Int){
-        if(!r.chapterReady()){handler.postDelayed({if(current===this)speakFrom(offset)},120);return}
+        if(!r.chapterReady()){handler.postDelayed({if(current===this&&!stopping)speakFrom(offset)},120);return}
         loadChapter();switching=false;if(sentences.isEmpty()){chapterEnded();return}
         val t=tts?:return
-        t.stop();utter.clear()
-        var i=sentences.indexOfFirst{it.last>=offset}.let{if(it<0)sentences.lastIndex else it}
+        t.stop();utter.clear();startedAt.clear()
+        val i=sentences.indexOfFirst{it.last>=offset}.let{if(it<0)sentences.lastIndex else it}
+        if(i!=sIndex)amt[sIndex]?.let{}  // the old sentence settles on its own
         sIndex=i;nextToQueue=i
         val from=offset.coerceIn(sentences[i].first,sentences[i].last)
-        anchorPos=from.toFloat();anchorAt=System.currentTimeMillis();limit=from;pos=from.toFloat();lastWordStart=-1
-        amt[i]=amt[i]?:0f
+        anchor=from.toFloat();anchorAt=System.currentTimeMillis();cap=(sentences[i].last+1).toFloat();sentEnd=cap;ranges=false;pos=from.toFloat();lastWordStart=-1
+        if(!amt.containsKey(i))amt[i]=0f
         playing=true;requestFocus();Ambience.duck(a,duck);registerNoisy(true)
         queue(from);queue();queue()
-        loop();syncPlayer();ReadAloudService.update(a)
+        loop();syncPlayer();sheet?.syncPlay();ReadAloudService.update(a)
     }
     private fun queue(startAt:Int?=null){val t=tts?:return;if(nextToQueue>=sentences.size)return
         val i=nextToQueue++;val rng=sentences[i];val s=startAt?:rng.first
         val id="u${chapterIdx}_${i}_$s";utter[id]=i to s
         t.speak(text.substring(s,rng.last+1),TextToSpeech.QUEUE_ADD,null,id)}
     private val listener=object:UtteranceProgressListener(){
-        override fun onStart(id:String){handler.post{val u=utter[id]?:return@post;sIndex=u.first;anchorPos=u.second.toFloat();anchorAt=System.currentTimeMillis();limit=sentences.getOrNull(u.first)?.last?.plus(1)?:u.second;lastWordStart=-1;syncPlayer()}}
-        override fun onRangeStart(id:String,start:Int,end:Int,frame:Int){handler.post{val u=utter[id]?:return@post;word(u.first,u.second+start,u.second+end)}}
+        override fun onStart(id:String){handler.post{val u=utter[id]?:return@post;startedAt[id]=System.currentTimeMillis()
+            if(u.first!=sIndex)pos=u.second.toFloat()
+            sIndex=u.first;if(!amt.containsKey(sIndex))amt[sIndex]=0f
+            anchor=u.second.toFloat();anchorAt=System.currentTimeMillis();sentEnd=(sentences.getOrNull(u.first)?.last?.plus(1)?:u.second).toFloat();cap=sentEnd;ranges=false;lastWordStart=-1;syncPlayer()}}
+        override fun onRangeStart(id:String,start:Int,end:Int,frame:Int){handler.post{val u=utter[id]?:return@post;if(u.first!=sIndex)return@post;word(u.second+start,u.second+end)}}
         override fun onDone(id:String){handler.post{val u=utter[id]?:return@post;utter.remove(id)
+            // learn the pace from how long the whole sentence took
+            startedAt.remove(id)?.let{t0->val dur=(System.currentTimeMillis()-t0).toFloat();val chars=(sentences.getOrNull(u.first)?.last?.plus(1)?:u.second)-u.second
+                if(dur>400f&&chars>8){val v=chars/dur/rate;cpm=cpm*.6f+v.coerceIn(.006f,.03f)*.4f}}
+            if(u.first==sIndex){anchor=sentEnd;cap=sentEnd}
             if(!playing)return@post
             if(sleepMode=="chapter"&&u.first==sentences.lastIndex){pause();sleepMode="off";sheet?.refresh();return@post}
             if(u.first==sentences.lastIndex)chapterEnded() else queue()}}
         @Deprecated("") override fun onError(id:String){handler.post{utter.remove(id)}}
         override fun onError(id:String,code:Int){handler.post{utter.remove(id)}}
     }
-    private fun word(s:Int,ws:Int,we:Int){val now=System.currentTimeMillis()
-        if(lastWordStart>=0&&ws>lastWordStart){val dt=(now-lastWordAt).toFloat();if(dt in 40f..4000f){val v=(ws-lastWordStart)/dt/rate;cpm=cpm*.75f+v*.25f}}
-        lastWordStart=ws;lastWordAt=now
-        sIndex=s;anchorPos=max(pos,ws.toFloat());anchorAt=now;limit=we
+    private fun word(ws:Int,we:Int){
+        ranges=true;lastWordStart=ws
+        // the ink never runs ahead of the voice and never jumps back: it is re-anchored at the word just begun
+        anchor=max(pos,ws.toFloat());anchorAt=System.currentTimeMillis();cap=min(sentEnd,we+1f)
         follow(ws)}
     /** The page goes along with the voice: when the word leaves the page, the page turns. */
     private fun follow(offset:Int){
         if(r.chapter!=chapterIdx)return
-        if(r.paged()){if(offset>=r.pageLimit()&&offset<r.pageLimit()+400){if(a.hasWindowFocus())r.turn(1) else r.jumpOffset(offset)}}
+        if(r.paged()){val lim=r.pageLimit();if(offset>=lim&&offset<lim+400){if(a.hasWindowFocus())r.turn(1) else r.jumpOffset(offset)}}
         else{val l=body.layout?:return;val line=l.getLineForOffset(offset.coerceIn(0,l.text.length));val y=l.getLineTop(line)+body.paddingTop
             val sc=r.scroll;if(y>sc.scrollY+sc.height*.72f||y<sc.scrollY)sc.smoothScrollTo(0,(y-sc.height*.3f).toInt().coerceAtLeast(0))}
     }
     private fun chapterEnded(){
         if(r.chapter+1>=r.chapters.length()){pause();Notice.short(a,Notice.Kind.OK,"Книга дочитана вслух");return}
-        switching=true;clearInk();r.changeChapter(r.chapter+1)
+        switching=true;dropLines();amt.clear();r.changeChapter(r.chapter+1)
         handler.postDelayed({if(current===this&&playing)speakFrom(0)},250)
     }
 
     // ── controls ──
-    fun pause(){if(!playing)return;playing=false;tts?.stop();utter.clear();Ambience.duck(a,false);registerNoisy(false);abandonFocus();syncPlayer();ReadAloudService.update(a);sheet?.refresh()}
-    fun resume(){if(playing)return;val at=if(lastWordStart>=0)lastWordStart else sentences.getOrNull(sIndex)?.first?:r.visibleStart();speakFrom(at);sheet?.refresh()}
+    fun pause(){if(!playing)return;playing=false;tts?.stop();utter.clear();Ambience.duck(a,false);registerNoisy(false);abandonFocus();syncPlayer();ReadAloudService.update(a);sheet?.syncPlay()}
+    fun resume(){if(playing)return;val at=if(lastWordStart>=0)lastWordStart else max(pos.toInt(),sentences.getOrNull(sIndex)?.first?:r.visibleStart());speakFrom(at)}
     fun toggle(){if(playing)pause() else resume()}
-    fun next(){val n=(sIndex+1);if(n<sentences.size)speakFrom(sentences[n].first) else chapterEnded()}
+    fun next(){val n=sIndex+1;if(n<sentences.size)speakFrom(sentences[n].first) else chapterEnded()}
     fun prev(){val cur=sentences.getOrNull(sIndex)?:return
-        // back to the start of this sentence; a quick second tap goes to the one before
         val i=if(pos-cur.first<12&&sIndex>0)sIndex-1 else sIndex;speakFrom(sentences[i].first)}
-    fun changeRate(v:Float){rate=v;tts?.setSpeechRate(v);if(playing){val at=if(lastWordStart>=0)lastWordStart else sentences.getOrNull(sIndex)?.first?:0;speakFrom(at)};syncPlayer();sheet?.refresh()}
+    fun changeRate(v:Float){rate=v;tts?.setSpeechRate(v);if(playing){val at=if(lastWordStart>=0)lastWordStart else max(pos.toInt(),sentences.getOrNull(sIndex)?.first?:0);speakFrom(at)};syncPlayer();sheet?.refresh()}
     fun setSleep(mode:String){sleepMode=mode;sleepAt=when(mode){"15"->System.currentTimeMillis()+15*60_000L;"30"->System.currentTimeMillis()+30*60_000L;else->0L};sheet?.refresh()}
-    fun stop(){
+    /** Stops reading: the page brightens back and the player slides away (at once when [animated] is false). */
+    fun stop(animated:Boolean=true){
+        if(stopping&&animated)return
         playing=false;tts?.stop();tts?.shutdown();tts=null;ttsReady=false;utter.clear()
         Ambience.duck(a,false);registerNoisy(false);abandonFocus()
-        looping=false;clearInk();body.onNewText=null;body.invalidate()
-        player?.let{p->(p.parent as? ViewGroup)?.removeView(p)};player=null
         sheet?.close();sheet=null
         if(current===this)current=null
         r.readAloud=null;ReadAloudService.stop(a)
+        stopping=true
+        val p=player
+        if(animated&&!reduced&&looping){p?.animate()?.alpha(0f)?.translationY(a.d(28).toFloat())?.setDuration(240)?.setInterpolator(PathInterpolator(.4f,0f,1f,1f))?.withEndAction{(p.parent as? ViewGroup)?.removeView(p)}?.start();player=null;return}
+        finish();p?.let{(it.parent as? ViewGroup)?.removeView(it)};player=null
     }
+    private fun finish(){looping=false;dropLines();removeRest();body.onNewText=null;body.invalidate()}
     private fun requestFocus(){if(focus!=null)return
         val am=a.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val f=AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
@@ -184,47 +211,74 @@ internal class ReadAloud(private val a:MainActivity,private val r:NativeReader){
         return (ch(24) shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)}
     private fun ease(x:Float)=if(x<=0f)0f else if(x>=1f)1f else x*x*(3-2*x)
     /** A picture of the next page (page turn) gets the same dimmed ink. */
-    fun dimmed(t:CharSequence):CharSequence{val s=SpannableString(t);s.setSpan(InkSpan(withAlpha(ink(),.4f)),0,s.length,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);return s}
-    private fun clearInk(){val t=r.body.text as? Spannable;if(t!=null){t.getSpans(0,t.length,InkSpan::class.java).forEach{t.removeSpan(it)}};inks.clear();rest=null;spannedText=null}
-    private fun prepareText(){val t=r.body.text as? Spannable?:return
-        if(spannedText===t&&rest!=null)return
-        t.getSpans(0,t.length,InkSpan::class.java).forEach{t.removeSpan(it)}
-        inks.clear();spannedText=t
-        rest=InkSpan(withAlpha(ink(),.4f)).also{t.setSpan(it,0,t.length,Spanned.SPAN_INCLUSIVE_INCLUSIVE)}}
+    fun dimmed(t:CharSequence):CharSequence{val s=SpannableString(t);s.setSpan(InkSpan(mix(ink(),withAlpha(ink(),.4f),dim)),0,s.length,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);return s}
+    private fun dropLines(){val t=spannedText as? Spannable;lines.values.flatten().forEach{t?.removeSpan(it)};lines.clear()}
+    private fun removeRest(){val t=r.body.text as? Spannable;if(t!=null)t.getSpans(0,t.length,InkSpan::class.java).forEach{t.removeSpan(it)};(spannedText as? Spannable)?.let{s->rest?.let{s.removeSpan(it)}};rest=null;spannedText=null}
+    private fun prepareText():Spannable?{val t=r.body.text as? Spannable?:return null
+        if(spannedText===t&&rest!=null)return t
+        lines.clear();spannedText=t;spannedLayout=null
+        rest=InkSpan(ink()).also{t.setSpan(it,0,t.length,Spanned.SPAN_INCLUSIVE_INCLUSIVE)}
+        return t}
     private fun loop(){if(looping)return;looping=true;lastFrame=System.nanoTime()
-        body.onNewText={spannedText=null;rest=null;inks.clear();if(r.chapter==chapterIdx&&looping)paint()}
+        body.onNewText={spannedText=null;rest=null;lines.clear();if(looping&&r.chapter==chapterIdx)paint()}
         Choreographer.getInstance().postFrameCallback(frame)}
     private val frame=object:Choreographer.FrameCallback{override fun doFrame(now:Long){
         if(!looping)return
         val dt=((now-lastFrame)/1e6f).coerceIn(0f,100f);lastFrame=now
-        if(r.chapter!=chapterIdx&&playing&&!switching){pause()}
+        if(r.chapter!=chapterIdx&&playing&&!switching&&chapterIdx>=0){pause()}
         if(sleepAt>0&&System.currentTimeMillis()>=sleepAt){sleepAt=0;sleepMode="off";pause();sheet?.refresh()}
-        if(playing){val t=System.currentTimeMillis();pos=min(limit.toFloat(),anchorPos+(t-anchorAt)*cpm*rate).coerceAtLeast(pos.coerceAtMost(limit.toFloat()))}
-        // each sentence eases toward its look: the one being read comes up, the one before settles back
+        // the page dims in when reading starts and brightens back when it stops
+        val dimTarget=if(stopping)0f else 1f
+        dim=if(reduced)dimTarget else dim+(dimTarget-dim)*(1f-exp(-dt/(if(stopping)140f else 180f)))
+        if(playing){val tNow=System.currentTimeMillis()
+            val target=min(cap,anchor+(tNow-anchorAt)*cpm*rate)
+            // follow the target closely but smoothly; never move backwards within a sentence
+            if(target>pos)pos+=(target-pos)*(1f-exp(-dt/55f))}
         val keys=(amt.keys+sIndex).toSet()
-        for(k in keys){val target=if(k==sIndex&&(playing||amt.containsKey(k)))1f else 0f;val v=amt[k]?:0f
-            val tau=if(target>v)120f else 300f;val nv=v+(target-v)*(1f-exp(-dt/tau));if(nv<.003f&&target==0f)amt.remove(k) else amt[k]=nv}
+        for(k in keys){val target=if(k==sIndex&&!stopping)1f else 0f;val v=amt[k]?:0f
+            val tau=if(target>v)140f else 320f;val nv=if(reduced)target else v+(target-v)*(1f-exp(-dt/tau))
+            if(nv<.004f&&target==0f){amt.remove(k);lines.remove(k)?.forEach{(spannedText as? Spannable)?.removeSpan(it)}} else amt[k]=nv}
         paint()
-        updatePlayerLift(dt)
-        if(now/1_000_000_000L!=(now-(dt*1e6f).toLong())/1_000_000_000L)syncPlayer()
+        placePlayer(dt)
+        if(stopping&&dim<.01f&&amt.isEmpty()){finish();return}
+        if((now/500_000_000L)!=((now-(dt*1e6f).toLong())/500_000_000L))syncPlayer()
         Choreographer.getInstance().postFrameCallback(this)}}
+    /** Spans for the lines of sentence [k] on the shown text (page coordinates). Whole lines only. */
+    private fun linesFor(k:Int,t:Spannable,l:android.text.Layout,base:Int):List<InkLine>{
+        val rng=sentences.getOrNull(k)?:return emptyList()
+        val from=max(rng.first,base)-base;val to=min(rng.last+1,base+t.length)-base
+        if(to<=from)return emptyList()
+        val out=ArrayList<InkLine>()
+        var line=l.getLineForOffset(from);val last=l.getLineForOffset((to-1).coerceAtLeast(from))
+        while(line<=last){val s=max(from,l.getLineStart(line));val e=min(to,l.getLineEnd(line));if(e>s){val sp=InkLine(k,line,s,e);t.setSpan(sp,s,e,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);out.add(sp)};line++}
+        return out}
     private fun paint(){
-        if(r.chapter!=chapterIdx||sentences.isEmpty())return
-        prepareText();val t=spannedText as? Spannable?:return
-        val base=r.pageBase();val end=base+t.length
-        val c=ink();val cRest=withAlpha(c,.4f);val cUp=withAlpha(c,.66f);val cRead=withAlpha(c,1f)
-        rest?.color=cRest
+        val t=prepareText()?:return
+        val c=ink();val cRest=mix(c,withAlpha(c,.4f),dim);val cUp=withAlpha(c,.66f);val cRead=withAlpha(c,1f)
         var changed=false
-        // drop the colouring of sentences that have settled
-        inks.keys.filter{it !in amt}.forEach{k->inks.remove(k)?.forEach{(_,sp)->t.removeSpan(sp)};changed=true}
-        for((k,v) in amt){val rng=sentences.getOrNull(k)?:continue
-            if(rng.last<base||rng.first>=end)continue
-            val list=inks.getOrPut(k){val from=max(rng.first,base);val to=min(rng.last+1,end)
-                (from until to).filter{!text[it].isWhitespace()}.map{i->i to InkSpan(cRest).also{sp->t.setSpan(sp,i-base,i-base+1,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}}}
-            for((i,sp) in list){
-                val rr=if(k==sIndex)ease((pos-i)/3.2f+.5f) else if(k<sIndex)1f else 0f
-                val col=mix(cRest,mix(cUp,cRead,rr),v)
-                if(sp.color!=col){sp.color=col;changed=true}}}
+        rest?.let{if(it.color!=cRest){it.color=cRest;changed=true}}
+        val l=body.layout
+        if(l!=null&&r.chapter==chapterIdx&&sentences.isNotEmpty()){
+            if(spannedLayout!==l){dropLines();spannedLayout=l}
+            val base=r.pageBase()
+            val soft=body.textSize*.9f
+            for((k,v) in amt){val list=lines.getOrPut(k){linesFor(k,t,l,base)}
+                for(sp in list){
+                    val readAll=k<sIndex;val cur=k==sIndex
+                    val pageOff=pos-base
+                    var col:Int;var sh:Shader?=null
+                    if(readAll)col=mix(cRest,cRead,v)
+                    else if(!cur)col=mix(cRest,cUp,v)
+                    else if(pageOff>=sp.to)col=mix(cRest,cRead,v)
+                    else if(pageOff<=sp.from)col=mix(cRest,cUp,v)
+                    else{
+                        // the edge between said and unsaid, at the drawn x of the voice's position on this line
+                        val i0=floor(pageOff).toInt().coerceIn(sp.from,sp.to);val i1=(i0+1).coerceAtMost(sp.to);val f=pageOff-i0
+                        val x0=JustifiedGeometry.x(body,l,sp.line,i0);val x1=JustifiedGeometry.x(body,l,sp.line,i1)
+                        val x=x0+(x1-x0)*f
+                        col=mix(cRest,cRead,v)
+                        sh=LinearGradient(x-soft,0f,x+soft*.6f,0f,mix(cRest,cRead,v),mix(cRest,cUp,v),Shader.TileMode.CLAMP)}
+                    if(sp.color!=col||sh!=null||sp.shader!=null){sp.color=col;sp.shader=sh;changed=true}}}}
         if(changed)r.body.invalidate()
     }
 
@@ -249,23 +303,24 @@ internal class ReadAloud(private val a:MainActivity,private val r:NativeReader){
         pill.addView(speedChip,LinearLayout.LayoutParams(-2,a.d(34)).apply{marginEnd=a.d(2)})
         pill.addView(IconView(a,"x",if(dark)0xffa9a9ae.toInt() else 0xff6e6e73.toInt()).apply{isClickable=true;contentDescription="Остановить чтение";setOnClickListener{stop()}},LinearLayout.LayoutParams(a.d(44),a.d(44)))
         r.view.addView(pill,FrameLayout.LayoutParams(-1,a.d(64),Gravity.BOTTOM).apply{leftMargin=a.d(16);rightMargin=a.d(16);bottomMargin=a.d(24)})
-        player=pill
-        if(a.prefs.str("motion")!="reduced"){pill.alpha=0f;pill.translationY=a.d(24).toFloat();pill.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
+        player=pill;shown=0f;pill.alpha=0f;pill.translationY=a.d(28).toFloat()
         syncPlayer()
     }
-    private var lift=0f
-    private fun updatePlayerLift(dt:Float){val p=player?:return;if(p.animate()!=null&&p.alpha<1f)return
-        val target=if(r.chromeVisible)-(r.bottomBar.height.toFloat()+a.d(4)) else 0f
-        lift+=(target-lift)*(1f-exp(-dt/90f));p.translationY=lift}
+    private var shown=0f
+    /** The player slides in when reading starts, and out of the way while the reader's own bars are open. */
+    private fun placePlayer(dt:Float){val p=player?:return
+        val target=if(r.chromeVisible||stopping)0f else 1f
+        shown=if(reduced)target else shown+(target-shown)*(1f-exp(-dt/(if(target>shown)110f else 80f)))
+        p.alpha=shown;p.translationY=(1f-shown)*a.d(28);p.visibility=if(shown<.02f)View.INVISIBLE else View.VISIBLE}
     internal fun minutesLeft():Int{if(sentences.isEmpty())return 0;val left=(text.length-pos).coerceAtLeast(0f);return ceil(left/(cpm*rate)/60000f).toInt().coerceAtLeast(1)}
     internal fun minutesDone():Int=((pos-(sentences.firstOrNull()?.first?:0)).coerceAtLeast(0f)/(cpm*rate)/60000f).toInt()
     internal fun chapterFraction()=if(text.isEmpty())0f else (pos/text.length).coerceIn(0f,1f)
-    internal fun chapterTitle()=r.chapterName(r.chapter)
+    internal fun chapterTitle():String{val n=r.chapterName(r.chapter).trim();return if(n.isNotEmpty()&&n.all{it.isDigit()})"Глава $n" else n}
     internal fun bookTitle()=r.book.str("title")
     private fun rateLabel(v:Float)=(if(v==v.roundToInt().toFloat())"${v.roundToInt()}" else "%.1f".format(java.util.Locale("ru"),v))+"×"
-    private fun syncPlayer(){playBtn?.let{it.kind=if(playing)"pause" else "play";it.contentDescription=if(playing)"Пауза" else "Читать";it.invalidate()}
+    private fun syncPlayer(){playBtn?.let{val k=if(playing)"pause" else "play";if(it.kind!=k)it.morph(k,!reduced);it.contentDescription=if(playing)"Пауза" else "Читать"}
         playerTitle?.text=chapterTitle();playerSub?.text="ещё ${minutesLeft()} мин";speedChip?.text=rateLabel(rate)}
-    private fun openSheet(){sheet=ReadAloudSheet(a,this,r).also{it.show()}}
+    private fun openSheet(){if(sheet!=null)return;sheet=ReadAloudSheet(a,this,r).also{it.show()}}
     internal fun sheetClosed(){sheet=null}
 }
 
@@ -291,8 +346,10 @@ internal class ReadAloudSheet(private val a:MainActivity,private val ra:ReadAlou
     fun close(){val d=dialog?:return;dialog=null
         if(a.prefs.str("motion")=="reduced"){d.dismiss();return}
         holder.animate().translationY(holder.height+a.d(24).toFloat()).setDuration(220).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{d.dismiss()}.start()}
-    private fun chip(label:String,on:Boolean,fn:()->Unit)=a.text(label,13.5f,if(on)a.bg else a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(13),0,a.d(13),0);background=a.shape(if(on)a.fg else quiet,18);isClickable=true;a.press(this);setOnClickListener{fn()}}
+    private fun chip(label:String,on:Boolean,fn:()->Unit)=a.text(label,13f,if(on)a.bg else a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(11),0,a.d(11),0);background=a.shape(if(on)a.fg else quiet,18);isClickable=true;a.press(this);setOnClickListener{fn()}}
     private fun label(s:String)=a.text(s.uppercase(),11f,a.muted,true).apply{letterSpacing=.06f}
+    private var big:MediaGlyph?=null
+    fun syncPlay(){big?.let{val k=if(ra.playing)"pause" else "play";if(it.kind!=k)it.morph(k,a.prefs.str("motion")!="reduced");it.contentDescription=if(ra.playing)"Пауза" else "Читать"}}
     fun refresh(){if(dialog==null&&!::body.isInitialized)return
         body.removeAllViews()
         body.addView(TextView(a).apply{text=ra.bookTitle();textSize=19f;setTextColor(a.fg);typeface=PolkaFonts.literata(a,true);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
@@ -303,7 +360,7 @@ internal class ReadAloudSheet(private val a:MainActivity,private val ra:ReadAlou
         body.addView(times,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(6)})
         val ctl=a.line().apply{gravity=Gravity.CENTER}
         ctl.addView(MediaGlyph(a,"back",a.fg).apply{size=26f;isClickable=true;contentDescription="Предложение назад";a.press(this);setOnClickListener{ra.prev()}},LinearLayout.LayoutParams(a.d(56),a.d(56)))
-        ctl.addView(MediaGlyph(a,if(ra.playing)"pause" else "play",a.bg).apply{size=28f;background=a.shape(a.fg,34);isClickable=true;contentDescription=if(ra.playing)"Пауза" else "Читать";a.press(this);setOnClickListener{ra.toggle();refresh()}},LinearLayout.LayoutParams(a.d(68),a.d(68)).apply{marginStart=a.d(22);marginEnd=a.d(22)})
+        ctl.addView(MediaGlyph(a,if(ra.playing)"pause" else "play",a.bg).apply{big=this;size=28f;background=a.shape(a.fg,34);isClickable=true;contentDescription=if(ra.playing)"Пауза" else "Читать";a.press(this);setOnClickListener{ra.toggle()}},LinearLayout.LayoutParams(a.d(68),a.d(68)).apply{marginStart=a.d(22);marginEnd=a.d(22)})
         ctl.addView(MediaGlyph(a,"next",a.fg).apply{size=26f;isClickable=true;contentDescription="Предложение вперёд";a.press(this);setOnClickListener{ra.next()}},LinearLayout.LayoutParams(a.d(56),a.d(56)))
         body.addView(ctl,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})
         body.addView(label("Скорость"),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18);bottomMargin=a.d(8)})
