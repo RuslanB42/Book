@@ -45,8 +45,12 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
    pane.animate().alpha(1f).translationX(0f).setDuration(260).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()
   }.start()
  }
+ /** Containers the notebook opened up for its cards' shadows, with how they were; the other tabs get them back clipped,
+  *  or the chapter list would draw over the tabs when it scrolls. */
+ private val unclipped=HashMap<ViewGroup,Pair<Boolean,Boolean>>()
  private fun fill(){
   pane.removeAllViews()
+  if(selected!=1){unclipped.forEach{(v,o)->v.clipChildren=o.first;v.clipToPadding=o.second};unclipped.clear()}
   when(selected){0->contents();1->notebook();2->search()}
  }
  private fun contents(){
@@ -84,7 +88,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   val strip=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(chips);setPadding(0,a.d(2),0,a.d(4))};pane.addView(strip)
   a.space(pane,16);notebookResults=a.column().apply{clipChildren=false;clipToPadding=false};pane.addView(notebookResults)
   // the cards' shadows are wider than the cards: no container between them and the scrolling sheet may cut them
-  pane.post{var v:android.view.ViewParent?=pane;while(v is ViewGroup&&v !is android.widget.ScrollView){v.clipChildren=false;v.clipToPadding=false;v=v.parent};(v as? ViewGroup)?.clipToPadding=false}
+  pane.post{if(selected!=1)return@post;var v:android.view.ViewParent?=pane;while(v is ViewGroup&&v !is android.widget.ScrollView){unclipped.getOrPut(v){v.clipChildren to v.clipToPadding};v.clipChildren=false;v.clipToPadding=false;v=v.parent};(v as? ViewGroup)?.let{unclipped.getOrPut(it){it.clipChildren to it.clipToPadding};it.clipToPadding=false}}
   updateChips(false);drawNotebook()
  }
  private fun selectFilter(index:Int){if(index==filter)return;filter=index;updateChips(true);drawNotebook(true)}
