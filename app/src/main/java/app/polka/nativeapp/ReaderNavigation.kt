@@ -63,7 +63,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
    val want=(s[1]+sv.height-at[1]-below).coerceAtLeast(a.d(200))
    holder.setPadding(0,0,0,sv.paddingBottom+a.d(16))
    val lp=holder.layoutParams;if(lp.height!=want){lp.height=want;holder.layoutParams=lp;return false};return true}})
-  toc.forEach{item->val current=item.optInt("ch")==r.chapter;list.addView(a.text(item.str("title"),16f,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),14);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
+  toc.forEach{item->val current=item.optInt("ch")==r.chapter;list.addView(a.text(r.prettyTitle(item.str("title")),16f,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),14);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
   // the list opens at the chapter being read (a little of the one before it still showing above)
   here?.let{row->holder.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
    if(row.height==0)return true;holder.viewTreeObserver.removeOnPreDrawListener(this)

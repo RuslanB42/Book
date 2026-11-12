@@ -289,7 +289,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         a.ratingPrompt=RatingPrompt(a,book){n->book.put("rating",n);a.saveBook(book){}}.also{it.show()}
     }
     fun progress():Double { if(atEnd())return 1.0; val total=chapters.objects().sumOf { it.optInt("len") }.coerceAtLeast(1); val before=(0 until chapter).sumOf { chapters.getJSONObject(it).optInt("len") }; return ((before+chapters.getJSONObject(chapter).optInt("len")*fraction())/total).coerceIn(0.0,1.0) }
-    fun updateFooter() { syncBookmark(false);folio.text=if(paged())"${pageIndex+1} из ${pageStarts.size}" else "";if(!scrubbing) slider.progress=(progress()*1000).toInt(); percent.text="${(progress()*100).toInt()}% от всей книги"; footer.text=chapters.getJSONObject(chapter).str("title");remaining.text=if(paged()){val left=pageStarts.size-pageIndex-1;if(left>0)"ещё $left стр" else "конец главы"}else "${(fraction()*100).toInt()}% главы";checkFinished() }
+    fun updateFooter() { syncBookmark(false);folio.text=if(paged())"${pageIndex+1} из ${pageStarts.size}" else "";if(!scrubbing) slider.progress=(progress()*1000).toInt(); percent.text="${(progress()*100).toInt()}% от всей книги"; footer.text=prettyTitle(chapters.getJSONObject(chapter).str("title"));remaining.text=if(paged()){val left=pageStarts.size-pageIndex-1;if(left>0)"ещё $left стр" else "конец главы"}else "${(fraction()*100).toInt()}% главы";checkFinished() }
     fun changeChapter(next:Int) { if(next !in 0 until chapters.length())return;quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=0;pendingFraction=null;paintChapter() }
     fun persist() { val snap=book.copyJson(); a.saveBook(snap) {} }
     fun pause() { Ambience.pause(a);save();paused=true;handler.removeCallbacks(heartbeat) }
@@ -391,7 +391,9 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun jumpProgress(pct:Double) { val total=chapters.objects().sumOf { it.optInt("len") }.coerceAtLeast(1); var at=(pct*total).toInt(); var next=0; while(next<chapters.length()-1 && at>=chapters.getJSONObject(next).optInt("len")) { at-=chapters.getJSONObject(next).optInt("len"); next++ }; changeChapter(next); val offset=at; body.post { jumpOffset(offset); save() } }
     fun navigation(tab:Int=0){ReaderNavigation(a,this,tab).show()}
     fun contents()=content.optJSONArray("toc")?.objects().orEmpty().ifEmpty{chapters.objects().mapIndexed{index,ch->ch.copyJson().put("ch",index)}}
-    fun chapterName(index:Int)=chapters.optJSONObject(index)?.str("title")?:"Книга"
+    fun chapterName(index:Int)=chapters.optJSONObject(index)?.str("title")?.let{prettyTitle(it)}?:"Книга"
+    /** «11» in the table of contents reads as «Глава 11». */
+    internal fun prettyTitle(t:String)=ChapterTitles.pretty(t,bookLocale().language=="en")
     /** Page of [offset] in chapter [ch] (from the laid-out pages when known, else the page saved with the bookmark). */
     fun pageOf(ch:Int,offset:Int,saved:Int=0):Int?{
         val starts=if(ch==chapter&&pageStarts.isNotEmpty())pageStarts else previewPages[ch]?.second?.starts
@@ -656,7 +658,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
                 for((index,ch) in chapters.objects().withIndex()) {
                     if(results.size>=500) break
                     val text=ReadingText(a,fontSize,width,height,images,ink,leading,true,trim).render(chapterHtml(index)).text.toString(); var offset=0
-                    while(results.size<500) { val at=text.indexOf(term,offset,true); if(at<0) break; results.add(Triple(index,at,ch.str("title")+"\n…"+text.substring(maxOf(0,at-35),minOf(text.length,at+term.length+70)).replace('\n',' ')+"…")); offset=at+term.length }
+                    while(results.size<500) { val at=text.indexOf(term,offset,true); if(at<0) break; results.add(Triple(index,at,prettyTitle(ch.str("title"))+"\n…"+text.substring(maxOf(0,at-35),minOf(text.length,at+term.length+70)).replace('\n',' ')+"…")); offset=at+term.length }
                 }
             }) { a.dialog().setTitle("Найдено: ${results.size}").setItems(results.map { it.third }.toTypedArray()) { _,index -> val result=results[index]; changeChapter(result.first); body.post { jumpOffset(result.second) } }.show() }
         }.show()
@@ -669,7 +671,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             for((index,ch) in chapters.objects().withIndex()){
                 if(results.size>=500)break
                 val text=ReadingText(a,fontSize,width,height,images,ink,leading,true,trim).render(chapterHtml(index)).text.toString();var offset=0
-                while(results.size<500){val at=text.indexOf(term,offset,true);if(at<0)break;results.add(Triple(index,at,ch.str("title")+"\n…"+text.substring(maxOf(0,at-35),minOf(text.length,at+term.length+70)).replace('\n',' ')+"…"));offset=at+term.length}
+                while(results.size<500){val at=text.indexOf(term,offset,true);if(at<0)break;results.add(Triple(index,at,prettyTitle(ch.str("title"))+"\n…"+text.substring(maxOf(0,at-35),minOf(text.length,at+term.length+70)).replace('\n',' ')+"…"));offset=at+term.length}
             };results.toList()
         },done={if(!disposed)done(it)})
     }

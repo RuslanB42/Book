@@ -318,3 +318,10 @@ internal class WordReview(private val a:MainActivity){
         deck.removeAllViews();deck.addView(box,FrameLayout.LayoutParams(-1,-1))
     }
 }
+
+/** Chapter titles that are only a number («11», «XIV») read as «Глава 11» (or «Chapter 11» in an English book). */
+internal object ChapterTitles{
+    private val number=Regex("^(\\d{1,4}|[IVXLCDM]{1,8})\\.?$")
+    fun pretty(title:String,english:Boolean=false):String{val t=title.trim();val m=number.find(t)?:return title
+        return (if(english)"Chapter " else "Глава ")+m.groupValues[1]}
+}

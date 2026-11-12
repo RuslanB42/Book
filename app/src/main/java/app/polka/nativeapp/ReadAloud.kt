@@ -315,7 +315,7 @@ internal class ReadAloud(private val a:MainActivity,private val r:NativeReader){
     internal fun minutesLeft():Int{if(sentences.isEmpty())return 0;val left=(text.length-pos).coerceAtLeast(0f);return ceil(left/(cpm*rate)/60000f).toInt().coerceAtLeast(1)}
     internal fun minutesDone():Int=((pos-(sentences.firstOrNull()?.first?:0)).coerceAtLeast(0f)/(cpm*rate)/60000f).toInt()
     internal fun chapterFraction()=if(text.isEmpty())0f else (pos/text.length).coerceIn(0f,1f)
-    internal fun chapterTitle():String{val n=r.chapterName(r.chapter).trim();return if(n.isNotEmpty()&&n.all{it.isDigit()})"Глава $n" else n}
+    internal fun chapterTitle()=r.chapterName(r.chapter)
     internal fun bookTitle()=r.book.str("title")
     private fun rateLabel(v:Float)=(if(v==v.roundToInt().toFloat())"${v.roundToInt()}" else "%.1f".format(java.util.Locale("ru"),v))+"×"
     private fun syncPlayer(){playBtn?.let{val k=if(playing)"pause" else "play";if(it.kind!=k)it.morph(k,!reduced);it.contentDescription=if(playing)"Пауза" else "Читать"}
