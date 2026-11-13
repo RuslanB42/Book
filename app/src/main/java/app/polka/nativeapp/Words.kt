@@ -155,42 +155,51 @@ fun MainActivity.wordsPage(){
     val words=Words.all(this)
     if(words.isEmpty()){space(page,96);page.addView(emptyView("words","Пока нет слов","Выделите слово в книге, откройте «Словарь» и нажмите «Учить»."),LinearLayout.LayoutParams(-1,-2));return}
     val learning=words.filterNot{Words.known(it)};val known=words.filter{Words.known(it)}
-    val chips=line()
-    listOf(Triple("all","Все",words.size),Triple("learn","Учу",learning.size),Triple("known","Выучено",known.size)).forEach{(key,label,n)->
-        val on=Words.filter==key
-        val chip=line().apply{gravity=Gravity.CENTER;setPadding(d(16),0,d(16),0);background=shape(if(on)fg else quietFill(),19);isClickable=true;press(this);setOnClickListener{Words.filter=key;renderLibraryResults()}}
-        chip.addView(text(label,14f,if(on)bg else fg,true));chip.addView(text("$n",14f,((if(on)bg else fg) and 0xffffff) or (0x8c shl 24),true).apply{setPadding(d(6),0,0,0)})
-        chips.addView(chip,LinearLayout.LayoutParams(-2,d(38)).apply{marginEnd=d(8)})}
-    page.addView(chips);space(page,16)
+    // the app's one segmented control, no counts (approved redesign)
+    val keys=listOf("learn","known","all");val sel=keys.indexOf(Words.filter).coerceAtLeast(0)
+    val seg=SlidingSegment(this,sel,3,if(light)0xffeeeeec.toInt() else 0xff2f2f31.toInt(),if(light)Color.WHITE else 0xff48484c.toInt(),24)
+    listOf("Учу","Выучено","Все").forEachIndexed{i,label->seg.addView(text(label,14f,if(i==sel)fg else muted).apply{gravity=Gravity.CENTER;minHeight=d(38);press(this)
+        setOnClickListener{if(i!=keys.indexOf(Words.filter)){seg.choose(i);for(j in 0 until seg.childCount)(seg.getChildAt(j) as TextView).setTextColor(if(j==i)fg else muted);Words.filter=keys[i];seg.postDelayed({renderLibraryResults()},200)}}},LinearLayout.LayoutParams(0,-2,1f))}
+    page.addView(seg,LinearLayout.LayoutParams(-1,-2));space(page,16)
     val due=Words.due(this)
     if(due.isNotEmpty()){
-        val stack=QuoteStackLayer(this,3)
-        val card=line().apply{floatCard(this,24);setPadding(d(20),d(18),d(18),d(18))}
-        card.addView(TextView(this).apply{text="${due.size}";textSize=36f;setTextColor(fg);typeface=PolkaFonts.sans(600);includeFontPadding=false})
-        val t=column();t.addView(text("Пора повторить",16f,fg,true));t.addView(text("около ${maxOf(1,(due.size*15+59)/60)} мин",13.5f,muted))
-        card.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=d(14)})
-        card.addView(text("Начать",14.5f,bg,true).apply{gravity=Gravity.CENTER;setPadding(d(20),0,d(20),0);background=shape(fg,22);isClickable=true;press(this);setOnClickListener{WordReview(this@wordsPage).start()}},LinearLayout.LayoutParams(-2,d(44)))
-        stack.addView(card);page.addView(stack,LinearLayout.LayoutParams(-1,-2));space(page,18)}
+        // a plain card like «Цель на год»: how many words, how long, one button
+        val card=line().apply{floatCard(this,24);gravity=Gravity.CENTER_VERTICAL;setPadding(d(18),d(18),d(18),d(18))}
+        val t=column()
+        t.addView(text("ПОВТОРЕНИЕ",11.5f,if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt(),true).apply{letterSpacing=.06f})
+        val n=due.size;val unit=if(n%100 in 11..14)"слов" else when(n%10){1->"слово";2,3,4->"слова";else->"слов"}
+        t.addView(TextView(this).apply{val sb=SpannableStringBuilder("$n");val st=sb.length;sb.append(" $unit")
+            sb.setSpan(android.text.style.AbsoluteSizeSpan(16,true),st,sb.length,0);sb.setSpan(android.text.style.ForegroundColorSpan(muted),st,sb.length,0);sb.setSpan(TypefaceSpanCompat(PolkaFonts.sans(400)),st,sb.length,0)
+            text=sb;textSize=40f;setTextColor(fg);typeface=PolkaFonts.serif(this@wordsPage,true);includeFontPadding=false},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(6)})
+        val m=maxOf(1,(n*15+59)/60);val mu=if(m%100 in 11..14)"минут" else when(m%10){1->"минуту";2,3,4->"минуты";else->"минут"}
+        t.addView(text("около $m $mu",12.5f,muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(5)})
+        card.addView(t,LinearLayout.LayoutParams(0,-2,1f))
+        card.addView(text("Повторить",15f,bg,true).apply{gravity=Gravity.CENTER;setPadding(d(24),0,d(24),0);background=shape(fg,24);isClickable=true;press(this);setOnClickListener{WordReview(this@wordsPage).start()}},LinearLayout.LayoutParams(-2,d(48)))
+        page.addView(card,LinearLayout.LayoutParams(-1,-2));space(page,12)}
     val shown=when(Words.filter){"learn"->learning;"known"->known;else->words}.sortedByDescending{it.optLong("added")}
     if(shown.isEmpty()){space(page,40);page.addView(text(if(Words.filter=="known")"Выученных слов пока нет" else "Все слова выучены",15f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2));return}
     shown.forEach{w->page.addView(wordCard(w));space(page,12)}
 }
 
 private fun MainActivity.wordCard(w:JSONObject):View{
-    val card=column().apply{floatCard(this,24);setPadding(d(18),d(16),d(16),d(14))}
+    val card=column().apply{floatCard(this,24);setPadding(d(18),d(16),d(16),d(16))}
     val head=TextView(this).apply{val sb=SpannableStringBuilder(w.str("w"));if(w.str("i").isNotBlank()){val st=sb.length+2;sb.append("  ").append(w.str("i"));sb.setSpan(android.text.style.AbsoluteSizeSpan(13,true),st,sb.length,0);sb.setSpan(android.text.style.ForegroundColorSpan(muted),st,sb.length,0);sb.setSpan(TypefaceSpanCompat(PolkaFonts.sans(400)),st,sb.length,0)}
         text=sb;textSize=22f;setTextColor(fg);typeface=PolkaFonts.literata(this@wordCard,true)}
-    card.addView(head)
-    if(w.str("t").isNotBlank()||w.str("d").isNotBlank())card.addView(TextView(this).apply{text=w.str("t").ifBlank{w.str("d")};textSize=16f;setTextColor(fg);typeface=PolkaFonts.literata(this@wordCard)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
+    // the word and its translation, the sound button beside them
+    val top=line().apply{gravity=Gravity.TOP};val names=column();names.addView(head)
+    if(w.str("t").isNotBlank()||w.str("d").isNotBlank())names.addView(TextView(this).apply{text=w.str("t").ifBlank{w.str("d")};textSize=16f;setTextColor(fg);typeface=PolkaFonts.literata(this@wordCard)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
+    top.addView(names,LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=d(10)})
+    top.addView(roundButton("speaker","Произнести"){Words.speak(this,w.str("w"),w.str("lang"))},LinearLayout.LayoutParams(d(36),d(36)))
+    card.addView(top,LinearLayout.LayoutParams(-1,-2))
     if(w.str("ctx").isNotBlank())card.addView(Words.context(this,w,14.5f,muted,fg),LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(10)})
-    card.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x12ffffff)},LinearLayout.LayoutParams(-1,1).apply{topMargin=d(12);bottomMargin=d(10)})
-    val foot=line()
-    if(w.str("title").isNotBlank())foot.addView(text(w.str("title"),12.5f,muted,true).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(12),0,d(12),0);background=shape(quietFill(),15);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=d(170)},LinearLayout.LayoutParams(-2,d(30)))
-    foot.addView(View(this),LinearLayout.LayoutParams(0,1,1f))
-    foot.addView(LevelDots(this,Words.level(w)),LinearLayout.LayoutParams(-2,-2).apply{marginEnd=d(10)})
-    foot.addView(roundButton("speaker","Произнести"){Words.speak(this,w.str("w"),w.str("lang"))},LinearLayout.LayoutParams(d(36),d(36)))
-    foot.addView(roundButton("trash","Удалить слово"){Words.remove(this,w.str("id"));renderLibraryResults()},LinearLayout.LayoutParams(d(36),d(36)).apply{marginStart=d(8)})
-    card.addView(foot,LinearLayout.LayoutParams(-1,-2))
+    // where it is from and where it stands, quietly
+    val foot=line().apply{gravity=Gravity.CENTER_VERTICAL}
+    foot.addView(text(w.str("title"),12.5f,muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=d(12)})
+    foot.addView(text(when{Words.known(w)->"выучено";Words.level(w)==0->"новое";else->"учу"},12.5f,muted))
+    card.addView(foot,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(12)})
+    // removing is a long press and asks first: one tap must never lose a word
+    card.isLongClickable=true;card.setOnLongClickListener{card.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+        dialog().setTitle("Удалить «${w.str("w")}»?").setMessage("Слово пропадёт из изучения вместе с историей повторений.").setPositiveButton("Удалить"){_,_->Words.remove(this,w.str("id"));renderLibraryResults()}.setNegativeButton("Отмена",null).show();true}
     return card
 }
 
@@ -221,7 +230,7 @@ internal class WordReview(private val a:MainActivity){
         col.addView(top,LinearLayout.LayoutParams(-1,a.d(48)))
         deck=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
         col.addView(deck,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=a.d(16);bottomMargin=a.d(14)})
-        hint=a.text("Влево — не помню, вправо — помню",12.5f,a.muted).apply{gravity=Gravity.CENTER};col.addView(hint,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(10)})
+        hint=a.text("",12.5f,a.muted);col.addView(hint,LinearLayout.LayoutParams(-1,0))
         buttons=a.line()
         buttons.addView(a.text("Не помню",16f,a.fg,true).apply{gravity=Gravity.CENTER;background=a.shape(a.quietFill(),28);isClickable=true;a.press(this);setOnClickListener{answer(false)}},LinearLayout.LayoutParams(0,a.d(56),1f))
         buttons.addView(View(a),LinearLayout.LayoutParams(a.d(10),1))
@@ -269,7 +278,7 @@ internal class WordReview(private val a:MainActivity){
             if(w.str("d").isNotBlank())c.addView(TextView(a).apply{text=w.str("d");textSize=16f;setTextColor(a.muted);typeface=PolkaFonts.literata(a,false,true);gravity=Gravity.CENTER;cssLeading(1.45f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16)})
         }
         c.addView(View(a),LinearLayout.LayoutParams(1,0,1f))
-        c.addView(a.text(if(back)w.str("p") else "Нажмите, чтобы перевернуть",12.5f,a.muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2))
+        c.addView(a.text(if(back)w.str("p") else "",12.5f,a.muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2))
         return c
     }
     private fun flip(w:JSONObject){
