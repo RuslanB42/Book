@@ -26,9 +26,9 @@ internal val medalNames=listOf("бронза","серебро","золото","�
 
 /** «ещё 5 — примерно 3 в месяц», «цель достигнута», «не хватило 2 книг». */
 internal fun goalPace(year:Int,today:LocalDate,done:Int,target:Int):String{val left=target-done
-    return when{target<=0->if(year>=today.year)"цель не задана · Настройки → «Чтение»" else ""
+    return when{target<=0->if(year>=today.year)"цель не задана, Настройки → «Чтение»" else ""
         left<=0->"цель достигнута"
-        year==today.year->{val per=left.toDouble()/(13-today.monthValue);"ещё $left — "+(if(per<1)"меньше книги в месяц" else "примерно ${per.roundToInt()} в месяц")}
+        year==today.year->{val per=left.toDouble()/(13-today.monthValue);"ещё $left, "+(if(per<1)"меньше книги в месяц" else "примерно ${per.roundToInt()} в месяц")}
         year<today.year->"не хватило ${MainActivity.countBooks(left)}"
         else->"ещё $left"}}
 

@@ -74,7 +74,7 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
                 c.animate().setUpdateListener{invalidate()}.alpha(1f).translationY(lift).scaleX(k).scaleY(k).setStartDelay(wait+180L+(i-coverFrom)*70L).setDuration(620).setInterpolator(android.view.animation.PathInterpolator(.16f,1f,.3f,1f)).start()}
             else covers.forEachIndexed{i,c->c?:return@forEachIndexed;c.alpha=0f;c.translationY=-d*24;c.scaleX=FLAT*.82f;c.scaleY=FLAT*.82f
                 c.animate().setUpdateListener{invalidate()}.alpha(1f).translationY(0f).scaleX(FLAT).scaleY(FLAT).setStartDelay(wait+260L+(i-coverFrom)*110L).setDuration(560).setInterpolator(android.view.animation.OvershootInterpolator(1.4f)).start()}}
-        if(motion&&books.size<slots)clock=ValueAnimator.ofFloat(0f,1f).apply{duration=1600;repeatCount=ValueAnimator.INFINITE;interpolator=Ease.outQuad;addUpdateListener{pulse=it.animatedValue as Float;invalidate()};start()}}
+        if(false&&motion&&books.size<slots)clock=ValueAnimator.ofFloat(0f,1f).apply{duration=1600;repeatCount=ValueAnimator.INFINITE;interpolator=Ease.outQuad;addUpdateListener{pulse=it.animatedValue as Float;invalidate()};start()}}
     override fun onDetachedFromWindow(){clock?.cancel();clock=null;super.onDetachedFromWindow()}
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat();val H=h.toFloat()
         fun x(f:Float):Float{return d*12+(W-d*40)*f}
@@ -119,12 +119,11 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     private fun draw0(c:Canvas){if(length<=0f)return
         val green=if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt();val green2=if(a.light)0xff54b581.toInt() else 0xff7bdca6.toInt()
         p.reset();p.isAntiAlias=true;p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND
-        p.color=if(a.light)0x0f000000 else 0x12ffffff;p.strokeWidth=d*16;c.drawPath(road,p)
-        p.strokeCap=Paint.Cap.BUTT;p.strokeWidth=d*1.4f;p.color=if(a.light)0x38000000 else 0x38ffffff;p.pathEffect=DashPathEffect(floatArrayOf(d*5,d*7),0f);c.drawPath(road,p);p.pathEffect=null
+        // approved: a quiet road: the track, the green way walked, the points, the covers and the flag; no dashes, glows or pulse
+        p.color=if(a.light)0x0f000000 else 0x12ffffff;p.strokeWidth=d*12;c.drawPath(road,p)
         // the way walked so far
         val done=reachedFraction().coerceIn(0f,1f)*walk
         if(done>0f){val part=Path();pm.getSegment(0f,length*done,part,true);p.strokeCap=Paint.Cap.ROUND
-            if(!a.light)glowFor(part)?.let{glowPaint.alpha=(0x8c*glowFade).toInt();c.drawBitmap(it,null,RectF(0f,0f,width.toFloat(),height.toFloat()),glowPaint)}
             p.shader=LinearGradient(0f,0f,width.toFloat(),0f,green,green2,Shader.TileMode.CLAMP);p.strokeWidth=d*5;c.drawPath(part,p);p.shader=null}
         p.style=Paint.Style.FILL
         if(big){tp.textSize=10*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(500);tp.textAlign=Paint.Align.CENTER
@@ -141,7 +140,6 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
         // stems under the covers
         p.color=if(a.light)0x59000000 else 0x80ffffff.toInt();p.strokeWidth=d*1.5f
         // the next milestone breathes
-        if(!big&&books.size<slots&&walk>=1f){val q=at(slot(books.size));p.style=Paint.Style.STROKE;p.strokeWidth=d*2;p.color=green;p.alpha=(255*(1-pulse)).toInt();c.drawCircle(q[0],q[1],d*(5+6*pulse),p);p.alpha=255;p.style=Paint.Style.FILL}
         // start ring and the flag with the goal
         val s0=at(0f);p.color=if(a.light)Color.WHITE else 0xff1c1c1f.toInt();c.drawCircle(s0[0],s0[1],d*5.5f,p)
         p.style=Paint.Style.STROKE;p.strokeWidth=d*3;p.color=green;c.drawCircle(s0[0],s0[1],d*5.5f,p);p.style=Paint.Style.FILL
@@ -149,7 +147,7 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
         c.drawPath(Path().apply{moveTo(e[0]+d,e[1]-d*30);lineTo(e[0]+d*18,e[1]-d*25);lineTo(e[0]+d,e[1]-d*19);close()},p)
         if(goal>0){tp.textSize=11*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(600);tp.color=a.fg;c.drawText("$goal",e[0]+d*21,e[1]-d*20,tp)}
         // a soft green light behind the chosen cover; it grows and fades with the cover's own lift
-        covers.forEach{cv->cv?:return@forEach;val k=((cv.scaleX-BASE)/(SEL-BASE)).coerceIn(0f,1f);if(k<=.01f||cv.width==0)return@forEach
+        if(false)covers.forEach{cv->cv?:return@forEach;val k=((cv.scaleX-BASE)/(SEL-BASE)).coerceIn(0f,1f);if(k<=.01f||cv.width==0)return@forEach
             val g=haloFor(cv.width,cv.height)?:return@forEach;val w=cv.width*cv.scaleX;val h=cv.height*cv.scaleY
             val l=cv.left+cv.pivotX*(1-cv.scaleX);val t=cv.top+cv.translationY+cv.pivotY*(1-cv.scaleY);val pad=haloPad*cv.scaleX
             haloPaint.alpha=(k*(if(a.light)150 else 235)).toInt();c.drawBitmap(g,null,RectF(l-pad,t-pad,l+w+pad,t+h+pad),haloPaint)}}

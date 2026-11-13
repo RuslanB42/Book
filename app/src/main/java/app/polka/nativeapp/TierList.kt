@@ -22,8 +22,9 @@ internal object Tiers {
     val names=listOf("Любимые","Понравились","Неплохо","Так себе","Не понравились")
     fun of(book:JSONObject)=book.optInt("rating").let{if(it in 1..5)5-it else -1}
     /** Light and deep tone of each tier's letter. */
-    fun tone(a:MainActivity,k:Int):Pair<Int,Int> =if(a.light)when(k){0->0xfff2b52a.toInt() to 0xffd48a00.toInt();1->0xfff08a5d.toInt() to 0xffd4552a.toInt();2->0xff9a87f5.toInt() to 0xff6f57e0.toInt();3->0xff4fb8ad.toInt() to 0xff23877d.toInt();else->0xff9a9ea6.toInt() to 0xff6c7079.toInt()}
-        else when(k){0->0xffffe08a.toInt() to 0xffffb21f.toInt();1->0xffffb08f.toInt() to 0xffff7a4d.toInt();2->0xffd2c6ff.toInt() to 0xff9a84ff.toInt();3->0xff9ee6df.toInt() to 0xff45b8ae.toInt();else->0xffc3c7cf.toInt() to 0xff80858f.toInt()}
+    /** Approved «Награды»: gold, silver, bronze, then tarnished metal and dark graphite — the order reads like medals. */
+    fun tone(a:MainActivity,k:Int):Pair<Int,Int> =if(a.light)when(k){0->0xffd9a63a.toInt() to 0xffa87a20.toInt();1->0xff9aa0a8.toInt() to 0xff6b7078.toInt();2->0xffc98a55.toInt() to 0xff8e5428.toInt();3->0xff8a8f96.toInt() to 0xff5e636a.toInt();else->0xff6a6a70.toInt() to 0xff45454a.toInt()}
+        else when(k){0->0xffffe39a.toInt() to 0xffe2a93a.toInt();1->0xfff4f5f7.toInt() to 0xffa9adb5.toInt();2->0xfff0b98a.toInt() to 0xffb06a3a.toInt();3->0xff8f949b.toInt() to 0xff5e636a.toInt();else->0xff6a6a70.toInt() to 0xff45454a.toInt()}
     /** Finished books of [year] (all of them when null), own order inside a tier first, then the latest finished. */
     fun books(model:ReadingStatistics,year:Int?)=model.finished.filter{year==null||it.date?.year==year}.map{it.book}
     fun sorted(list:List<JSONObject>)=list.sortedWith(compareBy<JSONObject>{it.optDouble("tierPos",Double.MAX_VALUE)}.thenByDescending{it.optLong("completedAt")})

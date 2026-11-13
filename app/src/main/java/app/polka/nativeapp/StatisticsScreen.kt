@@ -277,9 +277,9 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             // head: «ЦЕЛЬ НА 2026 ⌄» opens the year menu, the round button (or a tap on the card) opens the whole road
             val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
             val chevron=Glyph(a,"down",if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt())
-            val yearBtn=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(6),a.d(9),a.d(6));isClickable=true;contentDescription="Цель на $goalYear, выбрать год"
-                background=GradientDrawable().apply{setColor(if(light)0x0d000000 else 0x12ffffff);cornerRadius=a.d(14).toFloat()}
-                addView(label(if(target>0||goalYear>=today.year)"ЦЕЛЬ НА $goalYear" else "КНИГИ · $goalYear",12.5f,a.fg,true).apply{letterSpacing=.03f})
+            // approved: the head is a caption like on every card, the small arrow beside it opens the years
+            val yearBtn=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(8),a.d(10),a.d(8));isClickable=true;contentDescription="Цель на $goalYear, выбрать год"
+                addView(label(if(target>0||goalYear>=today.year)"ЦЕЛЬ НА $goalYear" else "КНИГИ $goalYear",11.5f,if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt(),true).apply{letterSpacing=.06f})
                 addView(chevron,LinearLayout.LayoutParams(a.d(12),a.d(12)).apply{marginStart=a.d(6)});a.press(this)}
             yearBtn.setOnClickListener{if(android.os.SystemClock.uptimeMillis()-menuClosedAt<400)return@setOnClickListener
                 chevron.animate().rotation(180f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()
@@ -293,8 +293,8 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 addView(Glyph(a,"expand",a.fg),FrameLayout.LayoutParams(a.d(15),a.d(15),Gravity.CENTER));a.press(this)}
             top.addView(expand,LinearLayout.LayoutParams(a.d(34),a.d(34)))
             box.addView(top)
-            val head=a.column();space(head,10)
-            head.addView(if(target>0)bigCount(done," из ${ofBooks(target)}",46f,.35f) else bigCount(done," "+MainActivity.countBooks(done).substringAfter(' '),46f,.35f));space(head,5)
+            val head=a.column();space(head,4)
+            head.addView(if(target>0)bigCount(done," из ${ofBooks(target)}",42f,.38f) else bigCount(done," "+MainActivity.countBooks(done).substringAfter(' '),42f,.38f));space(head,6)
             head.addView(label(goalPace(goalYear,today,done,target),12.5f))
             box.addView(head)
             if(list.isEmpty()){space(box,16);box.addView(a.emptyGoal(goalYear),LinearLayout.LayoutParams(-1,-2));return}
@@ -321,10 +321,13 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             box.addView(top);space(box,8)
             val list=Tiers.books(model,y)
             val fit=((a.resources.configuration.screenWidthDp-32-36-22-14)/34).coerceIn(3,10)
-            for(k in 0..4){val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(54)}
-                row.addView(TierLetter(a,k,22f,false),LinearLayout.LayoutParams(a.d(22),-2))
-                Tiers.sorted(list.filter{Tiers.of(it)==k}).take(fit).forEach{b->row.addView(MiniCover(a,b).apply{elevation=a.d(2).toFloat()},LinearLayout.LayoutParams(a.d(30),a.d(45)).apply{marginStart=a.d(if(row.childCount==1)14 else 4)})}
-                box.addView(row,LinearLayout.LayoutParams(-1,a.d(54)))}
+            // approved: only the tiers that have books (all five while nothing is rated yet)
+            val any=list.any{Tiers.of(it) in 0..4}
+            for(k in 0..4){val inTier=Tiers.sorted(list.filter{Tiers.of(it)==k});if(any&&inTier.isEmpty())continue
+                val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(56)}
+                row.addView(TierLetter(a,k,24f,false),LinearLayout.LayoutParams(a.d(24),-2))
+                inTier.take(fit).forEach{b->row.addView(MiniCover(a,b).apply{elevation=a.d(2).toFloat()},LinearLayout.LayoutParams(a.d(30),a.d(45)).apply{marginStart=a.d(if(row.childCount==1)16 else 5)})}
+                box.addView(row,LinearLayout.LayoutParams(-1,a.d(56)))}
             box.contentDescription="Тир-лист за $y"}
         box.isClickable=true;box.setOnClickListener{if(a.tierList==null)TierListOverlay(a,model,if(today.year in ys)today.year else ys.first(),{a.tierCard?.takeIf{it.isAttachedToWindow}?:box}){bind()}.show()}
         a.press(box)
