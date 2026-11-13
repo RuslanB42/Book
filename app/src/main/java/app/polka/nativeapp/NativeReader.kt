@@ -36,6 +36,11 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     internal val quoteSelection by lazy { ReaderQuoteSelection(a,this) }
     private val footer=TextView(a)
     private val remaining=TextView(a)
+    // approved: the way back lives in the chapter row of the bottom bar, in place of «ещё N стр»
+    private val backArrow by lazy{BackGlyph("back")}
+    private val backLabel by lazy{TextView(a).apply{textSize=13f;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(170);includeFontPadding=false;typeface=PolkaFonts.sans(500)}}
+    private val backChip by lazy{LinearLayout(a).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;visibility=View.GONE;isClickable=true;setPadding(a.d(9),0,a.d(12),0)
+        addView(backArrow,LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{marginEnd=a.d(6)});addView(backLabel);setOnClickListener{tapBack()};a.press(this)}}
     private val chromeIcons=mutableListOf<IconView>()
     private var soundButton:SoundButton?=null
     /** While a background sound plays: a small chip with dancing bars and its name in the top bar; a tap opens «Звуки». */
@@ -418,11 +423,6 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private var backPoint:JSONObject?=null
     private var backForward=false
     private var backTurns=0;private var backSeen=-1;private var backSettle=0L
-    // approved: the way back lives in the chapter row of the bottom bar, in place of «ещё N стр»
-    private val backArrow by lazy{BackGlyph("back")}
-    private val backLabel by lazy{TextView(a).apply{textSize=13f;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(170);includeFontPadding=false;typeface=PolkaFonts.sans(500)}}
-    private val backChip by lazy{LinearLayout(a).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;visibility=View.GONE;isClickable=true;setPadding(a.d(9),0,a.d(12),0)
-        addView(backArrow,LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{marginEnd=a.d(6)});addView(backLabel);setOnClickListener{tapBack()};a.press(this)}}
     private fun herePoint()=JSONObject().put("ch",chapter).put("off",if(paged())pageBase() else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0)
     private fun keepBack(){val p=backPoint;if(p==null)book.remove("readBack") else book.put("readBack",JSONObject().put("p",p).put("fwd",backForward))}
     /** Before any jump: remember where the reading was (a chain of jumps keeps the first place). */
