@@ -63,7 +63,7 @@ internal class TierRow(private val a:MainActivity,val k:Int,val covers:FlowRow):
     init{orientation=HORIZONTAL;clipChildren=false;clipToPadding=false;setWillNotDraw(false)
         setPadding(a.d(8),a.d(11),a.d(18),a.d(11));minimumHeight=a.d(100)
         val label=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(0,a.d(4),0,0)}
-        if(k<5){label.addView(TierLetter(a,k,40f),LinearLayout.LayoutParams(-2,a.d(50)))
+        if(k<5){label.addView(TierLetter(a,k,40f,false),LinearLayout.LayoutParams(-2,a.d(50)))
             label.addView(a.text(Tiers.names[k],10.5f,a.muted).apply{maxLines=1;gravity=Gravity.CENTER;setPadding(0,a.d(4),0,0)})}
         addView(label,LayoutParams(a.d(84),-2))
         addView(covers,LayoutParams(0,-2,1f).apply{marginStart=a.d(4);topMargin=a.d(2)})
@@ -89,7 +89,15 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     private val col=a.column()
     private val scroll=ScrollView(a).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS;clipToPadding=false;isVerticalFadingEdgeEnabled=true;setFadingEdgeLength(a.d(24))}
     private val page=a.column().apply{clipChildren=false;clipToPadding=false}
-    private val yearText=a.text("",34f,a.fg,true,serif=true)
+    // approved: the years side by side over the page, swiped like pages; the last one is «Все годы»
+    private val tabs:List<Int?> =years.map<Int,Int?>{it}+listOf<Int?>(null)
+    private val tabRow=a.line().apply{gravity=Gravity.BOTTOM}
+    private val tabStrip=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(tabRow)}
+    private val tabViews=mutableListOf<TextView>()
+    private val pager=Pager()
+    private val sideL=a.column().apply{clipChildren=false;clipToPadding=false}
+    private val sideR=a.column().apply{clipChildren=false;clipToPadding=false}
+    private var pageAnim:android.animation.ValueAnimator?=null
     private val countText=a.text("",14f,a.muted)
     private val rowsBox=a.column().apply{clipChildren=false;clipToPadding=false}
     private val rows=mutableListOf<TierRow>()
@@ -132,7 +140,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     }
 
     fun show(){
-        frame.isClickable=true;frame.background=TierBackdrop(a);frame.elevation=a.d(30).toFloat()
+        frame.isClickable=true;frame.setBackgroundColor(a.bg);frame.elevation=a.d(30).toFloat()
         frame.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){
             if(bounds.isEmpty)o.setRect(0,0,v.width,v.height) else o.setRoundRect(bounds.left.roundToInt(),bounds.top.roundToInt(),bounds.right.roundToInt(),bounds.bottom.roundToInt(),radius)}}
         frame.clipToOutline=true
@@ -144,22 +152,21 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         bar.addView(a.text("ТИР-ЛИСТ",12.5f,a.muted,true).apply{letterSpacing=.06f;gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f))
         bar.addView(round("share","Поделиться тир-листом"){openShare()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
         col.addView(bar)
-        // the year and the switch
-        val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(22),a.d(18),a.d(18),a.d(10))}
-        val left=a.column();left.addView(yearText);left.addView(countText.apply{setPadding(0,a.d(6),0,0)})
-        head.addView(left,LinearLayout.LayoutParams(0,-2,1f))
-        val labels=years.take(2).map{"$it"}+"Всё";val sel=if(year==null)labels.size-1 else years.indexOf(year).coerceIn(0,labels.size-2)
-        val seg=SlidingSegment(a,sel,labels.size,if(a.light)0xffeeeeec.toInt() else 0xff2f2f31.toInt(),if(a.light)Color.WHITE else 0xff48484c.toInt(),24)
-        fun paint(i:Int){for(j in 0 until seg.childCount)(seg.getChildAt(j) as TextView).setTextColor(if(j==i)a.fg else a.muted)}
-        labels.forEachIndexed{i,s->seg.addView(a.text(s,14f,a.muted).apply{gravity=Gravity.CENTER;minHeight=a.d(34)
-            setOnClickListener{seg.choose(i);paint(i);val y=if(i==labels.size-1)null else years[i];if(y!=year){year=y;bind(true)}}},LinearLayout.LayoutParams(a.d(58),-2))}
-        paint(sel);head.addView(seg,LinearLayout.LayoutParams(-2,-2))
-        page.addView(head)
+        // the years over the page: the chosen one white, the others quiet; a swipe turns the page
+        tabs.forEachIndexed{i,y->val t=if(y==null)a.text("Все годы",17f,a.muted,true) else a.text("$y",40f,a.muted,true,serif=true)
+            t.includeFontPadding=false;t.isClickable=true;t.setOnClickListener{goTo(i)};tabViews.add(t)
+            tabRow.addView(t,LinearLayout.LayoutParams(-2,-2).apply{marginEnd=a.d(20);if(y==null)bottomMargin=a.d(5)})}
+        tabStrip.setPadding(a.d(22),0,a.d(22),0)
+        col.addView(tabStrip,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18)})
+        col.addView(countText.apply{setPadding(a.d(22),a.d(8),a.d(22),a.d(10))})
         page.addView(rowsBox)
         scroll.addView(page,ViewGroup.LayoutParams(-1,-2))
-        col.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+        pager.addView(sideL,FrameLayout.LayoutParams(-1,-1));pager.addView(sideR,FrameLayout.LayoutParams(-1,-1))
+        pager.addView(scroll,FrameLayout.LayoutParams(-1,-1))
+        col.addView(pager,LinearLayout.LayoutParams(-1,0,1f))
         frame.addView(col,FrameLayout.LayoutParams(-1,-1))
         a.followInsets(frame){i->col.setPadding(i.left,i.top,i.right,0);scroll.setPadding(0,0,0,i.bottom+a.d(28))}
+        pager.post{offset(0f)}
         a.root.addView(frame,FrameLayout.LayoutParams(-1,-1))
         a.tierList=this
         bind(false)
@@ -183,14 +190,19 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     /** Lays the chosen year out: five rows and the tray of books without a rating. */
     private fun bind(animated:Boolean){
         val list=Tiers.books(model,year)
-        yearText.text=year?.toString()?:"Всё время"
         countText.text=MainActivity.countBooks(list.size)
+        paintTabs(index().toFloat())
         shown.clear();list.forEach{shown[it.str("id")]=Tiers.of(it)}
-        fun build(){rowsBox.removeAllViews();rows.clear()
+        fun build(){fill(rowsBox,list,true);sides()}
+        if(animated&&motion){rowsBox.animate().cancel();rowsBox.animate().alpha(0f).setDuration(140).withEndAction{build();rowsBox.translationY=a.d(8).toFloat()
+            rowsBox.animate().alpha(1f).translationY(0f).setDuration(340).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}.start()} else build()
+    }
+    /** Lays five rows (and the tray) into [box]; [live] ones can be dragged, the neighbours shown during a swipe are pictures. */
+    private fun fill(box:LinearLayout,list:List<JSONObject>,live:Boolean){box.removeAllViews();if(live)rows.clear()
             for(k in 0..5){val small=k==5;val items=Tiers.sorted(list.filter{Tiers.of(it)==(if(k==5)-1 else k)})
                 if(k==5&&items.isEmpty())continue
                 val flow=FlowRow(a,a.d(if(small)8 else 7),a.d(8),true){motion}
-                items.forEach{b->val (w,h)=cellSize(small);flow.addView(cell(b,small),ViewGroup.LayoutParams(w,h))}
+                items.forEach{b->val (w,h)=cellSize(small);flow.addView(if(live)cell(b,small) else CoverView(a,b,a.cover(b)).apply{softShadow=true;if(small)alpha=.6f},ViewGroup.LayoutParams(w,h))}
                 val row=TierRow(a,k,flow)
                 if(k==5){row.minimumHeight=0;row.setPadding(a.d(14),a.d(12),a.d(14),a.d(14));(row.getChildAt(0)).visibility=View.GONE
                     (flow.layoutParams as LinearLayout.LayoutParams).apply{marginStart=0;topMargin=a.d(28)}
@@ -198,11 +210,61 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
                         background=GradientDrawable().apply{cornerRadius=a.d(22).toFloat();setStroke(a.d(1)+a.d(1)/2,if(a.light)0x26000000 else 0x22ffffff,a.d(5).toFloat(),a.d(4).toFloat())}}
                     tray.addView(a.text("ЕЩЁ НЕ ОЦЕНЕНЫ",11f,if(a.light)0xff5c5c62.toInt() else 0xffc9c9cf.toInt(),true).apply{letterSpacing=.08f},FrameLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(14);topMargin=a.d(12)})
                     tray.addView(row,FrameLayout.LayoutParams(-1,-2))
-                    rowsBox.addView(tray,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=a.d(16);rightMargin=a.d(16);topMargin=a.d(14)})}
-                else rowsBox.addView(row,LinearLayout.LayoutParams(-1,-2))
-                rows.add(row)}}
-        if(animated&&motion){rowsBox.animate().cancel();rowsBox.animate().alpha(0f).setDuration(140).withEndAction{build();rowsBox.translationY=a.d(8).toFloat()
-            rowsBox.animate().alpha(1f).translationY(0f).setDuration(340).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}.start()} else build()
+                    box.addView(tray,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=a.d(16);rightMargin=a.d(16);topMargin=a.d(14)})}
+                else box.addView(row,LinearLayout.LayoutParams(-1,-2))
+                if(live)rows.add(row)}
+    }
+
+    // ───── years as pages ─────
+    private fun index()=tabs.indexOf(year).coerceAtLeast(0)
+    /** The neighbouring years, ready to slide in. */
+    private fun sides(){val i=index()
+        tabs.getOrNull(i-1).let{if(i>0)fill(sideL,Tiers.books(model,it),false) else sideL.removeAllViews()}
+        tabs.getOrNull(i+1).let{if(i<tabs.size-1)fill(sideR,Tiers.books(model,it),false) else sideR.removeAllViews()}}
+    /** [px] is how far the page is pulled: left is the next year. */
+    private fun offset(px:Float){val w=pager.width.toFloat().coerceAtLeast(1f)
+        scroll.translationX=px;sideL.translationX=px-w;sideR.translationX=px+w
+        paintTabs(index()-px/w)}
+    /** Colours the years for a position between pages and keeps the chosen one in view. */
+    private fun paintTabs(at:Float){val dim=if(a.light)0xffc7c7cc.toInt() else 0xff4a4a4e.toInt()
+        tabViews.forEachIndexed{i,t->val near=(1f-abs(at-i)).coerceIn(0f,1f);t.setTextColor(androidx.core.graphics.ColorUtils.blendARGB(dim,a.fg,near))}
+        val lo=at.toInt().coerceIn(0,tabViews.size-1);val hi=(lo+1).coerceAtMost(tabViews.size-1);val f=at-lo
+        val x=tabViews[lo].left+(tabViews[hi].left-tabViews[lo].left)*f
+        // the chosen year stays at the left edge, the strip follows the swipe
+        if(tabViews[lo].width>0)tabStrip.scrollTo(x.toInt().coerceAtLeast(0),0)}
+    /** Turns to page [i]: slides there when it is next door, otherwise changes in place. */
+    private fun goTo(i:Int,fromPx:Float=0f,velocity:Float=0f){if(closing||drag!=null)return;val cur=index();if(i==cur&&fromPx==0f)return
+        if(abs(i-cur)>1||!motion){year=tabs[i];scroll.scrollTo(0,0);offset(0f);bind(motion);return}
+        val w=pager.width.toFloat();val to=if(i>cur)-w else if(i<cur)w else 0f
+        pageAnim?.cancel();pageAnim=android.animation.ValueAnimator.ofFloat(fromPx,to).apply{duration=if(velocity>0f)(abs(to-fromPx)/velocity*1000f).toLong().coerceIn(160L,340L) else 340L
+            interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{offset(it.animatedValue as Float)}
+            addListener(object:android.animation.AnimatorListenerAdapter(){var cancelled=false
+                override fun onAnimationCancel(x:android.animation.Animator){cancelled=true}
+                override fun onAnimationEnd(x:android.animation.Animator){if(cancelled)return
+                    if(i!=cur){year=tabs[i];scroll.scrollTo(0,0);bind(false)};offset(0f)}});start()}}
+    /** The page area: a sideways swipe pulls the neighbouring year in. */
+    private inner class Pager:FrameLayout(a){
+        private var x0=0f;private var y0=0f;private var swiping=false;private var vt:VelocityTracker?=null
+        private val slop=ViewConfiguration.get(a).scaledTouchSlop
+        init{clipChildren=true}
+        private fun pull(dx:Float):Float{val i=index();return if((dx>0&&i==0)||(dx<0&&i==tabs.size-1))dx*.25f else dx}
+        override fun onInterceptTouchEvent(e:MotionEvent):Boolean{if(drag!=null||tabs.size<2||closing)return false
+            when(e.actionMasked){
+                MotionEvent.ACTION_DOWN->{x0=e.x;y0=e.y;swiping=false;vt?.recycle();vt=VelocityTracker.obtain();vt?.addMovement(e)}
+                MotionEvent.ACTION_MOVE->{vt?.addMovement(e);val dx=e.x-x0;val dy=e.y-y0
+                    if(abs(dx)>slop&&abs(dx)>abs(dy)*1.3f){swiping=true;x0=e.x-(if(dx>0)slop else -slop).toFloat();pageAnim?.cancel();parent?.requestDisallowInterceptTouchEvent(true)}}}
+            return swiping}
+        override fun onTouchEvent(e:MotionEvent):Boolean{if(drag!=null)return false
+            vt?.addMovement(e)
+            when(e.actionMasked){
+                MotionEvent.ACTION_DOWN->{x0=e.x;y0=e.y;swiping=false;vt?.recycle();vt=VelocityTracker.obtain();vt?.addMovement(e);return true}
+                MotionEvent.ACTION_MOVE->{val dx=e.x-x0;if(!swiping&&abs(dx)>slop&&abs(dx)>abs(e.y-y0)*1.3f){swiping=true;x0=e.x}
+                    if(swiping)offset(pull(e.x-x0))}
+                MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{if(swiping){vt?.computeCurrentVelocity(1000);val v=vt?.xVelocity?:0f;val px=scroll.translationX;val i=index()
+                    val fling=abs(v)>a.d(600)
+                    val target=when{(px<-width*.3f||(fling&&v<0&&px<0))&&i<tabs.size-1->i+1;(px>width*.3f||(fling&&v>0&&px>0))&&i>0->i-1;else->i}
+                    goTo(target,px,abs(v))};swiping=false;vt?.recycle();vt=null}}
+            return true}
     }
 
     // ───── dragging ─────
