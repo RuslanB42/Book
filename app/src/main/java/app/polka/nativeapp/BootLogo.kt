@@ -9,7 +9,7 @@ import android.widget.ImageView
 internal fun MainActivity.bootLogo():View=FrameLayout(this).apply {
     tag="polka-boot-logo";setBackgroundColor(getColor(R.color.launcher_background))
     importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-    addView(ImageView(this@bootLogo).apply{setImageResource(R.drawable.ic_launcher_foreground);scaleType=ImageView.ScaleType.FIT_CENTER},FrameLayout.LayoutParams(d(192),d(192),Gravity.CENTER))
+    addView(ImageView(this@bootLogo).apply{setImageResource(R.drawable.glyph_logo);scaleType=ImageView.ScaleType.FIT_CENTER},FrameLayout.LayoutParams(d(192),d(192),Gravity.CENTER))
 }
 
 /** Hands the boot screen over to the freshly rendered library: the icon dips, then swells and dissolves while the screen fades away. */
