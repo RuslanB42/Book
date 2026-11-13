@@ -220,6 +220,12 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         ReaderWindow.configure(a.window,true,readerBackground);a.root.requestApplyInsets()
         book.put("openedAt",openedAt);a.prefs.put("seenReader",true);val preferenceSnapshot=a.prefs.copyJson();a.work({a.library.savePrefs(preferenceSnapshot)})
         val progress=book.optJSONObject("progress")
+        // opened at a quote from outside the book: the place being read is where «Назад» leads
+        progress?.optJSONObject("returnTo")?.takeIf{r->progress.remove("returnTo");!(r.optInt("ch")==progress.optInt("ch")&&r.has("nativeOffset")&&abs(r.optInt("nativeOffset")-progress.optInt("nativeOffset"))<400)}?.let{r->backForward=false
+            backPoint=if(r.has("nativeOffset"))JSONObject().put("ch",r.optInt("ch")).put("off",r.optInt("nativeOffset")) else JSONObject().put("ch",r.optInt("ch")).put("frac",r.optDouble("nativeFraction",0.0))
+            book.put("readBack",JSONObject().put("p",backPoint).put("fwd",false))}
+            ?:book.optJSONObject("readBack")?.let{backPoint=it.optJSONObject("p");backForward=it.optBoolean("fwd")}
+        if(backPoint!=null){backSettle=System.currentTimeMillis()+2500;view.postDelayed({if(!disposed&&backPoint!=null)showBack()},600)}
         pendingOffset=if(progress?.has("nativeOffset")==true)progress.optInt("nativeOffset")else null
         pendingFraction=if(progress?.has("nativeFraction")==true)progress.optDouble("nativeFraction")else{
             val before=(0 until chapter).sumOf{chapters.getJSONObject(it).optInt("len")};val total=chapters.objects().sumOf{it.optInt("len")}.coerceAtLeast(1)
@@ -289,7 +295,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         a.ratingPrompt=RatingPrompt(a,book){n->book.put("rating",n);a.saveBook(book){}}.also{it.show()}
     }
     fun progress():Double { if(atEnd())return 1.0; val total=chapters.objects().sumOf { it.optInt("len") }.coerceAtLeast(1); val before=(0 until chapter).sumOf { chapters.getJSONObject(it).optInt("len") }; return ((before+chapters.getJSONObject(chapter).optInt("len")*fraction())/total).coerceIn(0.0,1.0) }
-    fun updateFooter() { syncBookmark(false);folio.text=if(paged())"${pageIndex+1} из ${pageStarts.size}" else "";if(!scrubbing) slider.progress=(progress()*1000).toInt(); percent.text="${(progress()*100).toInt()}% от всей книги"; footer.text=prettyTitle(chapters.getJSONObject(chapter).str("title"));remaining.text=if(paged()){val left=pageStarts.size-pageIndex-1;if(left>0)"ещё $left стр" else "конец главы"}else "${(fraction()*100).toInt()}% главы";checkFinished() }
+    fun updateFooter() { countBackTurns();syncBookmark(false);folio.text=if(paged())"${pageIndex+1} из ${pageStarts.size}" else "";if(!scrubbing) slider.progress=(progress()*1000).toInt(); percent.text="${(progress()*100).toInt()}% от всей книги"; footer.text=prettyTitle(chapters.getJSONObject(chapter).str("title"));remaining.text=if(paged()){val left=pageStarts.size-pageIndex-1;if(left>0)"ещё $left стр" else "конец главы"}else "${(fraction()*100).toInt()}% главы";checkFinished() }
     fun changeChapter(next:Int) { if(next !in 0 until chapters.length())return;quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=0;pendingFraction=null;paintChapter() }
     fun persist() { val snap=book.copyJson(); a.saveBook(snap) {} }
     fun pause() { Ambience.pause(a);save();paused=true;handler.removeCallbacks(heartbeat) }
@@ -388,7 +394,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(!pulling)ribbon.settle(if(on)ribbon.rest else 0f,on,animate)
     }
     fun addBookmark() { val list=book.optJSONArray("bookmarks")?.objects().orEmpty().toMutableList(); val offset=if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0; val existing=currentBookmarks().map{it.str("id")}.toSet(); if(existing.isNotEmpty()) list.removeAll{it.str("id") in existing} else list.add(JSONObject().put("id",uid()).put("ch",chapter).put("block",0).put("nativeOffset",offset).put("text",chapters.getJSONObject(chapter).str("title")).put("nativeFraction",fraction()).put("page",if(paged())pageIndex+1 else 0).put("at",System.currentTimeMillis())); book.put("bookmarks",JSONArray(list)); persist(); syncBookmark(true); if(a.prefs.optBoolean("haptics",true)) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
-    fun jumpProgress(pct:Double) { val total=chapters.objects().sumOf { it.optInt("len") }.coerceAtLeast(1); var at=(pct*total).toInt(); var next=0; while(next<chapters.length()-1 && at>=chapters.getJSONObject(next).optInt("len")) { at-=chapters.getJSONObject(next).optInt("len"); next++ }; changeChapter(next); val offset=at; body.post { jumpOffset(offset); save() } }
+    fun jumpProgress(pct:Double) { markJump(); val total=chapters.objects().sumOf { it.optInt("len") }.coerceAtLeast(1); var at=(pct*total).toInt(); var next=0; while(next<chapters.length()-1 && at>=chapters.getJSONObject(next).optInt("len")) { at-=chapters.getJSONObject(next).optInt("len"); next++ }; changeChapter(next); val offset=at; body.post { jumpOffset(offset); save() } }
     fun navigation(tab:Int=0){ReaderNavigation(a,this,tab).show()}
     fun contents()=content.optJSONArray("toc")?.objects().orEmpty().ifEmpty{chapters.objects().mapIndexed{index,ch->ch.copyJson().put("ch",index)}}
     fun chapterName(index:Int)=chapters.optJSONObject(index)?.str("title")?.let{prettyTitle(it)}?:"Книга"
@@ -401,9 +407,60 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         return saved.takeIf{it>0}}
     fun goToLocation(next:Int,offset:Int=0,anchor:String=""){
         if(next !in 0 until chapters.length())return
+        markJump();goRaw(next,offset,anchor)
+    }
+    private fun goRaw(next:Int,offset:Int=0,anchor:String=""){
+        if(next !in 0 until chapters.length())return
         quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=offset;pendingFraction=null;pendingAnchor=anchor.takeIf{it.isNotBlank()};paintChapter()
     }
     fun paged()=a.prefs.str("mode","paged")=="paged"
+    // «Назад» after a jump (approved): the place being read is kept until three pages are read at the new place
+    private var backPoint:JSONObject?=null
+    private var backForward=false
+    private var backTurns=0;private var backSeen=-1;private var backSettle=0L
+    private var backPill:LinearLayout?=null;private var backLabel:TextView?=null;private var backArrow:BackGlyph?=null
+    private fun herePoint()=JSONObject().put("ch",chapter).put("off",if(paged())pageBase() else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0)
+    private fun keepBack(){val p=backPoint;if(p==null)book.remove("readBack") else book.put("readBack",JSONObject().put("p",p).put("fwd",backForward))}
+    /** Before any jump: remember where the reading was (a chain of jumps keeps the first place). */
+    private fun markJump(){if(disposed||loadedChapter!=chapter)return
+        if(backPoint==null||backForward)backPoint=herePoint()
+        backForward=false;backTurns=0;backSeen=-1;backSettle=System.currentTimeMillis()+1500;keepBack();showBack()}
+    private fun goPoint(p:JSONObject){val ch=p.optInt("ch")
+        if(p.has("off"))goRaw(ch,p.optInt("off"))
+        else if(ch in 0 until chapters.length()){quoteSelection.clear();save();stopPageMotion();chapter=ch;pendingOffset=null;pendingFraction=p.optDouble("frac",0.0);pendingAnchor=null;paintChapter()}}
+    private fun tapBack(){val target=backPoint?:return;backPoint=herePoint();backForward=!backForward
+        backTurns=0;backSeen=-1;backSettle=System.currentTimeMillis()+1500;keepBack();goPoint(target);showBack()}
+    private fun clearBack(){backPoint=null;backForward=false;keepBack();val pill=backPill?:return
+        if(a.prefs.str("motion")=="reduced"){pill.visibility=View.INVISIBLE}else pill.animate().alpha(0f).translationY(a.d(8).toFloat()).setDuration(200).withEndAction{pill.visibility=View.INVISIBLE}.start()
+        if(paged()&&calm)folio.visibility=View.VISIBLE}
+    private fun countBackTurns(){if(backPoint==null||preparing||System.currentTimeMillis()<backSettle)return;val p=position()
+        if(backSeen<0){backSeen=p;return}
+        if(paged()){if(p!=backSeen){backTurns++;backSeen=p}}else if(abs(p-backSeen)>1500){backTurns++;backSeen=p}
+        if(backTurns>=3)clearBack()}
+    private inner class BackGlyph(var kind:String):View(a){
+        var ink=Color.WHITE;private val pt=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND}
+        private val arrow=androidx.core.graphics.PathParser.createPathFromPathData("M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11")
+        private val cross=androidx.core.graphics.PathParser.createPathFromPathData("M7 7L17 17M17 7L7 17")
+        override fun onDraw(c:Canvas){val s=minOf(width,height)/24f;c.save();c.translate((width-24*s)/2,(height-24*s)/2);c.scale(s,s)
+            if(kind=="fwd"){c.scale(-1f,1f,12f,12f)};pt.color=ink;pt.strokeWidth=if(kind=="x")2.4f else 2f;c.drawPath(if(kind=="x")cross else arrow,pt);c.restore()}}
+    private fun showBack(){val point=backPoint?:return
+        val ink=body.currentTextColor;val quiet=(ink and 0xffffff) or (0x99 shl 24)
+        val pill=backPill?:LinearLayout(a).apply{alpha=0f;orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;isClickable=true;setPadding(a.d(12),0,a.d(4),0)
+            val arrow=BackGlyph("back");backArrow=arrow;addView(arrow,LinearLayout.LayoutParams(a.d(18),a.d(18)).apply{marginEnd=a.d(8)})
+            val label=TextView(a).apply{textSize=14f;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(240);includeFontPadding=false};backLabel=label;addView(label)
+            addView(BackGlyph("x").apply{isClickable=true;contentDescription="Скрыть";setOnClickListener{clearBack()}},LinearLayout.LayoutParams(a.d(32),a.d(32)).apply{marginStart=a.d(2)})
+            setOnClickListener{tapBack()};a.press(this)
+            view.addView(this,FrameLayout.LayoutParams(-2,a.d(40),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply{bottomMargin=a.d(2)});backPill=this}
+        pill.background=a.shape(androidx.core.graphics.ColorUtils.blendARGB(readerBackground,ink,.12f),20);pill.elevation=a.d(6).toFloat()
+        backArrow?.let{it.kind=if(backForward)"fwd" else "back";it.ink=ink;it.invalidate()};(pill.getChildAt(2) as? BackGlyph)?.let{it.ink=quiet;it.invalidate()}
+        val ch=point.optInt("ch");val page=if(point.has("off"))pageOf(ch,point.optInt("off")) else null
+        val word=if(backForward)"Вперёд" else "Назад";val rest="  "+chapterName(ch)+(page?.let{", стр. $it"}?:"")
+        val sb=android.text.SpannableStringBuilder(word+rest)
+        sb.setSpan(android.text.style.ForegroundColorSpan(ink),0,word.length,0);sb.setSpan(android.text.style.ForegroundColorSpan(quiet),word.length,sb.length,0)
+        backLabel?.let{it.text=sb;it.typeface=PolkaFonts.sans(500)}
+        pill.contentDescription="$word: ${chapterName(ch)}"
+        pill.visibility=if(calm)View.VISIBLE else View.INVISIBLE;folio.visibility=View.INVISIBLE
+        if(pill.alpha<1f||pill.translationY!=0f){if(a.prefs.str("motion")=="reduced"){pill.alpha=1f;pill.translationY=0f}else{pill.animate().cancel();pill.alpha=0f;pill.translationY=a.d(8).toFloat();pill.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}}}
     fun pageHeight()=maxOf(1,scroll.height-a.d(18))
     fun position():Int { val before=(0 until chapter).sumOf { chapters.getJSONObject(it).optInt("len") }; val offset=if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0; return before+offset }
     fun paginate(offset:Int=pageBase()) {pendingOffset=offset;paintChapter()}
@@ -605,7 +662,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             // the same spring as the sheets that rise from below: the bars glide in and out instead of fading on a curve
             val h=v.height.toFloat().coerceAtLeast(1f);val off=sign*h;val start=(v.translationY/off).coerceIn(0f,1f)
             val sp=chromeSprings.getOrPut(v){LiquidSpring{k,_->v.translationY=off*k;v.alpha=(1f-k*1.25f).coerceIn(0f,1f);if(k>=.999f&&calm)v.visibility=View.INVISIBLE}}
-            sp.snap(start);sp.to(if(value)1f else 0f)}};folio.visibility=if(paged()&&value)View.VISIBLE else View.INVISIBLE}
+            sp.snap(start);sp.to(if(value)1f else 0f)}};folio.visibility=if(paged()&&value&&backPoint==null)View.VISIBLE else View.INVISIBLE;backPill?.visibility=if(value&&backPoint!=null)View.VISIBLE else View.INVISIBLE}
     fun applyTypography() {
         quoteSelection.clear();stopPageMotion();cachedNext=null;cachedCurrent=null;snapshotWarm?.let{handler.removeCallbacks(it)};previewGeneration++;previewPages.clear();previewJobs.values.forEach{it.cancel(true)};previewJobs.clear()
         val savedOffset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0
@@ -680,7 +737,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
                 else if(id.isBlank() && ch.str("path")==path) Triple(index,"",false) else null
             }
             val found=candidates.firstOrNull { it.first==chapter } ?: candidates.firstOrNull() ?: return
-            fun jump() { changeChapter(found.first); jumpAnchor(id) }
+            fun jump() { markJump(); changeChapter(found.first); jumpAnchor(id) }
             if(found.third) a.dialog().setTitle("Примечание").setMessage(found.second).setPositiveButton("Перейти") { _,_ -> jump() }.show() else jump()
         } else if(href.startsWith("https://") || href.startsWith("http://") || href.startsWith("mailto:")) a.confirm("Открыть ссылку?",href) { try { a.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(href))) } catch(_:android.content.ActivityNotFoundException) { a.dialog().setMessage("Нет приложения для открытия ссылки").setPositiveButton("Закрыть",null).show() } }
     }

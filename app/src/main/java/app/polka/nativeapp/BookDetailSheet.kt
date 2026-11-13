@@ -80,11 +80,11 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
    quoteSection.visibility=if(quotes.isEmpty())View.GONE else View.VISIBLE
    if(quotes.isEmpty()){quotesOpen=false;return@change}
    // A deck of quote cards: swipe the top card left/right to go through them (same as on the «Цитаты» tab).
-   run{val openQuote={quote:JSONObject->if(book.optBoolean("noFile")){a.attachId=book.str("id");a.pickBooks(14)}else{val p=book.optJSONObject("progress")?.copyJson()?:JSONObject();p.put("ch",quote.optInt("ch")).put("nativeOffset",maxOf(0,quote.optInt("start"))).remove("nativeFraction");a.returnDetailId=book.str("id");a.openBook(book.copyJson().put("progress",p),heroCover)}}
+   run{val openQuote={quote:JSONObject->if(book.optBoolean("noFile")){a.attachId=book.str("id");a.pickBooks(14)}else{val p=book.optJSONObject("progress")?.copyJson()?:JSONObject();if(p.has("ch"))p.put("returnTo",p.copyJson());p.put("ch",quote.optInt("ch")).put("nativeOffset",maxOf(0,quote.optInt("start"))).remove("nativeFraction");a.returnDetailId=book.str("id");a.openBook(book.copyJson().put("progress",p),heroCover)}}
     quoteBody.addView(QuoteDeck(a,book,quotes,showHead=false,onOpen=openQuote),LinearLayout.LayoutParams(-1,-2));return@change}
    val pages=maxOf(1,(quotes.size+2)/3);quotePage=quotePage.coerceIn(0,pages-1)
    quotes.drop(quotePage*3).take(3).forEach{quote->
-    val open={if(book.optBoolean("noFile")){a.attachId=book.str("id");a.pickBooks(14)}else{val p=book.optJSONObject("progress")?.copyJson()?:JSONObject();p.put("ch",quote.optInt("ch")).put("nativeOffset",maxOf(0,quote.optInt("start"))).remove("nativeFraction");a.returnDetailId=book.str("id");a.openBook(book.copyJson().put("progress",p),heroCover)}}
+    val open={if(book.optBoolean("noFile")){a.attachId=book.str("id");a.pickBooks(14)}else{val p=book.optJSONObject("progress")?.copyJson()?:JSONObject();if(p.has("ch"))p.put("returnTo",p.copyJson());p.put("ch",quote.optInt("ch")).put("nativeOffset",maxOf(0,quote.optInt("start"))).remove("nativeFraction");a.returnDetailId=book.str("id");a.openBook(book.copyJson().put("progress",p),heroCover)}}
     val card=a.quoteCardNative(book,quote,open).apply{isFocusable=true;contentDescription="Открыть цитату: ${quote.str("text")}";setOnClickListener{open()}}
     quoteBody.addView(card,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(14)});cards.add(card)
    }
