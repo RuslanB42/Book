@@ -20,9 +20,9 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
     private val title=a.text("",17f,a.fg,true)
     private val year=a.text("",13f,a.muted)
     private val grid=MonthGrid()
+    // approved: plain arrows, no circles (the card already has its round button)
     private fun arrow(kind:String,label:String,click:()->Unit)=FrameLayout(a).apply{contentDescription=label;isClickable=true;setOnClickListener{click()}
-        background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x12ffffff)}
-        addView(IconView(a,kind,a.fg),FrameLayout.LayoutParams(a.d(16),a.d(16),Gravity.CENTER));a.press(this)}
+        addView(IconView(a,kind,if(a.light)0xff6e6e73.toInt() else 0xffa4a4a4.toInt()),FrameLayout.LayoutParams(a.d(16),a.d(16),Gravity.CENTER));a.press(this)}
     private val prev=arrow("back","Предыдущий месяц"){go(-1)}
     private val next=arrow("next","Следующий месяц"){go(1)}
     private var anim:ValueAnimator?=null
@@ -31,7 +31,7 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
         // month name on the left, small round arrows on the right; no separating lines
         val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(20),0,a.d(8))}
         val name=a.line().apply{gravity=Gravity.BOTTOM};name.addView(title);name.addView(year.apply{setPadding(a.d(6),0,0,a.d(1))})
-        bar.addView(name,LayoutParams(0,-2,1f));bar.addView(prev,LayoutParams(a.d(32),a.d(32)));bar.addView(next,LayoutParams(a.d(32),a.d(32)).apply{marginStart=a.d(6)})
+        bar.addView(name,LayoutParams(0,-2,1f));bar.addView(prev,LayoutParams(a.d(36),a.d(36)));bar.addView(next,LayoutParams(a.d(36),a.d(36)).apply{marginStart=a.d(2);marginEnd=-a.d(10)})
         addView(bar,LayoutParams(-1,-2))
         val names=a.line();listOf("пн","вт","ср","чт","пт","сб","вс").forEach{names.addView(a.text(it,11f,a.muted).apply{gravity=Gravity.CENTER},LayoutParams(0,-2,1f))}
         addView(names,LayoutParams(-1,-2));addView(grid,LayoutParams(-1,-2).apply{topMargin=a.d(8)})
@@ -62,21 +62,21 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
         override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(MeasureSpec.getSize(w),rows*rowH)
         override fun onDraw(c:Canvas){
             val lead=month.atDay(1).dayOfWeek.value-1;val cw=width/7f;val r=a.d(15).toFloat();val quiet=if(a.light)0x0f000000 else 0x14ffffff
+            // approved «серия как полоса»: days in a row melt into one quiet warm band, their numbers orange
+            val warm=if(a.light)0xfffbe6d3.toInt() else 0xff3a2a20.toInt();val ember=if(a.light)0xffe8640c.toInt() else 0xffff9a3c.toInt()
             fun dayAt(row:Int,col:Int):LocalDate?{val day=row*7+col-lead+1;return if(day<1||day>month.lengthOfMonth())null else month.atDay(day)}
             for(row in 0 until rows){val cy=row*rowH+rowH/2f
                 // a soft ribbon joins neighbouring streak days within the row
                 for(col in 0 until 6){val d1=dayAt(row,col)?:continue;val d2=dayAt(row,col+1)?:continue
                     if(!model.met(d1)||!model.met(d2))continue
-                    p.shader=null;p.color=0x38ff6e28;val x1=col*cw+cw/2;val x2=x1+cw*phase;c.drawRect(x1,cy-r*.62f,x2,cy+r*.62f,p)}
+                    p.shader=null;p.color=warm;val x1=col*cw+cw/2;val x2=x1+cw*phase;c.drawRect(x1,cy-r,x2,cy+r,p)}
                 for(col in 0 until 7){val d=dayAt(row,col)?:continue;val cx=col*cw+cw/2
                     val met=model.met(d);val future=d.isAfter(today)
-                    if(met){val k=phase.coerceIn(0f,1f)
-                        if(!a.light){p.shader=RadialGradient(cx,cy,r*1.45f,intArrayOf(0x24ff6e28,0x00ff6e28),null,Shader.TileMode.CLAMP);p.color=Color.WHITE;c.drawCircle(cx,cy,r*1.45f*k,p)}
-                        p.color=Color.WHITE;p.shader=LinearGradient(cx-r,cy-r,cx+r*.4f,cy+r,0xffffb522.toInt(),0xffff5a1e.toInt(),Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r*k,p);p.shader=null}
+                    if(met){val k=phase.coerceIn(0f,1f);p.shader=null;p.color=warm;c.drawCircle(cx,cy,r*k,p)}
                     else if(!future&&model.ms(d)>0){p.shader=null;p.color=quiet;c.drawCircle(cx,cy,r,p)}
-                    if(d==today&&!met){p.shader=null;p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=0xffffb522.toInt();c.drawCircle(cx,cy,r-a.d(1),p);p.style=Paint.Style.FILL}
+                    if(d==today&&!met){p.shader=null;p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=if(a.light)0x33000000 else 0x40ffffff;c.drawCircle(cx,cy,r-a.d(1),p);p.style=Paint.Style.FILL}
                     text.typeface=PolkaFonts.sans(if(met||d==today)600 else 400)
-                    text.color=when{met->Color.WHITE;future->(a.muted and 0xffffff) or 0x59000000;d==today->a.fg;else->a.muted}
+                    text.color=when{met->ember;future->(a.muted and 0xffffff) or 0x59000000;d==today->a.fg;else->a.muted}
                     c.drawText("${d.dayOfMonth}",cx,cy-(text.ascent()+text.descent())/2,text)}
             }
         }
