@@ -167,7 +167,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         chapterButton.addView(IconView(a,"toc",a.fg).apply{chromeIcons.add(this)},LinearLayout.LayoutParams(a.d(20),a.d(20)))
         footer.setTextColor(a.fg);footer.gravity=Gravity.CENTER_VERTICAL;footer.textSize=15f;footer.maxLines=1;footer.ellipsize=android.text.TextUtils.TruncateAt.END;footer.setPadding(a.d(12),0,a.d(6),0);footer.setOnClickListener{navigation()}
         chapterButton.addView(footer,LinearLayout.LayoutParams(0,a.d(44),1f));positionRow.addView(chapterButton,LinearLayout.LayoutParams(0,a.d(44),1f))
-        remaining.setTextColor(a.muted);remaining.textSize=14f;remaining.gravity=Gravity.CENTER_VERTICAL;positionRow.addView(remaining,LinearLayout.LayoutParams(-2,a.d(44)).apply{leftMargin=a.d(12)});bottom.addView(positionRow)
+        remaining.setTextColor(a.muted);remaining.textSize=14f;remaining.gravity=Gravity.CENTER_VERTICAL;positionRow.addView(remaining,LinearLayout.LayoutParams(-2,a.d(44)).apply{leftMargin=a.d(12)});positionRow.addView(backChip,LinearLayout.LayoutParams(-2,a.d(30)).apply{leftMargin=a.d(12);gravity=Gravity.CENTER_VERTICAL});bottom.addView(positionRow)
         footer.setOnLongClickListener { settings(); true }
         slider.max=1000; slider.progressTintList=android.content.res.ColorStateList.valueOf(a.fg); slider.thumbTintList=android.content.res.ColorStateList.valueOf(a.fg)
         slider.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener { override fun onProgressChanged(s:SeekBar?,v:Int,user:Boolean) { if(user) percent.text="${v/10}% от всей книги" }; override fun onStartTrackingTouch(s:SeekBar?) { scrubbing=true }; override fun onStopTrackingTouch(s:SeekBar?) { scrubbing=false; jumpProgress((s?.progress ?: 0)/1000.0) } }); bottom.addView(slider,LinearLayout.LayoutParams(-1,a.d(28)))
@@ -418,7 +418,11 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private var backPoint:JSONObject?=null
     private var backForward=false
     private var backTurns=0;private var backSeen=-1;private var backSettle=0L
-    private var backPill:LinearLayout?=null;private var backLabel:TextView?=null;private var backArrow:BackGlyph?=null
+    // approved: the way back lives in the chapter row of the bottom bar, in place of «ещё N стр»
+    private val backArrow by lazy{BackGlyph("back")}
+    private val backLabel by lazy{TextView(a).apply{textSize=13f;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(170);includeFontPadding=false;typeface=PolkaFonts.sans(500)}}
+    private val backChip by lazy{LinearLayout(a).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;visibility=View.GONE;isClickable=true;setPadding(a.d(9),0,a.d(12),0)
+        addView(backArrow,LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{marginEnd=a.d(6)});addView(backLabel);setOnClickListener{tapBack()};a.press(this)}}
     private fun herePoint()=JSONObject().put("ch",chapter).put("off",if(paged())pageBase() else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0)
     private fun keepBack(){val p=backPoint;if(p==null)book.remove("readBack") else book.put("readBack",JSONObject().put("p",p).put("fwd",backForward))}
     /** Before any jump: remember where the reading was (a chain of jumps keeps the first place). */
@@ -430,9 +434,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         else if(ch in 0 until chapters.length()){quoteSelection.clear();save();stopPageMotion();chapter=ch;pendingOffset=null;pendingFraction=p.optDouble("frac",0.0);pendingAnchor=null;paintChapter()}}
     private fun tapBack(){val target=backPoint?:return;backPoint=herePoint();backForward=!backForward
         backTurns=0;backSeen=-1;backSettle=System.currentTimeMillis()+1500;keepBack();goPoint(target);showBack()}
-    private fun clearBack(){backPoint=null;backForward=false;keepBack();val pill=backPill?:return
-        if(a.prefs.str("motion")=="reduced"){pill.visibility=View.INVISIBLE}else pill.animate().alpha(0f).translationY(a.d(8).toFloat()).setDuration(200).withEndAction{pill.visibility=View.INVISIBLE}.start()
-        if(paged()&&calm)folio.visibility=View.VISIBLE}
+    private fun clearBack(){backPoint=null;backForward=false;keepBack();backChip.visibility=View.GONE;remaining.visibility=View.VISIBLE}
     private fun countBackTurns(){if(backPoint==null||preparing||System.currentTimeMillis()<backSettle)return;val p=position()
         if(backSeen<0){backSeen=p;return}
         if(paged()){if(p!=backSeen){backTurns++;backSeen=p}}else if(abs(p-backSeen)>1500){backTurns++;backSeen=p}
@@ -444,23 +446,12 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         override fun onDraw(c:Canvas){val s=minOf(width,height)/24f;c.save();c.translate((width-24*s)/2,(height-24*s)/2);c.scale(s,s)
             if(kind=="fwd"){c.scale(-1f,1f,12f,12f)};pt.color=ink;pt.strokeWidth=if(kind=="x")2.4f else 2f;c.drawPath(if(kind=="x")cross else arrow,pt);c.restore()}}
     private fun showBack(){val point=backPoint?:return
-        val ink=body.currentTextColor;val quiet=(ink and 0xffffff) or (0x99 shl 24)
-        val pill=backPill?:LinearLayout(a).apply{alpha=0f;orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;isClickable=true;setPadding(a.d(12),0,a.d(4),0)
-            val arrow=BackGlyph("back");backArrow=arrow;addView(arrow,LinearLayout.LayoutParams(a.d(18),a.d(18)).apply{marginEnd=a.d(8)})
-            val label=TextView(a).apply{textSize=14f;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(240);includeFontPadding=false};backLabel=label;addView(label)
-            addView(BackGlyph("x").apply{isClickable=true;contentDescription="Скрыть";setOnClickListener{clearBack()}},LinearLayout.LayoutParams(a.d(32),a.d(32)).apply{marginStart=a.d(2)})
-            setOnClickListener{tapBack()};a.press(this)
-            view.addView(this,FrameLayout.LayoutParams(-2,a.d(40),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply{bottomMargin=a.d(2)});backPill=this}
-        pill.background=a.shape(androidx.core.graphics.ColorUtils.blendARGB(readerBackground,ink,.12f),20);pill.elevation=a.d(6).toFloat()
-        backArrow?.let{it.kind=if(backForward)"fwd" else "back";it.ink=ink;it.invalidate()};(pill.getChildAt(2) as? BackGlyph)?.let{it.ink=quiet;it.invalidate()}
+        backChip.background=a.shape((a.fg and 0xffffff) or (0x14 shl 24),15);backLabel.setTextColor(a.fg)
+        backArrow.kind=if(backForward)"fwd" else "back";backArrow.ink=a.fg;backArrow.invalidate()
         val ch=point.optInt("ch");val page=if(point.has("off"))pageOf(ch,point.optInt("off")) else null
-        val word=if(backForward)"Вперёд" else "Назад";val rest="  "+chapterName(ch)+(page?.let{", стр. $it"}?:"")
-        val sb=android.text.SpannableStringBuilder(word+rest)
-        sb.setSpan(android.text.style.ForegroundColorSpan(ink),0,word.length,0);sb.setSpan(android.text.style.ForegroundColorSpan(quiet),word.length,sb.length,0)
-        backLabel?.let{it.text=sb;it.typeface=PolkaFonts.sans(500)}
-        pill.contentDescription="$word: ${chapterName(ch)}"
-        pill.visibility=if(calm)View.VISIBLE else View.INVISIBLE;folio.visibility=View.INVISIBLE
-        if(pill.alpha<1f||pill.translationY!=0f){if(a.prefs.str("motion")=="reduced"){pill.alpha=1f;pill.translationY=0f}else{pill.animate().cancel();pill.alpha=0f;pill.translationY=a.d(8).toFloat();pill.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}}}
+        backLabel.text=chapterName(ch)+(page?.let{", стр. $it"}?:"")
+        backChip.contentDescription=(if(backForward)"Вперёд: " else "Назад: ")+backLabel.text
+        remaining.visibility=View.GONE;backChip.visibility=View.VISIBLE}
     fun pageHeight()=maxOf(1,scroll.height-a.d(18))
     fun position():Int { val before=(0 until chapter).sumOf { chapters.getJSONObject(it).optInt("len") }; val offset=if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0; return before+offset }
     fun paginate(offset:Int=pageBase()) {pendingOffset=offset;paintChapter()}
@@ -662,7 +653,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             // the same spring as the sheets that rise from below: the bars glide in and out instead of fading on a curve
             val h=v.height.toFloat().coerceAtLeast(1f);val off=sign*h;val start=(v.translationY/off).coerceIn(0f,1f)
             val sp=chromeSprings.getOrPut(v){LiquidSpring{k,_->v.translationY=off*k;v.alpha=(1f-k*1.25f).coerceIn(0f,1f);if(k>=.999f&&calm)v.visibility=View.INVISIBLE}}
-            sp.snap(start);sp.to(if(value)1f else 0f)}};folio.visibility=if(paged()&&value&&backPoint==null)View.VISIBLE else View.INVISIBLE;backPill?.visibility=if(value&&backPoint!=null)View.VISIBLE else View.INVISIBLE}
+            sp.snap(start);sp.to(if(value)1f else 0f)}};folio.visibility=if(paged()&&value)View.VISIBLE else View.INVISIBLE}
     fun applyTypography() {
         quoteSelection.clear();stopPageMotion();cachedNext=null;cachedCurrent=null;snapshotWarm?.let{handler.removeCallbacks(it)};previewGeneration++;previewPages.clear();previewJobs.values.forEach{it.cancel(true)};previewJobs.clear()
         val savedOffset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0
