@@ -60,12 +60,13 @@ internal class WeekFlames(private val a:MainActivity,private val names:List<Stri
         for(i in 0 until n){val cx=slot*i+slot/2;val today=i==n-1
             // the days light up one after another
             val t=((k*(n+2))-i).coerceIn(0f,1f);val pop=if(t<1f)Ease.outBack(1.8f).getInterpolation(t) else 1f
-            if(kept[i]){c.save();c.scale(pop,pop,cx,cy);p.color=Color.WHITE
-                p.shader=LinearGradient(cx-r,cy-r,cx+r*.4f,cy+r,0xffffb522.toInt(),0xffff5a1e.toInt(),Shader.TileMode.CLAMP);c.drawCircle(cx,cy,r,p);p.shader=null
-                val s=r*1.0f/150f*1.05f;c.save();c.translate(cx-60*s,cy-80*s);c.scale(s,s);p.color=Color.WHITE;c.drawPath(FlameGlyph.path,p);c.restore()
+            // approved: the big flame is the one bright thing; a day read is a quiet warm disc with an orange flame,
+            // and today's progress is only the bar below (no arc here)
+            if(kept[i]){c.save();c.scale(pop,pop,cx,cy)
+                p.color=if(a.light)0xfffbe6d3.toInt() else 0xff3a2a20.toInt();c.drawCircle(cx,cy,r,p)
+                val s=r*1.0f/150f*1.05f;c.save();c.translate(cx-60*s,cy-80*s);c.scale(s,s);p.color=if(a.light)0xffe8640c.toInt() else 0xffff8a1e.toInt();c.drawPath(FlameGlyph.path,p);c.restore()
                 c.restore()}
-            else{p.style=Paint.Style.STROKE;p.strokeWidth=3*d;p.color=if(a.light)0x1a000000 else 0x24ffffff;c.drawCircle(cx,cy,r-1.5f*d,p)
-                if(today&&todayFraction>0f){p.color=0xffffb522.toInt();p.strokeCap=Paint.Cap.ROUND;c.drawArc(cx-r+1.5f*d,cy-r+1.5f*d,cx+r-1.5f*d,cy+r-1.5f*d,-90f,360f*todayFraction*k,false,p);p.strokeCap=Paint.Cap.BUTT}
+            else{p.style=Paint.Style.STROKE;p.strokeWidth=2*d;p.color=if(today)(if(a.light)0x33000000 else 0x40ffffff) else (if(a.light)0x14000000 else 0x1cffffff);c.drawCircle(cx,cy,r-1f*d,p)
                 p.style=Paint.Style.FILL}
             tp.textSize=11*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(if(today)600 else 400)
             tp.color=if(today)a.fg else a.muted;c.drawText(names[i],cx,height-3*d,tp)}}

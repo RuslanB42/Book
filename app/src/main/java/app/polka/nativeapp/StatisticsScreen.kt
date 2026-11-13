@@ -182,22 +182,23 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val box=surface(0xfff9601f.toInt(),.14f,.62f,.75f).apply{clipToOutline=true}
         val n=model.streak;val best=bestStreak();val met=model.met(today)
         val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-        top.addView(StreakFlameView(a,n>0,live),LinearLayout.LayoutParams(a.d(68),a.d(86)).apply{rightMargin=a.d(10)})
+        top.addView(StreakFlameView(a,n>0,live),LinearLayout.LayoutParams(a.d(76),a.d(96)).apply{leftMargin=-a.d(6);topMargin=-a.d(6);bottomMargin=-a.d(6);rightMargin=a.d(10)})
         val col=a.column()
         col.addView(kicker("Серия"));space(col,4)
         col.addView(bigCount(n," ${daysWord(n)} подряд",42f,.38f))
-        space(col,4);col.addView(label(if(n>0)"рекорд — $best ${daysWord(best)}" else "серии пока нет",12.5f))
+        space(col,4);col.addView(label(if(n>0)"рекорд $best ${daysWord(best)}" else "серии пока нет",12.5f))
         top.addView(col,LinearLayout.LayoutParams(0,-2,1f))
         // the card opens into the month: a small arrow in the corner says so, and turns over when it is open
-        val more=IconView(a,"chevdown",captionInk).apply{contentDescription="Показать месяц";background=a.shape(if(light)0x0d000000 else 0x12ffffff,15);setPadding(a.d(6),a.d(6),a.d(6),a.d(6))}
-        top.addView(more,LinearLayout.LayoutParams(a.d(30),a.d(30)).apply{gravity=Gravity.TOP})
+        // the same round button as on «Цель на год»
+        val more=IconView(a,"chevdown",a.fg).apply{contentDescription="Показать месяц";background=a.shape(if(light)0x0d000000 else 0x12ffffff,17);setPadding(a.d(9),a.d(9),a.d(9),a.d(9))}
+        top.addView(more,LinearLayout.LayoutParams(a.d(34),a.d(34)).apply{gravity=Gravity.TOP})
         box.addView(top);space(box,14)
         val dates=(6 downTo 0).map{today.minusDays(it.toLong())}
         val todayFraction=(model.ms(today).toFloat()/(model.dailyGoal*60000L)).coerceIn(0f,1f)
         box.addView(WeekFlames(a,dates.map{weekNames[it.dayOfWeek.value-1].lowercase()},BooleanArray(7){model.met(dates[it])},todayFraction,live),LinearLayout.LayoutParams(-1,-2))
         space(box,20)
         val minutes=(model.ms(today)/60000L).toInt();val left=ceil(max(0L,model.dailyGoal*60000L-model.ms(today))/60000.0).toInt()
-        val row=a.line();row.addView(label("Сегодня",13f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13f,a.fg,true));box.addView(row);space(box,8)
+        val row=a.line();row.addView(label(if(met)"Цель на сегодня выполнена" else "Сегодня",13f),LinearLayout.LayoutParams(0,-2,1f));row.addView(label("${min(minutes,model.dailyGoal)} из ${model.dailyGoal} мин",13f,a.fg,true));box.addView(row);space(box,8)
         box.addView(ProgressRail(a,animate,todayFraction,if(light)0xffc87600.toInt() else 0xfff09c17.toInt(),if(light)0xffcf5604.toInt() else 0xfff97c3d.toInt(),"Сегодня: ${min(minutes,model.dailyGoal)} из ${model.dailyGoal} минут"),LinearLayout.LayoutParams(-1,a.d(6)))
         val month=StreakMonth(a,model,today,live)
         box.addView(month,LinearLayout.LayoutParams(-1,-2))
@@ -313,8 +314,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             val y=if(today.year in ys)today.year else ys.first()
             val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
             top.addView(kicker("Тир-лист $y"),LinearLayout.LayoutParams(0,-2,1f))
-            top.addView(label("Открыть ›",13f,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(12),0,a.d(12),0);minHeight=a.d(30)
-                background=GradientDrawable().apply{setColor(if(light)0x0d000000 else 0x1fffffff);cornerRadius=a.d(15).toFloat()}},LinearLayout.LayoutParams(-2,a.d(30)))
+            // the same full-screen button as on «Цель на год»
+            top.addView(FrameLayout(a).apply{isClickable=true;contentDescription="Открыть тир-лист";setOnClickListener{box.performClick()}
+                background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(light)0x0d000000 else 0x12ffffff)}
+                addView(Glyph(a,"expand",a.fg),FrameLayout.LayoutParams(a.d(15),a.d(15),Gravity.CENTER));a.press(this)},LinearLayout.LayoutParams(a.d(34),a.d(34)))
             box.addView(top);space(box,8)
             val list=Tiers.books(model,y)
             val fit=((a.resources.configuration.screenWidthDp-32-36-22-14)/34).coerceIn(3,10)
