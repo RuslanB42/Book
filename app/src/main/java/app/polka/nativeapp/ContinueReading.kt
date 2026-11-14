@@ -47,19 +47,14 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   override fun onMeasure(w:Int,h:Int){resize(MeasureSpec.getSize(w));super.onMeasure(w,h)}
   override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);evenHeights();if(restoring){scrollTo(pendingIndex*stride,0);restoring=false};focus(scrollX)}
   override fun fling(velocityX:Int){flung=true;val dir=if(velocityX>0)1 else if(velocityX<0)-1 else 0;val want=startPage+dir
-   if(want<0||want>last()){edgeBounce(dir,velocityX)}
    springTo(want.coerceIn(0,last()),velocityX)}
-  /** At either end the row gives a little and eases back, instead of stopping dead. */
-  private fun edgeBounce(dir:Int,velocity:Int){if(reduced)return;val give=-dir*a.d(10)*(kotlin.math.abs(velocity)/a.d(1500).toFloat()).coerceIn(.6f,1.6f)
-   strip.animate().cancel();strip.animate().translationX(give).setDuration(150).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).withEndAction{
-    strip.animate().translationX(0f).setDuration(520).setInterpolator(android.view.animation.PathInterpolator(.3f,0f,.1f,1f)).start()}.start()}
   override fun onTouchEvent(e:MotionEvent):Boolean{if(e.actionMasked==MotionEvent.ACTION_DOWN)flung=false;val handled=super.onTouchEvent(e);if((e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)&&!flung)post{snap()};return handled}
   fun snap(){springTo((scrollX.toFloat()/stride).roundToInt().coerceIn((startPage-1).coerceAtLeast(0),(startPage+1).coerceAtMost(last())),0)}
-  /** anime.js spring instead of the linear smooth scroll: a quick throw settles with a small, soft overshoot. */
+  /** Settles the way the years page in the tier list does: one even glide, no overshoot, quicker after a quick throw. */
   fun springTo(page:Int,velocity:Int){val target=page*stride;glide?.cancel();if(reduced||target==scrollX){scrollTo(target,0);return}
-   // no overshoot into the ends: the scroll cannot go past them, a clipped overshoot reads as a jolt
-   val edge=page==0||page==last();val bounce=if(edge)0.0 else if(kotlin.math.abs(velocity)>a.d(900))0.2 else 0.1;val sp=Spring.of(bounce,520.0)
-   glide=ValueAnimator.ofInt(scrollX,target).apply{duration=sp.duration;interpolator=sp.interpolator;addUpdateListener{scrollTo(it.animatedValue as Int,0)};start()}}
+   val v=kotlin.math.abs(velocity).toFloat();val span=kotlin.math.abs(target-scrollX).toFloat()
+   glide=ValueAnimator.ofInt(scrollX,target).apply{duration=if(v>0f)(span/v*1000f).toLong().coerceIn(160L,340L) else 340L
+    interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{scrollTo(it.animatedValue as Int,0)};start()}}
   override fun onScrollChanged(x:Int,y:Int,ox:Int,oy:Int){super.onScrollChanged(x,y,ox,oy);focus(x);if(restoring)return;val n=(x.toFloat()/stride).roundToInt().coerceIn(0,readingBooks.lastIndex.coerceAtLeast(0))
    if(a.continueBookId!=readingBooks.getOrNull(n)?.str("id"))readingBooks.getOrNull(n)?.let{a.prefetchContent(it)};a.continueBookId=readingBooks.getOrNull(n)?.str("id")}
  }
@@ -155,16 +150,12 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   *  - the text lines slide at different speeds (title slowest, buttons fastest) — a layered parallax;
   *  - the glow behind blends from one book's colour into the next;
   *  - when a card lands in focus for the first time, its progress bar fills up. */
- private fun focus(x:Int){val stride=carousel.stride.toFloat().coerceAtLeast(1f);val anchor=x+a.d(20);val motion=!reduced
+ private fun focus(x:Int){val stride=carousel.stride.toFloat().coerceAtLeast(1f);val anchor=x+a.d(20)
   holders.forEachIndexed{i,h->if(h.width<=0)return@forEachIndexed;val d=(h.left-anchor)/stride;val k=kotlin.math.abs(d).coerceAtMost(1f)
    if(k<.08f)bars[i].reveal()
    if(holders.size<=1)return@forEachIndexed
-   val s=1f-.07f*k;h.pivotX=if(d>0)0f else h.width.toFloat();h.pivotY=h.height.toFloat();h.scaleX=s;h.scaleY=s;h.alpha=1f-.4f*k
-   if(!motion)return@forEachIndexed
-   val c=covers[i];c.pivotX=c.width/2f;c.pivotY=c.height.toFloat()
-   val sink=1f-.16f*k;c.scaleX=sink;c.scaleY=sink;c.rotation=(if(d>0)-1f else 1f)*16f*k*(1f-k);c.translationX=-d.coerceIn(-1f,1f)*a.d(6)
-   val rows=texts[i];var n=0
-   for(r in 0 until rows.childCount){val v=rows.getChildAt(r);if(v.height<=a.d(2)&&v !is TextView)continue;v.translationX=d.coerceIn(-1f,1f)*a.d(14)*(1+n*.5f);v.alpha=1f-.55f*k;n++}}
+   // a light depth: the neighbour is a touch smaller and dimmer and grows in evenly as it is pulled to the middle
+   val s=1f-.04f*k;h.pivotX=if(d>0)0f else h.width.toFloat();h.pivotY=h.height.toFloat();h.scaleX=s;h.scaleY=s;h.alpha=1f-.3f*k}
   halos(x)}
  /** Each card's halo follows the card itself (its place and scale), strongest on the card in focus. */
  private val gAt=IntArray(2);private val cAt=IntArray(2)
@@ -247,7 +238,7 @@ internal class RisingCoverCard(private val a:MainActivity):FrameLayout(a){
 internal class HeroProgress(private val a:MainActivity,private val fraction:Float,animated:Boolean=false):View(a){
  private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var shown=if(animated)0f else 1f;private var revealed=!animated
  /** Fill the bar the first time its card comes into focus. */
- fun reveal(){if(revealed)return;revealed=true;val sp=Spring.of(.12,700.0);ValueAnimator.ofFloat(0f,1f).apply{startDelay=120;duration=sp.duration;interpolator=sp.interpolator;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
+ fun reveal(){if(revealed)return;revealed=true;ValueAnimator.ofFloat(0f,1f).apply{startDelay=120;duration=600;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
  fun grow(delay:Long){shown=0f;ValueAnimator.ofFloat(0f,1f).apply{startDelay=delay;duration=900;interpolator=Ease.outExpo;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
  override fun onDraw(c:Canvas){val h=a.d(4).toFloat();val cy=height/2f;val w=width.toFloat();val r=h/2
