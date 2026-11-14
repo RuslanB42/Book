@@ -25,7 +25,7 @@ internal class ImeKeeper(private val host:View,private val margin:Int,private va
         return true
     }
     companion object {
-        private fun scroller(v:View):ScrollView?{var p=v.parent;while(p is View){if(p is ScrollView)return p;p=p.parent};return null}
+        private fun scroller(v:View):ScrollView?{var p:android.view.ViewParent?=v.parent;while(p!=null){if(p is ScrollView)return p;p=(p as? View)?.parent?:return null};return null}
         /** Scrolls the nearest scroll view just enough that [f] (or, if it is taller than the room left, its caret line)
          *  sits [margin] above the keyboard. Never scrolls the other way. */
         fun keep(f:View,keyboard:Int,margin:Int,smooth:Boolean,extra:Int=0){
