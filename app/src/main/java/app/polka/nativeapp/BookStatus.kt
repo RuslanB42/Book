@@ -39,11 +39,10 @@ internal fun MainActivity.setBookStatus(book:JSONObject,state:String){
     saveBook(c)
 }
 
-/** The status sheet: four statuses (the current one ticked) and, under them, when the book was started and finished. */
+/** The status sheet: four statuses (the current one ticked) and, for a read book, the day it was finished. */
 internal fun MainActivity.statusSheet(book:JSONObject){
     val id=book.str("id")
-    var first=0L
-    work({first=library.dao.meta("stats")?.let{JSONObject(it.json).optJSONObject("data")}?.optJSONObject("books")?.optJSONObject(id)?.optLong("first")?:0L}){
+    run{
         val latest=books.firstOrNull{it.str("id")==id}?:book
         val current=Library.status(latest)
         val box=column()
@@ -57,10 +56,8 @@ internal fun MainActivity.statusSheet(book:JSONObject){
             if(s==current)row.addView(StatusIcon(this,"check",fg),LinearLayout.LayoutParams(d(20),d(20)))
             box.addView(row,LinearLayout.LayoutParams(-1,d(52)))
         }
-        val started=BookStatus.day(latest.optLong("startedAt").takeIf{it>0}?:first.takeIf{it>0}?:latest.optLong("openedAt"))
         val finished=if(current=="done")BookStatus.day(latest.optLong("completedAt")) else null
         val dates=mutableListOf<Triple<String,LocalDate?,String>>()
-        if(current!="want")dates.add(Triple("Начата",started,"startedAt"))
         if(current=="done")dates.add(Triple("Прочитана",finished,"completedAt"))
         if(dates.isNotEmpty()){
             space(box,12)
