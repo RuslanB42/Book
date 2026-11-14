@@ -171,7 +171,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 box.isClickable=true // A tap inside the surface must not reach the outside-dismiss layer.
                 setContentView(frame)
                 val w=window!!
-                ReaderWindow.configure(w,a.reader!=null,a.bg)
+                ReaderWindow.configure(w,a.reader!=null||a.immersiveSheets,a.bg)
                 // The sheet follows the keyboard's own slide frame by frame (its final height arrives at once, before the
                 // slide starts, and used to throw the sheet up in one jump), and the line being typed stays above it.
                 val follows=android.os.Build.VERSION.SDK_INT>=30
@@ -205,7 +205,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 handle.setOnTouchListener(drag); head.setOnTouchListener(drag);box.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){};override fun onViewDetachedFromWindow(v:View){motion?.stop()}})
             }
         }
-        sheet.setCancelable(cancel); sheet.setCanceledOnTouchOutside(cancel); sheet.show(); prepareKeyboard(sheet); if(a.reader!=null){ReaderWindow.configure(sheet.window!!,true,a.bg);sheet.setOnDismissListener{if(a.reader!=null)ReaderWindow.configure(a.window,true,a.bg)}}; return sheet
+        sheet.setCancelable(cancel); sheet.setCanceledOnTouchOutside(cancel); sheet.show(); prepareKeyboard(sheet); if(a.immersiveSheets&&a.reader==null)ReaderWindow.configure(sheet.window!!,true,a.bg); if(a.reader!=null){ReaderWindow.configure(sheet.window!!,true,a.bg);sheet.setOnDismissListener{if(a.reader!=null)ReaderWindow.configure(a.window,true,a.bg)}}; return sheet
     }
 }
 

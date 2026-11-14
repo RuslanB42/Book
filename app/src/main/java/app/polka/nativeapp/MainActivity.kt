@@ -60,6 +60,8 @@ class MainActivity : Activity() {
     internal var imeAnimating=false
     /** The keyboard's height on screen this very frame, whoever follows it. */
     internal var imeNow=0
+    /** While comics are open (their own full-screen window), sheets keep the system bars hidden too. */
+    internal var immersiveSheets=false
     /** The reader's safe area without the keyboard, so its keyboard room can follow the slide. */
     internal var readerBase=intArrayOf(0,0,0,0)
     /** While set, it gets the keyboard's height on every frame of its slide and moves what it needs with a transform;

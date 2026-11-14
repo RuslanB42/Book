@@ -74,7 +74,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     private fun marks():MutableList<Int>{val arr=book.optJSONArray("pageMarks")?:return mutableListOf();return (0 until arr.length()).map{arr.optInt(it)}.filter{it in 0 until n}.distinct().toMutableList()}
 
     fun show(){
-        book.put("openedAt",System.currentTimeMillis())
+        book.put("openedAt",System.currentTimeMillis());a.immersiveSheets=true
         root.addView(stage,FrameLayout.LayoutParams(-1,-1))
         buildChrome()
         dialog.setContentView(root)
@@ -84,8 +84,8 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         applyBrightness(dialog.window)
         // the bars run to the screen's edges like the reader's: the safe area is room inside them
         SafeArea.bind(root){i->val s=SafeArea.content(i,false)
-            top.layoutParams=(top.layoutParams as FrameLayout.LayoutParams).apply{height=a.d(52)+s.top};top.setPadding(a.d(8)+s.left,a.d(4)+s.top,a.d(8)+s.right,a.d(4))
-            bottom.setPadding(a.d(18)+s.left,a.d(8),a.d(18)+s.right,a.d(4)+s.bottom)}
+            top.layoutParams=(top.layoutParams as FrameLayout.LayoutParams).apply{height=a.d(52+30)+s.top};top.setPadding(a.d(8)+s.left,a.d(4)+s.top,a.d(8)+s.right,a.d(4+30))
+            bottom.setPadding(a.d(18)+s.left,a.d(8+36),a.d(18)+s.right,a.d(4)+s.bottom)}
         dialog.setOnKeyListener{_,code,e->if(code==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){close();true}else false}
         dialog.setOnDismissListener{finish()}
         setMode(mode,false)
@@ -94,7 +94,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         root.postDelayed({setChrome(false)},1400)
     }
     private fun close(){root.animate().alpha(0f).setDuration(if(reduced)0 else 180).withEndAction{dialog.dismiss()}.start()}
-    private fun finish(){Ambience.stop(a);save(true);io.shutdownNow();source.close()}
+    private fun finish(){a.immersiveSheets=false;Ambience.stop(a);save(true);io.shutdownNow();source.close()}
     private fun save(done:Boolean){
         // the status sheet and the data editor save the book on their own: keep what they changed
         a.books.firstOrNull{it.str("id")==book.str("id")}?.takeIf{it!==book}?.let{latest->latest.keys().forEach{k->if(k !in setOf("progress","pageMode","pageMarks","openedAt","state","completedAt","startedAt"))book.put(k,latest.get(k))}
@@ -131,24 +131,24 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     // ── panels: the same bars, icons and sheets as the book reader ──
     private fun icon(kind:String,label:String,fn:()->Unit)=IconView(a,kind,ink()).apply{icons.add(this);contentDescription=label;isClickable=true;setOnClickListener{fn()};a.press(this)}
     private fun buildChrome(){
-        top=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(8),a.d(4),a.d(8),a.d(4))}
+        top=a.line().apply{gravity=Gravity.TOP;setPadding(a.d(8),a.d(4),a.d(8),a.d(34))}
         top.addView(icon("chevdown","Закрыть книгу"){close()},LinearLayout.LayoutParams(a.d(48),a.d(48)))
         val texts=a.column()
         titleView=a.text(book.str("title"),15f,ink(),true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END};texts.addView(titleView)
         authorView=a.text(MainActivity.authors(book),13f,mutedInk()).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;visibility=if(text.isBlank())View.GONE else View.VISIBLE};texts.addView(authorView)
-        top.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
-        soundChip=SoundChip(a){AmbienceSheet(a,bgColor()).show()};top.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
+        top.addView(texts,LinearLayout.LayoutParams(0,a.d(48),1f));texts.gravity=Gravity.CENTER_VERTICAL
+        soundChip=SoundChip(a){AmbienceSheet(a,bgColor()).show()};top.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6);topMargin=a.d(10)})
         top.addView(icon("more","Меню книги"){menu()},LinearLayout.LayoutParams(a.d(48),a.d(48)))
         top.forceHasOverlappingRendering(false)
-        root.addView(top,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
-        bottom=a.column().apply{setPadding(a.d(18),a.d(8),a.d(18),a.d(4));clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)}
+        root.addView(top,FrameLayout.LayoutParams(-1,a.d(82),Gravity.TOP))
+        bottom=a.column().apply{setPadding(a.d(18),a.d(44),a.d(18),a.d(4));clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)}
         val row=a.line()
         pageLabel=a.text("",15f,ink()).apply{gravity=Gravity.CENTER_VERTICAL};leftLabel=a.text("",14f,mutedInk()).apply{gravity=Gravity.CENTER_VERTICAL}
         row.addView(pageLabel,LinearLayout.LayoutParams(0,a.d(40),1f));row.addView(leftLabel,LinearLayout.LayoutParams(-2,a.d(40)))
         bottom.addView(row)
         // the pages as small cards: the current one is larger and ringed; a tap opens a page
         strip=a.line().apply{gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false;setPadding(a.d(18),0,a.d(18),0)}
-        for(i in 0 until n)strip.addView(Thumb(i).apply{setOnClickListener{go(i,false)}},LinearLayout.LayoutParams(a.d(44),a.d(66)).apply{if(i>0)marginStart=a.d(9)})
+        for(i in 0 until n)strip.addView(Thumb(i).apply{setOnClickListener{jump(i)}},LinearLayout.LayoutParams(a.d(44),a.d(66)).apply{if(i>0)marginStart=a.d(9)})
         stripScroll=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipChildren=false;clipToPadding=false;addView(strip,FrameLayout.LayoutParams(-2,-1))}
         stripScroll.setOnScrollChangeListener{_,_,_,_,_->for(i in 0 until strip.childCount)strip.getChildAt(i).invalidate()}
         bottom.addView(stripScroll,LinearLayout.LayoutParams(-1,a.d(88)).apply{leftMargin=-a.d(18);rightMargin=-a.d(18)})
@@ -164,12 +164,16 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     /** Backdrop, bars and ink for the chosen background. */
     private fun applyLook(){val c=bgColor();root.setBackgroundColor(c)
         dialog.window?.let{w->w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(c));ReaderWindow.configure(w,true,c)}
-        listOf(top to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{float=true;themeLight=lightBg;flushTop=bar===top;flushBottom=bar===bottom;refresh()}}
+        top.background=Shade(c,true,a.d(30).toFloat());bottom.background=Shade(c,false,a.d(36).toFloat())
         icons.forEach{it.ink=ink();it.cut=c;it.invalidate()};soundButton.ink=ink();soundChip.repaint()
         titleView.setTextColor(ink());authorView.setTextColor(mutedInk());pageLabel.setTextColor(ink());leftLabel.setTextColor(mutedInk())
         paged?.invalidate();ribbon?.invalidate()}
     private fun applyBrightness(w:android.view.Window?){w?:return;val v=a.prefs.optDouble("bright",-1.0).toFloat()
         val target=if(v<0f)WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE else v.coerceIn(.01f,1f);if(w.attributes.screenBrightness!=target)w.attributes=w.attributes.apply{screenBrightness=target}}
+    /** Opens a page picked in the strip or the grid: the next or previous one slides in, a far one fades in. */
+    private fun jump(i:Int){if(i==page)return;val pv=paged
+        if(pv!=null&&kotlin.math.abs(i-page)==1){pv.turn(i-page);return}
+        go(i,false);if(!reduced){stage.animate().cancel();stage.alpha=.25f;stage.animate().alpha(1f).setDuration(220).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}
     private fun toggleMark(){val m=marks();if(page in m)m.remove(page) else m.add(page);book.put("pageMarks",org.json.JSONArray(m.sorted()));paint();save(false)}
     private fun menu(){
         val items=arrayOf("Статус","Изменить данные","Скачать файл")
@@ -182,7 +186,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
             list.chunked(3).forEach{chunk->val r=a.line().apply{gravity=Gravity.TOP;clipChildren=false;clipToPadding=false}
                 for(j in 0 until 3){val i=chunk.getOrNull(j);val lp=LinearLayout.LayoutParams(0,-2,1f).apply{if(j>0)marginStart=a.d(12)}
                     if(i==null){r.addView(View(a),lp);continue}
-                    val cell=a.column().apply{clipChildren=false;clipToPadding=false;isClickable=true;contentDescription="Страница ${i+1}";setOnClickListener{sheet?.dismiss();go(i,false)};a.press(this)}
+                    val cell=a.column().apply{clipChildren=false;clipToPadding=false;isClickable=true;contentDescription="Страница ${i+1}";setOnClickListener{sheet?.dismiss();jump(i)};a.press(this)}
                     cell.addView(GridThumb(i,i in marked))
                     cell.addView(a.text("${i+1}",13f,if(i==page)a.fg else a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(6),0,0)},LinearLayout.LayoutParams(-1,-2))
                     r.addView(cell,lp)}
@@ -251,18 +255,19 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         override fun onMeasure(w:Int,h:Int){val width=MeasureSpec.getSize(w);setMeasuredDimension(width,width*3/2)}
         override fun onDraw(c:Canvas){val r=a.d(6).toFloat();val w=width.toFloat();val h=height.toFloat()
-            val b=if(getGlobalVisibleRect(Rect()))bitmap(i,width){invalidate()} else cache.get(key(i,width))
+            if(width<=0)return
+            val b=bitmap(i,(width*2/3).coerceAtLeast(a.d(60))){invalidate()}
             c.save();c.clipPath(Path().apply{addRoundRect(0f,0f,w,h,r,r,Path.Direction.CW)})
             if(b!=null){val s=maxOf(w/b.width,h/b.height);val bw=b.width*s;c.drawBitmap(b,null,RectF((w-bw)/2,0f,(w+bw)/2,b.height*s),p)}else{p.color=if(a.light)0xffe6e6e3.toInt() else 0xff2a2a2d.toInt();c.drawRect(0f,0f,w,h,p)}
             c.restore()
-            if(i==page){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=a.fg;val k=-a.d(3).toFloat();c.drawRoundRect(k,k,w-k,h-k,r+a.d(3),r+a.d(3),p);p.style=Paint.Style.FILL}
+            if(i==page){p.style=Paint.Style.STROKE;val sw=a.d(2).toFloat();p.strokeWidth=sw;p.color=a.fg;c.drawRoundRect(sw/2,sw/2,w-sw/2,h-sw/2,r,r,p);p.style=Paint.Style.FILL}
             if(marked){val x=w-a.d(20);val bw=a.d(13).toFloat();val bh=a.d(19).toFloat();p.color=a.fg
                 c.drawPath(Path().apply{moveTo(x,0f);lineTo(x+bw,0f);lineTo(x+bw,bh);lineTo(x+bw/2,bh-bw*.4f);lineTo(x,bh);close()},p)}}
     }
     /** A page thumbnail in the strip; the current one is outlined. Loaded only while on screen. */
     private inner class Thumb(val i:Int):View(a){
         private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private var on=false
-        init{isClickable=true;contentDescription="Страница ${i+1}";a.press(this)}
+        init{isClickable=true;contentDescription="Страница ${i+1}"}
         fun setOn(v:Boolean){if(on==v)return;on=v;val s=if(v)1.18f else 1f;animate().cancel()
             if(reduced||!isAttachedToWindow){scaleX=s;scaleY=s} else animate().scaleX(s).scaleY(s).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start();invalidate()}
         override fun onDraw(c:Canvas){val r=a.d(5).toFloat();val w=width.toFloat();val h=height.toFloat()
@@ -309,6 +314,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         private fun has(side:Int)=(page+(if(rtl)-side else side)) in 0 until n
         /** +1: the next page. The page carries on from exactly where the finger left it (no jump back), and a quick
          *  throw settles faster, like the year pages in the tier list. */
+        fun turn(d:Int)=step(d)
         private fun step(d:Int,velocity:Float=0f){val t=page+d;if(t<0||t>=n){settle(0f,velocity);return};val visual=if(rtl)-d else d
             val from=shift;go(t,false);pan=0f;shift=from+visual*width.toFloat();settle(0f,velocity)}
         fun show(i:Int,animate:Boolean){scale=1f;px=0f;py=0f;pan=0f;if(!animate){shift=0f;invalidate()}}
@@ -371,4 +377,18 @@ internal class BackdropTile(private val a:MainActivity,private val bg:Int,privat
         p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=if(Color.red(bg)>128)0x1a000000 else 0x24ffffff;c.drawRoundRect(r,rad,rad,p)
         p.style=Paint.Style.FILL;p.color=if(Color.red(bg)>128)0xff1e1d1b.toInt() else 0xfff3f2ef.toInt();p.textSize=13.5f*a.resources.displayMetrics.scaledDensity;p.typeface=PolkaFonts.sans(500);p.textAlign=Paint.Align.CENTER
         c.drawText(label,width/2f,height/2f-(p.ascent()+p.descent())/2f,p)}
+}
+
+/** The comics bars' backdrop: the page's own colour, solid behind the controls and fading out over [fade] toward the page. */
+internal class Shade(private val color:Int,private val top:Boolean,private val fade:Float):android.graphics.drawable.Drawable(){
+    private val p=Paint();private var shader:LinearGradient?=null
+    override fun onBoundsChange(b:Rect){val rgb=color and 0xffffff;val solid=rgb or 0xf2000000.toInt();val h=b.height().toFloat()
+        val edge=if(top)(h-fade)/h else fade/h
+        shader=if(top)LinearGradient(0f,b.top.toFloat(),0f,b.bottom.toFloat(),intArrayOf(solid,solid,rgb),floatArrayOf(0f,edge.coerceIn(0f,1f),1f),Shader.TileMode.CLAMP)
+            else LinearGradient(0f,b.top.toFloat(),0f,b.bottom.toFloat(),intArrayOf(rgb,solid,solid),floatArrayOf(0f,edge.coerceIn(0f,1f),1f),Shader.TileMode.CLAMP)
+        p.shader=shader}
+    override fun draw(c:Canvas){c.drawRect(bounds,p)}
+    override fun setAlpha(alpha:Int){p.alpha=alpha}
+    override fun setColorFilter(cf:ColorFilter?){}
+    @Deprecated("Drawable") override fun getOpacity()=PixelFormat.TRANSLUCENT
 }
