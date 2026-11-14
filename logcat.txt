@@ -1,0 +1,11 @@
+--------- beginning of main
+11-14 16:39:58.580  6408  6429 I POLKA_QA: previewProbe=text=SpannableString layoutText=SpannableString same=true
+11-14 16:39:58.580  6408  6429 I POLKA_QA: justify=0 ls=0.0 stretchSpans=16 layout=DynamicLayout sdk=34
+11-14 16:39:58.580  6408  6429 I POLKA_QA: geometry: [ours=272.0 platform=272.0 right=272] [ours=272.6 platform=272.0 right=272] [ours=272.1 platform=272.0 right=272] [ours=272.9 platform=272.0 right=272] [ours=272.2 platform=272.0 right=272] [ours=272.4 platform=272.0 right=272] [ours=272.7 platform=272.0 right=272] [ours=272.0 platform=272.0 right=272]
+11-14 16:39:58.581  6408  6429 I POLKA_QA: view-draw: fullLines=16 nearEdge=15 gaps=[1, 2, 2, 1, 2, 2, 1, 2, 2, 2, 1, 2, 2, 1]
+11-14 16:39:58.581  6408  6429 I POLKA_QA: snapshot-current: fullLines=16 nearEdge=16 gaps=[2, 2, 2, 1, 2, 2, 1, 2, 2, 2, 1, 2, 2, 1]
+11-14 16:39:58.581  6408  6429 I POLKA_QA: manualPreview: lines=19 spans=16 first=29.0 err=null lineRight0=272.0 parRight0=272 width=272 ws=0.0 ls=0.0 bodyLineRight0=272.0 bodyLineMax0=272.0 pvLineMax0=272.0
+11-14 16:39:58.581  6408  6429 I POLKA_QA: manual-preview: fullLines=16 nearEdge=16 gaps=[2, 1, 2, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1]
+11-14 16:39:58.581  6408  6429 I POLKA_QA: snapshot-text-same-page: fullLines=16 nearEdge=16 gaps=[2, 2, 2, 1, 2, 2, 1, 2, 2, 2, 1, 2, 2, 1]
+11-14 16:39:58.581  6408  6429 I POLKA_QA: screen: fullLines=16 nearEdge=15 gaps=[1, 2, 2, 1, 2, 2, 1, 2, 2, 2, 1, 2, 2, 1]
+11-14 16:39:58.581  6408  6429 I POLKA_QA: 
