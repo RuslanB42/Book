@@ -51,9 +51,19 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val shelfTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true;contentDescription="Полка, сменить"
    background=a.shape(if(a.light)0x0d000000 else 0x12ffffff,16);setOnClickListener{a.moveBook(book)};a.press(this)}
   shelfTag.addView(IconView(a,"shelves",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
-  val shelf=a.text("",13f).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(220)};live(shelf){book.str("shelf").ifBlank{"Без полки"}};shelfTag.addView(shelf)
+  val shelf=a.text("",13f).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)};live(shelf){book.str("shelf").ifBlank{"Без полки"}};shelfTag.addView(shelf)
   shelfTag.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
-  main.addView(shelfTag,LinearLayout.LayoutParams(-2,a.d(32)).apply{gravity=Gravity.CENTER_HORIZONTAL;topMargin=a.d(14)})
+  // approved: the reading status is a second tag of the same kind, beside the shelf
+  val statusTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true
+   background=a.shape(if(a.light)0x0d000000 else 0x12ffffff,16);setOnClickListener{a.statusSheet(book)};a.press(this)}
+  val statusIcon=StatusIcon(a,BookStatus.icon(Library.status(book)),a.muted);statusTag.addView(statusIcon,LinearLayout.LayoutParams(a.d(16),a.d(16)))
+  val statusName=a.text("",13f).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1};live(statusName){BookStatus.name(Library.status(book))};statusTag.addView(statusName)
+  statusTag.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
+  updates.add{val s=Library.status(book);statusIcon.kind=BookStatus.icon(s);statusTag.contentDescription="Статус: ${BookStatus.name(s)}, сменить"}
+  statusTag.contentDescription="Статус: ${BookStatus.name(Library.status(book))}, сменить"
+  val tags=a.line().apply{gravity=Gravity.CENTER}
+  tags.addView(statusTag,LinearLayout.LayoutParams(-2,a.d(32)));tags.addView(shelfTag,LinearLayout.LayoutParams(-2,a.d(32)).apply{marginStart=a.d(8)})
+  main.addView(tags,LinearLayout.LayoutParams(-1,a.d(32)).apply{topMargin=a.d(14)})
   a.space(main,24)
   fun insetCard()=a.column().apply{a.floatCard(this,24);setPadding(a.d(16),a.d(16),a.d(16),a.d(16))}
   fun divider(parent:LinearLayout){parent.addView(View(a).apply{setBackgroundColor(hair())},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})}
@@ -65,7 +75,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val go=a.button("Читать",true){if(book.optBoolean("noFile")){a.attachId=book.str("id");a.pickBooks(14)}else{a.returnDetailId=book.str("id");a.openBook(book,heroCover)}};reading.addView(go,LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
   val nofile=a.text("Добавьте файл FB2 или EPUB, чтобы читать книгу и сохранять цитаты.",13f,a.muted).apply{cssLeading(1.5f);setPadding(0,a.d(10),0,0)};reading.addView(nofile)
   var chapterTitle=""
-  updates.add{val p=pct();val missing=book.optBoolean("noFile");status.text=when{missing->"В вашей библиотеке";p>=1->"Книга прочитана";Library.status(book)=="reading"->"Сейчас читаете";else->"Начните новую историю"};percent.text=if(missing||p<=0)"" else "${(p*100).toInt()}%";chapter.text=chapterTitle;chapter.visibility=if(chapterTitle.isBlank()||missing||p>=1)View.GONE else View.VISIBLE;track.visibility=if(missing||p>=1)View.GONE else View.VISIBLE;bar.scaleX=p;go.text=when{missing->"Добавить файл книги";p>=1->"Читать снова";Library.status(book)=="reading"->"Продолжить чтение";else->"Читать"};nofile.visibility=if(missing)View.VISIBLE else View.GONE
+  updates.add{val p=pct();val missing=book.optBoolean("noFile");status.text=when{missing->"В вашей библиотеке";p>=1->"Книга прочитана";Library.status(book)=="reading"->"Сейчас читаете";Library.status(book)=="paused"->"Чтение отложено";else->"Начните новую историю"};percent.text=if(missing||p<=0)"" else "${(p*100).toInt()}%";chapter.text=chapterTitle;chapter.visibility=if(chapterTitle.isBlank()||missing||p>=1)View.GONE else View.VISIBLE;track.visibility=if(missing||p>=1)View.GONE else View.VISIBLE;bar.scaleX=p;go.text=when{missing->"Добавить файл книги";p>=1->"Читать снова";Library.status(book)=="reading"->"Продолжить чтение";else->"Читать"};nofile.visibility=if(missing)View.VISIBLE else View.GONE
    val chars=book.optInt("chars",book.optInt("recPages")*1800);volume.text=if(chars>0)"${maxOf(1,kotlin.math.round(chars/1800.0).toInt())} стр." else "Объём уточняется";time.text=if(p>=1)"За чтением ${duration(spent)}" else if(chars>0)"≈ ${duration(maxOf(60000L,(chars*(1-p)/5.0/readSpeed*60000).toLong()))}" else ""}
   fun section(top:Int):LinearLayout{val sec=a.column().apply{setPadding(0,a.d(top),0,0);clipChildren=false;clipToPadding=false};main.addView(sec);return sec}
   // block headings, like the sections on the home screen

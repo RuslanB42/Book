@@ -80,7 +80,9 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     private fun close(){root.animate().alpha(0f).setDuration(if(reduced)0 else 180).withEndAction{dialog.dismiss()}.start()}
     private fun finish(){save(true);io.shutdownNow();source.close()}
     private fun save(done:Boolean){book.put("progress",(book.optJSONObject("progress")?:JSONObject()).put("page",page).put("pct",if(n<=1)1.0 else page/(n-1).toDouble()))
-        if(n>0&&page>=n-1&&book.optLong("completedAt")==0L)book.put("completedAt",System.currentTimeMillis())
+        val st=Library.status(book)
+        if(n>0&&page>=n-1&&st!="done"){book.put("state","done");book.put("completedAt",System.currentTimeMillis())}
+        else if(page>0&&(st=="want"||st=="paused")){book.put("state","reading");if(book.optLong("startedAt")==0L)book.put("startedAt",System.currentTimeMillis())}
         val copy=book.copyJson();a.work({a.library.save(copy)}){if(done)a.reload()}}
 
     // ── pages ──

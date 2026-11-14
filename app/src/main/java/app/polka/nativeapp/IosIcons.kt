@@ -32,6 +32,12 @@ internal object IosIcons {
       Op(false,false,1.7f,true,"M12 4.5v15M4.5 12h15",null)),
     "check" to listOf(
       Op(false,false,1.7f,true,"M4.5 12.5 9.5 17.5 19.5 6.5",null)),
+    "done" to listOf(
+      Op(false,false,1.7f,true,"M3.4 12a8.6 8.6 0 1 0 17.2 0a8.6 8.6 0 1 0 -17.2 0Z",null),
+      Op(false,false,1.7f,true,"M8.3 12.3l2.6 2.6 4.9-5.3",null)),
+    "paused" to listOf(
+      Op(false,false,1.7f,true,"M3.4 12a8.6 8.6 0 1 0 17.2 0a8.6 8.6 0 1 0 -17.2 0Z",null),
+      Op(false,false,1.7f,true,"M10 9v6M14 9v6",null)),
     "more" to listOf(
       Op(true,false,0f,true,"M3.9 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0 -3.2 0Z",null),
       Op(true,false,0f,true,"M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0 -3.2 0Z",null),

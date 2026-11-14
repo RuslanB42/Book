@@ -132,6 +132,11 @@ class Library(val db: LibraryDb) {
         updateMarker()
     }
     companion object {
-        fun status(book: JSONObject): String = when { (book.optJSONObject("progress")?.optDouble("pct", 0.0) ?: 0.0) >= 1.0 -> "done"; book.optLong("openedAt") > 0L || (book.optJSONObject("progress")?.optDouble("pct", 0.0) ?: 0.0) > 0 -> "reading"; else -> "want" }
+        /** The book's own status when one was set (by hand or by reading), otherwise worked out from the progress:
+         *  only real reading makes a book «Читаю», merely opening it does not. */
+        val STATES = listOf("want", "reading", "done", "paused")
+        fun status(book: JSONObject): String { val s = book.optString("state"); if (s in STATES) return s
+            val pct = book.optJSONObject("progress")?.optDouble("pct", 0.0) ?: 0.0
+            return when { pct >= 1.0 -> "done"; pct > 0 -> "reading"; else -> "want" } }
     }
 }

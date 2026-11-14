@@ -309,10 +309,14 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun save() {
         handler.removeCallbacks(saveTask)
         if(restoring || editorOpen || opening || preparing || disposed) return
+        val before=Library.status(book)
         val p=book.optJSONObject("progress")?.copyJson() ?: JSONObject(); p.put("ch",chapter).put("pct",if(completed) 1.0 else progress()).put("nativeFraction",fraction()).put("nativeOffset",if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0).put("block",0).put("off",0); book.put("progress",p)
         val now=System.currentTimeMillis(); val elapsed=if(!paused && now-activeAt<120000) (now-lastCredit).coerceIn(0,120000) else 0; lastCredit=now
         val pos=position(); val delta=pos-lastPosition; val chars=if(delta in 1 until 12000) delta.toLong() else 0L; lastPosition=pos; val credit=if(elapsed>0) chars else 0L
         val newSession=!sessionRecorded; sessionRecorded=true
+        // the status moves only forward by itself: real reading makes «Хочу»/«Отложено» into «Читаю», the end makes it «Прочитано»
+        if(completed&&!startedDone)book.put("state","done")
+        else if((before=="want"||before=="paused")&&chars>0){book.put("state","reading");if(book.optLong("startedAt")==0L)book.put("startedAt",now)}
         val snap=book.copyJson();var streakUp=0;var streakWeek=BooleanArray(7);var streakToday=0
         a.work({
             a.library.db.runInTransaction {

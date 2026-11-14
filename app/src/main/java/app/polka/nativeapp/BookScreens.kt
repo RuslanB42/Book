@@ -68,13 +68,13 @@ fun MainActivity.metadataEditor(book:JSONObject) {
 }
 fun MainActivity.bookActions(book:JSONObject,fromDetail:Boolean=false) {
     // from the book card itself: no «О книге» (it is open), and the shelf and rating are set right on the card
-    val all=mutableListOf("О книге" to "information","Изменить данные" to "pen","Переместить на полку" to "move","Оценить" to "star","Прикрепить файл" to "paperclip","Отметить прочитанной" to "check")
+    val all=mutableListOf("О книге" to "information","Изменить данные" to "pen","Переместить на полку" to "move","Оценить" to "star","Прикрепить файл" to "paperclip","Статус" to "check")
     if(PageDocs.isDoc(book)) all.add("Скачать файл" to "download") else if(!book.optBoolean("noFile")) all.addAll(listOf("Скачать FB2" to "download","Скачать EPUB" to "download")); all.add("Удалить книгу" to "trash")
-    if(fromDetail) all.removeAll{it.first in setOf("О книге","Переместить на полку","Оценить")}
+    if(fromDetail) all.removeAll{it.first in setOf("О книге","Переместить на полку","Оценить","Статус")}
     val actions=all.map{it.first}
     dialog().setTitle(book.str("title")).setItemIcons(*all.map{it.second}.toTypedArray()).setDestructiveItems(actions.lastIndex).setItems(actions.toTypedArray()) { _,i -> when(actions[i]) {
         "О книге"->detail(book); "Изменить данные"->metadataEditor(book); "Переместить на полку"->moveBook(book); "Оценить"->dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().put("rating",it)) {} }).show()
-        "Прикрепить файл" -> { attachId=book.str("id"); pickBooks(14) }; "Отметить прочитанной" -> saveBook(book.copyJson().put("progress",(book.optJSONObject("progress")?.copyJson() ?: JSONObject()).put("pct",1.0)).put("completedAt",System.currentTimeMillis()))
+        "Прикрепить файл" -> { attachId=book.str("id"); pickBooks(14) }; "Статус" -> statusSheet(book)
         "Скачать FB2"->exportBook(book,"fb2"); "Скачать файл"->exportBook(book,"doc"); "Скачать EPUB"->exportBook(book,"epub")
         "Удалить книгу" -> confirm("Удалить книгу?","Текст, цитаты и заметки этой книги будут удалены из библиотеки.") { deleteBook(book) }
     } }.show()

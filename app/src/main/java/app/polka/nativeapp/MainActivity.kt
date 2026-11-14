@@ -342,7 +342,7 @@ class MainActivity : Activity() {
         val manual=names.sortedWith(compareByDescending<String>{byShelf[it]?.size ?: 0}.thenBy{it})
         data class ShelfItem(val name:String,val list:List<JSONObject>,val add:Boolean=false,val action:()->Unit)
         val all=manual.map{name->"s:$name" to ShelfItem(name,byShelf[name].orEmpty()){pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;shelf=name;render(false,false)}}+
-            listOf("want","reading","done").map{key->"a:$key" to ShelfItem(autoTitle(key),books.groupBy{Library.status(it)}[key].orEmpty()){pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;auto=key;render(false,false)}}
+            (listOf("want","reading","done")+listOf("paused").filter{k->books.any{Library.status(it)==k}}).map{key->"a:$key" to ShelfItem(autoTitle(key),books.groupBy{Library.status(it)}[key].orEmpty()){pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;auto=key;render(false,false)}}
         // Saved order first; shelves that were never placed keep their default position after the known ones.
         val saved=prefs.optJSONArray("shelfOrder")?.strings().orEmpty()
         val ordered=all.sortedBy{(k,_)->saved.indexOf(k).let{if(it<0)Int.MAX_VALUE else it}}
@@ -524,7 +524,7 @@ class MainActivity : Activity() {
                         if(old!=null) {
                             if(target!=null && (!old.str("title").equals(item.book.str("title"),true) || !authors(old).equals(authors(item.book),true))) mismatch="В файле: «${item.book.str("title")}», ${authors(item.book)}.\n\nПрикрепить его к «${old.str("title")}»?"
                             val merged=item.book.copyJson().put("id",old.getString("id")).put("shelf",old.str("shelf"))
-                            listOf("quotes","notes","bookmarks","rating","review","reviewTags","reviewAt","rec","origin","addedAt","progress","openedAt","completedAt","pos","coverChanged","title","authors","series","seriesNo","annotation","genres","lang").forEach { key -> if(old.has(key)) merged.put(key,old.get(key)) }
+                            listOf("quotes","notes","bookmarks","rating","review","reviewTags","reviewAt","rec","origin","addedAt","progress","openedAt","completedAt","state","startedAt","pos","coverChanged","title","authors","series","seriesNo","annotation","genres","lang").forEach { key -> if(old.has(key)) merged.put(key,old.get(key)) }
                             item=Imported(merged,item.content.copyJson().put("id",old.getString("id")),item.assets)
                         } else if(shelf!=null) item.book.put("shelf",shelf)
                         val same=if(old==null) (existing+parsed.map { it.book }).firstOrNull { it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) && !it.optBoolean("noFile") } else null
@@ -571,7 +571,7 @@ class MainActivity : Activity() {
     override fun onDestroy() { destroying=true; Notice.current?.takeIf { it.a===this }?.dismissNow();root.childrenOpening()?.finish();bookCalendar?.dismiss();shelfReorder?.cancel();reader?.dispose();bookDetailSheet?.finish();checkpointTask?.cancel(false); io.execute { if(initialized) try { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints")) } catch(_:Exception) {}; library.db.close() }; io.shutdown();cpu.shutdownNow(); super.onDestroy() }
     companion object {
         fun authors(book:JSONObject)=book.optJSONArray("authors")?.strings()?.joinToString(", ").orEmpty()
-        fun autoTitle(key:String)=when(key) { "reading"->"Читаю"; "done"->"Прочитано"; else->"Хочу прочитать" }
+        fun autoTitle(key:String)=when(key) { "reading"->"Читаю"; "done"->"Прочитано"; "paused"->"Отложено"; else->"Хочу прочитать" }
         fun fileWord(n:Int)=if(n%100 in 11..14) "файлов" else when(n%10) { 1->"файл";2,3,4->"файла";else->"файлов" }
         fun countBooks(n:Int):String { val word=if(n%100 in 11..14) "книг" else when(n%10) { 1->"книга";2,3,4->"книги";else->"книг" }; return "$n $word" }
     }
