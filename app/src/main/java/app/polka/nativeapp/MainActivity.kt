@@ -58,6 +58,10 @@ class MainActivity : Activity() {
     internal var baseInsets=androidx.core.graphics.Insets.NONE
     internal var imeBottom=0
     internal var imeAnimating=false
+    /** The keyboard's height on screen this very frame, whoever follows it. */
+    internal var imeNow=0
+    /** The reader's safe area without the keyboard, so its keyboard room can follow the slide. */
+    internal var readerBase=intArrayOf(0,0,0,0)
     /** While set, it gets the keyboard's height on every frame of its slide and moves what it needs with a transform;
      *  the page is not re-padded or laid out again at all. Dropped when the keyboard has fully gone. */
     internal var imeFollower:((Int)->Unit)?=null
@@ -172,10 +176,13 @@ class MainActivity : Activity() {
             override fun onPrepare(animation:androidx.core.view.WindowInsetsAnimationCompat){if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()!=0)imeAnimating=true}
 
             override fun onProgress(insets:androidx.core.view.WindowInsetsCompat,running:List<androidx.core.view.WindowInsetsAnimationCompat>):androidx.core.view.WindowInsetsCompat{
-                if(reader==null&&isIme(running)){val h=insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom;val f=imeFollower;if(f!=null)f(h) else setIme(h)};return insets}
+                if(isIme(running)){val h=insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom;imeNow=h;val r=reader
+                    if(r==null){val f=imeFollower;if(f!=null)f(h) else setIme(h)}else if(currentFocus is android.widget.EditText){val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],h))}};return insets}
             override fun onEnd(animation:androidx.core.view.WindowInsetsAnimationCompat){if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()==0)return
                 imeAnimating=false;val now=androidx.core.view.ViewCompat.getRootWindowInsets(root);val ime=now?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0
-                if(reader==null){val f=imeFollower;if(f!=null){f(ime);if(ime==0)imeFollower=null}else setIme(ime)};imeVisible(ime>0)}})
+                imeNow=ime;val r=reader
+                if(r==null){val f=imeFollower;if(f!=null){f(ime);if(ime==0)imeFollower=null}else setIme(ime)}else{val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],ime))};imeVisible(ime>0)}})
+        ImeKeeper(root,d(20)){imeNow}.attach()
         // a tap anywhere outside the focused text field closes the keyboard and lets the field go
         touchWatchers.add{e->val f=currentFocus as? android.widget.EditText;if(f!=null&&reader==null){val r=android.graphics.Rect();f.getGlobalVisibleRect(r);val x=e.rawX.toInt();val y=e.rawY.toInt();if(!r.contains(x,y)&&focusKeepers.none{k->k.isAttachedToWindow&&android.graphics.Rect().also{q->k.getGlobalVisibleRect(q)}.contains(x,y)})root.post{releaseTextFocus()}}}
         setContentView(root)

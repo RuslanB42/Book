@@ -34,14 +34,17 @@ internal object ReaderWindow {
    val safe=if(Build.VERSION.SDK_INT>=28){val cutout=insets.displayCutout;intArrayOf(cutout?.safeInsetLeft?:0,cutout?.safeInsetTop?:0,cutout?.safeInsetRight?:0,cutout?.safeInsetBottom?:0)}else intArrayOf(0,0,0,0)
    val keyboard=if(Build.VERSION.SDK_INT>=30)insets.getInsets(WindowInsets.Type.ime()).bottom else (insets.systemWindowInsetBottom.takeIf{it>a.d(100)}?:0)
    val gestures=if(Build.VERSION.SDK_INT>=29)insets.systemGestureInsets.bottom else 0
-   r.safeArea(safe[0],safe[1],safe[2],maxOf(safe[3],gestures,keyboard))
+   a.readerBase=intArrayOf(safe[0],safe[1],safe[2],maxOf(safe[3],gestures))
+   // while the keyboard slides, its room comes frame by frame from the animation callback
+   if(!a.imeAnimating)a.imeNow=keyboard
+   r.safeArea(safe[0],safe[1],safe[2],maxOf(safe[3],gestures,if(a.imeAnimating)a.imeNow else keyboard))
   }else {
    val compat=androidx.core.view.WindowInsetsCompat.toWindowInsetsCompat(insets,a.root)
    a.baseInsets=SafeArea.content(compat,false)
    val ime=compat.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom
    // while the keyboard slides, its height comes frame by frame from the animation callback
    // a keyboard followed by a transform (shelf rename) never re-pads the page
-   if(!a.imeAnimating&&a.imeFollower==null)a.imeBottom=ime
+   if(!a.imeAnimating){a.imeNow=ime;if(a.imeFollower==null)a.imeBottom=ime}
    a.pushInsets()
    if(!a.imeAnimating)a.imeVisible(ime>0)
   }

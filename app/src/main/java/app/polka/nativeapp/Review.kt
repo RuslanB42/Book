@@ -145,7 +145,7 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
             addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,x:Int,y:Int,z:Int){};override fun onTextChanged(s:CharSequence?,x:Int,y:Int,z:Int){}
                 override fun afterTextChanged(s:Editable?){removeCallbacks(saveTask);postDelayed(saveTask,450)}})
             setOnFocusChangeListener{_,has->removeCallbacks(collapseTask)
-                if(has){reveal(140);reveal(420)}else{persist();postDelayed(collapseTask,240)}}}
+                if(has)reveal(420)else{persist();postDelayed(collapseTask,240)}}}
         editor.addView(field,LayoutParams(-1,-2))
         addView(editor,LayoutParams(-1,-2))
         // note
@@ -268,7 +268,8 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
             (a.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(field,InputMethodManager.SHOW_IMPLICIT)},if(reduced)0L else 200L)}
 
     /** Scrolls the sheet just enough for the whole card to sit above the keyboard. */
-    private fun reveal(delay:Long){postDelayed({if(isAttachedToWindow)requestRectangleOnScreen(Rect(0,0,width,height+a.d(16)),false)},delay)}
+    // the line being typed rides the keyboard by itself (ImeKeeper); this only brings the rest of the card up once it has settled
+    private fun reveal(delay:Long){postDelayed({a.revealAboveKeyboard(this,0)},delay)}
 
     /** The book changed elsewhere (rated in the finish window, restored…): follow it without disturbing typing. */
     fun sync(){val r=book.optInt("rating")
