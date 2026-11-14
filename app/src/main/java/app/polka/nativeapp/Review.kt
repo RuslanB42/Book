@@ -105,9 +105,7 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private val ru=Locale("ru")
     private val head=FrameLayout(a)
-    private val verdict=a.text("",15f,StarRow.starYellow(a),true)
-    /** Shown on the right of the «Оценка» heading. */
-    val verdictView:View get()=verdict
+    private val verdict=a.text("",15f,StarRow.starYellow(a),true).apply{gravity=Gravity.CENTER}
     private var stars=makeStars(book.optInt("rating"))
     private val starsBox=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
     // editor
@@ -130,9 +128,11 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
     init{orientation=VERTICAL;clipChildren=false;clipToPadding=false
         a.floatCard(this,24);setPadding(a.d(16),a.d(10),a.d(16),a.d(10));clipToOutline=true
         
-        // the word for the rating lives next to the «Оценка» heading (see [verdictView]); the card starts with the stars
+
         starsBox.addView(stars,FrameLayout.LayoutParams(-1,-1))
         addView(starsBox,LayoutParams(-1,a.d(52)).apply{leftMargin=-a.d(4);rightMargin=-a.d(4)})
+        // the word for the rating opens up under the stars together with the rest of the card
+        addView(verdict,LayoutParams(-1,-2).apply{topMargin=a.d(2);bottomMargin=a.d(4)})
         // editor
         editor.addView(ask,LayoutParams(-1,-2).apply{topMargin=a.d(6);bottomMargin=a.d(10)})
         editor.addView(chips,LayoutParams(-1,-2))
@@ -185,6 +185,9 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
 
     private fun setVerdict(n:Int,animate:Boolean){val s=Reviews.verdict(n)
         if(!animate||reduced||!isAttachedToWindow){verdict.animate().cancel();verdict.text=s;verdict.alpha=if(s.isEmpty())0f else 1f;verdict.translationY=0f;return}
+        // appearing or leaving with the card is done by the card's own move; only a change of word is animated here
+        if(s.isEmpty())return
+        if(verdict.visibility!=VISIBLE||verdict.text.isEmpty()){verdict.animate().cancel();verdict.text=s;verdict.translationY=0f;return}
         val up=-a.d(6).toFloat()
         verdict.animate().cancel();verdict.animate().alpha(0f).translationY(up).setStartDelay(0).setDuration(if(verdict.text.isEmpty())1 else 120).setInterpolator(AccelerateInterpolator()).withEndAction{
             verdict.text=s;verdict.translationY=-up
@@ -235,10 +238,10 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
      */
     private fun morph(motion:Boolean,change:()->Unit){
         if(!motion||!isLaidOut||width==0){hAnim?.cancel();layoutParams?.let{it.height=LayoutParams.WRAP_CONTENT;layoutParams=it};change();return}
-        val before=listOf(editor,note).filter{it.visibility==VISIBLE}
+        val before=listOf(verdict,editor,note).filter{it.visibility==VISIBLE}
         val h0=height;hAnim?.cancel()
         change()
-        val after=listOf(editor,note).filter{it.visibility==VISIBLE}
+        val after=listOf(verdict,editor,note).filter{it.visibility==VISIBLE}
         measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));val h1=measuredHeight
         val leaving=before-after.toSet();val coming=after-before.toSet()
         leaving.forEach{v->v.visibility=VISIBLE;v.animate().cancel();v.animate().alpha(0f).setStartDelay(0).setDuration(140).withEndAction{v.visibility=GONE;v.alpha=1f}.start()}
@@ -253,9 +256,9 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
     private fun show(next:Mode,animate:Boolean){val from=mode;mode=next
         val motion=animate&&!reduced&&isAttachedToWindow&&from!=next
         morph(motion){when(next){
-            Mode.EMPTY->{editor.visibility=GONE;note.visibility=GONE}
-            Mode.EDIT->{field.setText(book.optString("review",""));field.setSelection(field.text.length);editor.visibility=VISIBLE;note.visibility=GONE}
-            Mode.NOTE->{fillNote();editor.visibility=GONE;note.visibility=VISIBLE}}}
+            Mode.EMPTY->{verdict.visibility=GONE;editor.visibility=GONE;note.visibility=GONE}
+            Mode.EDIT->{field.setText(book.optString("review",""));field.setSelection(field.text.length);verdict.visibility=VISIBLE;editor.visibility=VISIBLE;note.visibility=GONE}
+            Mode.NOTE->{fillNote();verdict.visibility=VISIBLE;editor.visibility=GONE;note.visibility=VISIBLE}}}
         if(motion&&next==Mode.EDIT&&from==Mode.EMPTY)reveal(420)
     }
 
