@@ -62,51 +62,35 @@ internal class FlowRow(c:Context,private val hGap:Int,private val vGap:Int,priva
     fun reset(){hAnim?.cancel();shownH=-1;targetH=-1;spots.clear()}
 }
 
-/** A quick mark. Choosing it fills it with the text colour while a check mark draws itself in from the left. */
+/** A quick mark. Choosing it fills it with the text colour; its size never changes, so nothing around it moves. */
 internal class ReviewChip(private val a:MainActivity,val label:String,selected:Boolean,private val toggled:(ReviewChip)->Unit):View(a){
     var selectedNow=selected;private set
     private var p=if(selected)1f else 0f
     private var anim:ValueAnimator?=null
-    private val dm=a.resources.displayMetrics
-    private fun sp(v:Float)=TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP,v,dm)
-    private val regular=TextPaint(Paint.ANTI_ALIAS_FLAG).apply{typeface=PolkaFonts.sans(400);textSize=sp(14f)}
-    private val medium=TextPaint(Paint.ANTI_ALIAS_FLAG).apply{typeface=PolkaFonts.sans(500);textSize=sp(14f)}
+    private val text=TextPaint(Paint.ANTI_ALIAS_FLAG).apply{typeface=PolkaFonts.sans(500);textSize=TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP,14f,a.resources.displayMetrics)}
     private val fill=Paint(Paint.ANTI_ALIAS_FLAG)
     private val line=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=a.d(1).toFloat()}
-    private val tick=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND}
-    private val tickPath=Path();private val tickPart=Path();private val pm=PathMeasure()
     private val rect=RectF()
-    private val wRegular=regular.measureText(label);private val wMedium=medium.measureText(label)
+    private val w=text.measureText(label)
     private val restFill get()=if(a.light)0x0a000000 else 0x12ffffff
     private val restLine get()=if(a.light)0x14000000 else 0x1affffff
     private val onText get()=if(a.light)Color.WHITE else 0xff1c1c1e.toInt()
     private val reduced get()=a.prefs.str("motion")=="reduced"
     init{isClickable=true;isFocusable=true;contentDescription=label;setOnClickListener{toggle()};a.press(this)}
-    private fun lerp(x:Float,y:Float,t:Float)=x+(y-x)*t
     private fun mix(c1:Int,c2:Int,t:Float)=ArgbEvaluator().evaluate(t.coerceIn(0f,1f),c1,c2) as Int
-    private val padH get()=a.d(14).toFloat()
-    private val left get()=lerp(padH,a.d(10).toFloat(),p)
-    private val tickRoom get()=(a.d(15)+a.d(6))*p
-    override fun onMeasure(ws:Int,hs:Int)=setMeasuredDimension((left+tickRoom+lerp(wRegular,wMedium,p)+padH).toInt()+1,a.d(34))
+    override fun onMeasure(ws:Int,hs:Int)=setMeasuredDimension((w+a.d(28)).toInt()+1,a.d(34))
     fun toggle(){selectedNow=!selectedNow;toggled(this)
         if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         sendAccessibilityEvent(android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED)
         val to=if(selectedNow)1f else 0f;anim?.cancel()
-        if(reduced||!isAttachedToWindow){p=to;requestLayout();invalidate();return}
-        anim=ValueAnimator.ofFloat(p,to).apply{duration=if(selectedNow)300 else 220;interpolator=PathInterpolator(.2f,.9f,.3f,1f);addUpdateListener{p=it.animatedValue as Float;requestLayout();invalidate()};start()}}
+        if(reduced||!isAttachedToWindow){p=to;invalidate();return}
+        anim=ValueAnimator.ofFloat(p,to).apply{duration=200;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{p=it.animatedValue as Float;invalidate()};start()}}
     override fun onDraw(c:Canvas){val h=height.toFloat();val r=h/2
         rect.set(0f,0f,width.toFloat(),h)
         fill.color=mix(restFill,a.fg,p);c.drawRoundRect(rect,r,r,fill)
         if(p<1f){line.color=restLine;line.alpha=(Color.alpha(restLine)*(1f-p)).toInt();rect.inset(line.strokeWidth/2,line.strokeWidth/2);c.drawRoundRect(rect,r,r,line)}
-        val x=left+tickRoom
-        val base=h/2-(regular.fontMetrics.ascent+regular.fontMetrics.descent)/2
-        val ink=mix(a.fg,onText,p)
-        regular.color=ink;regular.alpha=(255*(1f-p)).toInt();if(p<1f)c.drawText(label,x,base,regular)
-        medium.color=ink;medium.alpha=(255*p).toInt();if(p>0f)c.drawText(label,x,base,medium)
-        if(p>0.01f){val s=a.d(15).toFloat();val ox=left;val oy=h/2-s/2;val k=s/24f
-            tickPath.reset();tickPath.moveTo(ox+5*k,oy+12.5f*k);tickPath.lineTo(ox+9.5f*k,oy+17*k);tickPath.lineTo(ox+19*k,oy+7.5f*k)
-            pm.setPath(tickPath,false);tickPart.reset();pm.getSegment(0f,pm.length*p.coerceIn(0f,1f),tickPart,true)
-            tick.strokeWidth=a.d(2).toFloat();tick.color=onText;tick.alpha=(255*p.coerceIn(0f,1f)).toInt();c.drawPath(tickPart,tick)}}
+        text.color=mix(a.fg,onText,p)
+        c.drawText(label,(width-w)/2f,h/2-(text.fontMetrics.ascent+text.fontMetrics.descent)/2,text)}
     override fun onInitializeAccessibilityNodeInfo(info:android.view.accessibility.AccessibilityNodeInfo){super.onInitializeAccessibilityNodeInfo(info);info.className="android.widget.CheckBox";info.isCheckable=true;info.isChecked=selectedNow}
 }
 
@@ -127,7 +111,7 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
     // editor
     private val editor=a.column().apply{clipChildren=false;clipToPadding=false}
     private val ask=a.text("Какой она была",12f,a.muted)
-    private val chips=FlowRow(a,a.d(8),a.d(8)){!reduced}
+    private val chips=FlowRow(a,a.d(8),a.d(8)){false}
     private val hair=View(a).apply{setBackgroundColor(if(a.light)0x12000000 else 0x14ffffff)}
     private val field=EditText(a)
     // note
@@ -152,8 +136,8 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
         editor.addView(ask,LayoutParams(-1,-2).apply{topMargin=a.d(10);bottomMargin=a.d(10)})
         editor.addView(chips,LayoutParams(-1,-2))
         editor.addView(hair,LayoutParams(-1,1).apply{topMargin=a.d(14)})
-        field.apply{background=null;setPadding(0,a.d(12),0,a.d(2));textSize=16f;typeface=PolkaFonts.sans(400);setTextColor(a.fg);setHintTextColor((a.muted and 0x00ffffff) or 0x88000000.toInt())
-            includeFontPadding=false;cssLeading(1.5f);minHeight=a.d(46);gravity=Gravity.TOP or Gravity.START
+        field.apply{background=null;setPadding(0,a.d(12),0,a.d(2));textSize=17f;typeface=PolkaFonts.serif(a,false);setTextColor(a.fg);setHintTextColor((a.muted and 0x00ffffff) or 0x88000000.toInt())
+            includeFontPadding=false;cssLeading(1.55f);minHeight=a.d(46);gravity=Gravity.TOP or Gravity.START
             inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             imeOptions=EditorInfo.IME_FLAG_NO_EXTRACT_UI;filters=arrayOf(InputFilter.LengthFilter(600))
             setText(book.optString("review",""))
@@ -212,8 +196,10 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
     private fun swapChips(n:Int){if(reduced||!isAttachedToWindow){fillChips(n,false);return}
         val old=(0 until chips.childCount).map{chips.getChildAt(it)}
         if(old.isEmpty()){fillChips(n,true);return}
-        old.forEach{it.animate().cancel();it.animate().alpha(0f).translationY(-a.d(4).toFloat()).setStartDelay(0).setDuration(130).start()}
-        chips.postDelayed({if(isAttachedToWindow)fillChips(shownRating,true)},140)}
+        old.forEach{it.animate().cancel();it.animate().alpha(0f).setStartDelay(0).setDuration(120).start()}
+        chips.postDelayed({if(!isAttachedToWindow)return@postDelayed
+            morph(!reduced){fillChips(shownRating,false)}
+            for(i in 0 until chips.childCount){val c=chips.getChildAt(i);c.alpha=0f;c.animate().alpha(1f).setStartDelay(40L+i*30).setDuration(220).start()}},130)}
     private fun enter(v:View,delay:Long){if(reduced)return;v.alpha=0f;v.translationY=a.d(8).toFloat()
         v.animate().alpha(1f).translationY(0f).setStartDelay(delay).setDuration(360).setInterpolator(PathInterpolator(.2f,.9f,.3f,1f)).start()}
 
@@ -241,17 +227,35 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
         val at=book.optLong("reviewAt",0L)
         date.text=if(at<=0)"" else Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()).toLocalDate().let{d->d.format(DateTimeFormatter.ofPattern(if(d.year==java.time.LocalDate.now().year)"d MMMM" else "d MMMM yyyy",ru))}}
 
+    private var hAnim:ValueAnimator?=null
+    /**
+     * Changes what the card shows in one smooth move: the card's height glides from the old to the new size
+     * (everything below follows it), what leaves fades out inside the clipped card, what comes fades in.
+     */
+    private fun morph(motion:Boolean,change:()->Unit){
+        if(!motion||!isLaidOut||width==0){hAnim?.cancel();layoutParams?.let{it.height=LayoutParams.WRAP_CONTENT;layoutParams=it};change();return}
+        val before=listOf(editor,note).filter{it.visibility==VISIBLE}
+        val h0=height;hAnim?.cancel()
+        change()
+        val after=listOf(editor,note).filter{it.visibility==VISIBLE}
+        measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));val h1=measuredHeight
+        val leaving=before-after.toSet();val coming=after-before.toSet()
+        leaving.forEach{v->v.visibility=VISIBLE;v.animate().cancel();v.animate().alpha(0f).setStartDelay(0).setDuration(140).withEndAction{v.visibility=GONE;v.alpha=1f}.start()}
+        coming.forEach{v->v.animate().cancel();v.alpha=0f;v.animate().alpha(1f).setStartDelay(if(leaving.isEmpty())60 else 150).setDuration(240).start()}
+        val lp=layoutParams;lp.height=h0;layoutParams=lp
+        hAnim=ValueAnimator.ofInt(h0,h1).apply{duration=360;interpolator=PathInterpolator(.2f,0f,0f,1f)
+            addUpdateListener{val l=layoutParams;l.height=it.animatedValue as Int;layoutParams=l}
+            addListener(object:AnimatorListenerAdapter(){var cancelled=false
+                override fun onAnimationCancel(x:Animator){cancelled=true}
+                override fun onAnimationEnd(x:Animator){if(cancelled)return;leaving.forEach{it.animate().cancel();it.visibility=GONE;it.alpha=1f};val l=layoutParams;l.height=LayoutParams.WRAP_CONTENT;layoutParams=l}});start()}
+    }
     private fun show(next:Mode,animate:Boolean){val from=mode;mode=next
         val motion=animate&&!reduced&&isAttachedToWindow&&from!=next
-        if(motion)layoutMotion()
-        when(next){
+        morph(motion){when(next){
             Mode.EMPTY->{editor.visibility=GONE;note.visibility=GONE}
-            Mode.EDIT->{field.setText(book.optString("review",""));field.setSelection(field.text.length)
-                editor.visibility=VISIBLE;note.visibility=GONE
-                if(motion){enter(ask,40);for(i in 0 until chips.childCount)enter(chips.getChildAt(i),90L+i*45);enter(hair,260);enter(field,300)}
-                if(motion&&from==Mode.EMPTY)reveal(420)}
-            Mode.NOTE->{fillNote();editor.visibility=GONE;note.visibility=VISIBLE
-                if(motion)for(i in 0 until note.childCount)enter(note.getChildAt(i),60L+i*50)}}
+            Mode.EDIT->{field.setText(book.optString("review",""));field.setSelection(field.text.length);editor.visibility=VISIBLE;note.visibility=GONE}
+            Mode.NOTE->{fillNote();editor.visibility=GONE;note.visibility=VISIBLE}}}
+        if(motion&&next==Mode.EDIT&&from==Mode.EMPTY)reveal(420)
     }
 
     /** Pencil or a tap on the words: back to writing, with the keyboard. */
