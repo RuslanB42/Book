@@ -113,7 +113,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     private fun go(i:Int,animate:Boolean=true){val t=i.coerceIn(0,n-1);if(t==page&&paged?.settled!=false)return;page=t;paged?.show(t,animate);ribbon?.scrollTo(t);paint();save(false)}
     private fun paint(){pageLabel.text="Страница ${page+1}";val left=n-1-page;leftLabel.text=if(left>0)"ещё $left стр" else "последняя"
         markIcon.isSelected=page in marks();markIcon.invalidate()
-        for(i in 0 until strip.childCount)(strip.getChildAt(i) as? Thumb)?.setOn(i==page)
+        for(i in 0 until strip.childCount)(strip.getChildAt(i) as? Thumb)?.place(page)
         strip.getChildAt(page)?.let{t->val target=t.left+t.width/2-stripScroll.width/2;if(reduced)stripScroll.scrollTo(target,0) else stripScroll.smoothScrollTo(target,0)}}
     private fun setMode(m:String,animate:Boolean){mode=m;book.put("pageMode",m);stage.removeAllViews();paged=null;ribbon=null
         if(m=="ribbon")ribbon=RibbonView().also{stage.addView(it,FrameLayout.LayoutParams(-1,-1));it.post{it.scrollTo(page)}}
@@ -268,8 +268,13 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     private inner class Thumb(val i:Int):View(a){
         private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private var on=false
         init{isClickable=true;contentDescription="Страница ${i+1}"}
-        fun setOn(v:Boolean){if(on==v)return;on=v;val s=if(v)1.18f else 1f;animate().cancel()
-            if(reduced||!isAttachedToWindow){scaleX=s;scaleY=s} else animate().scaleX(s).scaleY(s).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start();invalidate()}
+        /** The open page's card is larger; the cards beside it step aside by as much as it grew (and its ring), so
+         *  the gaps round it are the same as between all the others. Nothing else changes the cards' size. */
+        fun place(cur:Int){val was=on;on=i==cur;val s=if(on)1.18f else 1f
+            val side=if(i==cur)0 else if(i<cur)-1 else 1;val tx=side*(if(mode=="rtl")-1 else 1)*(a.d(44)*.09f+a.d(3))
+            if(scaleX==s&&translationX==tx&&was==on)return
+            animate().cancel()
+            if(reduced||!isAttachedToWindow){scaleX=s;scaleY=s;translationX=tx} else animate().scaleX(s).scaleY(s).translationX(tx).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start();invalidate()}
         override fun onDraw(c:Canvas){val r=a.d(5).toFloat();val w=width.toFloat();val h=height.toFloat()
             val vis=Rect();val shown=getGlobalVisibleRect(vis)
             val b=if(shown)bitmap(i,a.d(76)){invalidate()} else cache.get(key(i,a.d(76)))
