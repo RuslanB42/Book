@@ -105,7 +105,9 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private val ru=Locale("ru")
     private val head=FrameLayout(a)
-    private val verdict=a.text("",12f,StarRow.starYellow(a),true)
+    private val verdict=a.text("",15f,StarRow.starYellow(a),true)
+    /** Shown on the right of the «Оценка» heading. */
+    val verdictView:View get()=verdict
     private var stars=makeStars(book.optInt("rating"))
     private val starsBox=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
     // editor
@@ -126,14 +128,13 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
     private val collapseTask=Runnable{if(!field.hasFocus()&&hasContent())show(Mode.NOTE,true)}
 
     init{orientation=VERTICAL;clipChildren=false;clipToPadding=false
-        a.floatCard(this,24);setPadding(a.d(16),a.d(16),a.d(16),a.d(14));clipToOutline=true
+        a.floatCard(this,24);setPadding(a.d(16),a.d(10),a.d(16),a.d(10));clipToOutline=true
         
-        head.addView(verdict,FrameLayout.LayoutParams(-2,-2,Gravity.END or Gravity.CENTER_VERTICAL))
-        addView(head,LayoutParams(-1,-2))
+        // the word for the rating lives next to the «Оценка» heading (see [verdictView]); the card starts with the stars
         starsBox.addView(stars,FrameLayout.LayoutParams(-1,-1))
-        addView(starsBox,LayoutParams(-1,a.d(52)).apply{topMargin=a.d(2);leftMargin=-a.d(4);rightMargin=-a.d(4)})
+        addView(starsBox,LayoutParams(-1,a.d(52)).apply{leftMargin=-a.d(4);rightMargin=-a.d(4)})
         // editor
-        editor.addView(ask,LayoutParams(-1,-2).apply{topMargin=a.d(10);bottomMargin=a.d(10)})
+        editor.addView(ask,LayoutParams(-1,-2).apply{topMargin=a.d(6);bottomMargin=a.d(10)})
         editor.addView(chips,LayoutParams(-1,-2))
         editor.addView(hair,LayoutParams(-1,1).apply{topMargin=a.d(14)})
         field.apply{background=null;setPadding(0,a.d(12),0,a.d(2));textSize=17f;typeface=PolkaFonts.serif(a,false);setTextColor(a.fg);setHintTextColor((a.muted and 0x00ffffff) or 0x88000000.toInt())
@@ -156,7 +157,7 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
         pen.background=a.shape(if(a.light)0x0a000000 else 0x12ffffff,16);pen.contentDescription="Изменить отзыв";pen.isClickable=true;pen.isFocusable=true;a.press(pen);pen.setOnClickListener{edit()}
         pen.addView(IconView(a,"pen",a.fg),FrameLayout.LayoutParams(a.d(16),a.d(16),Gravity.CENTER))
         foot.addView(pen,FrameLayout.LayoutParams(a.d(32),a.d(32),Gravity.END or Gravity.CENTER_VERTICAL).apply{rightMargin=-a.d(4)})
-        note.addView(foot,LayoutParams(-1,a.d(32)).apply{topMargin=a.d(12)})
+        note.addView(foot,LayoutParams(-1,a.d(32)).apply{topMargin=a.d(12);bottomMargin=a.d(4)})
         addView(note,LayoutParams(-1,-2))
         // taps on the marks must not take the keyboard away from the note being written
         addOnAttachStateChangeListener(object:OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){a.focusKeepers.add(chips)}
