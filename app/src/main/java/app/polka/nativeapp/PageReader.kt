@@ -164,18 +164,24 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
                 when{x<.28f->step(if(rtl)1 else -1);x>.72f->step(if(rtl)-1 else 1);else->toggleChrome()};return true}
             override fun onDoubleTap(e:MotionEvent):Boolean{zoomTo(if(scale>1.05f)1f else 2.5f,e.x,e.y);return true}
             override fun onScroll(e1:MotionEvent?,e2:MotionEvent,dx:Float,dy:Float):Boolean{
-                if(scale>1.01f){px-=dx;py-=dy;clamp();invalidate()}else if(!scaler.isInProgress){anim?.cancel();shift-=dx;invalidate()};return true}
-            override fun onFling(e1:MotionEvent?,e2:MotionEvent,vx:Float,vy:Float):Boolean{if(scale<=1.01f&&kotlin.math.abs(vx)>a.d(500)&&kotlin.math.abs(vx)>kotlin.math.abs(vy)){flung=true;step(if((vx<0)!=rtl)1 else -1)};return true}})
+                if(scale>1.01f){px-=dx;py-=dy;clamp();invalidate()}else if(!scaler.isInProgress){anim?.cancel();settled=false
+                    // past the first or the last page the page only gives a little, there is nothing to pull in
+                    val edge=(shift-dx>0&&!has(-1))||(shift-dx<0&&!has(1));shift-=if(edge)dx*.3f else dx;invalidate()};return true}
+            override fun onFling(e1:MotionEvent?,e2:MotionEvent,vx:Float,vy:Float):Boolean{if(scale<=1.01f&&kotlin.math.abs(vx)>a.d(500)&&kotlin.math.abs(vx)>kotlin.math.abs(vy)){flung=true;step(if((vx<0)!=rtl)1 else -1,kotlin.math.abs(vx))};return true}})
         private var flung=false
         override fun onTouchEvent(e:MotionEvent):Boolean{scaler.onTouchEvent(e);if(e.actionMasked==MotionEvent.ACTION_DOWN)flung=false;gestures.onTouchEvent(e)
             if((e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)&&scale<=1.01f&&!flung&&shift!=0f){
                 val dir=if(shift< -width*.22f)1 else if(shift>width*.22f)-1 else 0;if(dir!=0)step(if(rtl)-dir else dir) else settle(0f)};return true}
-        /** +1: the next page. */
-        private fun step(d:Int){val t=page+d;if(t<0||t>=n){settle(0f);return};val visual=if(rtl)-d else d
-            go(t,false);shift+=visual*width.toFloat();settle(0f)}
+        /** Is there a page on that side of the screen (-1 left, +1 right)? */
+        private fun has(side:Int)=(page+(if(rtl)-side else side)) in 0 until n
+        /** +1: the next page. The page carries on from exactly where the finger left it (no jump back), and a quick
+         *  throw settles faster, like the year pages in the tier list. */
+        private fun step(d:Int,velocity:Float=0f){val t=page+d;if(t<0||t>=n){settle(0f,velocity);return};val visual=if(rtl)-d else d
+            val from=shift;go(t,false);shift=from+visual*width.toFloat();settle(0f,velocity)}
         fun show(i:Int,animate:Boolean){scale=1f;px=0f;py=0f;if(!animate){shift=0f;invalidate()}}
-        private fun settle(to:Float){anim?.cancel();settled=false;if(reduced){shift=to;settled=true;invalidate();return}
-            anim=ValueAnimator.ofFloat(shift,to).apply{duration=280;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shift=it.animatedValue as Float;invalidate()}
+        private fun settle(to:Float,velocity:Float=0f){anim?.cancel();settled=false;if(reduced){shift=to;settled=true;invalidate();return}
+            val span=kotlin.math.abs(to-shift)
+            anim=ValueAnimator.ofFloat(shift,to).apply{duration=if(velocity>0f)(span/velocity*1000f).toLong().coerceIn(160L,340L) else (180+160*span/width.coerceAtLeast(1)).toLong().coerceIn(180L,340L);interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shift=it.animatedValue as Float;invalidate()}
                 addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){settled=true}});start()}}
         private fun zoomTo(s:Float,fx:Float,fy:Float){val from=scale;val fpx=px;val fpy=py
             val tpx=if(s<=1f)0f else fx-(fx-px)*(s/scale);val tpy=if(s<=1f)0f else fy-(fy-py)*(s/scale)
@@ -192,8 +198,8 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
                 val b=bitmap(i,target){invalidate()}?:bitmap(i,width){invalidate()}
                 if(b!=null)c.drawBitmap(b,null,r,p) else{p.color=0xff1c1c1e.toInt();c.drawRect(r,p)}
                 c.restore()}
-            // keep the neighbours warm
-            if(settled){bitmap((page+1).coerceAtMost(n-1),width){};bitmap((page-1).coerceAtLeast(0),width){}}}
+            // keep the neighbours warm, two ahead and one behind, so a quick run of swipes never shows an empty page
+            for(k in intArrayOf(1,-1,2))(page+k).takeIf{it in 0 until n}?.let{bitmap(it,width){if(kotlin.math.abs(shift)>0f)invalidate()}}}
     }
 
     /** All pages one under another (webtoons): each fits the width; pictures load as they come near the screen. */

@@ -257,8 +257,8 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
         val motion=animate&&!reduced&&isAttachedToWindow&&from!=next
         morph(motion){when(next){
             Mode.EMPTY->{verdict.visibility=GONE;editor.visibility=GONE;note.visibility=GONE}
-            Mode.EDIT->{field.setText(book.optString("review",""));field.setSelection(field.text.length);verdict.visibility=VISIBLE;editor.visibility=VISIBLE;note.visibility=GONE}
-            Mode.NOTE->{fillNote();verdict.visibility=VISIBLE;editor.visibility=GONE;note.visibility=VISIBLE}}}
+            Mode.EDIT->{field.setText(book.optString("review",""));field.setSelection(field.text.length);verdict.visibility=GONE;editor.visibility=VISIBLE;note.visibility=GONE}
+            Mode.NOTE->{fillNote();verdict.visibility=GONE;editor.visibility=GONE;note.visibility=VISIBLE}}}
         if(motion&&next==Mode.EDIT&&from==Mode.EMPTY)reveal(420)
     }
 
