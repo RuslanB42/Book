@@ -7,7 +7,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-const val REC_SHELF = "Рекомендации"
 fun uid(): String = UUID.randomUUID().toString()
 fun String.safeChunks(limit:Int=128*1024):List<String> { val result=mutableListOf<String>(); var off=0; while(off<length) { var end=minOf(length,off+limit); if(end<length && this[end-1].isHighSurrogate() && this[end].isLowSurrogate()) end--; result.add(substring(off,end)); off=end }; return result }
 fun JSONObject.str(key: String, fallback: String = ""): String = if (isNull(key)) fallback else optString(key, fallback)
@@ -77,7 +76,7 @@ data class Imported(val book: JSONObject, val content: JSONObject, val assets: L
 class Library(val db: LibraryDb) {
     val dao get() = db.dao()
     fun snapshot(): Snapshot { var result: Snapshot? = null; db.runInTransaction { result = Snapshot(dao.books(), dao.contents(), dao.metas(), dao.assets()) }; return result!! }
-    fun prefs(): JSONObject = dao.meta("prefs")?.let { JSONObject(it.json).optJSONObject("data") } ?: JSONObject().put("shelves", JSONArray()).put("showRecommendations", false).put("theme", "dark").put("fontSize", 19)
+    fun prefs(): JSONObject = dao.meta("prefs")?.let { JSONObject(it.json).optJSONObject("data") } ?: JSONObject().put("shelves", JSONArray()).put("theme", "dark").put("fontSize", 19)
     fun savePrefs(prefs: JSONObject) = dao.putMeta(MetaRow("prefs", JSONObject().put("id", "prefs").put("data", prefs).toString()))
     /** Reuse the visible subset's global slots, keeping unrelated shelves in place. */
     fun saveOrder(ids:List<String>):List<JSONObject> {
@@ -133,7 +132,6 @@ class Library(val db: LibraryDb) {
         updateMarker()
     }
     companion object {
-        fun home(books: List<JSONObject>, show: Boolean): List<JSONObject> = books.filter { show || it.str("shelf") != REC_SHELF }
         fun status(book: JSONObject): String = when { (book.optJSONObject("progress")?.optDouble("pct", 0.0) ?: 0.0) >= 1.0 -> "done"; book.optLong("openedAt") > 0L || (book.optJSONObject("progress")?.optDouble("pct", 0.0) ?: 0.0) > 0 -> "reading"; else -> "want" }
     }
 }

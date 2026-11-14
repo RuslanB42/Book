@@ -38,9 +38,7 @@ class MainActivity : Activity() {
     internal var tab = "home"
     internal var shelf: String? = null
     internal var auto: String? = null
-    var recommendationExpansion:RecommendationExpansion?=null
     internal var ratingPrompt:RatingPrompt?=null
-    internal var recommendationDeck:RecommendationDeck?=null
     var bookDetailSheet:BookDetailSheet?=null
     var query = ""
     internal var searchOpen=false
@@ -183,7 +181,7 @@ class MainActivity : Activity() {
         setContentView(root)
         root.requestApplyInsets()
         root.addView(bootLogo(),FrameLayout.LayoutParams(-1,-1))
-        work({ library.initialize(); if(!File(filesDir,"recs.json").exists()) assets.open("recs.json").use { input -> File(filesDir,"recs.json").outputStream().use { input.copyTo(it) } }; loadData() }) { initialized=true; bootFinished=true; savedInstanceState?.getString("calendarImage")?.let{pendingCalendarImage=File(File(cacheDir,"calendar-share"),it)}; savedInstanceState?.getString("exportId")?.let { id -> books.firstOrNull { it.str("id")==id }?.let { pendingExport=it to (savedInstanceState.getString("exportFormat") ?: "fb2") } }; tab=savedInstanceState?.getString("tab") ?: "home"; shelf=savedInstanceState?.getString("shelf"); auto=savedInstanceState?.getString("auto"); query=savedInstanceState?.getString("query").orEmpty();searchOpen=savedInstanceState?.getBoolean("searchOpen",query.isNotEmpty()) ?: false; val bootView=root.findViewWithTag<View>("polka-boot-logo"); render(); revealFromBoot(bootView); savedInstanceState?.getString("readerId")?.let { id -> books.firstOrNull { it.str("id")==id }?.let { openBook(it) } }; pendingActivityResult?.let { pendingActivityResult=null; onActivityResult(it.first,it.second,it.third) } }
+        work({ library.initialize(); File(filesDir,"recs.json").delete(); loadData() }) { initialized=true; bootFinished=true; savedInstanceState?.getString("calendarImage")?.let{pendingCalendarImage=File(File(cacheDir,"calendar-share"),it)}; savedInstanceState?.getString("exportId")?.let { id -> books.firstOrNull { it.str("id")==id }?.let { pendingExport=it to (savedInstanceState.getString("exportFormat") ?: "fb2") } }; tab=savedInstanceState?.getString("tab") ?: "home"; shelf=savedInstanceState?.getString("shelf"); auto=savedInstanceState?.getString("auto"); query=savedInstanceState?.getString("query").orEmpty();searchOpen=savedInstanceState?.getBoolean("searchOpen",query.isNotEmpty()) ?: false; val bootView=root.findViewWithTag<View>("polka-boot-logo"); render(); revealFromBoot(bootView); savedInstanceState?.getString("readerId")?.let { id -> books.firstOrNull { it.str("id")==id }?.let { openBook(it) } }; pendingActivityResult?.let { pendingActivityResult=null; onActivityResult(it.first,it.second,it.third) } }
         if(savedInstanceState==null)openIncoming(intent)
     }
     override fun onNewIntent(intent:Intent) { super.onNewIntent(intent); setIntent(intent); openIncoming(intent) }
@@ -226,8 +224,8 @@ class MainActivity : Activity() {
     fun checkpointSoon() { checkpointTask?.cancel(false); checkpointTask=io.schedule({ try { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints")); getSharedPreferences("health",0).edit().remove("checkpointError").apply() } catch(e:Exception) { getSharedPreferences("health",0).edit().putString("checkpointError",e.message).apply() } }, 3, TimeUnit.SECONDS) }
     fun saveBook(book:JSONObject, done:()->Unit={}) { val copy=book.copyJson().put("modifiedAt",System.currentTimeMillis()); reader?.book?.takeIf { it.str("id")==copy.str("id") && it!==book }?.let { replaceJson(it,copy) }; work({library.save(copy)}) { publishBook(copy); if(reader==null) { render(true,false); if(profileOverlay!=null) refreshProfile() }; checkpointSoon(); done() } }
     fun savePreferences() { val copy=prefs.copyJson(); work({ library.savePrefs(copy) }) { checkpointSoon() } }
-    fun title():String = when { query.isNotBlank() -> "Поиск"; shelf!=null -> shelf!!; auto!=null -> autoTitle(auto!!); tab=="shelves" -> "Полки"; tab=="quotes" -> "Цитаты"; tab=="words" -> "Слова"; tab=="foryou" -> "Для вас"; else -> "Мои книги" }
-    fun homeBooks()=Library.home(books,prefs.optBoolean("showRecommendations"))
+    fun title():String = when { query.isNotBlank() -> "Поиск"; shelf!=null -> shelf!!; auto!=null -> autoTitle(auto!!); tab=="shelves" -> "Полки"; tab=="quotes" -> "Цитаты"; tab=="words" -> "Слова"; else -> "Мои книги" }
+    fun homeBooks()=books.toList()
     fun currentBooks():List<JSONObject> {
         if(query.isNotBlank())return searchBooks()
         var list=when { shelf!=null -> books.filter { it.str("shelf")==shelf }; auto!=null -> books.filter { Library.status(it)==auto }; else -> homeBooks() }
@@ -238,12 +236,12 @@ class MainActivity : Activity() {
     fun sortBooks(list:List<JSONObject>):List<JSONObject> = when(sort) { "title" -> list.sortedBy { it.str("title").lowercase() }; "author" -> list.sortedBy(::authors); "recent" -> list.sortedByDescending { maxOf(it.optLong("openedAt"),it.optLong("addedAt")) }; else -> list.sortedWith(compareBy<JSONObject> { it.optDouble("pos",it.optLong("addedAt").toDouble()) }.thenBy { it.str("title") }) }
     private var renderDeferred=false
     private var destroying=false
-    fun flushDeferredRender(){if(!destroying&&!bookClosing&&!loadingReader&&renderDeferred&&reader==null&&bookDetailSheet==null&&recommendationExpansion==null&&shelfReorder==null&&!isFinishing&&!isDestroyed){renderDeferred=false;if(tab=="foryou" && query.isBlank() && shelf==null && auto==null && recommendationDeck?.refreshAfterOverlay()==true)return;render(true,false)}}
+    fun flushDeferredRender(){if(!destroying&&!bookClosing&&!loadingReader&&renderDeferred&&reader==null&&bookDetailSheet==null&&shelfReorder==null&&!isFinishing&&!isDestroyed){renderDeferred=false;render(true,false)}}
     fun render(preservePosition:Boolean=false,animateEntry:Boolean=true,preparingBookReturn:Boolean=false) {
         if(reader!=null||destroying)return
         if(bookClosing&&!preparingBookReturn){renderDeferred=true;return}
         if(loadingReader){renderDeferred=true;return}
-        if(shelfReorder!=null || recommendationExpansion?.isShowing==true || bookDetailSheet?.isShowing==true){renderDeferred=true;return}
+        if(shelfReorder!=null || bookDetailSheet?.isShowing==true){renderDeferred=true;return}
         renderDeferred=false
         val oldY=if(preservePosition && ::scroll.isInitialized) scroll.scrollY else 0
         val gridSnap=if(gridMotion && ::scroll.isInitialized && root.width>0) { gridMotion=false; captureGrid(books.map { it.str("id") }.toSet()) } else { gridMotion=false; null }
@@ -265,7 +263,7 @@ class MainActivity : Activity() {
                 val top=LibrarySearchBar(this,compact=true).apply{elevation=d(12).toFloat()};librarySearch=top;head.addView(top,LinearLayout.LayoutParams(0,d(48),1f));page.addView(head,LinearLayout.LayoutParams(-1,d(48)));space(page,20)}
             tab=="shelves"&&!inShelf->{query="";searchOpen=false;page.addView(shelvesTopBar(),LinearLayout.LayoutParams(-1,d(48)));space(page,12)}
             tab=="words"->{query="";searchOpen=false;page.addView(text("Слова",26f,fg,true,serif=true).apply{setPadding(d(2),0,0,0);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(-1,d(48)));space(page,14)}
-            else->{query="";searchOpen=false;space(page,if(tab=="foryou")4 else 6)}
+            else->{query="";searchOpen=false;space(page,6)}
         }
         // The entry fade must not render the page into an offscreen layer: such a layer is clipped to the page,
         // which cut off the shelf glass (it reaches into the side margins) until the fade ended.
@@ -285,7 +283,6 @@ class MainActivity : Activity() {
             shelf!=null || auto!=null -> { backAndCount(); val list=currentBooks(); if(list.isEmpty()){space(page,96);page.addView(if(auto=="reading")emptyView("open","Ничего не читаете","Откройте любую книгу — она появится здесь.") else emptyView("shelf","Полка пустая","Добавьте книги через «О книге» или в режиме редактирования."),LinearLayout.LayoutParams(-1,-2))} else bookGrid(list) }
             tab=="shelves" && query.isBlank() -> shelfRows()
             tab=="quotes" -> quotes()
-            tab=="foryou" -> recommendations()
             else -> {
                 if(query.isBlank()) continueCard()
                 val list=currentBooks()
@@ -400,7 +397,7 @@ class MainActivity : Activity() {
         2 -> deleteShelf(name)
     } }.show() }
     fun confirm(title:String,message:String,action:()->Unit) { dialog().setTitle(title).setMessage(message).setNegativeButton("Отмена",null).setPositiveButton("Продолжить") { _,_ -> action() }.show() }
-    fun moveBook(book:JSONObject) { val names=(listOf("Без полки")+prefs.optJSONArray("shelves")?.strings().orEmpty()+books.map { it.str("shelf") }.filter { it.isNotBlank() }+REC_SHELF).distinct(); dialog().setTitle("Переместить на полку").setItemIcons(*names.map{"shelves"}.toTypedArray()).setItems(names.toTypedArray()) { _,i -> saveBook(book.copyJson().put("shelf",if(i==0) "" else names[i])) }.show() }
+    fun moveBook(book:JSONObject) { val names=(listOf("Без полки")+prefs.optJSONArray("shelves")?.strings().orEmpty()+books.map { it.str("shelf") }.filter { it.isNotBlank() }).distinct(); dialog().setTitle("Переместить на полку").setItemIcons(*names.map{"shelves"}.toTypedArray()).setItems(names.toTypedArray()) { _,i -> saveBook(book.copyJson().put("shelf",if(i==0) "" else names[i])) }.show() }
     private var loadingReader=false
     /** Book whose card the reader was opened from; closing the book returns to that card. */
     var returnDetailId:String?=null
@@ -478,7 +475,6 @@ class MainActivity : Activity() {
         if(prefs.str("motion")=="reduced" || r.view.width<=0 || isFinishing || isDestroyed){ReaderWindow.configure(window,false,bg);root.requestApplyInsets();render(true,false);return}
         closeWithFade(r)
     }
-    internal fun waitingForReturnDeck()=tab=="foryou"&&recommendationDeck==null
     internal fun finishBookReturn(){bookClosing=false;renderDeferred=false;ReaderWindow.configure(window,false,bg);root.requestApplyInsets()}
     fun pickBooks(code:Int=10) { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_ALLOW_MULTIPLE,code==10) },code) }
     private var soundPicked:((org.json.JSONObject)->Unit)?=null
@@ -553,7 +549,6 @@ class MainActivity : Activity() {
             12 -> data.data?.let { uri -> work({
                 val temp=File(cacheDir,"export.polka"); try { ArchiveIO.write(library,temp,File(filesDir,"docs")); contentResolver.openOutputStream(uri,"wt")!!.use { out -> FileInputStream(temp).use { it.copyTo(out) } }; getSharedPreferences("health",0).edit().putLong("exportedAt",System.currentTimeMillis()).apply() } finally { temp.delete() }
             }) }
-            13 -> data.data?.let { uri -> work({ val bytes=readLimited(uri); val cat=JSONObject(String(bytes,Charsets.UTF_8)); require(cat.getJSONArray("b").length()>0) { "Каталог пуст" }; val temp=File(filesDir,"recs.tmp"); temp.writeBytes(bytes); java.nio.file.Files.move(temp.toPath(),File(filesDir,"recs.json").toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING,java.nio.file.StandardCopyOption.ATOMIC_MOVE) }) { render() } }
         }
     }
     fun localRecovery() {
@@ -561,12 +556,12 @@ class MainActivity : Activity() {
         val labels=files.map { (when(it.nameWithoutExtension) { "latest"->"Последняя"; "previous"->"Предыдущая"; else->"Перед изменением" })+" · "+java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it.lastModified())) }
         dialog().setTitle("Локальные копии").setItemIcons(*(files.map{"undo"}+"plus").toTypedArray()).setItems((labels+"Создать точку сейчас").toTypedArray()) { _,i -> if(i==files.size) work({ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"))}); else confirm("Восстановить точку?","Текущая библиотека будет заменена.") { work({ val source=File(cacheDir,"recovery-input.polka"); try { files[i].copyTo(source,true); ArchiveIO.restore(applicationContext,library,source) { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety") }; loadData() } finally { source.delete() } }) { initialized=true; reader=null; shelf=null; auto=null; render(); checkpointSoon() } } }.setNegativeButton("Закрыть",null).show()
     }
-    @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; goalRoad!=null -> goalRoad?.back(); tierList!=null && bookDetailSheet?.isShowing!=true -> tierList?.back(); readBooksOverlay!=null && bookDetailSheet==null -> closeReadBooks(); addMenu!=null -> addMenu?.close(); shelvesEditing && reader==null -> { shelvesTopBarLabel?.performClick() }; ratingPrompt?.isShowing==true -> ratingPrompt?.dismiss(); bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() }; recommendationExpansion?.isShowing==true -> recommendationExpansion?.dismiss();bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();quoteBookId!=null && reader==null -> openQuoteGroup(null); settingsPage!=null -> closeSettings(); profileOverlay!=null -> dismissProfile(); streakCelebration!=null && reader!=null -> streakCelebration?.dismiss(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> { shelf=null; auto=null; tab="shelves"; render() }; query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
+    @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; goalRoad!=null -> goalRoad?.back(); tierList!=null && bookDetailSheet?.isShowing!=true -> tierList?.back(); readBooksOverlay!=null && bookDetailSheet==null -> closeReadBooks(); addMenu!=null -> addMenu?.close(); shelvesEditing && reader==null -> { shelvesTopBarLabel?.performClick() }; ratingPrompt?.isShowing==true -> ratingPrompt?.dismiss(); bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() };bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();quoteBookId!=null && reader==null -> openQuoteGroup(null); settingsPage!=null -> closeSettings(); profileOverlay!=null -> dismissProfile(); streakCelebration!=null && reader!=null -> streakCelebration?.dismiss(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> { shelf=null; auto=null; tab="shelves"; render() }; query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
     override fun onSaveInstanceState(out:Bundle) { reader?.save(); out.putString("calendarImage",pendingCalendarImage?.name); out.putString("attachId",attachId); out.putString("coverTarget",coverTarget); pendingExport?.let { out.putString("exportId",it.first.str("id")); out.putString("exportFormat",it.second) }; out.putString("tab",tab); out.putString("shelf",shelf); out.putString("auto",auto); out.putString("query",query); out.putBoolean("searchOpen",searchOpen); reader?.let { out.putString("readerId",it.book.str("id")) }; super.onSaveInstanceState(out) }
     override fun onPause() { shelfReorder?.cancel();screenMotion.stop();root.childrenOpening()?.finish();reader?.pause(); super.onPause() }
     override fun onResume() { super.onResume(); if(reader!=null)reader?.resume() else if(::root.isInitialized){ReaderWindow.configure(window,false,bg);root.requestApplyInsets()} }
     override fun onWindowFocusChanged(hasFocus:Boolean){super.onWindowFocusChanged(hasFocus);if(hasFocus&&::root.isInitialized){ReaderWindow.configure(window,reader!=null,bg);root.requestApplyInsets()}}
-    override fun onDestroy() { destroying=true; Notice.current?.takeIf { it.a===this }?.dismissNow();root.childrenOpening()?.finish();bookCalendar?.dismiss();shelfReorder?.cancel();reader?.dispose(); recommendationExpansion?.stopMotion();bookDetailSheet?.finish();checkpointTask?.cancel(false); io.execute { if(initialized) try { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints")) } catch(_:Exception) {}; library.db.close() }; io.shutdown();cpu.shutdownNow(); super.onDestroy() }
+    override fun onDestroy() { destroying=true; Notice.current?.takeIf { it.a===this }?.dismissNow();root.childrenOpening()?.finish();bookCalendar?.dismiss();shelfReorder?.cancel();reader?.dispose();bookDetailSheet?.finish();checkpointTask?.cancel(false); io.execute { if(initialized) try { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints")) } catch(_:Exception) {}; library.db.close() }; io.shutdown();cpu.shutdownNow(); super.onDestroy() }
     companion object {
         fun authors(book:JSONObject)=book.optJSONArray("authors")?.strings()?.joinToString(", ").orEmpty()
         fun autoTitle(key:String)=when(key) { "reading"->"Читаю"; "done"->"Прочитано"; else->"Хочу прочитать" }

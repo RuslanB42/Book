@@ -147,7 +147,7 @@ internal fun MainActivity.returnNativeBook(r:NativeReader) {
    val next="${root.width}:${root.height}:${page.width}:${page.height}:${page.childCount}"
    if(next!=signature){signature=next;stable=0}else stable++
    frames++
-   if(stable<2 || (waitingForReturnDeck()&&frames<30)){hold.postInvalidateOnAnimation();return true}
+   if(stable<2){hold.postInvalidateOnAnimation();return true}
    hold.visibility=View.INVISIBLE
    val snapshot=try {openingSnapshot(r.book.str("id"),captureScene=false)?:returnFallbackSnapshot(r.book,width,height)} finally {hold.visibility=View.VISIBLE}
    handedOff=true;if(observer.isAlive)observer.removeOnPreDrawListener(this)
