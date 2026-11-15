@@ -118,9 +118,14 @@ fun MainActivity.recoveryScreen(error:Throwable) {
 internal fun MainActivity.deleteBook(book:JSONObject) {
     val id=book.str("id")
     books=books.filterNot { it.str("id")==id }
-    gridMotion=true
+    // One way to leave, wherever the book stood (first in the grid or in the middle, from its sheet or its menu):
+    // its card fades and shrinks where it is, and only then the books after it close the gap.
     val sheet=bookDetailSheet?.takeIf { it.isShowing && it.bookId==id }
-    render(true,false); sheet?.discard()
+    val closeGap={ gridMotion=true; render(true,false) }
+    val vanish={ val v=gridCell(id)
+        if(v==null||!v.isShown||prefs.str("motion")=="reduced") closeGap()
+        else { v.pivotX=v.width/2f; v.pivotY=v.height*.4f; v.animate().cancel(); v.animate().alpha(0f).scaleX(.86f).scaleY(.86f).setDuration(220).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,1f,1f)).withEndAction{ closeGap() }.start() } }
+    if(sheet!=null){ sheet.afterClose={ vanish() }; sheet.discard() } else vanish()
     // the book is only hidden while its notice is up: «Вернуть» brings it back, otherwise it is removed when the notice goes.
     // Several deletions in a row share one notice (it updates in place) instead of notices chasing each other off the screen.
     pendingDeletes.add(id)

@@ -15,13 +15,17 @@ internal class GridSnapshot(val cells:Map<String,RectF>,val ghosts:List<Pair<Rec
 private fun collectCells(v:View,out:MutableMap<String,View>){val t=v.tag;if(t is String&&t.startsWith("grid:")&&v.isShown)out[t.removePrefix("grid:")]=v;if(v is ViewGroup)for(i in 0 until v.childCount)collectCells(v.getChildAt(i),out)}
 private fun MainActivity.screenRect(v:View):RectF{val at=IntArray(2);val r=IntArray(2);v.getLocationInWindow(at);root.getLocationInWindow(r);val x=(at[0]-r[0]).toFloat()+0f;val y=(at[1]-r[1]).toFloat();return RectF(x,y,x+v.width,y+v.height)}
 
+/** The grid cell showing book [id], if it is on the page. */
+internal fun MainActivity.gridCell(id:String):View?{val found=HashMap<String,View>();collectCells(root,found);return found[id]}
+
 /** Called by render() right before the page is torn down. */
 internal fun MainActivity.captureGrid(keep:Set<String>):GridSnapshot{
     val found=HashMap<String,View>();collectCells(root,found)
     val cells=HashMap<String,RectF>();val ghosts=mutableListOf<Pair<RectF,Bitmap>>()
     val visible=Rect(0,0,root.width,root.height)
     found.forEach{(id,v)->val r=screenRect(v);if(!RectF(visible).let{RectF.intersects(it,r)})return@forEach;cells[id]=r
-        if(id !in keep&&v.width>0&&v.height>0)runCatching{val b=Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888);v.draw(Canvas(b));ghosts.add(r to b)}}
+        // a card that has already faded away (a deletion) leaves no picture behind
+        if(id !in keep&&v.width>0&&v.height>0&&v.alpha>.05f)runCatching{val b=Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888);v.draw(Canvas(b));ghosts.add(r to b)}}
     return GridSnapshot(cells,ghosts,if(hasScroll())scroll.scrollY else 0)
 }
 
@@ -36,7 +40,11 @@ internal fun MainActivity.playGrid(snap:GridSnapshot,restoreY:Int?){
         var fresh=0
         now.forEach{(id,v)->val old=snap.cells[id]
             if(old!=null){if(reduced)return@forEach;val r=screenRect(v);val dx=old.left-r.left;val dy=old.top-r.top;if(kotlin.math.abs(dx)<1f&&kotlin.math.abs(dy)<1f)return@forEach
-                v.translationX=dx;v.translationY=dy;v.animate().translationX(0f).translationY(0f).setStartDelay(if(snap.ghosts.isEmpty())0L else 150L).setDuration(480).setInterpolator(settle).start()}
+                val delay=if(snap.ghosts.isEmpty())0L else 150L
+                // a book that moves to another row does not fly across its neighbours: it fades in at its new place
+                if(kotlin.math.abs(dy)>v.height*.5f){v.alpha=0f;v.scaleX=.92f;v.scaleY=.92f;v.pivotX=v.width/2f;v.pivotY=v.height*.4f
+                    v.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(delay+120L).setDuration(360).setInterpolator(settle).start();return@forEach}
+                v.translationX=dx;v.translationY=dy;v.animate().translationX(0f).translationY(0f).setStartDelay(delay).setDuration(480).setInterpolator(settle).start()}
             else if(freshBookIds.remove(id)&&!reduced){val k=fresh++;v.alpha=0f;v.scaleX=.86f;v.scaleY=.86f;v.pivotY=v.height*.4f
                 v.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(220L+k*70L).setDuration(520).setInterpolator(PathInterpolator(.2f,1.2f,.36f,1f)).start()}
         }

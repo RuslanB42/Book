@@ -267,6 +267,8 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val start=presentation;clock=ValueAnimator.ofFloat(0f,1f).apply{duration=380;interpolator=PathInterpolator(.4f,0f,.2f,1f)
    addUpdateListener{val t=it.animatedValue as Float;panel.translationY=panel.height*(1-start*(1-t));scrim.alpha=start*(1-t);heroCover.alpha=1f-t;heroCover.scaleX=1f-.2f*t;heroCover.scaleY=heroCover.scaleX}
    addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){finish()}});start()}}
- fun finish(){if(ended)return;ended=true;freezeMotion();clearFlight();(parent as? ViewGroup)?.removeView(this);if(a.bookDetailSheet===this)a.bookDetailSheet=null;a.flushDeferredRender()}
+ /** Runs once the sheet has fully gone (the deleted book's card leaves the grid only then). */
+ var afterClose:(()->Unit)?=null
+ fun finish(){if(ended)return;ended=true;freezeMotion();clearFlight();(parent as? ViewGroup)?.removeView(this);if(a.bookDetailSheet===this)a.bookDetailSheet=null;a.flushDeferredRender();afterClose?.let{afterClose=null;it()}}
  override fun onDetachedFromWindow(){freezeMotion();clearFlight();if(a.bookDetailSheet===this)a.bookDetailSheet=null;super.onDetachedFromWindow()}
 }
