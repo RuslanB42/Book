@@ -36,7 +36,7 @@ internal fun MainActivity.playGrid(snap:GridSnapshot,restoreY:Int?){
         var fresh=0
         now.forEach{(id,v)->val old=snap.cells[id]
             if(old!=null){if(reduced)return@forEach;val r=screenRect(v);val dx=old.left-r.left;val dy=old.top-r.top;if(kotlin.math.abs(dx)<1f&&kotlin.math.abs(dy)<1f)return@forEach
-                v.translationX=dx;v.translationY=dy;v.animate().translationX(0f).translationY(0f).setStartDelay(if(snap.ghosts.isEmpty())0L else 90L).setDuration(520).setInterpolator(settle).start()}
+                v.translationX=dx;v.translationY=dy;v.animate().translationX(0f).translationY(0f).setStartDelay(if(snap.ghosts.isEmpty())0L else 150L).setDuration(480).setInterpolator(settle).start()}
             else if(freshBookIds.remove(id)&&!reduced){val k=fresh++;v.alpha=0f;v.scaleX=.86f;v.scaleY=.86f;v.pivotY=v.height*.4f
                 v.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(220L+k*70L).setDuration(520).setInterpolator(PathInterpolator(.2f,1.2f,.36f,1f)).start()}
         }
@@ -44,7 +44,7 @@ internal fun MainActivity.playGrid(snap:GridSnapshot,restoreY:Int?){
             root.addView(g,FrameLayout.LayoutParams(r.width().toInt(),r.height().toInt()).apply{leftMargin=r.left.toInt();topMargin=r.top.toInt()})
             if(reduced){root.removeView(g);b.recycle();return@forEach}
             g.pivotX=r.width()/2;g.pivotY=r.height()*.4f
-            g.animate().alpha(0f).scaleX(.82f).scaleY(.82f).setDuration(300).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{root.removeView(g);b.recycle()}.start()}
+            g.animate().alpha(0f).scaleX(.86f).scaleY(.86f).setDuration(200).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{root.removeView(g);b.recycle()}.start()}
         return true
     }})
 }

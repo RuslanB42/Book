@@ -94,6 +94,8 @@ class MainActivity : Activity() {
     private var importDialog: Notice? = null
     /** Books deleted a moment ago that can still be brought back («Вернуть»): hidden, removed when the notice goes. */
     internal val pendingDeletes=mutableSetOf<String>()
+    /** Books deleted while one «Книга удалена» notice is up: they share it (one «Вернуть» brings them all back). */
+    internal var deleteBatch=mutableListOf<JSONObject>();internal var deleteNotice:Notice?=null
     internal var streakCelebration:StreakCelebration?=null
     internal var freshBookIds=mutableSetOf<String>()
     internal var floatingCovers:FloatingCovers?=null

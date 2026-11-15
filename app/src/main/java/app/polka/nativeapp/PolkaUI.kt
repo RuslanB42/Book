@@ -303,7 +303,14 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
     private var selected=-1
     private var theme:Boolean?=null
     private var material=OpaqueSurface(a,30f)
-    private val spring=LiquidSpring{value,speed->pill.translationX=value;val stretch=(kotlin.math.abs(speed)/a.d(2000)).coerceAtMost(.09f);pill.scaleX=1+stretch;pill.scaleY=1-stretch*.45f}
+    private val spring=LiquidSpring{value,speed->pill.translationX=value;val stretch=(kotlin.math.abs(speed)/a.d(2000)).coerceAtMost(.09f);pill.scaleX=1+stretch;pill.scaleY=1-stretch*.45f;tint(value)}
+    /** Each icon takes its colour from how much of the sliding pill is under it right now: the dark «on the pill» ink and
+     *  the filled shape only where the pill is, so no icon ever turns dark on the bar (and vanishes) before the pill arrives
+     *  or stays muted on the pill after it has gone. */
+    private fun tint(x:Float){if(buttons.isEmpty())return;val step=a.d(56).toFloat()
+        buttons.forEachIndexed{i,b->val k=(1f-kotlin.math.abs(x-i*step)/step).coerceIn(0f,1f)
+            val ink=android.animation.ArgbEvaluator().evaluate(k,a.muted,a.bg) as Int;val on=k>.5f
+            if(b.ink!=ink||b.isSelected!=on){b.ink=ink;b.cut=a.fg;b.isSelected=on;b.invalidate()}}}
     init {
         material.float=true;background=material;elevation=0f;clipChildren=false;clipToPadding=false
         addView(pill,LayoutParams(a.d(52),a.d(48)).apply { leftMargin=a.d(5); topMargin=a.d(5) })
@@ -315,7 +322,7 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
         if(theme!=a.light){theme=a.light;material.float=true;material.refresh();pill.background=LiftedPill(a,a.fg)}
         val index=keys.indexOf(tab).coerceAtLeast(0);val x=a.d(index*56).toFloat()
         if(selected<0||a.prefs.str("motion")=="reduced")spring.snap(x)else if(selected!=index)spring.to(x);selected=index
-        buttons.forEachIndexed{i,b->b.ink=if(i==index)a.bg else a.muted;b.cut=a.fg;b.isSelected=i==index;b.invalidate();b.setOnClickListener{onSelect(keys[i])}}
+        buttons.forEachIndexed{i,b->b.cut=a.fg;b.setOnClickListener{onSelect(keys[i])}};tint(spring.value)
     }
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(selected>=0&&kotlin.math.abs(spring.value-a.d(selected*56))>.01f){if(a.prefs.str("motion")=="reduced")spring.snap(a.d(selected*56).toFloat())else spring.to(a.d(selected*56).toFloat())}}
     override fun onDetachedFromWindow(){spring.stop();super.onDetachedFromWindow()}

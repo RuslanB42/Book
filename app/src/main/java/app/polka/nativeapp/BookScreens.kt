@@ -121,8 +121,18 @@ internal fun MainActivity.deleteBook(book:JSONObject) {
     gridMotion=true
     val sheet=bookDetailSheet?.takeIf { it.isShowing && it.bookId==id }
     render(true,false); sheet?.discard()
-    // the book is only hidden while its notice is up: «Вернуть» brings it back, otherwise it is removed when the notice goes
+    // the book is only hidden while its notice is up: «Вернуть» brings it back, otherwise it is removed when the notice goes.
+    // Several deletions in a row share one notice (it updates in place) instead of notices chasing each other off the screen.
     pendingDeletes.add(id)
-    val commit={ if(pendingDeletes.remove(id)) work({ ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); ChapterStore.drop(filesDir,id); PageImages.drop(this,id); PageDocs.drop(this,book); library.db.runInTransaction { library.dao.deleteBook(id); library.dao.deleteContent(id); library.pruneAssets(); library.updateMarker() } },{ reload() }) { if(profileOverlay!=null) refreshProfile(); checkpointSoon() } }
-    Notice.card(this,Notice.State(Notice.Kind.DELETED,"Книга удалена",book.str("title"),listOf(book),faded=true,action="Вернуть",onAction={ if(pendingDeletes.remove(id)){ gridMotion=true; reload() } })).onGone=commit
+    fun commit(b:JSONObject){val bid=b.str("id");if(pendingDeletes.remove(bid)) work({ ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); ChapterStore.drop(filesDir,bid); PageImages.drop(this,bid); PageDocs.drop(this,b); library.db.runInTransaction { library.dao.deleteBook(bid); library.dao.deleteContent(bid); library.pruneAssets(); library.updateMarker() } },{ reload() }) { if(profileOverlay!=null) refreshProfile(); checkpointSoon() } }
+    val open=deleteNotice?.takeIf{ Notice.current===it }
+    val batch=if(open!=null) deleteBatch else mutableListOf<JSONObject>().also{deleteBatch=it}
+    batch.add(book)
+    val all=batch.toList()
+    val restore={ var any=false; all.forEach{ if(pendingDeletes.remove(it.str("id"))) any=true }; if(any){ gridMotion=true; reload() } }
+    val n=all.size
+    val title=if(n==1) "Книга удалена" else "${if(n%10==1&&n%100!=11)"Удалена" else "Удалены"} $n ${when{n%10==1&&n%100!=11->"книга";n%10 in 2..4&&n%100 !in 12..14->"книги";else->"книг"}}"
+    val state=Notice.State(Notice.Kind.DELETED,title,all.reversed().joinToString(", "){it.str("title")},all.reversed(),faded=true,action="Вернуть",onAction=restore)
+    val notice=open?.also{ it.update(state) } ?: Notice.card(this,state).also{ deleteNotice=it }
+    notice.onGone={ if(deleteNotice===notice) deleteNotice=null; all.forEach{ commit(it) } }
 }
