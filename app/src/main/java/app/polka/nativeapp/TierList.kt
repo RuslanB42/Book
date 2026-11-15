@@ -34,7 +34,9 @@ internal object Tiers {
 /** A tier letter: big serif, filled top to bottom with the tier's two tones and a soft glow of the same colour. */
 internal class TierLetter(private val a:MainActivity,private val k:Int,size:Float,private val glow:Boolean=true):TextView(a){
     init{text=Tiers.letters[k];textSize=size;typeface=PolkaFonts.serif(a,true);includeFontPadding=false;gravity=Gravity.CENTER
-        importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;setLayerType(LAYER_TYPE_SOFTWARE,null)}
+        importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;setLayerType(LAYER_TYPE_SOFTWARE,null)
+        // the gradient is drawn through the text colour's alpha: the theme's default text colour is see-through and faded the letters
+        setTextColor(Color.WHITE)}
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){super.onSizeChanged(w,h,ow,oh);val (c1,c2)=Tiers.tone(a,k)
         paint.shader=LinearGradient(0f,0f,0f,h.toFloat(),c1,c2,Shader.TileMode.CLAMP)
         if(glow&&!a.light)setShadowLayer(a.d(14).toFloat(),0f,0f,(c2 and 0xffffff) or (0x66 shl 24)) else setShadowLayer(0f,0f,0f,0)}
