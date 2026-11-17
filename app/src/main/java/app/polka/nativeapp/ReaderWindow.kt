@@ -37,7 +37,7 @@ internal object ReaderWindow {
    a.readerBase=intArrayOf(safe[0],safe[1],safe[2],maxOf(safe[3],gestures))
    // while the keyboard slides, its room comes frame by frame from the animation callback
    if(!a.imeAnimating)a.imeNow=keyboard
-   r.safeArea(safe[0],safe[1],safe[2],maxOf(safe[3],gestures,if(a.imeAnimating)a.imeNow else keyboard))
+   r.safeArea(safe[0],safe[1],safe[2],maxOf(safe[3],gestures,if(!a.readerTyping())0 else if(a.imeAnimating)a.imeNow else keyboard))
   }else {
    val compat=androidx.core.view.WindowInsetsCompat.toWindowInsetsCompat(insets,a.root)
    a.baseInsets=SafeArea.content(compat,false)
