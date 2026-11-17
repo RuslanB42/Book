@@ -61,17 +61,23 @@ internal fun MainActivity.freezeSheet(ledger:ReadingStatistics.Ledger){
     box.addView(freezeRow(ledger,52),LinearLayout.LayoutParams(-2,-2).apply{gravity=Gravity.CENTER_HORIZONTAL;topMargin=d(6)})
     box.addView(text("Заморозки",19f,fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(16)})
     box.addView(text("Сохраняют серию, если день пропущен. Тратятся сами.",14f,muted).apply{gravity=Gravity.CENTER;cssLeading(1.5f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(8);leftMargin=d(10);rightMargin=d(10)})
-    val card=column().apply{floatCard(this,20);setPadding(d(16),d(4),d(16),d(4))}
+    // a flat card (no shadow to be cut off by the sheet) with plain grey line icons, like every other list
+    val card=column().apply{background=shape(if(light)0x0a000000 else 0x0dffffff,20);setPadding(d(16),d(2),d(16),d(2))}
+    val ink=if(light)0xff6e6e73.toInt() else 0xff9a9aa0.toInt()
+    fun lineIcon(draw:(Canvas,Paint)->Unit)=object:View(this){override fun onDraw(c:Canvas){val s=width/24f;c.save();c.scale(s,s)
+        draw(c,Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=1.7f;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND;color=ink});c.restore()}}
     fun fact(icon:View,label:String,value:String?){if(card.childCount>0)card.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1))
-        val r=line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=d(46)}
-        r.addView(icon,LinearLayout.LayoutParams(d(18),d(18)).apply{marginEnd=d(12)})
+        val r=line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=d(48)}
+        r.addView(icon,LinearLayout.LayoutParams(d(20),d(20)).apply{marginEnd=d(14)})
         r.addView(text(label,14.5f),LinearLayout.LayoutParams(0,-2,1f))
         value?.let{r.addView(text(it,14.5f,muted))}
         card.addView(r,LinearLayout.LayoutParams(-1,-2))}
-    fact(object:View(this){override fun onDraw(c:Canvas){val s=width/40f;c.save();c.scale(s,s);c.translate(0f,(40f-48f)/2f);val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=if(light)0xffe8640c.toInt() else 0xffff8a1e.toInt()};c.drawPath(IceArt.flame,p);c.restore()}},"Новая за каждые 7 дней подряд",null)
-    fact(FreezeCell(this,true,0f),"Можно хранить две",null)
-    fact(object:View(this){override fun onDraw(c:Canvas){val s=width/24f;c.save();c.scale(s,s);val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=2f;strokeCap=Paint.Cap.ROUND;color=if(light)0xff2b7fc0.toInt() else 0xff7cc6f5.toInt()}
-        c.drawCircle(12f,12f,8.5f,p);c.drawLine(12f,7.5f,12f,12f,p);c.drawLine(12f,12f,15f,14f,p);c.restore()}},"Следующая",if(ledger.freezes>=2)"обе на месте" else "через ${daysWord(ledger.toNext)}")
+    // a week: seven days in a row
+    fact(lineIcon{c,p->c.drawRoundRect(3.5f,5f,20.5f,20f,3f,3f,p);c.drawLine(3.5f,9.5f,20.5f,9.5f,p);c.drawLine(8f,3.5f,8f,6.5f,p);c.drawLine(16f,3.5f,16f,6.5f,p)
+        p.style=Paint.Style.FILL;for(i in 0..2)c.drawCircle(8f+i*4f,14.5f,1f,p)},"Новая за каждые 7 дней подряд",null)
+    // the cube, outlined
+    fact(lineIcon{c,p->c.drawRoundRect(4f,4f,20f,20f,5f,5f,p);c.save();c.translate(8.9f,7.4f);c.scale(.155f,.19f);p.strokeWidth=1.7f/.17f;c.drawPath(IceArt.flame,p);c.restore()},"Можно хранить две",null)
+    fact(lineIcon{c,p->c.drawCircle(12f,12f,8.5f,p);c.drawLine(12f,7.5f,12f,12f,p);c.drawLine(12f,12f,15f,14f,p)},"Следующая",if(ledger.freezes>=2)"обе на месте" else "через ${daysWord(ledger.toNext)}")
     box.addView(card,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(18)})
     dialog().setView(box).show()
 }

@@ -41,7 +41,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
         background=GradientDrawable().apply{setColor(surface);cornerRadius=a.d(40).toFloat();setStroke(maxOf(1,a.d(1)/2),if(a.light)0x0a000000 else 0x10ffffff)}
         elevation=a.d(10).toFloat();clipToOutline=true
         outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){
-            val w=v.width.toFloat();val h=v.height.toFloat();if(w<=0f||h<=0f){o.setEmpty();return}
+            val w=v.width.toFloat();val h=v.height.toFloat();if(w<=0f||h<=0f){o.setRoundRect(0,0,0,0,0f);return}
             val pw=minOf(w,a.d(if(compact)72 else 104).toFloat());val ph=minOf(h,a.d(28).toFloat())
             val cw=pw+(w-pw)*grow;val ch=ph+(h-ph)*grow;val l=(w-cw)/2f
             o.setRoundRect(l.roundToInt(),0,(l+cw).roundToInt(),ch.roundToInt(),ch/2f)}}}
@@ -109,16 +109,20 @@ internal class Notice private constructor(internal val a:MainActivity,private va
         val top=a.appInsets.top+a.d(6)-pad
         host.addView(frame,FrameLayout.LayoutParams(-1,-2,Gravity.TOP).apply{topMargin=top;leftMargin=a.d(14)-pad;rightMargin=a.d(14)-pad})
         if(reduced){pose(1f,1f);schedule();return}
-        pose(0f,0f);card.alpha=0f;card.translationY=-a.d(14).toFloat()
-        val rise=PathInterpolator(.2f,0f,0f,1f);val open=PathInterpolator(.22f,1f,.36f,1f)
-        motion=ValueAnimator.ofFloat(0f,1f).apply{duration=640;interpolator=LinearInterpolator()
+        pose(0f,0f);card.alpha=0f;card.translationY=-a.d(10).toFloat()
+        // the motion starts only once the capsule has its size: before that its outline is empty and the first frames
+        // would show it whole for an instant, then snap to the pill
+        val rise=PathInterpolator(.2f,0f,0f,1f);val open=PathInterpolator(.32f,.72f,0f,1f)
+        fun go(){motion=ValueAnimator.ofFloat(0f,1f).apply{duration=620;interpolator=LinearInterpolator()
             addUpdateListener{val t=it.animatedValue as Float
-                val appear=rise.getInterpolation((t/.28f).coerceIn(0f,1f))
-                card.alpha=(t/.12f).coerceIn(0f,1f);card.translationY=-a.d(14)*(1f-appear)
-                val g=open.getInterpolation(((t-.1f)/.8f).coerceIn(0f,1f))
-                val c=smooth.getInterpolation(((t-.42f)/.5f).coerceIn(0f,1f))
+                val appear=rise.getInterpolation((t/.3f).coerceIn(0f,1f))
+                card.alpha=(t/.15f).coerceIn(0f,1f);card.translationY=-a.d(10)*(1f-appear)
+                val g=open.getInterpolation(((t-.06f)/.86f).coerceIn(0f,1f))
+                val c=smooth.getInterpolation(((t-.38f)/.52f).coerceIn(0f,1f))
                 pose(g,c)}
-            start()}
+            start()}}
+        card.addOnLayoutChangeListener(object:View.OnLayoutChangeListener{override fun onLayoutChange(v:View,l:Int,t:Int,r:Int,b:Int,ol:Int,ot:Int,or:Int,ob:Int){
+            if(r-l<=0||b-t<=0)return;v.removeOnLayoutChangeListener(this);card.invalidateOutline();if(!leaving)go()}})
         schedule()
     }
 

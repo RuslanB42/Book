@@ -14,6 +14,11 @@ internal class GridSnapshot(val cells:Map<String,RectF>,val ghosts:List<Pair<Rec
 
 /** Until when a grid change is still moving: a page rebuild in that time picks the motion up where it is instead of cutting it. */
 internal var gridMovingUntil=0L
+/** A snapshot whose motion has not started yet (its first frame has not been drawn). If the page is rebuilt once more
+ *  before that frame — two rebuilds in a row — the motion must still start from this snapshot: a new one taken now
+ *  would already show the books at their new places, and they would simply jump there. */
+internal var pendingGrid:GridSnapshot?=null
+private var gridToken=0
 
 private fun collectCells(v:View,out:MutableMap<String,View>){val t=v.tag;if(t is String&&t.startsWith("grid:")&&v.isShown)out[t.removePrefix("grid:")]=v;if(v is ViewGroup)for(i in 0 until v.childCount)collectCells(v.getChildAt(i),out)}
 private fun MainActivity.screenRect(v:View):RectF{val at=IntArray(2);val r=IntArray(2);v.getLocationInWindow(at);root.getLocationInWindow(r);val x=(at[0]-r[0]).toFloat()+0f;val y=(at[1]-r[1]).toFloat();return RectF(x,y,x+v.width,y+v.height)}
@@ -36,8 +41,12 @@ internal fun MainActivity.captureGrid(keep:Set<String>):GridSnapshot{
 internal fun MainActivity.playGrid(snap:GridSnapshot,restoreY:Int?){
     val reduced=prefs.str("motion")=="reduced"
     if(!reduced)gridMovingUntil=android.os.SystemClock.uptimeMillis()+900
+    val token=++gridToken;pendingGrid=snap
     root.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
         if(root.viewTreeObserver.isAlive)root.viewTreeObserver.removeOnPreDrawListener(this)
+        // a later rebuild took this snapshot over
+        if(token!=gridToken)return true
+        pendingGrid=null
         if(restoreY!=null&&hasScroll())scroll.scrollTo(0,restoreY)
         val now=HashMap<String,View>();collectCells(root,now)
         val settle=PathInterpolator(.2f,0f,0f,1f)

@@ -10,7 +10,8 @@ import androidx.core.graphics.PathParser
  *  (stroked and softly filled), inside a soft disc with a faint glow of the same colour behind it. */
 internal class EmptyArt(private val a:MainActivity,private val kind:String,private val discDp:Int):View(a){
     private class Part(val d:String,val accent:Boolean=false,val fill:Int=0,val dashed:Boolean=false,val width:Float=2f)
-    private val accent=when(kind){"books","bookmark"->0xfff9601f.toInt();"search"->0xff4cb0e5.toInt();"shelf"->0xff9d98f2.toInt();"open"->0xff37c080.toInt();"words"->0xff4cb0e5.toInt();else->0xfff0a742.toInt()}
+    // the app has no accent colour (colour lives only in data): the highlighted part is simply the brighter grey
+    private val accent=if(a.light)0xff3a3a3d.toInt() else 0xffe6e6e9.toInt()
     private val parts:List<Part> = when(kind){
         "books"->listOf(Part("M8 50h48"),Part("M14 22h6a2 2 0 0 1 2 2v26h-10V24a2 2 0 0 1 2-2z"),Part("M44 22h6a2 2 0 0 1 2 2v26h-10V24a2 2 0 0 1 2-2z"),Part("M15.5 28h3M45.5 28h3"),
             Part("M29 16h6a2 2 0 0 1 2 2v32h-10V18a2 2 0 0 1 2-2z",true,0x2e),Part("M30.5 22h3",true))
@@ -55,7 +56,7 @@ internal class EmptyArt(private val a:MainActivity,private val kind:String,priva
     private fun withA(c:Int,alpha:Int)=(c and 0xffffff) or (alpha shl 24)
     private fun back(light:Boolean,r:Float):Bitmap=cache.getOrPut("$kind:$width:$light"){val cx=width/2f;val cy=height/2f;val out=cx
         fun fall(dist:Float,from:Float,to:Float):Float{val t=((dist-from)/(to-from)).coerceIn(0f,1f);val k=1-t;return k*k*(3-2*k)*k}
-        val glow=SoftShade.bake(width,height,accent,if(light).07f else .10f){x,y->fall(kotlin.math.hypot(x-cx,y-cy),r*.5f,out)}
+        val glow=SoftShade.bake(width,height,accent,if(light).03f else .05f){x,y->fall(kotlin.math.hypot(x-cx,y-cy),r*.5f,out)}
         val sy=cy+a.d(6);val shade=SoftShade.bake(width,height,0,if(light).10f else .30f){x,y->fall(kotlin.math.hypot(x-cx,y-sy),r*.82f,r+a.d(16))}
         Canvas(glow).drawBitmap(shade,0f,0f,null);glow}
     private companion object{val cache=HashMap<String,Bitmap>()}

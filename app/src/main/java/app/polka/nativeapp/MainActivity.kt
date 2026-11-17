@@ -255,7 +255,7 @@ class MainActivity : Activity() {
         if(shelfReorder!=null || bookDetailSheet?.isShowing==true){renderDeferred=true;return}
         renderDeferred=false
         val oldY=if(preservePosition && ::scroll.isInitialized) scroll.scrollY else 0
-        val gridSnap=if((gridMotion||android.os.SystemClock.uptimeMillis()<gridMovingUntil) && ::scroll.isInitialized && root.width>0) { gridMotion=false; captureGrid(books.map { it.str("id") }.toSet()) } else { gridMotion=false; null }
+        val gridSnap=pendingGrid?.also { pendingGrid=null; gridMotion=false } ?: if((gridMotion||android.os.SystemClock.uptimeMillis()<gridMovingUntil) && ::scroll.isInitialized && root.width>0) { gridMotion=false; captureGrid(books.map { it.str("id") }.toSet()) } else { gridMotion=false; null }
         val overlay=profileOverlay
         screenMotion.stop(); root.removeAllViews(); addMenu=null; root.setBackgroundColor(bg)
         if(!preparingBookReturn){ReaderWindow.configure(window,false,bg); root.requestApplyInsets()}

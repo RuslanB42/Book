@@ -127,7 +127,9 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
         // the way walked so far
         val done=reachedFraction().coerceIn(0f,1f)*walk
         if(done>0f){val part=Path();pm.getSegment(0f,length*done,part,true);p.strokeCap=Paint.Cap.ROUND
-            p.shader=LinearGradient(0f,0f,width.toFloat(),0f,green,green2,Shader.TileMode.CLAMP);p.strokeWidth=d*8;c.drawPath(part,p);p.shader=null}
+            // opaque paint under the gradient: a shader is drawn through the paint's own alpha, and the track's
+            // see-through grey left here made the way walked almost invisible
+            p.color=Color.WHITE;p.shader=LinearGradient(0f,0f,width.toFloat(),0f,green,green2,Shader.TileMode.CLAMP);p.strokeWidth=d*8;c.drawPath(part,p);p.shader=null}
         p.style=Paint.Style.FILL
         if(big){tp.textSize=10*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(500);tp.textAlign=Paint.Align.CENTER
             var m=tickStep;while(m<slots){val f=m.toFloat()/slots;val q=at(f);val reached=f<=done+.001f

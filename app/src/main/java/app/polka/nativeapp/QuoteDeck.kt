@@ -1,5 +1,9 @@
 package app.polka.nativeapp
 
+import android.graphics.Outline
+
+import android.view.ViewOutlineProvider
+
 import android.animation.*
 import android.view.*
 import android.view.animation.PathInterpolator
@@ -60,7 +64,13 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
         }
     }
 
-    private fun card(i:Int):View=a.quoteCardNative(book,list[i],onOpen?.let{f->{f(list[i])}})
+    /** A quote card that keeps its own layout whatever height it is shown at: the visible height (its tag, in px) is
+     *  a clip, so a shorter view hides its bottom (the buttons slide out of sight under the edge) instead of squeezing
+     *  them, and a taller one shows more of the card's own background. */
+    private fun card(i:Int):View=a.quoteCardNative(book,list[i],onOpen?.let{f->{f(list[i])}}).apply{
+        val r=a.d(24).toFloat()
+        outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){val h=((view.tag as? Int)?:view.height).coerceAtMost(view.height);o.setRoundRect(0,0,view.width,maxOf(h,1),r)}}
+        clipToOutline=true}
 
     /**
      * The fan (approved «карточка уходит под веер»). The sheets under the card are real quote cards — the next quotes —
@@ -80,20 +90,22 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
         private var lift=0f
         init{clipChildren=false;clipToPadding=false;cards.asReversed().forEach{addView(it)};pose(0f)}
         override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws)
-            front.measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),if(heldH>=0)MeasureSpec.makeMeasureSpec(heldH,MeasureSpec.EXACTLY) else MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED))
-            val h=front.measuredHeight
-            // sheets take the card's height, so their edges peek out evenly whatever their own text
-            for(k in 1 until cards.size)cards[k].measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))
-            for(i in 0 until childCount){val c=getChildAt(i);if(c !in cards)c.measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))}
+            val exactW=MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY);val free=MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED)
+            // every card is laid out at its own natural height (never squeezed); only how much of it shows changes
+            front.measure(exactW,free);val h=if(heldH>=0)heldH else front.measuredHeight
+            for(i in 0 until childCount){val c=getChildAt(i);if(c!==front)c.measure(exactW,free)
+                // sheets show the card's height, so their edges peek out evenly whatever their own text
+                c.tag=h;if(c.measuredHeight<h)c.measure(exactW,MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))}
+            if(front.measuredHeight<h)front.measure(exactW,MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))
             setMeasuredDimension(w,h+if(cards.size>1)a.d(18) else 0)}
-        override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){for(i in 0 until childCount){val c=getChildAt(i);c.layout(0,0,r-l,c.measuredHeight)};pose(lift)}
+        override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){for(i in 0 until childCount){val c=getChildAt(i);c.layout(0,0,r-l,c.measuredHeight);c.invalidateOutline()};pose(lift)}
         /** Place [v] at slot [slot] (−1 = the card's own place, 0/1 = the fan), moved [p] of the way to the slot before it. */
         private fun place(v:View,slot:Int,p:Float){
             fun r(s:Int):Float{return if(s<0)0f else fanRot[s]}
             fun x(s:Int):Float{return if(s<0)0f else fanX[s]}
             fun y(s:Int):Float{return if(s<0)0f else fanY[s]}
             fun e(s:Int):Float{return a.d(if(s<0)(if(a.light)8 else 10) else if(s==0)(if(a.light)4 else 6) else 3).toFloat()}
-            val to=slot-1;v.pivotX=v.width/2f;v.pivotY=v.height/2f
+            val to=slot-1;v.pivotX=v.width/2f;v.pivotY=((v.tag as? Int)?:v.height)/2f
             v.rotation=r(slot)+(r(to)-r(slot))*p;v.translationX=x(slot)+(x(to)-x(slot))*p;v.translationY=y(slot)+(y(to)-y(slot))*p
             v.elevation=e(slot)+(e(to)-e(slot))*p.coerceIn(0f,1f);v.translationZ=-a.d(1)*(slot+1-p)}
         /** [p] (0..1, may overshoot a little) moves every sheet one place forward. */
@@ -143,7 +155,7 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
                     val lp=lift
                     ValueAnimator.ofFloat(0f,1f).apply{duration=520;interpolator=swing
                         addUpdateListener{val t=it.animatedValue as Float
-                            old.pivotX=old.width/2f;old.pivotY=old.height/2f
+                            old.pivotX=old.width/2f;old.pivotY=((old.tag as? Int)?:old.height)/2f
                             old.translationX=outX+(fanX[back]-outX)*t;old.translationY=outY+(fanY[back]-outY)*t;old.rotation=outR+(fanRot[back]-outR)*t
                             pose(lp+(1f-lp)*settle.getInterpolation(t))
                             heldH=(oldH+(newH-oldH)*glide.getInterpolation(t)).toInt()
