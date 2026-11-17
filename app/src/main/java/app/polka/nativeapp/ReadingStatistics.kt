@@ -30,7 +30,29 @@ class ReadingStatistics(val source:JSONObject,books:List<JSONObject>,val today:L
     val speed=readingSpeed(entries.sumOf { max(0,it.second.optLong("chars")) },totalMs)
     val dailyGoal=source.optInt("goal",10).coerceIn(1,1440)
     fun met(day:LocalDate)=day<=today && (days.optJSONObject(day.toString())?.optBoolean("met")==true || ms(day)>=dailyGoal*60000L)
-    val streak:Int get() { var date=if(met(today)) today else today.minusDays(1); var count=0; while(met(date) && count<100000) { count++;date=date.minusDays(1) };return count }
+    /** The streak as the app keeps it (approved): days in a row with the daily goal met. A missed day is covered by a
+     *  freeze if there is one (one is earned for every 7 days in a row, up to two are kept); with none left the streak
+     *  breaks, but the whole next day it can be brought back by reading twice the goal. Worked out from the days alone. */
+    enum class Mark{MET,FROZEN,REPAIRED,MISSED,NONE}
+    class Ledger(val count:Int,val best:Int,val freezes:Int,val toNext:Int,val marks:Map<LocalDate,Mark>,val lost:Int,val repairMs:Long){
+        fun mark(d:LocalDate)=marks[d]?:Mark.NONE
+        val frozeYesterday get()=marks.entries.maxByOrNull{it.key}?.key?.let{t->marks[t.minusDays(1)]==Mark.FROZEN}==true}
+    val ledger:Ledger by lazy {
+        val goalMs=dailyGoal*60000L
+        val begin=entries.firstOrNull { met(it.first) }?.first
+        var run=0;var best=0;var freezes=0;var since=0;var lost=0;var repair=0L
+        val marks=HashMap<LocalDate,Mark>()
+        if(begin!=null){var d:LocalDate=begin
+            while(!d.isAfter(today)){
+                when{
+                    met(d)->{run++;since++;if(since>=7){since=0;if(freezes<2)freezes++};marks[d]=Mark.MET}
+                    d==today||run==0->marks[d]=Mark.NONE
+                    freezes>0->{freezes--;marks[d]=Mark.FROZEN}
+                    ms(d.plusDays(1))>=goalMs*2&&!d.plusDays(1).isAfter(today)->marks[d]=Mark.REPAIRED
+                    else->{if(d.plusDays(1)==today){lost=run;repair=ms(today)};marks[d]=Mark.MISSED;run=0;since=0}}
+                best=max(best,run);d=d.plusDays(1)}}
+        Ledger(run,best,freezes,if(freezes>=2)0 else 7-since,marks,lost,repair)}
+    val streak:Int get()=ledger.count
     data class Author(val name:String,val count:Int,val books:List<JSONObject>)
     val favorite:Author? get() {
         val groups=linkedMapOf<String,Pair<String,MutableList<JSONObject>>>()

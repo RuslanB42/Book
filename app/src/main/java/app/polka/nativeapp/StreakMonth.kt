@@ -56,6 +56,28 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
     private inner class MonthGrid:View(a){
         private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val text=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER;textSize=13.5f*a.resources.displayMetrics.scaledDensity;fontFeatureSettings="tnum"}
         private var phase=1f
+        /** A day that counts in the streak: the goal met (or marked by hand), or a day brought back. */
+        private fun kept(d:LocalDate)=model.met(d)||model.ledger.mark(d)==ReadingStatistics.Mark.REPAIRED
+        /** A tap on a past day: mark it as a reading day by hand (a paper book), or take such a mark back. */
+        override fun onTouchEvent(e:android.view.MotionEvent):Boolean{
+            if(e.actionMasked==android.view.MotionEvent.ACTION_DOWN)return true
+            if(e.actionMasked!=android.view.MotionEvent.ACTION_UP)return true
+            val lead=month.atDay(1).dayOfWeek.value-1;val col=(e.x/(width/7f)).toInt().coerceIn(0,6);val row=(e.y/rowH).toInt()
+            val n=row*7+col-lead+1;if(n<1||n>month.lengthOfMonth())return true
+            val d=month.atDay(n);if(d.isAfter(today))return true
+            val entry=model.days.optJSONObject(d.toString());val byHand=entry?.optBoolean("manual")==true
+            if(model.met(d)&&!byHand)return true
+            val name="${d.dayOfMonth} ${java.time.format.DateTimeFormatter.ofPattern("MMMM",Locale("ru")).format(d)}"
+            if(byHand)a.confirm("Снять отметку с $name?","День перестанет считаться в серии."){mark(d,false)}
+            else a.confirm("Отметить $name?","Например, если в этот день вы читали бумажную книгу. День засчитается в серию."){mark(d,true)}
+            return true}
+        private fun mark(d:LocalDate,on:Boolean){
+            val key=d.toString()
+            fun apply(days:org.json.JSONObject){val day=days.optJSONObject(key)?:org.json.JSONObject().also{days.put(key,it)}
+                if(on){day.put("met",true).put("manual",true)}else{day.remove("met");day.remove("manual");if(day.length()==0)days.remove(key)}}
+            (model.source.optJSONObject("days")?:org.json.JSONObject().also{model.source.put("days",it)}).let{apply(it)}
+            a.updateStatistics{data->apply(data.optJSONObject("days")?:org.json.JSONObject().also{data.put("days",it)})}
+            a.refreshProfile()}
         fun reveal(){phase=0f;ValueAnimator.ofFloat(0f,1f).apply{startDelay=120;duration=620;interpolator=PathInterpolator(.22f,1f,.36f,1f);addUpdateListener{phase=it.animatedValue as Float;invalidate()};start()}}
         private val rows get()=(month.atDay(1).dayOfWeek.value-1+month.lengthOfMonth()+6)/7
         private val rowH get()=a.d(42)
@@ -68,15 +90,16 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
             for(row in 0 until rows){val cy=row*rowH+rowH/2f
                 // a soft ribbon joins neighbouring streak days within the row
                 for(col in 0 until 6){val d1=dayAt(row,col)?:continue;val d2=dayAt(row,col+1)?:continue
-                    if(!model.met(d1)||!model.met(d2))continue
+                    if(!kept(d1)||!kept(d2))continue
                     p.shader=null;p.color=warm;val x1=col*cw+cw/2;val x2=x1+cw*phase;c.drawRect(x1,cy-r,x2,cy+r,p)}
                 for(col in 0 until 7){val d=dayAt(row,col)?:continue;val cx=col*cw+cw/2
-                    val met=model.met(d);val future=d.isAfter(today)
+                    val met=kept(d);val future=d.isAfter(today);val frozen=model.ledger.mark(d)==ReadingStatistics.Mark.FROZEN
                     if(met){val k=phase.coerceIn(0f,1f);p.shader=null;p.color=warm;c.drawCircle(cx,cy,r*k,p)}
+                    else if(frozen){val k=phase.coerceIn(0f,1f);p.shader=null;p.color=if(a.light)0xffdcefff.toInt() else 0xff1f3a4f.toInt();c.drawCircle(cx,cy,r*k,p)}
                     else if(!future&&model.ms(d)>0){p.shader=null;p.color=quiet;c.drawCircle(cx,cy,r,p)}
                     if(d==today&&!met){p.shader=null;p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=if(a.light)0x33000000 else 0x40ffffff;c.drawCircle(cx,cy,r-a.d(1),p);p.style=Paint.Style.FILL}
-                    text.typeface=PolkaFonts.sans(if(met||d==today)600 else 400)
-                    text.color=when{met->ember;future->(a.muted and 0xffffff) or 0x59000000;d==today->a.fg;else->a.muted}
+                    text.typeface=PolkaFonts.sans(if(met||frozen||d==today)600 else 400)
+                    text.color=when{met->ember;frozen->if(a.light)0xff2b7fc0.toInt() else 0xff9fd8ff.toInt();future->(a.muted and 0xffffff) or 0x59000000;d==today->a.fg;else->a.muted}
                     c.drawText("${d.dayOfMonth}",cx,cy-(text.ascent()+text.descent())/2,text)}
             }
         }

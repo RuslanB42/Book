@@ -48,26 +48,35 @@ internal object FlameGlyph{
 
 /** The streak's week: seven days as circles. A kept day burns (orange with a small flame), a missed one is an empty
  *  ring, and today's ring fills as you read toward the daily goal. Weekday names underneath; today in bold. */
-internal class WeekFlames(private val a:MainActivity,private val names:List<String>,private val kept:BooleanArray,private val todayFraction:Float,private val motion:Boolean):View(a){
+/** The week as seven day circles (approved): a day read — a quiet warm disc with an orange flame; a day a freeze kept —
+ *  an icy disc with a frozen blue flame; a day missed — a small dot. Today is a ring that fills as you read (orange in
+ *  the evening while the streak is at risk) and becomes a bright orange disc once the goal is met.
+ *  [marks]: 0 nothing, 1 read, 2 frozen, 3 missed. */
+internal class WeekFlames(private val a:MainActivity,private val names:List<String>,private val marks:IntArray,private val todayFraction:Float,private val motion:Boolean,private val risk:Boolean=false):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER}
     private var k=1f /* shown at rest: the page entrance is a simple fade */
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     override fun onMeasure(w:Int,h:Int){setMeasuredDimension(MeasureSpec.getSize(w),a.d(62))}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=StatsEntrance.wait()+60;interpolator=Ease.outCubic;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
     override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Огоньки недели",pt0)}}
+    private fun flame(c:Canvas,cx:Float,cy:Float,r:Float,color:Int){val s=r*1.0f/150f*1.05f;c.save();c.translate(cx-60*s,cy-80*s);c.scale(s,s);p.color=color;c.drawPath(FlameGlyph.path,p);c.restore()}
     private fun draw0(c:Canvas){val d=a.d(1).toFloat();val n=names.size;if(n==0)return
-        val r=min(18*d,width/n/2f-3*d);val slot=width/n.toFloat();val cy=r+2*d
-        for(i in 0 until n){val cx=slot*i+slot/2;val today=i==n-1
-            // the days light up one after another
+        val r=min(18*d,width/n/2f-3*d);val slot=width/n.toFloat();val cy=r+2*d;val light=a.light
+        val ember=if(light)0xffe8640c.toInt() else 0xffff8a1e.toInt()
+        for(i in 0 until n){val cx=slot*i+slot/2;val today=i==n-1;val m=marks[i]
             val t=((k*(n+2))-i).coerceIn(0f,1f);val pop=if(t<1f)Ease.outBack(1.8f).getInterpolation(t) else 1f
-            // approved: the big flame is the one bright thing; a day read is a quiet warm disc with an orange flame,
-            // and today's progress is only the bar below (no arc here)
-            if(kept[i]){c.save();c.scale(pop,pop,cx,cy)
-                p.color=if(a.light)0xfffbe6d3.toInt() else 0xff3a2a20.toInt();c.drawCircle(cx,cy,r,p)
-                val s=r*1.0f/150f*1.05f;c.save();c.translate(cx-60*s,cy-80*s);c.scale(s,s);p.color=if(a.light)0xffe8640c.toInt() else 0xffff8a1e.toInt();c.drawPath(FlameGlyph.path,p);c.restore()
-                c.restore()}
-            else{p.style=Paint.Style.STROKE;p.strokeWidth=2*d;p.color=if(today)(if(a.light)0x33000000 else 0x40ffffff) else (if(a.light)0x14000000 else 0x1cffffff);c.drawCircle(cx,cy,r-1f*d,p)
-                p.style=Paint.Style.FILL}
+            p.style=Paint.Style.FILL;p.shader=null
+            when{
+                m==1&&today->{c.save();c.scale(pop,pop,cx,cy);p.color=ember;c.drawCircle(cx,cy,r,p);flame(c,cx,cy,r,if(light)0xfffff3e2.toInt() else 0xfffff3e2.toInt());c.restore()}
+                m==1->{c.save();c.scale(pop,pop,cx,cy);p.color=if(light)0xfffbe6d3.toInt() else 0xff3a2a20.toInt();c.drawCircle(cx,cy,r,p);flame(c,cx,cy,r,ember);c.restore()}
+                m==2->{c.save();c.scale(pop,pop,cx,cy)
+                    p.shader=if(light)null else LinearGradient(cx-r,cy-r,cx+r,cy+r,0xff2a4a62.toInt(),0xff1b3346.toInt(),Shader.TileMode.CLAMP);p.color=0xffdcefff.toInt();c.drawCircle(cx,cy,r,p);p.shader=null
+                    flame(c,cx,cy,r,if(light)0xff4a9ad6.toInt() else 0xff9fd8ff.toInt());c.restore()}
+                today->{p.style=Paint.Style.STROKE;p.strokeWidth=2.4f*d;p.color=if(light)0x1f000000 else 0x1fffffff;c.drawCircle(cx,cy,r-1.2f*d,p)
+                    if(todayFraction>0f){p.strokeCap=Paint.Cap.ROUND;p.color=if(risk)ember else a.fg;val o=r-1.2f*d;c.drawArc(cx-o,cy-o,cx+o,cy+o,-90f,360f*todayFraction*k,false,p)}
+                    p.style=Paint.Style.FILL}
+                m==3->{p.color=if(light)0x40000000 else 0xff55555a.toInt();c.drawCircle(cx,cy,3*d,p)}
+                else->{p.style=Paint.Style.STROKE;p.strokeWidth=2*d;p.color=if(light)0x14000000 else 0x1cffffff;c.drawCircle(cx,cy,r-1f*d,p);p.style=Paint.Style.FILL}}
             tp.textSize=11*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(if(today)600 else 400)
             tp.color=if(today)a.fg else a.muted;c.drawText(names[i],cx,height-3*d,tp)}}
 }

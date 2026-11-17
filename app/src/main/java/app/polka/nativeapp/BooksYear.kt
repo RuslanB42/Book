@@ -34,6 +34,8 @@ internal fun yearBooks(model:ReadingStatistics,data:JSONObject,year:Int):List<Ye
  */
 internal class YearRoad(private val a:MainActivity,private val books:List<YearBook>,private val goal:Int,private val motion:Boolean,private val onPick:(Int,Int)->Unit):FrameLayout(a){
     var selected=books.lastIndex;private set
+    /** Where the plan says one should be today (books by now), drawn as a quiet dashed ring on the road; 0 — none. */
+    var plan=0
     val current get()=books[selected].book
     private val slots=if(goal>0)max(goal,books.size) else books.size+3
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG)
@@ -120,11 +122,12 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
         val green=if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt();val green2=if(a.light)0xff54b581.toInt() else 0xff7bdca6.toInt()
         p.reset();p.isAntiAlias=true;p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND
         // approved: a quiet road: the track, the green way walked, the points, the covers and the flag; no dashes, glows or pulse
-        p.color=if(a.light)0x0f000000 else 0x12ffffff;p.strokeWidth=d*12;c.drawPath(road,p)
+        // approved: the road is clearly there (brighter and wider), the way walked thick and green
+        p.color=if(a.light)0x14000000 else 0x1cffffff;p.strokeWidth=d*16;c.drawPath(road,p)
         // the way walked so far
         val done=reachedFraction().coerceIn(0f,1f)*walk
         if(done>0f){val part=Path();pm.getSegment(0f,length*done,part,true);p.strokeCap=Paint.Cap.ROUND
-            p.shader=LinearGradient(0f,0f,width.toFloat(),0f,green,green2,Shader.TileMode.CLAMP);p.strokeWidth=d*5;c.drawPath(part,p);p.shader=null}
+            p.shader=LinearGradient(0f,0f,width.toFloat(),0f,green,green2,Shader.TileMode.CLAMP);p.strokeWidth=d*8;c.drawPath(part,p);p.shader=null}
         p.style=Paint.Style.FILL
         if(big){tp.textSize=10*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(500);tp.textAlign=Paint.Align.CENTER
             var m=tickStep;while(m<slots){val f=m.toFloat()/slots;val q=at(f);val reached=f<=done+.001f
@@ -134,16 +137,25 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
             if(books.isNotEmpty()){val q=at(books.size.toFloat()/slots);val x=max(q[0],d*46);p.color=if(a.light)0x59000000 else 0x80ffffff.toInt();p.strokeWidth=d*1.5f;c.drawLine(x,q[1]-d*9,q[0],q[1]-d*3,p)
                 p.color=if(a.light)0xff009a5c.toInt() else Color.WHITE;c.drawCircle(q[0],q[1],d*4f,p)}}
         // milestones: one per book of the goal
+        val cardInk=if(a.light)Color.WHITE else 0xff242426.toInt()
         if(!big)for(k in 0 until slots){val f=slot(k);val q=at(f);val reached=k<books.size&&f<=done+.001f
-            p.color=if(reached)(if(a.light)0xff009a5c.toInt() else Color.WHITE) else if(a.light)0x40000000 else 0x4dffffff
-            c.drawCircle(q[0],q[1],d*(if(reached)3.4f else 2.4f),p)}
+            if(reached){p.style=Paint.Style.FILL;p.color=if(a.light)0xff009a5c.toInt() else Color.WHITE;c.drawCircle(q[0],q[1],d*3.6f,p)}
+            else{p.style=Paint.Style.FILL;p.color=cardInk;c.drawCircle(q[0],q[1],d*3.4f,p)
+                p.style=Paint.Style.STROKE;p.strokeWidth=d*1.6f;p.color=if(a.light)0x73000000 else 0x80ffffff.toInt();c.drawCircle(q[0],q[1],d*3.4f,p);p.style=Paint.Style.FILL}}
+        // where the plan says one should be today: a quiet dashed ring (behind or ahead shows without numbers)
+        if(plan>0&&plan<slots&&!big&&walk>=1f){val q=at(slot(plan-1));p.style=Paint.Style.STROKE;p.strokeWidth=d*1.6f;p.color=if(a.light)0x59000000 else 0x59ffffff
+            p.pathEffect=DashPathEffect(floatArrayOf(d*3,d*3),0f);c.drawCircle(q[0],q[1],d*10,p);p.pathEffect=null;p.style=Paint.Style.FILL}
+        // «you are here»: the end of the way walked
+        if(books.isNotEmpty()&&books.size<max(1,goal)&&done>0f){val q=at(done);p.style=Paint.Style.FILL
+            p.color=(green and 0xffffff) or 0x30000000;c.drawCircle(q[0],q[1],d*11,p)
+            p.color=green;c.drawCircle(q[0],q[1],d*6,p);p.style=Paint.Style.STROKE;p.strokeWidth=d*2.4f;p.color=cardInk;c.drawCircle(q[0],q[1],d*6,p);p.style=Paint.Style.FILL}
         // stems under the covers
         p.color=if(a.light)0x59000000 else 0x80ffffff.toInt();p.strokeWidth=d*1.5f
         // the next milestone breathes
         // start ring and the flag with the goal
-        val s0=at(0f);p.color=if(a.light)Color.WHITE else 0xff1c1c1f.toInt();c.drawCircle(s0[0],s0[1],d*5.5f,p)
-        p.style=Paint.Style.STROKE;p.strokeWidth=d*3;p.color=green;c.drawCircle(s0[0],s0[1],d*5.5f,p);p.style=Paint.Style.FILL
-        val e=at(1f);p.color=a.fg;c.drawRect(e[0]-d,e[1]-d*30,e[0]+d,e[1],p)
+        val s0=at(0f);p.style=Paint.Style.FILL;p.color=green;c.drawCircle(s0[0],s0[1],d*5f,p)
+        // the flag turns green once the goal is reached
+        val e=at(1f);p.color=if(goal>0&&books.size>=goal)green else a.fg;c.drawRect(e[0]-d,e[1]-d*30,e[0]+d,e[1],p)
         c.drawPath(Path().apply{moveTo(e[0]+d,e[1]-d*30);lineTo(e[0]+d*18,e[1]-d*25);lineTo(e[0]+d,e[1]-d*19);close()},p)
         if(goal>0){tp.textSize=11*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(600);tp.color=a.fg;c.drawText("$goal",e[0]+d*21,e[1]-d*20,tp)}
         // a soft green light behind the chosen cover; it grows and fades with the cover's own lift
