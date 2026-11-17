@@ -120,7 +120,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
-        streak();speed();readingTime();books();tiers()
+        streak();speed();readingTime();books();volumes();tiers()
         if(!motionOn)return
         // a simple, calm entrance: the whole page fades in, everything on it already in place
         // starts after the page's first (heavier) frame has been drawn, so no part of it is skipped; the still page
@@ -342,6 +342,8 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             box.contentDescription="Книги за $goalYear: $done"+if(target>0)" из $target" else ""}
         bind();add(box)
     }
+    /** «Стопка страниц» and «Прочитано слов», two small cards side by side (approved). */
+    private fun volumes(){add(a.volumeCards(data,today.year,{surface()},{kicker(it)}))}
     /** «Тир-лист»: the year's ratings as five short rows of small covers; the card opens the whole list. */
     private fun tiers(){
         val ys=Tiers.years(model);if(ys.isEmpty())return
