@@ -102,27 +102,21 @@ internal class Notice private constructor(internal val a:MainActivity,private va
     /** The capsule's shape and its contents for a moment of the island motion. */
     private fun pose(g:Float,content:Float){grow=g;card.invalidateOutline();row.alpha=content;row.translationY=a.d(3)*(1f-content)}
 
-    /** First appearance: a pill at the top edge that grows into the capsule. */
+    /** First appearance: slides down from beyond the top edge of the display. */
     private fun show(s:State){
         Notice.current?.let{if(it!==this){if(it.a===a)it.dismiss(true) else it.dismissNow()}};Notice.current=this
         put(s,true)
         val top=a.appInsets.top+a.d(6)-pad
         host.addView(frame,FrameLayout.LayoutParams(-1,-2,Gravity.TOP).apply{topMargin=top;leftMargin=a.d(14)-pad;rightMargin=a.d(14)-pad})
         if(reduced){pose(1f,1f);schedule();return}
-        pose(0f,0f);card.alpha=0f;card.translationY=-a.d(10).toFloat()
-        // the motion starts only once the capsule has its size: before that its outline is empty and the first frames
-        // would show it whole for an instant, then snap to the pill
-        val rise=PathInterpolator(.2f,0f,0f,1f);val open=PathInterpolator(.32f,.72f,0f,1f)
-        fun go(){motion=ValueAnimator.ofFloat(0f,1f).apply{duration=620;interpolator=LinearInterpolator()
-            addUpdateListener{val t=it.animatedValue as Float
-                val appear=rise.getInterpolation((t/.3f).coerceIn(0f,1f))
-                card.alpha=(t/.15f).coerceIn(0f,1f);card.translationY=-a.d(10)*(1f-appear)
-                val g=open.getInterpolation(((t-.06f)/.86f).coerceIn(0f,1f))
-                val c=smooth.getInterpolation(((t-.38f)/.52f).coerceIn(0f,1f))
-                pose(g,c)}
-            start()}}
+        // Like a banner on iOS: whole from the start, it slides in from above the screen's real top edge (not from
+        // under the status bar or the camera cutout) and settles with a soft spring.
+        // The whole frame moves (not the card inside it), so nothing clips it short of the display's edge.
+        pose(1f,1f);card.alpha=1f;frame.translationY=-a.resources.displayMetrics.heightPixels.toFloat()
         card.addOnLayoutChangeListener(object:View.OnLayoutChangeListener{override fun onLayoutChange(v:View,l:Int,t:Int,r:Int,b:Int,ol:Int,ot:Int,or:Int,ob:Int){
-            if(r-l<=0||b-t<=0)return;v.removeOnLayoutChangeListener(this);card.invalidateOutline();if(!leaving)go()}})
+            if(r-l<=0||b-t<=0)return;v.removeOnLayoutChangeListener(this);if(leaving)return
+            val from=offscreen();frame.translationY=from
+            motion=ValueAnimator.ofFloat(from,0f).apply{duration=620;interpolator=Spring(.86f);addUpdateListener{frame.translationY=it.animatedValue as Float};start()}}})
         schedule()
     }
 
@@ -166,31 +160,32 @@ internal class Notice private constructor(internal val a:MainActivity,private va
     /** Gone at once, no motion (its screen is closing); its pending action (an undoable delete) still completes. */
     fun dismissNow(){if(leaving)return;leaving=true;card.removeCallbacks(hide);if(Notice.current===this)Notice.current=null
         motion?.cancel();card.animate().cancel();(frame.parent as? ViewGroup)?.removeView(frame);badge.stop();onGone?.invoke()}
-    /** Leaves the way it came: the words fade, the capsule draws back into a pill, the pill slips up and away. */
+    /** How far up the capsule must go to be fully past the top edge of the display, shadow included. */
+    private fun offscreen():Float=-(frame.top+pad+card.height+card.translationY+a.d(20))
+    /** A critically-near damped spring (as iOS banners move): [damping] below 1 gives a barely visible settle. */
+    private class Spring(private val damping:Float):android.animation.TimeInterpolator{
+        override fun getInterpolation(t:Float):Float{if(t>=1f)return 1f;val w=11f;val z=damping;val wd=w*sqrt(1f-z*z)
+            return 1f-exp(-z*w*t)*(cos(wd*t)+z*w/wd*sin(wd*t))}}
+    /** Leaves the way it came: up past the top edge of the display. */
     fun dismiss(fast:Boolean=false){if(a.isFinishing||a.isDestroyed){dismissNow();return};if(leaving)return;leaving=true;card.removeCallbacks(hide);if(Notice.current===this)Notice.current=null
         val gone:()->Unit={(frame.parent as? ViewGroup)?.removeView(frame);badge.stop();onGone?.invoke()}
         if(reduced){gone();return}
-        motion?.cancel();card.animate().cancel()
-        val g0=grow;val c0=row.alpha;val y0=card.translationY;val a0=card.alpha
-        val close=PathInterpolator(.4f,0f,.2f,1f);val away=PathInterpolator(.4f,0f,1f,1f)
-        motion=ValueAnimator.ofFloat(0f,1f).apply{duration=if(fast)300 else 440;interpolator=LinearInterpolator()
-            addUpdateListener{val t=it.animatedValue as Float
-                val c=c0*(1f-smooth.getInterpolation((t/.26f).coerceIn(0f,1f)))
-                val g=g0*(1f-close.getInterpolation(((t-.08f)/.62f).coerceIn(0f,1f)))
-                pose(g,c)
-                val u=away.getInterpolation(((t-.55f)/.45f).coerceIn(0f,1f))
-                card.translationY=y0+(-a.d(18)-y0)*u;card.alpha=a0*(1f-u)}
+        motion?.cancel();card.animate().cancel();frame.animate().cancel()
+        // back up past the top edge of the display, the way it came
+        val y0=frame.translationY;val to=offscreen()
+        motion=ValueAnimator.ofFloat(0f,1f).apply{duration=if(fast)260 else 360;interpolator=PathInterpolator(.4f,0f,.9f,.6f)
+            addUpdateListener{frame.translationY=y0+(to-y0)*(it.animatedValue as Float)}
             addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){gone()}});start()}}
 
     /** Flick it up to dismiss; a finger on it holds it; dragged down it resists and eases back. */
-    private fun swipe(){var y0=0f;var dragging=false;var t0=0L
+    private fun swipe(){var y0=0f;var dragging=false;var t0=0L;var base=0f
         card.setOnTouchListener{_,e->when(e.actionMasked){
-            MotionEvent.ACTION_DOWN->{y0=e.rawY;dragging=false;t0=e.eventTime;card.removeCallbacks(hide);false}
+            MotionEvent.ACTION_DOWN->{y0=e.rawY;dragging=false;t0=e.eventTime;card.removeCallbacks(hide);if(!leaving){motion?.cancel();frame.animate().cancel()};base=frame.translationY;false}
             MotionEvent.ACTION_MOVE->{val dy=e.rawY-y0;if(!dragging&&abs(dy)>a.d(6)){dragging=true;card.parent.requestDisallowInterceptTouchEvent(true)}
-                if(dragging)card.translationY=if(dy<0)dy else dy*.18f;dragging}
+                if(dragging)frame.translationY=base+if(dy<0)dy else dy*.18f;dragging}
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val dy=e.rawY-y0;val fast=dy<0&&abs(dy)/max(1L,e.eventTime-t0)>.5f
                 if(dragging&&(dy< -a.d(28)||fast))dismiss(true)
-                else{if(dragging)card.animate().translationY(0f).setDuration(300).setInterpolator(smooth).start();schedule()}
+                else{if(dragging||frame.translationY!=0f)frame.animate().translationY(0f).setDuration(300).setInterpolator(smooth).start();schedule()}
                 dragging}
             else->false}}
     }

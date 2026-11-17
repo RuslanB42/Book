@@ -109,7 +109,9 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             v.rotation=r(slot)+(r(to)-r(slot))*p;v.translationX=x(slot)+(x(to)-x(slot))*p;v.translationY=y(slot)+(y(to)-y(slot))*p
             v.elevation=e(slot)+(e(to)-e(slot))*p.coerceIn(0f,1f);v.translationZ=-a.d(1)*(slot+1-p)}
         /** [p] (0..1, may overshoot a little) moves every sheet one place forward. */
-        private fun pose(p:Float){lift=p;for(k in 1 until cards.size)place(cards[k],k-1,p)}
+        private fun pose(p:Float){lift=p;for(k in 1 until cards.size){place(cards[k],k-1,p);content(cards[k],0f)}}
+        /** The sheets under the card are blank: only the card on top shows its words and buttons. */
+        private fun content(v:View,al:Float){(v as? ViewGroup)?.let{g->for(i in 0 until g.childCount)g.getChildAt(i).alpha=al}}
         override fun onInterceptTouchEvent(e:MotionEvent):Boolean{
             if(list.size<2||busy)return false
             when(e.actionMasked){MotionEvent.ACTION_DOWN->{downX=e.x;downY=e.y;dragging=false;velocity?.recycle();velocity=VelocityTracker.obtain().also{it.addMovement(e)}}
@@ -143,7 +145,7 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
                 if(list.size>cards.size){val k=cards.size-1;val fresh=card(Math.floorMod(index+k,list.size));fresh.alpha=0f;addView(fresh,indexOfChild(old)+1)
                     cards[k]=fresh;measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));layout(left,top,right,bottom)
                     pose(0f);fresh.animate().alpha(1f).setDuration(220).withEndAction{removeView(old)}.start()}
-                pose(0f);requestLayout();busy=false}
+                pose(0f);content(front,1f);requestLayout();busy=false}
             if(reduced()||next==null){old.translationX=0f;old.translationY=0f;old.rotation=0f;finish();return}
             // the card keeps the height it had; the risen sheet grows to its own text once it is on top
             val newH=run{next.measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));next.measuredHeight}
@@ -158,6 +160,8 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
                             old.pivotX=old.width/2f;old.pivotY=((old.tag as? Int)?:old.height)/2f
                             old.translationX=outX+(fanX[back]-outX)*t;old.translationY=outY+(fanY[back]-outY)*t;old.rotation=outR+(fanRot[back]-outR)*t
                             pose(lp+(1f-lp)*settle.getInterpolation(t))
+                            // the thrown card goes blank as it slips under; the rising sheet shows its words once on top
+                            content(old,1f-(t/.3f).coerceIn(0f,1f));content(next,((t-.4f)/.6f).coerceIn(0f,1f))
                             heldH=(oldH+(newH-oldH)*glide.getInterpolation(t)).toInt()
                             // the sheet rising into the card grows to its own height; the deck follows
                             requestLayout()}

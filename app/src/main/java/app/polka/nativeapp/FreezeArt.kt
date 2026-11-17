@@ -75,8 +75,9 @@ internal fun MainActivity.freezeSheet(ledger:ReadingStatistics.Ledger){
     // a week: seven days in a row
     fact(lineIcon{c,p->c.drawRoundRect(3.5f,5f,20.5f,20f,3f,3f,p);c.drawLine(3.5f,9.5f,20.5f,9.5f,p);c.drawLine(8f,3.5f,8f,6.5f,p);c.drawLine(16f,3.5f,16f,6.5f,p)
         p.style=Paint.Style.FILL;for(i in 0..2)c.drawCircle(8f+i*4f,14.5f,1f,p)},"Новая за каждые 7 дней подряд",null)
-    // the cube, outlined
-    fact(lineIcon{c,p->c.drawRoundRect(4f,4f,20f,20f,5f,5f,p);c.save();c.translate(8.9f,7.4f);c.scale(.155f,.19f);p.strokeWidth=1.7f/.17f;c.drawPath(IceArt.flame,p);c.restore()},"Можно хранить две",null)
+    // a snowflake: three crossing strokes with small branches
+    fact(lineIcon{c,p->for(k in 0 until 3){c.save();c.rotate(k*60f,12f,12f)
+        c.drawLine(12f,3f,12f,21f,p);c.drawLine(9.6f,5f,12f,7.2f,p);c.drawLine(14.4f,5f,12f,7.2f,p);c.drawLine(9.6f,19f,12f,16.8f,p);c.drawLine(14.4f,19f,12f,16.8f,p);c.restore()}},"Можно хранить две",null)
     fact(lineIcon{c,p->c.drawCircle(12f,12f,8.5f,p);c.drawLine(12f,7.5f,12f,12f,p);c.drawLine(12f,12f,15f,14f,p)},"Следующая",if(ledger.freezes>=2)"обе на месте" else "через ${daysWord(ledger.toNext)}")
     box.addView(card,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(18)})
     dialog().setView(box).show()
