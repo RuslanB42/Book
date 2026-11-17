@@ -178,7 +178,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
 
     private fun layoutPage():View{
         val box=a.column().apply{tag="Ещё";clipChildren=false;clipToPadding=false}
-        box.addView(turnRow(),LinearLayout.LayoutParams(-1,-2).apply{leftMargin=-a.d(4);rightMargin=-a.d(4);topMargin=-a.d(4)})
+        box.addView(turnRow(),LinearLayout.LayoutParams(-1,-2))
         val list=a.column().apply{clipChildren=false;clipToPadding=false}
         fun held(bar:LayoutBar):View{val wrap=FrameLayout(a).apply{setPadding(RIM,RIM,RIM,RIM)};wrap.addView(bar,FrameLayout.LayoutParams(-1,H));bar.onGrab={on->spotlight(wrap,on)};return wrap}
         fun bar(title:String,from:Float,to:Float,step:Float,value:Float,default:Float,format:(Float)->String,set:(Float)->Unit)=
@@ -331,7 +331,9 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             val tile=TurnTile(a,key,paper,ink);col.addView(tile,LinearLayout.LayoutParams(-1,-2))
             val name=a.text(label,11.5f,a.muted).apply{gravity=Gravity.CENTER;maxLines=2;setLineSpacing(0f,1.1f)};col.addView(name,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})
             fun current()=if(!r.paged())"scroll" else a.prefs.str("turn","curl")
-            refreshers.add{val on=current()==key;tile.on=on;name.setTextColor(if(on)a.fg else a.muted);name.typeface=PolkaFonts.sans(if(on)600 else 400)}
+            val show={val on=current()==key;tile.on=on;name.setTextColor(if(on)a.fg else a.muted);name.typeface=PolkaFonts.sans(if(on)600 else 400)}
+            // shown at once: the page opens with the chosen way already ringed
+            show();refreshers.add(show)
             col.setOnClickListener{if(current()==key)return@setOnClickListener
                 if(key=="scroll"){refresh();r.crossfade{r.setReadingMode(false);refresh()}}
                 else{a.prefs.put("turn",key);a.savePreferences();if(!r.paged())r.crossfade{r.setReadingMode(true);refresh()}}

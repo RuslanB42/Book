@@ -49,11 +49,12 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     private val edge=Paint(Paint.ANTI_ALIAS_FLAG)
     private fun flat(c:Canvas,p:Float,w:Float,h:Float){val dir=if(direction>0)1f else -1f
         when(style){
-            "slide"->{c.drawBitmap(sourceBitmap,-dir*w*p,0f,paint);c.drawBitmap(targetBitmap,dir*w*(1-p),0f,paint)}
+            // whole pixels and a paper-coloured ground, so no sliver of the real page underneath shows at the seam
+            "slide"->{c.drawColor(paper);val sx=Math.round(-dir*w*p).toFloat();c.drawBitmap(sourceBitmap,sx,0f,paint);c.drawBitmap(targetBitmap,sx+dir*w,0f,paint)}
             "cover"->{c.drawBitmap(sourceBitmap,0f,0f,paint)
                 // the old page darkens a little under the arriving one, which casts a soft shadow on it
                 edge.shader=null;edge.color=Color.argb((70*p).toInt(),0,0,0);c.drawRect(0f,0f,w,h,edge)
-                val x=dir*w*(1-p);val sw=24*dp;val sx=if(dir>0)x else x+w
+                val x=Math.round(dir*w*(1-p)).toFloat();val sw=24*dp;val sx=if(dir>0)x else x+w
                 edge.shader=LinearGradient(sx,0f,sx-dir*sw,0f,0x40000000,0x00000000,Shader.TileMode.CLAMP);c.drawRect(minOf(sx,sx-dir*sw),0f,maxOf(sx,sx-dir*sw),h,edge);edge.shader=null
                 c.drawBitmap(targetBitmap,x,0f,paint)}
             else->c.drawBitmap(if(p<.5f)sourceBitmap else targetBitmap,0f,0f,paint)}}
