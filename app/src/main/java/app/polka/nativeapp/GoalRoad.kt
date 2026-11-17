@@ -150,7 +150,6 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         scroll=object:ScrollView(a){override fun getBottomFadingEdgeStrength()=0f}.apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS;clipToPadding=false;setPadding(0,0,0,insets.bottom+a.d(24))
             isVerticalFadingEdgeEnabled=true;setFadingEdgeLength(a.d(28))}
         scroll.addView(page,ViewGroup.LayoutParams(-1,-2))
-        scroll.setOnScrollChangeListener{_,_,y,_,_->column?.viewport(y-roadHost.top,scroll.height)}
         col.addView(scroll,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=a.d(4)})
         col.setPadding(insets.left,insets.top,insets.right,0)
         frame.addView(col,FrameLayout.LayoutParams(-1,-1))
@@ -190,12 +189,11 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
             tabs.addView(a.text("$y",28f,if(on)a.fg else if(a.light)0xffbdbdc1.toInt() else 0xff4b4b52.toInt(),true,serif=true).apply{isClickable=true;contentDescription="$y год"
                 setOnClickListener{if(y!=year){year=y;onYear(y);bindYear(true)}}},LinearLayout.LayoutParams(-2,-2).apply{marginEnd=a.d(20)})}
         val list=yearBooks(model,data,year);val goal=model.target(year)
-        progress.removeAllViews()
-        progress.addView(a.text(if(goal>0)"${list.size} / $goal" else MainActivity.countBooks(list.size),22f,a.fg,true,serif=true))
-        progress.addView(GoalTrack(a,if(goal>0)list.size.toFloat()/goal else 1f,motion),LinearLayout.LayoutParams(0,a.d(6),1f).apply{marginStart=a.d(14)})
-        val old=column;val nw=RoadColumn(a,list,goal,year,today,motion)
-        roadHost.addView(nw,FrameLayout.LayoutParams(-1,-2));column=nw
-        scroll.scrollTo(0,0);nw.post{nw.viewport(scroll.scrollY-roadHost.top,scroll.height)}
+        // approved «Кольцо»: the big ring, the words, the year's results and the books by month
+        progress.removeAllViews();progress.visibility=View.GONE
+        val old=roadHost.getChildAt(0);val nw=a.goalYearPage(model,list,goal,year,today,motion)
+        roadHost.addView(nw,FrameLayout.LayoutParams(-1,-2))
+        scroll.scrollTo(0,0)
         if(old!=null){if(animated&&motion){old.animate().alpha(0f).setDuration(180).withEndAction{roadHost.removeView(old)}.start()
             nw.alpha=0f;nw.animate().alpha(1f).setStartDelay(120).setDuration(380).setInterpolator(Ease.outCubic).start()} else roadHost.removeView(old)}
     }

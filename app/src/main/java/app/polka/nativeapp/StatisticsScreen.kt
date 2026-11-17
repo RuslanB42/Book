@@ -327,25 +327,18 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                     val next=if(dx<0)years.getOrNull(i+1) else years.getOrNull(i-1);if(next!=null)switchTo(next,if(dx<0)1 else -1)};swiping}
                 else->false}}
             box.addView(top)
-            val head=a.column();space(head,4)
-            head.addView(if(target>0)bigCount(done," из ${ofBooks(target)}",42f,.38f) else bigCount(done," "+MainActivity.countBooks(done).substringAfter(' '),42f,.38f));space(head,6)
-            // a short status against the plan, then the pace in words
-            val status=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-            fun chip(t:String,good:Boolean)=a.text(t,12.5f,if(good)(if(light)0xff007a48.toInt() else 0xff7bdca6.toInt()) else (if(light)0xffb0601c.toInt() else 0xffffb066.toInt()),true).apply{gravity=Gravity.CENTER;setPadding(a.d(10),0,a.d(10),0)
-                background=a.shape(if(good)(if(light)0x1f009a5c else 0x2437c080) else (if(light)0x1fe8640c else 0x1fff8a1e),13)}
-            var pace=goalPace(goalYear,today,done,target)
-            if(target>0){val c:View?=when{done>=target->{pace=if(done>target)"на ${done-target} больше" else "";chip("цель выполнена",true)}
-                    goalYear<today.year->{pace="";chip("не хватило ${target-done}",false)}
-                    goalYear==today.year->{val behind=model.expected(goalYear,target)-done;pace=pace.replace("примерно ","по ");if(behind>0)chip("отстаёте на $behind",false) else chip("по плану",true)}
-                    else->null}
-                c?.let{status.addView(it,LinearLayout.LayoutParams(-2,a.d(26)).apply{marginEnd=a.d(10)})}}
-            if(pace.isNotBlank())status.addView(label(pace,13.5f))
-            head.addView(status)
-            box.addView(head)
-            if(list.isEmpty()){space(box,16);box.addView(a.emptyGoal(goalYear),LinearLayout.LayoutParams(-1,-2));return}
-            // only the road: finished books stand on it as covers; the card opens the whole road
-            val road=YearRoad(a,list,target,live){_,_->}.apply{if(goalYear==today.year&&target>0&&done<target)plan=model.expected(goalYear,target)}
-            space(box,6);box.addView(road,LinearLayout.LayoutParams(-1,-2))
+            if(list.isEmpty()&&target<=0){space(box,16);box.addView(a.emptyGoal(goalYear),LinearLayout.LayoutParams(-1,-2));return}
+            // approved «Кольцо»: the ring with the count, the chip and two short lines beside it, the year's covers below
+            val mid=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+            mid.addView(GoalRing(a,done,target,false,live),LinearLayout.LayoutParams(a.d(112),a.d(112)))
+            val words=a.column();val w=goalWords(model,goalYear,today,done,target)
+            w.chip?.let{words.addView(a.goalChip(it,w.good),LinearLayout.LayoutParams(-2,a.d(26)).apply{bottomMargin=a.d(9)})}
+            if(w.first.isNotBlank())words.addView(a.text(w.first,14f,a.fg))
+            if(w.second.isNotBlank())words.addView(label(w.second,13f),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(3)})
+            mid.addView(words,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(18)})
+            space(box,14);box.addView(mid)
+            if(list.isNotEmpty()){val fit=((a.resources.configuration.screenWidthDp-32-36-34-40)/22).coerceIn(3,9)
+                space(box,16);box.addView(a.goalShelf(list,fit),LinearLayout.LayoutParams(-1,-2))}
             box.isClickable=true;box.setOnClickListener{openRoad(box,years){bind()}}
             box.contentDescription="Книги за $goalYear: $done"+if(target>0)" из $target" else ""}
         bind();add(box)
