@@ -96,9 +96,18 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             for(i in 0 until childCount){val c=getChildAt(i);if(c!==front)c.measure(exactW,free)
                 // sheets show the card's height, so their edges peek out evenly whatever their own text
                 c.tag=h;if(c.measuredHeight<h)c.measure(exactW,MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))}
+            front.tag=h
             if(front.measuredHeight<h)front.measure(exactW,MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))
             setMeasuredDimension(w,h+if(cards.size>1)a.d(18) else 0)}
-        override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){for(i in 0 until childCount){val c=getChildAt(i);c.layout(0,0,r-l,c.measuredHeight);c.invalidateOutline()};pose(lift)}
+        override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){for(i in 0 until childCount){val c=getChildAt(i);c.layout(0,0,r-l,c.measuredHeight);fit(c);c.invalidateOutline()};pose(lift)}
+        /** The footer (the rule and the row with the buttons) always sits at the bottom edge of the shown height, whole;
+         *  when the card shows less than its full height, the quote's text slides under the rule instead. */
+        private fun fit(v:View){val g=v as? ViewGroup?:return;if(g.childCount<3)return
+            val shown=(g.tag as? Int)?:g.height;val foot=g.getChildAt(g.childCount-1);val rule=g.getChildAt(g.childCount-2)
+            val shift=(shown-(foot.bottom+g.paddingBottom)).toFloat();foot.translationY=shift;rule.translationY=shift
+            val limit=rule.top+shift.toInt()-a.d(6)
+            for(i in 0 until g.childCount-2){val c=g.getChildAt(i);val room=limit-c.top
+                c.clipBounds=if(room>=c.height)null else android.graphics.Rect(0,0,c.width,maxOf(0,room))}}
         /** Place [v] at slot [slot] (−1 = the card's own place, 0/1 = the fan), moved [p] of the way to the slot before it. */
         private fun place(v:View,slot:Int,p:Float){
             fun r(s:Int):Float{return if(s<0)0f else fanRot[s]}
