@@ -43,6 +43,20 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
         shaderValues[6]=0f;shaderValues[7]=0f;shaderValues[8]=1f
         shaderMatrix.setValues(shaderValues);shader.setLocalMatrix(shaderMatrix);return shader
     }
+    /** How the page turns: «curl» (the folding sheet), «slide» (both pages move together), «cover» (the new page slides
+     *  in over the old one), «none» (the new page simply replaces the old). */
+    var style="curl"
+    private val edge=Paint(Paint.ANTI_ALIAS_FLAG)
+    private fun flat(c:Canvas,p:Float,w:Float,h:Float){val dir=if(direction>0)1f else -1f
+        when(style){
+            "slide"->{c.drawBitmap(sourceBitmap,-dir*w*p,0f,paint);c.drawBitmap(targetBitmap,dir*w*(1-p),0f,paint)}
+            "cover"->{c.drawBitmap(sourceBitmap,0f,0f,paint)
+                // the old page darkens a little under the arriving one, which casts a soft shadow on it
+                edge.shader=null;edge.color=Color.argb((70*p).toInt(),0,0,0);c.drawRect(0f,0f,w,h,edge)
+                val x=dir*w*(1-p);val sw=24*dp;val sx=if(dir>0)x else x+w
+                edge.shader=LinearGradient(sx,0f,sx-dir*sw,0f,0x40000000,0x00000000,Shader.TileMode.CLAMP);c.drawRect(minOf(sx,sx-dir*sw),0f,maxOf(sx,sx-dir*sw),h,edge);edge.shader=null
+                c.drawBitmap(targetBitmap,x,0f,paint)}
+            else->c.drawBitmap(if(p<.5f)sourceBitmap else targetBitmap,0f,0f,paint)}}
     private var mx=0f;private var my=0f;private var nx=1f;private var ny=0f
     private var band=1f
     override fun onDetachedFromWindow(){inkBack?.recycle();inkBack=null;super.onDetachedFromWindow()}
@@ -69,6 +83,7 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
         if(p<=.0001f){c.drawBitmap(sourceBitmap,0f,0f,paint);return}
         if(p>=.9999f){c.drawBitmap(targetBitmap,0f,0f,paint);return}
         c.save();c.clipRect(0f,0f,w,h)
+        if(style!="curl"&&!reduced){flat(c,p,w,h);c.restore();return}
         if(reduced){c.drawBitmap(sourceBitmap,0f,0f,paint);c.save();if(direction>0)c.clipRect(w*(1-p),0f,w,h)else c.clipRect(0f,0f,w*p,h);c.drawBitmap(targetBitmap,0f,0f,paint);c.restore();c.restore();return}
         val sheet=if(direction>0)sourceBitmap else targetBitmap;val below=if(direction>0)targetBitmap else sourceBitmap
         val fold=if(direction>0)p else 1-p

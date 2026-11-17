@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /** «Оформление чтения» (approved design): a compact panel at the bottom, under half the screen and without dimming,
- *  so every change shows at once in the page above it. The main page holds brightness, theme, text size and font; «Вёрстка» and the font list open inside the same panel at the same height. */
+ *  so every change shows at once in the page above it. The main page holds brightness, theme, text size and font; «Ещё» and the font list open inside the same panel at the same height. */
 internal class ReaderSettings(private val a:MainActivity,private val r:NativeReader) {
     private val themes=listOf("night" to "Ночь","black" to "Чёрная","sepia" to "Сепия","paper" to "Бумага")
     private val fonts=listOf(Triple("literata","Literata","для долгого чтения"),Triple("ptserif","PT Serif","классическая книжная"),Triple("sans","Без засечек","чистая и простая"))
@@ -135,7 +135,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         fontSize.addView(fontButton(),LinearLayout.LayoutParams(0,H,1f).apply{leftMargin=a.d(10)})
         box.addView(fontSize,LinearLayout.LayoutParams(-1,-2).apply{topMargin=gap})
         val more=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),0,a.d(16),0);background=a.shape(pillColor,100);isClickable=true;a.press(this);setOnClickListener{open(layoutPage())}}
-        more.addView(a.text("Вёрстка",14.5f),LinearLayout.LayoutParams(0,-2,1f))
+        more.addView(a.text("Ещё",14.5f),LinearLayout.LayoutParams(0,-2,1f))
         more.addView(Chevron(a),LinearLayout.LayoutParams(a.d(12),a.d(18)))
         box.addView(more,LinearLayout.LayoutParams(-1,H).apply{topMargin=gap})
         refresh();return box
@@ -177,8 +177,8 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         main.animate().translationX(0f).alpha(1f).setDuration(280).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
 
     private fun layoutPage():View{
-        val box=a.column().apply{tag="Вёрстка";clipChildren=false;clipToPadding=false}
-        box.addView(modeRow(),LinearLayout.LayoutParams(-1,H))
+        val box=a.column().apply{tag="Ещё";clipChildren=false;clipToPadding=false}
+        box.addView(turnRow(),LinearLayout.LayoutParams(-1,-2).apply{leftMargin=-a.d(4);rightMargin=-a.d(4);topMargin=-a.d(4)})
         val list=a.column().apply{clipChildren=false;clipToPadding=false}
         fun held(bar:LayoutBar):View{val wrap=FrameLayout(a).apply{setPadding(RIM,RIM,RIM,RIM)};wrap.addView(bar,FrameLayout.LayoutParams(-1,H));bar.onGrab={on->spotlight(wrap,on)};return wrap}
         fun bar(title:String,from:Float,to:Float,step:Float,value:Float,default:Float,format:(Float)->String,set:(Float)->Unit)=
@@ -322,12 +322,22 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         text=title;setTextColor(a.fg);textSize=14f;minHeight=a.d(46);isChecked=a.prefs.optBoolean(key,default)
         setOnCheckedChangeListener{_,on->a.prefs.put(key,on);a.savePreferences();typography()}
     }
-    private fun modeRow():View{
-        val labels=listOf("Страницы","Прокрутка");val selected=if(r.paged())0 else 1
-        val seg=SlidingSegment(a,selected,2,pillColor,if(a.light)Color.WHITE else 0xfff2f2f2.toInt(),25)
-        fun tint(index:Int){for(i in 0 until seg.childCount)(seg.getChildAt(i) as TextView).setTextColor(if(i==index)(if(a.light)a.fg else 0xff111111.toInt()) else a.muted)}
-        labels.forEachIndexed{i,s->seg.addView(a.text(s,13.5f,bold=true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);a.press(this);setOnClickListener{seg.choose(i);tint(i);val paged=i==0;seg.removeCallbacks(seg.tag as? Runnable);val go=Runnable{if(r.paged()!=paged)r.crossfade{r.setReadingMode(paged)};refresh()};seg.tag=go;seg.postDelayed(go,if(reduced)0L else 340L)}},LinearLayout.LayoutParams(0,-1,1f))}
-        tint(selected);return seg
+    /** How pages turn (approved variant А): five live previews in one row, scrolling being one of them. */
+    private fun turnRow():View{
+        val row=a.line().apply{gravity=Gravity.TOP}
+        val (paper,ink)=colors(a.prefs.str("rt","night"))
+        listOf("curl" to "Листание","slide" to "Сдвиг","cover" to "Наложение","none" to "Без анимации","scroll" to "Прокрутка").forEach{(key,label)->
+            val col=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;isClickable=true;contentDescription=label}
+            val tile=TurnTile(a,key,paper,ink);col.addView(tile,LinearLayout.LayoutParams(-1,-2))
+            val name=a.text(label,11.5f,a.muted).apply{gravity=Gravity.CENTER;maxLines=2;setLineSpacing(0f,1.1f)};col.addView(name,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})
+            fun current()=if(!r.paged())"scroll" else a.prefs.str("turn","curl")
+            refreshers.add{val on=current()==key;tile.on=on;name.setTextColor(if(on)a.fg else a.muted);name.typeface=PolkaFonts.sans(if(on)600 else 400)}
+            col.setOnClickListener{if(current()==key)return@setOnClickListener
+                if(key=="scroll"){refresh();r.crossfade{r.setReadingMode(false);refresh()}}
+                else{a.prefs.put("turn",key);a.savePreferences();if(!r.paged())r.crossfade{r.setReadingMode(true);refresh()}}
+                refresh()}
+            a.press(col);row.addView(col,LinearLayout.LayoutParams(0,-2,1f))}
+        return row
     }
 
     // ---- state -----------------------------------------------------------------------------

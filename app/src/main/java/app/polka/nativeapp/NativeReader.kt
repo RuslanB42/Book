@@ -569,7 +569,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val source=cachedCurrent?.takeIf{it.first==currentKey}?.second ?: snapshot(null,folioLabel(pageIndex,pageStarts.size),hasBookmark())
         findTarget(direction){target->if(token!=curlToken||disposed)return@findTarget;if(target==null){stopPageMotion();return@findTarget};targetPage=target;activateLinks(target.rich)
             val upcoming=cachedNext?.takeIf{it.first==snapshotKey(target)}?.second ?: snapshot(pageText(target.rich,target.starts,target.index),folioLabel(target.index,target.starts.size),pageBookmarks(target.chapter,target.index,target.starts).isNotEmpty())
-            val overlay=PageCurlView(a,source,upcoming,direction,readerBackground,a.prefs.str("motion")=="reduced");curl=overlay
+            val overlay=PageCurlView(a,source,upcoming,direction,readerBackground,a.prefs.str("motion")=="reduced").apply{style=a.prefs.str("turn","curl")};curl=overlay
             arrivingKey="${snapshotKey(target)}:${pageBookmarks(target.chapter,target.index,target.starts).isNotEmpty()}" to upcoming
             view.clipToPadding=false
             view.addView(overlay,(view.indexOfChild(ribbon)+1).coerceAtLeast(1),FrameLayout.LayoutParams(view.width,view.height).apply{leftMargin=-view.paddingLeft;topMargin=-view.paddingTop})
@@ -599,7 +599,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private fun animateCurl(commit:Boolean){
         val overlay=curl?:return;turnClock?.removeAllListeners();turnClock?.cancel()
         val start=overlay.progress;val end=if(commit)1f else 0f
-        if(a.prefs.str("motion")=="reduced"){overlay.pose(end,dragY+scroll.top);completeCurl(commit);return}
+        if(a.prefs.str("motion")=="reduced"||overlay.style=="none"){overlay.pose(end,dragY+scroll.top);completeCurl(commit);return}
         val remaining=abs(end-start).coerceAtLeast(.001f)
         // After a release the sheet must leave at exactly the finger's speed and then settle: a cubic whose start slope
         // equals the release velocity (in page-widths per second) and whose end slope is zero. No jump, no stall.
@@ -628,7 +628,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         activeAt=System.currentTimeMillis();if(preparing||disposed||editorOpen||isTurning())return
         if(!paged()){scroll.smoothScrollBy(0,direction*pageHeight());return}
         quoteSelection.clear()
-        if(a.prefs.str("motion")=="reduced"){
+        if(a.prefs.str("motion")=="reduced"||a.prefs.str("turn","curl")=="none"){
             if(direction>0)setCalm(true,false)
             findTarget(direction){target->if(target!=null){targetPage=target;commitTarget();targetPage=null;targetCommitted=false;save()}};return
         }
