@@ -126,7 +126,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
     private var anim:ValueAnimator?=null
     fun show(){
         val decor=a.window.decorView as ViewGroup
-        frame.isClickable=true;frame.background=GoalBackdrop(a)
+        frame.isClickable=true;frame.setBackgroundColor(a.bg)
         frame.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){
             if(bounds.isEmpty)o.setRect(0,0,v.width,v.height) else o.setRoundRect(bounds.left.roundToInt(),bounds.top.roundToInt(),bounds.right.roundToInt(),bounds.bottom.roundToInt(),radius)}}
         frame.clipToOutline=true

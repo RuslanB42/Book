@@ -294,7 +294,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
      *  Tap a cover or a stack, swipe the book card, or switch the year from the «КНИГИ · 2026» label. */
     private var menuClosedAt=0L
     private fun books(){
-        GoalBackdrop.prepare(a)
         val box=surface(if(light)0xff009a5c.toInt() else 0xff37c080.toInt(),.86f,.12f,.8f)
         val years=(model.finished.mapNotNull{it.date?.year}+today.year).distinct().sortedDescending().take(8)
         if(goalYear !in years&&goalYear!=today.year+1)goalYear=today.year

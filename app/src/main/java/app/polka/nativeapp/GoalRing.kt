@@ -44,10 +44,10 @@ internal class GoalWords(val chip:String?,val good:Boolean,val first:String,val 
 internal fun goalWords(model:ReadingStatistics,year:Int,today:LocalDate,done:Int,target:Int):GoalWords{val left=target-done
     return when{
         target<=0->GoalWords(null,true,if(year>=today.year)"цель не задана" else "",if(year>=today.year)"Настройки → «Чтение»" else "")
-        left<=0->GoalWords("цель выполнена",true,if(left<0)"на ${-left} больше" else "","")
-        year<today.year->GoalWords("не хватило $left",false,"","")
-        year==today.year->{val behind=model.expected(year,target)-done;val per=left.toDouble()/(13-today.monthValue)
-            GoalWords(if(behind>0)"отстаёте на $behind" else "по плану",behind<=0,"ещё $left до конца года",if(per<1)"меньше книги в месяц" else "по ${per.roundToInt()} в месяц")}
+        left<=0->GoalWords(null,true,if(left<0)"на ${-left} больше цели" else "цель выполнена","")
+        year<today.year->GoalWords(null,false,"не хватило $left","")
+        year==today.year->{val per=left.toDouble()/(13-today.monthValue)
+            GoalWords(null,true,"ещё $left до конца года",if(per<1)"меньше книги в месяц" else "по ${per.roundToInt()} в месяц")}
         else->GoalWords(null,true,"ещё $left","")}}
 internal fun MainActivity.goalChip(t:String,good:Boolean)=text(t,12.5f,if(good)(if(light)0xff007a48.toInt() else 0xff7bdca6.toInt()) else (if(light)0xffb0601c.toInt() else 0xffffb066.toInt()),true).apply{gravity=Gravity.CENTER;setPadding(d(10),0,d(10),0)
     background=shape(if(good)(if(light)0x1f009a5c else 0x2437c080) else (if(light)0x1fe8640c else 0x1fff8a1e),13)}
@@ -71,7 +71,7 @@ internal fun MainActivity.goalYearPage(model:ReadingStatistics,list:List<YearBoo
     val w=goalWords(model,year,today,list.size,goal)
     w.chip?.let{page.addView(goalChip(it,w.good),LinearLayout.LayoutParams(-2,d(26)).apply{topMargin=d(16)})}
     val words=listOf(w.first,w.second).filter{it.isNotBlank()}.joinToString(", ")
-    if(words.isNotBlank())page.addView(text(words,14f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(8)})
+    if(words.isNotBlank())page.addView(text(words,14f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(16)})
     if(list.isEmpty())return page
     // the year's results
     val tiles=line().apply{gravity=Gravity.TOP}
