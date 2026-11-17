@@ -109,7 +109,9 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             v.rotation=r(slot)+(r(to)-r(slot))*p;v.translationX=x(slot)+(x(to)-x(slot))*p;v.translationY=y(slot)+(y(to)-y(slot))*p
             v.elevation=e(slot)+(e(to)-e(slot))*p.coerceIn(0f,1f);v.translationZ=-a.d(1)*(slot+1-p)}
         /** [p] (0..1, may overshoot a little) moves every sheet one place forward. */
-        private fun pose(p:Float){lift=p;for(k in 1 until cards.size){place(cards[k],k-1,p);content(cards[k],0f)}}
+        private fun pose(p:Float){lift=p;for(k in 1 until cards.size){place(cards[k],k-1,p)
+            // the sheet right under the card shows its words as the card moves off it; the rest stay blank
+            content(cards[k],if(k==1)(p/.45f).coerceIn(0f,1f) else 0f)}}
         /** The sheets under the card are blank: only the card on top shows its words and buttons. */
         private fun content(v:View,al:Float){(v as? ViewGroup)?.let{g->for(i in 0 until g.childCount)g.getChildAt(i).alpha=al}}
         override fun onInterceptTouchEvent(e:MotionEvent):Boolean{
@@ -161,7 +163,7 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
                             old.translationX=outX+(fanX[back]-outX)*t;old.translationY=outY+(fanY[back]-outY)*t;old.rotation=outR+(fanRot[back]-outR)*t
                             pose(lp+(1f-lp)*settle.getInterpolation(t))
                             // the thrown card goes blank as it slips under; the rising sheet shows its words once on top
-                            content(old,1f-(t/.3f).coerceIn(0f,1f));content(next,((t-.4f)/.6f).coerceIn(0f,1f))
+                            content(old,1f-(t/.2f).coerceIn(0f,1f))
                             heldH=(oldH+(newH-oldH)*glide.getInterpolation(t)).toInt()
                             // the sheet rising into the card grows to its own height; the deck follows
                             requestLayout()}
