@@ -64,10 +64,10 @@ internal object IosIcons {
     "settings" to listOf(
       Op(false,false,1.7f,true,"M19.06,9.77L21.09,10.56A9.2 9.2 0 0 1 21.09,13.44L19.06,14.23A7.4 7.4 0 0 1 18.56,15.42L18.56,15.42L19.44,17.41A9.2 9.2 0 0 1 17.41,19.44L15.42,18.56A7.4 7.4 0 0 1 14.23,19.06L14.23,19.06L13.44,21.09A9.2 9.2 0 0 1 10.56,21.09L9.77,19.06A7.4 7.4 0 0 1 8.58,18.56L8.58,18.56L6.59,19.44A9.2 9.2 0 0 1 4.56,17.41L5.44,15.42A7.4 7.4 0 0 1 4.94,14.23L4.94,14.23L2.91,13.44A9.2 9.2 0 0 1 2.91,10.56L4.94,9.77A7.4 7.4 0 0 1 5.44,8.58L5.44,8.58L4.56,6.59A9.2 9.2 0 0 1 6.59,4.56L8.58,5.44A7.4 7.4 0 0 1 9.77,4.94L9.77,4.94L10.56,2.91A9.2 9.2 0 0 1 13.44,2.91L14.23,4.94A7.4 7.4 0 0 1 15.42,5.44L15.42,5.44L17.41,4.56A9.2 9.2 0 0 1 19.44,6.59L18.56,8.58A7.4 7.4 0 0 1 19.06,9.77Z",null),
       Op(false,false,1.7f,true,"M8.9 12a3.1 3.1 0 1 0 6.2 0a3.1 3.1 0 1 0 -6.2 0Z",null)),
+    // the usual profile figure: a head and shoulders
     "user" to listOf(
-      Op(false,false,1.7f,true,"M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0Z",null),
-      Op(false,false,1.7f,true,"M8.8 9.8a3.2 3.2 0 1 0 6.4 0a3.2 3.2 0 1 0 -6.4 0Z",null),
-      Op(false,false,1.7f,true,"M6.2 18.2c1.4-2 3.4-3 5.8-3s4.4 1 5.8 3",null)),
+      Op(false,false,1.7f,true,"M7.9 7.6a4.1 4.1 0 1 0 8.2 0a4.1 4.1 0 1 0 -8.2 0Z",null),
+      Op(false,false,1.7f,true,"M4.5 20.2c.5-3.6 3.6-6 7.5-6s7 2.4 7.5 6",null)),
     "filter" to listOf(
       Op(false,false,1.7f,true,"M4 7h16M7 12h10M10 17h4",null)),
     "sliders" to listOf(
@@ -181,10 +181,11 @@ internal object IosIcons {
       Op(false,false,1.7f,true,"M16.38 7.62L18.36 5.64",null)),
     "moon" to listOf(
       Op(false,false,1.7f,true,"M19.8 14.6A8.2 8.2 0 0 1 9.4 4.2a8.3 8.3 0 1 0 10.4 10.4Z",null)),
+    // the same picture as «Словарь» in the reader's selection menu
     "words" to listOf(
-      Op(false,false,1.7f,true,"M10.1 3.5H17.9A2.6 2.6 0 0 1 20.5 6.1V15.9A2.6 2.6 0 0 1 17.9 18.5H10.1A2.6 2.6 0 0 1 7.5 15.9V6.1A2.6 2.6 0 0 1 10.1 3.5Z",null),
-      Op(false,false,1.7f,true,"M4.5 7.2v10.5a2.8 2.8 0 0 0 2.8 2.8h8.5",null),
-      Op(false,false,1.7f,true,"M11 14.5l3-7.5 3 7.5M12 12.3h4",null)),
+      Op(false,false,1.7f,true,"M7.6 3.5H16.4A3.6 3.6 0 0 1 20 7.1V13.500000000000002A3.6 3.6 0 0 1 16.4 17.1H7.6A3.6 3.6 0 0 1 4 13.500000000000002V7.1A3.6 3.6 0 0 1 7.6 3.5Z",null),
+      Op(false,false,1.7f,true,"M4 13.5V17a3.6 3.6 0 0 0 3.6 3.6h8.8A3.6 3.6 0 0 0 20 17v-3.5",null),
+      Op(true,false,0f,true,"M0.0048 0 0.3787 -1H0.6538L1.0309 0H0.7634L0.693 -0.2025H0.3341L0.2652 0ZM0.3877 -0.4007H0.638L0.5123 -0.7464Z",floatArrayOf(6.8f,0f,0f,6.8f,8.479f,13.2f))),
     "learn" to listOf(
       Op(false,false,1.7f,true,"M12 5 2.5 9.5 12 14l9.5-4.5Z",null),
       Op(false,false,1.7f,true,"M6.5 11.8v4c0 1.4 2.5 2.9 5.5 2.9s5.5-1.5 5.5-2.9v-4M21.5 9.5V15",null)))}
@@ -213,8 +214,8 @@ internal object IosIcons {
       Op(true,false,0f,true,"M7.3 3.5h9.4a1.3 1.3 0 0 1 1.3 1.3v15.4a.5.5 0 0 1-.8.4L12 16.8l-5.2 3.8a.5.5 0 0 1-.8-.4V4.8a1.3 1.3 0 0 1 1.3-1.3Z",null),
       Op(false,false,1.7f,true,"M7.3 3.5h9.4a1.3 1.3 0 0 1 1.3 1.3v15.4a.5.5 0 0 1-.8.4L12 16.8l-5.2 3.8a.5.5 0 0 1-.8-.4V4.8a1.3 1.3 0 0 1 1.3-1.3Z",null)),
     "words" to listOf(
-      Op(true,false,0f,true,"M10.1 3.5H17.9A2.6 2.6 0 0 1 20.5 6.1V15.9A2.6 2.6 0 0 1 17.9 18.5H10.1A2.6 2.6 0 0 1 7.5 15.9V6.1A2.6 2.6 0 0 1 10.1 3.5Z",null),
-      Op(false,false,1.7f,true,"M10.1 3.5H17.9A2.6 2.6 0 0 1 20.5 6.1V15.9A2.6 2.6 0 0 1 17.9 18.5H10.1A2.6 2.6 0 0 1 7.5 15.9V6.1A2.6 2.6 0 0 1 10.1 3.5Z",null),
-      Op(false,false,1.7f,true,"M4.5 7.2v10.5a2.8 2.8 0 0 0 2.8 2.8h8.5",null),
-      Op(false,true,1.7f,true,"M11 14.5l3-7.5 3 7.5M12 12.3h4",null)))}
+      Op(true,false,0f,true,"M7.6 3.5H16.4A3.6 3.6 0 0 1 20 7.1V13.500000000000002A3.6 3.6 0 0 1 16.4 17.1H7.6A3.6 3.6 0 0 1 4 13.500000000000002V7.1A3.6 3.6 0 0 1 7.6 3.5Z",null),
+      Op(false,false,1.7f,true,"M7.6 3.5H16.4A3.6 3.6 0 0 1 20 7.1V13.500000000000002A3.6 3.6 0 0 1 16.4 17.1H7.6A3.6 3.6 0 0 1 4 13.500000000000002V7.1A3.6 3.6 0 0 1 7.6 3.5Z",null),
+      Op(false,false,1.7f,true,"M4 13.5V17a3.6 3.6 0 0 0 3.6 3.6h8.8A3.6 3.6 0 0 0 20 17v-3.5",null),
+      Op(true,true,0f,true,"M0.0048 0 0.3787 -1H0.6538L1.0309 0H0.7634L0.693 -0.2025H0.3341L0.2652 0ZM0.3877 -0.4007H0.638L0.5123 -0.7464Z",floatArrayOf(6.8f,0f,0f,6.8f,8.479f,13.2f))))}
 }
