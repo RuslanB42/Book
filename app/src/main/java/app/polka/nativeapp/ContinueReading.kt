@@ -78,7 +78,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    a.space(words,12)
    val pct=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
    val meter=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-   val bar=HeroProgress(a,pct,!reduced);bars.add(bar)
+   val bar=HeroProgress(a,pct);bars.add(bar)
    meter.addView(bar,LayoutParams(0,a.d(8),1f))
    meter.addView(a.text("${(pct*100).roundToInt()}%",11f,a.muted),LayoutParams(-2,-2).apply{marginStart=a.d(8)})
    words.addView(meter,LayoutParams(-1,-2));a.space(words,12)
