@@ -417,10 +417,7 @@ class MainActivity : Activity() {
                 val grow=addShelfRow
                 if(grow==null||tab!="shelves"){render();return@inputDialog}
                 // after the window has gone: the shelf grows in, the page rides down with it
-                root.postDelayed({grow(name)
-                    if(!reduced){val sv=scroll;android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=760;startDelay=0
-                        addUpdateListener{val end=(sv.getChildAt(0)?.height?:0)-sv.height+sv.paddingBottom;if(end>sv.scrollY)sv.scrollTo(0,sv.scrollY+((end-sv.scrollY)*.18f).toInt().coerceAtLeast(1))};start()}}
-                    else scroll.post{scroll.fullScroll(View.FOCUS_DOWN)}},if(reduced)0L else 420L)
+                root.postDelayed({grow(name);if(reduced)scroll.post{scroll.fullScroll(View.FOCUS_DOWN)}},if(reduced)0L else 420L)
             }
         },if(away&&!reduced)340L else 0L)
     }

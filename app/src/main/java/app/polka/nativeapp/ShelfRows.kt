@@ -51,7 +51,8 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         orientation=VERTICAL;clipChildren=false;clipToPadding=false
         head.background=card;head.isClickable=true;head.contentDescription="$title, ${MainActivity.countBooks(list.size)}"
         head.setOnClickListener{if(editing){if(rename!=null)startRename()}else open()}
-        actions?.let{f->head.setOnLongClickListener{if(editing)false else{f();true}}}
+        // the quick menu opens from a long press anywhere on the shelf, not only on its title row
+        actions?.let{f->head.setOnLongClickListener{if(editing)false else{f();true}};stage.setOnLongClickListener{if(editing)false else{it.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);f();true}}}
         head.addView(name,LayoutParams(-2,-2))
         head.addView(pen,LayoutParams(a.d(16),a.d(16)).apply{leftMargin=a.d(6)})
         head.addView(View(a),LayoutParams(0,1,1f))
@@ -390,7 +391,7 @@ internal fun MainActivity.shelfRows(){
         if(taken){Notice.short(this,Notice.Kind.SHELF,"Полка «$name» уже есть");false}
         else{prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct()));savePreferences();editor.grow(own(name,emptyList()));true}}
     page.addView(slot,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(if(rows.isEmpty()||!shelvesEditing)0 else 10)});if(!shelvesEditing)slot.visibility=View.GONE
-    editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor;shelfSlot=slot;addShelfRow={name->editor.grow(own(name,emptyList()))}
+    editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor;shelfSlot=slot;addShelfRow={name->editor.grow(own(name,emptyList()),true)}
     if(shelvesEditing){rows.forEach{it.setEditing(true,false)};slot.setEditing(true,false)}
 }
 
@@ -405,16 +406,20 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
     private fun saveOrder(){a.prefs.put("shelfOrder",org.json.JSONArray(rows.map{it.key}));a.savePreferences()}
     private val reduced get()=a.prefs.str("motion")=="reduced"
     /** A new shelf grows out of the empty place, just above it: its height opens, it rises a little and fades in. */
-    fun grow(r:ShelfRow){r.handle.setOnTouchListener{_,e->touch(r,e);true}
+    fun grow(r:ShelfRow,follow:Boolean=false){r.handle.setOnTouchListener{_,e->touch(r,e);true}
         val at=place?.let{page.indexOfChild(it)}?.takeIf{it>=0}?:page.childCount
         val lp=LinearLayout.LayoutParams(-1,-2).apply{if(at>0)topMargin=a.d(if(a.shelvesEditing)10 else 26)}
         page.addView(r,at,lp);rows.add(r);r.setEditing(a.shelvesEditing,false);saveOrder()
         if(reduced)return
         r.measure(View.MeasureSpec.makeMeasureSpec(page.width-page.paddingLeft-page.paddingRight,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
         val full=r.measuredHeight;val m=lp.topMargin
+        // [follow]: the page rides down in the same motion as the shelf opens, so the two never fight
+        val sv=a.scroll;val s0=sv.scrollY;val viewport=sv.height-sv.paddingBottom;val content0=sv.getChildAt(0)?.height?:0
+        val s1=if(follow)maxOf(s0,content0+full+m-viewport) else s0
         // no scaling: the shelf glass runs to the screen edges, and a scaled row showed with its sides cut off
         lp.height=0;lp.topMargin=0;r.layoutParams=lp;r.alpha=0f;r.translationY=a.d(14).toFloat()
-        android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=560;interpolator=glide;addUpdateListener{val k=it.animatedValue as Float;lp.height=(full*k).toInt().coerceAtLeast(1);lp.topMargin=(m*k).toInt();r.layoutParams=lp}
+        android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=640;interpolator=android.view.animation.PathInterpolator(.42f,0f,.18f,1f);addUpdateListener{val k=it.animatedValue as Float;lp.height=(full*k).toInt().coerceAtLeast(1);lp.topMargin=(m*k).toInt();r.layoutParams=lp
+                if(s1>s0)sv.scrollTo(0,(s0+(s1-s0)*k).toInt())}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){lp.height=LinearLayout.LayoutParams.WRAP_CONTENT;r.layoutParams=lp;r.settleMargin()}});start()}
         r.animate().alpha(1f).translationY(0f).setStartDelay(160).setDuration(520).setInterpolator(glide).start()}
     /** The card slides left and fades, then its place closes and the cards below glide up. */
@@ -484,16 +489,18 @@ internal object ShelfShade{
             step(d*8-s,d*8+s,x)*(1-step(w+d*7-s,w+d*7+s,x))*step(d*10-s,d*10+s*1.4f,y)*(1-step(h-d*2,h+d*7,y))}}
     /** Under the shelf: darkest right below it, then a long soft falloff that reaches nothing well before the edge. */
     fun under(a:MainActivity,w:Int,light:Boolean):Bitmap=cache.getOrPut("u$w:$light"){val d=a.d(1).toFloat();val l=d*10;val r=w-d*10
-        SoftShade.bake(w,a.d(41),if(light)0x281e14 else 0,if(light).30f else .78f){x,y->val k=y/d
-            val side=step(l-d*2,l+d*26+k*1.2f*d,x)*(1-step(r-d*26-k*1.2f*d,r+d*2,x))
-            (.55f*kotlin.math.exp(-(k/3.2f)*(k/3.2f))+.45f*kotlin.math.exp(-(k/13f)*(k/13f)))*side*(1-step(d*30,d*40,y))}}
+        // one smooth falloff (no tight dark band with a lighter halo after it), wide soft ends
+        SoftShade.bake(w,a.d(41),if(light)0x281e14 else 0,if(light).24f else .58f){x,y->val k=y/d
+            val side=step(l-d*4,l+d*48,x)*(1-step(r-d*48,r+d*4,x))
+            (.35f*kotlin.math.exp(-(k/5f)*(k/5f))+.65f*kotlin.math.exp(-(k/15f)*(k/15f)))*side*(1-step(d*26,d*40,y))}}
     /** The lip's highlight: a soft band just under its top edge, strongest left of the middle. */
     fun gleam(a:MainActivity,w:Int,h:Int,light:Boolean):Bitmap=cache.getOrPut("g$w:$h:$light"){val d=a.d(1).toFloat()
         SoftShade.bake(w,h,0xffffff,if(light).55f else .17f){x,y->val k=(y-d*1.4f)/(d*1.7f);val m=(x-w*.38f)/(w*.42f)
             kotlin.math.exp(-k*k)*(.3f+.7f*kotlin.math.exp(-m*m))*step(0f,d*26,x)*(1-step(w-d*26,w.toFloat(),x))}}
     /** The wall above the shelf, darker toward it. */
     fun wall(a:MainActivity,w:Int,light:Boolean):Bitmap=cache.getOrPut("w$w:$light"){val d=a.d(1).toFloat();val hh=d*70;val l=d*10;val r=w-d*10
-        SoftShade.bake(w,a.d(70),if(light)0x3c3228 else 0,if(light).10f else .34f){x,y->val t=y/hh;t*t*step(l-d*6,l+d*40,x)*(1-step(r-d*40,r+d*6,x))}}
+        // a gentle darkening that starts from nothing (no visible top edge) with wide soft ends
+        SoftShade.bake(w,a.d(70),if(light)0x3c3228 else 0,if(light).08f else .22f){x,y->val t=step(0f,hh,y);t*t*step(l-d*6,l+d*64,x)*(1-step(r-d*64,r+d*6,x))}}
     /** Fine matte stone grain, tiled. */
     private val stones=HashMap<Boolean,BitmapShader>()
     fun stone(light:Boolean):BitmapShader=stones.getOrPut(light){val n=96;val px=IntArray(n*n);val rnd=java.util.Random(11)
