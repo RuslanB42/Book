@@ -232,7 +232,7 @@ class MainActivity : Activity() {
         onActivityResult(10,RESULT_OK,Intent().setData(uri))
     }
     fun loadData() {
-        prefs=library.prefs(); if(!prefs.has("size")) prefs.put("size",prefs.optInt("fontSize",19)); if(!prefs.has("ui")) prefs.put("ui",prefs.str("theme","dark")); books=library.allBooks().filterNot { it.str("id") in pendingDeletes }; sort=prefs.str("sort","manual")
+        prefs=library.prefs(); if(!prefs.has("size")) prefs.put("size",prefs.optInt("fontSize",19)); if(!prefs.has("ui")) prefs.put("ui",prefs.str("theme","dark")); books=library.allBooks().filterNot { it.str("id") in pendingDeletes }.onEach { if(QuoteNotes.fold(it)) library.save(it) }; sort=prefs.str("sort","manual")
     }
     fun requestCover(book:JSONObject,done:(Bitmap?)->Unit) {
         val id=book.optJSONObject("cover")?.str("__polkaBlob")?.takeIf { it.isNotBlank() } ?: return

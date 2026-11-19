@@ -105,7 +105,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private var appear=1f
     private var settling=false;private var settleColor=0;private var settleStart=0;private var settleEnd=0;private var settle:android.animation.ValueAnimator?=null
     private lateinit var primary:LineIcon
-    private lateinit var third:LineIcon
+    private lateinit var trash:LineIcon
     private val strip=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(6),a.d(2),a.d(6),a.d(2));elevation=a.d(8).toFloat();a.controlSurface(this,26f,sheet=true);isClickable=true}
     private val dots=mutableListOf<QuoteDot>()
     private val dotRow=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(4),0,a.d(4),0)}
@@ -135,13 +135,15 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private val pageTimer=Runnable { val dir=edge;edge=0;if(active&&dragging&&!edgeLocked&&dir!=0){edgeLocked=true;menu.visibility=INVISIBLE;reader.turnWithSelection(dir){ok->edgeLocked=false;if(ok){val full=reader.selectionFullText();var boundary=if(dir>0)reader.pageBase() else (reader.pageLimit()-1).coerceAtLeast(0);if(dir<0)while(boundary>reader.pageBase()&&full[boundary].isWhitespace())boundary--;atStart=range.move(full,boundary,atStart)}else{Notice.short(a,Notice.Kind.INFO,"Выделение ограничено главой")};invalidate();showMenu();if(dragging){x=if(dir>0)reader.body.paddingLeft+a.d(8).toFloat()else width-reader.body.paddingRight-a.d(8).toFloat();y=if(dir>0)reader.body.paddingTop+a.d(12).toFloat()else min(height-a.d(60).toFloat(),reader.body.height.toFloat());}}} }
     init {
         setWillNotDraw(false);clipChildren=false;visibility=GONE;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES
-        // five icons, no words (approved): quote, note, translate, dictionary, copy
+        // icons, no words (approved): quote (or the saved quote's colour), note, translate, dictionary, copy, and a bin for a saved quote
         fun action(kind:String,desc:String,fn:()->Unit):LineIcon{val v=LineIcon(a,kind,a.fg).apply{contentDescription=desc;isClickable=true;pressable(this);setOnClickListener{fn()}};menu.addView(v,LinearLayout.LayoutParams(a.d(52),a.d(48)));return v}
         primary=action("quote","Цитата"){quoteAction()}
-        third=action("note","Заметка"){thirdAction()}
-        action("translate","Перевод"){val text=range.text(reader.selectionFullText());clear();LookupSheet(a,reader.backgroundColor,text){reader.addNote(it)}.translation()}
-        action("dictionary","Словарь"){val full=reader.selectionFullText();val text=range.text(full);val src=WordSource(Words.sentence(full,range.start,range.end),reader.book.str("id"),reader.book.str("title"));clear();LookupSheet(a,reader.backgroundColor,text,src){reader.addNote(it)}.dictionary()}
+        action("note","Заметка"){noteAction()}
+        action("translate","Перевод"){val text=range.text(reader.selectionFullText());val s=range.start;val e=range.end;clear();LookupSheet(a,reader.backgroundColor,text){reader.noteOn(s,e,text,it)}.translation()}
+        action("dictionary","Словарь"){val full=reader.selectionFullText();val text=range.text(full);val s=range.start;val e=range.end;val src=WordSource(Words.sentence(full,range.start,range.end),reader.book.str("id"),reader.book.str("title"));clear();LookupSheet(a,reader.backgroundColor,text,src){reader.noteOn(s,e,text,it)}.dictionary()}
         action("copy","Копировать"){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата",range.text(reader.selectionFullText())));clear()}
+        // a saved quote only: the bin comes last, away from the thumb's usual path
+        trash=action("trash","Убрать цитату"){trashAction()}.apply{set("trash",0xffff8a7a.toInt());visibility=GONE}
         addView(menu,LayoutParams(-2,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL))
         // the colour strip: shown right after a quote is saved (or from «Цвет» on a saved one), in the menu's place
         // the colours (with «свой цвет» last) scroll on their own; «Готово» stays pinned at the right
@@ -192,10 +194,11 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         if(!reduced){
             dots.firstOrNull{it.key==key}?.let{d->d.scaleX=.7f;d.scaleY=.7f;d.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(320).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()}}
         removeCallbacks(stripTimer);postDelayed(stripTimer,2500)}
-    /** Third button: «Заметка» for a new selection, «Убрать» for a saved quote. */
-    private fun thirdAction(){val existing=reader.quoteOverlapping(range.start,range.end)
-        if(existing!=null){val r=existing.second;val ink=QuoteColors.ink(existing.first.optString("color"));reader.removeQuote(existing.first,r);settleOut(r.first,r.last+1,ink,ink and 0x00ffffff,280){};clear(false);return}
-        val text=range.text(reader.selectionFullText());clear();reader.addNote(text)}
+    /** «Заметка»: a new selection becomes a quote and its note opens; a saved quote opens its note. */
+    private fun noteAction(){val s=range.start;val e=range.end;val text=range.text(reader.selectionFullText());clear(false);reader.noteOn(s,e,text)}
+    /** The bin on a saved quote: the mark fades out of the text. */
+    private fun trashAction(){val existing=reader.quoteOverlapping(range.start,range.end)?:return
+        val r=existing.second;val ink=QuoteColors.ink(existing.first.optString("color"));reader.removeQuote(existing.first,r);settleOut(r.first,r.last+1,ink,ink and 0x00ffffff,280){};clear(false)}
     private fun finishSettle(){settle?.end();settle=null}
     /** «Цитата» marks the selection: the selection tint deepens into the quote tint, then the mark stays in the text.
      *  «Убрать цитату» drops the mark: the tint fades out where it was. */
@@ -217,8 +220,8 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     /** The menu pops in next to the selection and names what the first action will do. */
     private fun showMenu(){if(!active||dragging||edgeLocked)return;val saved=reader.quoteOverlapping(range.start,range.end);hideStrip()
         // a saved quote: its colour (to change it) and a bin (to remove it) instead of «quote» and «note»
-        if(saved!=null){primary.set("colordot",a.fg);primary.dot=(0xff shl 24) or QuoteColors.rgb(saved.first.optString("color"));primary.contentDescription="Цвет цитаты";third.set("trash",0xffff8a7a.toInt());third.contentDescription="Убрать цитату"}
-        else{primary.set("quote",a.fg);primary.contentDescription="Цитата";third.set("note",a.fg);third.contentDescription="Заметка"}
+        if(saved!=null){primary.set("colordot",a.fg);primary.dot=(0xff shl 24) or QuoteColors.rgb(saved.first.optString("color"));primary.contentDescription="Цвет цитаты";trash.visibility=VISIBLE}
+        else{primary.set("quote",a.fg);primary.contentDescription="Цитата";trash.visibility=GONE}
         val wasHidden=menu.visibility!=VISIBLE;positionMenu()
         if(wasHidden&&!reduced)popIn(menu) else{menu.alpha=1f;menu.scaleX=1f;menu.scaleY=1f}}
     private val glide=android.view.animation.PathInterpolator(.2f,0f,0f,1f)

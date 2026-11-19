@@ -18,7 +18,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private var filter=0
  private var query=""
  private var searchGeneration=0
- private val fields=listOf("quotes","notes","bookmarks")
+ private val fields=listOf("quotes","bookmarks")
  fun show(){
   box.addView(tabs);a.space(box,16);box.addView(pane)
   // One segment for the whole life of the sheet, so its thumb can slide; only the pane below is swapped.
@@ -93,10 +93,8 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  }
  private fun selectFilter(index:Int){if(index==filter)return;filter=index;updateChips(true);drawNotebook(true)}
  private fun updateChips(animate:Boolean){
-  // a thought tied to a quote is part of that quote: counted once, with the quotes
-  val quoteIds=r.book.optJSONArray("quotes")?.objects().orEmpty().map{it.str("id")}.toSet()
-  val loose=r.book.optJSONArray("notes")?.objects().orEmpty().count{it.str("quoteId").isBlank()||it.str("quoteId") !in quoteIds}
-  val q=(r.book.optJSONArray("quotes")?.length()?:0)+loose;val b=r.book.optJSONArray("bookmarks")?.length()?:0;val all=listOf(q+b,q,b)
+  // a note is part of its quote: only quotes and bookmarks are counted
+  val q=r.book.optJSONArray("quotes")?.length()?:0;val b=r.book.optJSONArray("bookmarks")?.length()?:0;val all=listOf(q+b,q,b)
   chipViews.forEachIndexed{i,chip->
    chip.text="${chipLabels[i]} ${all[i]}";val on=i==filter;chip.isSelected=on
    val shape=chip.tag as android.graphics.drawable.GradientDrawable;val bg=if(on)a.fg else quiet();val ink=if(on)a.bg else a.fg
@@ -110,26 +108,23 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   if(!::notebookResults.isInitialized||selected!=1)return
   if(chipViews.isNotEmpty()&&!animate)updateChips(false)
   notebookResults.removeAllViews()
-  val quoteIds=r.book.optJSONArray("quotes")?.objects().orEmpty().map{it.str("id")}.toSet()
-  val rows=fields.flatMapIndexed{index,key->r.book.optJSONArray(key)?.objects().orEmpty().map{index to it}}.filter{(kind,item)->!(kind==1&&item.str("quoteId") in quoteIds&&item.str("quoteId").isNotBlank())}.filter{(kind,item)->(filter==0||(filter==1&&kind<=1)||(filter==2&&kind==2))&&("${item.str("text")} ${fragment(kind,item)} ${r.chapterName(item.optInt("ch"))}").contains(query,true)}.sortedByDescending{it.second.optLong("updatedAt",it.second.optLong("at"))}
+  val rows=fields.flatMapIndexed{index,key->r.book.optJSONArray(key)?.objects().orEmpty().map{index to it}}.filter{(kind,item)->(filter==0||(filter==1&&kind==0)||(filter==2&&kind==1))&&("${item.str("text")} ${item.str("note")} ${r.chapterName(item.optInt("ch"))}").contains(query,true)}.sortedByDescending{it.second.optLong("updatedAt",it.second.optLong("at"))}
   if(rows.isEmpty()){
    val box=if(query.isNotBlank())a.emptyView("search","Ничего не нашлось","Попробуйте другое слово.",100) else if(filter==2)a.emptyView("bookmark","Пока нет закладок","Нажмите на закладку в нижней панели.",100) else a.emptyView("note",if(filter==1)"Пока нет цитат" else "Пока нет записей","Выделите текст и нажмите «Цитата» или «Заметка».",100)
    box.setPadding(0,a.d(52),0,a.d(24))
    notebookResults.addView(box,LinearLayout.LayoutParams(-1,-2));fadeResults(animate);return
   }
   rows.forEach{(kind,item)->
-   // quotes are the same cards as on «Цитаты» and the book card (no fan), the thought inside them
+   // quotes are the same cards as on «Цитаты» and the book card (no fan), the note inside them; a tap on the quote goes to its place
    if(kind==0){
     val go={close();r.goToLocation(item.optInt("ch"),item.optInt("start",item.optInt("nativeOffset",0)))}
-    val card=a.quoteCardNative(r.book,item,onOpen=go,onGo=go,onThought={n->a.editThought(r.book,n,quote=item,ch=item.optInt("ch"))},onDelete={
-     a.confirm("Удалить цитату?","Мысли к этому фрагменту останутся в блокноте."){r.book.put("quotes",JSONArray(r.book.optJSONArray("quotes")?.objects().orEmpty().filter{it.str("id")!=item.str("id")}));r.persist();r.paginate();drawNotebook()}})
+    val card=a.quoteCardNative(r.book,item,onOpen=go,onDelete={
+     a.confirm("Удалить цитату?",if(item.str("note").isBlank())"Удалить выбранную запись?" else "Заметка к ней тоже удалится."){r.book.put("quotes",JSONArray(r.book.optJSONArray("quotes")?.objects().orEmpty().filter{it.str("id")!=item.str("id")}));r.persist();r.paginate();drawNotebook()}})
     notebookResults.addView(card,LinearLayout.LayoutParams(-1,-2));a.space(notebookResults,14);return@forEach}
-   notebookResults.addView(entryCard(kind,item),LinearLayout.LayoutParams(-1,-2));a.space(notebookResults,if(kind==2)10 else 14)
+   notebookResults.addView(bookmarkCard(item),LinearLayout.LayoutParams(-1,-2));a.space(notebookResults,10)
   }
   fadeResults(animate)
  }
- /** Notes and bookmarks as the same kind of card as the quotes (approved look), in a quiet neutral tone: a small
-  *  label and the date on top, the fragment in the book's serif, the thought, then the chapter and round buttons. */
  /** A bookmark: one compact line — the chapter once, the page and the date under it, go and remove on the right. */
  private fun bookmarkCard(item:JSONObject):View{
   val tone=a.fg and 0xffffff
@@ -148,44 +143,12 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
    setOnClickListener{a.confirm("Удалить закладку?","Удалить выбранную запись?"){r.book.put("bookmarks",JSONArray(r.book.optJSONArray("bookmarks")?.objects().orEmpty().filter{it.str("id")!=item.str("id")}));r.persist();drawNotebook();r.refreshBookmark()}}},LinearLayout.LayoutParams(a.d(36),a.d(36)))
   return card
  }
- private fun entryCard(kind:Int,item:JSONObject):View{
-  if(kind==2)return bookmarkCard(item)
-  val whole=kind==1&&item.str("scope")=="book";val ink=a.fg;val tone=(ink and 0xffffff)
-  val card=a.column().apply{a.floatCard(this,24);background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(24).toFloat();setStroke(1,(0x14 shl 24) or tone)}
-   setPadding(a.d(18),a.d(14),a.d(14),a.d(10));contentDescription="${listOf("Цитата","Заметка","Закладка")[kind]}: ${item.str("text")}"}
-  val go={close();r.goToLocation(item.optInt("ch"),item.optInt("start",item.optInt("nativeOffset",0)))}
-  val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-  top.addView(IconView(a,if(kind==2)"bookmark" else "pen",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{rightMargin=a.d(6)})
-  top.addView(a.text(if(whole)"О книге" else listOf("Цитата","Заметка","Закладка")[kind],12f,a.muted,true),LinearLayout.LayoutParams(0,-2,1f))
-  top.addView(a.text(java.text.SimpleDateFormat("d MMMM",java.util.Locale.forLanguageTag("ru")).format(java.util.Date(item.optLong("at",System.currentTimeMillis()))),12f,a.muted))
-  card.addView(top)
-  val fragment=fragment(kind,item)
-  if(fragment.isNotBlank())card.addView(a.text(fragment,if(kind==2)17f else 15.5f,if(kind==2)a.fg else a.muted,serif=true).apply{cssLeading(1.55f);maxLines=if(kind==2)6 else 4;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(10),0,0);if(!whole)setOnClickListener{go()}})
-  if(kind==1)card.addView(a.text(item.str("text"),16f).apply{cssLeading(1.5f);setPadding(0,a.d(10),0,0);setOnClickListener{a.editThought(r.book,item,item.str("scope","chapter"),ch=item.optInt("ch"))}})
-  card.addView(View(a).apply{setBackgroundColor((0x1f shl 24) or tone)},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14)})
-  val foot=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(10),0,a.d(2))}
-  foot.addView(a.text(if(whole)"Вся книга" else r.chapterName(item.optInt("ch")),12.5f,a.fg,true).apply{background=a.shape((0x14 shl 24) or tone,14);setPadding(a.d(10),a.d(4),a.d(10),a.d(5));maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)})
-  if(kind==2)r.pageOf(item.optInt("ch"),item.optInt("nativeOffset",0),item.optInt("page"))?.let{p->foot.addView(a.text("стр. $p",12.5f,a.fg,true).apply{background=a.shape((0x14 shl 24) or tone,14);setPadding(a.d(10),a.d(4),a.d(10),a.d(5))},LinearLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(6)})}
-  foot.addView(View(a),LinearLayout.LayoutParams(0,1,1f))
-  fun round(icon:String,desc:String,fn:()->Unit){foot.addView(FrameLayout(a).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor((0x14 shl 24) or tone)};isClickable=true;contentDescription=desc
-   addView(QuoteActionIcon(a,icon,a.fg),FrameLayout.LayoutParams(a.d(22),a.d(22),Gravity.CENTER));a.press(this);setOnClickListener{fn()}},LinearLayout.LayoutParams(a.d(38),a.d(38)).apply{leftMargin=a.d(8)})}
-  if(!whole)round("go","К месту в книге"){go()}
-  if(kind==1)round("pen","Изменить мысль"){a.editThought(r.book,item,item.str("scope","chapter"),ch=item.optInt("ch"))}
-  if(kind!=2)round("copy","Копировать запись"){
-   val text=(if(fragment.isBlank())"" else "«$fragment»\n\n")+item.str("text")
-   (a.getSystemService(Context.CLIPBOARD_SERVICE)as android.content.ClipboardManager).setPrimaryClip(ClipData.newPlainText("Блокнот",text))}
-  round("trash","Удалить ${listOf("цитату","мысль","закладку")[kind]}"){
-   a.confirm("Удалить ${listOf("цитату","мысль","закладку")[kind]}?","Удалить выбранную запись?"){
-    val field=fields[kind];r.book.put(field,JSONArray(r.book.optJSONArray(field)?.objects().orEmpty().filter{it.str("id")!=item.str("id")}));r.persist();drawNotebook();r.refreshBookmark()}}
-  card.addView(foot);return card
- }
  private fun fadeResults(animate:Boolean){
   notebookResults.animate().cancel()
   if(!animate||reduced()){notebookResults.alpha=1f;notebookResults.translationY=0f;return}
   notebookResults.alpha=0f;notebookResults.translationY=a.d(8).toFloat()
   notebookResults.animate().alpha(1f).translationY(0f).setDuration(240).setStartDelay(40).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()
  }
- private fun fragment(kind:Int,item:JSONObject):String=if(kind!=1)item.str("text")else r.book.optJSONArray("quotes")?.objects()?.firstOrNull{it.str("id")==item.str("quoteId")&&item.str("quoteId").isNotBlank()}?.str("text")?:item.str("quoteText",item.str("quote"))
  private fun search(){
   val input=a.edit("","Поиск").apply{contentDescription="Поиск по книге";imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH};val results=a.column();pane.addView(searchField(input));a.space(pane,14);pane.addView(results)
   fun run(){val generation=++searchGeneration;val q=input.text.toString().trim();results.removeAllViews();if(q.length<2)return;results.addView(a.text("Поиск…",15f,a.muted));r.searchEntries(q){rows->if(generation==searchGeneration&&selected==2&&box.isAttachedToWindow){results.removeAllViews();if(rows.isEmpty()){results.addView(a.emptyView("search","Ничего не нашлось","Этого слова нет в книге.",100).apply{setPadding(0,a.d(52),0,a.d(24))},LinearLayout.LayoutParams(-1,-2));return@searchEntries};results.addView(a.text("Найдено: ${rows.size}",13f,a.muted));rows.forEach{row->results.addView(a.text(row.third,15f).apply{setPadding(0,a.d(12),0,a.d(12));setOnClickListener{close();r.goToLocation(row.first,row.second)}})}}}}

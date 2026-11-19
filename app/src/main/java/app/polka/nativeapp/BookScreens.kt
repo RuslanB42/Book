@@ -12,14 +12,6 @@ fun MainActivity.ratingStars(book:JSONObject,onChange:(Int)->Unit):View {
     return NativeRating(this,book.optInt("rating"),true,onChange)
 
 }
-fun MainActivity.editThought(book:JSONObject,note:JSONObject?=null,scope:String="chapter",quote:JSONObject?=null,ch:Int=0) {
-    val input=edit(note?.str("text").orEmpty(),"Ваши мысли",true)
-    dialog().setTitle(if(scope=="book") "Мысли о книге" else "Заметка").setView(input).setNegativeButton("Отмена",null).setPositiveButton("Сохранить") { _,_ ->
-        val list=book.optJSONArray("notes")?.objects().orEmpty().filterNot { note!=null && it.str("id")==note.str("id") }.toMutableList()
-        if(input.text.isNotBlank()) list.add((note?.copyJson() ?: JSONObject().put("id",uid()).put("at",System.currentTimeMillis())).put("text",input.text.toString()).put("scope",scope).put("ch",ch).apply { quote?.let { put("quoteId",it.str("id")); put("quote",it.str("text")) } })
-        book.put("notes",JSONArray(list)); saveBook(book) {}
-    }.show()
-}
 /** «Данные книги»: a live cover preview on top, grouped borderless fields on floating cards, one primary action. */
 fun MainActivity.metadataEditor(book:JSONObject) {
     val box=column().apply{clipChildren=false;clipToPadding=false;setPadding(0,d(4),0,d(8))}; val fields=linkedMapOf<String,EditText>()

@@ -154,7 +154,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         body.customSelectionActionModeCallback=object:ActionMode.Callback {
             override fun onCreateActionMode(mode:ActionMode,menu:Menu):Boolean { menu.add(0,700,0,"Цитата").setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS); menu.add(0,701,1,"Заметка"); return true }
             override fun onPrepareActionMode(mode:ActionMode,menu:Menu)=false
-            override fun onActionItemClicked(mode:ActionMode,item:MenuItem):Boolean { if(item.itemId !in 700..701) return false; val start=minOf(body.selectionStart,body.selectionEnd); val end=maxOf(body.selectionStart,body.selectionEnd); if(start>=0 && end>start) { val text=body.text.subSequence(start,end).toString(); if(item.itemId==700) addQuote(start+pageBase(),end+pageBase(),text) else addNote(text) }; mode.finish(); return true }
+            override fun onActionItemClicked(mode:ActionMode,item:MenuItem):Boolean { if(item.itemId !in 700..701) return false; val start=minOf(body.selectionStart,body.selectionEnd); val end=maxOf(body.selectionStart,body.selectionEnd); if(start>=0 && end>start) { val text=body.text.subSequence(start,end).toString(); if(item.itemId==700) addQuote(start+pageBase(),end+pageBase(),text) else noteOn(start+pageBase(),end+pageBase(),text) }; mode.finish(); return true }
             override fun onDestroyActionMode(mode:ActionMode) {}
         }
         scroll.defaultFocusHighlightEnabled=false;scroll.isVerticalScrollBarEnabled=false;scroll.overScrollMode=View.OVER_SCROLL_NEVER;scroll.isFillViewport=true;scroll.addView(body);view.addView(scroll,0,FrameLayout.LayoutParams(-1,-1))
@@ -336,10 +336,10 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     /** The saved quote that the selection mostly covers (or that covers it), if any. */
     internal fun quoteOverlapping(start:Int,end:Int):Pair<JSONObject,IntRange>? = quoteRanges().map { it to (minOf(end,it.second.last+1)-maxOf(start,it.second.first)) }.filter { it.second>0 && it.second*2>=minOf(end-start,it.first.second.last+1-it.first.second.first) }.maxByOrNull { it.second }?.first
     /** Marks the quote in place: the page's text, line breaks and position stay exactly as they are. */
-    fun addQuote(start:Int,end:Int,text:String,color:String=QuoteColors.last(a)) { val quotes=book.optJSONArray("quotes") ?: JSONArray(); if(quotes.objects().none { it.optInt("ch")==chapter && it.str("text")==text }) quotes.put(JSONObject().put("id",uid()).put("ch",chapter).put("start",start).put("end",end).put("block",0).put("text",text).put("rawText",text).put("color",color).put("chTitle",chapterName(chapter)).put("at",System.currentTimeMillis())); book.put("quotes",quotes)
+    fun addQuote(start:Int,end:Int,text:String,color:String=QuoteColors.last(a)):JSONObject { val quotes=book.optJSONArray("quotes") ?: JSONArray(); val q=quotes.objects().firstOrNull { it.optInt("ch")==chapter && it.str("text")==text } ?: JSONObject().put("id",uid()).put("ch",chapter).put("start",start).put("end",end).put("block",0).put("text",text).put("rawText",text).put("color",color).put("chTitle",chapterName(chapter)).put("at",System.currentTimeMillis()).also { quotes.put(it) }; book.put("quotes",quotes)
         val rich=chapterRich as? android.text.Spannable
-        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.setSpan(QuoteInk(QuoteColors.ink(color)),start.coerceIn(0,rich.length),end.coerceIn(0,rich.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); repaintMarks() }
-        persist() }
+        if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.setSpan(QuoteInk(QuoteColors.ink(q.optString("color",color))),start.coerceIn(0,rich.length),end.coerceIn(0,rich.length),android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); repaintMarks() }
+        persist(); return q }
     /** Gives a saved quote another highlight colour, in place. */
     /** Recolours a saved quote: the colour glides from the old ink to the new one on every span drawn for it (chapter text and the shown page). */
     fun recolorQuote(quote:JSONObject,range:IntRange,color:String,animate:Boolean=true,fromInk:Int=QuoteColors.ink(color),save:Boolean=true) { book.optJSONArray("quotes")?.objects()?.firstOrNull { it.str("id")==quote.str("id") }?.put("color",color); quote.put("color",color)
@@ -369,7 +369,8 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         persist() }
     /** Same page, same breaks: only the page text is re-set so the new marks show; stale page pictures are dropped. */
     private fun repaintMarks() { cachedCurrent=null; cachedNext=null; previewPages.clear(); body.text=pageText(chapterRich,pageStarts,pageIndex);stretchNow(); quoteSelection.invalidate(); warmSnapshot() }
-    fun addNote(selected:String="") { val input=a.edit("","Ваши мысли",true); a.dialog().setTitle("Заметка").setView(input).setNegativeButton("Отмена",null).setPositiveButton("Сохранить") { _,_ -> if(input.text.isNotBlank()) { val notes=book.optJSONArray("notes") ?: JSONArray(); notes.put(JSONObject().put("id",uid()).put("ch",chapter).put("text",input.text.toString()).put("quote",selected).put("at",System.currentTimeMillis())); book.put("notes",notes); persist() } }.show() }
+    /** «Заметка»: the fragment is kept as a quote (or the saved one is taken) and its note opens right away. */
+    fun noteOn(start:Int,end:Int,text:String,prefill:String="") { val q=quoteOverlapping(start,end)?.first ?: addQuote(start,end,text); a.editQuoteNote(book,q,prefill) }
     private var pulling=false;private var pullZone=false;private var pullReached=false
     /** Pulling down anywhere on the page draws the ribbon out on the right: past the threshold the bookmark is added (or removed if the page already has one). */
     private fun startPull(){pulling=true;pullReached=false;body.cancelLongPress();scroll.parent.requestDisallowInterceptTouchEvent(true)}
@@ -473,7 +474,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private fun openWordAt(offset:Int):Boolean{val t=chapterRich as? android.text.Spanned?:return false;if(t.isEmpty())return false
         val m=t.getSpans((offset-1).coerceAtLeast(0),(offset+1).coerceAtMost(t.length),LearnMark::class.java).firstOrNull{t.getSpanStart(it)<=offset&&offset<t.getSpanEnd(it)}?:return false
         val s=t.getSpanStart(m);val e=t.getSpanEnd(m)
-        LookupSheet(a,backgroundColor,t.subSequence(s,e).toString(),WordSource(Words.sentence(t,s,e),book.str("id"),book.str("title"))){addNote(it)}.dictionary();return true}
+        LookupSheet(a,backgroundColor,t.subSequence(s,e).toString(),WordSource(Words.sentence(t,s,e),book.str("id"),book.str("title"))){noteOn(s,e,t.subSequence(s,e).toString(),it)}.dictionary();return true}
     /** Words were added or removed: lay the chapter out again with the new underlines. */
     fun refreshWordMarks(){if(disposed)return;previewPages.clear();paintChapter()}
     internal fun pageLimit()=pageStarts.getOrElse(pageIndex+1){chapterRich.length}
