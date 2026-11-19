@@ -46,10 +46,18 @@ internal class SwipeBack(private val a:MainActivity){
                     if(e.actionMasked==MotionEvent.ACTION_UP&&(dx>w/3||vx>a.d(900)))leave(dx,w) else back(dx)}
                 tracking=false;velocity?.recycle();velocity=null;if(was)return true}}
         return active}
-    private fun move(dx:Float){val v=view?:return;v.translationX=dx;if(v===a.scroll)v.alpha=1f-.25f*(dx/a.root.width.coerceAtLeast(1))}
-    private fun back(from:Float){settle?.cancel();settle=ValueAnimator.ofFloat(from,0f).apply{duration=320;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{move(it.animatedValue as Float)};start()}}
+    /** Under a shelf's page: the picture of the list it was opened from, shown while the page is dragged away. */
+    private var under:android.widget.ImageView?=null
+    private fun uncover(){if(view!==a.scroll||under!=null)return;val b=a.backdrop?:return
+        val iv=android.widget.ImageView(a).apply{setImageBitmap(b);scaleType=android.widget.ImageView.ScaleType.MATRIX;setBackgroundColor(a.bg)}
+        val at=IntArray(2);a.scroll.getLocationInWindow(at);val rootAt=IntArray(2);a.root.getLocationInWindow(rootAt)
+        a.root.addView(iv,a.root.indexOfChild(a.scroll),android.widget.FrameLayout.LayoutParams(a.scroll.width,a.scroll.height).apply{leftMargin=at[0]-rootAt[0];topMargin=at[1]-rootAt[1]});under=iv}
+    private fun cover(){under?.let{a.root.removeView(it)};under=null}
+    private fun move(dx:Float){val v=view?:return;if(dx>0f)uncover();v.translationX=dx}
+    private fun back(from:Float){settle?.cancel();settle=ValueAnimator.ofFloat(from,0f).apply{duration=320;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{move(it.animatedValue as Float)}
+        addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){cover()}});start()}}
     private fun leave(from:Float,w:Float){settle?.cancel();settle=ValueAnimator.ofFloat(from,w).apply{duration=(220*(1-from/w)).toLong().coerceAtLeast(90);interpolator=PathInterpolator(.3f,0f,.6f,1f)
         addUpdateListener{move(it.animatedValue as Float)}
         addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){val v=view;view=null
-            if(v===a.scroll){v.translationX=0f;v.alpha=1f;a.swipedBack()} else if(v!=null)a.swipedAway(v)}});start()}}
+            if(v===a.scroll){v.translationX=0f;a.swipedBack();cover()} else if(v!=null)a.swipedAway(v)}});start()}}
 }

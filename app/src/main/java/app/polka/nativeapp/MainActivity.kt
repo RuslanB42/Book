@@ -179,6 +179,15 @@ class MainActivity : Activity() {
     internal val focusKeepers=java.util.Collections.newSetFromMap(java.util.WeakHashMap<View,Boolean>())
     internal val touchWatchers=java.util.concurrent.CopyOnWriteArrayList<(android.view.MotionEvent)->Unit>()
     private val swipeBack by lazy{SwipeBack(this)}
+    private var wasDeep=false
+    /** The list under a shelf / a book's quotes, as it was when it was left (see render), and where it was scrolled. */
+    internal var backdrop:android.graphics.Bitmap?=null
+    internal var backdropY=0
+    private var backdropTab="shelves"
+    internal fun markShallow(){wasDeep=false}
+    internal fun captureBackdrop(){wasDeep=true;if(!::scroll.isInitialized||scroll.width<=0||scroll.height<=0)return
+        backdrop=try{val b=android.graphics.Bitmap.createBitmap(scroll.width,scroll.height,android.graphics.Bitmap.Config.ARGB_8888)
+            val c=android.graphics.Canvas(b);c.drawColor(bg);c.translate(0f,-scroll.scrollY.toFloat());scroll.draw(c);backdropY=scroll.scrollY;backdropTab=tab;b}catch(e:Throwable){null}}
     override fun dispatchTouchEvent(ev:android.view.MotionEvent):Boolean{if(ev.actionMasked==android.view.MotionEvent.ACTION_DOWN)touchWatchers.forEach{it(ev)}
         if(::scroll.isInitialized&&swipeBack.handle(ev){val now=android.os.SystemClock.uptimeMillis();val c=android.view.MotionEvent.obtain(now,now,android.view.MotionEvent.ACTION_CANCEL,ev.x,ev.y,0);super.dispatchTouchEvent(c);c.recycle()})return true
         return super.dispatchTouchEvent(ev)}
@@ -186,8 +195,8 @@ class MainActivity : Activity() {
     internal fun swipedAway(v:View){when{v===settingsPage->settingsPage=null;v===profileOverlay->{profileOverlay=null;profileStats=null}};root.removeView(v)}
     /** A swipe back finished: the list this page came from glides in from the left. */
     internal fun swipedBack(){when{
-        quoteBookId!=null->openQuoteGroup(null)
-        shelf!=null||auto!=null->{pendingMotion=MotionPose(.6f,x=-d(34).toFloat()) to MotionSpec.SHELF;shelf=null;auto=null;query="";tab="shelves";render(false,false)}}}
+        quoteBookId!=null->openQuoteGroup(null,quiet=true)
+        shelf!=null||auto!=null->{val y=backdropY;val back=if(backdrop!=null)backdropTab else "shelves";shelf=null;auto=null;query="";tab=back;render(false,false);scroll.post{scroll.scrollTo(0,y)}}}}
     override fun onCreate(savedInstanceState: Bundle?) {
         PolkaFonts.init(this)
         setTheme(R.style.AppTheme)
@@ -276,6 +285,12 @@ class MainActivity : Activity() {
         if(reader!=null||destroying)return
         if(bookClosing&&!preparingBookReturn){renderDeferred=true;return}
         if(loadingReader){renderDeferred=true;return}
+        // Going one level in (a shelf, a status shelf, a book's quotes): keep a picture of the list being left, so a
+        // swipe back uncovers it under the finger, the same way the settings and the profile uncover the page below.
+        val deep=shelf!=null||auto!=null||quoteBookId!=null
+        if(deep&&!wasDeep)captureBackdrop()
+        if(!deep)backdrop=null
+        wasDeep=deep
         if(shelfReorder!=null || bookDetailSheet?.isShowing==true){renderDeferred=true;return}
         renderDeferred=false
         val oldY=if(preservePosition && ::scroll.isInitialized) scroll.scrollY else 0

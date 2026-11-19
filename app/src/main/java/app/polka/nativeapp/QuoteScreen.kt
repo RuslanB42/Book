@@ -10,8 +10,12 @@ private fun MainActivity.quoteGroups():List<QuoteGroup> {
     val all=books.flatMap{b->b.optJSONArray("quotes")?.objects().orEmpty().filter{query.isBlank() || (it.str("text")+b.str("title")+MainActivity.authors(b)).contains(query,true)}.map{b to it}}.sortedByDescending{it.second.optLong("at")}
     return all.groupBy{it.first.str("id")}.values.map{items->QuoteGroup(items.first().first,items.map{it.second})}
 }
-fun MainActivity.openQuoteGroup(id:String?) {
+fun MainActivity.openQuoteGroup(id:String?,quiet:Boolean=false) {
     if(quoteBookId==id)return
+    // a picture of the list of books, for a swipe back to uncover (see render)
+    if(id!=null&&quoteBookId==null)captureBackdrop()
+    if(quiet){quoteBookId=id;page.removeAllViews();quotes();val y=backdropY;scroll.post{scroll.scrollTo(0,y)};if(id==null){backdrop=null;markShallow()};return}
+    if(id==null){backdrop=null;markShallow()}
     screenMotion.stop();val ghost=screenMotion.captureOutgoing(page,id!=null);quoteBookId=id
     page.removeAllViews();quotes();scrollAncestor(page)?.scrollTo(0,0)
     // Arm incoming states BEFORE the first draw; posting alpha=0 flashes the final layout once.
