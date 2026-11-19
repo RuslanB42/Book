@@ -127,9 +127,22 @@ class PolkaSheetBuilder(private val a:MainActivity) {
             override fun dismiss() {
                 val body=panel
                 if(allowFinalDismiss || body==null || !isShowing || a.isFinishing || a.isDestroyed || a.prefs.str("motion")=="reduced") { super.dismiss(); return }
-                if(closing) return; closing=true; body.animate().cancel(); body.isEnabled=false
+                if(closing) return
+                // With the keyboard up, it goes away first (the sheet rides down with it) and the sheet leaves only once
+                // it is gone: leaving earlier handed the keyboard to the page below for a moment, and it popped up again.
+                val dv=window?.decorView
+                if(!imeWaited&&dv!=null&&androidx.core.view.ViewCompat.getRootWindowInsets(dv)?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime())==true){
+                    imeWaited=true;closing=true
+                    (a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(dv.windowToken,0)
+                    val started=android.os.SystemClock.uptimeMillis()
+                    val wait=object:Runnable{override fun run(){val i=androidx.core.view.ViewCompat.getRootWindowInsets(dv)
+                        val gone=i==null||(!i.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime())&&i.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom==0)
+                        if(gone||android.os.SystemClock.uptimeMillis()-started>900||!dv.isAttachedToWindow){closing=false;dismiss()} else dv.postOnAnimation(this)}}
+                    dv.postOnAnimation(wait);return}
+                closing=true; body.animate().cancel(); body.isEnabled=false
                 motion?.to(1f)
             }
+            private var imeWaited=false
             override fun onCreate(b:Bundle?) {
                 super.onCreate(b)
                 val owner:DialogInterface=this

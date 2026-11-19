@@ -39,8 +39,8 @@ internal fun MainActivity.inputDialog(title:String,value:String="",hint:String="
     space(box,16)
     var sheet:android.app.AlertDialog?=null
     fun ready()=input.text.toString().trim().let{it.isNotEmpty()&&it!=value.trim()}
-    // the keyboard goes first and the sheet rides down with it (dismissing at once left the keyboard hanging over the page)
-    val go=button(action,true){if(ready()){val v=input.text.toString().trim();(getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(input.windowToken,0);input.postDelayed({sheet?.dismiss()},90);done(v)}}
+    // (the sheet itself lets the keyboard go first and leaves after it, see PolkaSheetBuilder.dismiss)
+    val go=button(action,true){if(ready()){val v=input.text.toString().trim();sheet?.dismiss();done(v)}}
     fun paint(){val on=ready();go.isEnabled=on;go.animate().alpha(if(on)1f else .38f).setDuration(140).start()}
     go.alpha=if(ready())1f else .38f;go.isEnabled=ready()
     box.addView(go,LinearLayout.LayoutParams(-1,d(52)))
@@ -51,7 +51,6 @@ internal fun MainActivity.inputDialog(title:String,value:String="",hint:String="
     // keyboard right away, once the sheet is on screen
     // the keyboard is asked for at once, so the sheet and the keyboard rise together in one motion (asking later let
     // the sheet settle low first and then jump up with the keyboard)
-    sheet?.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
     input.requestFocus()
     input.post{if(input.isAttachedToWindow){input.requestFocus();(getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input,InputMethodManager.SHOW_IMPLICIT)}}
 }
