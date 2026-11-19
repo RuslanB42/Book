@@ -178,7 +178,14 @@ class MainActivity : Activity() {
     /** Taps inside these do not take focus away from the text field being typed in. */
     internal val focusKeepers=java.util.Collections.newSetFromMap(java.util.WeakHashMap<View,Boolean>())
     internal val touchWatchers=java.util.concurrent.CopyOnWriteArrayList<(android.view.MotionEvent)->Unit>()
-    override fun dispatchTouchEvent(ev:android.view.MotionEvent):Boolean{if(ev.actionMasked==android.view.MotionEvent.ACTION_DOWN)touchWatchers.forEach{it(ev)};return super.dispatchTouchEvent(ev)}
+    private val swipeBack by lazy{SwipeBack(this)}
+    override fun dispatchTouchEvent(ev:android.view.MotionEvent):Boolean{if(ev.actionMasked==android.view.MotionEvent.ACTION_DOWN)touchWatchers.forEach{it(ev)}
+        if(::scroll.isInitialized&&swipeBack.handle(ev){val now=android.os.SystemClock.uptimeMillis();val c=android.view.MotionEvent.obtain(now,now,android.view.MotionEvent.ACTION_CANCEL,ev.x,ev.y,0);super.dispatchTouchEvent(c);c.recycle()})return true
+        return super.dispatchTouchEvent(ev)}
+    /** A swipe back finished: the list this page came from glides in from the left. */
+    internal fun swipedBack(){when{
+        quoteBookId!=null->openQuoteGroup(null)
+        shelf!=null||auto!=null->{pendingMotion=MotionPose(.6f,x=-d(34).toFloat()) to MotionSpec.SHELF;shelf=null;auto=null;query="";tab="shelves";render(false,false)}}}
     override fun onCreate(savedInstanceState: Bundle?) {
         PolkaFonts.init(this)
         setTheme(R.style.AppTheme)

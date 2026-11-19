@@ -242,7 +242,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                     MotionEvent.ACTION_MOVE -> {motion?.snap(((grabbed+e.rawY-down)/box.height.coerceAtLeast(1)).coerceIn(0f,1f))}
                     MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL -> { val dy=box.translationY; val speed=dy/maxOf(1,e.eventTime-downAt); if(e.actionMasked==MotionEvent.ACTION_UP && (dy>a.d(120) || speed>.6f*a.resources.displayMetrics.density)) dismiss() else {motion?.snap(dy/box.height.coerceAtLeast(1));if(a.prefs.str("motion")=="reduced")motion?.snap(0f)else motion?.to(0f)} }
                 }; true }
-                handle.setOnTouchListener(drag); head.setOnTouchListener(drag);box.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){};override fun onViewDetachedFromWindow(v:View){motion?.stop()}})
+                handle.setOnTouchListener(drag); head.setOnTouchListener(drag);frame.drag=drag;box.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){};override fun onViewDetachedFromWindow(v:View){motion?.stop()}})
             }
         }
         sheet.setCancelable(cancel); sheet.setCanceledOnTouchOutside(cancel); sheet.show(); prepareKeyboard(sheet); if(a.immersiveSheets&&a.reader==null)ReaderWindow.configure(sheet.window!!,true,a.bg); if(a.reader!=null){ReaderWindow.configure(sheet.window!!,true,a.bg);sheet.setOnDismissListener{if(a.reader!=null)ReaderWindow.configure(a.window,true,a.bg)}}; return sheet
@@ -253,6 +253,28 @@ class PolkaSheetBuilder(private val a:MainActivity) {
 internal class PolkaSheetFrame(private val a:MainActivity,internal val panel:LinearLayout,private val tall:Boolean,private val wide:Boolean):FrameLayout(a) {
     internal var sampleEntry:((Long)->Unit)?=null
     internal var startEntry:(()->Unit)?=null
+    /** The sheet's own drag (the one its grip and title use); a downward swipe anywhere on the sheet hands over to it. */
+    internal var drag:View.OnTouchListener?=null
+    private var dy0=0f;private var dx0=0f;private var watching=false;private var dragging=false
+    private val slop=android.view.ViewConfiguration.get(a).scaledTouchSlop
+    /** Whether something under the finger can still scroll up (a list not at its top): then the swipe scrolls it. */
+    private fun scrollsUp(v:View,x:Int,y:Int):Boolean{if(!v.isShown)return false;val r=android.graphics.Rect();if(!v.getGlobalVisibleRect(r)||!r.contains(x,y))return false
+        if(v.canScrollVertically(-1))return true
+        if(v is ViewGroup)for(i in v.childCount-1 downTo 0)if(scrollsUp(v.getChildAt(i),x,y))return true;return false}
+    /** Swipe down anywhere on the sheet to close it, not only by its grip: once the finger clearly goes down (and no
+     *  list under it can scroll up), the touch becomes the sheet's drag and the content under it gets a cancel. */
+    override fun dispatchTouchEvent(e:MotionEvent):Boolean{val d=drag?:return super.dispatchTouchEvent(e)
+        when(e.actionMasked){
+            MotionEvent.ACTION_DOWN->{dragging=false;val r=android.graphics.Rect();panel.getGlobalVisibleRect(r)
+                watching=r.contains(e.rawX.toInt(),e.rawY.toInt())&&!scrollsUp(panel,e.rawX.toInt(),e.rawY.toInt());dy0=e.rawY;dx0=e.rawX}
+            MotionEvent.ACTION_MOVE->if(watching&&!dragging){val dy=e.rawY-dy0;val dx=e.rawX-dx0
+                if(dy<-slop||kotlin.math.abs(dx)>slop&&kotlin.math.abs(dx)>dy)watching=false
+                else if(dy>slop&&dy>kotlin.math.abs(dx)*1.5f){dragging=true
+                    val now=android.os.SystemClock.uptimeMillis();val c=MotionEvent.obtain(now,now,MotionEvent.ACTION_CANCEL,e.x,e.y,0);super.dispatchTouchEvent(c);c.recycle()
+                    val down=MotionEvent.obtain(now,now,MotionEvent.ACTION_DOWN,e.rawX,dy0,0);d.onTouch(this,down);down.recycle()}}
+        }
+        if(dragging){d.onTouch(this,e);if(e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL){dragging=false;watching=false};return true}
+        return super.dispatchTouchEvent(e)}
     internal val shade=View(a).apply{setBackgroundColor(0x57000000)}
     private var safe=androidx.core.graphics.Insets.NONE
     init {
