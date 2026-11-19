@@ -44,7 +44,7 @@ internal object ReaderWindow {
    val ime=compat.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom
    // while the keyboard slides, its height comes frame by frame from the animation callback
    // a keyboard followed by a transform (shelf rename) never re-pads the page
-   if(!a.imeAnimating){a.imeNow=ime;if(a.imeFollower==null)a.imeBottom=ime}
+   if(!a.imeAnimating){a.imeNow=ime;if(a.imeFollower==null)a.imeBottom=if(ime>0&&!a.readerTyping()&&!a.pageIme)0 else ime}
    a.pushInsets()
    if(!a.imeAnimating)a.imeVisible(ime>0)
   }

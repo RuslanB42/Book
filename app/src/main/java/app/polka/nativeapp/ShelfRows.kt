@@ -184,7 +184,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         override fun onTouchEvent(e:MotionEvent)=false
         override fun onDraw(c:Canvas){if(width<1)return;val light=a.light;val feet=height-full.toFloat()
             // the wall darkens toward the shelf, fading out toward both ends
-            c.drawBitmap(ShelfShade.wall(a,width,light),0f,feet-a.d(70),p)
+            // (no darkened band on the wall above the shelf: it read as a layered shadow)
             // every book's soft shadow on the wall, baked once
             val sh=ShelfShade.book(a,coverW,coverH,light);val pad=ShelfShade.pad(a)
             forCovers{x,y->c.drawBitmap(sh,x-pad,y-pad,p)}}
@@ -391,7 +391,7 @@ internal fun MainActivity.shelfRows(){
         if(taken){Notice.short(this,Notice.Kind.SHELF,"Полка «$name» уже есть");false}
         else{prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct()));savePreferences();editor.grow(own(name,emptyList()));true}}
     page.addView(slot,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(if(rows.isEmpty()||!shelvesEditing)0 else 10)});if(!shelvesEditing)slot.visibility=View.GONE
-    editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor;shelfSlot=slot;addShelfRow={name->editor.grow(own(name,emptyList()),true)}
+    editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor;shelfSlot=slot;addShelfRow={name->editor.grow(own(name,emptyList()),true)};removeShelfRow={name->editor.deleteKey("s:$name"){removeShelfQuietly(name)}}
     if(shelvesEditing){rows.forEach{it.setEditing(true,false)};slot.setEditing(true,false)}
 }
 
@@ -405,6 +405,8 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
     fun setEditing(on:Boolean){a.shelvesEditing=on;val delays=Stagger.delays(rows.size+1,30,ease=Ease.outQuad);rows.forEachIndexed{i,r->r.setEditing(on,true,delays[i])};place?.setEditing(on,true,delays.last())}
     private fun saveOrder(){a.prefs.put("shelfOrder",org.json.JSONArray(rows.map{it.key}));a.savePreferences()}
     private val reduced get()=a.prefs.str("motion")=="reduced"
+    /** The shelf [key] leaves the page in place (the quick menu's «Удалить полку»); false if it is not here. */
+    fun deleteKey(key:String,done:()->Unit):Boolean{val r=rows.firstOrNull{it.key==key}?:return false;delete(r,done);return true}
     /** A new shelf grows out of the empty place, just above it: its height opens, it rises a little and fades in. */
     fun grow(r:ShelfRow,follow:Boolean=false){r.handle.setOnTouchListener{_,e->touch(r,e);true}
         val at=place?.let{page.indexOfChild(it)}?.takeIf{it>=0}?:page.childCount

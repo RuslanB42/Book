@@ -60,6 +60,9 @@ class MainActivity : Activity() {
     internal var imeAnimating=false
     /** The keyboard's height on screen this very frame, whoever follows it. */
     internal var imeNow=0
+    /** Whether the library page makes room for the keyboard: only when it types into the page itself (search), never
+     *  for a sheet over it (a shelf name, a note) — the page then stays exactly where it is. */
+    internal var pageIme=false
     /** Whether the keyboard types into the reader's own page (the inline chapter editor). A sheet or dialog over the
      *  reader (a note, a search) is another window: the page must not give the keyboard room then, or it re-lays its
      *  text out and jumps each time the keyboard opens and closes. */
@@ -91,6 +94,8 @@ class MainActivity : Activity() {
     internal var shelfSlot:ShelfSlot?=null
     /** Adds a just-created shelf to the «Полки» page in place (it grows in at the end). */
     internal var addShelfRow:((String)->Unit)?=null
+    /** Removes a shelf from the «Полки» page in place (it slides away and the gap closes); false if it is not shown. */
+    internal var removeShelfRow:((String)->Boolean)?=null
     internal var settingsPage:View?=null
     internal var addMenu:AddMenu?=null
     internal var addButton:View?=null
@@ -184,15 +189,15 @@ class MainActivity : Activity() {
         // follow the keyboard's slide instead of jumping to its final height
         androidx.core.view.ViewCompat.setWindowInsetsAnimationCallback(root,object:androidx.core.view.WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE){
             private fun isIme(list:List<androidx.core.view.WindowInsetsAnimationCompat>)=list.any{it.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()!=0}
-            override fun onPrepare(animation:androidx.core.view.WindowInsetsAnimationCompat){if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()!=0)imeAnimating=true}
+            override fun onPrepare(animation:androidx.core.view.WindowInsetsAnimationCompat){if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()!=0){imeAnimating=true;if(imeBottom==0)pageIme=readerTyping()}}
 
             override fun onProgress(insets:androidx.core.view.WindowInsetsCompat,running:List<androidx.core.view.WindowInsetsAnimationCompat>):androidx.core.view.WindowInsetsCompat{
                 if(isIme(running)){val h=insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom;imeNow=h;val r=reader
-                    if(r==null){val f=imeFollower;if(f!=null)f(h) else setIme(h)}else if(readerTyping()){val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],h))}};return insets}
+                    if(r==null){val f=imeFollower;if(f!=null)f(h) else setIme(if(pageIme)h else 0)}else if(readerTyping()){val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],h))}};return insets}
             override fun onEnd(animation:androidx.core.view.WindowInsetsAnimationCompat){if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()==0)return
                 imeAnimating=false;val now=androidx.core.view.ViewCompat.getRootWindowInsets(root);val ime=now?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0
                 imeNow=ime;val r=reader
-                if(r==null){val f=imeFollower;if(f!=null){f(ime);if(ime==0)imeFollower=null}else setIme(ime)}else{val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],if(readerTyping())ime else 0))};imeVisible(ime>0)}})
+                if(r==null){val f=imeFollower;if(f!=null){f(ime);if(ime==0)imeFollower=null}else setIme(if(pageIme)ime else 0)}else{val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],if(readerTyping())ime else 0))};imeVisible(ime>0)}})
         ImeKeeper(root,d(20)){imeNow}.attach()
         // a tap anywhere outside the focused text field closes the keyboard and lets the field go
         touchWatchers.add{e->val f=currentFocus as? android.widget.EditText;if(f!=null&&reader==null){val r=android.graphics.Rect();f.getGlobalVisibleRect(r);val x=e.rawX.toInt();val y=e.rawY.toInt();if(!r.contains(x,y)&&focusKeepers.none{k->k.isAttachedToWindow&&android.graphics.Rect().also{q->k.getGlobalVisibleRect(q)}.contains(x,y)})root.post{releaseTextFocus()}}}
@@ -427,7 +432,7 @@ class MainActivity : Activity() {
         work({ library.db.runInTransaction { books.filter { it.str("shelf")==name }.forEach { library.save(it.copyJson().put("shelf",next)) }; prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty().filterNot { it==name }+next).distinct())); library.savePrefs(prefs) } }) { if(shelf==name) shelf=next; if(quiet) books.filter { it.str("shelf")==name }.forEach { it.put("shelf",next) } else reload() } }
     /** Remove a shelf the page has already animated away: the books stay in the library, nothing is rebuilt. */
     fun removeShelfQuietly(name:String) { work({ library.db.runInTransaction { books.filter { it.str("shelf")==name }.forEach { library.save(it.copyJson().put("shelf","")) }; prefs.put("shelves",JSONArray(prefs.optJSONArray("shelves")?.strings().orEmpty().filterNot { it==name })); library.savePrefs(prefs) } }) { books.filter { it.str("shelf")==name }.forEach { it.put("shelf","") }; if(shelf==name) shelf=null } }
-    fun deleteShelf(name:String) { confirm("Удалить полку?","Книги останутся в библиотеке.") { work({ library.db.runInTransaction { books.filter { it.str("shelf")==name }.forEach { library.save(it.copyJson().put("shelf","")) }; prefs.put("shelves",JSONArray(prefs.optJSONArray("shelves")?.strings().orEmpty().filterNot { it==name })); library.savePrefs(prefs) } }) { shelf=null; reload() } } }
+    fun deleteShelf(name:String) { confirm("Удалить полку?","Книги останутся в библиотеке.") { if(tab=="shelves"&&shelf==null&&auto==null&&removeShelfRow!=null&&shelfEditor!=null){val gone=removeShelfRow;root.postDelayed({if(gone?.invoke(name)!=true)removeShelfQuietly(name).also{render()}},260);return@confirm}; work({ library.db.runInTransaction { books.filter { it.str("shelf")==name }.forEach { library.save(it.copyJson().put("shelf","")) }; prefs.put("shelves",JSONArray(prefs.optJSONArray("shelves")?.strings().orEmpty().filterNot { it==name })); library.savePrefs(prefs) } }) { shelf=null; reload() } } }
     fun shelfActions(name:String) { dialog().setTitle(name).setItemIcons("pen","plus","trash").setDestructiveItems(2).setItems(arrayOf("Переименовать","Добавить книги на полку","Удалить полку")) { _,i -> when(i) {
         0 -> inputDialog("Название полки",name,hint="Название полки",action="Сохранить") { next -> renameShelf(name,next) }
         1 -> { val checked=BooleanArray(books.size) { books[it].str("shelf")==name }; dialog().setTitle("Книги на полке").setMultiChoiceItems(books.map { it.str("title") }.toTypedArray(),checked) { _,which,on -> checked[which]=on }.setPositiveButton("Сохранить") { _,_ -> work({ library.db.runInTransaction { books.forEachIndexed { j,b -> if(checked[j]) library.save(b.copyJson().put("shelf",name)); else if(b.str("shelf")==name) library.save(b.copyJson().put("shelf","")) } } }) { reload() } }.setNegativeButton("Отмена",null).show() }

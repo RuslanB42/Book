@@ -39,7 +39,8 @@ internal fun MainActivity.inputDialog(title:String,value:String="",hint:String="
     space(box,16)
     var sheet:android.app.AlertDialog?=null
     fun ready()=input.text.toString().trim().let{it.isNotEmpty()&&it!=value.trim()}
-    val go=button(action,true){if(ready()){val v=input.text.toString().trim();sheet?.dismiss();done(v)}}
+    // the keyboard goes first and the sheet rides down with it (dismissing at once left the keyboard hanging over the page)
+    val go=button(action,true){if(ready()){val v=input.text.toString().trim();(getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(input.windowToken,0);input.postDelayed({sheet?.dismiss()},90);done(v)}}
     fun paint(){val on=ready();go.isEnabled=on;go.animate().alpha(if(on)1f else .38f).setDuration(140).start()}
     go.alpha=if(ready())1f else .38f;go.isEnabled=ready()
     box.addView(go,LinearLayout.LayoutParams(-1,d(52)))
