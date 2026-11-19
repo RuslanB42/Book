@@ -204,20 +204,22 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 // slide starts, and used to throw the sheet up in one jump), and the line being typed stays above it.
                 val follows=android.os.Build.VERSION.SDK_INT>=30
                 var base=androidx.core.graphics.Insets.NONE;var keyboard=0;var sliding=false
-                // A sheet that opens with the keyboard (a name to type) rises straight to its place above the keyboard
-                // (its height from the last time) instead of settling low and then jumping up when the keyboard comes.
+                // A sheet that opens with the keyboard (a name to type) waits, hidden, for the keyboard to start rising and
+                // then rises together with it in one motion: risen alone it first stood low and was then thrown up by the
+                // keyboard; placed ahead at the keyboard's height it hung over an empty gap until the keyboard came.
                 fun edits(v:View?):Int=when(v){is EditText->1;is ViewGroup->(0 until v.childCount).sumOf{edits(v.getChildAt(it))};else->0}
-                var preset=if(follows&&edits(view) in 1..2)a.lastIme else 0
-                fun place()=frame.safeArea(androidx.core.graphics.Insets.of(base.left,base.top,base.right,maxOf(base.bottom,keyboard,preset)))
-                if(preset>0)frame.postDelayed({if(keyboard==0&&preset>0){preset=0;place()}},1400)
+                val typing=follows&&edits(view) in 1..2
+                var entry:(()->Unit)?=null
+                fun enter(){val go=entry?:return;entry=null;go()}
+                fun place()=frame.safeArea(androidx.core.graphics.Insets.of(base.left,base.top,base.right,maxOf(base.bottom,keyboard)))
                 fun imeOf(i:androidx.core.view.WindowInsetsCompat?)=i?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0
                 SafeArea.bind(frame) { i -> base=SafeArea.content(i,false);if(follows&&!sliding)keyboard=imeOf(i);place() }
                 if(follows)androidx.core.view.ViewCompat.setWindowInsetsAnimationCallback(frame,object:androidx.core.view.WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_STOP){
                     private fun ime(an:androidx.core.view.WindowInsetsAnimationCompat)=an.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()!=0
-                    override fun onPrepare(an:androidx.core.view.WindowInsetsAnimationCompat){if(ime(an))sliding=true}
+                    override fun onPrepare(an:androidx.core.view.WindowInsetsAnimationCompat){if(ime(an)){sliding=true;frame.post{enter()}}}
                     override fun onProgress(i:androidx.core.view.WindowInsetsCompat,running:List<androidx.core.view.WindowInsetsAnimationCompat>):androidx.core.view.WindowInsetsCompat{
                         if(running.any{ime(it)}){val k=imeOf(i);if(k!=keyboard){keyboard=k;place()}};return i}
-                    override fun onEnd(an:androidx.core.view.WindowInsetsAnimationCompat){if(!ime(an))return;sliding=false;keyboard=imeOf(androidx.core.view.ViewCompat.getRootWindowInsets(frame));if(keyboard>0){a.lastIme=keyboard;preset=0};place()}})
+                    override fun onEnd(an:androidx.core.view.WindowInsetsAnimationCompat){if(!ime(an))return;sliding=false;keyboard=imeOf(androidx.core.view.ViewCompat.getRootWindowInsets(frame));if(keyboard>0)a.lastIme=keyboard;place()}})
                 ImeKeeper(frame,a.d(20)){keyboard}.attach()
                 w.decorView.setPadding(0,0,0,0)
                 if(android.os.Build.VERSION.SDK_INT>=30) w.attributes=w.attributes.apply { setFitInsetsTypes(0);setFitInsetsSides(0) }
@@ -227,7 +229,8 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 w.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN)
                 w.setGravity(Gravity.FILL);w.setLayout(-1,-1)
                 if(animated)frame.startEntry={
-                    if(!closing){motion?.snap(1f);motion?.to(0f)}
+                    if(!closing){motion?.snap(1f)
+                        if(typing){entry={if(!closing)motion?.to(0f)};frame.postDelayed({enter()},450)} else motion?.to(0f)}
                 }else moveSheet(0f)
                 var down=0f; var downAt=0L;var grabbed=0f
                 val drag=View.OnTouchListener { _,e -> if(wide || !cancel) return@OnTouchListener false; when(e.actionMasked) {
