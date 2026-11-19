@@ -182,6 +182,8 @@ class MainActivity : Activity() {
     override fun dispatchTouchEvent(ev:android.view.MotionEvent):Boolean{if(ev.actionMasked==android.view.MotionEvent.ACTION_DOWN)touchWatchers.forEach{it(ev)}
         if(::scroll.isInitialized&&swipeBack.handle(ev){val now=android.os.SystemClock.uptimeMillis();val c=android.view.MotionEvent.obtain(now,now,android.view.MotionEvent.ACTION_CANCEL,ev.x,ev.y,0);super.dispatchTouchEvent(c);c.recycle()})return true
         return super.dispatchTouchEvent(ev)}
+    /** An overlay (settings, profile) was swiped off the screen: it goes without a second animation. */
+    internal fun swipedAway(v:View){when{v===settingsPage->settingsPage=null;v===profileOverlay->{profileOverlay=null;profileStats=null}};root.removeView(v)}
     /** A swipe back finished: the list this page came from glides in from the left. */
     internal fun swipedBack(){when{
         quoteBookId!=null->openQuoteGroup(null)
