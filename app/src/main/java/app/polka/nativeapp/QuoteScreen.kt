@@ -143,7 +143,7 @@ internal fun MainActivity.noteSheet(fragment:String,ink:Int,value:String,saved:S
     val rest=if(light)0x1f000000 else 0x1fffffff;val focus=(fg and 0xffffff) or 0x66000000
     val frame=FrameLayout(this).apply{background=android.graphics.drawable.GradientDrawable().apply{setColor(fieldBg);cornerRadius=d(16).toFloat();setStroke(d(1),rest)}}
     val input=EditText(this).apply{
-        setText(value);hint="Ваша заметка";setTextColor(fg);setHintTextColor(muted);textSize=17f;background=null;isSingleLine=false;minLines=3;maxLines=7;gravity=Gravity.TOP or Gravity.START
+        typeface=PolkaFonts.sans(400);setText(value);hint="Ваша заметка";setTextColor(fg);setHintTextColor(muted);textSize=17f;background=null;isSingleLine=false;minLines=3;maxLines=7;gravity=Gravity.TOP or Gravity.START
         imeOptions=android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
         inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
         setLineSpacing(0f,1.2f);setPadding(d(16),d(14),d(16),d(14))
