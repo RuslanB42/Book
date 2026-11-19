@@ -412,10 +412,11 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
         if(reduced)return
         r.measure(View.MeasureSpec.makeMeasureSpec(page.width-page.paddingLeft-page.paddingRight,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
         val full=r.measuredHeight;val m=lp.topMargin
-        lp.height=0;lp.topMargin=0;r.layoutParams=lp;r.alpha=0f;r.translationY=a.d(8).toFloat();r.scaleX=.97f;r.scaleY=.97f
-        android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=420;interpolator=glide;addUpdateListener{val k=it.animatedValue as Float;lp.height=(full*k).toInt().coerceAtLeast(1);lp.topMargin=(m*k).toInt();r.layoutParams=lp}
+        // no scaling: the shelf glass runs to the screen edges, and a scaled row showed with its sides cut off
+        lp.height=0;lp.topMargin=0;r.layoutParams=lp;r.alpha=0f;r.translationY=a.d(14).toFloat()
+        android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=560;interpolator=glide;addUpdateListener{val k=it.animatedValue as Float;lp.height=(full*k).toInt().coerceAtLeast(1);lp.topMargin=(m*k).toInt();r.layoutParams=lp}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){lp.height=LinearLayout.LayoutParams.WRAP_CONTENT;r.layoutParams=lp;r.settleMargin()}});start()}
-        r.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setStartDelay(60).setDuration(420).setInterpolator(glide).start()}
+        r.animate().alpha(1f).translationY(0f).setStartDelay(160).setDuration(520).setInterpolator(glide).start()}
     /** The card slides left and fades, then its place closes and the cards below glide up. */
     fun delete(r:ShelfRow,done:()->Unit){val i=rows.indexOf(r);if(i<0)return
         val finish={page.removeView(r);rows.remove(r);rows.forEach{it.settleMargin()};saveOrder();done()}
