@@ -89,6 +89,8 @@ class MainActivity : Activity() {
     internal var shelvesEditing=false
     internal var shelfEditor:ShelfEditor?=null
     internal var shelfSlot:ShelfSlot?=null
+    /** Adds a just-created shelf to the «Полки» page in place (it grows in at the end). */
+    internal var addShelfRow:((String)->Unit)?=null
     internal var settingsPage:View?=null
     internal var addMenu:AddMenu?=null
     internal var addButton:View?=null
@@ -401,19 +403,26 @@ class MainActivity : Activity() {
     }
     fun sortName(key:String=sort):String = when(key) { "recent" -> "Недавние"; "title" -> "По названию"; "author" -> "По автору"; else -> "Мой порядок" }
     fun search() { librarySearch?.toggle() }
-    /** «Новая полка» from the «+» menu: no dialog. The page glides over to «Полки», scrolls down to the end, the empty
-     *  place for a new shelf opens there and becomes the field for its name; the new shelf grows out of it. */
+    /** «Новая полка» (the «+» menu, the home shelves): the page glides over to «Полки», the usual name window opens,
+     *  and the new shelf then grows in at the end of the shelves while the page follows it down. */
     fun createShelf() {
         val reduced=prefs.str("motion")=="reduced"
-        val arrive=if(tab!="shelves"||shelf!=null||auto!=null||quoteBookId!=null||query.isNotBlank()){goTab("shelves");if(reduced)0L else 330L}else 0L
+        val away=tab!="shelves"||shelf!=null||auto!=null||quoteBookId!=null||query.isNotBlank()
+        if(away)goTab("shelves")
         root.postDelayed({
-            val slot=shelfSlot?:return@postDelayed
-            if(!slot.isAttachedToWindow||tab!="shelves")return@postDelayed
-            val sv=scroll;val bottom=(sv.getChildAt(0)?.height?:0)-sv.height+sv.paddingBottom
-            val far=bottom-sv.scrollY
-            if(far>d(4)&&!reduced)sv.smoothScrollTo(0,bottom) else if(far>0)sv.scrollTo(0,bottom)
-            root.postDelayed({if(slot.isAttachedToWindow)slot.openFresh()},if(far>d(4)&&!reduced)260L else 0L)
-        },arrive)
+            inputDialog("Новая полка",hint="Например, «Отпуск» или «Классика»",helper="Полку потом можно переименовать и переставить") { raw -> val name=raw.trim(); if(name.isBlank())return@inputDialog
+                val taken=(prefs.optJSONArray("shelves")?.strings().orEmpty()+books.map{it.str("shelf")}).any{it.equals(name,true)}
+                if(taken){Notice.short(this,Notice.Kind.SHELF,"Полка «$name» уже есть");return@inputDialog}
+                prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct())); savePreferences()
+                val grow=addShelfRow
+                if(grow==null||tab!="shelves"){render();return@inputDialog}
+                // after the window has gone: the shelf grows in, the page rides down with it
+                root.postDelayed({grow(name)
+                    if(!reduced){val sv=scroll;android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=520;startDelay=40
+                        addUpdateListener{val end=(sv.getChildAt(0)?.height?:0)-sv.height+sv.paddingBottom;if(end>sv.scrollY)sv.scrollTo(0,sv.scrollY+((end-sv.scrollY)*.35f).toInt().coerceAtLeast(1))};start()}}
+                    else scroll.post{scroll.fullScroll(View.FOCUS_DOWN)}},if(reduced)0L else 220L)
+            }
+        },if(away&&!reduced)340L else 0L)
     }
     /** [quiet]: the page has already shown the new name in place — update the data without rebuilding it. */
     fun renameShelf(name:String,next:String,quiet:Boolean=false) { if(next.isBlank() || next==name) return

@@ -390,7 +390,7 @@ internal fun MainActivity.shelfRows(){
         if(taken){Notice.short(this,Notice.Kind.SHELF,"Полка «$name» уже есть");false}
         else{prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct()));savePreferences();editor.grow(own(name,emptyList()));true}}
     page.addView(slot,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(if(rows.isEmpty()||!shelvesEditing)0 else 10)});if(!shelvesEditing)slot.visibility=View.GONE
-    editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor;shelfSlot=slot
+    editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor;shelfSlot=slot;addShelfRow={name->editor.grow(own(name,emptyList()))}
     if(shelvesEditing){rows.forEach{it.setEditing(true,false)};slot.setEditing(true,false)}
 }
 
