@@ -176,7 +176,12 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 // slide starts, and used to throw the sheet up in one jump), and the line being typed stays above it.
                 val follows=android.os.Build.VERSION.SDK_INT>=30
                 var base=androidx.core.graphics.Insets.NONE;var keyboard=0;var sliding=false
-                fun place()=frame.safeArea(androidx.core.graphics.Insets.of(base.left,base.top,base.right,maxOf(base.bottom,keyboard)))
+                // A sheet that opens with the keyboard (a name to type) rises straight to its place above the keyboard
+                // (its height from the last time) instead of settling low and then jumping up when the keyboard comes.
+                fun edits(v:View?):Int=when(v){is EditText->1;is ViewGroup->(0 until v.childCount).sumOf{edits(v.getChildAt(it))};else->0}
+                var preset=if(follows&&edits(view) in 1..2)a.lastIme else 0
+                fun place()=frame.safeArea(androidx.core.graphics.Insets.of(base.left,base.top,base.right,maxOf(base.bottom,keyboard,preset)))
+                if(preset>0)frame.postDelayed({if(keyboard==0&&preset>0){preset=0;place()}},1400)
                 fun imeOf(i:androidx.core.view.WindowInsetsCompat?)=i?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0
                 SafeArea.bind(frame) { i -> base=SafeArea.content(i,false);if(follows&&!sliding)keyboard=imeOf(i);place() }
                 if(follows)androidx.core.view.ViewCompat.setWindowInsetsAnimationCallback(frame,object:androidx.core.view.WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_STOP){
@@ -184,7 +189,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                     override fun onPrepare(an:androidx.core.view.WindowInsetsAnimationCompat){if(ime(an))sliding=true}
                     override fun onProgress(i:androidx.core.view.WindowInsetsCompat,running:List<androidx.core.view.WindowInsetsAnimationCompat>):androidx.core.view.WindowInsetsCompat{
                         if(running.any{ime(it)}){val k=imeOf(i);if(k!=keyboard){keyboard=k;place()}};return i}
-                    override fun onEnd(an:androidx.core.view.WindowInsetsAnimationCompat){if(!ime(an))return;sliding=false;keyboard=imeOf(androidx.core.view.ViewCompat.getRootWindowInsets(frame));place()}})
+                    override fun onEnd(an:androidx.core.view.WindowInsetsAnimationCompat){if(!ime(an))return;sliding=false;keyboard=imeOf(androidx.core.view.ViewCompat.getRootWindowInsets(frame));if(keyboard>0){a.lastIme=keyboard;preset=0};place()}})
                 ImeKeeper(frame,a.d(20)){keyboard}.attach()
                 w.decorView.setPadding(0,0,0,0)
                 if(android.os.Build.VERSION.SDK_INT>=30) w.attributes=w.attributes.apply { setFitInsetsTypes(0);setFitInsetsSides(0) }

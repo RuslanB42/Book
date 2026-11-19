@@ -49,5 +49,9 @@ internal fun MainActivity.inputDialog(title:String,value:String="",hint:String="
     input.setOnEditorActionListener{_,act,_->if(act==EditorInfo.IME_ACTION_DONE){go.performClick();true}else false}
     sheet=dialog().setTitle(title).setView(box).show()
     // keyboard right away, once the sheet is on screen
-    input.postDelayed({if(input.isAttachedToWindow){input.requestFocus();(getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input,InputMethodManager.SHOW_IMPLICIT)}},220)
+    // the keyboard is asked for at once, so the sheet and the keyboard rise together in one motion (asking later let
+    // the sheet settle low first and then jump up with the keyboard)
+    sheet?.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+    input.requestFocus()
+    input.post{if(input.isAttachedToWindow){input.requestFocus();(getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input,InputMethodManager.SHOW_IMPLICIT)}}
 }

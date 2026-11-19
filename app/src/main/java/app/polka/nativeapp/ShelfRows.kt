@@ -52,7 +52,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         head.background=card;head.isClickable=true;head.contentDescription="$title, ${MainActivity.countBooks(list.size)}"
         head.setOnClickListener{if(editing){if(rename!=null)startRename()}else open()}
         // the quick menu opens from a long press anywhere on the shelf, not only on its title row
-        actions?.let{f->head.setOnLongClickListener{if(editing)false else{f();true}};stage.setOnLongClickListener{if(editing)false else{it.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);f();true}}}
+        actions?.let{f->head.setOnLongClickListener{if(editing)false else{f();true}};stage.setOnLongClickListener{if(editing)false else{f();true}}}
         head.addView(name,LayoutParams(-2,-2))
         head.addView(pen,LayoutParams(a.d(16),a.d(16)).apply{leftMargin=a.d(6)})
         head.addView(View(a),LayoutParams(0,1,1f))
@@ -77,6 +77,9 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         addView(stage,LayoutParams(-1,stageFull).apply{leftMargin=-a.d(20);rightMargin=-a.d(20)})
         apply(0f)
     }
+    /** The shelf and its shadow reach past the row's sides. A row fading in or out (alpha) was drawn through a layer
+     *  the size of the row, which cut the shelf's ends off until the fade was over; without that layer nothing is cut. */
+    override fun hasOverlappingRendering()=false
     /** Morph between the shelf and its edit card; [delay] staggers the rows. */
     fun setEditing(on:Boolean,animate:Boolean,delay:Long=0){editing=on;if(!on){commitRename();cancelAsk()}
         anim?.cancel();val to=if(on)1f else 0f
@@ -428,11 +431,12 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
     fun delete(r:ShelfRow,done:()->Unit){val i=rows.indexOf(r);if(i<0)return
         val finish={page.removeView(r);rows.remove(r);rows.forEach{it.settleMargin()};saveOrder();done()}
         if(reduced||!r.isAttachedToWindow){finish();return}
-        r.animate().translationX(-a.d(46).toFloat()).alpha(0f).scaleX(.96f).scaleY(.96f).setStartDelay(40).setDuration(300).setInterpolator(glide).start()
+        // it melts away where it stands, then its place closes
+        r.animate().alpha(0f).setStartDelay(40).setDuration(360).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,.6f,1f)).start()
         val lp=r.layoutParams as LinearLayout.LayoutParams;val h=r.height;val m=lp.topMargin
         // the first card leaves: the one after it gives up its gap at the same pace, so nothing jumps at the end
         val next=if(i==0)rows.getOrNull(1) else null;val nlp=next?.layoutParams as? LinearLayout.LayoutParams;val nm=nlp?.topMargin?:0
-        android.animation.ValueAnimator.ofFloat(0f,1f).apply{startDelay=200;duration=420;interpolator=glide
+        android.animation.ValueAnimator.ofFloat(0f,1f).apply{startDelay=300;duration=460;interpolator=android.view.animation.PathInterpolator(.42f,0f,.18f,1f)
             addUpdateListener{val k=it.animatedValue as Float;lp.height=(h*(1-k)).toInt();lp.topMargin=(m*(1-k)).toInt();r.layoutParams=lp;if(next!=null&&nlp!=null){nlp.topMargin=(nm*(1-k)).toInt();next.layoutParams=nlp}}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){finish()}});start()}}
     private fun touch(r:ShelfRow,e:MotionEvent){if(!r.editing)return

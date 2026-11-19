@@ -63,6 +63,8 @@ class MainActivity : Activity() {
     /** Whether the library page makes room for the keyboard: only when it types into the page itself (search), never
      *  for a sheet over it (a shelf name, a note) — the page then stays exactly where it is. */
     internal var pageIme=false
+    /** The keyboard's height the last time it was fully open (0 until it has been). */
+    internal var lastIme=0
     /** Whether the keyboard types into the reader's own page (the inline chapter editor). A sheet or dialog over the
      *  reader (a note, a search) is another window: the page must not give the keyboard room then, or it re-lays its
      *  text out and jumps each time the keyboard opens and closes. */
@@ -195,7 +197,7 @@ class MainActivity : Activity() {
                 if(isIme(running)){val h=insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom;imeNow=h;val r=reader
                     if(r==null){val f=imeFollower;if(f!=null)f(h) else setIme(if(pageIme)h else 0)}else if(readerTyping()){val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],h))}};return insets}
             override fun onEnd(animation:androidx.core.view.WindowInsetsAnimationCompat){if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()==0)return
-                imeAnimating=false;val now=androidx.core.view.ViewCompat.getRootWindowInsets(root);val ime=now?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0
+                imeAnimating=false;val now=androidx.core.view.ViewCompat.getRootWindowInsets(root);val ime=now?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0;if(ime>0)lastIme=ime
                 imeNow=ime;val r=reader
                 if(r==null){val f=imeFollower;if(f!=null){f(ime);if(ime==0)imeFollower=null}else setIme(if(pageIme)ime else 0)}else{val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],if(readerTyping())ime else 0))};imeVisible(ime>0)}})
         ImeKeeper(root,d(20)){imeNow}.attach()
