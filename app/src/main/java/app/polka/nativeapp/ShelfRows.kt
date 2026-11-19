@@ -51,8 +51,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         orientation=VERTICAL;clipChildren=false;clipToPadding=false
         head.background=card;head.isClickable=true;head.contentDescription="$title, ${MainActivity.countBooks(list.size)}"
         head.setOnClickListener{if(editing){if(rename!=null)startRename()}else open()}
-        // the quick menu opens from a long press anywhere on the shelf, not only on its title row
-        actions?.let{f->head.setOnLongClickListener{if(editing)false else{f();true}};stage.setOnLongClickListener{if(editing)false else{f();true}}}
+        // (the quick menu's long press is caught for the whole shelf in dispatchTouchEvent below)
         head.addView(name,LayoutParams(-2,-2))
         head.addView(pen,LayoutParams(a.d(16),a.d(16)).apply{leftMargin=a.d(6)})
         head.addView(View(a),LayoutParams(0,1,1f))
@@ -80,6 +79,25 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     /** The shelf and its shadow reach past the row's sides. A row fading in or out (alpha) was drawn through a layer
      *  the size of the row, which cut the shelf's ends off until the fade was over; without that layer nothing is cut. */
     override fun hasOverlappingRendering()=false
+    /** A long press anywhere on the shelf — its title row, the covers, the shelf itself — opens its quick menu. The
+     *  covers and the shelf's own scroller take every touch first, so a long-click listener on the shelf never fired;
+     *  here the press is watched before they get it. Moving the finger (scrolling) or lifting it early lets it go;
+     *  when the menu opens, whatever was under the finger gets a cancel, so no cover opens and only one vibration. */
+    private var pressX=0f;private var pressY=0f;private var pressFired=false
+    private val slop=android.view.ViewConfiguration.get(a).scaledTouchSlop
+    private val pressed=Runnable{val f=actions?:return@Runnable;if(editing)return@Runnable;pressFired=true
+        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        cancelUnder();f()}
+    private fun cancelUnder(){val now=android.os.SystemClock.uptimeMillis();val c=MotionEvent.obtain(now,now,MotionEvent.ACTION_CANCEL,pressX,pressY,0);super.dispatchTouchEvent(c);c.recycle()}
+    override fun dispatchTouchEvent(e:MotionEvent):Boolean{
+        if(actions==null||editing)return super.dispatchTouchEvent(e)
+        when(e.actionMasked){
+            MotionEvent.ACTION_DOWN->{pressFired=false;pressX=e.x;pressY=e.y;removeCallbacks(pressed);postDelayed(pressed,android.view.ViewConfiguration.getLongPressTimeout().toLong())}
+            MotionEvent.ACTION_MOVE->if(!pressFired&&(kotlin.math.abs(e.x-pressX)>slop||kotlin.math.abs(e.y-pressY)>slop))removeCallbacks(pressed)
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{removeCallbacks(pressed);if(pressFired){pressFired=false;return true}}
+            MotionEvent.ACTION_POINTER_DOWN->removeCallbacks(pressed)}
+        if(pressFired)return true
+        return super.dispatchTouchEvent(e)}
     /** Morph between the shelf and its edit card; [delay] staggers the rows. */
     fun setEditing(on:Boolean,animate:Boolean,delay:Long=0){editing=on;if(!on){commitRename();cancelAsk()}
         anim?.cancel();val to=if(on)1f else 0f
@@ -386,7 +404,7 @@ internal fun MainActivity.shelfRows(){
         row=ShelfRow(this,"s:$name0",name0,sortBooks(list),{pendingMotion=motion();shelf=cur;render(false,false)},{shelfActions(cur)},
             {next:String->val old=cur;cur=next;renameShelf(old,next,quiet=true)},{val gone=cur;editor.delete(row){removeShelfQuietly(gone)}})
         return row}
-    val autos=(listOf("reading","want","done")+listOf("paused").filter{k->books.any{Library.status(it)==k}}).map{key->ShelfRow(this,"a:$key",MainActivity.autoTitle(key),sortBooks(books.groupBy{Library.status(it)}[key].orEmpty()),{pendingMotion=motion();auto=key;render(false,false)},null,null)}
+    val autos=(listOf("reading","want","done")+listOf("paused").filter{k->books.any{Library.status(it)==k}}).map{key->ShelfRow(this,"a:$key",MainActivity.autoTitle(key),sortBooks(books.groupBy{Library.status(it)}[key].orEmpty()),{pendingMotion=motion();auto=key;render(false,false)},{autoShelfActions(key)},null)}
     val saved=prefs.optJSONArray("shelfOrder")?.strings().orEmpty()
     val rows=(manual.map{own(it,byShelf[it].orEmpty())}+autos).sortedBy{saved.indexOf(it.key).let{i->if(i<0)Int.MAX_VALUE else i}}
     rows.forEachIndexed{i,r->page.addView(r,LinearLayout.LayoutParams(-1,-2).apply{if(i>0)topMargin=d(26)})}

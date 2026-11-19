@@ -441,6 +441,16 @@ class MainActivity : Activity() {
         1 -> { val checked=BooleanArray(books.size) { books[it].str("shelf")==name }; dialog().setTitle("Книги на полке").setMultiChoiceItems(books.map { it.str("title") }.toTypedArray(),checked) { _,which,on -> checked[which]=on }.setPositiveButton("Сохранить") { _,_ -> work({ library.db.runInTransaction { books.forEachIndexed { j,b -> if(checked[j]) library.save(b.copyJson().put("shelf",name)); else if(b.str("shelf")==name) library.save(b.copyJson().put("shelf","")) } } }) { reload() } }.setNegativeButton("Отмена",null).show() }
         2 -> deleteShelf(name)
     } }.show() }
+    /** The quick menu of a status shelf («Хочу прочитать», «Читаю»…): open it, or put more books on it (they get that status). */
+    fun autoShelfActions(key:String) { val title=autoTitle(key)
+        dialog().setTitle(title).setItemIcons("next","plus").setItems(arrayOf("Открыть полку","Добавить книги на полку")) { _,i -> when(i) {
+            0 -> { pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;auto=key;render(false,false) }
+            1 -> { val others=books.filter{Library.status(it)!=key}
+                if(others.isEmpty())return@setItems
+                val checked=BooleanArray(others.size)
+                dialog().setTitle(title).setMultiChoiceItems(others.map{it.str("title")}.toTypedArray(),checked){_,which,on->checked[which]=on}
+                    .setPositiveButton("Сохранить"){_,_->others.filterIndexed{j,_->checked[j]}.forEach{setBookStatus(it,key)}}.setNegativeButton("Отмена",null).show() }
+        } }.show() }
     fun confirm(title:String,message:String,action:()->Unit) { dialog().setTitle(title).setMessage(message).setNegativeButton("Отмена",null).setPositiveButton("Продолжить") { _,_ -> action() }.show() }
     fun moveBook(book:JSONObject) { val names=(listOf("Без полки")+prefs.optJSONArray("shelves")?.strings().orEmpty()+books.map { it.str("shelf") }.filter { it.isNotBlank() }).distinct(); dialog().setTitle("Переместить на полку").setItemIcons(*names.map{"shelves"}.toTypedArray()).setItems(names.toTypedArray()) { _,i -> saveBook(book.copyJson().put("shelf",if(i==0) "" else names[i])) }.show() }
     private var loadingReader=false
