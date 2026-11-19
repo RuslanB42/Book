@@ -15,43 +15,6 @@ private val flameSteps=listOf(15 to "Пара страниц перед сном
 private fun stepOf(m:Int)=flameSteps.indexOfFirst{m<it.first}
 private val stepFrom=intArrayOf(5,15,30,45,60);private val stepTo=intArrayOf(15,30,45,60,90)
 
-/** The window: the app's flame (always its own crisp shape) on a warm stage, the rolling number, the step's name and the «heat» bar.
- *  Saved when the window closes. */
-internal fun MainActivity.flameSheet(initial:Int,saved:(Int)->Unit){
-    var value=((initial.coerceIn(5,90)+2)/5)*5;val start=value
-    val stage=FrameLayout(this).apply{clipChildren=false;clipToPadding=false}
-    val back=FlameStage(this,true);val front=FlameStage(this,false);front.shared=back
-    stage.addView(back,FrameLayout.LayoutParams(-1,-1))
-    val col=column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(d(20),0,d(20),d(24))}
-    col.addView(View(this),LinearLayout.LayoutParams(-1,d(212)))
-    val numRow=line().apply{gravity=Gravity.BOTTOM}
-    val number=Odometer(this,"$value",58f,fg,true,serif=true);numRow.addView(number)
-    numRow.addView(text("мин в день",16f,muted).apply{setPadding(d(6),0,0,d(10))})
-    col.addView(numRow,LinearLayout.LayoutParams(-2,-2))
-    val names=FrameLayout(this)
-    val nameA=text(flameSteps[stepOf(value)].second,14f,muted).apply{gravity=Gravity.CENTER};val nameB=text("",14f,muted).apply{gravity=Gravity.CENTER;alpha=0f}
-    names.addView(nameA,FrameLayout.LayoutParams(-1,-2));names.addView(nameB,FrameLayout.LayoutParams(-1,-2))
-    col.addView(names,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
-    val bar=HeatBar(this,value)
-    col.addView(bar,LinearLayout.LayoutParams(-1,d(56)).apply{topMargin=d(30)})
-    stage.addView(col,FrameLayout.LayoutParams(-1,-2))
-    stage.addView(front,FrameLayout.LayoutParams(-1,-1))
-    back.bar=bar;back.setMinutes(value,true)
-    var shownStep=stepOf(value);var useA=true
-    var lastAt=0L
-    bar.onChange={v->val old=value;value=v;val now=android.os.SystemClock.uptimeMillis();if(now-lastAt<130)number.set("$v","$v") else number.set("$v","$old",up=v>old);lastAt=now;back.setMinutes(v,false)
-        val s=stepOf(v);if(s!=shownStep){shownStep=s;val (out,inn)=if(useA)nameA to nameB else nameB to nameA;useA=!useA;inn.text=flameSteps[s].second
-            if(prefs.str("motion")=="reduced"){out.alpha=0f;inn.alpha=1f}else{out.animate().alpha(0f).translationY(-d(8).toFloat()).setDuration(220).start();inn.translationY=d(8).toFloat();inn.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
-    // the stage spans the whole sheet (past the content padding), so the light and the sparks are only ever cut by the sheet's own edge
-    val holder=FrameLayout(this).apply{clipChildren=false;addView(stage,FrameLayout.LayoutParams(-1,-2).apply{leftMargin=-d(20);rightMargin=-d(20);bottomMargin=-d(24)})}
-    val sheet=dialog().setBare().setView(holder).show()
-    // the sheet itself warms with the fire: an ember tint rises from its bottom
-    stage.post{run{var g:ViewParent?=holder.parent;while(g is ViewGroup&&g.background==null){g.clipToPadding=false;g.clipChildren=false;g=g.parent}}
-        var v:View?=stage.parent as? View;while(v!=null&&v.background !is OpaqueSurface&&v.background !is GradientDrawable)v=v.parent as? View
-        v?.let{panel->val r=d(22).toFloat();val tint=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(0,0)).apply{cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)}
-            panel.background=LayerDrawable(arrayOf(panel.background,tint));back.tint=tint;back.tintCorner=d(22).toFloat()}}
-    sheet.setOnDismissListener{back.stop();if(value!=start){val v=value;updateStatistics{it.put("goal",v)};saved(v)}}
-}
 
 /** The fire. [behind]: the light, the waves, the stars and the flame (under the texts and the bar); otherwise the sparks
  *  thrown off the bar, drawn on top. Both share one state, kept by the one behind. */
@@ -82,15 +45,6 @@ internal class FlameStage(private val a:MainActivity,private val behind:Boolean)
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     fun stop(){running=false}
     private fun within(m:Float):Float{val k=stepOf(m.roundToInt());return ((m-stepFrom[k])/(stepTo[k]-stepFrom[k]).toFloat()).coerceIn(0f,1f)}
-    fun setMinutes(m:Int,first:Boolean){val k=stepOf(m);minutes=m.toFloat()
-        if(first||reduced){step=k;s=sizeFor(m.toFloat());col=k+within(m.toFloat())*.85f;invalidate();return}
-        if(k!=step){val up=k>step;step=k
-            if(up){qv+=.0042f;flash=1f;rings.add(Ring(0f));rings.add(Ring(-.18f));sheen=0f
-                val c=pals[k][0];repeat(14+k*4){val ang=rnd.nextFloat()*PI.toFloat()*2;val v=(.05f+rnd.nextFloat()*.12f)*d
-                    stars.add(Star(width/2f,base()-62*d,cos(ang)*v,sin(ang)*v-.05f*d,1f,(2+rnd.nextFloat()*3.5f)*d,rnd.nextFloat()*3,(rnd.nextFloat()-.5f)*.01f,c[2+it%2]))}
-                if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CONFIRM.takeIf{android.os.Build.VERSION.SDK_INT>=30}?:HapticFeedbackConstants.CLOCK_TICK)}
-            else qv-=.0016f}
-        invalidate()}
     private fun sizeFor(m:Float)=.62f+((m-5f)/85f)*.44f
     private fun base()=212*d-12*d
     private fun heat()=((minutes-5f)/85f).coerceIn(0f,1f)

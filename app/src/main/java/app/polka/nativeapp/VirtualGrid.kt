@@ -13,7 +13,6 @@ class VirtualGrid(context:Context,private val count:Int,private val columns:Int,
     /** Trailing cells (e.g. the "new shelf" tile) that can neither be lifted nor be dropped onto. */
     internal var locked=0
     internal fun movable(i:Int)=i<count-locked
-    val materializedCount get()=live.size
     private val scrollListener=ViewTreeObserver.OnScrollChangedListener { sync();invalidate() }
     init { clipChildren=false;clipToPadding=false }
     override fun onAttachedToWindow(){super.onAttachedToWindow();viewTreeObserver.addOnScrollChangedListener(scrollListener);post { sync() }}

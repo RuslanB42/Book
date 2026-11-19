@@ -19,7 +19,6 @@ internal val statViolet=0xffc7a3ff.toInt()
 internal val statCyan=0xff60e0ee.toInt()
 private val weekNames=listOf("Пн","Вт","Ср","Чт","Пт","Сб","Вс")
 private val ru=Locale("ru")
-private fun dayText(date:LocalDate)=date.format(DateTimeFormatter.ofPattern("d MMMM yyyy",ru))
 
 /**
  * Only the requested reading metrics. Every card follows one template: an icon tile and a quiet title,
@@ -50,7 +49,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private val onStrong get()=if(light)Color.WHITE else 0xff161617.toInt()
     private val blue get()=if(light)0xff3f6fe0.toInt() else 0xff6a94f8.toInt()
     private val mint get()=if(light)0xff1f9d73.toInt() else 0xff4fd6a2.toInt()
-    private val coral get()=if(light)0xffe0583a.toInt() else 0xffff8f70.toInt()
     private val violet get()=if(light)0xff7a56d8.toInt() else 0xffa98bf7.toInt()
     private val rose get()=if(light)0xffd0457f.toInt() else 0xfff28bb5.toInt()
     private val amber get()=a.accentFill
@@ -112,8 +110,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val date=today.format(DateTimeFormatter.ofPattern("d MMMM, EEEE",ru))
         return a.column().apply{setPadding(a.d(12),0,a.d(8),0);addView(label(date,12.5f));addView(a.text(hello,26f,a.fg,true,serif=true).apply{maxLines=1})}}
     private fun daysWord(n:Int)=if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
-    private fun minutesShort(n:Int)="мин"
-    private fun minutesGen(n:Int)=if(n%100 in 11..14)"минут" else if(n%10==1)"минуты" else "минут"
     fun show() {
         val extra=max(0,(a.resources.configuration.screenWidthDp-640)/2)
         scroll.clipToPadding=false;a.followInsets(content) { i->scroll.setPadding(0,i.top,0,0);content.setPadding(a.d(16+extra)+i.left,a.d(8),a.d(16+extra)+i.right,a.d(40)+i.bottom) }
@@ -289,10 +285,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         bind(true);add(box)
     }
 
-    /** The year's books in one card (approved prototype): «N из M», the year as a road with every finished book on it,
-     *  and the chosen book's card underneath — first and last day, days and hours spent, its rating (set it right here).
-     *  Tap a cover or a stack, swipe the book card, or switch the year from the «КНИГИ · 2026» label. */
-    private var menuClosedAt=0L
     private fun books(){
         val box=surface(if(light)0xff009a5c.toInt() else 0xff37c080.toInt(),.86f,.12f,.8f)
         val years=(model.finished.mapNotNull{it.date?.year}+today.year).distinct().sortedDescending().take(8)
@@ -375,44 +367,14 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** The whole road of the year, opened out of the card; switching the year there switches it on the card too. */
     private fun openRoad(box:View,years:List<Int>,rebind:()->Unit){if(a.goalRoad!=null)return
         GoalRoadOverlay(a,model,data,goalYear,years,live,{box}){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.show()}
-    @Suppress("UNCHECKED_CAST")
-    private fun toggleRate(rateRow:LinearLayout,road:YearRoad){if(rateRow.visibility==View.VISIBLE){closeRate(rateRow);return}
-        rateRow.removeAllViews();val pick=rateRow.tag as? (Int)->Unit;val current=road.current.optInt("rating")
-        val stars=(1..5).map{StarGlyph(a,it<=current)}
-        stars.forEachIndexed{i,g->val v=i+1
-            rateRow.addView(FrameLayout(a).apply{isClickable=true;contentDescription="Оценка $v из 5"
-                // tapping a star lights the stars up to it one after another, then the rating is saved
-                setOnClickListener{stars.forEachIndexed{k,o->o.on=k<v;if(k<v&&live){o.scaleX=.6f;o.scaleY=.6f;o.animate().scaleX(1f).scaleY(1f).setStartDelay(k*40L).setDuration(320).setInterpolator(PathInterpolator(.2f,1.6f,.4f,1f)).start()}}
-                    rateRow.postDelayed({pick?.invoke(v)},if(live)360L else 0L)}
-                addView(g,FrameLayout.LayoutParams(a.d(30),a.d(30),Gravity.CENTER))
-                if(live){alpha=0f;translationY=a.d(8).toFloat();animate().alpha(1f).translationY(0f).setStartDelay(v*40L).setDuration(360).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}},LinearLayout.LayoutParams(0,a.d(44),1f))}
-        rateRow.visibility=View.VISIBLE}
-    private fun closeRate(rateRow:LinearLayout){rateRow.visibility=View.GONE}
     private fun daysWordFull(n:Int)="$n "+if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
     private fun roundButton(s:String,desc:String)=a.text(s,16f,a.fg).apply{gravity=Gravity.CENTER;contentDescription=desc;isClickable=true
         background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(light)0x0d000000 else 0x14ffffff)};a.press(this)}
 }
 
-/** Small page dots under the book card: the open book is a longer green pill. */
-internal class PagerDots(private val a:MainActivity,private val n:Int,private val at:Int):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    override fun onDraw(c:Canvas){val d=a.d(1).toFloat();var x=0f;val cy=height/2f
-        for(i in 0 until n){val w=if(i==at)16*d else 6*d;p.color=if(i==at)(if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt()) else if(a.light)0x33000000 else 0x4dffffff
-            c.drawRoundRect(x,cy-3*d,x+w,cy+3*d,3*d,3*d,p);x+=w+6*d}}
-}
 
 internal fun MainActivity.updateStatistics(change:(JSONObject)->Unit) {
     var fresh=JSONObject();work({library.db.runInTransaction{val meta=library.dao.meta("stats")?.let{JSONObject(it.json)} ?: JSONObject().put("id","stats");fresh=meta.optJSONObject("data") ?: JSONObject();change(fresh);meta.put("data",fresh);library.dao.putMeta(MetaRow("stats",meta.toString()))}}){if(profileOverlay!=null){profileStats=fresh;refreshProfile()};checkpointSoon()}
-}
-internal fun MainActivity.annualGoalEditor(year:Int,model:ReadingStatistics,saved:(Int?)->Unit={}) {
-    val box=column();box.addView(text("Сколько книг прочитаете за $year год? Уже дочитанные в этом году книги с датой завершения засчитаются автоматически.",16f,muted));space(box,16)
-    val input=edit(if(model.target(year)>0)"${model.target(year)}" else "","Например, 24").apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER;filters=arrayOf(android.text.InputFilter.LengthFilter(4));contentDescription="Количество книг на год"};box.addView(input)
-    space(box,12);val presets=line();listOf(12,24,52).forEach{n->presets.addView(button("$n"){input.setText("$n");input.setSelection(input.length())},LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(d(2),0,d(2),0)})};box.addView(presets);space(box,16)
-    val error=text("",14f,if(light)0xffad3131.toInt()else 0xffff918c.toInt());error.visibility=View.GONE;box.addView(error)
-    lateinit var sheet:android.app.AlertDialog
-    box.addView(button("Сохранить цель",true){val n=input.text.toString().toIntOrNull();if(n==null || n !in 1..9999){error.text="Введите число от 1 до 9999";error.visibility=View.VISIBLE;input.requestFocus()}else{updateStatistics{changeAnnualGoal(it,year,n)};saved(n);sheet.dismiss()}})
-    if(model.target(year)>0){space(box,8);box.addView(button("Убрать цель"){confirm("Убрать цель на $year год?","Книги, даты и время чтения сохранятся."){updateStatistics{changeAnnualGoal(it,year,null)};saved(null);sheet.dismiss()}})}
-    sheet=dialog().setTitle("Цель на $year год").setView(box).show()
 }
 internal fun MainActivity.wheel(min:Int,max:Int,value:Int,description:String)=NumberPicker(if(android.os.Build.VERSION.SDK_INT<29 && light)android.view.ContextThemeWrapper(this,android.R.style.Theme_Material_Light)else this).apply {
     minValue=min;maxValue=max;this.value=value.coerceIn(min,max);wrapSelectorWheel=false
@@ -426,102 +388,13 @@ internal fun MainActivity.monthEditor(initial:YearMonth,today:LocalDate,onSave:(
     val box=column();val captions=line();listOf("Месяц","Год").forEach{captions.addView(text(it,14f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f))};box.addView(captions);val row=line();val month=wheel(1,12,initial.monthValue,"Месяц");val year=wheel(1900,today.year,initial.year,"Год");row.addView(month,LinearLayout.LayoutParams(0,d(144),1f));row.addView(year,LinearLayout.LayoutParams(0,d(144),1f));year.setOnValueChangedListener{_,_,y->month.maxValue=if(y==today.year)today.monthValue else 12};if(initial.year==today.year)month.maxValue=today.monthValue
     box.addView(row);dialog().setTitle("Месяц календаря").setView(box).setPositiveButton("Показать"){_,_->onSave(YearMonth.of(year.value,month.value))}.show()
 }
-internal fun MainActivity.completionDateEditor(book:JSONObject,initial:LocalDate?) {
-    val today=LocalDate.now();val date=initial ?: today;val box=column();box.addView(text(book.str("title"),18f,bold=true));space(box,8);box.addView(text("Дата учитывается в статистике прочитанных книг и годовой цели.",14f,muted));space(box,12)
-    val captions=line();listOf("День","Месяц","Год").forEach{captions.addView(text(it,14f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f))};box.addView(captions)
-    val row=line();val day=wheel(1,31,date.dayOfMonth,"День");val month=wheel(1,12,date.monthValue,"Месяц");val year=wheel(1900,today.year,date.year,"Год")
-    fun limit(){month.maxValue=if(year.value==today.year)today.monthValue else 12;val ym=YearMonth.of(year.value,month.value);day.maxValue=if(ym==YearMonth.from(today))today.dayOfMonth else ym.lengthOfMonth()};year.setOnValueChangedListener{_,_,_->limit()};month.setOnValueChangedListener{_,_,_->limit()};limit()
-    listOf(day,month,year).forEach{row.addView(it,LinearLayout.LayoutParams(0,d(144),1f))};box.addView(row)
-    dialog().setTitle("Дата завершения").setView(box).setPositiveButton("Сохранить дату"){_,_->val chosen=LocalDate.of(year.value,month.value,day.value);val latest=books.firstOrNull{it.str("id")==book.str("id")};if(latest!=null){statisticsMonth=YearMonth.from(chosen);statisticsDay=chosen;saveBook(latest.copyJson().put("completedAt",chosen.atTime(12,0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()))}}.setNegativeButton("Отмена",null).show()
-}
 
-/** Horizontal scale: a full gradient ruler with a thumb (speed) or a filled progress track with a plan marker (goal). */
-internal class ScaleRail(a:MainActivity,animate:Boolean,private val scale:Boolean,private val value:Float?,private val marker:Float?,private val markerLabel:String?,private val left:String,private val right:String,private val accent:Int,private val accent2:Int,description:String):StatsAnimatedView(a,animate){
-    private val text=Paint(Paint.ANTI_ALIAS_FLAG)
-    private val shape=Paint(Paint.ANTI_ALIAS_FLAG)
-    init{contentDescription=description;text.textSize=android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP,13f,a.resources.displayMetrics)}
-    private val head get()=a.d(26).toFloat()
-    override fun onMeasure(w:Int,h:Int){val fm=text.fontMetrics;setMeasuredDimension(MeasureSpec.getSize(w),(head+a.d(8)+(fm.descent-fm.ascent)+a.d(2)).toInt())}
-    override fun onDraw(c:Canvas){
-        val w=width.toFloat();val railH=a.d(12).toFloat();val cy=head/2f;val r=railH/2f;val light=a.light
-        shape.shader=null;shape.style=Paint.Style.FILL;shape.color=if(light)0xffe6e6ea.toInt()else 0xff3a3a3d.toInt()
-        if(scale){shape.shader=LinearGradient(0f,0f,w,0f,intArrayOf(if(light)0xffe0e0e5.toInt()else 0xff47474b.toInt(),accent),null,Shader.TileMode.CLAMP);c.drawRoundRect(0f,cy-r,w,cy+r,r,r,shape);shape.shader=null}
-        else{c.drawRoundRect(0f,cy-r,w,cy+r,r,r,shape);val f=((value?:0f)*phase).coerceIn(0f,1f)
-            if(f>0f){shape.shader=LinearGradient(0f,0f,w,0f,intArrayOf(accent2,accent),null,Shader.TileMode.CLAMP);c.drawRoundRect(0f,cy-r,max(railH,w*f),cy+r,r,r,shape);shape.shader=null}}
-        val tick=a.d(1).toFloat()
-        if(marker!=null){val x=(w*marker).coerceIn(tick,w-tick);shape.color=if(light)0xffa0a0a6.toInt()else 0xffcfcfd4.toInt();c.drawRoundRect(x-tick,0f,x+tick,head,tick,tick,shape)}
-        if(scale&&value!=null){val x=(w*value*phase).coerceIn(a.d(10).toFloat(),w-a.d(10).toFloat());shape.color=accent;c.drawCircle(x,cy,a.d(10).toFloat(),shape);shape.color=if(light)Color.WHITE else 0xfff3f2ef.toInt();c.drawCircle(x,cy,a.d(6).toFloat(),shape)}
-        text.color=if(light)0xff86868b.toInt()else 0xff8a8a8e.toInt();val base=head+a.d(8)-text.fontMetrics.ascent
-        text.textAlign=Paint.Align.LEFT;c.drawText(left,0f,base,text);text.textAlign=Paint.Align.RIGHT;c.drawText(right,w,base,text)
-        if(markerLabel!=null&&marker!=null){text.textAlign=Paint.Align.CENTER;val tw=text.measureText(markerLabel);val cx=(w*marker).coerceIn(tw/2f,w-tw/2f);val gap=a.d(10).toFloat()
-            if(cx-tw/2f>text.measureText(left)+gap&&cx+tw/2f<w-text.measureText(right)-gap)c.drawText(markerLabel,cx,base,text)}
-    }
-}
 /** Thin rounded progress track with a gradient fill. */
 internal class ProgressRail(a:MainActivity,animate:Boolean,private val fraction:Float,private val accent:Int,private val accent2:Int,description:String):StatsAnimatedView(a,animate){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     init{contentDescription=description}
     override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val r=h/2f;p.shader=null;p.color=if(a.light)0xffe6e6ea.toInt()else 0xff3a3a3d.toInt();c.drawRoundRect(0f,0f,w,h,r,r,p)
         val f=(fraction*phase).coerceIn(0f,1f);if(f>0f){p.shader=LinearGradient(0f,0f,w,0f,intArrayOf(accent,accent2),null,Shader.TileMode.CLAMP);c.drawRoundRect(0f,0f,max(h,w*f),h,r,r,p);p.shader=null}}
-}
-/** Thin rounded bars: muted for data, one solid accent bar for the selected (or latest) value.
- *  With [tips]: press and hold a bar to see a small floating bubble with its label above it; slide to scrub. */
-internal class TimeRibbon(a:MainActivity,private val values:List<Double>,animate:Boolean,private val speed:Int?=null,private val onSelect:((Int)->Unit)?=null,private val accent:Int?=null,private val tips:List<Pair<String,String>>?=null):StatsAnimatedView(a,animate){
-    private var selected=-1
-    private var touched=-1
-    private var held=false
-    private var bubble=0f;private var bubbleX=-1f
-    private var bubbleAnim:android.animation.ValueAnimator?=null
-    private var downX=0f;private var downY=0f
-    private val holdTask=Runnable{if(tips!=null&&values.isNotEmpty()){held=true;parent?.requestDisallowInterceptTouchEvent(true);pick(downX,true);showBubble(true)}}
-    private val hideTask=Runnable{showBubble(false)}
-    init{if(onSelect!=null||tips!=null){isClickable=true;isFocusable=true};contentDescription=if(speed==null)values.joinToString("; "){duration((it*60000).toLong())}else "Приблизительная скорость: $speed слов в минуту"}
-    private fun indexAt(x:Float)=(x/width*values.size).toInt().coerceIn(0,values.lastIndex)
-    private fun pick(x:Float,first:Boolean){val i=indexAt(x);if(i!=selected||first){selected=i;if(a.prefs.optBoolean("haptics",true))performHapticFeedback(if(first)HapticFeedbackConstants.LONG_PRESS else HapticFeedbackConstants.CLOCK_TICK);invalidate()}}
-    private fun showBubble(on:Boolean){bubbleAnim?.cancel();val from=bubble;val to=if(on)1f else 0f
-        if(a.prefs.str("motion")=="reduced"){bubble=to;if(!on)selected=-1;invalidate();return}
-        bubbleAnim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=if(on)200 else 220;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{bubble=it.animatedValue as Float;invalidate()};addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(!on){selected=-1;bubbleX=-1f;invalidate()}}});start()}}
-    // Room for the bubble above the bars: unclip only up to the card itself — never the scrolling page, which must keep clipping.
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(tips!=null){var p=parent as? ViewGroup;while(p!=null&&p !is ScrollView){p.clipChildren=false;p.clipToPadding=false;if(p.tag=="statistics-card")break;p=p.parent as? ViewGroup}}}
-    override fun onDetachedFromWindow(){removeCallbacks(holdTask);removeCallbacks(hideTask);bubbleAnim?.cancel();super.onDetachedFromWindow()}
-    override fun onTouchEvent(e:MotionEvent):Boolean {
-        if(tips!=null){when(e.actionMasked){
-            MotionEvent.ACTION_DOWN->{downX=e.x;downY=e.y;removeCallbacks(hideTask);postDelayed(holdTask,(ViewConfiguration.getLongPressTimeout()*.55f).toLong())}
-            MotionEvent.ACTION_MOVE->if(held)pick(e.x,false) else if(kotlin.math.abs(e.x-downX)>a.d(10)||kotlin.math.abs(e.y-downY)>a.d(10))removeCallbacks(holdTask)
-            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{removeCallbacks(holdTask);if(held){held=false;parent?.requestDisallowInterceptTouchEvent(false);postDelayed(hideTask,1100)}}
-        };return true}
-        if(onSelect==null)return super.onTouchEvent(e);if(e.actionMasked==MotionEvent.ACTION_UP){touched=(e.x/width*values.size).toInt().coerceIn(0,values.lastIndex);performClick()};return true}
-    override fun performClick():Boolean {super.performClick();if(tips==null&&values.isNotEmpty()&&onSelect!=null){selected=if(touched>=0)touched else (selected+1)%values.size;touched=-1;onSelect.invoke(selected);invalidate()};return true}
-    private val tipPaint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-    override fun onDraw(c:Canvas){if(values.isEmpty())return;val p=Paint(Paint.ANTI_ALIAS_FLAG);val cell=width.toFloat()/values.size;val maximum=max(1.0,values.maxOrNull() ?: 1.0)
-        val ink=accent ?: if(a.light)0xff161617.toInt()else 0xfff3f2ef.toInt();val track=if(a.light)0x16161617 else 0x24ffffff;val data=if(a.light)0x59161617 else 0x73ffffff
-        val highlight=if(speed!=null)-1 else if(selected>=0)selected else values.indexOfLast{it>0}
-        values.forEachIndexed{i,v->
-            val bar=if(speed!=null)max(a.d(2).toFloat(),cell*.42f) else max(1f,cell-a.d(3).toFloat());val x=i*cell+(cell-bar)/2f;val radius=min(a.d(5).toFloat(),bar/2f)
-            val h=if(speed!=null)height.toFloat() else max(a.d(5).toFloat(),(v/maximum*height).toFloat())
-            p.color=track;c.drawRoundRect(x,height-h,x+bar,height.toFloat(),radius,radius,p)
-            val active=speed?.let{it>0 && i.toDouble()/values.size<(it/400.0).coerceIn(0.0,1.0)} ?: (v>0)
-            if(active){p.color=if(speed!=null||i==highlight)ink else data;c.drawRoundRect(x,height-h*phase,x+bar,height.toFloat(),radius,radius,p)}
-            else if(i==selected&&bubble>0f){p.color=ink;p.alpha=(90*bubble).toInt();c.drawRoundRect(x,height-h,x+bar,height.toFloat(),radius,radius,p);p.alpha=255}
-        }
-        // Floating bubble above the held bar.
-        if(tips!=null&&selected in tips.indices&&bubble>0f){val (title,value)=tips[selected];val cx=selected*cell+cell/2f
-            bubbleX=if(bubbleX<0f)cx else bubbleX+(cx-bubbleX)*.45f;if(kotlin.math.abs(bubbleX-cx)>.5f)postInvalidateOnAnimation()
-            tipPaint.textSize=a.d(13).toFloat();tipPaint.typeface=PolkaFonts.sans(600);val w1=tipPaint.measureText(value)
-            tipPaint.textSize=a.d(11).toFloat();tipPaint.typeface=PolkaFonts.sans(400);val w2=tipPaint.measureText(title)
-            val bw=max(w1,w2)+a.d(24);val bh=a.d(44).toFloat();val bx=(bubbleX-bw/2).coerceIn(0f,width-bw);val v=values[selected];val barTop=height-max(a.d(5).toFloat(),(v/maximum*height).toFloat())
-            val by=barTop-bh-a.d(10)
-            c.save();c.translate(0f,a.d(6)*(1f-bubble));val s=.92f+.08f*bubble;c.scale(s,s,bubbleX,by+bh)
-            tipPaint.alpha=255;tipPaint.color=if(a.light)Color.WHITE else 0xff343438.toInt();tipPaint.alpha=(255*bubble).toInt()
-            tipPaint.setShadowLayer(a.d(8).toFloat(),0f,a.d(3).toFloat(),if(a.light)(0x33*bubble).toInt() shl 24 else (0x99*bubble).toInt() shl 24)
-            c.drawRoundRect(bx,by,bx+bw,by+bh,a.d(12).toFloat(),a.d(12).toFloat(),tipPaint);tipPaint.clearShadowLayer()
-            // a small pointer down to the bar
-            val tip=Path();tip.moveTo(bubbleX-a.d(6),by+bh-1);tip.lineTo(bubbleX,by+bh+a.d(6));tip.lineTo(bubbleX+a.d(6),by+bh-1);tip.close();c.drawPath(tip,tipPaint)
-            tipPaint.textAlign=Paint.Align.CENTER;val mid=bx+bw/2
-            tipPaint.color=a.fg;tipPaint.alpha=(255*bubble).toInt();tipPaint.textSize=a.d(13).toFloat();tipPaint.typeface=PolkaFonts.sans(600);c.drawText(value,mid,by+a.d(19),tipPaint)
-            tipPaint.color=a.muted;tipPaint.alpha=(255*bubble).toInt();tipPaint.textSize=a.d(11).toFloat();tipPaint.typeface=PolkaFonts.sans(400);c.drawText(title,mid,by+a.d(35),tipPaint)
-            c.restore()}
-    }
 }
 /** Each infographic starts when scrolled into view, once; no looping shimmer or offscreen work. */
 internal open class StatsAnimatedView(a:MainActivity,private val motion:Boolean):AnimatedProfileView(a,false) {

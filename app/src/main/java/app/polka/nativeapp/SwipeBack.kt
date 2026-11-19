@@ -22,7 +22,7 @@ internal class SwipeBack(private val a:MainActivity){
      *  An overlay slides off and uncovers the page under it, as in other apps. */
     private fun target():View?{if(a.reader!=null||a.addMenu!=null||a.goalRoad!=null||a.tierList!=null||a.readBooksOverlay!=null)return null
         a.settingsPage?.let{return it};a.profileOverlay?.let{return it}
-        return if(!a.shelvesEditing&&(a.shelf!=null||a.auto!=null||a.quoteBookId!=null))a.scroll else null}
+        return if(!a.shelvesEditing&&(a.shelf!=null||a.auto!=null))a.scroll else null}
     private var view:View?=null
     private fun available()=target()!=null
     /** Whether something under the finger scrolls sideways (a row of covers, a carousel): the swipe is its. */
@@ -57,11 +57,16 @@ internal class SwipeBack(private val a:MainActivity){
         a.root.addView(iv,a.root.indexOfChild(a.scroll),android.widget.FrameLayout.LayoutParams(a.scroll.width,a.scroll.height).apply{leftMargin=at[0]-rootAt[0];topMargin=at[1]-rootAt[1]});under=iv}
     private var sceneBg:android.graphics.drawable.Drawable?=null
     private fun cover(){if(under!=null)a.scroll.background=sceneBg;sceneBg=null;under?.let{a.root.removeView(it)};under=null}
-    private fun move(dx:Float){val v=view?:return;if(dx>0f)uncover();v.translationX=dx}
+    /** The navigation is not on a shelf's page; the list under it has it, so it shows in the part already uncovered. */
+    private fun navAt(dx:Float){if(view!==a.scroll)return;listOfNotNull<View>(a.nativeNavigation,a.addButton).forEach{n->
+        if(dx<=0f){n.clipBounds=null;n.visibility=View.INVISIBLE;return@forEach}
+        n.visibility=View.VISIBLE;n.alpha=1f;n.translationY=0f
+        n.clipBounds=android.graphics.Rect(0,0,(dx-n.left).toInt().coerceIn(0,n.width),n.height)}}
+    private fun move(dx:Float){val v=view?:return;if(dx>0f)uncover();v.translationX=dx;navAt(dx)}
     private fun back(from:Float){settle?.cancel();settle=ValueAnimator.ofFloat(from,0f).apply{duration=320;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{move(it.animatedValue as Float)}
         addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){cover()}});start()}}
     private fun leave(from:Float,w:Float){settle?.cancel();settle=ValueAnimator.ofFloat(from,w).apply{duration=(220*(1-from/w)).toLong().coerceAtLeast(90);interpolator=PathInterpolator(.3f,0f,.6f,1f)
         addUpdateListener{move(it.animatedValue as Float)}
         addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){val v=view;view=null
-            if(v===a.scroll){v.translationX=0f;a.swipedBack();cover()} else if(v!=null)a.swipedAway(v)}});start()}}
+            if(v===a.scroll){listOfNotNull<View>(a.nativeNavigation,a.addButton).forEach{it.clipBounds=null};a.navRevealed=true;v.translationX=0f;a.swipedBack();cover()} else if(v!=null)a.swipedAway(v)}});start()}}
 }

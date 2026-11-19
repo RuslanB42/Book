@@ -21,7 +21,6 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  private val curve=PathInterpolator(.2f,.75f,.25f,1f)
  private var spent=0L;private var readSpeed=190.0
  val isShowing get()=parent!=null&&!ended
- val panelView:View get()=panel
  private fun reduced()=a.prefs.str("motion")=="reduced"
  init{a.controlSurface(panel,22f,sheet=true).apply{flushBottom=true;refresh()};clipChildren=false;clipToPadding=false;elevation=a.d(40).toFloat();isClickable=true;isFocusableInTouchMode=true;contentDescription="О книге: ${book.str("title")}";addView(scrim,LayoutParams(-1,-1));addView(panel,LayoutParams(-1,-1,Gravity.BOTTOM).apply{topMargin=a.d(48)})
   panel.addView(scroller,LayoutParams(-1,-1));scroller.addView(content);panel.addView(DetailTopFade(a),LayoutParams(-1,a.d(DetailTopFade.DEPTH_DP),Gravity.TOP));build()
@@ -240,7 +239,6 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  internal fun beginDrag(){if(ended||closing||!begun)return;freezeMotion();if(flight==null)setupFlight()}
  internal fun dragTo(offset:Float){if(!ended&&!closing&&begun)pose(1-offset.coerceAtLeast(0f)/maxOf(1,panel.height))}
  internal fun endDrag(commit:Boolean){if(ended||closing)return;if(commit)dismiss()else if(reduced()){pose(1f);clearFlight()}else animateTo(1f)}
- internal val motionProgress get()=presentation
  private inner class DetailPanel:FrameLayout(a){
   private var downX=0f;private var downY=0f;private var startY=0f;private var dragging=false;private var eligible=false;private var velocity:VelocityTracker?=null
   init{isClickable=true}

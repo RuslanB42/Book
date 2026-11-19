@@ -26,7 +26,6 @@ internal object Ease {
     private fun inOut(f:(Float)->Float)=TimeInterpolator{t->if(t<.5f)f(t*2)/2 else 1-f(t*-2+2)/2}
     private fun outIn(f:(Float)->Float)=TimeInterpolator{t->if(t<.5f)(1-f(1-t*2))/2 else (f(t*2-1)+1)/2}
 
-    val linear=TimeInterpolator{it}
     val inQuad=inn(power(2f));val outQuad=out(power(2f));val inOutQuad=inOut(power(2f))
     val inCubic=inn(power(3f));val outCubic=out(power(3f));val inOutCubic=inOut(power(3f))
     val inQuart=inn(power(4f));val outQuart=out(power(4f));val inOutQuart=inOut(power(4f))

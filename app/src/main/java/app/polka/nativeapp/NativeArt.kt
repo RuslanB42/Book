@@ -87,7 +87,6 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
         BookCoverVolume.material(canvas,r)
         canvas.restore()
     }
-    private fun TextPaint.letterSpacingCompat() { /* tracking follows native font metrics */ }
 }
 class ShelfArt(context: Context, val previews: List<Pair<JSONObject, Bitmap?>>, val light: Boolean, val add: Boolean = false) : View(context) {
     override fun onMeasure(ws:Int,hs:Int) { if(layoutParams?.height==android.view.ViewGroup.LayoutParams.WRAP_CONTENT) { val w=MeasureSpec.getSize(ws); setMeasuredDimension(w,(w*.94f).toInt()) } else super.onMeasure(ws,hs) }

@@ -21,9 +21,6 @@ internal data class CalendarPeriod(val first:LocalDate,val last:LocalDate) {
     fun pages():List<List<YearMonth>> {val start=YearMonth.from(first);val n=ChronoUnit.MONTHS.between(start,YearMonth.from(last)).toInt()+1;return (0 until n).map{start.plusMonths(it.toLong())}.chunked(12)}
     fun contains(date:LocalDate)=date in first..last
 }
-internal fun MainActivity.openBookCalendar(data:JSONObject,month:YearMonth) {
-    bookCalendar?.dismiss();BookCalendarDialog(this,data,month).also{bookCalendar=it;it.show()}
-}
 internal class BookCalendarDialog(private val a:MainActivity,data:JSONObject,initial:YearMonth):Dialog(a,R.style.PolkaSheetTheme) {
     private val model=ReadingStatistics(data,a.books)
     private val today=LocalDate.now()
@@ -108,8 +105,6 @@ internal class BookCalendarPoster(private val a:MainActivity,private val model:R
     override fun onMeasure(w:Int,h:Int){val width=minOf(MeasureSpec.getSize(w).coerceAtLeast(1),a.d(640));setMeasuredDimension(width,(width*naturalHeight/1080f).roundToInt())}
     internal fun image():Bitmap {val result=Bitmap.createBitmap(2160,naturalHeight*2,Bitmap.Config.ARGB_8888);val canvas=Canvas(result);canvas.scale(2f,2f);paintPoster(canvas);return result}
     override fun onDraw(canvas:Canvas){canvas.save();canvas.scale(width/1080f,width/1080f);paintPoster(canvas);canvas.restore()}
-    internal fun dayBounds(date:LocalDate)=hitDays[date]?.let{RectF(it)}
-    internal fun monthBounds(month:YearMonth)=hitMonths[month]?.let{RectF(it)}
     private var accessibilityFocus=View.NO_ID
     private val nodeProvider=object:AccessibilityNodeProvider(){
         override fun createAccessibilityNodeInfo(id:Int):AccessibilityNodeInfo? {

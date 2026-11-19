@@ -33,13 +33,6 @@ fun MainActivity.openingSnapshot(id:String,explicit:View?=null,captureScene:Bool
  return BookOpeningSnapshot(scene,cover,rect,inside,bg,true,source,lit)
 }
 
-/** A frozen source scene covers async reader preparation, so no background-only frame can escape. */
-internal class BookOpeningHold(a:MainActivity,private val snapshot:BookOpeningSnapshot):View(a){
- private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
- private val dark=!a.light
- init{isClickable=true;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS;contentDescription="Открываю книгу"}
- override fun onDraw(c:Canvas){if(snapshot.scene.isRecycled)return;c.drawBitmap(snapshot.scene,null,RectF(0f,0f,width.toFloat(),height.toFloat()),p);snapshot.litScene?.takeUnless{it.isRecycled}?.let{c.drawBitmap(it,null,RectF(0f,0f,width.toFloat(),height.toFloat()),p)};BookCoverVolume.shadow(c,snapshot.rect,dark,true);c.drawBitmap(snapshot.cover,null,snapshot.rect,p)}
-}
 
 /** Hosts the actual, already laid-out native reader. No reader screenshots or last-frame substitution. */
 class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeningSnapshot,private val live:View,private val restoreLive:Boolean=true,private val ownedBitmap:Bitmap?=null,internal val returning:Boolean=false,private val motionReader:NativeReader?=null,private val completed:(()->Unit)?=null):ViewGroup(a) {

@@ -59,41 +59,6 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     }
     /** Rows rise in one after another as the panel arrives. */
     private fun riseRows(first:Long){(main as? ViewGroup)?.let{g->for(i in 0 until g.childCount){val v=g.getChildAt(i);v.alpha=0f;v.translationY=a.d(14).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(first+i*45L).setDuration(340).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
-    /** The reader's bottom bar grows into this panel: the same card stretches up from the bar's place to the panel's,
-     *  its colour and corners turn into the panel's, the bar's own content fades away and the settings rise in. */
-    private fun morphIn(bar:View,root:FrameLayout){
-        val sAt=IntArray(2);sheet.getLocationOnScreen(sAt);val bAt=IntArray(2);bar.getLocationOnScreen(bAt);val rAt=IntArray(2);root.getLocationOnScreen(rAt)
-        val from=RectF((bAt[0]-sAt[0]).toFloat(),(bAt[1]-sAt[1]).toFloat(),(bAt[0]-sAt[0]+bar.width).toFloat(),(bAt[1]-sAt[1]+bar.height).toFloat())
-        val to=RectF(0f,0f,sheet.width.toFloat(),sheet.height.toFloat())
-        val fromColor=(bar.background as? OpaqueSurface)?.fillColor?:sheetColor
-        // a picture of the bar's content stays where it was and fades as the card grows
-        val pic=runCatching{Bitmap.createBitmap(bar.width,bar.height,Bitmap.Config.ARGB_8888).also{val c=Canvas(it);val bg=bar.background;bar.background=null;try{bar.draw(c)}finally{bar.background=bg}}}.getOrNull()
-        val ghost=pic?.let{b->ImageView(a).apply{setImageBitmap(b);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;translationX=(bAt[0]-rAt[0]).toFloat();translationY=(bAt[1]-rAt[1]).toFloat()}}
-        ghost?.let{root.addView(it,FrameLayout.LayoutParams(bar.width,bar.height))}
-        r.yieldChromeToSettings()
-        val original=sheet.background;val frame=MorphFrame(a.d(26).toFloat());frame.color=fromColor;frame.rect.set(from)
-        sheet.background=frame;sheet.outlineProvider=frame.outline;sheet.clipToOutline=true;sheet.alpha=1f
-        riseRows(70)
-        val ease=PathInterpolator(.2f,0f,0f,1f)
-        ValueAnimator.ofFloat(0f,1f).apply{duration=540;interpolator=LinearInterpolatorCompat
-            addUpdateListener{val t=it.animatedValue as Float;val k=ease.getInterpolation(t)
-                frame.rect.set(from.left+(to.left-from.left)*k,from.top+(to.top-from.top)*k,from.right+(to.right-from.right)*k,from.bottom+(to.bottom-from.bottom)*k)
-                frame.radius=a.d(26)+(a.d(30)-a.d(26))*k;frame.color=androidx.core.graphics.ColorUtils.blendARGB(fromColor,sheetColor,(t/.6f).coerceIn(0f,1f))
-                frame.invalidateSelf();sheet.invalidateOutline()
-                ghost?.let{g->val f=(t/.32f).coerceIn(0f,1f);g.alpha=1f-f;g.translationY=(bAt[1]-rAt[1])-a.d(10)*f}}
-            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){
-                sheet.background=original;sheet.outlineProvider=ViewOutlineProvider.BACKGROUND;sheet.clipToOutline=false
-                ghost?.let{root.removeView(it);it.setImageDrawable(null)};pic?.recycle()}});start()}
-    }
-    /** The growing card: a rounded rectangle at any rect inside the panel, also used as the panel's outline (it clips the rows). */
-    private class MorphFrame(var radius:Float):android.graphics.drawable.Drawable(){
-        val rect=RectF();var color=0;private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-        val outline=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(rect.left.roundToInt(),rect.top.roundToInt(),rect.right.roundToInt(),rect.bottom.roundToInt(),radius)}}
-        override fun draw(c:Canvas){p.color=color;c.drawRoundRect(rect,radius,radius,p)}
-        override fun setAlpha(alpha:Int){}
-        override fun setColorFilter(cf:ColorFilter?){}
-        @Deprecated("Deprecated in Java") override fun getOpacity()=PixelFormat.TRANSLUCENT
-    }
     private object LinearInterpolatorCompat:android.animation.TimeInterpolator{override fun getInterpolation(x:Float)=x}
     /** The panel follows a downward drag (from anywhere on it that is not a control being dragged) and leaves past a
      *  quarter of its height or on a quick flick; otherwise it settles back. */
@@ -484,24 +449,6 @@ internal class SettingSlider(private val a:MainActivity,private val from:Float,p
     }
 }
 
-/** A page-coloured circle with «Аа» in the page ink; the accent ring grows in when chosen. */
-internal class ThemeSwatch(private val a:MainActivity,private val bg:Int,private val ink:Int,selected:Boolean):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var ring=if(selected)1f else 0f;private var anim:ValueAnimator?=null
-    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-    fun select(on:Boolean){val target=if(on)1f else 0f;if(target==ring)return;anim?.cancel()
-        if(a.prefs.str("motion")=="reduced"||!isAttachedToWindow){ring=target;invalidate();return}
-        anim=ValueAnimator.ofFloat(ring,target).apply{duration=260;interpolator=PathInterpolator(.2f,1f,.3f,1f);addUpdateListener{ring=it.animatedValue as Float;invalidate()};start()}}
-    override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
-    override fun onDraw(c:Canvas){
-        val cx=width/2f;val cy=height/2f;val outer=minOf(width,height)/2f-a.d(1);val inner=outer-a.d(5)
-        if(ring>0f){p.style=Paint.Style.STROKE;p.strokeWidth=(2.5f*a.resources.displayMetrics.density)*ring;p.color=a.accent;c.drawCircle(cx,cy,outer-p.strokeWidth/2f,p)}
-        val r=inner-a.d(1)*(1f-ring)
-        p.style=Paint.Style.FILL;p.color=bg;c.drawCircle(cx,cy,r,p)
-        p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=if(Color.red(bg)>128)0x22000000 else 0x30ffffff;c.drawCircle(cx,cy,r,p)
-        p.style=Paint.Style.FILL;p.color=ink;p.textSize=a.d(17).toFloat();p.typeface=PolkaFonts.reader(a,"literata");p.textAlign=Paint.Align.CENTER
-        c.drawText("Аа",cx,cy-(p.ascent()+p.descent())/2f,p)
-    }
-}
 
 /** «Авто» pill used for brightness. */
 internal class AutoChip(private val a:MainActivity,initial:Boolean):TextView(a){
@@ -511,16 +458,6 @@ internal class AutoChip(private val a:MainActivity,initial:Boolean):TextView(a){
     private fun paint(){background=a.shape(if(on)a.fg else (if(a.light)0xffe6e6e3.toInt() else 0xff333336.toInt()),100);setTextColor(if(on)a.bg else a.muted)}
 }
 
-/** Small sun for the brightness ends. */
-internal class SunGlyph(private val a:MainActivity,private val large:Boolean):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeCap=Paint.Cap.ROUND}
-    override fun onDraw(c:Canvas){
-        val cx=width/2f;val cy=height/2f;val k=if(large)1f else .72f;p.color=a.muted
-        p.style=Paint.Style.FILL;c.drawCircle(cx,cy,a.d(4)*k,p)
-        p.style=Paint.Style.STROKE;p.strokeWidth=(1.6f*a.resources.displayMetrics.density)*k
-        for(i in 0 until 8){val t=Math.PI*i/4;val r1=(6.5f*a.resources.displayMetrics.density)*k;val r2=(9f*a.resources.displayMetrics.density)*k;c.drawLine(cx+(cos(t)*r1).toFloat(),cy+(sin(t)*r1).toFloat(),cx+(cos(t)*r2).toFloat(),cy+(sin(t)*r2).toFloat(),p)}
-    }
-}
 
 /** A layout setting as a capsule like «Размер»: the name on the left in two inks split at the fill, the value on the
  *  right, a quiet dot at the default (the fill catches on it with a tick). The fill follows the finger and settles on whole steps. */

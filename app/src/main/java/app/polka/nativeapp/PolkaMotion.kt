@@ -66,26 +66,4 @@ class ScreenMotion(private val a:MainActivity) {
         if(a.prefs.str("motion")=="reduced") return
         motions.add(NativeMotion(view,from,duration=duration,delay=delay,curve=curve).start())
     }
-    /** A full-width adjacent-page push. No page alpha, scale, blur or vertical movement.
-     * Capture the current composited presentation before render/stop, including an interrupted
-     * outgoing layer, so a rapid second tap never snaps back to a previous resting page. */
-    fun captureOutgoing(view:View,opening:Boolean):()->Unit {
-        if(a.prefs.str("motion")=="reduced" || view.width<=0 || !view.isAttachedToWindow)return {}
-        val origin=IntArray(2);val at=IntArray(2);a.root.getLocationOnScreen(origin);view.getLocationOnScreen(at)
-        val left=a.root.paddingLeft;val top=maxOf(a.root.paddingTop,at[1]-origin[1])
-        val width=a.root.width-left-a.root.paddingRight;val height=a.root.height-top-a.root.paddingBottom
-        if(width<=0||height<=0)return {}
-        val scale=1f;val image=Bitmap.createBitmap((width*scale).toInt().coerceAtLeast(1),(height*scale).toInt().coerceAtLeast(1),Bitmap.Config.ARGB_8888)
-        val canvas=Canvas(image);canvas.scale(scale,scale);canvas.drawColor(a.bg)
-        fun drawPresentation(v:View){val pos=IntArray(2);v.getLocationOnScreen(pos);val save=canvas.save();canvas.translate((pos[0]-origin[0]-left).toFloat(),(pos[1]-origin[1]-top).toFloat());v.draw(canvas);canvas.restoreToCount(save)}
-        drawPresentation(a.scroll);ghost?.let{drawPresentation(it)}
-        val layer=object:View(a){val paint=Paint(Paint.FILTER_BITMAP_FLAG);override fun onDraw(c:Canvas){if(!image.isRecycled)c.drawBitmap(image,null,RectF(0f,0f,width.toFloat(),height.toFloat()),paint)};override fun onDetachedFromWindow(){if(!image.isRecycled)image.recycle();super.onDetachedFromWindow()}}.apply{importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS;isClickable=false}
-        return {
-            ghost=layer;tabView=(a.page.parent as? View)?:a.page;tabDirection=if(opening)1f else -1f;tabWidth=width.toFloat()
-            a.root.addView(layer,1.coerceAtMost(a.root.childCount),FrameLayout.LayoutParams(width,height).apply{leftMargin=left-a.root.paddingLeft;topMargin=top-a.root.paddingTop})
-            sampleTab(0)
-            // The destination's posted scroll restoration runs before the first animated draw.
-            tabClock=ValueAnimator.ofFloat(0f,1f).apply{duration=300;interpolator=LinearInterpolator();addUpdateListener{sampleTab(currentPlayTime)};start()}
-        }
-    }
 }

@@ -116,7 +116,6 @@ internal class BookGlowView(private val a:MainActivity,private val cover:CoverVi
  internal val ready get()=raster!=null
  init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;cover.artworkChanged={refresh()}}
  fun refresh(){if(isAttachedToWindow)prepare{};invalidate()}
- internal fun finishReveal(){invalidate()}
  fun prepare(done:()->Unit){
   if((ready&&key==cover.glowKey())||(!preparing&&attemptedKey==cover.glowKey())){done();return}
   waiters.add(done);if(preparing)return

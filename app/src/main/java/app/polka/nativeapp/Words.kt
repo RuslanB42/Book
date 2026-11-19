@@ -137,13 +137,6 @@ internal class TypefaceSpanCompat(private val face:Typeface):android.text.style.
     override fun updateMeasureState(tp:android.text.TextPaint){tp.typeface=face}
 }
 
-/** Five small dots: how firmly a word sits. */
-internal class LevelDots(private val a:MainActivity,private val level:Int):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(5*6+4*3),a.d(8))
-    override fun onDraw(c:Canvas){val r=a.d(3).toFloat();val step=a.d(9).toFloat()
-        for(i in 0 until 5){p.color=if(i<level)a.fg else (a.fg and 0xffffff) or (0x2a shl 24);c.drawCircle(r+i*step,height/2f,r,p)}}
-}
 
 private fun MainActivity.quietFill()=if(light)0x0f000000 else 0x0fffffff
 private fun MainActivity.roundButton(kind:String,desc:String,size:Int=36,fn:()->Unit)=FrameLayout(this).apply{

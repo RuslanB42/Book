@@ -166,8 +166,6 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
             val l=cv.left+cv.pivotX*(1-cv.scaleX);val t=cv.top+cv.translationY+cv.pivotY*(1-cv.scaleY);val pad=haloPad*cv.scaleX
             haloPaint.alpha=(k*(if(a.light)150 else 235)).toInt();c.drawBitmap(g,null,RectF(l-pad,t-pad,l+w+pad,t+h+pad),haloPaint)}}
     private val haloPad=d*14;private var halo:Bitmap?=null;private val haloPaint=Paint(Paint.FILTER_BITMAP_FLAG)
-    /** Blurred off the main thread at a third of the size (measured: done in the frame it cost ~140 ms). */
-    private var haloPending=false
     private fun haloFor(w:Int,h:Int):Bitmap?{halo?.let{return it};val pad=haloPad
         halo=Glow.blurred((w+pad*2).toInt(),(h+pad*2).toInt(),3,d*5){c,p->p.color=if(a.light)0xff37c080.toInt() else 0xff7bdca6.toInt();c.drawRoundRect(pad,pad,pad+w,pad+h,d*3,d*3,p)}
         return halo}
@@ -182,11 +180,3 @@ internal class YearRoad(private val a:MainActivity,private val books:List<YearBo
     companion object{const val SEL=1.12f;const val BASE=.8f;/** every cover on a normal road: one size, none singled out */const val FLAT=.74f;val MONTHS_SHORT=listOf("янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек")}
 }
 
-/** An empty, dashed star: the book has no rating yet. */
-internal class EmptyStar(private val a:MainActivity):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE}
-    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(36),a.d(36))
-    override fun onDraw(c:Canvas){val s=min(width,height)/100f;c.save();c.translate((width-100*s)/2,(height-100*s)/2);c.scale(s,s)
-        val star=Path();for(i in 0 until 10){val r=if(i%2==1)21f else 46f;val t=Math.toRadians(-90.0+36*i);val x=(50+r*cos(t)).toFloat();val y=(53+r*sin(t)).toFloat();if(i==0)star.moveTo(x,y) else star.lineTo(x,y)};star.close()
-        p.strokeWidth=3f;p.color=a.muted;p.pathEffect=DashPathEffect(floatArrayOf(7f,6f),0f);p.strokeJoin=Paint.Join.ROUND;c.drawPath(star,p);c.restore()}
-}

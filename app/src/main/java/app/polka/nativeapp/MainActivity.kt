@@ -17,9 +17,6 @@ class MainActivity : Activity() {
     lateinit var library: Library
     private val cpu=Executors.newFixedThreadPool(2)
     val screenMotion by lazy { ScreenMotion(this) }
-    var quoteBookId:String?=null
-    /** Books whose quote piles are open on the «Цитаты» tab (kept across re-renders). */
-    internal val openQuoteStacks=mutableSetOf<String>()
     /** Which quote is on top of each book's deck on the «Цитаты» tab. */
     internal val quoteDeckIndex=mutableMapOf<String,Int>()
     internal var pendingMotion:Pair<MotionPose,Long>?=null
@@ -126,8 +123,6 @@ class MainActivity : Activity() {
     var profileOverlay:View?=null
     var profileStats:JSONObject?=null
     var profileRange=0
-    var statisticsMonth:java.time.YearMonth?=null
-    var statisticsDay:java.time.LocalDate?=null
     var statisticsGoalYear:Int?=null
     internal var readBooksOverlay:View?=null
     private val bookObservers=linkedMapOf<View,Pair<String,(JSONObject)->Unit>>()
@@ -184,7 +179,6 @@ class MainActivity : Activity() {
     internal var backdrop:android.graphics.Bitmap?=null
     internal var backdropY=0
     private var backdropTab="shelves"
-    internal fun markShallow(){wasDeep=false}
     internal fun captureBackdrop(){wasDeep=true;if(!::scroll.isInitialized||scroll.width<=0||scroll.height<=0)return
         backdrop=try{val b=android.graphics.Bitmap.createBitmap(scroll.width,scroll.height,android.graphics.Bitmap.Config.ARGB_8888)
             val c=android.graphics.Canvas(b);c.drawColor(bg);c.translate(0f,-scroll.scrollY.toFloat());scroll.draw(c);backdropY=scroll.scrollY;backdropTab=tab;b}catch(e:Throwable){null}}
@@ -195,7 +189,6 @@ class MainActivity : Activity() {
     internal fun swipedAway(v:View){when{v===settingsPage->settingsPage=null;v===profileOverlay->{profileOverlay=null;profileStats=null}};root.removeView(v)}
     /** A swipe back finished: the list this page came from glides in from the left. */
     internal fun swipedBack(){when{
-        quoteBookId!=null->openQuoteGroup(null,quiet=true)
         shelf!=null||auto!=null->{val y=backdropY;val back=if(backdrop!=null)backdropTab else "shelves";shelf=null;auto=null;query="";tab=back;render(false,false);scroll.post{scroll.scrollTo(0,y)}}}}
     override fun onCreate(savedInstanceState: Bundle?) {
         PolkaFonts.init(this)
@@ -287,7 +280,7 @@ class MainActivity : Activity() {
         if(loadingReader){renderDeferred=true;return}
         // Going one level in (a shelf, a status shelf, a book's quotes): keep a picture of the list being left, so a
         // swipe back uncovers it under the finger, the same way the settings and the profile uncover the page below.
-        val deep=shelf!=null||auto!=null||quoteBookId!=null
+        val deep=shelf!=null||auto!=null
         if(deep&&!wasDeep)captureBackdrop()
         if(!deep)backdrop=null
         wasDeep=deep
@@ -380,36 +373,6 @@ class MainActivity : Activity() {
             (w*1.5f).toInt()+d(16)+(18*resources.displayMetrics.scaledDensity*lines).toInt()+d(4)+(17*resources.displayMetrics.scaledDensity).toInt()+if(batch.any{(it.optJSONObject("progress")?.optDouble("pct") ?: 0.0)>0})d(38)else 0
         },::cell);virtual.reorder=ShelfReorder(this,virtual,list) { saveGridOrder(it) };page.addView(col().apply{clipChildren=false;clipToPadding=false;setPadding(d(2),d(6),d(5),0);addView(virtual,LinearLayout.LayoutParams(-1,-2))},LinearLayout.LayoutParams(-1,-2))
     }
-    fun shelfGrid() {
-        val byShelf=books.groupBy{it.str("shelf")};val names=(prefs.optJSONArray("shelves")?.strings().orEmpty()+byShelf.keys.filter{it.isNotBlank()}).distinct()
-        val manual=names.sortedWith(compareByDescending<String>{byShelf[it]?.size ?: 0}.thenBy{it})
-        data class ShelfItem(val name:String,val list:List<JSONObject>,val add:Boolean=false,val action:()->Unit)
-        val all=manual.map{name->"s:$name" to ShelfItem(name,byShelf[name].orEmpty()){pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;shelf=name;render(false,false)}}+
-            (listOf("want","reading","done")+listOf("paused").filter{k->books.any{Library.status(it)==k}}).map{key->"a:$key" to ShelfItem(autoTitle(key),books.groupBy{Library.status(it)}[key].orEmpty()){pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;auto=key;render(false,false)}}
-        // Saved order first; shelves that were never placed keep their default position after the known ones.
-        val saved=prefs.optJSONArray("shelfOrder")?.strings().orEmpty()
-        val ordered=all.sortedBy{(k,_)->saved.indexOf(k).let{if(it<0)Int.MAX_VALUE else it}}
-        val byKey=ordered.toMap();val keys=ordered.map{it.first}.toMutableList()
-        val list=keys.map{JSONObject().put("id",it)}.toMutableList()
-        val addItem=ShelfItem("Новая полка",emptyList(),true){createShelf()}
-        val count=list.size+1
-        val grid=VirtualGrid(this,count,columns(),d(if(resources.configuration.screenWidthDp>=680)28 else 18),d(if(resources.configuration.screenWidthDp>=680)40 else 30),{_,w->(w*.94f).toInt()+d(16)+(d(62)*resources.configuration.fontScale.coerceAtLeast(1f)).toInt()},{i->
-            if(i>=list.size)shelfCell(addItem.name,addItem.list,true,addItem.action) else {val key=list[i].str("id");val item=byKey.getValue(key);shelfCell(item.name,item.list,false,item.action).apply{if(key.startsWith("s:"))setOnLongClickListener{shelfActions(item.name);true}}}})
-        grid.locked=1
-        grid.reorder=ShelfReorder(this,grid,list,{held->val key=held.str("id");if(key.startsWith("s:"))shelfActions(byKey.getValue(key).name)}){ordered->prefs.put("shelfOrder",JSONArray(ordered.map{it.str("id")}));savePreferences()}
-        page.addView(grid,LinearLayout.LayoutParams(-1,-2))
-    }
-    fun shelfCell(name:String,list:List<JSONObject>,add:Boolean,click:()->Unit):View {
-        val width=(resources.configuration.screenWidthDp-40-(columns()-1)*20)/columns()
-        return col().apply {
-            clipChildren=false;clipToPadding=false
-            addView(ShelfArt(this@MainActivity,list.take(3).map { it to cover(it) },light,add),LinearLayout.LayoutParams(-1,-2))
-            space(this,12)
-            addView(text(name,15f,if(add) muted else fg).apply { gravity=Gravity.CENTER; maxLines=2; ellipsize=android.text.TextUtils.TruncateAt.END },LinearLayout.LayoutParams(-1,(d(42)*resources.configuration.fontScale.coerceAtLeast(1f)).toInt()))
-            space(this,4)
-            addView(text(if(add) " " else countBooks(list.size),14f,muted).apply { gravity=Gravity.CENTER },LinearLayout.LayoutParams(-1,(d(20)*resources.configuration.fontScale.coerceAtLeast(1f)).toInt())); setOnClickListener { click() }
-        }
-    }
     fun navigation() {
         val nav=nativeNavigation ?: PolkaNavigation(this).also { nativeNavigation=it }
         nav.bind(tab) { key -> goTab(key) }
@@ -418,10 +381,24 @@ class MainActivity : Activity() {
         val add=icon("plus","Добавить",true) { if(addMenu!=null) addMenu?.close() else AddMenu(this).open() }; addButton=add;add.background=Floating(this,add.background,d(29).toFloat());add.elevation=0f
         root.addView(add,FrameLayout.LayoutParams(d(58),d(58),Gravity.BOTTOM or Gravity.END))
         followInsets(add){i->add.layoutParams=(add.layoutParams as FrameLayout.LayoutParams).apply{rightMargin=d(16)+i.right;bottomMargin=navigationBottom(baseInsets)}}
+        // Inside a shelf there is no navigation, as in the profile: it slips down and away on the way in and comes
+        // back on the way out (a swipe back uncovers it already, see SwipeBack).
+        val inside=shelf!=null||auto!=null;val was=navAway;navAway=inside
+        val reduced=prefs.str("motion")=="reduced"
+        listOf<View>(nav,add).forEach{v->v.animate().cancel();v.clipBounds=null
+            when{
+                inside&&(was||reduced)->{v.visibility=View.INVISIBLE;v.alpha=1f;v.translationY=0f}
+                inside->{v.visibility=View.VISIBLE;v.alpha=1f;v.translationY=0f;v.animate().alpha(0f).translationY(d(24).toFloat()).setDuration(200).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,1f,1f)).withEndAction{if(navAway){v.visibility=View.INVISIBLE;v.alpha=1f;v.translationY=0f}}.start()}
+                was&&!navRevealed&&!reduced->{v.visibility=View.VISIBLE;v.alpha=0f;v.translationY=d(24).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(60).setDuration(320).setInterpolator(MotionSpec.settle).start()}
+                else->{v.visibility=View.VISIBLE;v.alpha=1f;v.translationY=0f}}}
+        navRevealed=false
     }
+    private var navAway=false
+    /** A swipe back has already uncovered the navigation: it does not come in a second time. */
+    internal var navRevealed=false
     /** Switches to the tab [key] the way a tap on the navigation does: the pages slide, the pill glides. */
     fun goTab(key:String) {
-            if(tab!=key || shelf!=null || auto!=null || quoteBookId!=null) { val from=listOf("home","shelves","quotes","words").indexOf(tab);val to=listOf("home","shelves","quotes","words").indexOf(key);tabScroll[tab]=scroll.scrollY;val oldScroll=scroll;screenMotion.stop();pendingMotion=null;librarySearch?.close(false);tab=key;shelf=null;auto=null;quoteBookId=null;query="";render(false,false)
+            if(tab!=key || shelf!=null || auto!=null) { val from=listOf("home","shelves","quotes","words").indexOf(tab);val to=listOf("home","shelves","quotes","words").indexOf(key);tabScroll[tab]=scroll.scrollY;val oldScroll=scroll;screenMotion.stop();pendingMotion=null;librarySearch?.close(false);tab=key;shelf=null;auto=null;query="";render(false,false)
                 // Restore the tab's scroll after layout but BEFORE the first frame (a posted scroll showed one frame
                 // at the top — with its top buttons — and then jumped).
                 val target=tabScroll[key] ?: 0;val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this);sv.scrollTo(0,target);return true}})
@@ -439,7 +416,7 @@ class MainActivity : Activity() {
      *  and the new shelf then grows in at the end of the shelves while the page follows it down. */
     fun createShelf() {
         val reduced=prefs.str("motion")=="reduced"
-        val away=tab!="shelves"||shelf!=null||auto!=null||quoteBookId!=null||query.isNotBlank()
+        val away=tab!="shelves"||shelf!=null||auto!=null||query.isNotBlank()
         if(away)goTab("shelves")
         root.postDelayed({
             inputDialog("Новая полка",hint="Например, «Отпуск» или «Классика»",helper="Полку потом можно переименовать и переставить") { raw -> val name=raw.trim(); if(name.isBlank())return@inputDialog
@@ -635,7 +612,7 @@ class MainActivity : Activity() {
         val labels=files.map { (when(it.nameWithoutExtension) { "latest"->"Последняя"; "previous"->"Предыдущая"; else->"Перед изменением" })+" · "+java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it.lastModified())) }
         dialog().setTitle("Локальные копии").setItemIcons(*(files.map{"undo"}+"plus").toTypedArray()).setItems((labels+"Создать точку сейчас").toTypedArray()) { _,i -> if(i==files.size) work({ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"))}); else confirm("Восстановить точку?","Текущая библиотека будет заменена.") { work({ val source=File(cacheDir,"recovery-input.polka"); try { files[i].copyTo(source,true); ArchiveIO.restore(applicationContext,library,source) { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety") }; loadData() } finally { source.delete() } }) { initialized=true; reader=null; shelf=null; auto=null; render(); checkpointSoon() } } }.setNegativeButton("Закрыть",null).show()
     }
-    @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; goalRoad!=null -> goalRoad?.back(); tierList!=null && bookDetailSheet?.isShowing!=true -> tierList?.back(); readBooksOverlay!=null && bookDetailSheet==null -> closeReadBooks(); addMenu!=null -> addMenu?.close(); shelvesEditing && reader==null -> { shelvesTopBarLabel?.performClick() }; ratingPrompt?.isShowing==true -> ratingPrompt?.dismiss(); bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() };bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();quoteBookId!=null && reader==null -> openQuoteGroup(null); settingsPage!=null -> closeSettings(); profileOverlay!=null -> dismissProfile(); streakCelebration!=null && reader!=null -> streakCelebration?.dismiss(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> { shelf=null; auto=null; tab="shelves"; render() }; query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
+    @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; goalRoad!=null -> goalRoad?.back(); tierList!=null && bookDetailSheet?.isShowing!=true -> tierList?.back(); readBooksOverlay!=null && bookDetailSheet==null -> closeReadBooks(); addMenu!=null -> addMenu?.close(); shelvesEditing && reader==null -> { shelvesTopBarLabel?.performClick() }; ratingPrompt?.isShowing==true -> ratingPrompt?.dismiss(); bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() };bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();settingsPage!=null -> closeSettings(); profileOverlay!=null -> dismissProfile(); streakCelebration!=null && reader!=null -> streakCelebration?.dismiss(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> { shelf=null; auto=null; tab="shelves"; render() }; query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
     override fun onSaveInstanceState(out:Bundle) { reader?.save(); out.putString("calendarImage",pendingCalendarImage?.name); out.putString("attachId",attachId); out.putString("coverTarget",coverTarget); pendingExport?.let { out.putString("exportId",it.first.str("id")); out.putString("exportFormat",it.second) }; out.putString("tab",tab); out.putString("shelf",shelf); out.putString("auto",auto); out.putString("query",query); out.putBoolean("searchOpen",searchOpen); reader?.let { out.putString("readerId",it.book.str("id")) }; super.onSaveInstanceState(out) }
     override fun onPause() { shelfReorder?.cancel();screenMotion.stop();root.childrenOpening()?.finish();reader?.pause(); super.onPause() }
     override fun onResume() { super.onResume(); if(reader!=null)reader?.resume() else if(::root.isInitialized){ReaderWindow.configure(window,false,bg);root.requestApplyInsets()} }

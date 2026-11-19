@@ -191,23 +191,3 @@ internal class FloatingCovers(private val a:MainActivity):View(a){
     }
 }
 
-/** Five spines rising one after another on a little shelf; [merge] gathers them into one book before the loader leaves. */
-internal class SpineLoader(private val a:MainActivity):View(a){
-    private val colors=intArrayOf(0xffc7742c.toInt(),0xff6a5aa8.toInt(),0xff3b8a6e.toInt(),0xffb0303f.toInt(),0xff2f7aa8.toInt())
-    private val heights=floatArrayOf(.72f,.9f,.8f,1f,.76f)
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    private var loop:ValueAnimator?=null; private var t=0f; private var merge=0f
-    override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(132),a.d(78))
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(a.prefs.str("motion")!="reduced")loop=ValueAnimator.ofFloat(0f,1f).apply{duration=1500;repeatCount=ValueAnimator.INFINITE;interpolator=LinearInterpolator();addUpdateListener{t=it.animatedValue as Float;invalidate()};start()} else t=.3f}
-    override fun onDetachedFromWindow(){loop?.cancel();super.onDetachedFromWindow()}
-    fun merge(done:()->Unit){val start=t;loop?.cancel();loop=null;if(a.prefs.str("motion")=="reduced"){done();return}
-        ValueAnimator.ofFloat(0f,1f).apply{duration=380;interpolator=PathInterpolator(.4f,0f,.2f,1f);addUpdateListener{merge=it.animatedValue as Float;t=start;invalidate()};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){done()}});start()}}
-    private fun rise(i:Int):Float{if(merge>0f)return 1f;var u=(t-i*.075f+1f)%1f;return when{u<.32f->{val q=u/.32f;1f-(1f-q).pow(3)};u<.7f->1f;u<.92f->{val q=(u-.7f)/.22f;1f-q*q};else->0f}}
-    override fun onDraw(c:Canvas){
-        val sw=a.d(16).toFloat();val gap=a.d(5).toFloat();val total=5*sw+4*gap;val x0=(width-total)/2f;val floor=height-a.d(8).toFloat();val maxH=height-a.d(16).toFloat()
-        p.shader=null;p.color=if(a.light)0xffd9d9dc.toInt() else 0xff38383c.toInt();c.drawRoundRect(x0-a.d(10),floor+a.d(2),x0+total+a.d(10),floor+a.d(7),a.d(3).toFloat(),a.d(3).toFloat(),p)
-        for(i in 0..4){val r=rise(i);val h=maxH*heights[i]*(.12f+.88f*r);var x=x0+i*(sw+gap);x+=((width/2f-sw/2f)-x)*merge
-            p.color=colors[i];p.alpha=(255*(.35f+.65f*r)).toInt();c.drawRoundRect(x,floor-h,x+sw,floor,a.d(3).toFloat(),a.d(3).toFloat(),p)
-            p.color=Color.WHITE;p.alpha=(90*r).toInt();c.drawRoundRect(x+a.d(3),floor-h+h*.14f,x+sw-a.d(3),floor-h+h*.14f+a.d(2),a.d(1).toFloat(),a.d(1).toFloat(),p)}
-    }
-}

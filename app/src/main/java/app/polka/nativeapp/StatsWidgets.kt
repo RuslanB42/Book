@@ -268,50 +268,6 @@ internal class SpeedBar(private val a:MainActivity,private val fraction:Float?,p
         if(a.light){p.style=Paint.Style.STROKE;p.strokeWidth=1.5f*d;p.color=0x33000000;c.drawCircle(x,cy,8*d,p);p.style=Paint.Style.FILL}}
 }
 
-/** The year's books as a road: it winds from the start (a green ring, January) to a finish flag. Each book of the goal
- *  is a milestone on it; the part already travelled glows green, and the latest book's cover stands where you are. */
-internal class BookRoad(private val a:MainActivity,private val done:Int,private val target:Int,private val latest:org.json.JSONObject?,private val motion:Boolean):FrameLayout(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val road=Path();private val measure=PathMeasure();private var length=0f
-    private val goal=max(1,target);private val fraction=(done.toFloat()/goal).coerceIn(0f,1f)
-    private var k=if(motion)0f else 1f
-    private val pin:CoverView?=latest?.let{b->CoverView(a,b,a.cover(b)).apply{softShadow=true}}
-    init{setWillNotDraw(false);clipChildren=false;clipToPadding=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
-        pin?.let{addView(it,LayoutParams(a.d(26),a.d(39)));it.alpha=0f}}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f){val sp=Spring.of(.12,1100.0);ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=260;interpolator=sp.interpolator;addUpdateListener{k=it.animatedValue as Float;place();invalidate()};start()}} else post{place()}}
-    override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat();val H=h.toFloat();val d=a.d(1).toFloat()
-        // the same S-shaped road as the mockup, stretched to the card
-        fun x(f:Float):Float{return 14*d+(W-34*d)*f}
-        fun y(f:Float):Float{return 12*d+(H-24*d)*f}
-        road.reset();road.moveTo(x(0f),y(.98f))
-        road.cubicTo(x(.195f),y(1f),x(.195f),y(.6f),x(.4f),y(.6f))
-        road.cubicTo(x(.6f),y(.6f),x(.63f),y(.93f),x(.82f),y(.74f))
-        road.cubicTo(x(.93f),y(.63f),x(1f),y(.26f),x(1f),y(.2f))
-        measure.setPath(road,false);length=measure.length;place()}
-    private val pos=FloatArray(2)
-    private fun at(f:Float):FloatArray{measure.getPosTan(length*f.coerceIn(0f,1f),pos,null);return pos}
-    private fun place(){val v=pin?:return;if(length<=0f||done<=0)return;val q=at(fraction*k);v.translationX=q[0]-a.d(13);v.translationY=q[1]-a.d(52);v.alpha=k.coerceIn(0f,1f)}
-    override fun onDraw(c:Canvas){if(length<=0f)return;val d=a.d(1).toFloat()
-        p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND
-        p.color=if(a.light)0x0f000000 else 0x12ffffff;p.strokeWidth=16*d;c.drawPath(road,p)
-        p.color=if(a.light)0x33000000 else 0x38ffffff;p.strokeWidth=1.4f*d;p.pathEffect=DashPathEffect(floatArrayOf(5*d,7*d),0f);c.drawPath(road,p);p.pathEffect=null
-        val go=fraction*k
-        if(go>0f){val part=Path();measure.getSegment(0f,length*go,part,true)
-            val green=if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt()
-            if(!a.light){p.color=green;p.alpha=0x33;p.strokeWidth=12*d;c.drawPath(part,p);p.alpha=0x55;p.strokeWidth=8*d;c.drawPath(part,p);p.alpha=255}
-            p.shader=LinearGradient(0f,0f,width.toFloat(),0f,green,if(a.light)0xff54b581.toInt() else 0xff7bdca6.toInt(),Shader.TileMode.CLAMP);p.strokeWidth=5*d;c.drawPath(part,p);p.shader=null}
-        p.style=Paint.Style.FILL
-        // milestones: one per book of the goal (thinned out for very large goals)
-        val step=max(1,ceil(goal/40f).toInt())
-        var i=step;while(i<goal){val q=at(i/goal.toFloat());val passed=i<=done
-            p.color=if(passed)(if(a.light)0xff009a5c.toInt() else Color.WHITE) else if(a.light)0x40000000 else 0x47ffffff
-            c.drawCircle(q[0],q[1],(if(passed)3.2f else 2.2f)*d,p);i+=step}
-        // start ring
-        val s=at(0f);p.color=if(a.light)Color.WHITE else 0xff1c1c1f.toInt();c.drawCircle(s[0],s[1],6*d,p)
-        p.style=Paint.Style.STROKE;p.strokeWidth=3*d;p.color=if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt();c.drawCircle(s[0],s[1],6*d,p);p.style=Paint.Style.FILL
-        // finish flag
-        val e=at(1f);p.color=a.fg;p.strokeWidth=2*d;c.drawRect(e[0]-d,e[1]-28*d,e[0]+d,e[1]+2*d,p)
-        val flag=Path().apply{moveTo(e[0]+d,e[1]-28*d);lineTo(e[0]+18*d,e[1]-23*d);lineTo(e[0]+d,e[1]-17*d);close()};c.drawPath(flag,p)}
-}
 
 /** Small "Все ›" pill used on the books card. */
 internal fun MainActivity.softPill(label:String,click:()->Unit):TextView=text(label,12.5f,fg,true).apply{

@@ -10,53 +10,13 @@ private fun MainActivity.quoteGroups():List<QuoteGroup> {
     val all=books.flatMap{b->b.optJSONArray("quotes")?.objects().orEmpty().filter{query.isBlank() || (it.str("text")+b.str("title")+MainActivity.authors(b)).contains(query,true)}.map{b to it}}.sortedByDescending{it.second.optLong("at")}
     return all.groupBy{it.first.str("id")}.values.map{items->QuoteGroup(items.first().first,items.map{it.second})}
 }
-fun MainActivity.openQuoteGroup(id:String?,quiet:Boolean=false) {
-    if(quoteBookId==id)return
-    // a picture of the list of books, for a swipe back to uncover (see render)
-    if(id!=null&&quoteBookId==null)captureBackdrop()
-    if(quiet){quoteBookId=id;page.removeAllViews();quotes();val y=backdropY;scroll.post{scroll.scrollTo(0,y)};if(id==null){backdrop=null;markShallow()};return}
-    if(id==null){backdrop=null;markShallow()}
-    screenMotion.stop();val ghost=screenMotion.captureOutgoing(page,id!=null);quoteBookId=id
-    page.removeAllViews();quotes();scrollAncestor(page)?.scrollTo(0,0)
-    // Arm incoming states BEFORE the first draw; posting alpha=0 flashes the final layout once.
-    var headerIndex=0;var cardIndex=0
-    for(i in 0 until page.childCount){val child=page.getChildAt(i)
-        if(child.tag=="quote-header")screenMotion.play(child,MotionPose(0f,x=d(if(id!=null)8 else -8).toFloat(),y=d(6).toFloat()),MotionSpec.QUOTE_HEADER,55+headerIndex++*30L)
-        else if(child.tag=="quote-item")screenMotion.play(child,MotionPose(0f,x=d(if(id!=null)10 else -10).toFloat(),y=d(if(id!=null)16 else 10).toFloat()),MotionSpec.QUOTE_CARD,80+minOf(cardIndex++,7)*32L)
-    };ghost()
-
-}
 fun MainActivity.quotes() {
     val groups=quoteGroups()
-    if(groups.isEmpty()){quoteBookId=null;space(page,96);page.addView(if(query.isNotBlank())emptyView("search","Ничего не нашлось","Поиск идёт по тексту цитат и по книгам.") else emptyView("quote","Пока нет цитат","Выделите фрагмент в книге и нажмите «Цитата»."),LinearLayout.LayoutParams(-1,-2));return}
-    val group=groups.firstOrNull{it.book.str("id")==quoteBookId};if(quoteBookId!=null && group==null)quoteBookId=null
-    val sec=line().apply{tag="quote-header"}
-    if(group==null){space(page,8)
-        groups.forEach{g->page.addView(QuoteDeck(this,g.book,g.quotes).apply{tag="quote-item"},LinearLayout.LayoutParams(-1,-2));space(page,30)}
-    }else{
-        val back=backControl("Цитаты","Назад к цитатам"){openQuoteGroup(null)};sec.addView(back,LinearLayout.LayoutParams(0,d(44),1f));sec.addView(text("${group.quotes.size} ${quoteWord(group.quotes.size)}",14f,muted));page.addView(sec);space(page,16)
-        val h=line().apply{tag="quote-header";setOnClickListener{detail(group.book)}};h.addView(CoverView(this,group.book),LinearLayout.LayoutParams(d(52),d(78)));val meta=column().apply{setPadding(d(14),0,0,0)};meta.addView(text(group.book.str("title"),20f,bold=true,serif=true));space(meta,2);meta.addView(text(MainActivity.authors(group.book),14f,muted));h.addView(meta,LinearLayout.LayoutParams(0,-2,1f));page.addView(h);space(page,18)
-        group.quotes.sortedWith(compareBy<JSONObject>{it.optInt("ch")}.thenBy{it.optInt("start")}).forEach{q->page.addView(quoteCardNative(group.book,q).apply{tag="quote-item"});space(page,16)}
-    }
+    if(groups.isEmpty()){space(page,96);page.addView(if(query.isNotBlank())emptyView("search","Ничего не нашлось","Поиск идёт по тексту цитат и по книгам.") else emptyView("quote","Пока нет цитат","Выделите фрагмент в книге и нажмите «Цитата»."),LinearLayout.LayoutParams(-1,-2));return}
+    space(page,8)
+    groups.forEach{g->page.addView(QuoteDeck(this,g.book,g.quotes).apply{tag="quote-item"},LinearLayout.LayoutParams(-1,-2));space(page,30)}
 }
 private fun quoteWord(n:Int)=if(n%100 in 11..14)"цитат" else when(n%10){1->"цитата";2,3,4->"цитаты";else->"цитат"}
-/** A floating card: soft ambient + key shadow following the rounded outline, as on the statistics screen. */
-/** Fully rounded floating pill with a soft, wide shadow that lifts it off the page. */
-internal fun MainActivity.pillSurface(v:View){
-    v.setPadding(d(14),d(10),d(22),d(10));v.minimumHeight=d(52)
-    v.background=android.graphics.drawable.GradientDrawable().apply{setColor(if(light)Color.WHITE else 0xff2c2c2f.toInt());cornerRadius=d(200).toFloat()}
-    v.elevation=d(18).toFloat();v.translationZ=0f
-    v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,view.height/2f)}}
-    if(android.os.Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x22000000 else 0x99000000.toInt();v.outlineSpotShadowColor=if(light)0x33000000 else 0xcc000000.toInt()}
-}
-/** Notice pill in the app's own card colour (the same surface as statistics and quote cards), with a hairline edge and a soft wide shadow. */
-internal fun MainActivity.noticeSurface(v:View){
-    v.setPadding(d(10),d(10),d(24),d(10));v.minimumHeight=d(62)
-    v.background=android.graphics.drawable.GradientDrawable().apply{setColor(if(light)Color.WHITE else 0xff242426.toInt());cornerRadius=d(200).toFloat();setStroke(d(1),if(light)0x08000000 else 0x14ffffff)}
-    v.elevation=d(16).toFloat()
-    v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,view.height/2f)}}
-    if(android.os.Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();v.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
-}
 internal fun MainActivity.floatCard(v:View,radiusDp:Int=24,color:Int=if(light)Color.WHITE else 0xff242426.toInt(),lift:Int=if(light)8 else 10){
     val r=d(radiusDp).toFloat();v.background=android.graphics.drawable.GradientDrawable().apply{setColor(color);cornerRadius=r};v.elevation=d(lift).toFloat()
     v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,r)}}
@@ -82,7 +42,7 @@ internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){
 private fun MainActivity.quoteMark()=text("\u201c",38f,accent,true,true).apply{includeFontPadding=false;gravity=Gravity.TOP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
 internal fun MainActivity.quoteStack(b:JSONObject,qs:List<JSONObject>,onOpen:(()->Unit)?=null):View {
     val stack=QuoteStackLayer(this,qs.size);val card=column().apply{floatCard(this,24);setPadding(d(16),d(16),d(16),d(18))}
-    stack.addView(card,FrameLayout.LayoutParams(-1,-2));stack.contentDescription="${b.str("title")}: ${qs.size} ${quoteWord(qs.size)}";stack.isFocusable=true;stack.setOnClickListener{if(onOpen!=null)onOpen()else openQuoteGroup(b.str("id"))};press(stack)
+    stack.addView(card,FrameLayout.LayoutParams(-1,-2));stack.contentDescription="${b.str("title")}: ${qs.size} ${quoteWord(qs.size)}";stack.isFocusable=true;stack.setOnClickListener{onOpen?.invoke()};press(stack)
     val top=line();top.addView(CoverView(this,b),LinearLayout.LayoutParams(d(36),d(54)))
     val meta=column().apply{setPadding(d(12),0,d(12),0)};meta.addView(text(b.str("title"),15f,bold=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});space(meta,2);meta.addView(text(MainActivity.authors(b).ifBlank{"Автор не указан"},12.5f,muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});top.addView(meta,LinearLayout.LayoutParams(0,-2,1f))
     val badge=line().apply{background=shape((accent and 0x00ffffff) or (if(light)0x1f000000 else 0x29000000),14);setPadding(d(11),0,d(6),0)}
@@ -95,9 +55,6 @@ internal fun MainActivity.quoteStack(b:JSONObject,qs:List<JSONObject>,onOpen:(()
 private fun mix(a:Int,b:Int,t:Float)=Color.rgb((Color.red(a)*(1-t)+Color.red(b)*t).toInt(),(Color.green(a)*(1-t)+Color.green(b)*t).toInt(),(Color.blue(a)*(1-t)+Color.blue(b)*t).toInt())
 /** The quote's own colour (as chosen when it was saved). */
 internal fun quoteInk(q:JSONObject)=(0xff shl 24) or QuoteColors.rgb(q.optString("color").ifBlank{"amber"})
-/** Approved «тонированная карточка»: the card glows with the quote's colour from its top-left corner, with a thin edge of it. */
-internal fun MainActivity.quoteTint(col:Int,strength:Float=.22f):android.graphics.drawable.GradientDrawable{val base=if(light)Color.WHITE else 0xff242426.toInt()
-    return android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,intArrayOf(mix(base,col,if(light)strength*.9f else strength),mix(base,col,.05f),base)).apply{cornerRadius=d(22).toFloat();setStroke(d(1).coerceAtLeast(1),(0x38 shl 24) or (col and 0xffffff))}}
 /** Copy / delete drawn as line icons (two sheets with rounded corners; a bin with a lid and slots). */
 internal class QuoteActionIcon(c:Context,private val kind:String,private val ink:Int):View(c){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND;color=ink}

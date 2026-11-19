@@ -85,7 +85,6 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private var ratingShown=false
     private var calm=false
     private var lastPosition=0
-    private var creditedChars=0L
     private var sessionRecorded=false
     private var editorOpen=false
     internal var pageEditor:ChapterEditor?=null;private set
@@ -114,8 +113,6 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private var pendingLastPage=false
     private var pendingAnchor:String?=null
     var lastLayoutWorker="";private set
-    val layoutBuilds get()=engine.builds
-    val isPreparing get()=preparing
     // While a setting is dragged the chapter is laid out again at a steady pace (not only once the finger stops), and
     // a change that arrives while a layout is still running waits for it instead of cancelling it over and over.
     private var reflowQueued=false;private var reflowAgain=false
@@ -492,9 +489,6 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private fun jumpAnchor(id:String){if(preparing){pendingAnchor=id;pendingOffset=null}else jumpOffset(chapterAnchors[id]?:0)}
     fun jumpOffset(offset:Int) { if(preparing || loadedChapter!=chapter){pendingOffset=offset;pendingFraction=null;return};if(paged()) { pageIndex=pageStarts.indexOfLast { it<=offset }.coerceAtLeast(0); paintPage() } else { val layout=body.layout ?: return; val at=offset.coerceIn(0,body.text.length); scroll.scrollTo(0,layout.getLineTop(layout.getLineForOffset(at))) }; lastPosition=position() }
     fun lineHeight()=if(a.prefs.has("lhv"))a.prefs.optDouble("lhv",1.6).toFloat() else when(a.prefs.str("lh","normal")) { "tight"->1.42f; "loose"->1.82f; else->1.6f }
-    internal val pageMotionPending get()=pageSlidePending
-    internal val pageMotionRunning get()=turnClock!=null
-    internal val outgoingPage get()=curl
     internal fun samplePageMotion(ms:Long){turnClock?.let{it.pause();if(ms>=it.duration)it.end()else it.currentPlayTime=ms}}
     private fun isTurning()=pageSlidePending||turnClock!=null||curl!=null
     fun stopPageMotion(){
@@ -635,10 +629,6 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         beginCurl(direction,false,scroll.height*.9f)
     }
     fun finishBook() { a.confirm("Книга прочитана?","Отметить книгу прочитанной?") { completed=true; book.put("completedAt",System.currentTimeMillis()); save(); a.closeReader() } }
-    internal fun showChrome(show:Boolean)=setCalm(!show,false)
-    /** The bottom bar, which grows into the reading settings. */
-    internal val bottomBar:View get()=bottom
-    internal val chromeVisible get()=!calm&&bottom.isShown&&bottom.alpha>.5f
     /** The settings took the bottom bar's place: it is gone at once, the top bar slides away; reading stays calm after. */
     internal fun yieldChromeToSettings(){bottom.animate().cancel();bottom.alpha=0f;setCalm(true,true)}
     /** Change how the page looks under a soft crossfade from the old picture, so nothing jumps. */
@@ -693,21 +683,6 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     internal fun applySpacing(){body.textLocale=bookLocale();body.letterSpacing=a.prefs.optDouble("ls",0.0).toFloat();if(android.os.Build.VERSION.SDK_INT>=29)body.paint.wordSpacing=0f;body.textScaleX=1f;body.hyphenationFrequency=hyphenFreq()}
     internal fun applyBrightness(){val v=a.prefs.optDouble("bright",-1.0).toFloat();val target=if(v<0f)android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE else v.coerceIn(.01f,1f);if(a.window.attributes.screenBrightness!=target)a.window.attributes=a.window.attributes.apply{screenBrightness=target}}
     fun readerMenu() { a.dialog().setTitle(book.str("title")).setItemIcons("search","notebook","pen","download").setItems(arrayOf("Поиск по книге","Блокнот: цитаты и мысли","Данные книги","Скачать файл")) { _,i -> when(i) { 0->navigation(2); 1->notebook(); 2->a.metadataEditor(book); 3->a.dialog().setTitle("Скачать файл").setItemIcons("download","download").setItems(arrayOf("FB2","EPUB")){_,type->a.exportBook(book,if(type==0)"fb2" else "epub")}.show() } }.show() }
-    fun fullSearch() {
-        val input=a.edit("","Поиск")
-        a.dialog().setTitle("Поиск по книге").setView(input).setPositiveButton("Найти") { _,_ ->
-            val term=input.text.toString().trim(); if(term.isBlank()) return@setPositiveButton
-            val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(a.d(100)); val height=(scroll.height-body.paddingTop-body.paddingBottom-body.textSize*3f).toInt().coerceAtLeast(a.d(80)); val fontSize=body.textSize; val ink=body.currentTextColor; val leading=lineHeight(); val trim=trimEmpty()
-            val results=mutableListOf<Triple<Int,Int,String>>()
-            a.work({
-                for((index,ch) in chapters.objects().withIndex()) {
-                    if(results.size>=500) break
-                    val text=ReadingText(a,fontSize,width,height,images,ink,leading,true,trim).render(chapterHtml(index)).text.toString(); var offset=0
-                    while(results.size<500) { val at=text.indexOf(term,offset,true); if(at<0) break; results.add(Triple(index,at,prettyTitle(ch.str("title"))+"\n…"+text.substring(maxOf(0,at-35),minOf(text.length,at+term.length+70)).replace('\n',' ')+"…")); offset=at+term.length }
-                }
-            }) { a.dialog().setTitle("Найдено: ${results.size}").setItems(results.map { it.third }.toTypedArray()) { _,index -> val result=results[index]; changeChapter(result.first); body.post { jumpOffset(result.second) } }.show() }
-        }.show()
-    }
     fun notebook()=navigation(1)
     fun searchEntries(term:String,done:(List<Triple<Int,Int,String>>)->Unit){
         val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(a.d(100));val height=(scroll.height-body.paddingTop-body.paddingBottom-body.textSize*3f).toInt().coerceAtLeast(a.d(80));val fontSize=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val trim=trimEmpty()

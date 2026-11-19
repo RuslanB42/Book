@@ -26,16 +26,12 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     private val backColors=IntArray((COLS+1)*(ROWS+1))
     /** The sheet washed with paper colour: drawn on the back, its ink reads as text seen faintly through the paper. */
     private var inkBack:Bitmap?=null
-    private val paper2=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val tube=LinearGradient(0f,0f,1f,0f,intArrayOf(0x38000000,0x16000000,0x05000000,0x00000000),floatArrayOf(0f,.25f,.6f,1f),Shader.TileMode.CLAMP)
     private fun grey(l:Float):Int{val g=(255*l.coerceIn(0f,1f)).toInt();return Color.rgb(g,g,g)}
     companion object{const val COLS=36;const val ROWS=48;val WHITE=Color.WHITE}
     private val shaderMatrix=Matrix()
     private val shaderValues=FloatArray(9)
     private val cast=LinearGradient(0f,0f,1f,0f,intArrayOf(0x00000000,0x3b000000,0x65000000),floatArrayOf(0f,.72f,1f),Shader.TileMode.CLAMP)
-    private val frontShade=LinearGradient(0f,0f,1f,0f,intArrayOf(0x00000000,0x13000000,0x40000000),floatArrayOf(0f,.72f,1f),Shader.TileMode.CLAMP)
-    private val reverseShade=LinearGradient(0f,0f,1f,0f,
-        if(Color.luminance(paper)>.4)intArrayOf(0x00000000,0x08000000,0x28000000,0x35ffffff,0x62000000)else intArrayOf(0x00000000,0x12ffffff,0x22ffffff,0x30ffffff,0x65000000),floatArrayOf(0f,.35f,.7f,.86f,1f),Shader.TileMode.CLAMP)
     private fun shade(shader:Shader,from:Float,to:Float):Shader {
         val length=to-from
         shaderValues[0]=nx*length;shaderValues[1]=-ny;shaderValues[2]=mx+nx*from

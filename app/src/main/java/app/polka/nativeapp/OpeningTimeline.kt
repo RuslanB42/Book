@@ -9,12 +9,6 @@ object OpeningTimeline {
  const val CLOSE_DURATION=1160L
  data class Pose(val x:Float,val y:Float,val sx:Float,val sy:Float,val rx:Float,val ry:Float)
  data class Frame(val pose:Pose,val swing:Float,val zoom:Float,val volume:Float,val chrome:Float,val shade:Float,val gutter:Float,val light:Float,val innerLight:Float)
- fun bezier(t:Float,x1:Float,y1:Float,x2:Float,y2:Float):Float {
-  if(t<=0)return 0f;if(t>=1)return 1f
-  fun q(u:Float,a:Float,b:Float):Float {val v=1-u;return 3*v*v*u*a+3*v*u*u*b+u*u*u}
-  var lo=0f;var hi=1f;var u=t
-  repeat(20){u=(lo+hi)*.5f;if(q(u,x1,x2)<t)lo=u else hi=u};return q(u,y1,y2)
- }
  private fun mix(a:Float,b:Float,t:Float)=a+(b-a)*t
  fun chrome(t:Float):Float {if(t>=1f)return 1f;if(t<=.86f)return 0f;val u=((t-.86f)/.14f).coerceIn(0f,1f);return u*u*u*(10f+u*(-15f+6f*u))}
  fun sample(t0:Float,W:Float,H:Float,w:Float,h:Float,source:Pose,dp:Float=1f):Frame {

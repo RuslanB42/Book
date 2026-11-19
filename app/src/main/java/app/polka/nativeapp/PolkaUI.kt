@@ -356,8 +356,6 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
     private val pill=View(a)
     private val buttons=mutableListOf<IconView>()
     private val keys=listOf("home","shelves","quotes","words")
-    internal val indicatorOffset get()=spring.value
-    internal fun sampleIndicator(ms:Long)=spring.sample(ms)
     private var choose:((String)->Unit)?=null
     private var dragStart=0f;private var dragOrigin=0f;private var dragging=false
     override fun onInterceptTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){MotionEvent.ACTION_DOWN->{dragStart=e.x;dragOrigin=spring.value;dragging=false};MotionEvent.ACTION_MOVE->if(kotlin.math.abs(e.x-dragStart)>a.d(8)){dragging=true;parent?.requestDisallowInterceptTouchEvent(true);return true}};return false}
@@ -392,10 +390,3 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
 
 fun scrollAncestor(view:View):ScrollView? { var parent=view.parent; while(parent!=null) { if(parent is ScrollView) return parent; parent=parent.parent }; return null }
 
-/** Same chevron, optical size and 44dp target as standalone back buttons. */
-internal fun MainActivity.backControl(label:String,description:String,action:()->Unit):View = line().apply {
- minimumHeight=d(44);gravity=Gravity.CENTER_VERTICAL;isFocusable=true;contentDescription=description
- addView(icon("back",description,action=action).apply{isClickable=false;isFocusable=false;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(d(44),d(44)))
- addView(text(label,16f).apply{setPadding(d(8),0,0,0);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(0,-2,1f))
- setOnClickListener{action()}
-}

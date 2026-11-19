@@ -20,9 +20,6 @@ class ReadingStatistics(val source:JSONObject,books:List<JSONObject>,val today:L
     fun start(period:Int)=when(period) { 0->today.withDayOfMonth(1); 1->today.withDayOfYear(1); else->first ?: today }
     fun total(period:Int)=entries.filter { it.first>=start(period) }.sumOf { max(0L,it.second.optLong("ms")) }
     fun average(period:Int)=total(period)/max(1L,ChronoUnit.DAYS.between(start(period),today)+1)
-    fun countMonth(month:YearMonth)=finished.count { it.date?.let(YearMonth::from)==month }
-    fun countYear(year:Int)=finished.count { it.date?.year==year }
-    val undated=finished.filter { it.date==null }
     fun on(day:LocalDate)=finished.filter { it.date==day }.map { it.book }
     fun target(year:Int)=source.optJSONObject("annualGoals")?.optInt(year.toString(),0)?.coerceIn(0,9999) ?: 0
     fun expected(year:Int,target:Int):Int { val begin=LocalDate.of(year,1,1); val end=begin.plusYears(1); val elapsed=ChronoUnit.DAYS.between(begin,today.plusDays(1)).coerceIn(0,ChronoUnit.DAYS.between(begin,end)); return floor(target*elapsed.toDouble()/ChronoUnit.DAYS.between(begin,end)).toInt() }
@@ -53,14 +50,6 @@ class ReadingStatistics(val source:JSONObject,books:List<JSONObject>,val today:L
                 best=max(best,run);d=d.plusDays(1)}}
         Ledger(run,best,freezes,if(freezes>=2)0 else 7-since,marks,lost,repair)}
     val streak:Int get()=ledger.count
-    data class Author(val name:String,val count:Int,val books:List<JSONObject>)
-    val favorite:Author? get() {
-        val groups=linkedMapOf<String,Pair<String,MutableList<JSONObject>>>()
-        finished.forEach { f -> val names=f.book.optJSONArray("authors")?.strings().orEmpty().map { it.trim().replace(Regex("\\s+")," ") }.filter { it.isNotBlank() }.distinctBy { it.lowercase(Locale.ROOT) }
-            names.forEach { name -> groups.getOrPut(name.lowercase(Locale.ROOT)) { name to mutableListOf() }.second.add(f.book) }
-        }
-        return groups.values.map { Author(it.first,it.second.size,it.second) }.sortedWith(compareByDescending<Author> { it.count }.thenBy { it.name.lowercase(Locale.ROOT) }).firstOrNull()
-    }
 }
 
 /** Preserve unrelated statistics and daily ledgers while changing an annual target. Called inside a transaction. */

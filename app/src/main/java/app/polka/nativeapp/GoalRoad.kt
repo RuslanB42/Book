@@ -22,7 +22,6 @@ import kotlin.math.*
 
 internal fun goalGreen(a:MainActivity)=if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt()
 internal fun goalGreen2(a:MainActivity)=if(a.light)0xff54b581.toInt() else 0xff7bdca6.toInt()
-internal val medalNames=listOf("бронза","серебро","золото","платина","бриллиант")
 
 /** «ещё 5 — примерно 3 в месяц», «цель достигнута», «не хватило 2 книг». */
 internal fun goalPace(year:Int,today:LocalDate,done:Int,target:Int):String{val left=target-done
@@ -53,50 +52,10 @@ internal class Glyph(private val a:MainActivity,private val kind:String,var ink:
         p.color=ink;p.strokeWidth=1.7f;c.drawPath(path,p);c.restore()}
 }
 
-/** Thin rounded progress track with a green gradient fill that grows when shown. */
-internal class GoalTrack(private val a:MainActivity,fraction:Float,motion:Boolean):View(a){
-    private val target=fraction.coerceIn(0f,1f);private var shown=if(motion)0f else target
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
-        if(motion&&target>0f)addOnAttachStateChangeListener(object:OnAttachStateChangeListener{var done=false
-            override fun onViewAttachedToWindow(v:View){if(done)return;done=true;ValueAnimator.ofFloat(0f,target).apply{startDelay=180;duration=800;interpolator=PathInterpolator(.2f,.8f,.2f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
-            override fun onViewDetachedFromWindow(v:View){}})}
-    override fun onDraw(c:Canvas){val h=height.toFloat();val r=h/2
-        p.shader=null;p.color=if(a.light)0x14000000 else 0x14ffffff;c.drawRoundRect(0f,0f,width.toFloat(),h,r,r,p)
-        if(shown>0f){val w=max(h,width*shown);p.color=Color.WHITE;p.shader=LinearGradient(0f,0f,w,0f,goalGreen(a),goalGreen2(a),Shader.TileMode.CLAMP);c.drawRoundRect(0f,0f,w,h,r,r,p);p.shader=null}}
-}
 
 // ───────────────────────── year menu on the card ─────────────────────────
 
-/** A frosted menu under «ЦЕЛЬ НА 2026 ⌄»: each year with its own small progress bar and «N из M». */
-internal fun MainActivity.goalYearMenu(anchor:View,years:List<Int>,current:Int,motion:Boolean,stats:(Int)->Pair<Int,Int>,onClose:()->Unit,pick:(Int)->Unit){
-    val a=this
-    val box=column().apply{setPadding(d(6),d(6),d(6),d(6))
-        background=GradientDrawable().apply{setColor(if(light)0xffffffff.toInt() else 0xff2a2a2e.toInt());cornerRadius=d(20).toFloat();setStroke(d(1),if(light)0x0f000000 else 0x10ffffff)}}
-    val popup=GentlePopup(box,d(236),motion,onClose).apply{elevation=d(22).toFloat();isOutsideTouchable=true;setBackgroundDrawable(ColorDrawable(0));animationStyle=0}
-    years.forEachIndexed{i,y->val (done,goal)=stats(y)
-        val row=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(12),d(10),d(12),d(10));isClickable=true;contentDescription="$y: $done"+if(goal>0)" из $goal" else ""
-            background=GradientDrawable().apply{setColor(if(y==current)(if(light)0x0d000000 else 0x14ffffff) else 0);cornerRadius=d(14).toFloat()}
-            setOnClickListener{popup.dismiss();if(y!=current)pick(y)};press(this)}
-        row.addView(text("$y",18f,fg,true,serif=true))
-        row.addView(GoalTrack(a,if(goal>0)done.toFloat()/goal else 0f,false),LinearLayout.LayoutParams(0,d(4),1f).apply{marginStart=d(12);marginEnd=d(10)})
-        row.addView(text(if(goal>0)"$done из $goal"+(if(done>=goal)" ✓" else "") else MainActivity.countBooks(done),12f,muted))
-        box.addView(row,LinearLayout.LayoutParams(-1,-2))
-        if(motion){row.alpha=0f;row.translationY=-d(6).toFloat();row.animate().alpha(1f).translationY(0f).setStartDelay(60L+i*40L).setDuration(300).setInterpolator(Ease.outCubic).start()}}
-    popup.showAsDropDown(anchor,-d(4),d(8))
-    if(motion){box.pivotX=d(24).toFloat();box.pivotY=0f;box.scaleX=.86f;box.scaleY=.86f;box.alpha=0f;val sp=Spring.of(.3,420.0)
-        box.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
-}
 
-/** A popup that folds away (scale and fade towards its anchor) instead of vanishing; a tap outside or on the
- *  anchor again closes it the same gentle way. [onClose] fires as the fold starts, so the chevron turns back with it. */
-internal class GentlePopup(private val box:View,width:Int,private val motion:Boolean,private val onClose:()->Unit):PopupWindow(box,width,ViewGroup.LayoutParams.WRAP_CONTENT,true){
-    private var folding=false
-    override fun dismiss(){if(folding)return;folding=true;onClose()
-        if(!motion){super.dismiss();return}
-        box.animate().cancel();box.animate().scaleX(.9f).scaleY(.9f).alpha(0f).setDuration(200).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{close()}.start()}
-    private fun close(){super.dismiss()}
-}
 
 // ───────────────────────── full-screen road ─────────────────────────
 
@@ -236,24 +195,6 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
             a.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="image/png";putExtra(Intent.EXTRA_STREAM,uri);clipData=ClipData.newUri(a.contentResolver,"Мой год в книгах",uri);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)},"Поделиться"))}}
 }
 
-/** The road screen's backdrop: the page colour with a soft green light from the top right. The light is baked once
- *  into an opaque picture with a gaussian falloff and fine per-channel noise, so it shows no rings or layers. */
-internal class GoalBackdrop(private val a:MainActivity):android.graphics.drawable.Drawable(){
-    private val p=Paint(Paint.FILTER_BITMAP_FLAG)
-    override fun draw(c:Canvas){val b=bounds;c.drawColor(a.bg);val t=bake(a,b.width())?:return;c.drawBitmap(t,b.left.toFloat(),b.top.toFloat(),p)}
-    override fun setAlpha(alpha:Int){}
-    override fun setColorFilter(cf:ColorFilter?){}
-    @Deprecated("Deprecated in Java") override fun getOpacity()=PixelFormat.OPAQUE
-    companion object{
-        private var tex:Bitmap?=null;private var key=""
-        /** Bake ahead of time (the card calls this while the statistics are shown) so opening never waits. */
-        fun prepare(a:MainActivity){val w=a.resources.displayMetrics.widthPixels;val k="$w${a.light}";if(k==key)return
-            a.work({bake(a,w)})}
-        @Synchronized fun bake(a:MainActivity,w:Int):Bitmap?{if(w<=0)return null;val k="$w${a.light}";if(k==key&&tex!=null)return tex
-            val rx=w*1.05f;val h=(rx*1.25f).toInt()
-            val out=Glow.face(w,h,a.bg,0xff37c080.toInt(),w*.82f,0f,rx*1.7f,if(a.light).09f else .15f,2.6f*1.7f*1.7f)?:return null;tex=out;key=k;return out}
-    }
-}
 
 /** Five plain stars, filled yellow up to the rating. */
 internal class StarRow(private val a:MainActivity,var rating:Int,private val sizeDp:Float,private val gapDp:Float=2f):View(a){
@@ -271,14 +212,6 @@ internal class StarRow(private val a:MainActivity,var rating:Int,private val siz
             p.style=Paint.Style.FILL;p.pathEffect=CornerPathEffect(size*.08f);c.drawPath(path,p);p.pathEffect=null}}
 }
 
-/** One big star of the rating picker: yellow when on, a quiet outline otherwise. */
-internal class StarGlyph(private val a:MainActivity,on:Boolean):View(a){
-    var on=on;set(v){field=v;invalidate()}
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    override fun onDraw(c:Canvas){val s=min(width,height).toFloat();val x=(width-s)/2;val y=(height-s)/2
-        if(on){p.color=StarRow.starYellow(a);StarRow.drawStar(c,x,y,s,p)}
-        else{p.color=if(a.light)0x14000000 else 0x1fffffff;StarRow.drawStar(c,x,y,s,p)}}
-}
 
 /** A small cover for the card's road. The picture is scaled down in halves to its exact pixel size first (one big
  *  jump from a high-resolution cover leaves jagged, shimmering detail), then drawn with rounded corners. */
@@ -304,27 +237,6 @@ internal class MiniCover(private val a:MainActivity,private val book:JSONObject)
     override fun onDetachedFromWindow(){super.onDetachedFromWindow();small?.recycle();small=null}
 }
 
-/** A flat book cover for the road: the picture with soft rounded corners and a soft painted shadow, no gloss.
- *  The shadow is drawn inside the view (it is [PAD] larger than the cover on every side), never as an elevation
- *  shadow, so the cover fades cleanly under the header like any other content. */
-internal class FlatCover(private val a:MainActivity,private val book:JSONObject):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private var asked=false;private val art by lazy{CoverView(a,JSONObject())}
-    private val pad=a.d(PAD).toFloat();private val clip=Path();private val r=RectF()
-    override fun onDraw(c:Canvas){r.set(pad,pad,width-pad,height-pad);val rad=a.d(4).toFloat()
-        shadow(r.width().roundToInt(),r.height().roundToInt())?.let{c.drawBitmap(it,null,RectF(0f,pad*.5f,width.toFloat(),height+pad*.5f),p)}
-        c.save();clip.reset();clip.addRoundRect(r,rad,rad,Path.Direction.CW);c.clipPath(clip)
-        val bmp=a.cover(book)
-        if(bmp==null&&book.optJSONObject("cover")!=null){if(!asked){asked=true;a.requestCover(book){if(it!=null)invalidate()}};c.drawColor(if(a.light)0xffe6e4df.toInt() else 0xff2a2a2d.toInt())}
-        else if(bmp==null)art.drawCover(c,r,book,null)
-        else{val sc=max(r.width()/bmp.width,r.height()/bmp.height);val w=bmp.width*sc;val h=bmp.height*sc
-            c.drawBitmap(bmp,null,RectF(r.centerX()-w/2,r.centerY()-h/2,r.centerX()+w/2,r.centerY()+h/2),p)}
-        c.restore()}
-    private fun shadow(w:Int,h:Int):Bitmap?{val key=w*10000+h;cache[key]?.let{return it}
-        return try{val k=2;val pd=pad/k;val b=Bitmap.createBitmap(((w+pad*2)/k).roundToInt(),((h+pad*2)/k).roundToInt(),Bitmap.Config.ARGB_8888)
-            Canvas(b).drawRoundRect(pd,pd,b.width-pd,b.height-pd,a.d(4)/k.toFloat(),a.d(4)/k.toFloat(),Paint(Paint.ANTI_ALIAS_FLAG).apply{color=if(a.light)0x40000000 else 0x99000000.toInt()})
-            val out=ShelfFrost.blur(b,a.d(6)/k.toFloat());b.recycle();cache[key]=out;out}catch(e:Throwable){null}}
-    companion object{const val PAD=14;private val cache=HashMap<Int,Bitmap>()}
-}
 
 /** The long winding road of the year: one milestone per book of the goal, big covers alternating sides. */
 internal class RoadColumn(private val a:MainActivity,private val books:List<YearBook>,private val goal:Int,private val year:Int,private val today:LocalDate,private val motion:Boolean):FrameLayout(a){
@@ -446,16 +358,6 @@ internal class RoadColumn(private val a:MainActivity,private val books:List<Year
     override fun onDetachedFromWindow(){super.onDetachedFromWindow();glowGen++;glow?.recycle();glow=null}
 }
 
-/** A place on the road still waiting for its book: a dashed outline with the book's number. */
-internal class EmptySlot(private val a:MainActivity,private val n:Int):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER}
-    init{contentDescription="Место для $n-й книги"}
-    override fun onDraw(c:Canvas){val d=a.d(1).toFloat()
-        p.style=Paint.Style.STROKE;p.strokeWidth=d*1.5f;p.color=if(a.light)0x2e000000 else 0x2effffff;p.pathEffect=DashPathEffect(floatArrayOf(d*5,d*4),0f)
-        c.drawRoundRect(d,d,width-d,height-d,d*6,d*6,p)
-        tp.textSize=20*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.display(600);tp.color=if(a.light)0xffb0b0b5.toInt() else 0xff55555b.toInt()
-        c.drawText("$n",width/2f,height/2f-(tp.ascent()+tp.descent())/2,tp)}
-}
 
 // ───────────────────────── the share picture ─────────────────────────
 
