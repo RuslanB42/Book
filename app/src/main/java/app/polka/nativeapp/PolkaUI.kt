@@ -130,7 +130,11 @@ class PolkaSheetBuilder(private val a:MainActivity) {
             private var widePanel=false
             private var shade:View?=null
             private var motion:LiquidSpring?=null
-            private fun moveSheet(fraction:Float){val body=panel?:return;val f=fraction.coerceIn(0f,1f);body.translationY=(if(widePanel)a.d(24).toFloat()else body.height.toFloat())*f;body.alpha=if(widePanel)1-f else 1f;shade?.alpha=1-f;if(closing&&fraction>=.999f){allowFinalDismiss=true;motion?.stop();super.dismiss()}}
+            private fun moveSheet(fraction:Float){val body=panel?:return;val f=fraction.coerceIn(0f,1f);body.translationY=(if(widePanel)a.d(24).toFloat()else body.height.toFloat())*f;body.alpha=if(widePanel)1-f else 1f;shade?.alpha=1-f;if(closing&&fraction>=.999f&&!allowFinalDismiss){allowFinalDismiss=true;motion?.stop()
+                // After the keyboard: the window is removed only a little later. Removed the moment the keyboard reported
+                // itself gone, Android had not finished hiding it yet and handed it to the page's window still visible:
+                // it flashed full height for a few frames before vanishing. Meanwhile the empty window lets touches through.
+                if(imeWaited){window?.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);a.root.postDelayed({if(isShowing)super.dismiss()},380)}else super.dismiss()}}
             override fun dismiss() {
                 val body=panel
                 if(allowFinalDismiss || body==null || !isShowing || a.isFinishing || a.isDestroyed || a.prefs.str("motion")=="reduced") { super.dismiss(); return }
