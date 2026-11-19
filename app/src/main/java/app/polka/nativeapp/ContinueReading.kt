@@ -51,10 +51,16 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   override fun onTouchEvent(e:MotionEvent):Boolean{if(e.actionMasked==MotionEvent.ACTION_DOWN)flung=false;val handled=super.onTouchEvent(e);if((e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)&&!flung)post{snap()};return handled}
   fun snap(){springTo((scrollX.toFloat()/stride).roundToInt().coerceIn((startPage-1).coerceAtLeast(0),(startPage+1).coerceAtMost(last())),0)}
   /** Settles the way the years page in the tier list does: one even glide, no overshoot, quicker after a quick throw. */
-  fun springTo(page:Int,velocity:Int){val target=page*stride;glide?.cancel();if(reduced||target==scrollX){scrollTo(target,0);return}
-   val v=kotlin.math.abs(velocity).toFloat();val span=kotlin.math.abs(target-scrollX).toFloat()
-   glide=ValueAnimator.ofInt(scrollX,target).apply{duration=if(v>0f)(span/v*1000f).toLong().coerceIn(160L,340L) else 340L
-    interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{scrollTo(it.animatedValue as Int,0)};start()}}
+  /** Approved «Пружина»: the card keeps the speed the finger gave it and comes to rest on a soft spring (a slightly
+   *  underdamped one: it settles with a barely seen give, never a hard stop). Simulated frame by frame from the
+   *  throw's real velocity, so a quick flick and a slow release both flow on without a seam. */
+  fun springTo(page:Int,velocity:Int){val target=(page*stride).toFloat();glide?.cancel();if(reduced||target.toInt()==scrollX&&velocity==0){scrollTo(target.toInt(),0);return}
+   val k=260.0;val c=2*.8*kotlin.math.sqrt(k);var x=scrollX.toDouble();var v=velocity.toDouble();var last=-1L
+   glide=ValueAnimator.ofFloat(0f,1f).apply{duration=2000;interpolator=null
+    addUpdateListener{an->val now=an.currentPlayTime;val dt=if(last<0)0.0 else ((now-last).coerceIn(0,40))/1000.0;last=now
+     var left=dt;while(left>0){val h=minOf(left,1/240.0);val acc=-k*(x-target)-c*v;v+=acc*h;x+=v*h;left-=h}
+     if(kotlin.math.abs(x-target)<.5&&kotlin.math.abs(v)<12){scrollTo(target.toInt(),0);an.cancel()} else scrollTo(x.roundToInt(),0)}
+    start()}}
   override fun onScrollChanged(x:Int,y:Int,ox:Int,oy:Int){super.onScrollChanged(x,y,ox,oy);focus(x);if(restoring)return;val n=(x.toFloat()/stride).roundToInt().coerceIn(0,readingBooks.lastIndex.coerceAtLeast(0))
    if(a.continueBookId!=readingBooks.getOrNull(n)?.str("id"))readingBooks.getOrNull(n)?.let{a.prefetchContent(it)};a.continueBookId=readingBooks.getOrNull(n)?.str("id")}
  }
@@ -156,7 +162,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    if(k<.08f)bars[i].reveal()
    if(holders.size<=1)return@forEachIndexed
    // a light depth: the neighbour is a touch smaller and dimmer and grows in evenly as it is pulled to the middle
-   val s=1f-.04f*k;h.pivotX=if(d>0)0f else h.width.toFloat();h.pivotY=h.height.toFloat();h.scaleX=s;h.scaleY=s;h.alpha=1f-.3f*k}
+   val s=1f-.06f*k;h.pivotX=if(d>0)0f else h.width.toFloat();h.pivotY=h.height.toFloat();h.scaleX=s;h.scaleY=s;h.alpha=1f-.45f*k}
   halos(x)}
  /** Each card's halo follows the card itself (its place and scale), strongest on the card in focus. */
  private val gAt=IntArray(2);private val cAt=IntArray(2)
