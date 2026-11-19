@@ -51,8 +51,12 @@ internal class SwipeBack(private val a:MainActivity){
     private fun uncover(){if(view!==a.scroll||under!=null)return;val b=a.backdrop?:return
         val iv=android.widget.ImageView(a).apply{setImageBitmap(b);scaleType=android.widget.ImageView.ScaleType.MATRIX;setBackgroundColor(a.bg)}
         val at=IntArray(2);a.scroll.getLocationInWindow(at);val rootAt=IntArray(2);a.root.getLocationInWindow(rootAt)
+        // the page itself is see-through (the window colour shows through it); while it slides over the list it must
+        // be solid like the profile and the settings are, or the two show through each other
+        sceneBg=a.scroll.background;a.scroll.setBackgroundColor(a.bg)
         a.root.addView(iv,a.root.indexOfChild(a.scroll),android.widget.FrameLayout.LayoutParams(a.scroll.width,a.scroll.height).apply{leftMargin=at[0]-rootAt[0];topMargin=at[1]-rootAt[1]});under=iv}
-    private fun cover(){under?.let{a.root.removeView(it)};under=null}
+    private var sceneBg:android.graphics.drawable.Drawable?=null
+    private fun cover(){if(under!=null)a.scroll.background=sceneBg;sceneBg=null;under?.let{a.root.removeView(it)};under=null}
     private fun move(dx:Float){val v=view?:return;if(dx>0f)uncover();v.translationX=dx}
     private fun back(from:Float){settle?.cancel();settle=ValueAnimator.ofFloat(from,0f).apply{duration=320;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{move(it.animatedValue as Float)}
         addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){cover()}});start()}}
