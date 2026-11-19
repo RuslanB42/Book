@@ -88,6 +88,7 @@ class MainActivity : Activity() {
     internal var sortControl:TextView?=null
     internal var shelvesEditing=false
     internal var shelfEditor:ShelfEditor?=null
+    internal var shelfSlot:ShelfSlot?=null
     internal var settingsPage:View?=null
     internal var addMenu:AddMenu?=null
     internal var addButton:View?=null
@@ -377,18 +378,20 @@ class MainActivity : Activity() {
     }
     fun navigation() {
         val nav=nativeNavigation ?: PolkaNavigation(this).also { nativeNavigation=it }
-        nav.bind(tab) { key ->
-            if(tab!=key || shelf!=null || auto!=null || quoteBookId!=null) { val from=listOf("home","shelves","quotes","words").indexOf(tab);val to=listOf("home","shelves","quotes","words").indexOf(key);tabScroll[tab]=scroll.scrollY;val oldScroll=scroll;screenMotion.stop();pendingMotion=null;librarySearch?.close(false);tab=key;shelf=null;auto=null;quoteBookId=null;query="";render(false,false)
-                // Restore the tab's scroll after layout but BEFORE the first frame (a posted scroll showed one frame
-                // at the top — with its top buttons — and then jumped).
-                val target=tabScroll[key] ?: 0;val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this);sv.scrollTo(0,target);return true}})
-                screenMotion.pushTab(oldScroll,to>from) } else scroll.smoothScrollTo(0,0)
-        }
+        nav.bind(tab) { key -> goTab(key) }
         root.addView(nav,FrameLayout.LayoutParams(d(230),d(58),Gravity.BOTTOM or Gravity.START))
         followInsets(nav){i->nav.layoutParams=(nav.layoutParams as FrameLayout.LayoutParams).apply{leftMargin=d(16)+i.left;bottomMargin=navigationBottom(baseInsets)}}
         val add=icon("plus","Добавить",true) { if(addMenu!=null) addMenu?.close() else AddMenu(this).open() }; addButton=add;add.background=Floating(this,add.background,d(29).toFloat());add.elevation=0f
         root.addView(add,FrameLayout.LayoutParams(d(58),d(58),Gravity.BOTTOM or Gravity.END))
         followInsets(add){i->add.layoutParams=(add.layoutParams as FrameLayout.LayoutParams).apply{rightMargin=d(16)+i.right;bottomMargin=navigationBottom(baseInsets)}}
+    }
+    /** Switches to the tab [key] the way a tap on the navigation does: the pages slide, the pill glides. */
+    fun goTab(key:String) {
+            if(tab!=key || shelf!=null || auto!=null || quoteBookId!=null) { val from=listOf("home","shelves","quotes","words").indexOf(tab);val to=listOf("home","shelves","quotes","words").indexOf(key);tabScroll[tab]=scroll.scrollY;val oldScroll=scroll;screenMotion.stop();pendingMotion=null;librarySearch?.close(false);tab=key;shelf=null;auto=null;quoteBookId=null;query="";render(false,false)
+                // Restore the tab's scroll after layout but BEFORE the first frame (a posted scroll showed one frame
+                // at the top — with its top buttons — and then jumped).
+                val target=tabScroll[key] ?: 0;val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this);sv.scrollTo(0,target);return true}})
+                screenMotion.pushTab(oldScroll,to>from) } else scroll.smoothScrollTo(0,0)
     }
     fun filters() {
         val box=column()
@@ -398,7 +401,20 @@ class MainActivity : Activity() {
     }
     fun sortName(key:String=sort):String = when(key) { "recent" -> "Недавние"; "title" -> "По названию"; "author" -> "По автору"; else -> "Мой порядок" }
     fun search() { librarySearch?.toggle() }
-    fun createShelf() { inputDialog("Новая полка",hint="Например, «Отпуск» или «Классика»",helper="Полку потом можно переименовать и переставить") { name -> if(name.isNotBlank()) { prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct())); savePreferences(); render() } } }
+    /** «Новая полка» from the «+» menu: no dialog. The page glides over to «Полки», scrolls down to the end, the empty
+     *  place for a new shelf opens there and becomes the field for its name; the new shelf grows out of it. */
+    fun createShelf() {
+        val reduced=prefs.str("motion")=="reduced"
+        val arrive=if(tab!="shelves"||shelf!=null||auto!=null||quoteBookId!=null||query.isNotBlank()){goTab("shelves");if(reduced)0L else 330L}else 0L
+        root.postDelayed({
+            val slot=shelfSlot?:return@postDelayed
+            if(!slot.isAttachedToWindow||tab!="shelves")return@postDelayed
+            val sv=scroll;val bottom=(sv.getChildAt(0)?.height?:0)-sv.height+sv.paddingBottom
+            val far=bottom-sv.scrollY
+            if(far>d(4)&&!reduced)sv.smoothScrollTo(0,bottom) else if(far>0)sv.scrollTo(0,bottom)
+            root.postDelayed({if(slot.isAttachedToWindow)slot.openFresh()},if(far>d(4)&&!reduced)260L else 0L)
+        },arrive)
+    }
     /** [quiet]: the page has already shown the new name in place — update the data without rebuilding it. */
     fun renameShelf(name:String,next:String,quiet:Boolean=false) { if(next.isBlank() || next==name) return
         prefs.optJSONArray("shelfOrder")?.strings()?.let { order -> prefs.put("shelfOrder",JSONArray(order.map { if(it=="s:$name") "s:$next" else it })) }

@@ -316,6 +316,26 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
         if(lit>0f){fill.color=(((.03f*lit)*255).toInt() shl 24) or ink;c.drawRoundRect(i,i,width-i,height-i,r,r,fill)}
         dash.color=((((.18f+.22f*lit)*(if(a.light).8f else 1f))*255).toInt() shl 24) or ink;c.drawRoundRect(i,i,width-i,height-i,r,r,dash)}
     private fun light(to:Float){android.animation.ValueAnimator.ofFloat(lit,to).apply{duration=220;addUpdateListener{lit=it.animatedValue as Float;invalidate()};start()}}
+    /** Opened from the «+» menu outside the edit mode: the place first unfolds at the end of the shelves (with the
+     *  shelves' own spacing), then turns into the field; once the name is in (or dropped), it folds away again. */
+    private var fresh=false
+    fun openFresh(){if(field!=null)return
+        if(a.shelvesEditing||shown>=1f){start();return}
+        fresh=true;val lp=layoutParams as? LinearLayout.LayoutParams?:return;marginAnim?.cancel();lp.topMargin=0;layoutParams=lp
+        val to=if(page().childCount>1)a.d(26) else 0
+        if(a.prefs.str("motion")=="reduced"){lp.topMargin=to;layoutParams=lp;reveal(1f);start();return}
+        reveal(.002f);scaleX=.97f;scaleY=.97f
+        val sp=Spring.of(.1,460.0);marginAnim=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;interpolator=sp.interpolator
+            addUpdateListener{val k=it.animatedValue as Float;lp.topMargin=(to*k).toInt();layoutParams=lp;reveal(k.coerceIn(.002f,1f));scaleX=.97f+.03f*k;scaleY=scaleX
+                (parent as? View)?.let{_->a.scroll.scrollTo(0,(a.scroll.getChildAt(0)?.height?:0)-a.scroll.height+a.scroll.paddingBottom)}}
+            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){scaleX=1f;scaleY=1f;start()}});start()}}
+    private fun page()=parent as LinearLayout
+    /** Folds the place away after a «+»-menu shelf (outside the edit mode). */
+    private fun fold(after:Long){if(!fresh)return;fresh=false;if(a.shelvesEditing)return
+        val lp=layoutParams as? LinearLayout.LayoutParams?:return;val m0=lp.topMargin
+        if(a.prefs.str("motion")=="reduced"){lp.topMargin=0;layoutParams=lp;reveal(0f);return}
+        val sp=Spring.of(.1,460.0);marginAnim?.cancel();marginAnim=android.animation.ValueAnimator.ofFloat(1f,0f).apply{duration=sp.duration;startDelay=after;interpolator=sp.interpolator
+            addUpdateListener{val k=it.animatedValue as Float;lp.topMargin=(m0*k).toInt();layoutParams=lp;reveal(k)};start()}}
     private fun start(){if(field!=null||!isAttachedToWindow)return
         val f=a.edit("","Название полки").apply{setSingleLine(true);textSize=17f;typeface=PolkaFonts.sans(600);setTextColor(a.fg);setHintTextColor(a.muted);background=null;setPadding(a.d(14),0,a.d(14),0);minHeight=0;minimumHeight=0
             gravity=Gravity.CENTER_VERTICAL;imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE;alpha=0f
@@ -335,7 +355,9 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
         // the typed name leaves with the new shelf; the place quietly becomes «+ Новая полка» again
         f.animate().alpha(0f).setStartDelay(0).setDuration(if(made)140 else 120).withEndAction{removeView(f)}.start()
         label.animate().alpha(1f).setStartDelay(if(made)200 else 80).setDuration(240).start()
-        light(0f);isClickable=true}
+        light(0f);isClickable=true
+        // from the «+» menu: the new shelf has grown above (420 ms); then the place folds away
+        fold(if(made)380L else 120L)}
     /** Same spacing as the shelves: 26dp apart, 10dp between the edit cards. */
     private var marginAnim:android.animation.ValueAnimator?=null
     fun setEditing(on:Boolean,animate:Boolean,delay:Long=0){if(!on)commit();val lp=layoutParams as? LinearLayout.LayoutParams?:return;val to=a.d(if(on)10 else 0);marginAnim?.cancel()
@@ -366,7 +388,7 @@ internal fun MainActivity.shelfRows(){
         if(taken){Notice.short(this,Notice.Kind.SHELF,"Полка «$name» уже есть");false}
         else{prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct()));savePreferences();editor.grow(own(name,emptyList()));true}}
     page.addView(slot,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(if(rows.isEmpty()||!shelvesEditing)0 else 10)});if(!shelvesEditing)slot.visibility=View.GONE
-    editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor
+    editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor;shelfSlot=slot
     if(shelvesEditing){rows.forEach{it.setEditing(true,false)};slot.setEditing(true,false)}
 }
 
