@@ -116,6 +116,9 @@ class PolkaSheetBuilder(private val a:MainActivity) {
         first.postDelayed({raise()},250)
     }
     fun show():AlertDialog {
+        // A text field of the page keeping focus under the sheet took the keyboard back for a moment when the sheet
+        // closed (it popped up and went down again); the page lets go of it while a sheet is up.
+        if(a.currentFocus is EditText&&!a.searchOpen){a.root.isFocusableInTouchMode=true;a.root.requestFocus()}
         val sheet=object:AlertDialog(a,R.style.PolkaSheetTheme) {
             private var panel:View?=null
             private var closing=false
