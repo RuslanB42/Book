@@ -81,7 +81,8 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,cover)},LayoutParams(0,-2,1f).apply{marginStart=a.d(8)})
    words.addView(buttons)
    card.addView(words,0,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));card.words=words;texts.add(words)
-   card.setOnClickListener{a.openBook(book,cover)};a.press(card)
+   // the card itself does nothing on a touch (no opening, no press animation): only its buttons answer
+   card.isClickable=false
    cards.add(card)
    // The focus transform lives on a holder, so the press feedback on the card never fights it. The holder's top
    // padding makes room for the rising cover INSIDE its bounds: when the holder is dimmed (alpha < 1) its layer is
