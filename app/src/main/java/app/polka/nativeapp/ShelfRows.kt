@@ -328,7 +328,9 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
         val sp=Spring.of(.1,460.0);marginAnim=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;interpolator=sp.interpolator
             addUpdateListener{val k=it.animatedValue as Float;lp.topMargin=(to*k).toInt();layoutParams=lp;reveal(k.coerceIn(.002f,1f));scaleX=.97f+.03f*k;scaleY=scaleX
                 (parent as? View)?.let{_->a.scroll.scrollTo(0,(a.scroll.getChildAt(0)?.height?:0)-a.scroll.height+a.scroll.paddingBottom)}}
-            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){scaleX=1f;scaleY=1f;start()}});start()}}
+            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){scaleX=1f;scaleY=1f
+                // the slot's own start (a bare start() here is the animator's and replayed it forever)
+                this@ShelfSlot.start()}});start()}}
     private fun page()=parent as LinearLayout
     /** Folds the place away after a «+»-menu shelf (outside the edit mode). */
     private fun fold(after:Long){if(!fresh)return;fresh=false;if(a.shelvesEditing)return
