@@ -119,6 +119,10 @@ class PolkaSheetBuilder(private val a:MainActivity) {
         // A text field of the page keeping focus under the sheet took the keyboard back for a moment when the sheet
         // closed (it popped up and went down again); the page lets go of it while a sheet is up.
         if(a.currentFocus is EditText&&!a.searchOpen){a.root.isFocusableInTouchMode=true;a.root.requestFocus()}
+        // The page's own window must not still «want» the keyboard (left so by an earlier search or shelf field, whose
+        // keyboard was put away through another window): when the sheet closed, the keyboard was handed back to it and
+        // shown full height for a few frames before going away again.
+        if(!a.searchOpen)androidx.core.view.WindowCompat.getInsetsController(a.window,a.root).hide(androidx.core.view.WindowInsetsCompat.Type.ime())
         val sheet=object:AlertDialog(a,R.style.PolkaSheetTheme) {
             private var panel:View?=null
             private var closing=false
@@ -136,13 +140,21 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 val dv=window?.decorView
                 if(!imeWaited&&dv!=null&&androidx.core.view.ViewCompat.getRootWindowInsets(dv)?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime())==true){
                     imeWaited=true;closing=true
+                    // put away through this window's own controller (so nothing still asks for it), the field lets go
+                    window?.let{w->androidx.core.view.WindowCompat.getInsetsController(w,dv).hide(androidx.core.view.WindowInsetsCompat.Type.ime())}
                     (a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(dv.windowToken,0)
+                    currentFocus?.clearFocus()
+                    window?.let{w->w.setSoftInputMode((w.attributes.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_STATE.inv()) or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)}
                     val started=android.os.SystemClock.uptimeMillis()
                     val wait=object:Runnable{override fun run(){val i=androidx.core.view.ViewCompat.getRootWindowInsets(dv)
                         val gone=i==null||(!i.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime())&&i.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom==0)
                         if(gone||android.os.SystemClock.uptimeMillis()-started>900||!dv.isAttachedToWindow){closing=false;dismiss()} else dv.postOnAnimation(this)}}
                     dv.postOnAnimation(wait);return}
                 closing=true; body.animate().cancel(); body.isEnabled=false
+                currentFocus?.clearFocus()
+                window?.let{w->w.setSoftInputMode((w.attributes.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_STATE.inv()) or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)}
+                // the page under the sheet gets the window back without asking for the keyboard
+                androidx.core.view.WindowCompat.getInsetsController(a.window,a.root).hide(androidx.core.view.WindowInsetsCompat.Type.ime())
                 motion?.to(1f)
             }
             private var imeWaited=false

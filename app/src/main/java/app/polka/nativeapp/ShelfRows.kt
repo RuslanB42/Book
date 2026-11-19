@@ -135,6 +135,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         a.imeFollower?.let{fl->a.root.postDelayed({if(a.imeFollower===fl){val ime=androidx.core.view.ViewCompat.getRootWindowInsets(a.root)?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0;if(ime==0){fl(0);a.imeFollower=null}}},900)}
         f.onFocusChangeListener=null;f.setOnEditorActionListener(null)
         (a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)
+        androidx.core.view.WindowCompat.getInsetsController(a.window,f).hide(androidx.core.view.WindowInsetsCompat.Type.ime())
         if(f.hasFocus()){a.root.isFocusableInTouchMode=true;a.root.requestFocus()}
         (f.parent as? ViewGroup)?.removeView(f);name.visibility=View.VISIBLE
         pen.animate().cancel();if(editing&&rename!=null)pen.animate().alpha(.8f).setDuration(180).start()

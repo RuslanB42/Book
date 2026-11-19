@@ -83,6 +83,7 @@ class MainActivity : Activity() {
     internal fun imeVisible(shown:Boolean){if(imeShown&&!shown)root.post{releaseTextFocus()};imeShown=shown}
     internal fun releaseTextFocus(){if(isFinishing||isDestroyed)return;val f=currentFocus as? android.widget.EditText?:return;if(!f.isAttachedToWindow)return
         (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)
+        androidx.core.view.WindowCompat.getInsetsController(window,f).hide(androidx.core.view.WindowInsetsCompat.Type.ime())
         root.isFocusableInTouchMode=true;root.requestFocus();f.clearFocus()}
     internal fun updateAppInsets(safe:androidx.core.graphics.Insets){
         appInsets=safe
