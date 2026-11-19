@@ -229,13 +229,7 @@ internal class RisingCoverCard(private val a:MainActivity):FrameLayout(a){
  var cover:View?=null
  var floor=a.d(128)
  private fun reduced()=a.prefs.str("motion")=="reduced"
- /** Pressing the card dips it (the shared press effect) and lifts the book out of it a little, like picking it up. */
- override fun dispatchTouchEvent(e:MotionEvent):Boolean{val c=cover
-  if(c!=null&&!reduced())when(e.actionMasked){
-   MotionEvent.ACTION_DOWN->{c.pivotX=c.width/2f;c.pivotY=c.height.toFloat();val sp=Spring.of(.2,300.0);c.animate().translationY(-a.d(7).toFloat()).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
-   MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val sp=Spring.of(.45,520.0);c.animate().translationY(0f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}
-  }
-  return super.dispatchTouchEvent(e)}
+ // (no press effect on the card: it does nothing on a touch; only its buttons answer)
  override fun onMeasure(w:Int,h:Int){val text=words;var hh=floor
   if(text!=null){text.measure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(w),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));hh=maxOf(hh,text.measuredHeight)}
   super.onMeasure(w,MeasureSpec.makeMeasureSpec(hh,MeasureSpec.EXACTLY))}
