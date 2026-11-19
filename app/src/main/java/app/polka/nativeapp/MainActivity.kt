@@ -605,7 +605,16 @@ class MainActivity : Activity() {
     override fun onSaveInstanceState(out:Bundle) { reader?.save(); out.putString("calendarImage",pendingCalendarImage?.name); out.putString("attachId",attachId); out.putString("coverTarget",coverTarget); pendingExport?.let { out.putString("exportId",it.first.str("id")); out.putString("exportFormat",it.second) }; out.putString("tab",tab); out.putString("shelf",shelf); out.putString("auto",auto); out.putString("query",query); out.putBoolean("searchOpen",searchOpen); reader?.let { out.putString("readerId",it.book.str("id")) }; super.onSaveInstanceState(out) }
     override fun onPause() { shelfReorder?.cancel();screenMotion.stop();root.childrenOpening()?.finish();reader?.pause(); super.onPause() }
     override fun onResume() { super.onResume(); if(reader!=null)reader?.resume() else if(::root.isInitialized){ReaderWindow.configure(window,false,bg);root.requestApplyInsets()} }
-    override fun onWindowFocusChanged(hasFocus:Boolean){super.onWindowFocusChanged(hasFocus);if(hasFocus&&::root.isInitialized){ReaderWindow.configure(window,reader!=null,bg);root.requestApplyInsets()}}
+    /** The extra keyboard trigger: when the app's window gets the focus back (a sheet or dialog over it has closed) and
+     *  a text field of the page still holds the view focus — for one, a search field keeps it invisibly after its
+     *  search closed — Android shows the keyboard for that field by itself (adjustResize + a focused text editor), and
+     *  the page puts it away again a moment later: the keyboard popped up after the name window had closed. Before
+     *  Android looks (this runs before it starts the input), the focus goes to the page itself, which is no text field,
+     *  unless the field is really in use (an open search, the reader's own editor). */
+    private fun keepKeyboardDown(){if(!::root.isInitialized)return;val f=currentFocus as? android.widget.EditText?:return
+        if(searchOpen||reader!=null)return
+        root.isFocusable=true;root.isFocusableInTouchMode=true;root.requestFocus();f.clearFocus();if(currentFocus is android.widget.EditText)root.requestFocus()}
+    override fun onWindowFocusChanged(hasFocus:Boolean){if(hasFocus)keepKeyboardDown();super.onWindowFocusChanged(hasFocus);if(hasFocus&&::root.isInitialized){ReaderWindow.configure(window,reader!=null,bg);root.requestApplyInsets()}}
     override fun onDestroy() { destroying=true; Notice.current?.takeIf { it.a===this }?.dismissNow();root.childrenOpening()?.finish();bookCalendar?.dismiss();shelfReorder?.cancel();reader?.dispose();bookDetailSheet?.finish();checkpointTask?.cancel(false); io.execute { if(initialized) try { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints")) } catch(_:Exception) {}; library.db.close() }; io.shutdown();cpu.shutdownNow(); super.onDestroy() }
     companion object {
         fun authors(book:JSONObject)=book.optJSONArray("authors")?.strings()?.joinToString(", ").orEmpty()

@@ -143,7 +143,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                     // put away through this window's own controller (so nothing still asks for it), the field lets go
                     window?.let{w->androidx.core.view.WindowCompat.getInsetsController(w,dv).hide(androidx.core.view.WindowInsetsCompat.Type.ime())}
                     (a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(dv.windowToken,0)
-                    currentFocus?.clearFocus()
+                    window?.decorView?.let{d->d.isFocusableInTouchMode=true;d.requestFocus()} // (a cleared field would take the focus straight back in touch mode)
                     window?.let{w->w.setSoftInputMode((w.attributes.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_STATE.inv()) or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)}
                     val started=android.os.SystemClock.uptimeMillis()
                     val wait=object:Runnable{override fun run(){val i=androidx.core.view.ViewCompat.getRootWindowInsets(dv)
@@ -151,7 +151,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                         if(gone||android.os.SystemClock.uptimeMillis()-started>900||!dv.isAttachedToWindow){closing=false;dismiss()} else dv.postOnAnimation(this)}}
                     dv.postOnAnimation(wait);return}
                 closing=true; body.animate().cancel(); body.isEnabled=false
-                currentFocus?.clearFocus()
+                window?.decorView?.let{d->d.isFocusableInTouchMode=true;d.requestFocus()} // (a cleared field would take the focus straight back in touch mode)
                 window?.let{w->w.setSoftInputMode((w.attributes.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_STATE.inv()) or WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)}
                 // the page under the sheet gets the window back without asking for the keyboard
                 androidx.core.view.WindowCompat.getInsetsController(a.window,a.root).hide(androidx.core.view.WindowInsetsCompat.Type.ime())
