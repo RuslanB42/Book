@@ -36,6 +36,13 @@ internal object IceArt {
         p.shader=null;p.pathEffect=null;p.style=Paint.Style.FILL
         p.color=if(light)0x262b7fc0 else 0x2e5ab4f0;c.drawPath(shape,p)
         if(progress>0f){c.save();c.clipRect(0f,24f-22f*progress.coerceIn(0f,1f),26f,26f);p.color=if(light)0x662b7fc0 else 0x665ab4f0;c.drawPath(shape,p);c.restore()}
+        // a snowflake in the middle, so the place reads as a freeze still to come
+        p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=1.3f;p.color=if(light)0x992b7fc0.toInt() else 0x998fd0fa.toInt()
+        for(k in 0 until 6){val ang=Math.toRadians(k*60.0-90.0);val cx=13f;val cy=13f;val ex=cx+5.6f*Math.cos(ang).toFloat();val ey=cy+5.6f*Math.sin(ang).toFloat()
+            c.drawLine(cx,cy,ex,ey,p)
+            val bx=cx+3.6f*Math.cos(ang).toFloat();val by=cy+3.6f*Math.sin(ang).toFloat()
+            for(side in intArrayOf(-1,1)){val a2=ang+side*Math.toRadians(42.0);c.drawLine(bx,by,bx+1.9f*Math.cos(a2).toFloat(),by+1.9f*Math.sin(a2).toFloat(),p)}}
+        p.style=Paint.Style.FILL
         c.restore()}
 }
 

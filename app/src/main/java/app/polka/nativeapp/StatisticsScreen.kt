@@ -380,7 +380,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             if(w.second.isNotBlank())words.addView(label(w.second,13f),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(3)})
             mid.addView(words,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(18)})
             space(box,14);box.addView(mid)
-            if(list.isNotEmpty()){val fit=((a.resources.configuration.screenWidthDp-32-36-34-40)/22).coerceIn(3,9)
+            if(list.isNotEmpty()){val fit=((a.resources.configuration.screenWidthDp-32-36-40)/48).coerceIn(3,9)
                 space(box,16);box.addView(a.goalShelf(list,fit),LinearLayout.LayoutParams(-1,-2))}
             box.isClickable=true;box.setOnClickListener{openRoad(box,years){bind()}}
             box.contentDescription="Книги за $goalYear: $done"+if(target>0)" из $target" else ""}
@@ -401,14 +401,15 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 addView(Glyph(a,"expand",a.fg),FrameLayout.LayoutParams(a.d(15),a.d(15),Gravity.CENTER));a.press(this)},LinearLayout.LayoutParams(a.d(34),a.d(34)))
             box.addView(top);space(box,8)
             val list=Tiers.books(model,y)
-            val fit=((a.resources.configuration.screenWidthDp-32-36-22-14)/34).coerceIn(3,10)
+            val fit=((a.resources.configuration.screenWidthDp-32-36-24-16)/48).coerceIn(3,8)
             // approved: only the tiers that have books (all five while nothing is rated yet)
             val any=list.any{Tiers.of(it) in 0..4}
             for(k in 0..4){val inTier=Tiers.sorted(list.filter{Tiers.of(it)==k});if(any&&inTier.isEmpty())continue
-                val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(56)}
+                val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(72);clipChildren=false;clipToPadding=false}
                 row.addView(TierLetter(a,k,24f,false),LinearLayout.LayoutParams(a.d(24),-2))
-                inTier.take(fit).forEach{b->row.addView(MiniCover(a,b).apply{elevation=a.d(2).toFloat()},LinearLayout.LayoutParams(a.d(30),a.d(45)).apply{marginStart=a.d(if(row.childCount==1)16 else 5)})}
-                box.addView(row,LinearLayout.LayoutParams(-1,a.d(56)))}
+                // the covers as on the full-screen tier list: sharp and with a soft shadow
+                inTier.take(fit).forEach{b->row.addView(CoverView(a,b,a.cover(b)).apply{softShadow=true},LinearLayout.LayoutParams(a.d(40),a.d(60)).apply{marginStart=a.d(if(row.childCount==1)16 else 8)})}
+                box.addView(row,LinearLayout.LayoutParams(-1,a.d(72)))}
             box.contentDescription="Тир-лист за $y"}
         box.isClickable=true;box.setOnClickListener{if(a.tierList==null)TierListOverlay(a,model,if(today.year in ys)today.year else ys.first(),{a.tierCard?.takeIf{it.isAttachedToWindow}?:box}){bind()}.show()}
         a.press(box)

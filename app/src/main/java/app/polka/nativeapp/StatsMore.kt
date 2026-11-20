@@ -87,7 +87,7 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
     class Point(val value:Float,val title:String,val sub:String)
     private var points=listOf<Point>();private var labels=listOf<Pair<Int,String>>();private var strong=-1
     private var avg:Float?=null;private var avgWord="";private var zeroBased=false
-    private var shown=FloatArray(0);private var from=FloatArray(0);private var morph=1f;private var reveal=if(live)0f else 1f
+    private var shown=FloatArray(0);private var from=FloatArray(0);private var morph=1f;private val reveal=1f
     private var hold=-1
     private val dp=a.resources.displayMetrics.density
     private val line=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=2.6f*dp;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND;color=ink}
@@ -104,25 +104,30 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES}
     /** New data; with the same number of points the line glides from the old values to the new ones. */
     fun set(points:List<Point>,labels:List<Pair<Int,String>>,strong:Int,avg:Float?,avgWord:String,zeroBased:Boolean){
-        val glide=live&&shown.size==points.size&&isAttachedToWindow&&reveal>=1f
-        from=if(glide)shown.copyOf() else FloatArray(points.size){points[it].value}
+        val glide=live&&shown.isNotEmpty()&&isAttachedToWindow
+        // the old line, read at the new points' places (column centres), so a week can turn into a month smoothly
+        val old=shown.copyOf();val m=old.size;val n=points.size
+        from=if(glide)FloatArray(n){j->val pos=((j+.5f)/n)*m-.5f;val i0=pos.toInt().coerceIn(0,m-1);val i1=(i0+1).coerceAtMost(m-1);val f=(pos-i0).coerceIn(0f,1f);old[i0]+(old[i1]-old[i0])*f} else FloatArray(n){points[it].value}
+        val avgFrom=this.avgShown?:avg;val loFrom=lo;val hiFrom=hi
         this.points=points;this.labels=labels;this.strong=strong;this.avg=avg;this.avgWord=avgWord;this.zeroBased=zeroBased;hold=-1
         shown=from.copyOf();contentDescription=points.lastOrNull()?.let{"${it.title}, ${it.sub}"}
-        if(glide){android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=420;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
-            addUpdateListener{v->val t=v.animatedValue as Float;for(i in shown.indices)shown[i]=from[i]+(points[i].value-from[i])*t;invalidate()};start()}}
-        else{for(i in shown.indices)shown[i]=points[i].value;invalidate()}
+        morphAnim?.cancel()
+        if(glide){avgShown=avgFrom;scaleFrom=floatArrayOf(loFrom,hiFrom);morph=0f
+            morphAnim=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=520;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+            addUpdateListener{v->val t=v.animatedValue as Float;morph=t;for(i in shown.indices)shown[i]=from[i]+(points[i].value-from[i])*t
+                avgShown=if(avgFrom!=null&&avg!=null)avgFrom+(avg-avgFrom)*t else avg;invalidate()};start()}}
+        else{for(i in shown.indices)shown[i]=points[i].value;avgShown=avg;morph=1f;invalidate()}
     }
-    private var revealed=false
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(live&&!revealed){revealed=true;reveal=0f
-        android.animation.ValueAnimator.ofFloat(0f,1f).apply{startDelay=200;duration=900;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{reveal=it.animatedValue as Float;invalidate()};start()}}
-        else reveal=1f}
+    private var morphAnim:android.animation.ValueAnimator?=null
+    private var avgShown:Float?=null;private var scaleFrom=floatArrayOf(0f,1f)
     private fun x(i:Int)=width*(i+.5f)/max(1,points.size)
     private var lo=0f;private var hi=1f
     private fun y(v:Float):Float{val top=12f*dp;val bottom=height-26f*dp;return bottom-(v-lo)/max(.0001f,hi-lo)*(bottom-top)}
     override fun onDraw(c:Canvas){
         if(points.isEmpty()||width==0)return
-        val vals=shown.toList()+listOfNotNull(avg)
-        lo=if(zeroBased)0f else (vals.minOrNull()?:0f);hi=vals.maxOrNull()?:1f;val pad=(hi-lo).coerceAtLeast(1f)*.12f;if(!zeroBased)lo-=pad;hi+=pad
+        val vals=points.map{it.value}+listOfNotNull(avg)
+        var tlo=if(zeroBased)0f else (vals.minOrNull()?:0f);var thi=vals.maxOrNull()?:1f;val pad=(thi-tlo).coerceAtLeast(1f)*.12f;if(!zeroBased)tlo-=pad;thi+=pad
+        if(morph<1f){lo=scaleFrom[0]+(tlo-scaleFrom[0])*morph;hi=scaleFrom[1]+(thi-scaleFrom[1])*morph}else{lo=tlo;hi=thi}
         val w=width.toFloat();val h=height.toFloat()
         // the line: in flat from the left edge, through the points, out flat to the right edge
         path.rewind();path.moveTo(0f,y(shown[0]));path.lineTo(x(0),y(shown[0]))
@@ -133,7 +138,7 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
         fill.shader=LinearGradient(0f,12f*dp,0f,h,(ink and 0xffffff) or 0x4d000000,ink and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(area,fill)
         c.drawPath(path,line);c.restore()
         // the average: a hairline and its word on the right, on the side away from the line
-        avg?.let{v->val ay=y(v);hair.color=(a.fg and 0xffffff) or 0x29000000;c.drawLine(0f,ay,w,ay,hair)
+        avgShown?.let{v->val ay=y(v);hair.color=(a.fg and 0xffffff) or 0x29000000;c.drawLine(0f,ay,w,ay,hair)
             if(avgWord.isNotBlank()){text.color=muted;text.textAlign=Paint.Align.RIGHT
                 // the line's height across the word's width, from the points that fall under it
                 val tw=text.measureText(avgWord);val x0=w-18f*dp-tw;val under=shown.indices.filter{x(it)>=x0-x(0)}.map{y(shown[it])}+ey
@@ -188,9 +193,8 @@ internal class RecordIcon(private val a:MainActivity,private val kind:String,pri
 internal class WeekStrip(private val a:MainActivity,private val names:List<String>,private val marks:IntArray,private val today:Float,private val live:Boolean):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=11.5f*a.resources.displayMetrics.density;textAlign=Paint.Align.CENTER}
     private val dp=a.resources.displayMetrics.density;private val r=RectF()
-    private var grow=if(live)0f else 1f
+    private val grow=1f
     init{contentDescription="Неделя: "+names.indices.joinToString(", "){names[it]+" "+when(marks[it]){1->"цель выполнена";2->"спасён заморозкой";4->"сегодня";else->"пропуск"}}}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(grow<1f)android.animation.ValueAnimator.ofFloat(0f,1f).apply{startDelay=260;duration=700;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{grow=it.animatedValue as Float;invalidate()};start()}}
     override fun onDraw(c:Canvas){val gap=5f*dp;val n=names.size;val w=(width-gap*(n-1))/n;val h=10f*dp
         val orange=if(a.light)0xfff07c12.toInt() else 0xffff8a1e.toInt();val ice=if(a.light)0xff5aaee6.toInt() else 0xff8fd0fa.toInt();val empty=if(a.light)0xffe6e6ea.toInt() else 0xff3a3a3d.toInt()
         for(i in 0 until n){val x=i*(w+gap);r.set(x,0f,x+w,h)

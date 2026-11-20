@@ -56,7 +56,8 @@ internal fun MainActivity.goalChip(t:String,good:Boolean)=text(t,12.5f,if(good)(
 internal fun MainActivity.goalShelf(list:List<YearBook>,fit:Int):LinearLayout{
     val row=line().apply{gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false}
     val shown=list.asReversed().take(fit)
-    shown.forEachIndexed{i,yb->row.addView(MiniCover(this,yb.book).apply{elevation=d(2).toFloat();translationZ=-i.toFloat()},LinearLayout.LayoutParams(d(34),d(51)).apply{if(i>0)marginStart=-d(12)})}
+    // the covers as on the full-screen tier list: sharp, a soft shadow, side by side
+    shown.forEachIndexed{i,yb->row.addView(CoverView(this,yb.book,cover(yb.book)).apply{softShadow=true},LinearLayout.LayoutParams(d(40),d(60)).apply{if(i>0)marginStart=d(8)})}
     val more=list.size-shown.size
     if(more>0)row.addView(text("+$more",12.5f,if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt(),true).apply{gravity=Gravity.CENTER
         background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(light)0x0f000000 else 0x14ffffff)}},LinearLayout.LayoutParams(d(32),d(32)).apply{marginStart=d(8)})
