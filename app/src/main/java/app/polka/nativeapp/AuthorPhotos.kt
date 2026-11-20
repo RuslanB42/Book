@@ -67,7 +67,7 @@ internal object AuthorPhotos {
         c.setRequestProperty("User-Agent",UA);c.connectTimeout=12000;c.readTimeout=15000
         try{if(c.responseCode!=200)error("HTTP ${c.responseCode}");return c.inputStream.bufferedReader().readText()}finally{c.disconnect()}}
     private fun enc(s:String)=URLEncoder.encode(s,"UTF-8")
-    private fun search(q:String,lang:String):List<String>=try{
+    private fun search(q:String,lang:String):List<String> = try{
         JSONObject(get("https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&type=item&limit=7&language=$lang&uselang=$lang&search=${enc(q)}"))
             .optJSONArray("search")?.let{arr->(0 until arr.length()).map{arr.getJSONObject(it).optString("id")}}.orEmpty()}catch(_:Exception){emptyList()}
     private fun entities(ids:List<String>):JSONObject=if(ids.isEmpty())JSONObject() else
