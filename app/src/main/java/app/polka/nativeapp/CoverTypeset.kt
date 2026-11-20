@@ -1,7 +1,6 @@
 package app.polka.nativeapp
 import android.content.Context
 import android.graphics.Paint
-import android.graphics.Typeface
 import android.text.*
 import org.json.JSONObject
 @android.annotation.SuppressLint("WrongConstant")

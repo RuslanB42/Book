@@ -57,9 +57,6 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         // the usual sheet entrance: the panel slides up from below the screen on the app's sheet spring
         if(!reduced){sheet.translationY=a.d(1200).toFloat();sheet.post{val h=sheet.height+a.d(24).toFloat();val spring=LiquidSpring{v,_->sheet.translationY=h*v};entrance=spring;spring.snap(1f);spring.to(0f)}}
     }
-    /** Rows rise in one after another as the panel arrives. */
-    private fun riseRows(first:Long){(main as? ViewGroup)?.let{g->for(i in 0 until g.childCount){val v=g.getChildAt(i);v.alpha=0f;v.translationY=a.d(14).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(first+i*45L).setDuration(340).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
-    private object LinearInterpolatorCompat:android.animation.TimeInterpolator{override fun getInterpolation(x:Float)=x}
     /** The panel follows a downward drag (from anywhere on it that is not a control being dragged) and leaves past a
      *  quarter of its height or on a quick flick; otherwise it settles back. */
     private inner class DragRoot:FrameLayout(a){
@@ -236,23 +233,8 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         refreshers.add{bar.sync(a.prefs.optDouble("size",19.0).toFloat())}
         return bar
     }
-    private fun group(vararg rows:View)=a.column().apply{
-        background=a.shape(pillColor,18);setPadding(0,a.d(2),0,a.d(2))
-        rows.forEachIndexed{i,v->if(i>0)addView(View(a).apply{setBackgroundColor(if(a.light)0x10000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1).apply{leftMargin=a.d(14);rightMargin=a.d(14)})
-            v.setPadding(a.d(14),v.paddingTop,a.d(14),v.paddingBottom);addView(v,LinearLayout.LayoutParams(-1,-2))}
-    }
     private fun fmt(v:Float,digits:Int=1):String{val t=if(digits==2)"%.2f".format(java.util.Locale.US,v) else "%.1f".format(java.util.Locale.US,v);return t.trimEnd('0').trimEnd('.').replace('.',',')}
     private fun percent(v:Float):String{val p=(v*100).roundToInt();return if(p==0)"0" else if(p>0)"+$p%" else "−${-p}%"}
-    /** One line: the name, a compact slider and the value. */
-    private fun inline(title:String,from:Float,to:Float,step:Float,value:Float,default:Float?,format:(Float)->String,set:(Float)->Unit):View{
-        val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(46)}
-        row.addView(a.text(title,14f),LinearLayout.LayoutParams(0,-2,1f))
-        val valueView=a.text(format(value),12.5f,a.muted).apply{gravity=Gravity.END}
-        val bar=SettingSlider(a,from,to,step,value,default){v,done->valueView.text=format(v);set(v);typography();if(done)a.savePreferences()}
-        bar.onGrab={held->spotlight(row,held)}
-        row.addView(bar,LinearLayout.LayoutParams(a.d(150),a.d(40)));row.addView(valueView,LinearLayout.LayoutParams(a.d(42),-2))
-        return row
-    }
     private val hidden=mutableListOf<Pair<View,Float>>();private val faded=mutableListOf<Pair<android.graphics.drawable.Drawable,ValueAnimator>>()
     /** While a slider is held, everything but its row fades away (panel included), so only the text and that one control remain. */
     private val unclip=mutableListOf<Pair<ViewGroup,Pair<Boolean,Boolean>>>()
@@ -282,10 +264,6 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? SheetScroll)?.fadeEnabled=true;g=g.parent}
             val restore=unclip.toList();unclip.clear();row.postDelayed({restore.forEach{(v,c)->v.clipChildren=c.first;v.clipToPadding=c.second;v.invalidate()}},if(reduced)0L else 320L)
         }
-    }
-    private fun toggle(title:String,key:String,default:Boolean)=PolkaSwitch(a).apply{
-        text=title;setTextColor(a.fg);textSize=14f;minHeight=a.d(46);isChecked=a.prefs.optBoolean(key,default)
-        setOnCheckedChangeListener{_,on->a.prefs.put(key,on);a.savePreferences();typography()}
     }
     /** How pages turn (approved variant А): five live previews in one row, scrolling being one of them. */
     private fun turnRow():View{
@@ -412,44 +390,6 @@ internal class SizeBar(private val a:MainActivity,start:Float,private val change
         c.save();val s=1f+.14f*pulse;c.scale(s,s,nx-t.measureText(num)/2f,h/2f);c.drawText(num,nx,base,t);c.restore();t.isFakeBoldText=false}
 }
 
-/** A quiet track, a default tick and a white knob; snaps softly to the default value with a tick of haptics. */
-internal class SettingSlider(private val a:MainActivity,private val from:Float,private val to:Float,private val step:Float,value:Float,private val default:Float?,private val onChange:(Float,Boolean)->Unit):SeekBar(a){
-    private val ink=Paint(Paint.ANTI_ALIAS_FLAG)
-    private var shown=value.coerceIn(from,to);private var detent=false
-    var dim=false;set(v){field=v;invalidate()}
-    init{
-        background=null;splitTrack=false;setPadding(a.d(14),0,a.d(14),0)
-        thumb=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(Color.TRANSPARENT);setSize(a.d(28),a.d(28))}
-        max=((to-from)/step).roundToInt();progress=((shown-from)/step).roundToInt()
-        setOnSeekBarChangeListener(object:OnSeekBarChangeListener{
-            override fun onProgressChanged(s:SeekBar?,p:Int,user:Boolean){
-                if(!user)return
-                var v=(from+p*step).coerceIn(from,to)
-                if(default!=null){val near=abs(v-default)<=(to-from)*.03f;if(near&&!detent&&a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);detent=near;if(near)v=default}
-                shown=v;invalidate();onChange(v,false)
-            }
-            override fun onStartTrackingTouch(s:SeekBar?){parent?.requestDisallowInterceptTouchEvent(true);onGrab?.invoke(true)}
-            override fun onStopTrackingTouch(s:SeekBar?){onChange(shown,true);onGrab?.invoke(false)}
-        })
-    }
-    fun value()=shown
-    /** Called with true when the finger takes the knob and false when it lets go. */
-    var onGrab:((Boolean)->Unit)?=null
-    override fun onDraw(c:Canvas){
-        val y=height/2f;val left=paddingLeft.toFloat();val right=(width-paddingRight).toFloat();val span=(right-left).coerceAtLeast(1f)
-        fun xOf(v:Float)=left+span*((v-from)/(to-from)).coerceIn(0f,1f)
-        val x=xOf(shown);val h=a.d(3).toFloat()
-        ink.style=Paint.Style.FILL;ink.clearShadowLayer()
-        ink.color=if(a.light)0xffdcdcd9.toInt() else 0xff3c3c40.toInt();c.drawRoundRect(left,y-h,right,y+h,h,h,ink)
-        ink.color=if(dim)(a.fg and 0x00ffffff) or 0x55000000 else a.fg;c.drawRoundRect(left,y-h,x,y+h,h,h,ink)
-        default?.let{val dx=xOf(it);if(abs(dx-x)>a.d(8)){ink.color=if(a.light)0x40000000 else 0x50ffffff;c.drawCircle(dx,y,a.d(2).toFloat(),ink)}}
-        ink.color=0x26000000;c.drawCircle(x,y+a.d(1),a.d(13).toFloat(),ink)
-        ink.color=Color.WHITE;c.drawCircle(x,y,a.d(12).toFloat(),ink)
-        if(!a.light){ink.style=Paint.Style.STROKE;ink.strokeWidth=1f;ink.color=0x22000000;c.drawCircle(x,y,a.d(12).toFloat(),ink)}
-    }
-}
-
-
 /** «Авто» pill used for brightness. */
 internal class AutoChip(private val a:MainActivity,initial:Boolean):TextView(a){
     var on=initial;private set
@@ -457,7 +397,6 @@ internal class AutoChip(private val a:MainActivity,initial:Boolean):TextView(a){
     fun set(value:Boolean){if(value==on)return;on=value;paint()}
     private fun paint(){background=a.shape(if(on)a.fg else (if(a.light)0xffe6e6e3.toInt() else 0xff333336.toInt()),100);setTextColor(if(on)a.bg else a.muted)}
 }
-
 
 /** A layout setting as a capsule like «Размер»: the name on the left in two inks split at the fill, the value on the
  *  right, a quiet dot at the default (the fill catches on it with a tick). The fill follows the finger and settles on whole steps. */

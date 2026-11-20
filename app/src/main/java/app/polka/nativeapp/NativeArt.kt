@@ -2,9 +2,6 @@ package app.polka.nativeapp
 
 import android.content.Context
 import android.graphics.*
-import android.text.Layout
-import android.text.StaticLayout
-import android.text.TextPaint
 import android.view.View
 import org.json.JSONObject
 
@@ -91,7 +88,7 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
 class ShelfArt(context: Context, val previews: List<Pair<JSONObject, Bitmap?>>, val light: Boolean, val add: Boolean = false) : View(context) {
     override fun onMeasure(ws:Int,hs:Int) { if(layoutParams?.height==android.view.ViewGroup.LayoutParams.WRAP_CONTENT) { val w=MeasureSpec.getSize(ws); setMeasuredDimension(w,(w*.94f).toInt()) } else super.onMeasure(ws,hs) }
     private val retained=mutableMapOf<String,Bitmap>()
-    private val requested=mutableSetOf<String>(); private var frost:Bitmap?=null;private var frostKey="";private var pendingKey=""
+    private val requested=mutableSetOf<String>(); private var frost:Bitmap?=null;private var frostKey=""
     private val renderer=CoverView(context,org.json.JSONObject())
     private fun left(index:Int,count:Int,w:Float)=w*(.27f-(count-1)*.08f+index*.16f)
     override fun onDraw(c:Canvas) {
@@ -135,7 +132,7 @@ class ShelfArt(context: Context, val previews: List<Pair<JSONObject, Bitmap?>>, 
         listOf(inset to top+inset,w-inset to top+inset,inset to h-inset,w-inset to h-inset).forEachIndexed{index,(x,y)->ShelfScrew.draw(c,x,y,size,density,ShelfScrew.turns[index])}
         if(add) { p.color=if(light) 0xff777777.toInt() else 0xffbbbbbb.toInt(); p.strokeWidth=density*1.6f; val y=(top+h)/2; c.drawLine(w*.44f,y,w*.56f,y,p); c.drawLine(w*.5f,y-w*.06f,w*.5f,y+w*.06f,p) }
     }
-    override fun onDetachedFromWindow() { pendingKey="";frost=null;frostKey="";super.onDetachedFromWindow() }
+    override fun onDetachedFromWindow() { frost=null;frostKey="";super.onDetachedFromWindow() }
 }
 open class IconView(context: Context, private val kind: String, var ink: Int) : View(context) {
     /** Colour behind the icon; when set and the view is selected, the filled variant is drawn with details cut in this colour. */

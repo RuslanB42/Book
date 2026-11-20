@@ -15,8 +15,4 @@ internal object StatisticsPalette {
         }
         return StatisticsTone(c(values[0]),c(values[1]),c(values[2]),c(values[3]),c(values[4]))
     }
-    fun secondary(light:Boolean)=if(light)c("4D5969")else c("C3CEDC")
-    fun graph(light:Boolean,speed:Boolean)=if(speed) {
-        if(light)intArrayOf(c("077184"),c("06667D"))else intArrayOf(c("6AEEF2"),c("23B9D4"))
-    }else if(light)intArrayOf(c("096AB8"),c("2259C7"))else intArrayOf(c("69D9FF"),c("3985F5"))
 }

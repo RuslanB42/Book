@@ -1,6 +1,5 @@
 package app.polka.nativeapp
 
-import android.graphics.Color
 import android.view.*
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout

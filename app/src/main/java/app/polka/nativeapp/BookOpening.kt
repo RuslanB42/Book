@@ -10,29 +10,6 @@ import kotlin.math.*
 class BookOpeningSnapshot(val scene:Bitmap,val cover:Bitmap,val rect:RectF,val binding:Int=0xff29262d.toInt(),val background:Int=0xff151515.toInt(),val hasTarget:Boolean=true,val sourceView:View?=null,val litScene:Bitmap?=null) {
  fun release(){litScene?.takeUnless{it.isRecycled}?.recycle();if(!scene.isRecycled)scene.recycle();if(!cover.isRecycled)cover.recycle()}
 }
-fun MainActivity.openingSnapshot(id:String,explicit:View?=null,captureScene:Boolean=true):BookOpeningSnapshot? {
- if(prefs.str("motion")=="reduced" || root.width<=0 || root.height<=0)return null
- fun find(v:View):View? {if(v is CoverView && v.bookId==id && v.isShown && v.getGlobalVisibleRect(Rect()))return v;if(v is ViewGroup)for(i in 0 until v.childCount)find(v.getChildAt(i))?.let{return it};return null}
- val source=explicit?:find(root)?:return null;if(source.width<=0 || source.height<=0)return null
- val at=IntArray(2);val origin=IntArray(2);source.getLocationOnScreen(at);root.getLocationOnScreen(origin)
- val x=(at[0]-origin[0]-root.paddingLeft).toFloat();val y=(at[1]-origin[1]-root.paddingTop).toFloat();val rect=RectF(x,y,x+source.width,y+source.height)
- if(rect.bottom<0 || rect.top>root.height)return null
- // Capture once, without the moving cover. Keep the library visible while pagination prepares.
- val sceneScale=minOf(1f,720f/root.width)
- val scene=Bitmap.createBitmap((if(captureScene)root.width*sceneScale else 1f).roundToInt().coerceAtLeast(1),(if(captureScene)root.height*sceneScale else 1f).roundToInt().coerceAtLeast(1),Bitmap.Config.ARGB_8888)
- val was=source.visibility
- // Capture the clean scene separately; detail light is retained only for the initial fade-out.
- fun lights(v:View):List<BookGlowView> = (if(v is BookGlowView)listOf(v)else emptyList())+if(v is ViewGroup)(0 until v.childCount).flatMap{lights(v.getChildAt(it))}else emptyList()
- val hidden=if(captureScene)lights(root).map{it to it.visibility}else emptyList()
- try{hidden.forEach{it.first.visibility=View.INVISIBLE};if(captureScene){source.visibility=View.INVISIBLE;val sceneCanvas=Canvas(scene);sceneCanvas.scale(sceneScale,sceneScale);root.draw(sceneCanvas)}}finally{source.visibility=was;hidden.forEach{it.first.visibility=it.second}}
- // Preserve detail light separately: the clean scene remains glow-free, while
- // the identical lit scene dissolves during the first approach, never disappearing at tap.
- val lit=if(captureScene&&hidden.any{it.second==View.VISIBLE&&it.first.alpha>0f})Bitmap.createBitmap(scene.width,scene.height,Bitmap.Config.ARGB_8888).also{image->try{source.visibility=View.INVISIBLE;val canvas=Canvas(image);canvas.scale(sceneScale,sceneScale);root.draw(canvas)}finally{source.visibility=was}}else null
- val cover=openingCoverTexture(source,root.width,root.height)
- val inside=BookCoverVolume.binding(cover,bg)
- return BookOpeningSnapshot(scene,cover,rect,inside,bg,true,source,lit)
-}
-
 
 /** Hosts the actual, already laid-out native reader. No reader screenshots or last-frame substitution. */
 class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeningSnapshot,private val live:View,private val restoreLive:Boolean=true,private val ownedBitmap:Bitmap?=null,internal val returning:Boolean=false,private val motionReader:NativeReader?=null,private val completed:(()->Unit)?=null):ViewGroup(a) {
@@ -114,65 +91,5 @@ class BookOpeningStage(private val a:MainActivity,private val snapshot:BookOpeni
   };paint.shader=null;paint.alpha=255
  }
 }
-fun MainActivity.revealNativeBook(snapshot:BookOpeningSnapshot?,readerView:View){if(snapshot==null)return;if(isFinishing||isDestroyed||prefs.str("motion")=="reduced"||readerView.width<=0||readerView.height<=0||reader?.view!==readerView){snapshot.release();return};val stage=BookOpeningStage(this,snapshot,readerView);root.addView(stage,FrameLayout.LayoutParams(-1,-1));stage.measure(View.MeasureSpec.makeMeasureSpec(readerView.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(readerView.height,View.MeasureSpec.EXACTLY));stage.layout(root.paddingLeft,root.paddingTop,root.paddingLeft+readerView.width,root.paddingTop+readerView.height);stage.start()}
 fun ViewGroup.childrenOpening():BookOpeningStage?=(0 until childCount).map{getChildAt(it)}.filterIsInstance<BookOpeningStage>().firstOrNull()
 
-/** Build the destination once under the retained live page, then run the exact geometry backwards. */
-internal fun MainActivity.returnNativeBook(r:NativeReader) {
- val live=r.view
- val width=live.width;val height=live.height
- (live.parent as? ViewGroup)?.removeView(live)
- bookClosing=true
- render(true,false,true)
- val hold=object:FrameLayout(this){override fun onInterceptTouchEvent(e:MotionEvent)=true;override fun onTouchEvent(e:MotionEvent)=true}.apply {
-  setBackgroundColor((live.background as? android.graphics.drawable.ColorDrawable)?.color?:bg)
-  isClickable=true;elevation=d(60).toFloat();addView(live,FrameLayout.LayoutParams(-1,-1))
-  contentDescription="Закрываю книгу"
- }
- root.addView(hold,FrameLayout.LayoutParams(-1,-1))
- hold.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));hold.layout(0,0,width,height)
- var handedOff=false;var frames=0;var signature="";var stable=0
- val observer=root.viewTreeObserver
- val listener=object:ViewTreeObserver.OnPreDrawListener {
-  override fun onPreDraw():Boolean {
-   if(handedOff)return true
-   if(isFinishing||isDestroyed){handedOff=true;if(observer.isAlive)observer.removeOnPreDrawListener(this);root.removeView(hold);finishBookReturn();return true}
-   val next="${root.width}:${root.height}:${page.width}:${page.height}:${page.childCount}"
-   if(next!=signature){signature=next;stable=0}else stable++
-   frames++
-   if(stable<2){hold.postInvalidateOnAnimation();return true}
-   hold.visibility=View.INVISIBLE
-   val snapshot=try {openingSnapshot(r.book.str("id"),captureScene=false)?:returnFallbackSnapshot(r.book,width,height)} finally {hold.visibility=View.VISIBLE}
-   handedOff=true;if(observer.isAlive)observer.removeOnPreDrawListener(this)
-   // No event-loop gap between the last live-reader frame and reverse frame 1.
-   val stage=BookOpeningStage(this@returnNativeBook,snapshot,live,false,returning=true,motionReader=r,completed={finishBookReturn()})
-   root.removeView(hold);root.addView(stage,FrameLayout.LayoutParams(-1,-1))
-   stage.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));stage.layout(0,0,width,height);stage.frame(1f);stage.start()
-   return true
-  }
- }
- hold.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener {
-  override fun onViewAttachedToWindow(v:View){}
-  override fun onViewDetachedFromWindow(v:View){if(!handedOff){handedOff=true;if(observer.isAlive)observer.removeOnPreDrawListener(listener);finishBookReturn()}}
- })
- observer.addOnPreDrawListener(listener);hold.postInvalidateOnAnimation()
-}
-
-/** If a filtered/virtualized library has no visible matching cover, dissolve only the final return. */
-private fun MainActivity.returnFallbackSnapshot(book:org.json.JSONObject,width:Int,height:Int):BookOpeningSnapshot {
- val scene=Bitmap.createBitmap(1,1,Bitmap.Config.ARGB_8888)
- val w=minOf(d(144),width/2);val h=w*3/2
- val source=CoverView(this,book);source.measure(View.MeasureSpec.makeMeasureSpec(w,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(h,View.MeasureSpec.EXACTLY));source.layout(0,0,w,h)
- val cover=openingCoverTexture(source,width,height)
- val x=(width-w)*.5f;val y=(height-h)*.46f
- return BookOpeningSnapshot(scene,cover,RectF(x,y,x+w,y+h),BookCoverVolume.binding(cover,bg),bg,false)
-}
-
-/** Rasterize once at the largest projected cover size, not at a tiny carousel thumbnail size. */
-private fun openingCoverTexture(source:View,windowWidth:Int,windowHeight:Int):Bitmap {
- val width=maxOf(source.width,minOf(windowWidth*.82f,windowHeight*.48f,1024f).roundToInt())
- val height=(source.height.toFloat()*width/source.width.coerceAtLeast(1)).roundToInt().coerceAtLeast(1)
- return Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888).also {
-  val canvas=Canvas(it);canvas.scale(width.toFloat()/source.width,height.toFloat()/source.height);source.draw(canvas)
- }
-}

@@ -197,7 +197,6 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                     isClickable=true
                     setOnClickListener { if(cancel)dismiss() }
                 }
-                frame.sampleEntry={ms->motion?.sample(ms)}
                 shade=frame.shade
                 if(animated)frame.shade.alpha=0f
                 box.isClickable=true // A tap inside the surface must not reach the outside-dismiss layer.
@@ -223,7 +222,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                     override fun onPrepare(an:androidx.core.view.WindowInsetsAnimationCompat){if(ime(an)){sliding=true;frame.post{enter()}}}
                     override fun onProgress(i:androidx.core.view.WindowInsetsCompat,running:List<androidx.core.view.WindowInsetsAnimationCompat>):androidx.core.view.WindowInsetsCompat{
                         if(running.any{ime(it)}){val k=imeOf(i);if(k!=keyboard){keyboard=k;place()}};return i}
-                    override fun onEnd(an:androidx.core.view.WindowInsetsAnimationCompat){if(!ime(an))return;sliding=false;keyboard=imeOf(androidx.core.view.ViewCompat.getRootWindowInsets(frame));if(keyboard>0)a.lastIme=keyboard;place()}})
+                    override fun onEnd(an:androidx.core.view.WindowInsetsAnimationCompat){if(!ime(an))return;sliding=false;keyboard=imeOf(androidx.core.view.ViewCompat.getRootWindowInsets(frame));place()}})
                 ImeKeeper(frame,a.d(20)){keyboard}.attach()
                 w.decorView.setPadding(0,0,0,0)
                 if(android.os.Build.VERSION.SDK_INT>=30) w.attributes=w.attributes.apply { setFitInsetsTypes(0);setFitInsetsSides(0) }
@@ -251,7 +250,6 @@ class PolkaSheetBuilder(private val a:MainActivity) {
 
 /** Full-window host: surface touches the physical bottom; insets move controls, never its edge. */
 internal class PolkaSheetFrame(private val a:MainActivity,internal val panel:LinearLayout,private val tall:Boolean,private val wide:Boolean):FrameLayout(a) {
-    internal var sampleEntry:((Long)->Unit)?=null
     internal var startEntry:(()->Unit)?=null
     /** The sheet's own drag (the one its grip and title use); a downward swipe anywhere on the sheet hands over to it. */
     internal var drag:View.OnTouchListener?=null
@@ -313,27 +311,6 @@ internal class PolkaSheetFrame(private val a:MainActivity,internal val panel:Lin
     }
 }
 
-/** Original 51×31 switch geometry with native Switch accessibility and state. */
-class PolkaSwitch(private val a:MainActivity):Switch(a) {
-    private val ink=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-    private var fraction=if(isChecked) 1f else 0f
-    private var animator:android.animation.ValueAnimator?=null
-    init { background=null; defaultFocusHighlightEnabled=false }
-    override fun setChecked(checked:Boolean) { val changed=checked!=isChecked; super.setChecked(checked); if(!changed) return; animator?.cancel(); val next=if(checked) 1f else 0f; if(!isAttachedToWindow || a.prefs.str("motion")=="reduced") { fraction=next; invalidate() } else animator=android.animation.ValueAnimator.ofFloat(fraction,next).apply { duration=220; interpolator=PathInterpolator(.2f,.8f,.2f,1f); addUpdateListener { fraction=it.animatedValue as Float; invalidate() }; start() } }
-    override fun onDetachedFromWindow() { animator?.cancel(); super.onDetachedFromWindow() }
-    override fun onMeasure(ws:Int,hs:Int) {
-        ink.textSize=a.d(16).toFloat(); val caption=if(text.isNullOrBlank()) 0 else ink.measureText(text.toString()).toInt()+a.d(20)
-        val desired=a.d(51)+caption+paddingLeft+paddingRight
-        val width=if(View.MeasureSpec.getMode(ws)==View.MeasureSpec.EXACTLY) View.MeasureSpec.getSize(ws) else minOf(desired,if(View.MeasureSpec.getMode(ws)==View.MeasureSpec.AT_MOST) View.MeasureSpec.getSize(ws) else desired)
-        setMeasuredDimension(width,a.d(if(caption>0) 48 else 31))
-    }
-    override fun onDraw(c:android.graphics.Canvas) {
-        val left=width-a.d(51).toFloat(); val top=(height-a.d(31))/2f; val radius=a.d(16).toFloat(); ink.color=android.animation.ArgbEvaluator().evaluate(fraction,if(a.light) 0xffd8d8d8.toInt() else 0xff353537.toInt(),0xff30ca5c.toInt()) as Int; c.drawRoundRect(left,top,width.toFloat(),top+a.d(31),radius,radius,ink)
-        ink.color=android.graphics.Color.WHITE; val cx=left+a.d(31)/2f+a.d(20)*fraction; c.drawCircle(cx,top+a.d(31)/2f,a.d(13).toFloat(),ink)
-        if(!text.isNullOrBlank()) { ink.color=a.fg; ink.textSize=a.d(16).toFloat(); ink.typeface=PolkaFonts.sans(400); c.drawText(text.toString(),paddingLeft.toFloat(),height/2f-(ink.ascent()+ink.descent())/2,ink) }
-    }
-}
-
 /** Replace, including deleted fields; preserve identity for open native views. */
 fun replaceJson(target:org.json.JSONObject,source:org.json.JSONObject) { if(target===source) return; val copy=source.copyJson(); target.keys().asSequence().toList().forEach { target.remove(it) }; copy.keys().forEach { target.put(it,copy.get(it)) } }
 
@@ -387,6 +364,4 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(selected>=0&&kotlin.math.abs(spring.value-a.d(selected*56))>.01f){if(a.prefs.str("motion")=="reduced")spring.snap(a.d(selected*56).toFloat())else spring.to(a.d(selected*56).toFloat())}}
     override fun onDetachedFromWindow(){spring.stop();super.onDetachedFromWindow()}
 }
-
-fun scrollAncestor(view:View):ScrollView? { var parent=view.parent; while(parent!=null) { if(parent is ScrollView) return parent; parent=parent.parent }; return null }
 

@@ -1,12 +1,8 @@
 package app.polka.nativeapp
 
-import android.app.AlertDialog
 import android.graphics.*
-import android.graphics.drawable.BitmapDrawable
 import android.os.Handler
 import android.os.Looper
-import android.text.Html
-import android.text.Selection
 import android.view.*
 import android.widget.*
 import org.json.JSONArray
@@ -335,7 +331,6 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             }
         }) { a.checkpointSoon(); }
     }
-    private val quoteInk=0x44f0a742
     /** Saved quotes of the current chapter with where they sit in its text. */
     internal fun quoteRanges():List<Pair<JSONObject,IntRange>> { val text=chapterRich.toString(); return book.optJSONArray("quotes")?.objects().orEmpty().filter { it.optInt("ch")==chapter }.mapNotNull { q -> TextAnchors.locate(text,q.str("rawText",q.str("text")),q.optInt("start"))?.let { q to it } } }
     internal fun quoteAt(offset:Int)=quoteRanges().firstOrNull { offset in it.second }
@@ -367,8 +362,6 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             addListener(object:android.animation.AnimatorListenerAdapter(){ override fun onAnimationEnd(x:android.animation.Animator){ paint(to); recolorAnim=null; repaintMarks() } }); start() }
         if(save) persist() }
     private var recolorAnim:android.animation.ValueAnimator?=null
-    /** Page pictures taken before a mark changed colour are stale. */
-    private fun marksSettled() { cachedCurrent=null; cachedNext=null; previewPages.clear(); warmSnapshot() }
     fun removeQuote(quote:JSONObject,range:IntRange) { val quotes=book.optJSONArray("quotes")?.objects().orEmpty().filterNot { it.str("id")==quote.str("id") }; book.put("quotes",JSONArray(quotes))
         val rich=chapterRich as? android.text.Spannable
         if(rich==null){ val offset=pageBase(); paintChapter(); body.post { jumpOffset(offset) } } else { rich.getSpans(range.first,range.last+1,QuoteInk::class.java).filter { rich.getSpanStart(it)==range.first && rich.getSpanEnd(it)==range.last+1 }.forEach { rich.removeSpan(it) }; repaintMarks() }
@@ -496,7 +489,6 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private fun jumpAnchor(id:String){if(preparing){pendingAnchor=id;pendingOffset=null}else jumpOffset(chapterAnchors[id]?:0)}
     fun jumpOffset(offset:Int) { if(preparing || loadedChapter!=chapter){pendingOffset=offset;pendingFraction=null;return};if(paged()) { pageIndex=pageStarts.indexOfLast { it<=offset }.coerceAtLeast(0); paintPage() } else { val layout=body.layout ?: return; val at=offset.coerceIn(0,body.text.length); scroll.scrollTo(0,layout.getLineTop(layout.getLineForOffset(at))) }; tracker.rebase(position(),pageChars()) }
     fun lineHeight()=if(a.prefs.has("lhv"))a.prefs.optDouble("lhv",1.6).toFloat() else when(a.prefs.str("lh","normal")) { "tight"->1.42f; "loose"->1.82f; else->1.6f }
-    internal fun samplePageMotion(ms:Long){turnClock?.let{it.pause();if(ms>=it.duration)it.end()else it.currentPlayTime=ms}}
     private fun isTurning()=pageSlidePending||turnClock!=null||curl!=null
     fun stopPageMotion(){
         curlToken++;pagePreDraw?.let{if(view.viewTreeObserver.isAlive)view.viewTreeObserver.removeOnPreDrawListener(it)};pagePreDraw=null
@@ -635,9 +627,6 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         }
         beginCurl(direction,false,scroll.height*.9f)
     }
-    fun finishBook() { a.confirm("Книга прочитана?","Отметить книгу прочитанной?") { completed=true; book.put("completedAt",System.currentTimeMillis()); save(); a.closeReader() } }
-    /** The settings took the bottom bar's place: it is gone at once, the top bar slides away; reading stays calm after. */
-    internal fun yieldChromeToSettings(){bottom.animate().cancel();bottom.alpha=0f;setCalm(true,true)}
     /** Change how the page looks under a soft crossfade from the old picture, so nothing jumps. */
     internal fun crossfade(change:()->Unit){
         if(a.prefs.str("motion")=="reduced"||view.width<=0||view.height<=0){change();return}

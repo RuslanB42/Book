@@ -1,6 +1,5 @@
 package app.polka.nativeapp
 
-import android.animation.ValueAnimator
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -245,7 +244,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         if(tts==null)tts=TextToSpeech(a){if(it==TextToSpeech.SUCCESS)go()} else go()}
 
     // ── translation ──
-    private var from:String?=null;private var to:String?=null;private var lastResult=""
+    private var from:String?=null;private var to:String?=null
     private fun translate(src:String?,dst:String?){loading()
         val text=selected.trim().take(4000)
         fun run(f:String){val t=dst?:if(f=="ru")"en" else "ru";from=f;to=t
@@ -253,7 +252,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
             Translation.translate(text,f,t,onModel={holder.post{if(dialog!=null)message("Загружаю язык","${Translation.name(f)} — один раз, около 30 МБ. Дальше перевод работает без интернета")}}){r,err->
                 holder.post{if(dialog==null)return@post;if(r!=null)showTranslation(r) else message(err?:"Не удалось перевести",null,"Повторить"){translate(src,dst)}}}}
         if(src!=null)run(src) else Translation.identify(text){l->holder.post{if(dialog!=null)run(l?:if(text.any{it in 'а'..'я'||it in 'А'..'Я'})"ru" else "en")}}}
-    private fun showTranslation(result:String){lastResult=result;copyText=result
+    private fun showTranslation(result:String){copyText=result
         content{
             val seg=a.line().apply{gravity=Gravity.CENTER_VERTICAL;background=a.shape(if(a.light)0x0c000000 else 0x0dffffff,20);setPadding(a.d(4),0,a.d(4),0)}
             seg.addView(a.text(Translation.name(from?:"en"),13.5f,a.fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-1,1f))

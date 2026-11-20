@@ -71,13 +71,6 @@ internal class StatsMore(private val data:JSONObject,private val books:List<JSON
         val counts=named.groupingBy{it}.eachCount().entries.sortedByDescending{it.value}
         val top=counts.take(3).map{it.key to (it.value*100.0/named.size).roundToInt()}
         val rest=100-top.sumOf{it.second};return if(rest>0)top+("Другое" to rest) else top}
-    /** Books by the decade they were written in (needs five books with a year): the decades shown and the favourite one. */
-    fun decades():Pair<List<Pair<Int,Int>>,Int>?{
-        val years=tasted.map{it.optInt("year")}.filter{it in 1000..today.year};if(years.size<5)return null
-        val byDecade=years.groupingBy{it/10*10}.eachCount();val top=byDecade.maxByOrNull{it.value}!!.key
-        val last=byDecade.keys.maxOrNull()!!;val first=max(byDecade.keys.minOrNull()!!,last-70)
-        val shown=(first..last step 10).map{d->d to if(d==first)byDecade.filterKeys{it<=d}.values.sum() else (byDecade[d]?:0)}
-        return shown to top}
     /** Decades by the number of books written in them, most first (needs five books with a year). */
     fun decadeCounts():List<Pair<Int,Int>>{
         val years=tasted.map{it.optInt("year")}.filter{it in 1000..today.year};if(years.size<5)return emptyList()
@@ -220,18 +213,6 @@ internal class WeekStrip(private val a:MainActivity,private val names:List<Strin
             if(f>0f){p.color=if(marks[i]==2)ice else orange;c.save();c.clipRect(x,0f,x+w*f,h);c.drawRoundRect(r,h/2,h/2,p);c.restore()}
             val on=i==n-1;t.color=if(on)a.fg else if(a.light)0xff86868b.toInt() else 0xff8a8a8e.toInt();t.typeface=PolkaFonts.sans(if(on)600 else 400)
             c.drawText(names[i],x+w/2,height-4f*dp,t)}}
-}
-
-/** The author's mark: initials in the book serif on a soft colour of their own (the same author, the same colour). */
-internal class AuthorMark(private val a:MainActivity,name:String):View(a){
-    private val letters=name.split(' ','-').filter{it.isNotBlank()}.let{w->((w.firstOrNull()?.take(1)?:"")+(if(w.size>1)w.last().take(1) else "")).uppercase()}
-    private val hue=(abs(name.hashCode())%360).toFloat()
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER;typeface=PolkaFonts.serif(a,true)}
-    init{contentDescription=name}
-    override fun onDraw(c:Canvas){val s=min(width,height).toFloat();val cx=width/2f;val cy=height/2f
-        val top=Color.HSVToColor(floatArrayOf(hue,.45f,if(a.light).78f else .72f));val bottom=Color.HSVToColor(floatArrayOf((hue+20)%360,.6f,if(a.light).6f else .42f))
-        p.shader=LinearGradient(cx-s/2,cy-s/2,cx+s/2,cy+s/2,top,bottom,Shader.TileMode.CLAMP);c.drawCircle(cx,cy,s/2,p);p.shader=null
-        t.textSize=s*.38f;t.color=Color.HSVToColor(floatArrayOf(hue,.08f,1f));c.drawText(letters,cx,cy-(t.descent()+t.ascent())/2,t)}
 }
 
 internal fun pagesWord(n:Int)=if(n%100 in 11..14)"страниц" else when(n%10){1->"страница";2,3,4->"страницы";else->"страниц"}

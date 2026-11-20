@@ -3,7 +3,6 @@ package app.polka.nativeapp
 import org.json.JSONObject
 import java.time.*
 import java.time.temporal.ChronoUnit
-import java.util.Locale
 import kotlin.math.*
 
 /** Date-based aggregates. Unknown completion dates are never invented from import/open timestamps. */
@@ -33,8 +32,6 @@ class ReadingStatistics(val source:JSONObject,books:List<JSONObject>,val today:L
     fun average(period:Int)=total(period)/max(1L,ChronoUnit.DAYS.between(start(period),today)+1)
     fun on(day:LocalDate)=finished.filter { it.date==day }.map { it.book }
     fun target(year:Int)=source.optJSONObject("annualGoals")?.optInt(year.toString(),0)?.coerceIn(0,9999) ?: 0
-    fun expected(year:Int,target:Int):Int { val begin=LocalDate.of(year,1,1); val end=begin.plusYears(1); val elapsed=ChronoUnit.DAYS.between(begin,today.plusDays(1)).coerceIn(0,ChronoUnit.DAYS.between(begin,end)); return floor(target*elapsed.toDouble()/ChronoUnit.DAYS.between(begin,end)).toInt() }
-    val totalMs=total(2)
     /** The reader's speed now: the last three months (all the time while they hold under ten minutes of reading). */
     val speed:Int by lazy{val from=today.minusDays(89);var ms=0L;var d=from;while(!d.isAfter(today)){ms+=textMs(d);d=d.plusDays(1)}
         if(ms>=10*60000L)speedBetween(from,today) else speedBetween(first?:today,today)}

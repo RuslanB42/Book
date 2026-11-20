@@ -1,6 +1,5 @@
 package app.polka.nativeapp
 
-import android.app.AlertDialog
 import android.content.*
 import android.view.*
 import android.widget.*
@@ -95,7 +94,7 @@ fun MainActivity.saveGridOrder(ordered:List<JSONObject>) {
     var saved=emptyList<JSONObject>()
     work({ saved=library.saveOrder(ids) },failed={reload()}) {
             saved.forEach { row -> books.firstOrNull{it.str("id")==row.str("id")}?.put("pos",row.optInt("pos")) }
-            sort="manual";prefs.put("sort","manual");sortControl?.text=sortName()
+            sort="manual";prefs.put("sort","manual")
             checkpointSoon()
     }
 }
@@ -104,7 +103,6 @@ fun MainActivity.exportBook(book:JSONObject,format:String) { pendingExport=book 
 fun MainActivity.recoveryScreen(error:Throwable) {
     root.removeAllViews(); val box=column().apply { setPadding(d(24),d(40),d(24),d(40)); setBackgroundColor(bg) }; root.addView(box,FrameLayout.LayoutParams(-1,-1)); box.addView(text("Библиотека не загружена",28f,bold=true,serif=true)); space(box,16); box.addView(text("Запись остановлена. Прежние данные и локальные копии не заменяются пустой библиотекой.",16f,muted)); space(box,12); box.addView(text(error.message ?: error.javaClass.simpleName,14f,muted)); space(box,24); box.addView(button("Локальные точки восстановления",true) { localRecovery() }); space(box,10); box.addView(button("Восстановить из .polka") { pickBackup() }); space(box,10); box.addView(button("Попробовать создать внешнюю копию") { exportBackup() })
 }
-
 
 /** The book leaves the screen at once (the card sinks, the grid closes the gap); the database work and the safety copy follow in the background. */
 internal fun MainActivity.deleteBook(book:JSONObject) {

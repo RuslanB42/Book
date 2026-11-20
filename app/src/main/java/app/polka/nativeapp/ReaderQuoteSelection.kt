@@ -91,7 +91,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private var edge=0;private var edgeLocked=false
     private val timer=Handler(Looper.getMainLooper())
     private val marker=Paint(Paint.ANTI_ALIAS_FLAG)
-    private val highlight=Path();private val clip=RectF()
+    private val highlight=Path()
     private val startHandle=PointF();private val endHandle=PointF()
     private var startVisible=false;private var endVisible=false
     /** Offset from the finger to the text under the dragged handle, so the handle moves with the finger instead of jumping a line down. */
@@ -293,5 +293,4 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         };return true
     }
     fun continueHold(e:MotionEvent){if(!active)return;if(e.actionMasked==MotionEvent.ACTION_MOVE&&!dragging){dragging=true;atStart=false;grabDx=0f;grabDy=0f;dragLine=-1;lastOff=-1;menu.visibility=INVISIBLE;parent.requestDisallowInterceptTouchEvent(true)};if(dragging)onTouchEvent(e)}
-    internal fun handlePoint(start:Boolean):PointF {point(if(start)range.start else range.end,!start,if(start)startHandle else endHandle);return PointF(if(start)startHandle.x else endHandle.x,(if(start)startHandle.y else endHandle.y)+a.d(9))}
 }

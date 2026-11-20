@@ -1,8 +1,6 @@
 package app.polka.nativeapp
 
-import android.animation.ValueAnimator
 import android.graphics.*
-import android.graphics.drawable.GradientDrawable
 import android.view.*
 import android.view.animation.PathInterpolator
 import android.widget.*
@@ -105,10 +103,6 @@ internal fun MainActivity.themeCrossfade(change:()->Unit){
 internal fun MainActivity.closeSettings(){val page=settingsPage?:return;settingsPage=null
     if(prefs.str("motion")=="reduced"){root.removeView(page);return}
     page.animate().alpha(0f).translationY(d(14).toFloat()).setDuration(220).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{root.removeView(page)}.start()}
-
-
-
-
 
 /** A number typed in, with quick choices: a big serif field in the middle, the unit under it, presets as capsules, «Готово».
  *  [extra] adds a quiet action under the button (e.g. removing the goal). */

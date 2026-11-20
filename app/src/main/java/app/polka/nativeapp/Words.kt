@@ -137,7 +137,6 @@ internal class TypefaceSpanCompat(private val face:Typeface):android.text.style.
     override fun updateMeasureState(tp:android.text.TextPaint){tp.typeface=face}
 }
 
-
 private fun MainActivity.quietFill()=if(light)0x0f000000 else 0x0fffffff
 private fun MainActivity.roundButton(kind:String,desc:String,size:Int=36,fn:()->Unit)=FrameLayout(this).apply{
     background=shape(quietFill(),size/2);isClickable=true;contentDescription=desc;press(this);setOnClickListener{fn()}

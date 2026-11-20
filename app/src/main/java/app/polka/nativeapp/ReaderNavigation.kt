@@ -2,7 +2,6 @@ package app.polka.nativeapp
 
 import android.app.AlertDialog
 import android.content.*
-import android.graphics.Typeface
 import android.text.*
 import android.view.*
 import android.widget.*
@@ -16,7 +15,6 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private var panel:AlertDialog?=null
  private var selected=initial
  private var filter=0
- private var query=""
  private var searchGeneration=0
  private val fields=listOf("quotes","bookmarks")
  fun show(){
@@ -108,9 +106,9 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   if(!::notebookResults.isInitialized||selected!=1)return
   if(chipViews.isNotEmpty()&&!animate)updateChips(false)
   notebookResults.removeAllViews()
-  val rows=fields.flatMapIndexed{index,key->r.book.optJSONArray(key)?.objects().orEmpty().map{index to it}}.filter{(kind,item)->(filter==0||(filter==1&&kind==0)||(filter==2&&kind==1))&&("${item.str("text")} ${item.str("note")} ${r.chapterName(item.optInt("ch"))}").contains(query,true)}.sortedByDescending{it.second.optLong("updatedAt",it.second.optLong("at"))}
+  val rows=fields.flatMapIndexed{index,key->r.book.optJSONArray(key)?.objects().orEmpty().map{index to it}}.filter{(kind,item)->(filter==0||(filter==1&&kind==0)||(filter==2&&kind==1))&&("${item.str("text")} ${item.str("note")} ${r.chapterName(item.optInt("ch"))}")}.sortedByDescending{it.second.optLong("updatedAt",it.second.optLong("at"))}
   if(rows.isEmpty()){
-   val box=if(query.isNotBlank())a.emptyView("search","Ничего не нашлось","Попробуйте другое слово.",100) else if(filter==2)a.emptyView("bookmark","Пока нет закладок","Нажмите на закладку в нижней панели.",100) else a.emptyView("note",if(filter==1)"Пока нет цитат" else "Пока нет записей","Выделите текст и нажмите «Цитата» или «Заметка».",100)
+   val box=if(filter==2)a.emptyView("bookmark","Пока нет закладок","Нажмите на закладку в нижней панели.",100) else a.emptyView("note",if(filter==1)"Пока нет цитат" else "Пока нет записей","Выделите текст и нажмите «Цитата» или «Заметка».",100)
    box.setPadding(0,a.d(52),0,a.d(24))
    notebookResults.addView(box,LinearLayout.LayoutParams(-1,-2));fadeResults(animate);return
   }

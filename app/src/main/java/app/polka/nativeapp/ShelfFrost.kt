@@ -9,8 +9,7 @@ import kotlin.math.*
  */
 internal object ShelfFrost {
  private val cache=object:android.util.LruCache<String,Bitmap>(3072){override fun sizeOf(key:String,value:Bitmap)=value.allocationByteCount/1024}
- internal var builds=0;private set
- @Synchronized fun prepared(key:String,build:()->Bitmap):Bitmap=cache.get(key)?:build().also{builds++;cache.put(key,it)}
+ @Synchronized fun prepared(key:String,build:()->Bitmap):Bitmap=cache.get(key)?:build().also{cache.put(key,it)}
 
  fun blur(source:Bitmap,sigma:Float):Bitmap {
   val w=source.width;val h=source.height;val n=w*h;val input=IntArray(n);source.getPixels(input,0,w,0,0,w,h)

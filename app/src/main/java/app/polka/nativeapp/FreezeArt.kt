@@ -3,7 +3,6 @@ package app.polka.nativeapp
 import android.graphics.*
 import android.view.Gravity
 import android.view.View
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.core.graphics.PathParser
 

@@ -1,68 +1,12 @@
 package app.polka.nativeapp
 
-import android.animation.ValueAnimator
 import android.graphics.*
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
-import android.view.animation.PathInterpolator
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import java.time.LocalDate
 import kotlin.math.max
 import kotlin.math.roundToInt
-
-/** «Цель на год», approved variant «Кольцо»: a progress ring with the count in its middle. Without a goal the
- *  ring stays an empty track and the middle shows how many books were read. */
-internal class GoalRing(private val a:MainActivity,private val done:Int,private val goal:Int,private val big:Boolean,motion:Boolean):View(a){
-    private val target=if(goal>0)(done.toFloat()/goal).coerceIn(0f,1f) else 0f
-    private var shown=if(motion)0f else target
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    private val d=a.resources.displayMetrics.density
-    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
-        if(motion&&target>0f)addOnAttachStateChangeListener(object:OnAttachStateChangeListener{var ran=false
-            override fun onViewAttachedToWindow(v:View){if(ran)return;ran=true
-                ValueAnimator.ofFloat(0f,target).apply{startDelay=160;duration=900;interpolator=PathInterpolator(.2f,.8f,.2f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
-            override fun onViewDetachedFromWindow(v:View){}})}
-    override fun onDraw(c:Canvas){val s=minOf(width,height).toFloat();val sw=(if(big)18 else 12)*d;val cx=width/2f;val cy=height/2f;val r=(s-sw)/2f
-        val box=RectF(cx-r,cy-r,cx+r,cy+r)
-        p.shader=null;p.style=Paint.Style.STROKE;p.strokeWidth=sw;p.strokeCap=Paint.Cap.ROUND
-        p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawCircle(cx,cy,r,p)
-        if(shown>0f){p.color=Color.WHITE
-            val g=SweepGradient(cx,cy,intArrayOf(goalGreen2(a),goalGreen(a),goalGreen2(a)),floatArrayOf(0f,.5f,1f));val m=Matrix();m.setRotate(-90f,cx,cy);g.setLocalMatrix(m);p.shader=g
-            c.drawArc(box,-90f,360f*shown,false,p);p.shader=null}
-        p.style=Paint.Style.FILL;p.textAlign=Paint.Align.CENTER
-        p.typeface=PolkaFonts.display(600);p.textSize=(if(big)64 else 36)*d;p.color=a.fg
-        c.drawText("$done",cx,cy+(if(big)6 else 4)*d,p)
-        p.typeface=PolkaFonts.sans(400);p.textSize=(if(big)15 else 12)*d;p.color=if(a.light)0xff86868b.toInt() else 0xff8a8a8e.toInt()
-        c.drawText(if(goal>0)"из ${ofBooks(goal)}" else MainActivity.countBooks(done).substringAfter(' '),cx,cy+(if(big)32 else 22)*d,p)}
-}
-
-/** What the ring says in words: the chip against the plan and up to two short lines (how many are left, how many a
- *  month). */
-internal class GoalWords(val chip:String?,val good:Boolean,val first:String,val second:String)
-internal fun goalWords(model:ReadingStatistics,year:Int,today:LocalDate,done:Int,target:Int):GoalWords{val left=target-done
-    return when{
-        target<=0->GoalWords(null,true,if(year>=today.year)"цель не задана" else "",if(year>=today.year)"Настройки → «Чтение»" else "")
-        left<=0->GoalWords(null,true,if(left<0)"на ${-left} больше цели" else "цель выполнена","")
-        year<today.year->GoalWords(null,false,"не хватило $left","")
-        year==today.year->{val per=left.toDouble()/(13-today.monthValue)
-            GoalWords(null,true,"ещё $left до конца года",if(per<1)"меньше книги в месяц" else "по ${per.roundToInt()} в месяц")}
-        else->GoalWords(null,true,"ещё $left","")}}
-internal fun MainActivity.goalChip(t:String,good:Boolean)=text(t,12.5f,if(good)(if(light)0xff007a48.toInt() else 0xff7bdca6.toInt()) else (if(light)0xffb0601c.toInt() else 0xffffb066.toInt()),true).apply{gravity=Gravity.CENTER;setPadding(d(10),0,d(10),0)
-    background=shape(if(good)(if(light)0x1f009a5c else 0x2437c080) else (if(light)0x1fe8640c else 0x1fff8a1e),13)}
-
-/** The covers of the year's books, newest first, overlapping a little; what does not fit is «+N». */
-internal fun MainActivity.goalShelf(list:List<YearBook>,fit:Int):LinearLayout{
-    val row=line().apply{gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false}
-    val shown=list.asReversed().take(fit)
-    // the covers as on the full-screen tier list: sharp, a soft shadow, side by side
-    shown.forEachIndexed{i,yb->row.addView(CoverView(this,yb.book,cover(yb.book)).apply{softShadow=true},LinearLayout.LayoutParams(d(40),d(60)).apply{if(i>0)marginStart=d(8)})}
-    val more=list.size-shown.size
-    if(more>0)row.addView(text("+$more",12.5f,if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt(),true).apply{gravity=Gravity.CENTER
-        background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(light)0x0f000000 else 0x14ffffff)}},LinearLayout.LayoutParams(d(32),d(32)).apply{marginStart=d(8)})
-    return row
-}
 
 /** The year's three numbers as equal quiet tiles (approved): books (of the goal), hours read,
  *  the average rating. [big] is the full-screen size. */

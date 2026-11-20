@@ -29,30 +29,17 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private val more=StatsMore(data,a.books,model)
     private val today=model.today
     private val content=a.column().apply{clipChildren=false;clipToPadding=false}
-    /** The page scrolls under the status bar and fades into it (no hard cut at the top edge). */
-    private var scrimTop=0
-    private val scrimPaint=Paint()
-    private val scroll=object:ScrollView(a){
-        override fun draw(c:Canvas){super.draw(c);if(scrimTop<=0)return;val fade=a.d(22).toFloat();val h=scrimTop+fade
-            scrimPaint.shader=LinearGradient(0f,scrimTop.toFloat(),0f,h,a.bg,a.bg and 0x00ffffff,Shader.TileMode.CLAMP)
-            c.save();c.translate(scrollX.toFloat(),scrollY.toFloat());scrimPaint.color=Color.WHITE
-            c.drawRect(0f,scrimTop.toFloat(),width.toFloat(),h,scrimPaint);scrimPaint.shader=null;scrimPaint.color=a.bg;c.drawRect(0f,0f,width.toFloat(),scrimTop.toFloat(),scrimPaint);c.restore()}}
+    private val scroll=ScrollView(a)
     private var period=range.coerceIn(0,2)
     private var goalYear=(a.statisticsGoalYear ?: today.year).coerceAtMost(today.year+1)
-    private val compact=a.resources.configuration.screenWidthDp<340 || a.resources.configuration.fontScale>1.15f
     private val light get()=a.light
-    private val cardColor get()=if(light)Color.WHITE else 0xff242426.toInt()
-    private val titleInk get()=if(light)0xff5d5d62.toInt() else 0xffb4b4b8.toInt()
     private val captionInk get()=if(light)0xff86868b.toInt() else 0xff8a8a8e.toInt()
     private val quiet get()=if(light)0xffeeeeec.toInt() else 0xff2f2f31.toInt()
-    private val thumb get()=if(light)Color.WHITE else 0xff48484c.toInt()
     private val strong get()=if(light)0xff161617.toInt() else 0xfff3f2ef.toInt()
-    private val onStrong get()=if(light)Color.WHITE else 0xff161617.toInt()
     private val blue get()=if(light)0xff3f6fe0.toInt() else 0xff6a94f8.toInt()
     private val mint get()=if(light)0xff1f9d73.toInt() else 0xff4fd6a2.toInt()
     private val violet get()=if(light)0xff7a56d8.toInt() else 0xffa98bf7.toInt()
     private val rose get()=if(light)0xffd0457f.toInt() else 0xfff28bb5.toInt()
-    private val amber get()=a.accentFill
     private fun label(s:String,size:Float=14f,color:Int=captionInk,bold:Boolean=false)=a.text(s,size,color,bold)
     private fun space(box:LinearLayout,n:Int=12)=a.space(box,n)
     private fun pill(color:Int,radius:Int)=GradientDrawable().apply{setColor(color);cornerRadius=a.d(radius).toFloat()}
@@ -69,40 +56,12 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         background=pill((color and 0xffffff) or ((if(light)0x26 else 0x33) shl 24),11);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
         addView(IconView(a,kind,color),FrameLayout.LayoutParams(a.d(17),a.d(17),Gravity.CENTER))
     }
-    private fun header(box:LinearLayout,title:String,kind:String,color:Int,stacked:Boolean=false) {
-        if(stacked){box.addView(tile(kind,color),LinearLayout.LayoutParams(a.d(34),a.d(34)));space(box,8);box.addView(label(title,14.5f,titleInk));return}
-        val row=a.line();row.addView(tile(kind,color),LinearLayout.LayoutParams(a.d(34),a.d(34)).apply{rightMargin=a.d(12)})
-        row.addView(label(title,15f,titleInk),LinearLayout.LayoutParams(0,-2,1f));box.addView(row)
-    }
     private val motionOn get()=animate&&a.prefs.str("motion")!="reduced"
     /** Ambient and touch motion (sparks, pulses, chart glides, menus) — alive even when the screen is rebuilt in place
      *  without its entrance (after a theme or goal change in the settings); only the entrance follows [animate]. */
     private val live get()=a.prefs.str("motion")!="reduced"
-    /** Big numeral that counts up once when its card first appears (plain text when motion is reduced). */
-    private fun count(end:Int,size:Float,play:Boolean=true,format:(Int)->String={it.toString()}):View=Odometer(a,format(end),size,a.fg,true).apply{
-        if(play&&motionOn&&end>0)addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false
-            override fun onViewAttachedToWindow(v:View){if(done)return;done=true;set(format(end),format(0),rollAll=false,delay=200)}
-            override fun onViewDetachedFromWindow(v:View){}})
-    }
-    /** Small green «what changed» chip that pops in after the numbers have rolled. */
-    private fun delta(s:String):View=label(s,12f,mint,true).apply{
-        background=pill((mint and 0xffffff) or ((if(light)0x1c else 0x24) shl 24),12);setPadding(a.d(9),a.d(4),a.d(9),a.d(4))
-        if(motionOn){alpha=0f;addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false
-            override fun onViewAttachedToWindow(v:View){if(done)return;done=true;translationY=a.d(6).toFloat();scaleX=.9f;scaleY=.9f;animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setStartDelay(820).setDuration(460).setInterpolator(android.view.animation.OvershootInterpolator(2f)).start()}
-            override fun onViewDetachedFromWindow(v:View){animate().cancel();alpha=1f;translationY=0f;scaleX=1f;scaleY=1f}})}
-    }
     private val entrance=mutableListOf<View>()
-    private fun action(s:String,primary:Boolean=false,click:()->Unit)=a.button(s,primary,click).apply {
-        background=android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33808080),pill(if(primary)strong else quiet,26),null)
-        setTextColor(if(primary)onStrong else a.fg)
-    }
-    private fun segment(labels:List<String>,selected:Int,onSelect:(Int)->Unit):LinearLayout {
-        val box=SlidingSegment(a,selected,labels.size,quiet,thumb,24)
-        fun update(index:Int){for(i in 0 until box.childCount)(box.getChildAt(i) as TextView).apply {isSelected=i==index;setTextColor(if(isSelected)a.fg else captionInk)}}
-        labels.forEachIndexed{i,s->box.addView(a.text(s,14f).apply{gravity=Gravity.CENTER;minHeight=a.d(34);setOnClickListener{box.choose(i);update(i);onSelect(i)}},LinearLayout.LayoutParams(0,-2,1f))}
-        update(selected);return box
-    }
-    private fun add(card:View){entrance.add(card);if(deferred){pending.add(card);return};content.addView(card,LinearLayout.LayoutParams(-1,-2));space(content,12)}
+    private fun add(card:View){entrance.add(card);content.addView(card,LinearLayout.LayoutParams(-1,-2));space(content,12)}
     /** Small caps label at the top of a widget («СЕРИЯ», «СКОРОСТЬ»…). */
     private fun kicker(s:String)=label(s.uppercase(),11.5f,if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt(),true).apply{letterSpacing=.06f}
     /** «Добрый вечер» and today's date between Back and Settings. */
@@ -126,20 +85,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val ch=android.view.Choreographer.getInstance()
         ch.postFrameCallback{ch.postFrameCallback{scroll.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(340).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withLayer().start()}}
     }
-    private var deferred=false
-    private val shadow=HashMap<View,Float>()
-    private val pending=mutableListOf<View>()
-    /** One wave from top to bottom: each card glides up and settles with a long, soft deceleration. */
-    private fun reveal(){val ease=PathInterpolator(.05f,.7f,.1f,1f)
-        // the fade is short (a card below full opacity is drawn through an offscreen buffer every frame); the glide
-        // and the slight growth go on with a long, soft deceleration. No cached layers: the cards' content is moving.
-        entrance.forEachIndexed{i,v->v.pivotX=v.width/2f;val y0=v.translationY;val s0=v.scaleX
-            ValueAnimator.ofFloat(0f,1f).apply{startDelay=i*90L;duration=760;interpolator=android.view.animation.LinearInterpolator()
-                addUpdateListener{val t=it.animatedValue as Float;val e=ease.getInterpolation(t)
-                    v.alpha=(t/.32f).coerceIn(0f,1f);v.translationY=y0*(1-e);val sc=s0+(1-s0)*e;v.scaleX=sc;v.scaleY=sc}
-                // settled: its shadow fades back in
-                addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){val el=shadow[v]?:return
-                    ValueAnimator.ofFloat(0f,el).apply{duration=420;addUpdateListener{v.elevation=it.animatedValue as Float};start()}}});start()}}}
     // ───────────────────────── glass cards ─────────────────────────
     /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
     /** A count starts while its own card rises, not before (cards rise one after another). */
@@ -396,11 +341,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** The whole road of the year, opened out of the card; switching the year there switches it on the card too. */
     private fun openRoad(box:View,years:List<Int>,rebind:()->Unit){if(a.goalRoad!=null)return
         GoalRoadOverlay(a,model,data,goalYear,years,live,{box}){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.show()}
-    private fun daysWordFull(n:Int)="$n "+if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
-    private fun roundButton(s:String,desc:String)=a.text(s,16f,a.fg).apply{gravity=Gravity.CENTER;contentDescription=desc;isClickable=true
-        background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(light)0x0d000000 else 0x14ffffff)};a.press(this)}
 }
-
 
 internal fun MainActivity.updateStatistics(change:(JSONObject)->Unit) {
     var fresh=JSONObject();work({library.db.runInTransaction{val meta=library.dao.meta("stats")?.let{JSONObject(it.json)} ?: JSONObject().put("id","stats");fresh=meta.optJSONObject("data") ?: JSONObject();change(fresh);meta.put("data",fresh);library.dao.putMeta(MetaRow("stats",meta.toString()))}}){if(profileOverlay!=null){profileStats=fresh;refreshProfile()};checkpointSoon()}
@@ -416,29 +357,6 @@ internal fun MainActivity.wheel(min:Int,max:Int,value:Int,description:String)=Nu
 internal fun MainActivity.monthEditor(initial:YearMonth,today:LocalDate,onSave:(YearMonth)->Unit) {
     val box=column();val captions=line();listOf("Месяц","Год").forEach{captions.addView(text(it,14f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f))};box.addView(captions);val row=line();val month=wheel(1,12,initial.monthValue,"Месяц");val year=wheel(1900,today.year,initial.year,"Год");row.addView(month,LinearLayout.LayoutParams(0,d(144),1f));row.addView(year,LinearLayout.LayoutParams(0,d(144),1f));year.setOnValueChangedListener{_,_,y->month.maxValue=if(y==today.year)today.monthValue else 12};if(initial.year==today.year)month.maxValue=today.monthValue
     box.addView(row);dialog().setTitle("Месяц календаря").setView(box).setPositiveButton("Показать"){_,_->onSave(YearMonth.of(year.value,month.value))}.show()
-}
-
-/** Thin rounded progress track with a gradient fill. */
-internal class ProgressRail(a:MainActivity,animate:Boolean,private val fraction:Float,private val accent:Int,private val accent2:Int,description:String):StatsAnimatedView(a,animate){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    init{contentDescription=description}
-    override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val r=h/2f;p.shader=null;p.color=if(a.light)0xffe6e6ea.toInt()else 0xff3a3a3d.toInt();c.drawRoundRect(0f,0f,w,h,r,r,p)
-        val f=(fraction*phase).coerceIn(0f,1f);if(f>0f){p.shader=LinearGradient(0f,0f,w,0f,intArrayOf(accent,accent2),null,Shader.TileMode.CLAMP);c.drawRoundRect(0f,0f,max(h,w*f),h,r,r,p);p.shader=null}}
-}
-/** Each infographic starts when scrolled into view, once; no looping shimmer or offscreen work. */
-internal open class StatsAnimatedView(a:MainActivity,private val motion:Boolean):AnimatedProfileView(a,false) {
-    private var clock:android.animation.ValueAnimator?=null
-    private var started=false
-    private val watcher=ViewTreeObserver.OnPreDrawListener {
-        val visible=Rect()
-        if(!started && isShown && getLocalVisibleRect(visible) && visible.height()>height/3){
-            started=true
-            if(motion && a.prefs.str("motion")!="reduced")clock=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=720;interpolator=android.view.animation.PathInterpolator(.22f,1f,.36f,1f);addUpdateListener{phase=it.animatedValue as Float;invalidate()};start()}
-            else {phase=1f;invalidate()}
-        };true
-    }
-    override fun onAttachedToWindow(){super.onAttachedToWindow();phase=if(!started && motion && a.prefs.str("motion")!="reduced")0f else 1f;viewTreeObserver.addOnPreDrawListener(watcher)}
-    override fun onDetachedFromWindow(){clock?.cancel();clock=null;if(viewTreeObserver.isAlive)viewTreeObserver.removeOnPreDrawListener(watcher);super.onDetachedFromWindow()}
 }
 
 /** Units next to the big numbers ("ч", "мин", "дней") are set in the interface sans, not in the numbers' serif. */

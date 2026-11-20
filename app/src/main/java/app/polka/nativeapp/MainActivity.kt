@@ -61,7 +61,6 @@ class MainActivity : Activity() {
      *  for a sheet over it (a shelf name, a note) — the page then stays exactly where it is. */
     internal var pageIme=false
     /** The keyboard's height the last time it was fully open (0 until it has been). */
-    internal var lastIme=0
     /** Whether the keyboard types into the reader's own page (the inline chapter editor). A sheet or dialog over the
      *  reader (a note, a search) is another window: the page must not give the keyboard room then, or it re-lays its
      *  text out and jumps each time the keyboard opens and closes. */
@@ -88,10 +87,8 @@ class MainActivity : Activity() {
         root.setPadding(0,0,0,0)
         insetConsumers.values.toList().forEach{it(safe)}
     }
-    internal var sortControl:TextView?=null
     internal var shelvesEditing=false
     internal var shelfEditor:ShelfEditor?=null
-    internal var shelfSlot:ShelfSlot?=null
     /** Adds a just-created shelf to the «Полки» page in place (it grows in at the end). */
     internal var addShelfRow:((String)->Unit)?=null
     /** Removes a shelf from the «Полки» page in place (it slides away and the gap closes); false if it is not shown. */
@@ -109,7 +106,6 @@ class MainActivity : Activity() {
     /** Books deleted while one «Книга удалена» notice is up: they share it (one «Вернуть» brings them all back). */
     internal var deleteBatch=mutableListOf<JSONObject>();internal var deleteNotice:Notice?=null
     internal var freshBookIds=mutableSetOf<String>()
-    internal var floatingCovers:FloatingCovers?=null
     /** Set by add/delete: the next render animates the grid from its old layout. */
     internal var gridMotion=false
     internal fun hasScroll()=::scroll.isInitialized
@@ -123,7 +119,6 @@ class MainActivity : Activity() {
     var profileStats:JSONObject?=null
     var profileRange=0
     var statisticsGoalYear:Int?=null
-    internal var readBooksOverlay:View?=null
     private val bookObservers=linkedMapOf<View,Pair<String,(JSONObject)->Unit>>()
     fun observeBook(owner:View,id:String,changed:(JSONObject)->Unit) {
         bookObservers[owner]=id to changed
@@ -159,7 +154,6 @@ class MainActivity : Activity() {
     val muted get() = if(light) 0xff686868.toInt() else 0xffa4a4a4.toInt()
     /** No coloured accent: highlights use the interface's own ink (near-black / near-white). */
     val accent get() = if(light) 0xff1a1a1c.toInt() else 0xfff3f2ef.toInt()
-    val accentFill get()=if(light) 0xff1a1a1c.toInt() else 0xfff3f2ef.toInt()
     fun d(value: Int): Int = (value * resources.displayMetrics.density + .5f).toInt()
     fun shape(color: Int, radius: Int = 16): GradientDrawable = GradientDrawable().apply { setColor(color); cornerRadius=d(radius).toFloat() }
     @android.annotation.SuppressLint("WrongConstant")
@@ -210,7 +204,7 @@ class MainActivity : Activity() {
                 if(isIme(running)){val h=insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom;imeNow=h;val r=reader
                     if(r==null){val f=imeFollower;if(f!=null)f(h) else setIme(if(pageIme)h else 0)}else if(readerTyping()){val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],h))}};return insets}
             override fun onEnd(animation:androidx.core.view.WindowInsetsAnimationCompat){if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()==0)return
-                imeAnimating=false;val now=androidx.core.view.ViewCompat.getRootWindowInsets(root);val ime=now?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0;if(ime>0)lastIme=ime
+                imeAnimating=false;val now=androidx.core.view.ViewCompat.getRootWindowInsets(root);val ime=now?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0
                 imeNow=ime;val r=reader
                 if(r==null){val f=imeFollower;if(f!=null){f(ime);if(ime==0)imeFollower=null}else setIme(if(pageIme)ime else 0)}else{val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],if(readerTyping())ime else 0))};imeVisible(ime>0)}})
         ImeKeeper(root,d(20)){imeNow}.attach()
@@ -313,7 +307,7 @@ class MainActivity : Activity() {
         // which cut off the shelf glass (it reaches into the side margins) until the fade ended.
         page=col().apply{clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)};wrapper.addView(page,LinearLayout.LayoutParams(-1,-2))
         renderLibraryResults()
-        navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; readBooksOverlay?.let { (it.parent as? ViewGroup)?.removeView(it); root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; tierList?.reattach(); if(preservePosition) scroll.post { scroll.scrollTo(0,oldY) }; gridSnap?.let { playGrid(it,if(preservePosition) oldY else null) }; val motion=pendingMotion;pendingMotion=null;if(gridSnap==null){if(motion!=null)screenMotion.play(page,motion.first,motion.second) else if(animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),450,curve=MotionSpec.settle)}
+        navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; tierList?.reattach(); if(preservePosition) scroll.post { scroll.scrollTo(0,oldY) }; gridSnap?.let { playGrid(it,if(preservePosition) oldY else null) }; val motion=pendingMotion;pendingMotion=null;if(gridSnap==null){if(motion!=null)screenMotion.play(page,motion.first,motion.second) else if(animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),450,curve=MotionSpec.settle)}
     }
     internal fun searchBooks():List<JSONObject> {val q=query.trim();return (if(tab=="home")homeBooks()else books).filter{(it.str("title")+" "+authors(it)+" "+it.str("series")+" "+it.str("shelf")).contains(q,true)}.sortedByDescending{maxOf(it.optLong("openedAt"),it.optLong("addedAt"))}}
     internal fun renderLibraryResults(){
@@ -335,12 +329,10 @@ class MainActivity : Activity() {
         }
 
     }
-    fun countRow(n:Int) { val r=row(); r.addView(text(countBooks(n),20f,bold=true),LinearLayout.LayoutParams(0,-2,1f)); r.addView(text(sortName(),14f,muted).apply { sortControl=this; setPadding(d(8),0,0,0); gravity=Gravity.CENTER_VERTICAL; minHeight=d(36); setOnClickListener { filters() } }); page.addView(r,LinearLayout.LayoutParams(-1,d(36))); space(page,14) }
     fun backAndCount() { val r=row(); val leave={ pendingMotion=MotionPose(.4f,x=-d(18).toFloat()) to MotionSpec.SHELF;shelf=null;auto=null;query="";tab="shelves";render(false,false) }
         r.addView(icon("back","Назад к полкам") { leave() },LinearLayout.LayoutParams(d(44),d(44)))
         r.addView(text(title(),26f,fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(d(12),0,d(8),0)},LinearLayout.LayoutParams(0,-2,1f))
         addIcon(r,"filter","Фильтры и сортировка") { filters() }; page.addView(r); space(page,18) }
-    fun emptyState(label:String,lottieName:String?=null) { space(page,12); if(lottieName!=null) page.addView(lottie(lottieName,if(lottieName=="empty_books")60 else null),LinearLayout.LayoutParams(-1,d(220))) else { val covers=FloatingCovers(this); floatingCovers=covers; page.addView(covers,LinearLayout.LayoutParams(-1,d(240))) }; space(page,16); page.addView(text(label,25f,bold=true,serif=true).apply { gravity=Gravity.CENTER }); space(page,24) }
     internal var continueBookId:String?=null
     private var continueCarousel:ContinueReading?=null
     fun continueCard() {
@@ -357,9 +349,6 @@ class MainActivity : Activity() {
         else { val row=row(); row.addView(bar,LinearLayout.LayoutParams(0,d(3),1f)); row.addView(text("${(pct*100).toInt()}%",13f,muted).apply { setPadding(d(10),0,0,0) }); parent.addView(row) }
     }
     fun columns():Int = when { resources.configuration.screenWidthDp>=980 ->4; resources.configuration.screenWidthDp>=680 ->3; else ->2 }
-    fun grid(items:List<View>, cols:Int, gap:Int=20) {
-        items.chunked(cols).forEach { batch -> val r=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.TOP; clipChildren=false; clipToPadding=false; if(gap==24) setPadding(d(2),d(6),d(5),0) }; for(i in 0 until cols) { if(i>0) r.addView(View(this),LinearLayout.LayoutParams(d(gap),1)); r.addView(batch.getOrNull(i) ?: View(this),LinearLayout.LayoutParams(0,-2,1f)) }; page.addView(r,LinearLayout.LayoutParams(-1,-2)); space(page,if(gap==24) 30 else if(resources.configuration.screenWidthDp>=680) 40 else 30) }
-    }
     fun bookGrid(source:List<JSONObject>) {
         val list=source.toMutableList()
         val width=(resources.configuration.screenWidthDp-40-(columns()-1)*24)/columns()
@@ -618,7 +607,7 @@ class MainActivity : Activity() {
         val labels=files.map { (when(it.nameWithoutExtension) { "latest"->"Последняя"; "previous"->"Предыдущая"; else->"Перед изменением" })+" · "+java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it.lastModified())) }
         dialog().setTitle("Локальные копии").setItemIcons(*(files.map{"undo"}+"plus").toTypedArray()).setItems((labels+"Создать точку сейчас").toTypedArray()) { _,i -> if(i==files.size) work({ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"))}); else confirm("Восстановить точку?","Текущая библиотека будет заменена.") { work({ val source=File(cacheDir,"recovery-input.polka"); try { files[i].copyTo(source,true); ArchiveIO.restore(applicationContext,library,source) { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety") }; loadData() } finally { source.delete() } }) { initialized=true; reader=null; shelf=null; auto=null; render(); checkpointSoon() } } }.setNegativeButton("Закрыть",null).show()
     }
-    @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; goalRoad!=null -> goalRoad?.back(); tierList!=null && bookDetailSheet?.isShowing!=true -> tierList?.back(); readBooksOverlay!=null && bookDetailSheet==null -> closeReadBooks(); addMenu!=null -> addMenu?.close(); shelvesEditing && reader==null -> { shelvesTopBarLabel?.performClick() }; ratingPrompt?.isShowing==true -> ratingPrompt?.dismiss(); bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() };bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();settingsPage!=null -> closeSettings(); profileOverlay!=null -> dismissProfile(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> { shelf=null; auto=null; tab="shelves"; render() }; query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
+    @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; goalRoad!=null -> goalRoad?.back(); tierList!=null && bookDetailSheet?.isShowing!=true -> tierList?.back(); addMenu!=null -> addMenu?.close(); shelvesEditing && reader==null -> { shelvesTopBarLabel?.performClick() }; ratingPrompt?.isShowing==true -> ratingPrompt?.dismiss(); bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() };bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();settingsPage!=null -> closeSettings(); profileOverlay!=null -> dismissProfile(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> { shelf=null; auto=null; tab="shelves"; render() }; query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
     override fun onSaveInstanceState(out:Bundle) { reader?.save(); out.putString("calendarImage",pendingCalendarImage?.name); out.putString("attachId",attachId); out.putString("coverTarget",coverTarget); pendingExport?.let { out.putString("exportId",it.first.str("id")); out.putString("exportFormat",it.second) }; out.putString("tab",tab); out.putString("shelf",shelf); out.putString("auto",auto); out.putString("query",query); out.putBoolean("searchOpen",searchOpen); reader?.let { out.putString("readerId",it.book.str("id")) }; super.onSaveInstanceState(out) }
     override fun onPause() { shelfReorder?.cancel();screenMotion.stop();root.childrenOpening()?.finish();reader?.pause();pageReading?.pause(); super.onPause() }
     override fun onResume() { super.onResume(); pageReading?.resume(); if(reader!=null)reader?.resume() else if(::root.isInitialized){ReaderWindow.configure(window,false,bg);root.requestApplyInsets()} }

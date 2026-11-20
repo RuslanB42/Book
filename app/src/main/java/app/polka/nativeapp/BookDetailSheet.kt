@@ -83,7 +83,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   fun updateAbout(){val value=book.str("annotation");if(value.isBlank()){val t=android.text.SpannableString("Тут пока нет описания. Добавить?");t.setSpan(object:android.text.style.ClickableSpan(){override fun onClick(v:View){a.metadataEditor(book)};override fun updateDrawState(d:android.text.TextPaint){d.color=a.accent;d.isUnderlineText=false}},23,t.length,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);annotation.text=t;annotation.movementMethod=android.text.method.LinkMovementMethod.getInstance();annotation.highlightColor=0}else{annotation.movementMethod=null;annotation.text=value};annotation.setTextColor(if(value.isBlank())a.muted else a.fg);annotation.maxLines=if(expandedAbout||value.length<=260)Int.MAX_VALUE else 6;annotation.ellipsize=android.text.TextUtils.TruncateAt.END;more.visibility=if(value.length>260)View.VISIBLE else View.GONE;more.text=if(expandedAbout)"Свернуть" else "Читать полностью"};more.contentDescription="Развернуть описание";more.setOnClickListener{expandedAbout=!expandedAbout;aboutReveal.change(true,false){updateAbout()};more.contentDescription=if(expandedAbout)"Свернуть описание" else "Развернуть описание"};updates.add{updateAbout()}
   // No heading and no «Показать»: the pile itself is the control. Tapping it fans the cards out of the pile.
   val quoteSection=section(26);heading(quoteSection,"Цитаты")
-  val quoteReveal=DetailReveal(a);val quoteBody=quoteReveal.body.apply{clipChildren=false;clipToPadding=false};quoteSection.addView(quoteReveal);var quoteKey="";var quotesOpen=false;var quotePage=0
+  val quoteReveal=DetailReveal(a);val quoteBody=quoteReveal.body.apply{clipChildren=false;clipToPadding=false};quoteSection.addView(quoteReveal);var quoteKey="";var quotePage=0
   val ease=android.view.animation.PathInterpolator(.2f,1f,.3f,1f)
   fun reducedMotion()=a.prefs.str("motion")=="reduced"
   var collapseQuotes:(List<View>)->Unit={}
@@ -95,7 +95,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
    quoteBody.removeAllViews()
    val quotes=book.optJSONArray("quotes")?.objects().orEmpty().sortedWith(compareBy<JSONObject>{it.optInt("ch")}.thenBy{it.optInt("start")})
    quoteSection.visibility=if(quotes.isEmpty())View.GONE else View.VISIBLE
-   if(quotes.isEmpty()){quotesOpen=false;return@change}
+   if(quotes.isEmpty()){return@change}
    // A deck of quote cards: swipe the top card left/right to go through them (same as on the «Цитаты» tab).
    run{val openQuote={quote:JSONObject->if(book.optBoolean("noFile")){a.attachId=book.str("id");a.pickBooks(14)}else{val p=book.optJSONObject("progress")?.copyJson()?:JSONObject();if(p.has("ch"))p.put("returnTo",p.copyJson());p.put("ch",quote.optInt("ch")).put("nativeOffset",maxOf(0,quote.optInt("start"))).remove("nativeFraction");a.returnDetailId=book.str("id");a.openBook(book.copyJson().put("progress",p),heroCover)}}
     quoteBody.addView(QuoteDeck(a,book,quotes,showHead=false,onOpen=openQuote),LinearLayout.LayoutParams(-1,-2));return@change}
@@ -137,7 +137,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   fun collapseQuotesImpl(cards:List<View>){
    if(folding)return
    val quotes=book.optJSONArray("quotes")?.objects().orEmpty()
-   if(reducedMotion()||cards.isEmpty()||quotes.isEmpty()||!quoteReveal.isLaidOut||quoteBody.width<=0){quotesOpen=false;quotePage=0;renderQuotes(true);return}
+   if(reducedMotion()||cards.isEmpty()||quotes.isEmpty()||!quoteReveal.isLaidOut||quoteBody.width<=0){quotePage=0;renderQuotes(true);return}
    val w=quoteBody.width;val probe=a.quoteStack(book,quotes){};probe.measure(View.MeasureSpec.makeMeasureSpec(w,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));probe.layout(0,0,w,probe.measuredHeight)
    val picture=android.graphics.Bitmap.createBitmap(w,probe.measuredHeight.coerceAtLeast(1),android.graphics.Bitmap.Config.ARGB_8888);probe.draw(android.graphics.Canvas(picture))
    val pile=a.d(9).toFloat();val inset=a.d(12).toFloat();val extras=(0 until quoteBody.childCount).map{quoteBody.getChildAt(it)}.filter{it !in cards}
@@ -149,11 +149,11 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
      c.alpha=1f-((q-.55f)/.45f).coerceIn(0f,1f)}}
     extras.forEach{e->e.alpha=(1f-p/.3f).coerceIn(0f,1f)}
     quoteReveal.overlayAlpha=((p-.45f)/.5f).coerceIn(0f,1f)
-   }){cards.forEach{it.setLayerType(View.LAYER_TYPE_NONE,null)};quotesOpen=false;quotePage=0;renderQuotes()}
+   }){cards.forEach{it.setLayerType(View.LAYER_TYPE_NONE,null)};quotePage=0;renderQuotes()}
   }
   collapseQuotes={cards->collapseQuotesImpl(cards)}
   updates.add{val key=(book.optJSONArray("quotes")?.toString()?:"[]")+(book.optJSONArray("notes")?.toString()?:"[]");if(key!=quoteKey){quoteKey=key;renderQuotes()}}
-  val feedback=section(26);heading(feedback,"Оценка");val review=ReviewBlock(a,book){if(!reduced()&&isShowing&&!closing)android.transition.TransitionManager.beginDelayedTransition(content,android.transition.ChangeBounds().apply{duration=380;interpolator=PathInterpolator(.2f,0f,0f,1f)})}
+  val feedback=section(26);heading(feedback,"Оценка");val review=ReviewBlock(a,book)
   feedback.addView(review,LinearLayout.LayoutParams(-1,-2));updates.add{review.sync()}
   val info=section(26);heading(info,"Подробности");val infoBody=insetCard();info.addView(infoBody);var infoKey=""
   updates.add{val rows=mutableListOf<Pair<String,String>>();if(book.str("series").isNotBlank())rows.add("Серия" to (book.str("series")+if(book.optDouble("seriesNo",0.0)>0)" · ${book.str("seriesNo")}" else ""));book.optJSONArray("genres")?.strings()?.takeIf{it.isNotEmpty()}?.let{rows.add("Жанры" to it.joinToString(", "))};if(book.optInt("year")!=0)rows.add("Год" to book.optInt("year").toString());if(book.str("lang").isNotBlank())rows.add("Язык" to when(book.str("lang")){"ru"->"Русский";"en"->"Английский";else->book.str("lang").uppercase()});rows.add("Файл" to if(book.optBoolean("noFile"))"Ещё не добавлен" else book.str("format").uppercase()+if(book.optLong("size")>0)" · ${book.optLong("size")/1024} КБ" else "");if(book.optLong("addedAt")>0)rows.add("Добавлена" to java.text.SimpleDateFormat("d MMM yyyy",java.util.Locale("ru")).format(java.util.Date(book.optLong("addedAt"))));if(book.optInt("edits")>0)rows.add("Правки текста" to "${book.optInt("edits")} сохранений");val key=rows.toString();if(key!=infoKey){infoKey=key;infoBody.removeAllViews();rows.forEachIndexed{i,(label,value)->if(i>0)divider(infoBody);val row=a.line();row.addView(a.text(label,13f,a.muted),LinearLayout.LayoutParams(0,-2,.35f));row.addView(a.text(value,14f).apply{gravity=Gravity.END;setPadding(a.d(12),0,0,0)},LinearLayout.LayoutParams(0,-2,.65f));infoBody.addView(row)}}}
@@ -180,16 +180,11 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  override fun dispatchDraw(c:Canvas){
   super.dispatchDraw(c)
   val v=flight?.takeIf{it.visibility==View.VISIBLE}?:return
-  // Over its own shelf the cover is behind the glass: the pane draws it through its lens; leave that part out here.
-  val at=IntArray(2);getLocationOnScreen(at)
-  // Only while the cover is still in (or just leaving) its slot; once lifted off the shelf it is fully in front.
-  val pane=ShelfGlassLink.pane?.takeIf{ShelfGlassLink.front<1f}?.paneRectOnScreen()?.apply{offset(-at[0].toFloat(),-at[1].toFloat())}
-  val save=c.save();pane?.let{c.clipOutRect(it)}
+  val save=c.save()
   // The tab bar and the «+» stay in front of the flying cover (as they are in front of its tile on the page), except
   // where the rising panel already covers them: no cover over the menu that then pops under it on landing.
   underChrome(c)
   c.translate(v.x,v.y);c.scale(v.scaleX,v.scaleY);v.draw(c);c.restoreToCount(save)
-  if(pane!=null&&ShelfGlassLink.front>0f){val l=c.saveLayerAlpha(pane,(ShelfGlassLink.front*255).toInt());c.translate(v.x,v.y);c.scale(v.scaleX,v.scaleY);v.draw(c);c.restoreToCount(l)}
   val amount=landingLight(presentation)
   if(amount>0f){
    val bounds=RectF(v.x,v.y,v.x+v.width*v.scaleX,v.y+v.height*v.scaleY)
@@ -208,7 +203,6 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   if(!chromePath.isEmpty)c.clipOutPath(chromePath)}
  private fun pct()=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
  private fun hair()=if(a.light)0x18161617 else 0x18ffffff
- private fun hairlines()=object:android.graphics.drawable.Drawable(){val p=Paint().apply{color=hair()};override fun draw(c:Canvas){c.drawRect(0f,0f,bounds.width().toFloat(),1f,p);c.drawRect(0f,bounds.height()-1f,bounds.width().toFloat(),bounds.height().toFloat(),p)};override fun setAlpha(x:Int){};override fun setColorFilter(x:ColorFilter?){};@Deprecated("Drawable")override fun getOpacity()=PixelFormat.TRANSLUCENT}
  private fun duration(ms:Long):String{if(ms<=0)return "—";val m=maxOf(1,ms/60000);return if(m<60)"$m мин" else "${m/60} ч"+if(m%60>0)" ${m%60} мин" else ""}
  /** Shown already settled (returning from the reader under a fade): no flight, no slide. */
  var instant=false
@@ -216,7 +210,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  private fun rect(v:View):RectF{val at=IntArray(2);val root=IntArray(2);v.getLocationOnScreen(at);getLocationOnScreen(root);return RectF((at[0]-root[0]).toFloat(),(at[1]-root[1]).toFloat(),(at[0]-root[0]+v.width).toFloat(),(at[1]-root[1]+v.height).toFloat())}
  private fun cover(v:View?):CoverView?{if(v is CoverView)return v;if(v is ViewGroup)for(i in 0 until v.childCount)cover(v.getChildAt(i))?.let{return it};return null}
  private var originCover:CoverView?=null
- private fun setupFlight(){val src=cover(source);originCover=src;if(reduced()||src==null||!src.isAttachedToWindow||src.width<=0)return;from=rect(src);to=rect(heroCover).apply{offset(0f,-panel.translationY)};if(from.bottom<0||from.top>height||closing&&(to.bottom<0||to.top>height))return;base=maxOf(from.width(),to.width());val v=CoverView(a,book,a.cover(book)).apply{softShadow=src.softShadow;stackShadow=src.stackShadow};flight=v;addView(v,LayoutParams(base.toInt(),(base*1.5f).toInt()));v.measure(MeasureSpec.makeMeasureSpec(base.toInt(),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec((base*1.5f).toInt(),MeasureSpec.EXACTLY));v.layout(0,0,v.measuredWidth,v.measuredHeight);v.pivotX=0f;v.pivotY=0f;src.visibility=View.INVISIBLE;ShelfGlassLink.begin(src,v);heroCover.visibility=View.INVISIBLE}
+ private fun setupFlight(){val src=cover(source);originCover=src;if(reduced()||src==null||!src.isAttachedToWindow||src.width<=0)return;from=rect(src);to=rect(heroCover).apply{offset(0f,-panel.translationY)};if(from.bottom<0||from.top>height||closing&&(to.bottom<0||to.top>height))return;base=maxOf(from.width(),to.width());val v=CoverView(a,book,a.cover(book)).apply{softShadow=src.softShadow;stackShadow=src.stackShadow};flight=v;addView(v,LayoutParams(base.toInt(),(base*1.5f).toInt()));v.measure(MeasureSpec.makeMeasureSpec(base.toInt(),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec((base*1.5f).toInt(),MeasureSpec.EXACTLY));v.layout(0,0,v.measuredWidth,v.measuredHeight);v.pivotX=0f;v.pivotY=0f;src.visibility=View.INVISIBLE;heroCover.visibility=View.INVISIBLE}
  // Exactly the same positional progress drives the cover and its attached light.
  // Broader landing window + cubic easing avoids concentrating brightness into a few frames.
  // No second timer: pausing/reversing the gesture preserves the identical light state.
@@ -225,8 +219,6 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  private var presentation=0f
  private fun pose(q0:Float){val q=q0.coerceIn(0f,1f);presentation=q;panel.alpha=1f;panel.translationY=panel.height*(1-q);scrim.alpha=q;heroGlow.alpha=landingLight(q)
   flight?.let{v->v.translationX=from.left+(to.left-from.left)*q;v.translationY=from.top+(to.top-from.top)*q;v.scaleX=(from.width()+(to.width()-from.width())*q)/base;v.scaleY=v.scaleX
-   // same frame for the shelf glass: it draws the part of the cover that is behind it
-   run{val at=IntArray(2);getLocationOnScreen(at);val lift=((q-.03f)/.22f).coerceIn(0f,1f);ShelfGlassLink.move(at[0]+v.x,at[1]+v.y,v.scaleX,lift*lift*(3-2*lift))}
    val heroRect=rect(heroCover);heroGlow.pivotX=heroCover.left-heroGlow.left+heroCover.width*.5f;heroGlow.pivotY=heroCover.top-heroGlow.top+heroCover.height*.5f;heroGlow.scaleX=wFor(q)/heroCover.width;heroGlow.scaleY=heroGlow.scaleX;heroGlow.translationX=v.translationX+wFor(q)*.5f-heroRect.centerX();heroGlow.translationY=v.translationY+wFor(q)*.75f-heroRect.centerY()
   }
   // Manual overlay transform must re-record the parent display list every frame.
@@ -257,7 +249,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
    };return true
   }
  }
- private fun clearFlight(){heroGlow.alpha=1f;heroGlow.translationX=0f;heroGlow.translationY=0f;heroGlow.scaleX=1f;heroGlow.scaleY=1f;flight?.let{removeView(it)};flight=null;ShelfGlassLink.end();originCover?.visibility=View.VISIBLE;heroCover.visibility=View.VISIBLE}
+ private fun clearFlight(){heroGlow.alpha=1f;heroGlow.translationX=0f;heroGlow.translationY=0f;heroGlow.scaleX=1f;heroGlow.scaleY=1f;flight?.let{removeView(it)};flight=null;originCover?.visibility=View.VISIBLE;heroCover.visibility=View.VISIBLE}
  fun dismiss(){if(closing||ended)return;closing=true;freezeMotion();if(reduced()||!begun){finish();return};if(flight==null)setupFlight();animateTo(0f)}
  val bookId get()=book.str("id")
  /** The book is gone (deleted): no cover flight back to the grid; the sheet sinks away, the cover shrinks out with it. */

@@ -1,6 +1,5 @@
 package app.polka.nativeapp
 
-import android.animation.ValueAnimator
 import android.graphics.Rect
 import android.view.*
 import android.view.inputmethod.*

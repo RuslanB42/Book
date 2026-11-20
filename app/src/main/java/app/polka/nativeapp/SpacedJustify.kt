@@ -42,8 +42,7 @@ internal object SpacedJustify {
     fun apply(tv:TextView){val l=tv.layout?:return
         // the spans go on the text the layout draws (a TextView may lay out its own copy of what it was given)
         val t=(l.text as? Spannable)?:(tv.text as? Spannable)?.takeIf{it===l.text}?:return
-        try{apply(l,t)}catch(e:Exception){lastError=e.toString();android.util.Log.w("Polka","line stretch skipped",e);clear(t)}}
-    @Volatile internal var lastError:String?=null
+        try{apply(l,t)}catch(e:Exception){android.util.Log.w("Polka","line stretch skipped",e);clear(t)}}
     private var probedFor=Float.NaN;private var probed=true
     /** Whether Layout's line measurement leaves the paint's word spacing out (it differs between Android builds). */
     private fun countsWordSpacing(p:android.text.TextPaint):Boolean{val ws=p.wordSpacing;if(ws==0f)return true

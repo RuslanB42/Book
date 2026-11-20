@@ -334,12 +334,11 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
     private inner class VolumeBar:View(a){
         private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var v=Ambience.volume(a);private var shown=v;private var glide:ValueAnimator?=null
         private val speaker=Path().apply{moveTo(4f,9.5f);lineTo(4f,14.5f);lineTo(7.5f,14.5f);lineTo(12f,18f);lineTo(12f,6f);lineTo(7.5f,9.5f);close()}
-        private var held=false;private var lift=0f
         init{isClickable=true;contentDescription="Громкость"}
         override fun onTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){
-            MotionEvent.ACTION_DOWN->{parent?.requestDisallowInterceptTouchEvent(true);held=true;press(true);set(e.x,false,true)}
+            MotionEvent.ACTION_DOWN->{parent?.requestDisallowInterceptTouchEvent(true);press(true);set(e.x,false,true)}
             MotionEvent.ACTION_MOVE->set(e.x,false,false)
-            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{held=false;press(false);set(e.x,true,false)}};return true}
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{press(false);set(e.x,true,false)}};return true}
         private fun press(on:Boolean){}
         /** A tap jumps there smoothly; dragging follows the finger. */
         private fun set(x:Float,done:Boolean,tap:Boolean){v=(x/width).coerceIn(0f,1f);Ambience.setVolume(a,v,done)

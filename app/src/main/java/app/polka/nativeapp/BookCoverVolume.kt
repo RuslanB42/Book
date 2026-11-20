@@ -6,7 +6,6 @@ import android.graphics.*
 internal object BookCoverVolume {
     private val ink=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val shadows=arrayOfNulls<Bitmap>(6)
-    internal var atlasBuilds=0;private set
     private val bindings=java.util.WeakHashMap<Bitmap,Int>()
     @Synchronized fun binding(bitmap:Bitmap?,fallback:Int):Int {
         if(bitmap==null||bitmap.isRecycled||bitmap.config==Bitmap.Config.HARDWARE)return fallback
@@ -26,12 +25,6 @@ internal object BookCoverVolume {
         val bin=weights.indices.maxByOrNull{weights[it]}?:0;val weight=weights[bin]
         return (if(weight==0)fallback else Color.rgb((reds[bin]/weight).toInt(),(greens[bin]/weight).toInt(),(blues[bin]/weight).toInt())).also{bindings[bitmap]=it}
     }
-    private val spine=LinearGradient(0f,0f,42f,0f,
-        intArrayOf(0x72000000,0x1c000000,0x24ffffff,0x0cffffff,0x29000000,0x42000000,0x12ffffff,Color.TRANSPARENT),
-        floatArrayOf(0f,.10f,.26f,.43f,.57f,.64f,.79f,1f),Shader.TileMode.CLAMP)
-    private val face=LinearGradient(0f,0f,400f,600f,intArrayOf(0x10ffffff,0x03ffffff,Color.TRANSPARENT,0x13000000),floatArrayOf(0f,.28f,.65f,1f),Shader.TileMode.CLAMP)
-    private val fore=LinearGradient(385f,0f,400f,0f,intArrayOf(Color.TRANSPARENT,0x0a000000,0x23000000,0x0cffffff,0x40000000),floatArrayOf(0f,.52f,.80f,.91f,1f),Shader.TileMode.CLAMP)
-    private val ends=LinearGradient(0f,0f,0f,600f,intArrayOf(0x14ffffff,Color.TRANSPARENT,Color.TRANSPARENT,0x26000000),floatArrayOf(0f,.008f,.982f,1f),Shader.TileMode.CLAMP)
     private const val THICK_MARGIN=190
     @Synchronized private fun shadow(dark:Boolean,soft:Boolean,stack:Boolean=false):Bitmap {
         val index=(if(dark)1 else 0)+(if(stack)4 else if(soft)2 else 0);shadows[index]?.let{return it}
@@ -41,13 +34,13 @@ internal object BookCoverVolume {
             // Only broad low-opacity lobes: stacked books must not accumulate contact rings.
             p.setShadowLayer(48f,0f,20f,if(dark)0x20000000 else 0x16000000);c.drawRoundRect(r,3f,3f,p)
             p.setShadowLayer(30f,0f,12f,if(dark)0x16000000 else 0x10000000);c.drawRoundRect(r,3f,3f,p)
-            shadows[index]=b;atlasBuilds++;return b
+            shadows[index]=b;return b
         }
         if(soft){
             // Floating recommendation cards: a broad feathered penumbra, no hard contact ring.
             p.setShadowLayer(28f,3f,18f,if(dark)0x38000000 else 0x1f000000);c.drawRoundRect(r,3f,3f,p)
             p.setShadowLayer(14f,2f,7f,if(dark)0x29000000 else 0x19000000);c.drawRoundRect(r,3f,3f,p)
-            shadows[index]=b;atlasBuilds++;return b
+            shadows[index]=b;return b
         }
         // A hardcover lying on a table, lit from above-left (approved Т2+): a tight dark contact all round, a short cast
         // to the lower right and a soft penumbra beyond it. Built from the approved CSS layers at reference 240×360.
@@ -62,7 +55,7 @@ internal object BookCoverVolume {
         layer(1f,2f,2f,0f,.26f,.95f)
         layer(0f,0f,2f,0f,.12f,.60f)
         layer(0f,0f,0f,.5f,.14f,.70f)
-        shadows[index]=t;atlasBuilds++;return t
+        shadows[index]=t;return t
     }
     @Synchronized fun shadow(c:Canvas,r:RectF,dark:Boolean,soft:Boolean=false,stack:Boolean=false,fade:Float=1f) {
         if(r.width()<=0||r.height()<=0||fade<=0f)return
@@ -107,5 +100,4 @@ internal object BookCoverVolume {
     private fun grain():BitmapShader=grainShader?:run{val n=64;val px=IntArray(n*n);val rnd=java.util.Random(7)
         for(k in px.indices){val v=rnd.nextInt(256);px[k]=if(v<128)Color.argb(rnd.nextInt(16),0,0,0) else Color.argb(rnd.nextInt(16),255,255,255)}
         BitmapShader(Bitmap.createBitmap(px,n,n,Bitmap.Config.ARGB_8888),Shader.TileMode.REPEAT,Shader.TileMode.REPEAT).also{grainShader=it}}
-    private fun blend(a:Int,b:Int,t:Float)=Color.rgb((Color.red(a)*(1-t)+Color.red(b)*t).toInt(),(Color.green(a)*(1-t)+Color.green(b)*t).toInt(),(Color.blue(a)*(1-t)+Color.blue(b)*t).toInt())
 }

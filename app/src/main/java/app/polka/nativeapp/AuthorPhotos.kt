@@ -2,7 +2,6 @@ package app.polka.nativeapp
 
 import android.graphics.*
 import android.util.LruCache
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection

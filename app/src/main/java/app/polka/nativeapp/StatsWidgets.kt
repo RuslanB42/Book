@@ -1,24 +1,19 @@
 package app.polka.nativeapp
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
-import android.view.ViewConfiguration
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.TextView
 import kotlin.math.*
 
 /** Statistics widgets: flat grey cards like the rest of the app; colour only in the data (approved «Цвет только в данных»). */
 internal class WidgetCardDrawable(private val a:MainActivity,private val radius:Float,private val glow:Int?,private val fx:Float,private val fy:Float,private val reach:Float):Drawable(){
     private val base=Paint(Paint.ANTI_ALIAS_FLAG);private val light=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private val r=RectF()
     private var tex:Bitmap?=null;private var texKey="";private var fade=1f
-    override fun draw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Фон плашек",pt0)}}
+    override fun draw(c:Canvas){draw0(c)}
     private fun draw0(c:Canvas){val b=bounds;if(b.width()<=0||b.height()<=0)return;r.set(b)
         base.color=if(a.light)Color.WHITE else 0xff242426.toInt();c.drawRoundRect(r,radius,radius,base)
         val g=glow?:return
@@ -39,46 +34,6 @@ internal class WidgetCardDrawable(private val a:MainActivity,private val radius:
     override fun setAlpha(alpha:Int){}
     override fun setColorFilter(cf:ColorFilter?){}
     @Deprecated("Deprecated in Java") override fun getOpacity()=PixelFormat.TRANSLUCENT
-}
-
-/** The flame's outline (from the streak flame), used as a tiny glyph inside the week's day circles. */
-internal object FlameGlyph{
-    val path:Path by lazy{androidx.core.graphics.PathParser.createPathFromPathData("M60 145C32 145 12 129 9 108C5 86 15 66 31 51C29 63 31 74 38 81C35 61 48 48 57 34C65 21 62 10 54 3C82 5 101 25 99 49C98 62 92 73 97 81C101 87 108 82 111 72C124 90 119 112 105 128C94 140 78 146 60 145Z")}
-}
-
-/** The streak's week: seven days as circles. A kept day burns (orange with a small flame), a missed one is an empty
- *  ring, and today's ring fills as you read toward the daily goal. Weekday names underneath; today in bold. */
-/** The week as seven day circles (approved): a day read — a quiet warm disc with an orange flame; a day a freeze kept —
- *  an icy disc with a frozen blue flame; a day missed — a small dot. Today is a ring that fills as you read (orange in
- *  the evening while the streak is at risk) and becomes a bright orange disc once the goal is met.
- *  [marks]: 0 nothing, 1 read, 2 frozen, 3 missed. */
-internal class WeekFlames(private val a:MainActivity,private val names:List<String>,private val marks:IntArray,private val todayFraction:Float,private val motion:Boolean,private val risk:Boolean=false):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER}
-    private var k=1f /* shown at rest: the page entrance is a simple fade */
-    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-    override fun onMeasure(w:Int,h:Int){setMeasuredDimension(MeasureSpec.getSize(w),a.d(62))}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=StatsEntrance.wait()+60;interpolator=Ease.outCubic;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
-    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Огоньки недели",pt0)}}
-    private fun flame(c:Canvas,cx:Float,cy:Float,r:Float,color:Int){val s=r*1.0f/150f*1.05f;c.save();c.translate(cx-60*s,cy-80*s);c.scale(s,s);p.color=color;c.drawPath(FlameGlyph.path,p);c.restore()}
-    private fun draw0(c:Canvas){val d=a.d(1).toFloat();val n=names.size;if(n==0)return
-        val r=min(18*d,width/n/2f-3*d);val slot=width/n.toFloat();val cy=r+2*d;val light=a.light
-        val ember=if(light)0xffe8640c.toInt() else 0xffff8a1e.toInt()
-        for(i in 0 until n){val cx=slot*i+slot/2;val today=i==n-1;val m=marks[i]
-            val t=((k*(n+2))-i).coerceIn(0f,1f);val pop=if(t<1f)Ease.outBack(1.8f).getInterpolation(t) else 1f
-            p.style=Paint.Style.FILL;p.shader=null
-            when{
-                m==1&&today->{c.save();c.scale(pop,pop,cx,cy);p.color=ember;c.drawCircle(cx,cy,r,p);flame(c,cx,cy,r,if(light)0xfffff3e2.toInt() else 0xfffff3e2.toInt());c.restore()}
-                m==1->{c.save();c.scale(pop,pop,cx,cy);p.color=if(light)0xfffbe6d3.toInt() else 0xff3a2a20.toInt();c.drawCircle(cx,cy,r,p);flame(c,cx,cy,r,ember);c.restore()}
-                m==2->{c.save();c.scale(pop,pop,cx,cy)
-                    p.shader=if(light)null else LinearGradient(cx-r,cy-r,cx+r,cy+r,0xff2a4a62.toInt(),0xff1b3346.toInt(),Shader.TileMode.CLAMP);p.color=0xffdcefff.toInt();c.drawCircle(cx,cy,r,p);p.shader=null
-                    flame(c,cx,cy,r,if(light)0xff4a9ad6.toInt() else 0xff9fd8ff.toInt());c.restore()}
-                today->{p.style=Paint.Style.STROKE;p.strokeWidth=2.4f*d;p.color=if(light)0x1f000000 else 0x1fffffff;c.drawCircle(cx,cy,r-1.2f*d,p)
-                    if(todayFraction>0f){p.strokeCap=Paint.Cap.ROUND;p.color=if(risk)ember else a.fg;val o=r-1.2f*d;c.drawArc(cx-o,cy-o,cx+o,cy+o,-90f,360f*todayFraction*k,false,p)}
-                    p.style=Paint.Style.FILL}
-                m==3->{p.color=if(light)0x40000000 else 0xff55555a.toInt();c.drawCircle(cx,cy,3*d,p)}
-                else->{p.style=Paint.Style.STROKE;p.strokeWidth=2*d;p.color=if(light)0x14000000 else 0x1cffffff;c.drawCircle(cx,cy,r-1f*d,p);p.style=Paint.Style.FILL}}
-            tp.textSize=11*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(if(today)600 else 400)
-            tp.color=if(today)a.fg else a.muted;c.drawText(names[i],cx,height-3*d,tp)}}
 }
 
 /** Three-way pill switch (Неделя / Месяц / Год): the chosen one is a light pill with dark text. */
@@ -106,174 +61,6 @@ internal class PeriodPills(private val a:MainActivity,labels:List<String>,select
                 items[from].setTextColor(ev.evaluate(k,on,a.muted) as Int);items[i].setTextColor(ev.evaluate(k,a.muted,on) as Int)};start()}}
 }
 
-/** Reading time as a smooth glowing line (violet → pink) over a soft fill, with the average as a dashed line.
- *  Press and HOLD to read a day (a plain tap does nothing); slide to move between days; a tap anywhere else closes it. */
-internal class ReadingLine(private val a:MainActivity,private var values:List<Double>,private var labels:List<String>,private var tips:List<String>,
-                           private var average:Double,private var averageText:String,private val motion:Boolean,private var sparseLabels:Boolean):View(a){
-    // ── switching periods: the old curve morphs into the new one (both sampled across the width), labels cross-fade ──
-    private var morph=1f;private var fromYs:FloatArray?=null;private var toYs:FloatArray?=null;private var fromAvg=0f
-    private var oldLabels:List<String> = emptyList();private var oldXs:FloatArray=FloatArray(0);private var oldLabelShown:BooleanArray=BooleanArray(0)
-    private var glowFade=1f;private val morphPath=Path();private val morphArea=Path()
-    private fun samples():FloatArray{val n=160;val out=FloatArray(n);if(pts.isEmpty()){java.util.Arrays.fill(out,bottom);return out}
-        val pm=PathMeasure(line,false);val len=pm.length;val xs=ArrayList<Float>();val ys=ArrayList<Float>();val pos=FloatArray(2);var s=0f
-        while(s<=len){pm.getPosTan(s,pos,null);xs.add(pos[0]);ys.add(pos[1]);s+=max(1f,len/400f)}
-        val x0=xOf(0);val x1=xOf(values.lastIndex.coerceAtLeast(0));var j=0
-        for(i in 0 until n){val x=a.d(10)+(width-a.d(20))*i/(n-1f)
-            if(pts.size==1||x<=x0){out[i]=pts[0].y;continue};if(x>=x1){out[i]=pts.last().y;continue}
-            while(j<xs.size-2&&xs[j+1]<x)j++;val t=if(xs[j+1]==xs[j])0f else ((x-xs[j])/(xs[j+1]-xs[j])).coerceIn(0f,1f);out[i]=ys[j]+(ys[j+1]-ys[j])*t}
-        return out}
-    private fun avgY(avg:Double,vals:List<Double>):Float{val m=max(vals.maxOrNull()?:0.0,max(avg,1.0)*1.15);return bottom-(avg/m*(bottom-top)).toFloat()}
-    fun setData(v:List<Double>,l:List<String>,t:List<String>,avg:Double,avgText:String,sparse:Boolean){
-        if(!motion||width==0||pts.isEmpty()){values=v;labels=l;tips=t;average=avg;averageText=avgText;sparseLabels=sparse;tipIndex=-1;tipShow=0f;glowBitmap=null;glowGen++;build();invalidate();return}
-        fromYs=if(morph<1f)current() else samples();fromAvg=avgY(average,values)
-        oldLabels=labels;oldXs=FloatArray(labels.size){xOf(it)};oldLabelShown=BooleanArray(labels.size){labelShown(it,labels.size)}
-        values=v;labels=l;tips=t;average=avg;averageText=avgText;sparseLabels=sparse;tipIndex=-1;tipShow=0f;a.touchWatchers.remove(outside)
-        glowBitmap=null;glowGen++;build();toYs=samples();draw=1f
-        // a quick second switch takes over from wherever the curve is now (the previous morph must not finish it)
-        morphAnim?.removeAllListeners();morphAnim?.cancel();glowAnim?.cancel()
-        morphAnim=ValueAnimator.ofFloat(0f,1f).apply{duration=560;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{morph=it.animatedValue as Float;glowFade=0f;invalidate()}
-            addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){morph=1f;fromYs=null
-                glowAnim=ValueAnimator.ofFloat(0f,1f).apply{duration=420;addUpdateListener{glowFade=it.animatedValue as Float;invalidate()};start()}}});start()}}
-    private var morphAnim:ValueAnimator?=null;private var glowAnim:ValueAnimator?=null
-    private fun current():FloatArray{val f=fromYs;val t=toYs;if(f==null||t==null)return samples();return FloatArray(f.size){f[it]+(t[it]-f[it])*morph}}
-    /** Which day labels fit: all of them when there is room, otherwise every 2nd, 5th, 7th… day, plus the first and the last. */
-    private fun labelShown(i:Int,n:Int):Boolean{if(!sparseLabels||n<=1)return true;val need=a.d(26)*n;val room=max(1,width-a.d(20))
-        val step=listOf(1,2,3,5,7,10).firstOrNull{need/it<=room}?:10;val last=n-1
-        if(i==0||i==last)return true;if(step==1)return true
-        return (i+1)%step==0&&last-i>=max(1,step/2)}
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG)
-    /** Dusk indigo, one tone (variant Б): the line deepens to a lighter shade of itself, no second hue. */
-    private val c1 get()=if(a.light)0xff7973ca.toInt() else 0xff9d98f2.toInt();private val c2 get()=if(a.light)0xff918ed9.toInt() else 0xffb6b4ff.toInt()
-    private var draw=1f /* shown at rest: the page entrance is a simple fade */
-    private val line=Path();private val area=Path();private val pts=ArrayList<PointF>()
-    init{contentDescription=tips.lastOrNull().orEmpty();isClickable=true}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(draw<1f)ValueAnimator.ofFloat(0f,1f).apply{duration=900;startDelay=StatsEntrance.wait()+160;interpolator=android.view.animation.PathInterpolator(.3f,0f,.2f,1f);addUpdateListener{draw=it.animatedValue as Float;invalidate()};start()}}
-    private val top get()=a.d(40).toFloat();private val bottom get()=height-a.d(26).toFloat()
-    private fun xOf(i:Int)=a.d(10)+(width-a.d(20))*(if(values.size<=1).5f else i/(values.size-1f))
-    private fun build(){pts.clear();line.reset();area.reset();if(values.isEmpty())return
-        val max=max(values.maxOrNull()?:0.0,max(average,1.0)*1.15);val h=bottom-top
-        values.forEachIndexed{i,v->pts.add(PointF(xOf(i),bottom-(v/max*h).toFloat()))}
-        line.moveTo(pts[0].x,pts[0].y)
-        for(i in 1 until pts.size){val p0=pts[i-1];val p1=pts[i];val mx=(p0.x+p1.x)/2;line.cubicTo(mx,p0.y,mx,p1.y,p1.x,p1.y)}
-        area.set(line);area.lineTo(pts.last().x,bottom+a.d(2));area.lineTo(pts[0].x,bottom+a.d(2));area.close()}
-    override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){build();glowBitmap=null;glowGen++}
-    private var glowBitmap:Bitmap?=null
-    private val glowPaint=Paint(Paint.FILTER_BITMAP_FLAG).apply{alpha=0xc0}
-    /** The line, drawn thick at a third of the size and gaussian-blurred once: a soft halo that fades smoothly. */
-    /** The halo is blurred off the main thread (measured: a blur in the first frame cost ~220 ms) and fades in. */
-    private var glowGen=0;private var glowFor=-1
-    private fun glow():Bitmap?{glowBitmap?.let{return it};if(width<3||height<3||pts.isEmpty())return null
-        // a wide, soft light with room round it (it was cut at the view's edges and showed a rim all along the line)
-        val w=width;val pad=GLOW_PAD;val shifted=Path(line).apply{offset(pad,pad)}
-        fun layer(sigma:Float,stroke:Float,alpha:Int)=Glow.blurred(width+2*pad.toInt(),height+2*pad.toInt(),2,sigma){c,gp->gp.style=Paint.Style.STROKE;gp.strokeCap=Paint.Cap.ROUND;gp.strokeJoin=Paint.Join.ROUND
-            gp.strokeWidth=stroke;gp.shader=LinearGradient(pad,0f,pad+w,0f,c1,c2,Shader.TileMode.CLAMP);gp.alpha=alpha;c.drawPath(shifted,gp)}
-        val wide=layer(a.d(14).toFloat(),a.d(8).toFloat(),150)?:return null;val near=layer(a.d(5).toFloat(),a.d(5).toFloat(),170)
-        near?.let{Canvas(wide).drawBitmap(it,0f,0f,Paint(Paint.FILTER_BITMAP_FLAG));it.recycle()}
-        glowBitmap=wide;return glowBitmap}
-    private val GLOW_PAD get()=a.d(28).toFloat()
-    // ── details on long press (same behaviour as the chart it replaces) ──
-    private var tipIndex=-1;private var tipShow=0f;private var tipX=0f
-    private var showAnim:ValueAnimator?=null;private var moveAnim:ValueAnimator?=null
-    private var downX=0f;private var downY=0f;private var scrubbing=false;private var tapStartedOpen=false
-    private val slop=ViewConfiguration.get(a).scaledTouchSlop
-    private val hold=Runnable{scrubbing=true;parent?.requestDisallowInterceptTouchEvent(true);performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);pick(index(downX),tipShow>0f);show(true)}
-    private val outside:(MotionEvent)->Unit={e->if(tipIndex>=0){val loc=IntArray(2);getLocationOnScreen(loc)
-        if(e.rawX<loc[0]||e.rawX>loc[0]+width||e.rawY<loc[1]||e.rawY>loc[1]+height)show(false)}}
-    private fun index(x:Float):Int{if(values.size<=1)return 0;return ((x-a.d(10))/(width-a.d(20))*(values.size-1)).roundToInt().coerceIn(0,values.lastIndex)}
-    private fun pick(i:Int,glide:Boolean){if(i==tipIndex)return;val first=tipIndex<0;tipIndex=i;contentDescription=tips[i]
-        if(!first)performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-        val target=xOf(i);moveAnim?.cancel()
-        if(!glide||!motion){tipX=target;invalidate();return}
-        val sp=Spring.of(.15,260.0);moveAnim=ValueAnimator.ofFloat(tipX,target).apply{duration=sp.duration;interpolator=sp.interpolator;addUpdateListener{tipX=it.animatedValue as Float;invalidate()};start()}}
-    private fun show(on:Boolean){showAnim?.cancel()
-        if(on)a.touchWatchers.add(outside) else a.touchWatchers.remove(outside)
-        if(!motion){tipShow=if(on)1f else 0f;if(!on)tipIndex=-1;invalidate();return}
-        val sp=if(on)Spring.of(.3,360.0) else Spring.of(0.0,220.0)
-        showAnim=ValueAnimator.ofFloat(tipShow,if(on)1f else 0f).apply{duration=sp.duration;interpolator=sp.interpolator;addUpdateListener{tipShow=it.animatedValue as Float;invalidate()}
-            if(!on)addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){if(tipShow<=0.001f){tipIndex=-1;invalidate()}}});start()}}
-    override fun onDetachedFromWindow(){a.touchWatchers.remove(outside);removeCallbacks(hold);super.onDetachedFromWindow()}
-    override fun onTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){
-        MotionEvent.ACTION_DOWN->{downX=e.x;downY=e.y;scrubbing=false;tapStartedOpen=tipIndex>=0;postDelayed(hold,ViewConfiguration.getLongPressTimeout().toLong())}
-        MotionEvent.ACTION_MOVE->{if(scrubbing)pick(index(e.x),true) else if(abs(e.x-downX)>slop||abs(e.y-downY)>slop)removeCallbacks(hold)}
-        MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{removeCallbacks(hold);if(!scrubbing&&e.actionMasked==MotionEvent.ACTION_UP&&tapStartedOpen)show(false);scrubbing=false}}
-        return true}
-    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Линия времени",pt0)}}
-    private fun draw0(c:Canvas){if(values.isEmpty()||width<1)return;if(pts.size!=values.size)build();val d=a.d(1).toFloat()
-        val max=max(values.maxOrNull()?:0.0,max(average,1.0)*1.15)
-        // average
-        val ayNew=bottom-(average/max*(bottom-top)).toFloat();val ay=if(morph<1f)fromAvg+(ayNew-fromAvg)*morph else ayNew
-        p.style=Paint.Style.STROKE;p.strokeWidth=1.3f*d;p.color=if(a.light)0x26000000 else 0x2effffff;p.pathEffect=DashPathEffect(floatArrayOf(4*d,4*d),0f)
-        c.drawLine(0f,ay,width.toFloat(),ay,p);p.pathEffect=null
-        
-        // the line draws itself in from the left
-        c.save();c.clipRect(-GLOW_PAD,-GLOW_PAD,width*draw+2*d+(if(draw>=1f)GLOW_PAD else 0f),height+GLOW_PAD)
-        var curve=line;var fill=area
-        if(morph<1f&&fromYs!=null){val ys=current();morphPath.reset();val n=ys.size
-            // through the midpoints with quadratic joins: a smooth, round curve at every moment of the morph
-            fun xi(i:Int)=a.d(10)+(width-a.d(20))*i/(n-1f)
-            morphPath.moveTo(xi(0),ys[0])
-            for(i in 1 until n-1){val mx=(xi(i)+xi(i+1))/2;val my=(ys[i]+ys[i+1])/2;morphPath.quadTo(xi(i),ys[i],mx,my)}
-            morphPath.lineTo(xi(n-1),ys[n-1])
-            morphArea.set(morphPath);morphArea.lineTo(width-a.d(10).toFloat(),bottom+a.d(2));morphArea.lineTo(a.d(10).toFloat(),bottom+a.d(2));morphArea.close();curve=morphPath;fill=morphArea}
-        // the light under the curve fades out at both ends instead of stopping at a hard vertical edge
-        val gp0=GLOW_PAD;val fl=c.saveLayer(-gp0,-gp0,width+gp0,height+gp0,null)
-        p.style=Paint.Style.FILL;p.shader=LinearGradient(0f,top,0f,bottom,(c1 and 0xffffff) or ((if(a.light)0x30 else 0x47) shl 24),c1 and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(fill,p)
-        run{val e=a.d(34).toFloat();val wd=width.toFloat();p.shader=LinearGradient(0f,0f,wd,0f,intArrayOf(0,Color.BLACK,Color.BLACK,0),floatArrayOf(0f,(e/wd).coerceAtMost(.3f),1f-(e/wd).coerceAtMost(.3f),1f),Shader.TileMode.CLAMP)
-            p.xfermode=PorterDuffXfermode(PorterDuff.Mode.DST_IN);p.alpha=255;c.drawRect(-gp0,-gp0,wd+gp0,height+gp0,p);p.xfermode=null;p.shader=null}
-        c.restoreToCount(fl)
-        if(false&&morph>=1f&&glowFade>0f)glow()?.let{g->p.shader=null;p.alpha=255;glowPaint.alpha=(0xe0*glowFade).toInt();glowPaint.isDither=true;c.drawBitmap(g,null,RectF(-gp0,-gp0,width+gp0,height+gp0),glowPaint)}
-        p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND
-        val grad=LinearGradient(0f,0f,width.toFloat(),0f,c1,c2,Shader.TileMode.CLAMP)
-        p.shader=grad;p.alpha=255;p.strokeWidth=3*d;c.drawPath(curve,p);p.shader=null;p.style=Paint.Style.FILL
-        c.restore()
-        // day labels; the open one sits in a light pill
-        tp.textAlign=Paint.Align.CENTER;tp.textSize=11*a.resources.displayMetrics.scaledDensity
-        val newAlpha=if(morph<1f)((morph-.35f)/.65f).coerceIn(0f,1f) else 1f
-        if(morph<1f){val k=(1f-morph/.45f).coerceIn(0f,1f);if(k>0f)for(i in oldLabels.indices){if(i>=oldLabelShown.size||!oldLabelShown[i])continue
-            tp.typeface=PolkaFonts.sans(if(i==oldLabels.lastIndex)600 else 400);tp.color=if(i==oldLabels.lastIndex)a.fg else a.muted;tp.alpha=(255*k).toInt();c.drawText(oldLabels[i],oldXs[i],height-7*d,tp)};tp.alpha=255}
-        for(i in values.indices){val on=i==tipIndex&&tipShow>0f;val last=i==values.lastIndex
-            if(!on&&!labelShown(i,values.size))continue
-            val x=xOf(i);val y=height-7*d
-            if(on){val w=tp.measureText(labels[i])+12*d;val k=tipShow.coerceIn(0f,1f);p.color=if(a.light)0xff161617.toInt() else 0xfff2f2f2.toInt();p.alpha=(255*k).toInt();c.drawRoundRect(x-w/2,y-13*d,x+w/2,y+5*d,6*d,6*d,p);p.alpha=255}
-            val base=if(last)a.fg else a.muted;val onInk=if(a.light)Color.WHITE else 0xff111111.toInt()
-            tp.typeface=PolkaFonts.sans(if(on||last)600 else 400);tp.color=if(on)androidx.core.graphics.ColorUtils.blendARGB(base,onInk,tipShow.coerceIn(0f,1f)) else base
-            tp.alpha=(255*newAlpha).toInt();c.drawText(labels[i],x,y,tp);tp.alpha=255}
-        drawTip(c)}
-    private fun drawTip(c:Canvas){val i=tipIndex;if(i<0||tipShow<=0.001f||i>=pts.size)return;val d=a.d(1).toFloat();val k=tipShow.coerceIn(0f,1.15f);val alpha=(255*k.coerceAtMost(1f)).toInt()
-        val y=pts[i].y;val x=tipX
-        // the vertical guide from the point down to the axis, and the point itself
-        p.color=if(a.light)0xff161617.toInt() else 0xfff2f2f2.toInt();p.alpha=alpha;c.drawRect(x-.75f*d,y,x+.75f*d,bottom+2*d,p)
-        p.color=Color.WHITE;p.alpha=alpha;c.drawCircle(x,y,6*d*k.coerceAtMost(1f),p);p.style=Paint.Style.STROKE;p.strokeWidth=3*d;p.color=c2;p.alpha=alpha;c.drawCircle(x,y,6*d*k.coerceAtMost(1f),p);p.style=Paint.Style.FILL
-        val text=tips[i];tp.textSize=12.5f*a.resources.displayMetrics.scaledDensity;tp.typeface=PolkaFonts.sans(600);tp.textAlign=Paint.Align.CENTER
-        val tw=tp.measureText(text)+a.d(20);val th=a.d(26).toFloat()
-        val l=(x-tw/2).coerceIn(0f,width-tw);val top=(y-th-a.d(10)).coerceAtLeast(0f);val r=RectF(l,top,l+tw,top+th)
-        c.save();c.translate(0f,(1f-k.coerceAtMost(1f))*a.d(8));val sc=.82f+.18f*k;c.scale(sc,sc,x.coerceIn(r.left,r.right),r.bottom)
-        p.color=if(a.light)0xff161617.toInt() else 0xfff2f2f2.toInt();p.alpha=alpha;c.drawRoundRect(r,th/2,th/2,p)
-        tp.color=if(a.light)Color.WHITE else 0xff111111.toInt();tp.alpha=alpha;c.drawText(text,r.centerX(),r.centerY()-(tp.ascent()+tp.descent())/2,tp)
-        c.restore();tp.alpha=255;p.alpha=255}
-}
-
-/** Speed on a cool blue bar: a faint tick marks the average (~200 words a minute), a glowing knob marks you. */
-internal class SpeedBar(private val a:MainActivity,private val fraction:Float?,private val average:Float,private val motion:Boolean):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var k=1f /* shown at rest: the page entrance is a simple fade */
-    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(k<1f){val sp=Spring.of(.22,720.0);ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=StatsEntrance.wait()+80;interpolator=sp.interpolator;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}}
-    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Скорость",pt0)}}
-    private fun draw0(c:Canvas){val d=a.d(1).toFloat();val cy=height/2f;val h=8*d;val pad=9*d
-        p.shader=LinearGradient(pad,0f,width-pad,0f,if(a.light)intArrayOf(0xffcce2ef.toInt(),0xff7bb7da.toInt(),0xff008bc2.toInt()) else intArrayOf(0xff18364a.toInt(),0xff1b6a95.toInt(),0xff61c3f9.toInt()),floatArrayOf(0f,.55f,1f),Shader.TileMode.CLAMP)
-        c.drawRoundRect(pad,cy-h/2,width-pad,cy+h/2,h/2,h/2,p);p.shader=null
-        val ax=pad+(width-2*pad)*average;p.color=if(a.light)0x66000000 else 0x8cffffff.toInt();c.drawRoundRect(ax-d,cy-9*d,ax+d,cy+9*d,d,d,p)
-        val f=fraction?:return;val x=pad+(width-2*pad)*f*k
-        p.color=if(a.light)0x402e97ca else 0x405abdf2;c.drawCircle(x,cy,12*d,p);p.color=Color.WHITE;c.drawCircle(x,cy,8*d,p)
-        if(a.light){p.style=Paint.Style.STROKE;p.strokeWidth=1.5f*d;p.color=0x33000000;c.drawCircle(x,cy,8*d,p);p.style=Paint.Style.FILL}}
-}
-
-
-/** Small "Все ›" pill used on the books card. */
-internal fun MainActivity.softPill(label:String,click:()->Unit):TextView=text(label,12.5f,fg,true).apply{
-    setPadding(d(12),d(6),d(12),d(6));background=android.graphics.drawable.GradientDrawable().apply{setColor(if(light)0x12000000 else 0x24ffffff);cornerRadius=d(14).toFloat()}
-    isClickable=true;setOnClickListener{click()};press(this)}
-
 /** The streak flame (approved look): the classic three-layer flame with a warm halo, a richer outer gradient, light
  *  from the core, soft glows between layers and depth at the foot. It never moves itself — only tiny sparks rise from
  *  its tips, drift and fade. Without a streak it is grey and still; with reduced motion there are no sparks. */
@@ -288,7 +75,7 @@ internal class StreakFlameView(private val a:MainActivity,private val active:Boo
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(active&&motion&&clock==null)clock=ValueAnimator.ofFloat(0f,1000f).apply{duration=1_000_000L;interpolator=null;repeatCount=ValueAnimator.INFINITE;addUpdateListener{time=it.animatedValue as Float;invalidate()};start()}}
     override fun onDetachedFromWindow(){clock?.cancel();clock=null;super.onDetachedFromWindow()}
     private fun lin(y0:Float,y1:Float,colors:IntArray,stops:FloatArray)=LinearGradient(0f,y0,0f,y1,colors,stops,Shader.TileMode.CLAMP)
-    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Огонь",pt0)}}
+    override fun onDraw(c:Canvas){draw0(c)}
     private fun draw0(c:Canvas){if(width<1||height<1)return
         val s=minOf(width/150f,height/185f);c.save();c.translate(width/2f-60*s,height-165*s);c.scale(s,s)
         p.reset();p.isAntiAlias=true;p.color=Color.WHITE
@@ -328,20 +115,12 @@ internal class CountNumber(private val a:MainActivity,private val n:Int,private 
     init{contentDescription="$n$unit";importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES}
     override fun onMeasure(w:Int,h:Int){val fm=pn.fontMetrics;setMeasuredDimension(ceil(pn.measureText("$n")+pu.measureText(unit)).toInt()+a.d(2),ceil(fm.descent-fm.ascent).toInt())}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(started||shown>=n)return;started=true
-        ValueAnimator.ofInt(0,n).apply{startDelay=StatsEntrance.wait()+delay;duration=720;interpolator=android.view.animation.PathInterpolator(.3f,.3f,.6f,.8f)
+        ValueAnimator.ofInt(0,n).apply{startDelay=delay;duration=720;interpolator=android.view.animation.PathInterpolator(.3f,.3f,.6f,.8f)
             addUpdateListener{val v=it.animatedValue as Int;if(v!=shown){shown=v;invalidate()}};start()}}
-    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Цифры",pt0)}}
+    override fun onDraw(c:Canvas){draw0(c)}
     private fun draw0(c:Canvas){val base=-pn.fontMetrics.ascent;val s="$shown";val full=pn.measureText("$n")
         // the number grows towards the words (right-aligned in the final number's width), the words never move
         c.drawText(s,full-pn.measureText(s),base,pn);c.drawText(unit,full,base,pu)}
-}
-
-/** The statistics entrance: the cards first glide in with everything at rest; only once they have settled do the
- *  numbers count, the line draw, the flames light and the road fill. Views ask how long is left until then. */
-internal object StatsEntrance{
-    var settleAt=0L
-    /** Milliseconds until the cards have settled (0 outside the entrance). */
-    fun wait():Long=max(0L,settleAt-android.os.SystemClock.uptimeMillis())
 }
 
 /** Soft light, made by Skia (native and fast enough for the first frame, so nothing appears late). */

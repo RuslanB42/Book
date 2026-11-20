@@ -34,7 +34,6 @@ internal class DetailReveal(private val a:MainActivity):FrameLayout(a){
   clock=ValueAnimator.ofFloat(0f,1f).apply{this.duration=duration;interpolator=curve;addUpdateListener{sample(it.animatedValue as Float)};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(animation:Animator){complete()}});start()}
  }
  internal fun sample(value:Float){progress=value.coerceIn(0f,1f);shown=(start+(target-start)*progress).roundToInt();body.alpha=if(crossfade)(progress/.2f).coerceIn(0f,1f) else if(dissolve)((progress-.22f)/.58f).coerceIn(0f,1f)else 1f;onProgress?.invoke(progress);body.translationY=if(dissolve)a.d(6)*(1-progress)else 0f;requestLayout();invalidate()}
- internal fun freeze(){stop()}
  /** Moves only the visible height (content untouched) and reports eased progress; the height then stays held for the next change. */
  fun animateHeight(to:Int,duration:Long,curve:android.animation.TimeInterpolator,frame:(Float)->Unit,end:()->Unit){
   stop();old?.recycle();old=null;val from=height;crossfade=false;dissolve=false;body.alpha=1f;body.translationY=0f;clipChildren=false;softClip=true

@@ -19,7 +19,7 @@ internal object ReadingQueue {
 internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):LinearLayout(a) {
  val readingBooks=ReadingQueue.books(all)
  // The book on the visible card is the likeliest next open: get its text ready in the background.
- private val warm=(readingBooks.firstOrNull{it.str("id")==a.continueBookId}?:readingBooks.firstOrNull())?.also{a.prefetchContent(it)}
+ init{(readingBooks.firstOrNull{it.str("id")==a.continueBookId}?:readingBooks.firstOrNull())?.let{a.prefetchContent(it)}}
  private val signature=readingBooks.joinToString{it.toString()}
  private val light=a.light
  private val fontScale=resources.configuration.fontScale
@@ -171,14 +171,8 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   cards.forEachIndexed{i,c->if(c.width<=0)return@forEachIndexed;val h=holders[i];val k=kotlin.math.abs((h.left-anchor)/stride).coerceAtMost(1f)
    c.getLocationInWindow(cAt);val s=h.scaleX;val l=(cAt[0]-gAt[0]).toFloat();val t=(cAt[1]-gAt[1]).toFloat()
    rects.add(RectF(l,t,l+c.width*s,t+c.height*s));colors.add(tints[i]);strengths.add((1f-k)*(1f-k))}
-  cards.firstOrNull{it.width>0}?.let{glow.baseW=it.width;glow.baseH=it.height}
+  cards.firstOrNull{it.width>0}?.let{glow.baseW=it.width}
   glow.set(rects,colors,strengths,light)}
- private fun blend(p:Int,q:Int,t:Float):Int{
-  val r=(Color.red(p)*(1-t)+Color.red(q)*t).roundToInt()
-  val g=(Color.green(p)*(1-t)+Color.green(q)*t).roundToInt()
-  val b=(Color.blue(p)*(1-t)+Color.blue(q)*t).roundToInt()
-  return Color.rgb(r,g,b)
- }
 }
 
 /** Approved «ореол по периметру, ещё мягче»: a soft light in the cover's colour all round each card (stronger the
@@ -189,10 +183,7 @@ internal class AmbientGlow(private val a:MainActivity):View(a){
  private val halos=mutableListOf<Halo>()
  private var light=false
  private val p=Paint(Paint.FILTER_BITMAP_FLAG)
- private var near:Bitmap?=null;private var far:Bitmap?=null;private var maskKey=""
- private val pad get()=a.d(110).toFloat()
  private val clip=Path()
- private val dst=RectF()
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
  /** Cards in this view's coordinates (already scaled), their light colours and how much each one glows (0..1). */
  fun set(rects:List<RectF>,colors:List<Int>,strengths:List<Float>,l:Boolean){light=l
@@ -220,7 +211,7 @@ internal class AmbientGlow(private val a:MainActivity):View(a){
    if(!clip.isEmpty)c.clipOutPath(clip)
    light(c,hl);c.restore()}}
  /** The unscaled card size the masks are baked for. */
- var baseW=1;var baseH=1
+ var baseW=1
 }
 
 /** The card's height comes from its text (at least 128dp), never from the cover: the taller cover hangs out above. */
@@ -228,7 +219,6 @@ internal class RisingCoverCard(private val a:MainActivity):FrameLayout(a){
  var words:View?=null
  var cover:View?=null
  var floor=a.d(128)
- private fun reduced()=a.prefs.str("motion")=="reduced"
  // (no press effect on the card: it does nothing on a touch; only its buttons answer)
  override fun onMeasure(w:Int,h:Int){val text=words;var hh=floor
   if(text!=null){text.measure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(w),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));hh=maxOf(hh,text.measuredHeight)}
@@ -249,5 +239,4 @@ internal class HeroProgress(private val a:MainActivity,private val fraction:Floa
   val g=a.d(12).toFloat();p.shader=RadialGradient(x-r,cy,g,intArrayOf(ink or (0x40 shl 24),ink),null,Shader.TileMode.CLAMP);c.drawCircle(x-r,cy,g,p)
   p.shader=null;p.color=a.fg;c.drawRoundRect(0f,cy-r,x,cy+r,r,r,p)}
 }
-
 

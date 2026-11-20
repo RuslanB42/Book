@@ -8,9 +8,7 @@ import android.widget.FrameLayout
 
 /** Values copied from the final CSS / WAAPI rules, not the overridden early styles. */
 object MotionSpec {
-    const val TAB=420L; const val SHELF=460L; const val SHEET=500L; const val SCRIM=400L
-    const val QUOTE_CARD=420L; const val QUOTE_GHOST=190L; const val QUOTE_HEADER=280L
-    const val INDICATOR=320L; const val SEGMENT=300L; const val CHAPTER=540L
+    const val SHELF=460L
     val ease=PathInterpolator(.25f,.1f,.25f,1f)
     val settle=PathInterpolator(.22f,1f,.36f,1f)
 }

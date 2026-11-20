@@ -108,11 +108,10 @@ internal class BookGlowView(private val a:MainActivity,private val cover:CoverVi
   return RectF(cx-w/2,cy-h/2,cx+w/2,cy+h/2)
  }
  private var raster:Bitmap?=null
- private var key="";private var pending="";private var generation=0
+ private var key="";private var generation=0
  private val waiters=mutableListOf<()->Unit>()
  private var preparing=false
  private var attemptedKey:String?=null
- internal var rasterBuilds=0;private set
  internal val ready get()=raster!=null
  init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;cover.artworkChanged={refresh()}}
  fun refresh(){if(isAttachedToWindow)prepare{};invalidate()}
@@ -123,7 +122,7 @@ internal class BookGlowView(private val a:MainActivity,private val cover:CoverVi
   var resolved=false
   fun complete(result:Bitmap?,wanted:String){
    if(resolved||token!=generation)return
-   resolved=true;preparing=false;pending=""
+   resolved=true;preparing=false
    if(result!=null){raster=result;key=wanted}
    val callbacks=waiters.toList();waiters.clear();invalidate();callbacks.forEach{it()}
   }
@@ -133,7 +132,6 @@ internal class BookGlowView(private val a:MainActivity,private val cover:CoverVi
    if(!resolved&&token==generation){
     val wanted=cover.glowKey();val hit=BookGlowRaster.cached(wanted)
     if(hit!=null)complete(hit,wanted) else {
-     pending=wanted;rasterBuilds++
      BookGlowRaster.prepare(cover.glowArtwork()){result->
       if(result!=null)BookGlowRaster.store(wanted,result)
       if(!resolved&&token==generation)complete(result,wanted)
@@ -150,6 +148,6 @@ internal class BookGlowView(private val a:MainActivity,private val cover:CoverVi
   paint.alpha=((if(a.light)185 else 210)*inkOpacity/255f).toInt()
   c.drawBitmap(bitmap,null,rasterBounds(),paint)
  }
- override fun onDetachedFromWindow(){generation++;pending="";key="";preparing=false;attemptedKey=null;waiters.clear();raster=null;cover.artworkChanged=null;super.onDetachedFromWindow()}
+ override fun onDetachedFromWindow(){generation++;key="";preparing=false;attemptedKey=null;waiters.clear();raster=null;cover.artworkChanged=null;super.onDetachedFromWindow()}
  override fun onAttachedToWindow(){super.onAttachedToWindow();cover.artworkChanged={refresh()};prepare{};invalidate()}
 }

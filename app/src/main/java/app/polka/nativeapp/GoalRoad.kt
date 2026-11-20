@@ -4,10 +4,7 @@ import android.animation.ValueAnimator
 import android.content.ClipData
 import android.content.Intent
 import android.graphics.*
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
-import android.os.Bundle
-import android.text.TextUtils
 import android.view.*
 import android.view.animation.PathInterpolator
 import android.widget.*
@@ -15,24 +12,9 @@ import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import org.json.JSONObject
 import java.io.File
-import java.time.LocalDate
 import kotlin.math.*
 
 // ───────────────────────── shared bits ─────────────────────────
-
-internal fun goalGreen(a:MainActivity)=if(a.light)0xff009a5c.toInt() else 0xff37c080.toInt()
-internal fun goalGreen2(a:MainActivity)=if(a.light)0xff54b581.toInt() else 0xff7bdca6.toInt()
-
-/** «ещё 5 — примерно 3 в месяц», «цель достигнута», «не хватило 2 книг». */
-internal fun goalPace(year:Int,today:LocalDate,done:Int,target:Int):String{val left=target-done
-    return when{target<=0->if(year>=today.year)"цель не задана, Настройки → «Чтение»" else ""
-        left<=0->"цель достигнута"
-        year==today.year->{val per=left.toDouble()/(13-today.monthValue);"ещё $left, "+(if(per<1)"меньше книги в месяц" else "примерно ${per.roundToInt()} в месяц")}
-        year<today.year->"не хватило ${MainActivity.countBooks(left)}"
-        else->"ещё $left"}}
-
-/** «из 12 книг», «из 21 книги». */
-internal fun ofBooks(n:Int)="$n "+if(n%10==1&&n%100!=11)"книги" else "книг"
 
 internal fun daysWord(n:Int)="$n "+if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
 
@@ -52,10 +34,7 @@ internal class Glyph(private val a:MainActivity,private val kind:String,var ink:
         p.color=ink;p.strokeWidth=1.7f;c.drawPath(path,p);c.restore()}
 }
 
-
 // ───────────────────────── year menu on the card ─────────────────────────
-
-
 
 // ───────────────────────── full-screen road ─────────────────────────
 
@@ -76,7 +55,6 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
     private lateinit var scroll:ScrollView
     private lateinit var roadHost:FrameLayout
     private lateinit var page:LinearLayout
-    private var column:RoadColumn?=null
     private var share:FrameLayout?=null
     private var closing=false
     private val insets=android.graphics.Rect()
@@ -202,7 +180,6 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
             a.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="image/png";putExtra(Intent.EXTRA_STREAM,uri);clipData=ClipData.newUri(a.contentResolver,"Мой год в книгах",uri);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)},"Поделиться"))}}
 }
 
-
 /** Five plain stars, filled yellow up to the rating. */
 internal class StarRow(private val a:MainActivity,var rating:Int,private val sizeDp:Float,private val gapDp:Float=2f):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
@@ -219,196 +196,5 @@ internal class StarRow(private val a:MainActivity,var rating:Int,private val siz
             p.style=Paint.Style.FILL;p.pathEffect=CornerPathEffect(size*.08f);c.drawPath(path,p);p.pathEffect=null}}
 }
 
-
-/** A small cover for the card's road. The picture is scaled down in halves to its exact pixel size first (one big
- *  jump from a high-resolution cover leaves jagged, shimmering detail), then drawn with rounded corners. */
-internal class MiniCover(private val a:MainActivity,private val book:JSONObject):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG);private var small:Bitmap?=null;private var source:Bitmap?=null;private var asked=false
-    private val art by lazy{CoverView(a,JSONObject())};private val clip=Path();private val r=RectF()
-    init{outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,2.5f*a.resources.displayMetrics.density)}}}
-    override fun onDraw(c:Canvas){val pt0=StatsProbe.t();try{draw0(c)}finally{StatsProbe.add("Обложки цели",pt0)}}
-    private fun draw0(c:Canvas){if(width==0)return;r.set(0f,0f,width.toFloat(),height.toFloat());val rad=2.5f*a.resources.displayMetrics.density
-        c.save();clip.reset();clip.addRoundRect(r,rad,rad,Path.Direction.CW);c.clipPath(clip)
-        val bmp=a.cover(book)
-        if(bmp==null&&book.optJSONObject("cover")!=null){if(!asked){asked=true;a.requestCover(book){if(it!=null)invalidate()}};c.drawColor(if(a.light)0xffe6e4df.toInt() else 0xff2a2a2d.toInt())}
-        else if(bmp==null)art.drawCover(c,r,book,null)
-        else{if(source!==bmp||small==null||small!!.width!=width){source=bmp;small=try{fit(bmp,width,height)}catch(e:Throwable){null}}
-            val s=small;if(s!=null)c.drawBitmap(s,null,r,p) else art.drawCover(c,r,book,bmp)}
-        c.restore()}
-    private fun fit(src:Bitmap,w:Int,h:Int):Bitmap{
-        // crop to the cover's shape, then halve until close, then one last filtered step
-        val sc=max(w.toFloat()/src.width,h.toFloat()/src.height);val cw=(w/sc).roundToInt().coerceAtMost(src.width);val ch=(h/sc).roundToInt().coerceAtMost(src.height)
-        var cur=Bitmap.createBitmap(src,(src.width-cw)/2,(src.height-ch)/2,cw,ch)
-        while(cur.width>w*2&&cur.height>h*2){val nx=Bitmap.createScaledBitmap(cur,cur.width/2,cur.height/2,true);if(cur!==src)cur.recycle();cur=nx}
-        val out=Bitmap.createScaledBitmap(cur,w,h,true);if(cur!==src&&cur!==out)cur.recycle();return out}
-    override fun onDetachedFromWindow(){super.onDetachedFromWindow();small?.recycle();small=null}
-}
-
-
-/** The long winding road of the year: one milestone per book of the goal, big covers alternating sides. */
-internal class RoadColumn(private val a:MainActivity,private val books:List<YearBook>,private val goal:Int,private val year:Int,private val today:LocalDate,private val motion:Boolean):FrameLayout(a){
-    private val d=a.d(1).toFloat()
-    private val slots=if(goal>0)max(goal,books.size) else books.size
-    /** A big goal (over 20 books) keeps only the books already read on the road; the way still ahead is one long
-     *  stretch to the flag instead of dozens of empty places. */
-    private val geo=if(slots>20)books.size else slots
-    private val top=d*70
-    private val pts=ArrayList<PointF>()
-    private val road=Path();private val walked=Path();private var walkedEnd=0f
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val tp=Paint(Paint.ANTI_ALIAS_FLAG)
-    private val items=ArrayList<View>();private val slotViews=ArrayList<View>()
-    private val startLabel=a.text("Старт · 1 января",12f,a.muted).apply{gravity=Gravity.CENTER}
-    private val finish=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
-    private var reach=0f;private var intro=if(motion)0f else 1f
-    private var glow:Bitmap?=null;private var glowAlpha=0f;private var glowGen=0
-    private val part=Path();private val walkMeasure=PathMeasure();private var walkLen=0f;private val glowPaint=Paint(Paint.FILTER_BITMAP_FLAG)
-    private val revealed=HashSet<View>()
-    init{setWillNotDraw(false);clipChildren=false
-        books.forEachIndexed{i,b->val v=item(i,b);items.add(v);addView(v);if(motion){v.alpha=0f;v.translationY=d*18;v.translationX=if(i%2==0)d*28 else -d*28} else revealed.add(v)}
-        
-        addView(startLabel)
-        if(goal>0){finish.addView(a.text("Финиш — ${MainActivity.countBooks(goal)}",26f,a.fg,true,serif=true).apply{gravity=Gravity.CENTER})
-            val pace=goalPace(year,today,books.size,goal);if(pace.isNotEmpty()){a.space(finish,6);finish.addView(a.text(pace,12.5f,a.muted).apply{gravity=Gravity.CENTER})}}
-        else if(books.isEmpty())finish.addView(a.text("Пока ни одной книги за $year — дочитанные появятся здесь.",13f,a.muted).apply{gravity=Gravity.CENTER})
-        addView(finish)
-        if(motion)ValueAnimator.ofFloat(0f,1f).apply{startDelay=320;duration=900L+min(books.size,8)*140L;interpolator=PathInterpolator(.45f,0f,.2f,1f);addUpdateListener{intro=it.animatedValue as Float;invalidate()};start()}}
-    /** One book: the cover stands on its milestone at the edge, the details sit beside it towards the middle. */
-    private fun item(i:Int,yb:YearBook):View{val right=i%2==0
-        val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false}
-        val cover=CoverView(a,yb.book,a.cover(yb.book)).apply{softShadow=true;hiRes=true;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-        val g=if(right)Gravity.END else Gravity.START
-        val t=a.column().apply{gravity=g}
-        fun add(v:TextView,top:Int=0){v.gravity=g;t.addView(v,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(top)})}
-        add(a.text(yb.book.str("title"),19f,a.fg,true,serif=true).apply{maxLines=3;ellipsize=TextUtils.TruncateAt.END})
-        val author=MainActivity.authors(yb.book);if(author.isNotBlank())add(a.text(author,12.5f,a.muted).apply{maxLines=2;ellipsize=TextUtils.TruncateAt.END},4)
-        fun f(dt:LocalDate)="${dt.dayOfMonth} ${YearRoad.MONTHS_SHORT[dt.monthValue-1]}"+if(dt.year!=year)" ${dt.year}" else ""
-        add(a.text(if(yb.start==yb.end)f(yb.end) else "${f(yb.start)} — ${f(yb.end)}",12.5f,a.fg),12)
-        add(a.text("за "+daysWord((java.time.temporal.ChronoUnit.DAYS.between(yb.start,yb.end)+1).toInt().coerceAtLeast(1)),12f,if(a.light)0xff9a9aa0.toInt() else 0xff74747a.toInt()),3)
-        val r=yb.book.optInt("rating")
-        val rate=StarRow(a,r,15f,3f)
-        t.addView(rate,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10);gravity=g})
-        val pad=0
-        val coverLp=LinearLayout.LayoutParams(a.d(96),a.d(144))
-        if(right){row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{rightMargin=a.d(16)+pad});row.addView(cover,coverLp)}
-        else{row.addView(cover,coverLp);row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=a.d(16)+pad})}
-        row.tag=right
-        row.contentDescription="${i+1}-я книга: ${yb.book.str("title")}, ${f(yb.start)} — ${f(yb.end)}"+if(r in 1..5)", оценка $r из 5" else ""
-        return row}
-    private var step=d*230;private var first=d*170;private var tallestH=d*144
-    override fun onMeasure(w:Int,h:Int){val W=MeasureSpec.getSize(w)
-        val side=MeasureSpec.makeMeasureSpec(W-a.d(32),MeasureSpec.EXACTLY);val free=MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED)
-        items.forEach{it.measure(side,free)};slotViews.forEach{it.measure(MeasureSpec.makeMeasureSpec(a.d(64),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(a.d(96),MeasureSpec.EXACTLY))}
-        startLabel.measure(MeasureSpec.makeMeasureSpec(W,MeasureSpec.EXACTLY),free);finish.measure(side,free)
-        // every book gets enough room so neighbours never touch, however long the title is
-        val tallest=(items.maxOfOrNull{it.measuredHeight}?:a.d(144)).toFloat()
-        tallestH=tallest;step=max(d*260,tallest+d*140);first=max(d*170,tallest/2+d*120)
-        setMeasuredDimension(W,(finishY()+d*120).toInt())}
-    private fun finishY()=(if(geo>0)milestoneY(geo) else top)+(if(geo in 1..books.size)tallestH/2+(if(geo<slots)d*320 else d*140) else if(geo==0&&slots>0)d*320 else d*120)
-    /** Read books get room for their cover and details; the places still ahead come closer together. */
-    private fun milestoneY(k:Int):Float{val n=books.size;return if(k<=n||n==0)top+first+(k-1)*step else top+first+(n-1)*step+tallestH/2+(k-n)*d*130}
-    override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){val W=w.toFloat()
-        pts.clear();pts.add(PointF(W/2,top))
-        // milestones sit under the middle of the covers, which stand at the screen edges
-        for(k in 1..geo)pts.add(PointF(if(k%2==1)W-d*64 else d*64,milestoneY(k)))
-        pts.add(PointF(W/2,finishY()))
-        road.reset()
-        val lens=FloatArray(pts.size);var total=0f;val pm=PathMeasure()
-        // the road runs straight down under each cover and only swings across in the free space between two books,
-        // so it never passes under a title, the dates or the stars
-        fun half(k:Int)=if(k in 1..books.size)items[k-1].measuredHeight/2f+d*12 else 0f
-        for(k in 1 until pts.size){val a0=pts[k-1];val b=pts[k];val seg=Path();seg.moveTo(a0.x,a0.y)
-            val y0=a0.y+half(k-1);val y1=b.y-half(k)
-            if(k==1)road.moveTo(a0.x,a0.y)
-            fun line(x:Float,y:Float){seg.lineTo(x,y);road.lineTo(x,y)}
-            fun curve(x1:Float,y1c:Float,x2:Float,y2c:Float,x:Float,y:Float){seg.cubicTo(x1,y1c,x2,y2c,x,y);road.cubicTo(x1,y1c,x2,y2c,x,y)}
-            if(y1-y0>d*40){if(y0>a0.y)line(a0.x,y0);val bend=(y1-y0)*.5f;curve(a0.x,y0+bend,b.x,y1-bend,b.x,y1);if(b.y>y1)line(b.x,b.y)}
-            else{val bend=(b.y-a0.y)*.55f;curve(a0.x,a0.y+bend,b.x,b.y-bend,b.x,b.y)}
-            pm.setPath(seg,false);total+=pm.length;lens[k]=total}
-        walked.reset();pm.setPath(road,false);val n=min(books.size,geo);if(n>0)pm.getSegment(0f,lens[n],walked,true)
-        walkedEnd=if(n>0)pts[n].y else top
-        walkMeasure.setPath(walked,false);walkLen=walkMeasure.length
-        // the soft glow under the walked road is blurred off the main thread and fades in when ready
-        glow?.recycle();glow=null;glowAlpha=0f;val gen=++glowGen
-        if(!a.light&&n>0){val path=Path(walked);var out:Bitmap?=null
-            a.work({out=Glow.blurred(w,h,4,d*6f){c,p->p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*16;p.color=0xff37c080.toInt();c.drawPath(path,p)}}){val g=out
-                if(g==null)return@work
-                if(gen!=glowGen||!isAttachedToWindow){g.recycle();return@work}
-                glow=g;if(!motion){glowAlpha=1f;invalidate()} else ValueAnimator.ofFloat(0f,1f).apply{duration=500;addUpdateListener{glowAlpha=it.animatedValue as Float;invalidate()};start()}}}}
-    override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){if(pts.isEmpty())return;val W=r-l
-        items.forEachIndexed{i,v->val y=pts[i+1].y;val x=a.d(16);val tp=(y-v.measuredHeight/2f).roundToInt();v.layout(x,tp,x+v.measuredWidth,tp+v.measuredHeight)}
-        slotViews.forEachIndexed{j,v->val k=books.size+1+j;val x=(pts[k].x-d*32).roundToInt();val y=(pts[k].y-d*48).roundToInt();v.layout(x,y,x+v.measuredWidth,y+v.measuredHeight)}
-        val s=pts[0];startLabel.layout(0,(s.y-d*34).roundToInt(),W,(s.y-d*34).roundToInt()+startLabel.measuredHeight)
-        val e=pts.last();val fy=(e.y+d*18).roundToInt();finish.layout(a.d(16),fy,a.d(16)+finish.measuredWidth,fy+finish.measuredHeight)}
-    /** Scroll position changed: draw the walked road down to three quarters of the screen and bring in what is visible. */
-    fun viewport(scrollY:Int,height:Int){reach=scrollY+height*.78f;invalidate()
-        val limit=scrollY+height-d*40;var n=0
-        (items+slotViews).forEach{v->if(v in revealed||v.top>limit)return@forEach;revealed.add(v);val delay=60L+n++*110L
-            if(v in items){v.animate().alpha(1f).translationX(0f).translationY(0f).setStartDelay(delay).setDuration(700).setInterpolator(glide).start()}
-            else v.animate().alpha(1f).setStartDelay(delay).setDuration(600).setInterpolator(glide).start()}}
-    private val glide=PathInterpolator(.16f,1f,.3f,1f)
-    override fun onDraw(c:Canvas){if(pts.isEmpty())return;val W=width.toFloat()
-        val green=goalGreen(a);val green2=goalGreen2(a)
-        p.reset();p.isAntiAlias=true;p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND
-        p.color=if(a.light)0x0d000000 else 0x0fffffff;p.strokeWidth=d*26;c.drawPath(road,p)
-        p.strokeCap=Paint.Cap.BUTT;p.strokeWidth=d*1.6f;p.color=if(a.light)0x38000000 else 0x38ffffff;p.pathEffect=DashPathEffect(floatArrayOf(d*6,d*9),0f);c.drawPath(road,p);p.pathEffect=null
-        // the walked part, revealed down to where the reader has scrolled (the road only ever goes down)
-        // the walked part draws itself along its length once (a round head, no hard edges); then its glow fades in
-        if(!walked.isEmpty){if(intro>=1f)part.set(walked) else{part.reset();walkMeasure.getSegment(0f,walkLen*intro,part,true)}
-            val ga=glowAlpha*((intro-.8f)/.2f).coerceIn(0f,1f)
-            if(ga>0f)glow?.let{g->glowPaint.alpha=(0x70*ga).toInt();c.drawBitmap(g,null,RectF(0f,0f,W,height.toFloat()),glowPaint)}
-            p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=d*7;p.color=Color.WHITE;p.shader=LinearGradient(0f,top,0f,walkedEnd,green,green2,Shader.TileMode.CLAMP);c.drawPath(part,p);p.shader=null}
-        p.style=Paint.Style.FILL
-        for(k in 1..geo){val q=pts[k];val done=k<=books.size;p.color=if(done)(if(a.light)green else Color.WHITE) else if(a.light)0x40000000 else 0x4dffffff;c.drawCircle(q.x,q.y,d*(if(done)5f else 3.5f),p)}
-        val s=pts[0];p.color=a.bg;c.drawCircle(s.x,s.y,d*9,p);p.style=Paint.Style.STROKE;p.strokeWidth=d*4;p.color=green;c.drawCircle(s.x,s.y,d*9,p);p.style=Paint.Style.FILL
-        if(goal>0){val e=pts.last();p.color=a.fg;c.drawRect(e.x-d*1.5f,e.y-d*44,e.x+d*1.5f,e.y,p)
-            c.drawPath(Path().apply{moveTo(e.x+d*1.5f,e.y-d*44);lineTo(e.x+d*27,e.y-d*36);lineTo(e.x+d*1.5f,e.y-d*27);close()},p)}}
-    override fun onDetachedFromWindow(){super.onDetachedFromWindow();glowGen++;glow?.recycle();glow=null}
-}
-
-
 // ───────────────────────── the share picture ─────────────────────────
 
-/** A 1080×1920 story picture: «Мой год в книгах», the year, «N из M книг», the covers with their medals, «Полка». */
-internal object GoalPoster{
-    fun render(a:MainActivity,list:List<YearBook>,goal:Int,year:Int,done:(Bitmap)->Unit){
-        // wait (briefly) for covers that are not decoded yet
-        val missing=list.filter{it.book.optJSONObject("cover")!=null&&a.cover(it.book)==null}
-        if(missing.isEmpty()){done(draw(a,list,goal,year));return}
-        var left=missing.size;var finished=false
-        val h=android.os.Handler(android.os.Looper.getMainLooper())
-        fun go(){if(finished)return;finished=true;done(draw(a,list,goal,year))}
-        missing.forEach{yb->a.requestCover(yb.book){left--;if(left<=0)h.post{go()}}}
-        h.postDelayed({go()},1500)}
-    private fun draw(a:MainActivity,list:List<YearBook>,goal:Int,year:Int):Bitmap{
-        val W=1080f;val H=1920f;val bmp=Bitmap.createBitmap(1080,1920,Bitmap.Config.ARGB_8888);val c=Canvas(bmp)
-        val p=Paint(Paint.ANTI_ALIAS_FLAG)
-        c.drawColor(0xff141417.toInt())
-        p.shader=RadialGradient(W*.82f,0f,W*.95f,intArrayOf(0x592fd38a,0x002fd38a),null,Shader.TileMode.CLAMP);c.drawRect(0f,0f,W,H,p)
-        p.shader=RadialGradient(0f,H,W*.9f,intArrayOf(0x407c5cff,0x007c5cff),null,Shader.TileMode.CLAMP);c.drawRect(0f,0f,W,H,p);p.shader=null
-        val tp=Paint(Paint.ANTI_ALIAS_FLAG)
-        tp.typeface=PolkaFonts.sans(600);tp.textSize=40f;tp.letterSpacing=.1f;tp.color=0xff7bdca6.toInt();c.drawText("МОЙ ГОД В КНИГАХ",88f,180f,tp)
-        tp.letterSpacing=0f;tp.typeface=PolkaFonts.display(700);tp.textSize=220f;tp.color=0xfff3f3f5.toInt();c.drawText("$year",80f,400f,tp)
-        tp.typeface=PolkaFonts.sans(400);tp.textSize=52f;tp.color=0xffcfcfd4.toInt()
-        c.drawText((if(goal>0)"${list.size} из ${ofBooks(goal)}" else MainActivity.countBooks(list.size))+if(goal>0&&list.size>=goal)" · цель достигнута" else "",88f,490f,tp)
-        // the covers: as large as fit between the heading and the footer
-        val gx=88f;val gw=W-2*gx;val gy=580f;val gh=1660f-gy;val gap=30f
-        var cols=3;var cell=0f;var rows=0
-        while(true){cell=(gw-(cols-1)*gap)/cols;rows=ceil(list.size/cols.toFloat()).toInt().coerceAtLeast(1);val rowH=cell*1.5f+cell*.15f+gap*1.6f;if(rows*rowH<=gh||cols>=7)break;cols++}
-        val rowH=cell*1.5f+cell*.15f+gap*1.6f;val fit=max(1,(gh/rowH).toInt())*cols
-        val shown=if(list.size>fit)list.take(fit-1) else list
-        val art=CoverView(a,JSONObject())
-        shown.forEachIndexed{i,yb->val x=gx+(i%cols)*(cell+gap);val y=gy+(i/cols)*rowH;val r=RectF(x,y,x+cell,y+cell*1.5f)
-            p.color=0x66000000;p.maskFilter=null;c.drawRoundRect(r.left+6,r.top+14,r.right-6,r.bottom+16,12f,12f,p)
-            art.drawCover(c,r,yb.book,a.cover(yb.book))
-            val st=cell*.15f;val gp=st*.2f;val rating=yb.book.optInt("rating");val sx=x+(cell-(st*5+gp*4))/2
-            for(k in 0 until 5){p.color=if(k<rating)0xffffc53d.toInt() else 0x2effffff;StarRow.drawStar(c,sx+k*(st+gp),r.bottom+gap*.5f,st,p)}}
-        if(list.size>fit){val i=fit-1;val x=gx+(i%cols)*(cell+gap);val y=gy+(i/cols)*rowH;val r=RectF(x,y,x+cell,y+cell*1.5f)
-            p.color=0x1affffff;c.drawRoundRect(r,14f,14f,p);tp.typeface=PolkaFonts.display(700);tp.textSize=cell*.32f;tp.color=0xfff3f3f5.toInt();tp.textAlign=Paint.Align.CENTER
-            c.drawText("+${list.size-fit+1}",r.centerX(),r.centerY()-(tp.ascent()+tp.descent())/2,tp);tp.textAlign=Paint.Align.LEFT}
-        // footer: the favourite book and the app's name
-        val fav=list.firstOrNull{it.book.optInt("rating")==5}
-        tp.typeface=PolkaFonts.display(700);tp.textSize=56f;tp.color=0xfff3f3f5.toInt();tp.textAlign=Paint.Align.RIGHT;c.drawText("Glyph",W-88f,1820f,tp);tp.textAlign=Paint.Align.LEFT
-        if(fav!=null){tp.typeface=PolkaFonts.sans(400);tp.textSize=34f;tp.color=0xff9b9ba1.toInt()
-            val label=TextUtils.ellipsize("любимая: ${fav.book.str("title")}",android.text.TextPaint(tp),W-88f*2-260f,TextUtils.TruncateAt.END).toString();c.drawText(label,88f,1818f,tp)}
-        return bmp}
-}

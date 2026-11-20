@@ -52,7 +52,6 @@ internal fun MainActivity.quoteStack(b:JSONObject,qs:List<JSONObject>,onOpen:(()
     excerpt.addView(text(qs.first().str("text"),16f,(fg and 0x00ffffff) or 0xd9000000.toInt(),serif=true).apply{cssLeading(1.5f);maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=d(4)})
     card.addView(excerpt);return stack
 }
-private fun mix(a:Int,b:Int,t:Float)=Color.rgb((Color.red(a)*(1-t)+Color.red(b)*t).toInt(),(Color.green(a)*(1-t)+Color.green(b)*t).toInt(),(Color.blue(a)*(1-t)+Color.blue(b)*t).toInt())
 /** The quote's own colour (as chosen when it was saved). */
 internal fun quoteInk(q:JSONObject)=(0xff shl 24) or QuoteColors.rgb(q.optString("color").ifBlank{"amber"})
 /** Copy / delete drawn as line icons (two sheets with rounded corners; a bin with a lid and slots). */

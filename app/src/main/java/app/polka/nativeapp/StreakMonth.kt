@@ -16,7 +16,6 @@ import java.util.Locale
 internal class StreakMonth(private val a:MainActivity,private val model:ReadingStatistics,private val today:LocalDate,private val motion:Boolean):LinearLayout(a){
     private var month=YearMonth.from(today)
     private var open=false
-    var onToggle:((Boolean)->Unit)?=null
     private val title=a.text("",17f,a.fg,true)
     private val year=a.text("",13f,a.muted)
     private val grid=MonthGrid()
@@ -44,7 +43,7 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
     private fun go(dir:Int){val target=month.plusMonths(dir.toLong());if(target>YearMonth.from(today))return
         if(!motion){month=target;bind();return}
         grid.animate().cancel();grid.animate().alpha(0f).translationX(-dir*a.d(24).toFloat()).setDuration(130).withEndAction{month=target;bind();grid.translationX=dir*a.d(24).toFloat();grid.animate().alpha(1f).translationX(0f).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
-    fun toggle(){open=!open;anim?.cancel();onToggle?.invoke(open)
+    fun toggle(){open=!open;anim?.cancel();
         if(!motion){visibility=if(open)VISIBLE else GONE;grid.phase=if(open)1f else 0f;grid.invalidate();return}
         val lp=layoutParams as? MarginLayoutParams;val w=(parent as View).width-(parent as View).paddingLeft-(parent as View).paddingRight-(lp?.leftMargin?:0)-(lp?.rightMargin?:0)
         measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));val full=measuredHeight

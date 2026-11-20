@@ -99,12 +99,11 @@ internal class ReviewChip(private val a:MainActivity,val label:String,selected:B
  * and below the stars four quick marks and a short note open up. While nobody is typing, the review rests as a small
  * note: your words, the marks, the date and a pencil. Everything saves by itself.
  */
-internal class ReviewBlock(private val a:MainActivity,private val book:JSONObject,private val layoutMotion:()->Unit):LinearLayout(a){
+internal class ReviewBlock(private val a:MainActivity,private val book:JSONObject):LinearLayout(a){
     private enum class Mode{EMPTY,EDIT,NOTE}
     private var mode=Mode.EMPTY
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private val ru=Locale("ru")
-    private val head=FrameLayout(a)
     private val verdict=a.text("",15f,StarRow.starYellow(a),true).apply{gravity=Gravity.CENTER}
     private var stars=makeStars(book.optInt("rating"))
     private val starsBox=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}

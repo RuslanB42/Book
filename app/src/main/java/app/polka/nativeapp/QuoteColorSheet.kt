@@ -8,7 +8,6 @@ import android.view.*
 import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.*
-import org.json.JSONArray
 
 /**
  * «Свой цвет» (approved Б + saving): a square of saturation/brightness, a rainbow of hues, the picked colour with its

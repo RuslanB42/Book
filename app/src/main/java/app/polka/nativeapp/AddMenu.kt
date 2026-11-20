@@ -15,8 +15,6 @@ internal class AddMenu(private val a:MainActivity){
     private val pills=ArrayList<View>()
     private var closing=false
     private val out=PathInterpolator(.2f,0f,0f,1f)
-    /** Ease-out with a whisper of settle — smooth, no wobble. */
-    private val rise=PathInterpolator(.22f,1.18f,.36f,1f)
 
     fun open(){
         val fab=a.addButton?:return;a.addMenu=this

@@ -242,68 +242,6 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
 }
     }
 
-    /** Matte glass shelf with screws, light to draw: every cover has a tiny pre-blurred copy (made once, cached);
-     *  the pane paints those copies where the covers are — a handful of small bitmaps per frame, no snapshots of
-     *  the row, no offscreen effects. Then a frosted tint, a soft top sheen, the rim and four screws. */
-    private inner class Glass:View(a),ShelfGlassLink.Pane{
-        val pad=a.d(22)
-        private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        private val frostPaint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-        fun refresh()=invalidate()
-        fun scrolled()=invalidate()
-        override fun onTouchEvent(e:MotionEvent)=false
-        // ── a cover flying to / from the book card passes behind this glass (see ShelfGlassLink) ──
-        override val home:View get()=this@ShelfRow
-        override fun paneRectOnScreen():RectF?{if(!isAttachedToWindow)return null;val at=IntArray(2);getLocationOnScreen(at);return RectF(at[0]+pad.toFloat(),at[1]+pad.toFloat(),at[0]+width-pad.toFloat(),at[1]+height-pad.toFloat())}
-        override fun ghostMoved()=invalidate()
-        // Static parts, once per size/theme and shared by every shelf: soft shadow outside; tint, sheen, rim, screws over.
-        private var under:Bitmap?=null;private var over:Bitmap?=null;private var staticKey=""
-        private val clip=Path()
-        private fun statics(){val light=a.light;val key="$width:$height:$light";val radius=a.d(9).toFloat()
-            val g=RectF(pad.toFloat(),pad.toFloat(),(width-pad).toFloat(),(height-pad).toFloat())
-            if(key!=staticKey||under==null){clip.reset();clip.addRoundRect(g,radius,radius,Path.Direction.CW)
-                val m=ColorMatrix().apply{setSaturation(1.12f)};val k=if(light)1.05f else .82f;m.postConcat(ColorMatrix(floatArrayOf(k,0f,0f,0f,0f,0f,k,0f,0f,0f,0f,0f,k,0f,0f,0f,0f,0f,1f,0f)));frostPaint.colorFilter=ColorMatrixColorFilter(m)}
-            if(key==staticKey&&under!=null)return;staticKey=key
-            shared[key]?.let{(u,o,_)->under=u;over=o;return}
-            val density=resources.displayMetrics.density
-            under=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888).also{bmp->val c=Canvas(bmp)
-                p.color=if(light)0xfff2f2f0.toInt() else 0xff161617.toInt();p.setShadowLayer(if(light)18*density else 22*density,0f,if(light)5*density else 7*density,if(light)0x14000000 else 0x40000000);c.drawRoundRect(g,radius,radius,p);p.clearShadowLayer()}
-            over=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888).also{bmp->val c=Canvas(bmp)
-                c.save();c.clipPath(clip)
-                p.color=if(light)0x66ffffff else 0x0effffff;c.drawRect(g,p)
-                p.shader=LinearGradient(0f,g.top,0f,g.top+8*density,if(light)0x4dffffff else 0x1fffffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRect(g.left,g.top,g.right,g.top+8*density,p);p.shader=null
-                p.style=Paint.Style.STROKE;p.strokeWidth=density;p.color=if(light)0xccffffff.toInt() else 0x21ffffff
-                val e=(radius-density*.5f).coerceAtLeast(0f);c.drawRoundRect(RectF(g.left+density*.5f,g.top+density*.5f,g.right-density*.5f,g.bottom-density*.5f),e,e,p);p.style=Paint.Style.FILL;c.restore()
-                val size=9*density;val inset=density+radius*.55f+size/2
-                listOf(g.left+inset to g.top+inset,g.right-inset to g.top+inset,g.left+inset to g.bottom-inset,g.right-inset to g.bottom-inset).forEachIndexed{i,(x,y)->ShelfScrew.draw(c,x,y,size,density,ShelfScrew.turns[i])}}
-            shared[key]=Triple(under!!,over!!,null)
-        }
-        private val dst=RectF()
-        /** A cover's frosted copy over [l,t,r,b] (glass coordinates); the copy carries its own soft margin. */
-        private fun frost(c:Canvas,cover:CoverView,l:Float,t:Float,r:Float,b:Float){val f=FrostCache.get(cover)?:return
-            val mx=(r-l)*FrostCache.MARGIN;val my=(b-t)*FrostCache.MARGIN_Y;dst.set(l-mx,t-my,r+mx,b+my);c.drawBitmap(f,null,dst,frostPaint)}
-        override fun onDraw(c:Canvas){if(width<1||height<1)return;statics()
-            under?.let{c.drawBitmap(it,0f,0f,null)}
-            c.save();c.clipPath(clip)
-            val ox=(scroller.left+row.left-scroller.scrollX-left).toFloat();val oy=(scroller.top+row.top-top).toFloat()
-            val gl=pad.toFloat();val gr=(width-pad).toFloat()
-            for(i in 0 until row.childCount){val box=row.getChildAt(i) as? ViewGroup?:continue;val cover=box.getChildAt(0) as? CoverView?:continue
-                if(box.visibility!=View.VISIBLE||cover.visibility!=View.VISIBLE)continue
-                // the box's press scale (about its centre) is followed too
-                val cx=ox+box.left+box.width/2f;val cy=oy+box.top+box.height/2f;val hw=box.width*box.scaleX/2f;val hh=box.height*box.scaleY/2f
-                if(cx+hw*1.6f<gl||cx-hw*1.6f>gr)continue
-                frost(c,cover,cx-hw,cy-hh,cx+hw,cy+hh)}
-            if(ShelfGlassLink.pane===this&&ShelfGlassLink.front<1f){ShelfGlassLink.ghost?.let{g->val at=IntArray(2);getLocationOnScreen(at);val r=ShelfGlassLink.ghostRect
-                frostPaint.alpha=((1f-ShelfGlassLink.front)*255).toInt();frost(c,g,r.left-at[0],r.top-at[1],r.right-at[0],r.bottom-at[1]);frostPaint.alpha=255}}
-            c.restore()
-            over?.let{c.drawBitmap(it,0f,0f,null)}
-        }
-        override fun onAttachedToWindow(){super.onAttachedToWindow();ShelfGlassLink.register(this)}
-        override fun onDetachedFromWindow(){ShelfGlassLink.unregister(this);under=null;over=null;staticKey="";super.onDetachedFromWindow()}
-    }
-
-
 }
 
 /** The page rides on the keyboard: frame by frame, as far as needed for [target] to stay above it, by moving the
@@ -342,7 +280,6 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
     /** Opened from the «+» menu outside the edit mode: the place first unfolds at the end of the shelves (with the
      *  shelves' own spacing), then turns into the field; once the name is in (or dropped), it folds away again. */
     private var fresh=false
-    private fun page()=parent as LinearLayout
     /** Folds the place away after a «+»-menu shelf (outside the edit mode). */
     private fun fold(after:Long){if(!fresh)return;fresh=false;if(a.shelvesEditing)return
         val lp=layoutParams as? LinearLayout.LayoutParams?:return;val m0=lp.topMargin
@@ -401,7 +338,7 @@ internal fun MainActivity.shelfRows(){
         if(taken){Notice.short(this,Notice.Kind.SHELF,"Полка «$name» уже есть");false}
         else{prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct()));savePreferences();editor.grow(own(name,emptyList()));true}}
     page.addView(slot,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(if(rows.isEmpty()||!shelvesEditing)0 else 10)});if(!shelvesEditing)slot.visibility=View.GONE
-    editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor;shelfSlot=slot;addShelfRow={name->editor.grow(own(name,emptyList()),true)};removeShelfRow={name->editor.deleteKey("s:$name"){removeShelfQuietly(name)}}
+    editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor;addShelfRow={name->editor.grow(own(name,emptyList()),true)};removeShelfRow={name->editor.deleteKey("s:$name"){removeShelfQuietly(name)}}
     if(shelvesEditing){rows.forEach{it.setEditing(true,false)};slot.setEditing(true,false)}
 }
 
@@ -510,10 +447,6 @@ internal object ShelfShade{
     fun gleam(a:MainActivity,w:Int,h:Int,light:Boolean):Bitmap=cache.getOrPut("g$w:$h:$light"){val d=a.d(1).toFloat()
         SoftShade.bake(w,h,0xffffff,if(light).55f else .17f){x,y->val k=(y-d*1.4f)/(d*1.7f);val m=(x-w*.38f)/(w*.42f)
             kotlin.math.exp(-k*k)*(.3f+.7f*kotlin.math.exp(-m*m))*step(0f,d*26,x)*(1-step(w-d*26,w.toFloat(),x))}}
-    /** The wall above the shelf, darker toward it. */
-    fun wall(a:MainActivity,w:Int,light:Boolean):Bitmap=cache.getOrPut("w$w:$light"){val d=a.d(1).toFloat();val hh=d*70;val l=d*10;val r=w-d*10
-        // a gentle darkening that starts from nothing (no visible top edge) with wide soft ends
-        SoftShade.bake(w,a.d(70),if(light)0x3c3228 else 0,if(light).08f else .22f){x,y->val t=step(0f,hh,y);t*t*step(l-d*6,l+d*64,x)*(1-step(r-d*64,r+d*6,x))}}
     /** Fine matte stone grain, tiled. */
     private val stones=HashMap<Boolean,BitmapShader>()
     fun stone(light:Boolean):BitmapShader=stones.getOrPut(light){val n=96;val px=IntArray(n*n);val rnd=java.util.Random(11)

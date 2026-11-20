@@ -20,11 +20,10 @@ internal class SwipeBack(private val a:MainActivity){
     private var settle:ValueAnimator?=null
     /** What the swipe takes away: the settings, the profile (statistics), or the page inside a shelf / a book's quotes.
      *  An overlay slides off and uncovers the page under it, as in other apps. */
-    private fun target():View?{if(a.reader!=null||a.addMenu!=null||a.goalRoad!=null||a.tierList!=null||a.readBooksOverlay!=null)return null
+    private fun target():View?{if(a.reader!=null||a.addMenu!=null||a.goalRoad!=null||a.tierList!=null)return null
         a.settingsPage?.let{return it};a.profileOverlay?.let{return it}
         return if(!a.shelvesEditing&&(a.shelf!=null||a.auto!=null))a.scroll else null}
     private var view:View?=null
-    private fun available()=target()!=null
     /** Whether something under the finger scrolls sideways (a row of covers, a carousel): the swipe is its. */
     private fun sideways(v:View,x:Int,y:Int):Boolean{if(!v.isShown)return false;val r=android.graphics.Rect();if(!v.getGlobalVisibleRect(r)||!r.contains(x,y))return false
         if(v.canScrollHorizontally(-1)||v.canScrollHorizontally(1))return true

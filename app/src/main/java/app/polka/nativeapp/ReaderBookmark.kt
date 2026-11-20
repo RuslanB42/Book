@@ -3,7 +3,6 @@ package app.polka.nativeapp
 import android.animation.ValueAnimator
 import android.graphics.*
 import android.view.View
-import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
 import kotlin.math.min

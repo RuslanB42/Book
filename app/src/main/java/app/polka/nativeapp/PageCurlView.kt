@@ -15,11 +15,7 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     /** Where on the page edge the hand grabbed (overlay y). Near a corner the fold is diagonal; mid-edge it is almost straight. */
     private var anchorY=sourceBitmap.height.toFloat()
     private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val lift=Paint(Paint.ANTI_ALIAS_FLAG)
     private val dp=context.resources.displayMetrics.density
-    private val frontPath=Path();private val backPath=Path();private val shadowPath=Path()
-    private val reflection=Matrix();private val matrixValues=FloatArray(9)
-    private val xs=FloatArray(8);private val ys=FloatArray(8);private var points=0
     private val mesh=FloatArray((COLS+1)*(ROWS+1)*2)
     private val backMesh=FloatArray((COLS+1)*(ROWS+1)*2)
     private val frontColors=IntArray((COLS+1)*(ROWS+1))
@@ -31,7 +27,6 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     companion object{const val COLS=36;const val ROWS=48;val WHITE=Color.WHITE}
     private val shaderMatrix=Matrix()
     private val shaderValues=FloatArray(9)
-    private val cast=LinearGradient(0f,0f,1f,0f,intArrayOf(0x00000000,0x3b000000,0x65000000),floatArrayOf(0f,.72f,1f),Shader.TileMode.CLAMP)
     private fun shade(shader:Shader,from:Float,to:Float):Shader {
         val length=to-from
         shaderValues[0]=nx*length;shaderValues[1]=-ny;shaderValues[2]=mx+nx*from
@@ -55,7 +50,6 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
                 c.drawBitmap(targetBitmap,x,0f,paint)}
             else->c.drawBitmap(if(p<.5f)sourceBitmap else targetBitmap,0f,0f,paint)}}
     private var mx=0f;private var my=0f;private var nx=1f;private var ny=0f
-    private var band=1f
     override fun onDetachedFromWindow(){inkBack?.recycle();inkBack=null;super.onDetachedFromWindow()}
     init { importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false;setWillNotDraw(false) }
     /** The raw grab point is kept and snapped once per pose, so animation frames that reuse it never drift it further into the corner. */
@@ -63,17 +57,6 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
     fun pose(p:Float,y:Float,anchor:Float=grabY){progress=p.coerceIn(0f,1f);touchY=y.coerceIn(0f,sourceBitmap.height.toFloat());grabY=anchor;anchorY=snapAnchor(anchor);invalidate()}
     /** Within ~30% of a corner the grab point is pulled into that corner (the classic diagonal curl); elsewhere it stays where the finger landed. */
     private fun snapAnchor(y:Float):Float{val h=sourceBitmap.height.toFloat();if(h<=0f)return y;val v=y.coerceIn(0f,h);val rel=v/h;val k=(1f-min(rel,1f-rel)/.3f).coerceIn(0f,1f);return v+((if(rel<.5f)0f else h)-v)*k*k}
-    private fun polygon(turned:Boolean,path:Path,reflect:Boolean=false){
-        // Sutherland-Hodgman clipping against the fold's half plane.
-        points=0;val w=sourceBitmap.width.toFloat();val h=sourceBitmap.height.toFloat()
-        var ax=0f;var ay=h;var da=(ax-mx)*nx+(ay-my)*ny
-        for(i in 0..3){val bx=if(i==1||i==2)w else 0f;val by=if(i>=2)h else 0f;val db=(bx-mx)*nx+(by-my)*ny
-            val insideA=if(turned)da>=0 else da<=0;val insideB=if(turned)db>=0 else db<=0
-            if(insideA!=insideB){val t=da/(da-db);xs[points]=ax+(bx-ax)*t;ys[points++]=ay+(by-ay)*t}
-            if(insideB){xs[points]=bx;ys[points++]=by};ax=bx;ay=by;da=db
-        }
-        path.rewind();for(i in 0 until points){var x=xs[i];var y=ys[i];if(reflect){val d=(x-mx)*nx+(y-my)*ny;x-=2*d*nx;y-=2*d*ny};if(i==0)path.moveTo(x,y)else path.lineTo(x,y)};path.close()
-    }
     override fun onDraw(c:Canvas){
         super.onDraw(c);val w=sourceBitmap.width.toFloat();val h=sourceBitmap.height.toFloat();if(w<=0||h<=0)return
         val p=progress;paint.reset();paint.isAntiAlias=true;paint.isFilterBitmap=true
@@ -90,7 +73,6 @@ internal class PageCurlView(context:Context,val sourceBitmap:Bitmap,val targetBi
         val ty=cy+(touchY-cy)*sin(Math.PI*fold).toFloat()*.52f
         mx=(w+tx)*.5f;my=(cy+ty)*.5f
         val len=hypot(w-tx,cy-ty).coerceAtLeast(.01f);nx=(w-tx)/len;ny=(cy-ty)/len
-        band=(w*.075f*sin(Math.PI*fold).toFloat()).coerceAtLeast(w*.008f)
         val r=(w*.11f*sin(Math.PI*fold).toFloat().pow(.6f)).coerceAtMost(len*.45f)
         val half=(Math.PI*r/2).toFloat()
         val ax=mx-nx*half;val ay=my-ny*half
