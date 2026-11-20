@@ -28,8 +28,10 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
     private var anim:ValueAnimator?=null
     init{
         orientation=VERTICAL;visibility=GONE;clipChildren=false
+        // approved «месяц в своём лотке»: the month lies on a darker tray inside the card, no lines
+        background=a.shape(if(a.light)0xfff2f2f4.toInt() else 0xff1c1c1e.toInt(),20);setPadding(a.d(14),a.d(16),a.d(14),a.d(14))
         // month name on the left, small round arrows on the right; no separating lines
-        val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(20),0,a.d(8))}
+        val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,0,0,a.d(8))}
         val name=a.line().apply{gravity=Gravity.BOTTOM};name.addView(title);name.addView(year.apply{setPadding(a.d(6),0,0,a.d(1))})
         bar.addView(name,LayoutParams(0,-2,1f));bar.addView(prev,LayoutParams(a.d(36),a.d(36)));bar.addView(next,LayoutParams(a.d(36),a.d(36)).apply{marginStart=a.d(2);marginEnd=-a.d(10)})
         addView(bar,LayoutParams(-1,-2))
@@ -44,7 +46,7 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
         grid.animate().cancel();grid.animate().alpha(0f).translationX(-dir*a.d(24).toFloat()).setDuration(130).withEndAction{month=target;bind();grid.translationX=dir*a.d(24).toFloat();grid.animate().alpha(1f).translationX(0f).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
     fun toggle(){open=!open;anim?.cancel();onToggle?.invoke(open)
         if(!motion){visibility=if(open)VISIBLE else GONE;grid.phase=if(open)1f else 0f;grid.invalidate();return}
-        val w=(parent as View).width-(parent as View).paddingLeft-(parent as View).paddingRight
+        val lp=layoutParams as? MarginLayoutParams;val w=(parent as View).width-(parent as View).paddingLeft-(parent as View).paddingRight-(lp?.leftMargin?:0)-(lp?.rightMargin?:0)
         measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));val full=measuredHeight
         val from=if(visibility==VISIBLE)height else 0;val to=if(open)full else 0
         visibility=VISIBLE;layoutParams=layoutParams.apply{height=from}

@@ -9,14 +9,21 @@ import androidx.core.graphics.PathParser
 
 /**
  * The streak freeze (approved «кубик льда, отражение по диагонали»): a rounded ice cube in light blues with a frozen
- * white flame inside; the light is one soft diagonal reflection over its upper-left half that fades toward the middle
- * and stops on a straight diagonal. An empty place for a freeze is a dashed outline whose rim fills as the next one
- * is earned.
+ * white snowflake inside; the light is one soft diagonal reflection over its upper-left half that fades toward the
+ * middle. An empty place is pale ice with a pale flake that fills from the bottom as the next one is earned.
  */
 internal object IceArt {
     /** The flame in a 40×48 box (the same shape as the streak's own flame). */
     val flame:Path by lazy{PathParser.createPathFromPathData("M20 46c-9.5 0-16-6.3-16-15.2 0-8.1 5.9-12.3 8.8-19.2.8 4.2 3.2 6.9 5.9 8.1C19.6 12 23 5.4 29.4 1c-1 7.4 2.9 11.8 5.9 16.2 2.4 3.4 3.9 7.1 3.9 12C39.2 39.4 31.8 46 20 46Z")}
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    /** The snowflake (approved): six arms with a V on each, all in one path so it is stroked once. */
+    fun flake(cx:Float,cy:Float,r:Float):Path{val path=Path()
+        for(k in 0 until 6){val a=Math.toRadians(k*60.0-90.0);val ex=cx+r*Math.cos(a).toFloat();val ey=cy+r*Math.sin(a).toFloat();path.moveTo(cx,cy);path.lineTo(ex,ey)
+            val bx=cx+r*.58f*Math.cos(a).toFloat();val by=cy+r*.58f*Math.sin(a).toFloat();val l=r*.36f
+            for(side in intArrayOf(-1,1)){val b=a+side*.75;path.moveTo(bx,by);path.lineTo(bx+l*Math.cos(b).toFloat(),by+l*Math.sin(b).toFloat())}}
+        return path}
+    private val flake26 by lazy{flake(13f,13f,6.2f)}
+    private fun strokeFlake(c:Canvas,color:Int,width:Float){p.shader=null;p.pathEffect=null;p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeJoin=Paint.Join.ROUND;p.strokeWidth=width;p.color=color;c.drawPath(flake26,p);p.style=Paint.Style.FILL}
     /** The cube in [box] (drawn in a 26-unit square inside it). */
     fun cube(c:Canvas,box:RectF){val s=box.width()/26f;c.save();c.translate(box.left,box.top);c.scale(s,s)
         val r=RectF(1.5f,1.5f,24.5f,24.5f)
@@ -27,22 +34,18 @@ internal object IceArt {
         p.shader=LinearGradient(1.5f,1.5f,24.5f,24.5f,intArrayOf(0x8cffffff.toInt(),0x1fffffff,0x00ffffff,0x00ffffff),floatArrayOf(0f,.5f,.5f,1f),Shader.TileMode.CLAMP)
         c.drawRect(r,p);c.restore();p.shader=null
         p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=0x66ffffff;c.drawRoundRect(r,7f,7f,p)
-        p.style=Paint.Style.FILL;p.color=0xd9ffffff.toInt();c.save();c.translate(7.2f,6.3f);c.scale(.29f,.29f);c.drawPath(flame,p);c.restore()
+        strokeFlake(c,Color.WHITE,1.6f)
         c.restore()}
-    /** An empty place for a freeze; [progress] (0..1) of its rim is lit — how close the next one is. */
+    /** An empty place for a freeze: pale ice with a pale flake. As the next one is earned ([progress] 0..1) the ice
+     *  rises from the bottom, and the flake turns white where it has been reached. */
     fun slot(c:Canvas,box:RectF,progress:Float,light:Boolean){val s=box.width()/26f;c.save();c.translate(box.left,box.top);c.scale(s,s)
-        // an empty place: the cube's shape in a faint ice tint, no outline; the next freeze fills it from the bottom
-        val r=RectF(2f,2f,24f,24f);val shape=Path().apply{addRoundRect(r,7f,7f,Path.Direction.CW)}
-        p.shader=null;p.pathEffect=null;p.style=Paint.Style.FILL
-        p.color=if(light)0x262b7fc0 else 0x2e5ab4f0;c.drawPath(shape,p)
-        if(progress>0f){c.save();c.clipRect(0f,24f-22f*progress.coerceIn(0f,1f),26f,26f);p.color=if(light)0x662b7fc0 else 0x665ab4f0;c.drawPath(shape,p);c.restore()}
-        // a snowflake in the middle, so the place reads as a freeze still to come
-        p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=1.3f;p.color=if(light)0x992b7fc0.toInt() else 0x998fd0fa.toInt()
-        for(k in 0 until 6){val ang=Math.toRadians(k*60.0-90.0);val cx=13f;val cy=13f;val ex=cx+5.6f*Math.cos(ang).toFloat();val ey=cy+5.6f*Math.sin(ang).toFloat()
-            c.drawLine(cx,cy,ex,ey,p)
-            val bx=cx+3.6f*Math.cos(ang).toFloat();val by=cy+3.6f*Math.sin(ang).toFloat()
-            for(side in intArrayOf(-1,1)){val a2=ang+side*Math.toRadians(42.0);c.drawLine(bx,by,bx+1.9f*Math.cos(a2).toFloat(),by+1.9f*Math.sin(a2).toFloat(),p)}}
-        p.style=Paint.Style.FILL
+        val r=RectF(2f,2f,24f,24f)
+        p.shader=null;p.pathEffect=null;p.style=Paint.Style.FILL;p.color=if(light)0x292b7fc0 else 0x295ab4f0;c.drawRoundRect(r,7f,7f,p)
+        strokeFlake(c,if(light)0x992b7fc0.toInt() else 0x8c8fd0fa.toInt(),1.5f)
+        val f=progress.coerceIn(0f,1f)
+        if(f>0f){c.save();c.clipRect(0f,24f-22f*f,26f,26f)
+            p.shader=LinearGradient(0f,0f,26f,26f,intArrayOf(0xffcfeaff.toInt(),0xff7cc4f4.toInt(),0xff3a8ad0.toInt()),floatArrayOf(0f,.5f,1f),Shader.TileMode.CLAMP);c.drawRoundRect(r,7f,7f,p);p.shader=null
+            strokeFlake(c,Color.WHITE,1.6f);c.restore()}
         c.restore()}
 }
 
@@ -83,8 +86,7 @@ internal fun MainActivity.freezeSheet(ledger:ReadingStatistics.Ledger){
     fact(lineIcon{c,p->c.drawRoundRect(3.5f,5f,20.5f,20f,3f,3f,p);c.drawLine(3.5f,9.5f,20.5f,9.5f,p);c.drawLine(8f,3.5f,8f,6.5f,p);c.drawLine(16f,3.5f,16f,6.5f,p)
         p.style=Paint.Style.FILL;for(i in 0..2)c.drawCircle(8f+i*4f,14.5f,1f,p)},"Новая за каждые 7 дней подряд",null)
     // a snowflake: three crossing strokes with small branches
-    fact(lineIcon{c,p->for(k in 0 until 3){c.save();c.rotate(k*60f,12f,12f)
-        c.drawLine(12f,3f,12f,21f,p);c.drawLine(9.6f,5f,12f,7.2f,p);c.drawLine(14.4f,5f,12f,7.2f,p);c.drawLine(9.6f,19f,12f,16.8f,p);c.drawLine(14.4f,19f,12f,16.8f,p);c.restore()}},"Можно хранить две",null)
+    fact(lineIcon{c,p->c.drawPath(IceArt.flake(12f,12f,8.6f),p)},"Можно хранить две",null)
     fact(lineIcon{c,p->c.drawCircle(12f,12f,8.5f,p);c.drawLine(12f,7.5f,12f,12f,p);c.drawLine(12f,12f,15f,14f,p)},"Следующая",if(ledger.freezes>=2)"обе на месте" else "через ${daysWord(ledger.toNext)}")
     box.addView(card,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(18)})
     dialog().setView(box).show()

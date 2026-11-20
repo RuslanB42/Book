@@ -210,7 +210,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         if(!met&&reading!=null)foot.addView(a.text("Читать",13.5f,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(16),0,a.d(16),0);background=a.shape(a.fg,18);isClickable=true;setOnClickListener{a.openBook(reading)};a.press(this)},LinearLayout.LayoutParams(-2,a.d(36)).apply{marginStart=a.d(10)})
         box.addView(foot,LinearLayout.LayoutParams(-1,-2))
         val month=StreakMonth(a,model,today,live)
-        box.addView(month,LinearLayout.LayoutParams(-1,-2))
+        box.addView(month,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18);leftMargin=-a.d(6);rightMargin=-a.d(6);bottomMargin=-a.d(6)})
         box.contentDescription="Серия чтения: $n ${daysWord(n)}, рекорд $best, заморозок ${ledger.freezes}"
         box.isClickable=true;box.setOnClickListener{month.toggle()};a.press(box)
         add(box)
