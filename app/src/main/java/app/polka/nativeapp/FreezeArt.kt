@@ -31,11 +31,11 @@ internal object IceArt {
         c.restore()}
     /** An empty place for a freeze; [progress] (0..1) of its rim is lit — how close the next one is. */
     fun slot(c:Canvas,box:RectF,progress:Float,light:Boolean){val s=box.width()/26f;c.save();c.translate(box.left,box.top);c.scale(s,s)
-        val r=RectF(2f,2f,24f,24f);val outline=Path().apply{addRoundRect(r,7f,7f,Path.Direction.CW)}
-        p.shader=null;p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=1.6f
-        p.color=if(light)0x662b7fc0 else 0x555ab4f0;p.pathEffect=DashPathEffect(floatArrayOf(3f,3f),0f);c.drawPath(outline,p);p.pathEffect=null
-        if(progress>0f){val pm=PathMeasure(outline,false);val part=Path();pm.getSegment(0f,pm.length*progress.coerceIn(0f,1f),part,true)
-            p.strokeWidth=1.8f;p.color=if(light)0xff2b7fc0.toInt() else 0xff7cc6f5.toInt();c.drawPath(part,p)}
+        // an empty place: the cube's shape in a faint ice tint, no outline; the next freeze fills it from the bottom
+        val r=RectF(2f,2f,24f,24f);val shape=Path().apply{addRoundRect(r,7f,7f,Path.Direction.CW)}
+        p.shader=null;p.pathEffect=null;p.style=Paint.Style.FILL
+        p.color=if(light)0x262b7fc0 else 0x2e5ab4f0;c.drawPath(shape,p)
+        if(progress>0f){c.save();c.clipRect(0f,24f-22f*progress.coerceIn(0f,1f),26f,26f);p.color=if(light)0x662b7fc0 else 0x665ab4f0;c.drawPath(shape,p);c.restore()}
         c.restore()}
 }
 

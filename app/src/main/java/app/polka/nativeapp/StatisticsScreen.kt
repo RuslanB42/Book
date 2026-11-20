@@ -172,9 +172,8 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
 
     private fun minutesAcc(n:Int)=if(n%100 in 11..14)"минут" else when(n%10){1->"минуту";2,3,4->"минуты";else->"минут"}
 
-    /** Streak (approved): the flame and the days in a row; under them the record; on the right the round button and the
-     *  freezes (tap — what they are); the week; and one line at the foot — today's minutes, or, when it matters, one
-     *  note: the streak can be brought back, a freeze kept it yesterday, or this evening it is at risk. */
+    /** Streak: the flame, the days in a row and the record, the freezes in the corner; the week as one strip of seven
+     *  segments (today's fills up); one plain line at the foot, with «Читать» while today still matters. */
     private fun streak(){
         val box=surface(0xfff9601f.toInt(),.14f,.62f,.75f).apply{clipToOutline=true}
         val ledger=model.ledger;val n=ledger.count;val best=bestStreak();val met=model.met(today);val goal=model.dailyGoal
@@ -185,48 +184,34 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         col.addView(bigCount(n," ${daysWord(n)} подряд",42f,.38f))
         space(col,4);col.addView(label(when{ledger.lost>0->"было ${ledger.lost}, рекорд $best ${daysWord(best)}";n>0||best>0->"рекорд $best ${daysWord(best)}";else->"серии пока нет"},12.5f))
         top.addView(col,LinearLayout.LayoutParams(0,-2,1f))
-        val side=a.column().apply{gravity=Gravity.END}
-        // the card opens into the month: the same round button as on «Цель на год», it turns over when open
-        val more=IconView(a,"chevdown",a.fg).apply{contentDescription="Показать месяц";background=a.shape(if(light)0x0d000000 else 0x12ffffff,17);setPadding(a.d(9),a.d(9),a.d(9),a.d(9))}
-        side.addView(more,LinearLayout.LayoutParams(a.d(34),a.d(34)).apply{gravity=Gravity.END})
-        val ice=a.freezeRow(ledger,24).apply{isClickable=true;contentDescription="Заморозки: ${ledger.freezes} из 2";setOnClickListener{a.freezeSheet(ledger)};a.press(this);setPadding(a.d(4),a.d(6),0,a.d(2))}
-        side.addView(ice,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10);gravity=Gravity.END})
-        top.addView(side,LinearLayout.LayoutParams(-2,-2).apply{gravity=Gravity.TOP})
-        box.addView(top);space(box,14)
+        // the freezes in the corner (approved: no arrow; the card itself opens the month)
+        val ice=a.freezeRow(ledger,24).apply{isClickable=true;contentDescription="Заморозки: ${ledger.freezes} из 2";setOnClickListener{a.freezeSheet(ledger)};a.press(this);setPadding(a.d(4),a.d(4),0,a.d(4))}
+        top.addView(ice,LinearLayout.LayoutParams(-2,-2).apply{gravity=Gravity.TOP})
+        box.addView(top);space(box,16)
+        // approved «неделя полосой»: seven segments, today's fills up with the minutes read
         val dates=(6 downTo 0).map{today.minusDays(it.toLong())}
         val todayFraction=(model.ms(today).toFloat()/(goal*60000L)).coerceIn(0f,1f)
-        val evening=java.time.LocalTime.now().hour>=18
-        val risk=evening&&!met&&n>0
-        val marks=IntArray(7){i->val d=dates[i];when(ledger.mark(d)){ReadingStatistics.Mark.MET,ReadingStatistics.Mark.REPAIRED->1;ReadingStatistics.Mark.FROZEN->2;ReadingStatistics.Mark.MISSED->3;else->if(model.met(d))1 else 0}}
-        box.addView(WeekFlames(a,dates.map{weekNames[it.dayOfWeek.value-1].lowercase()},marks,todayFraction,live,risk),LinearLayout.LayoutParams(-1,-2))
-        space(box,16)
+        val marks=IntArray(7){i->val d=dates[i];if(d==today)(if(met)1 else 4) else when(ledger.mark(d)){ReadingStatistics.Mark.MET,ReadingStatistics.Mark.REPAIRED->1;ReadingStatistics.Mark.FROZEN->2;else->if(model.met(d))1 else 3}}
+        box.addView(WeekStrip(a,dates.map{weekNames[it.dayOfWeek.value-1].lowercase()},marks,todayFraction,live),LinearLayout.LayoutParams(-1,a.d(34)))
+        space(box,14)
+        // one line at the foot, plain text, with «Читать» whenever reading today still matters
         val minutes=(model.ms(today)/60000L).toInt();val left=ceil(max(0L,goal*60000L-model.ms(today))/60000.0).toInt()
-        val warmA=if(light)0xffc87600.toInt() else 0xfff09c17.toInt();val warmB=if(light)0xffcf5604.toInt() else 0xfff97c3d.toInt()
-        fun note(bg:Int)=a.column().apply{background=a.shape(bg,16);setPadding(a.d(14),a.d(12),a.d(14),a.d(12))}
-        when{
-            ledger.lost>0->{val box2=note(if(light)0x0a000000 else 0x0bffffff);val want=goal*2;val got=min(want,(ledger.repairMs/60000L).toInt())
-                val r=a.line();r.addView(label("Вернуть серию ${ledger.lost} ${daysWord(ledger.lost).substringAfter(' ')}",14f,a.fg,true),LinearLayout.LayoutParams(0,-2,1f));r.addView(label("$got из $want мин",13f,a.fg));box2.addView(r)
-                box2.addView(label("сегодня — двойная норма",12.5f).apply{setPadding(0,a.d(3),0,0)});space(box2,10)
-                box2.addView(ProgressRail(a,animate,(got.toFloat()/want).coerceIn(0f,1f),warmA,warmB,"Вернуть серию: $got из $want минут"),LinearLayout.LayoutParams(-1,a.d(4)))
-                box.addView(box2,LinearLayout.LayoutParams(-1,-2))}
-            ledger.frozeYesterday&&!met->{val box2=a.line().apply{gravity=Gravity.CENTER_VERTICAL;background=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,if(light)intArrayOf(0x1f2b7fc0,0x0a2b7fc0) else intArrayOf(0x245ab4f0,0x0d5ab4f0)).apply{cornerRadius=a.d(16).toFloat()};setPadding(a.d(14),a.d(12),a.d(14),a.d(12))}
-                box2.addView(FreezeCell(a,true,0f),LinearLayout.LayoutParams(a.d(30),a.d(30)).apply{marginEnd=a.d(12)})
-                val t=a.column();t.addView(label("Вчера серию сохранила заморозка",14f,a.fg,true))
-                t.addView(label(when(ledger.freezes){0->"больше заморозок нет";1->"осталась ещё одна";else->"в запасе ещё две"},12.5f,if(light)0xff2b7fc0.toInt() else 0xff8fbfe0.toInt()).apply{setPadding(0,a.d(3),0,0)})
-                box2.addView(t,LinearLayout.LayoutParams(0,-2,1f));box.addView(box2,LinearLayout.LayoutParams(-1,-2))}
-            risk->{val box2=a.line().apply{gravity=Gravity.CENTER_VERTICAL;background=a.shape(if(light)0x1fe8640c else 0x1aff8a1e,16);setPadding(a.d(14),a.d(10),a.d(10),a.d(10))}
-                val t=a.column();t.addView(label("Ещё $left ${minutesAcc(left)} до цели",14f,a.fg,true))
-                t.addView(label(if(ledger.freezes>0)"если не успеете, выручит заморозка" else "чтобы серия продолжилась сегодня",12.5f,if(light)0xffb0601c.toInt() else 0xffc99a6c.toInt()).apply{setPadding(0,a.d(3),0,0)})
-                box2.addView(t,LinearLayout.LayoutParams(0,-2,1f))
-                val reading=a.books.filter{Library.status(it)=="reading"&&!it.optBoolean("noFile")}.maxByOrNull{it.optLong("openedAt")}
-                if(reading!=null)box2.addView(a.text("Читать",13.5f,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(16),0,a.d(16),0);background=a.shape(a.fg,18);isClickable=true;setOnClickListener{a.openBook(reading)};a.press(this)},LinearLayout.LayoutParams(-2,a.d(36)).apply{marginStart=a.d(10)})
-                box.addView(box2,LinearLayout.LayoutParams(-1,-2))}
-            else->{val row=a.line();row.addView(label("Сегодня",13f),LinearLayout.LayoutParams(0,-2,1f));row.addView(if(met)label("цель выполнена",13f,if(light)0xffcf5604.toInt() else 0xffffb066.toInt(),true) else label("${min(minutes,goal)} из $goal мин",13f,a.fg,true));box.addView(row);space(box,8)
-                box.addView(ProgressRail(a,animate,todayFraction,warmA,warmB,"Сегодня: ${min(minutes,goal)} из $goal минут"),LinearLayout.LayoutParams(-1,a.d(4)))}}
+        val evening=java.time.LocalTime.now().hour>=18
+        val (title,sub)=when{
+            ledger.lost>0->{val want=goal*2;val got=min(want,(ledger.repairMs/60000L).toInt());"Вернуть серию ${ledger.lost} ${daysWord(ledger.lost).substringAfter(' ')}" to "сегодня двойная норма, $got из $want мин"}
+            met->"Цель на сегодня выполнена" to null
+            ledger.frozeYesterday->"Вчера серию сохранила заморозка" to "сегодня ещё $left ${minutesAcc(left)}"
+            evening&&n>0->"Ещё $left ${minutesAcc(left)} до цели" to (if(ledger.freezes>0)"если не успеете, выручит заморозка" else "иначе серия прервётся")
+            else->"Сегодня ${min(minutes,goal)} из $goal мин" to null}
+        val foot=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(36)}
+        val words=a.column();words.addView(a.text(title,14f,a.fg,sub!=null||met));sub?.let{words.addView(label(it,12.5f).apply{setPadding(0,a.d(2),0,0)})}
+        foot.addView(words,LinearLayout.LayoutParams(0,-2,1f))
+        val reading=a.books.filter{Library.status(it)=="reading"&&!it.optBoolean("noFile")}.maxByOrNull{it.optLong("openedAt")}
+        if(!met&&reading!=null)foot.addView(a.text("Читать",13.5f,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(16),0,a.d(16),0);background=a.shape(a.fg,18);isClickable=true;setOnClickListener{a.openBook(reading)};a.press(this)},LinearLayout.LayoutParams(-2,a.d(36)).apply{marginStart=a.d(10)})
+        box.addView(foot,LinearLayout.LayoutParams(-1,-2))
         val month=StreakMonth(a,model,today,live)
         box.addView(month,LinearLayout.LayoutParams(-1,-2))
         box.contentDescription="Серия чтения: $n ${daysWord(n)}, рекорд $best, заморозок ${ledger.freezes}"
-        month.onToggle=month.onToggle.let{prev->{open:Boolean->prev?.invoke(open);more.contentDescription=if(open)"Скрыть месяц" else "Показать месяц";val to=if(open)180f else 0f;if(live){more.animate().rotation(to).setDuration(260).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}else{more.rotation=to};Unit}}
         box.isClickable=true;box.setOnClickListener{month.toggle()};a.press(box)
         add(box)
     }
@@ -271,33 +256,34 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         fun minutes(ms:Long)=(ms/60000.0).toFloat()
         val session=more.averageSession()
         bind={first->
-            val pts:List<EdgeLine.Point>;val labels:List<Pair<Int,String>>;val strong:Int;val total:Long;val avg:Float;val caption:String
+            val pts:List<EdgeLine.Point>;val labels:List<Pair<Int,String>>;val strong:Int;val total:Long;val avg:Float;val perPages:Int;val per:String
             when(period){
                 0->{val days=(6 downTo 0).map{today.minusDays(it.toLong())}
                     pts=days.map{d->val pg=(model.chars(d)/PAGE_CHARS).toInt();EdgeLine.Point(minutes(model.ms(d)),duration(model.ms(d))+if(pg>0)", $pg стр." else "",shortDate(d))}
                     labels=days.mapIndexed{i,d->i to weekNames[d.dayOfWeek.value-1].lowercase()};strong=6
-                    total=days.sumOf{model.ms(it)};avg=minutes(total)/7;val pages=(days.sumOf{model.chars(it)}/PAGE_CHARS/7).toInt()
-                    caption="в среднем ${duration(total/7)}"+(if(pages>0)" и $pages ${pagesWord(pages)}" else "")+" в день"}
+                    total=days.sumOf{model.ms(it)};avg=minutes(total)/7;perPages=(days.sumOf{model.chars(it)}/PAGE_CHARS/7).toInt();per="в день"}
                 1->{val days=(1..today.dayOfMonth).map{today.withDayOfMonth(it)}
                     pts=days.map{d->val pg=(model.chars(d)/PAGE_CHARS).toInt();EdgeLine.Point(minutes(model.ms(d)),duration(model.ms(d))+if(pg>0)", $pg стр." else "",shortDate(d))}
                     labels=days.mapIndexedNotNull{i,d->if(d.dayOfMonth%7==1)i to "${d.dayOfMonth}" else null};strong=-1
-                    total=model.total(0);avg=minutes(model.average(0));val pages=(days.sumOf{model.chars(it)}/PAGE_CHARS/days.size).toInt()
-                    caption="в среднем ${duration(model.average(0))}"+(if(pages>0)" и $pages ${pagesWord(pages)}" else "")+" в день"}
+                    total=model.total(0);avg=minutes(model.average(0));perPages=(days.sumOf{model.chars(it)}/PAGE_CHARS/days.size).toInt();per="в день"}
                 else->{val months=(1..today.monthValue).map{YearMonth.of(today.year,it)}
                     val ms=months.map{m->(1..m.lengthOfMonth()).sumOf{d->model.ms(m.atDay(d))}};val ch=months.map{m->(1..m.lengthOfMonth()).sumOf{d->model.chars(m.atDay(d))}}
                     pts=months.indices.map{i->val pg=(ch[i]/PAGE_CHARS).toInt();EdgeLine.Point(minutes(ms[i]),duration(ms[i])+if(pg>0)", $pg стр." else "",months[i].month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE,ru))}
                     labels=months.mapIndexed{i,m->i to m.month.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE,ru).trimEnd('.').take(3)};strong=months.size-1
-                    total=model.total(1);avg=ms.average().toFloat()/60000f;val pages=(ch.sum()/PAGE_CHARS/months.size).toInt()
-                    caption="в среднем ${duration((avg*60000).toLong())}"+(if(pages>0)" и $pages ${pagesWord(pages)}" else "")+" в месяц"}
+                    total=model.total(1);avg=ms.average().toFloat()/60000f;perPages=(ch.sum()/PAGE_CHARS/months.size).toInt();per="в месяц"}
             }
+            fun tile(row:LinearLayout,value:String,what:String){val t=a.column().apply{background=pill(quiet,14);setPadding(a.d(12),a.d(10),a.d(10),a.d(10))}
+                t.addView(a.text(value,18f,a.fg,true,serif=true).apply{maxLines=1});t.addView(label(what,11.5f).apply{maxLines=1;setPadding(0,a.d(3),0,0)})
+                row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{if(row.childCount>0)marginStart=a.d(8)})}
             fun fill(){left.removeAllViews()
                 left.addView(big(if(total>0)duration(total) else "0 мин",40f).apply{maxLines=1;isSingleLine=true})
-                space(left,4);left.addView(label(caption,12.5f))
-                session?.let{left.addView(label("обычно ${duration(it)} за один заход",12.5f))}}
+                // approved: the averages as three small tiles
+                val tiles=a.line();tile(tiles,duration((avg*60000).toLong()),per);if(perPages>0)tile(tiles,"$perPages стр.",per);session?.let{tile(tiles,duration(it),"за один заход")}
+                space(left,14);left.addView(tiles,LinearLayout.LayoutParams(-1,-2))}
             if(first||!live)fill()
             else{left.animate().cancel();left.animate().alpha(0f).translationY(-a.d(8).toFloat()).setDuration(150).setInterpolator(Ease.inCubic).withEndAction{fill();left.translationY=a.d(10).toFloat()
                 left.animate().alpha(1f).translationY(0f).setDuration(420).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
-            chart.set(pts,labels,strong,avg,"в среднем",true)
+            chart.set(pts,labels,strong,avg,"",true)
         }
         bind(true);floorChart(box,chart);add(box)
     }
@@ -310,8 +296,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val warm=if(light)0xffc87600.toInt() else 0xfff0a83a.toInt()
         val box=surface();box.addView(kicker("Вкус"))
         author?.let{au->space(box,14);val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-            val pile=FrameLayout(a);au.books.take(3).withIndex().reversed().forEach{(i,b)->pile.addView(MiniCover(a,b).apply{elevation=a.d(3).toFloat();alpha=if(i==0)1f else .85f},FrameLayout.LayoutParams(a.d(36),a.d(54)).apply{leftMargin=a.d(11)*i})}
-            row.addView(pile,LinearLayout.LayoutParams(a.d(36+11*(min(3,au.books.size)-1)),a.d(56)).apply{marginEnd=a.d(14)})
+            row.addView(AuthorMark(a,au.name),LinearLayout.LayoutParams(a.d(56),a.d(56)).apply{marginEnd=a.d(14)})
             val t=a.column();t.addView(label("Любимый автор",12.5f));t.addView(a.text(au.name,19f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(2),0,0)})
             val n=au.books.size;t.addView(label("$n ${booksWord(n)}"+if(au.ms>=3_600_000L)", ${(au.ms/3_600_000L)} ч чтения" else "",12.5f).apply{setPadding(0,a.d(2),0,0)})
             row.addView(t,LinearLayout.LayoutParams(0,-2,1f));box.addView(row)}
@@ -339,14 +324,15 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val fast=more.fastestBook();val sitting=more.longestSession();val day=more.bestDay()
         if(fast==null&&sitting==null&&day==null)return
         val box=surface();box.addView(kicker("Рекорды"))
-        fun row(lead:View,title:String,value:String,side:String){space(box,if(box.childCount==1)14 else 18)
-            val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL};r.addView(lead,LinearLayout.LayoutParams(a.d(34),a.d(50)).apply{marginEnd=a.d(14)})
+        fun row(lead:View,title:String,value:String,side:String){space(box,if(box.childCount==1)16 else 16)
+            val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL};r.addView(lead,LinearLayout.LayoutParams(a.d(44),a.d(44)).apply{marginEnd=a.d(14)})
             val t=a.column();t.addView(label(title,12.5f));t.addView(a.text(value,19f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)});r.addView(t,LinearLayout.LayoutParams(0,-2,1f))
             if(side.isNotBlank())r.addView(label(side,12.5f).apply{gravity=Gravity.END},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)});box.addView(r)}
-        fun tileOf(kind:String,c:Int)=FrameLayout(a).apply{background=pill((c and 0xffffff) or ((if(light)0x22 else 0x26) shl 24),11);addView(RecordIcon(a,kind,c),FrameLayout.LayoutParams(a.d(22),a.d(22),Gravity.CENTER))}
-        fast?.let{(b,days,ms)->row(MiniCover(a,b).apply{elevation=a.d(3).toFloat()},"Быстрее всего прочитана","«${b.str("title")}» за $days ${daysWordRu(days)}",if(ms>=3_600_000L)"${ms/3_600_000L} ч\nчтения" else if(ms>=60000)"${ms/60000} мин\nчтения" else "")}
-        sitting?.let{(ms,at)->row(tileOf("clock",violet),"Самая долгая сессия",duration(ms),at?.let{dayMonth(it)}?:"")}
-        day?.let{(pages,at)->row(tileOf("page",mint),"Больше всего за день","$pages ${pagesWord(pages)}",dayMonth(at))}
+        fun tileOf(kind:String,c:Int)=FrameLayout(a).apply{background=pill((c and 0xffffff) or ((if(light)0x22 else 0x26) shl 24),22);addView(RecordIcon(a,kind,c),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER))}
+        val orange=if(light)0xffe07a10.toInt() else 0xffff9a3c.toInt()
+        fast?.let{(b,days,ms)->row(tileOf("bolt",orange),"Быстрее всего прочитана","«${b.str("title")}» за $days ${daysWordRu(days)}",if(ms>=3_600_000L)"${ms/3_600_000L} ч\nчтения" else if(ms>=60000)"${ms/60000} мин\nчтения" else "")}
+        sitting?.let{(ms,at)->row(tileOf("hour",violet),"Самая долгая сессия",duration(ms),at?.let{dayMonth(it)}?:"")}
+        day?.let{(pages,at)->row(tileOf("pages",mint),"Больше всего за день","$pages ${pagesWord(pages)}",dayMonth(at))}
         box.contentDescription="Рекорды"
         add(box)
     }

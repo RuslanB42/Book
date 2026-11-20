@@ -116,9 +116,7 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(live&&!revealed){revealed=true;reveal=0f
         android.animation.ValueAnimator.ofFloat(0f,1f).apply{startDelay=200;duration=900;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{reveal=it.animatedValue as Float;invalidate()};start()}}
         else reveal=1f}
-    private val left get()=18f*dp
-    private val right get()=width-30f*dp
-    private fun x(i:Int)=if(points.size<=1)right else left+i*(right-left)/(points.size-1)
+    private fun x(i:Int)=width*(i+.5f)/max(1,points.size)
     private var lo=0f;private var hi=1f
     private fun y(v:Float):Float{val top=12f*dp;val bottom=height-26f*dp;return bottom-(v-lo)/max(.0001f,hi-lo)*(bottom-top)}
     override fun onDraw(c:Canvas){
@@ -136,7 +134,11 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
         c.drawPath(path,line);c.restore()
         // the average: a hairline and its word on the right, on the side away from the line
         avg?.let{v->val ay=y(v);hair.color=(a.fg and 0xffffff) or 0x29000000;c.drawLine(0f,ay,w,ay,hair)
-            text.color=muted;text.textAlign=Paint.Align.RIGHT;val above=!(ey<ay&&ay-ey<22f*dp);c.drawText(avgWord,w-18f*dp,if(above)ay-7f*dp else ay+15f*dp,text)}
+            if(avgWord.isNotBlank()){text.color=muted;text.textAlign=Paint.Align.RIGHT
+                // the line's height across the word's width, from the points that fall under it
+                val tw=text.measureText(avgWord);val x0=w-18f*dp-tw;val under=shown.indices.filter{x(it)>=x0-x(0)}.map{y(shown[it])}+ey
+                val clearAbove=under.all{it>ay-2f*dp||it<ay-22f*dp};val clearBelow=under.all{it<ay+2f*dp||it>ay+22f*dp}&&ay+15f*dp<h-24f*dp
+                when{clearAbove->c.drawText(avgWord,w-18f*dp,ay-7f*dp,text);clearBelow->c.drawText(avgWord,w-18f*dp,ay+15f*dp,text)}}}
         // labels along the bottom
         text.textAlign=Paint.Align.CENTER
         labels.forEach{(i,s)->if(i !in points.indices)return@forEach;val on=i==strong;text.color=if(on)a.fg else muted;text.typeface=PolkaFonts.sans(if(on)600 else 400)
@@ -167,15 +169,48 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
     override fun onDetachedFromWindow(){removeCallbacks(start);super.onDetachedFromWindow()}
 }
 
-/** Small line icons for «Рекорды»: a clock and a page. */
+/** Line icons for «Рекорды»: a bolt (fastest), an hourglass (longest sitting), lines of a page (most pages in a day). */
 internal class RecordIcon(private val a:MainActivity,private val kind:String,private val ink:Int):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND;color=ink}
     private val path=Path()
-    override fun onDraw(c:Canvas){val s=min(width,height)/24f*.78f;c.save();c.translate(width/2f-12f*s,height/2f-12f*s);c.scale(s,s);p.strokeWidth=2f
+    override fun onDraw(c:Canvas){val s=min(width,height)/24f;c.save();c.translate(width/2f-12f*s,height/2f-12f*s);c.scale(s,s);p.strokeWidth=2f
         path.rewind()
-        if(kind=="clock"){c.drawCircle(12f,12f,8.5f,p);path.moveTo(12f,7.5f);path.lineTo(12f,12f);path.lineTo(15f,14f)}
-        else{path.moveTo(7f,3.5f);path.lineTo(14f,3.5f);path.lineTo(18f,7.5f);path.lineTo(18f,20.5f);path.lineTo(7f,20.5f);path.close();path.moveTo(14f,3.5f);path.lineTo(14f,7.5f);path.lineTo(18f,7.5f);path.moveTo(9.5f,12f);path.lineTo(14.5f,12f);path.moveTo(9.5f,15.5f);path.lineTo(14.5f,15.5f)}
+        when(kind){
+            "bolt"->{path.moveTo(13f,3f);path.lineTo(5f,14f);path.lineTo(11f,14f);path.lineTo(10f,21f);path.lineTo(18f,10f);path.lineTo(12f,10f);path.close()}
+            "hour"->{path.moveTo(7f,3.5f);path.lineTo(17f,3.5f);path.moveTo(7f,20.5f);path.lineTo(17f,20.5f)
+                path.moveTo(8f,3.5f);path.cubicTo(8f,8f,16f,8f,16f,12f);path.cubicTo(16f,16f,8f,16f,8f,20.5f)
+                path.moveTo(16f,3.5f);path.cubicTo(16f,8f,8f,8f,8f,12f);path.cubicTo(8f,16f,16f,16f,16f,20.5f)}
+            else->{path.addRoundRect(RectF(4f,4f,20f,20f),3f,3f,Path.Direction.CW);path.moveTo(8f,9f);path.lineTo(16f,9f);path.moveTo(8f,12f);path.lineTo(16f,12f);path.moveTo(8f,15f);path.lineTo(13f,15f)}}
         c.drawPath(path,p);c.restore()}
+}
+
+/** The streak's week as one strip of seven segments (approved): lit, kept by a freeze, missed; today's fills up. */
+internal class WeekStrip(private val a:MainActivity,private val names:List<String>,private val marks:IntArray,private val today:Float,private val live:Boolean):View(a){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=11.5f*a.resources.displayMetrics.density;textAlign=Paint.Align.CENTER}
+    private val dp=a.resources.displayMetrics.density;private val r=RectF()
+    private var grow=if(live)0f else 1f
+    init{contentDescription="Неделя: "+names.indices.joinToString(", "){names[it]+" "+when(marks[it]){1->"цель выполнена";2->"спасён заморозкой";4->"сегодня";else->"пропуск"}}}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(grow<1f)android.animation.ValueAnimator.ofFloat(0f,1f).apply{startDelay=260;duration=700;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{grow=it.animatedValue as Float;invalidate()};start()}}
+    override fun onDraw(c:Canvas){val gap=5f*dp;val n=names.size;val w=(width-gap*(n-1))/n;val h=10f*dp
+        val orange=if(a.light)0xfff07c12.toInt() else 0xffff8a1e.toInt();val ice=if(a.light)0xff5aaee6.toInt() else 0xff8fd0fa.toInt();val empty=if(a.light)0xffe6e6ea.toInt() else 0xff3a3a3d.toInt()
+        for(i in 0 until n){val x=i*(w+gap);r.set(x,0f,x+w,h)
+            p.color=empty;c.drawRoundRect(r,h/2,h/2,p)
+            val f=when(marks[i]){1,2->1f;4->today;else->0f}*grow
+            if(f>0f){p.color=if(marks[i]==2)ice else orange;c.save();c.clipRect(x,0f,x+w*f,h);c.drawRoundRect(r,h/2,h/2,p);c.restore()}
+            val on=i==n-1;t.color=if(on)a.fg else if(a.light)0xff86868b.toInt() else 0xff8a8a8e.toInt();t.typeface=PolkaFonts.sans(if(on)600 else 400)
+            c.drawText(names[i],x+w/2,height-4f*dp,t)}}
+}
+
+/** The author's mark: initials in the book serif on a soft colour of their own (the same author, the same colour). */
+internal class AuthorMark(private val a:MainActivity,name:String):View(a){
+    private val letters=name.split(' ','-').filter{it.isNotBlank()}.let{w->((w.firstOrNull()?.take(1)?:"")+(if(w.size>1)w.last().take(1) else "")).uppercase()}
+    private val hue=(abs(name.hashCode())%360).toFloat()
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER;typeface=PolkaFonts.serif(a,true)}
+    init{contentDescription=name}
+    override fun onDraw(c:Canvas){val s=min(width,height).toFloat();val cx=width/2f;val cy=height/2f
+        val top=Color.HSVToColor(floatArrayOf(hue,.45f,if(a.light).78f else .72f));val bottom=Color.HSVToColor(floatArrayOf((hue+20)%360,.6f,if(a.light).6f else .42f))
+        p.shader=LinearGradient(cx-s/2,cy-s/2,cx+s/2,cy+s/2,top,bottom,Shader.TileMode.CLAMP);c.drawCircle(cx,cy,s/2,p);p.shader=null
+        t.textSize=s*.38f;t.color=Color.HSVToColor(floatArrayOf(hue,.08f,1f));c.drawText(letters,cx,cy-(t.descent()+t.ascent())/2,t)}
 }
 
 internal fun pagesWord(n:Int)=if(n%100 in 11..14)"страниц" else when(n%10){1->"страница";2,3,4->"страницы";else->"страниц"}
