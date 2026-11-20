@@ -238,7 +238,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             val pts=weeks.mapIndexed{i,(w,v)->EdgeLine.Point(v.toFloat(),"$v слов в минуту",if(i==weeks.size-1&&!w.plusDays(6).isBefore(today))"эта неделя" else "${w.format(fmt).replace(".","")} – ${w.plusDays(6).format(fmt).replace(".","")}")}
             // a month's name under the first week that starts in it
             val labels=weeks.mapIndexedNotNull{i,(w,_)->if(i==0||w.monthValue!=weeks[i-1].first.monthValue)i to w.month.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE,ru).trimEnd('.').take(3) else null}
-            chart.set(pts,labels,-1,200f,"средний читатель",false);floorChart(box,chart)}
+            chart.set(pts,labels,-1,ReadingTracker.USUAL_WPM.toFloat(),"средний читатель",false);floorChart(box,chart)}
         box.contentDescription=if(model.speed>0)"Скорость чтения: ${model.speed} слов в минуту" else "Скорость чтения появится после пары минут чтения"
         add(box)
     }
@@ -254,23 +254,24 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val left=a.column();box.addView(left)
         val chart=EdgeLine(a,violet,live)
         fun minutes(ms:Long)=(ms/60000.0).toFloat()
-        val session=more.averageSession()
         bind={first->
-            val pts:List<EdgeLine.Point>;val labels:List<Pair<Int,String>>;val strong:Int;val total:Long;val avg:Float;val perPages:Int;val per:String
+            val pts:List<EdgeLine.Point>;val labels:List<Pair<Int,String>>;val strong:Int;val total:Long;val avg:Float;val perPages:Int;val per:String;val session:Long?
             when(period){
                 0->{val days=(6 downTo 0).map{today.minusDays(it.toLong())}
-                    pts=days.map{d->val pg=(model.chars(d)/PAGE_CHARS).toInt();EdgeLine.Point(minutes(model.ms(d)),duration(model.ms(d))+if(pg>0)", $pg стр." else "",shortDate(d))}
+                    pts=days.map{d->val pg=model.pages(d).roundToInt();EdgeLine.Point(minutes(model.ms(d)),duration(model.ms(d))+if(pg>0)", $pg стр." else "",shortDate(d))}
                     labels=days.mapIndexed{i,d->i to weekNames[d.dayOfWeek.value-1].lowercase()};strong=6
-                    total=days.sumOf{model.ms(it)};avg=minutes(total)/7;perPages=(days.sumOf{model.chars(it)}/PAGE_CHARS/7).toInt();per="в день"}
+                    total=days.sumOf{model.ms(it)};avg=minutes(total)/7;perPages=(days.sumOf{model.pages(it)}/7).roundToInt();per="в день";session=more.averageSession(days.first(),today)}
                 1->{val days=(1..today.dayOfMonth).map{today.withDayOfMonth(it)}
-                    pts=days.map{d->val pg=(model.chars(d)/PAGE_CHARS).toInt();EdgeLine.Point(minutes(model.ms(d)),duration(model.ms(d))+if(pg>0)", $pg стр." else "",shortDate(d))}
+                    pts=days.map{d->val pg=model.pages(d).roundToInt();EdgeLine.Point(minutes(model.ms(d)),duration(model.ms(d))+if(pg>0)", $pg стр." else "",shortDate(d))}
                     labels=days.mapIndexedNotNull{i,d->if(d.dayOfMonth%7==1)i to "${d.dayOfMonth}" else null};strong=-1
-                    total=model.total(0);avg=minutes(model.average(0));perPages=(days.sumOf{model.chars(it)}/PAGE_CHARS/days.size).toInt();per="в день"}
+                    total=model.total(0);avg=minutes(model.average(0));perPages=(days.sumOf{model.pages(it)}/days.size).roundToInt();per="в день";session=more.averageSession(days.first(),today)}
                 else->{val months=(1..today.monthValue).map{YearMonth.of(today.year,it)}
-                    val ms=months.map{m->(1..m.lengthOfMonth()).sumOf{d->model.ms(m.atDay(d))}};val ch=months.map{m->(1..m.lengthOfMonth()).sumOf{d->model.chars(m.atDay(d))}}
-                    pts=months.indices.map{i->val pg=(ch[i]/PAGE_CHARS).toInt();EdgeLine.Point(minutes(ms[i]),duration(ms[i])+if(pg>0)", $pg стр." else "",months[i].month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE,ru))}
+                    val ms=months.map{m->(1..m.lengthOfMonth()).sumOf{d->model.ms(m.atDay(d))}};val pgs=months.map{m->(1..m.lengthOfMonth()).sumOf{d->model.pages(m.atDay(d))}}
+                    pts=months.indices.map{i->val pg=pgs[i].roundToInt();EdgeLine.Point(minutes(ms[i]),duration(ms[i])+if(pg>0)", $pg стр." else "",months[i].month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE,ru))}
                     labels=months.mapIndexed{i,m->i to m.month.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE,ru).trimEnd('.').take(3)};strong=months.size-1
-                    total=model.total(1);avg=ms.average().toFloat()/60000f;perPages=(ch.sum()/PAGE_CHARS/months.size).toInt();per="в месяц"}
+                    // a month on average: the days of the year so far, in months of their usual length (the current one is not whole)
+                    val monthsSoFar=today.dayOfYear/(today.lengthOfYear()/12.0)
+                    total=model.total(1);avg=(total/monthsSoFar).toFloat()/60000f;perPages=(pgs.sum()/monthsSoFar).roundToInt();per="в месяц";session=more.averageSession(today.withDayOfYear(1),today)}
             }
             fun tile(row:LinearLayout,value:String,what:String){val t=a.column().apply{background=pill(quiet,14);setPadding(a.d(12),a.d(10),a.d(10),a.d(10))}
                 t.addView(a.text(value,18f,a.fg,true,serif=true).apply{maxLines=1});t.addView(label(what,11.5f).apply{maxLines=1;setPadding(0,a.d(3),0,0)})

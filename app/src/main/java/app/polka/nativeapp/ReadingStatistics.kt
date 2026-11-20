@@ -17,6 +17,16 @@ class ReadingStatistics(val source:JSONObject,books:List<JSONObject>,val today:L
     val entries=days.keys().asSequence().mapNotNull { key -> runCatching { LocalDate.parse(key).takeIf { it<=today && it.year>=1900 }?.let { it to days.getJSONObject(key) } }.getOrNull() }.sortedBy { it.first }.toList()
     fun ms(day:LocalDate)=if(day>today) 0L else max(0L,days.optJSONObject(day.toString())?.optLong("ms") ?: 0L)
     fun chars(day:LocalDate)=if(day>today) 0L else max(0L,days.optJSONObject(day.toString())?.optLong("chars") ?: 0L)
+    /** The time the text counted as read took (days before the honest count: all their time). */
+    fun textMs(day:LocalDate):Long{if(day>today)return 0L;val d=days.optJSONObject(day.toString())?:return 0L;return max(0L,if(d.has("tms"))d.optLong("tms") else d.optLong("ms"))}
+    /** Characters on one of the reader's pages, as last laid out (a standard 1 800 until known). */
+    val pageChars=source.optInt("pageChars",PAGE_CHARS.toInt()).coerceAtLeast(200)
+    /** Pages read on the day, the reader's own (days before the honest count: their characters in pages). */
+    fun pages(day:LocalDate):Double{if(day>today)return 0.0;val d=days.optJSONObject(day.toString())?:return 0.0;return max(0.0,if(d.has("pg"))d.optDouble("pg",0.0) else d.optLong("chars")/pageChars.toDouble())}
+    /** Sittings that began on the day and their time. */
+    fun sittings(day:LocalDate):Pair<Int,Long>{val d=days.optJSONObject(day.toString())?:return 0 to 0L;return d.optInt("sn") to d.optLong("sms")}
+    /** Words a minute between two days (inclusive). */
+    fun speedBetween(from:LocalDate,to:LocalDate):Int{var c=0L;var t=0L;var d=from;while(!d.isAfter(to)){c+=chars(d);t+=textMs(d);d=d.plusDays(1)};return readingSpeed(c,t)}
     val first=entries.firstOrNull { ms(it.first)>0 }?.first
     fun start(period:Int)=when(period) { 0->today.withDayOfMonth(1); 1->today.withDayOfYear(1); else->first ?: today }
     fun total(period:Int)=entries.filter { it.first>=start(period) }.sumOf { max(0L,it.second.optLong("ms")) }
@@ -25,7 +35,9 @@ class ReadingStatistics(val source:JSONObject,books:List<JSONObject>,val today:L
     fun target(year:Int)=source.optJSONObject("annualGoals")?.optInt(year.toString(),0)?.coerceIn(0,9999) ?: 0
     fun expected(year:Int,target:Int):Int { val begin=LocalDate.of(year,1,1); val end=begin.plusYears(1); val elapsed=ChronoUnit.DAYS.between(begin,today.plusDays(1)).coerceIn(0,ChronoUnit.DAYS.between(begin,end)); return floor(target*elapsed.toDouble()/ChronoUnit.DAYS.between(begin,end)).toInt() }
     val totalMs=total(2)
-    val speed=readingSpeed(entries.sumOf { max(0,it.second.optLong("chars")) },totalMs)
+    /** The reader's speed now: the last three months (all the time while they hold under ten minutes of reading). */
+    val speed:Int by lazy{val from=today.minusDays(89);var ms=0L;var d=from;while(!d.isAfter(today)){ms+=textMs(d);d=d.plusDays(1)}
+        if(ms>=10*60000L)speedBetween(from,today) else speedBetween(first?:today,today)}
     val dailyGoal=source.optInt("goal",10).coerceIn(1,1440)
     fun met(day:LocalDate)=day<=today && (days.optJSONObject(day.toString())?.optBoolean("met")==true || ms(day)>=dailyGoal*60000L)
     /** The streak as the app keeps it (approved): days in a row with the daily goal met. A missed day is covered by a
@@ -60,18 +72,26 @@ internal fun changeAnnualGoal(data:JSONObject,year:Int,count:Int?) {
     if(count==null)goals.remove(year.toString()) else goals.put(year.toString(),count)
 }
 
-/** Attribute active time to each local calendar day, even when a heartbeat crosses midnight/DST. */
-internal fun creditReading(data:JSONObject,id:String,end:Long,elapsed:Long,chars:Long,zone:ZoneId=ZoneId.systemDefault()) {
-    if(elapsed<=0)return
+/** Attribute active time to each local calendar day, even when a heartbeat crosses midnight/DST. The text read, the
+ *  time it took (for the speed) and the pages go to the day the page was finished. */
+internal fun creditReading(data:JSONObject,id:String,end:Long,elapsed:Long,chars:Long,zone:ZoneId=ZoneId.systemDefault(),textMs:Long=0L,pages:Double=0.0) {
+    if(elapsed<=0&&chars<=0&&pages<=0)return
     val days=data.optJSONObject("days") ?: JSONObject().also { data.put("days",it) }
-    var at=end-elapsed;var allocated=0L
+    val pageChars=data.optInt("pageChars",PAGE_CHARS.toInt()).coerceAtLeast(200)
+    fun dayOf(at:Long):JSONObject{val date=Instant.ofEpochMilli(at).atZone(zone).toLocalDate();return days.optJSONObject(date.toString()) ?: JSONObject().also { days.put(date.toString(),it) }}
+    fun legacy(day:JSONObject){
+        // a day begun before the honest count: its time was all text time, its pages are its characters in pages
+        if(!day.has("tms"))day.put("tms",max(0,day.optLong("ms")))
+        if(!day.has("pg"))day.put("pg",max(0,day.optLong("chars"))/pageChars.toDouble())}
+    var at=end-max(0L,elapsed)
     while(at<end) {
         val date=Instant.ofEpochMilli(at).atZone(zone).toLocalDate();val next=date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli();val until=minOf(end,next);val slice=until-at
-        val amount=if(until==end) chars-allocated else (chars*slice/elapsed);allocated+=amount
-        val day=days.optJSONObject(date.toString()) ?: JSONObject().also { days.put(date.toString(),it) }
-        day.put("ms",max(0,day.optLong("ms"))+slice).put("chars",max(0,day.optLong("chars"))+max(0,amount))
+        val day=dayOf(at);legacy(day)
+        day.put("ms",max(0,day.optLong("ms"))+slice)
         if(day.optLong("ms")>=data.optInt("goal",10).coerceAtLeast(1)*60000L)day.put("met",true)
         val byBook=day.optJSONObject("books") ?: JSONObject().also { day.put("books",it) };byBook.put(id,max(0,byBook.optLong(id))+slice)
         at=until
     }
+    if(chars>0||pages>0){val day=dayOf(end);legacy(day)
+        day.put("chars",max(0,day.optLong("chars"))+max(0,chars)).put("tms",day.optLong("tms")+max(0,textMs)).put("pg",day.optDouble("pg",0.0)+max(0.0,pages))}
 }

@@ -54,7 +54,13 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     private var mode=book.str("pageMode","paged")
     private var page=(book.optJSONObject("progress")?.optInt("page",0)?:0).coerceIn(0,maxOf(0,n-1))
     private val dialog=android.app.Dialog(a,android.R.style.Theme_Black_NoTitleBar_Fullscreen)
-    private val root=FrameLayout(a)
+    /** Every touch is the reader being with the page. */
+    private val root=object:FrameLayout(a){override fun dispatchTouchEvent(e:MotionEvent):Boolean{tracker.touch();return super.dispatchTouchEvent(e)}}
+    /** Time, pages and sittings, counted as in the text reader (see [ReadingTracker]). */
+    private val tracker=ReadingTracker(false,doc.str("type")=="pdf").also{a.seedTracker(it,book.str("id"))}
+    private var paused=false
+    private var askedDone=false
+    private val heartbeat=object:Runnable{override fun run(){credit();root.postDelayed(this,5000)}}
     private val stage=FrameLayout(a)
     private lateinit var top:LinearLayout;private lateinit var bottom:LinearLayout
     private lateinit var strip:LinearLayout;private lateinit var stripScroll:HorizontalScrollView
@@ -74,7 +80,8 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     private fun marks():MutableList<Int>{val arr=book.optJSONArray("pageMarks")?:return mutableListOf();return (0 until arr.length()).map{arr.optInt(it)}.filter{it in 0 until n}.distinct().toMutableList()}
 
     fun show(){
-        book.put("openedAt",System.currentTimeMillis());a.immersiveSheets=true
+        book.put("openedAt",System.currentTimeMillis());a.immersiveSheets=true;a.pageReading=this
+        tracker.skipTime();tracker.touch();root.postDelayed(heartbeat,5000)
         root.addView(stage,FrameLayout.LayoutParams(-1,-1))
         buildChrome()
         dialog.setContentView(root)
@@ -94,16 +101,32 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         root.postDelayed({setChrome(false)},1400)
     }
     private fun close(){root.animate().alpha(0f).setDuration(if(reduced)0 else 180).withEndAction{dialog.dismiss()}.start()}
-    private fun finish(){a.immersiveSheets=false;Ambience.stop(a);save(true);io.shutdownNow();source.close()}
+    private fun finish(){root.removeCallbacks(heartbeat);credit();paused=true;if(a.pageReading===this)a.pageReading=null;a.immersiveSheets=false;Ambience.stop(a);save(true);io.shutdownNow();source.close()}
     private fun save(done:Boolean){
         // the status sheet and the data editor save the book on their own: keep what they changed
         a.books.firstOrNull{it.str("id")==book.str("id")}?.takeIf{it!==book}?.let{latest->latest.keys().forEach{k->if(k !in setOf("progress","pageMode","pageMarks","openedAt","state","completedAt","startedAt"))book.put(k,latest.get(k))}
             if(latest.optLong("modifiedAt")>=book.optLong("modifiedAt"))listOf("state","completedAt","startedAt").forEach{k->if(latest.has(k))book.put(k,latest.get(k))}}
         book.put("progress",(book.optJSONObject("progress")?:JSONObject()).put("page",page).put("pct",if(n<=1)1.0 else page/(n-1).toDouble()))
         val st=Library.status(book)
-        if(n>0&&page>=n-1&&st!="done"){book.put("state","done");book.put("completedAt",System.currentTimeMillis())}
+        credit()
+        // the last page makes the book read only when it was really read here (at least half of it); otherwise ask once
+        if(n>0&&page>=n-1&&st!="done"&&tracker.seeded){
+            if(tracker.share()>=.5){book.put("state","done");book.put("completedAt",System.currentTimeMillis())}
+            else if(!done&&!askedDone){askedDone=true;root.post{a.confirm("Книга прочитана?","Отметить книгу прочитанной?"){book.put("state","done");book.put("completedAt",System.currentTimeMillis());save(false)}}}}
         else if(page>0&&(st=="want"||st=="paused")){book.put("state","reading");if(book.optLong("startedAt")==0L)book.put("startedAt",System.currentTimeMillis())}
         val copy=book.copyJson();a.work({a.library.save(copy)}){if(done)a.reload()}}
+
+    fun pause(){credit();paused=true}
+    fun resume(){paused=false;tracker.skipTime();tracker.touch()}
+    /** The time and pages since the last tick, into the statistics. */
+    private fun credit(){
+        val now=System.currentTimeMillis();val c=tracker.tick(now,page,0,paused);tracker.noteCredit(c,n)
+        if(c.elapsed<=0&&c.pages<=0&&c.sittingAdd<=0)return
+        val id=book.str("id");val title=book.str("title")
+        a.work({a.library.db.runInTransaction{val raw=a.library.dao.meta("stats")?:return@runInTransaction
+            val meta=JSONObject(raw.json);val data=meta.optJSONObject("data")?:return@runInTransaction
+            recordReading(data,id,title,n,c,now,0);a.library.dao.putMeta(MetaRow("stats",meta.toString()))}})
+    }
 
     // ── pages ──
     private fun key(i:Int,w:Int)="$i:$w"

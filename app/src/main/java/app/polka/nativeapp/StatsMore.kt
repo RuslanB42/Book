@@ -20,29 +20,42 @@ internal class StatsMore(private val data:JSONObject,private val books:List<JSON
     fun weeklySpeed(count:Int=12):List<Pair<LocalDate,Int>>{
         val monday=today.minusDays(today.dayOfWeek.value-1L)
         return (51 downTo 0).map{monday.minusWeeks(it.toLong())}.mapNotNull{w->
-            var chars=0L;var ms=0L;for(d in 0..6){val day=w.plusDays(d.toLong());chars+=model.chars(day);ms+=model.ms(day)}
-            readingSpeed(chars,ms).takeIf{it>0}?.let{w to it}}.takeLast(count)
+            model.speedBetween(w,w.plusDays(6)).takeIf{it>0}?.let{w to it}}.takeLast(count)
     }
-    private fun speedBetween(from:LocalDate,to:LocalDate):Int{var chars=0L;var ms=0L;var d=from;while(!d.isAfter(to)){chars+=model.chars(d);ms+=model.ms(d);d=d.plusDays(1)};return readingSpeed(chars,ms)}
+    private fun speedBetween(from:LocalDate,to:LocalDate)=model.speedBetween(from,to)
     /** The last 30 days against the 30 before them, in per cent; null while either is unknown. */
     fun trend():Int?{val now=speedBetween(today.minusDays(29),today);val before=speedBetween(today.minusDays(59),today.minusDays(30))
         if(now<=0||before<=0)return null;return ((now-before)*100.0/before).roundToInt()}
-    /** Seconds one page (1 800 characters) takes at the reader's speed. */
-    fun pageSeconds():Int?{val chars=model.entries.sumOf{max(0L,it.second.optLong("chars"))};val ms=model.totalMs;if(readingSpeed(chars,ms)<=0)return null
-        return (PAGE_CHARS*ms/1000.0/chars).roundToInt()}
-    /** One sitting on average: reading time over the number of openings, from the per-book records. */
-    fun averageSession():Long?{val recs=data.optJSONObject("books")?:return null;var ms=0L;var n=0L
-        recs.keys().forEach{k->val r=recs.optJSONObject(k)?:return@forEach;if(r.optInt("sessions")>0&&r.optLong("ms")>0){ms+=r.optLong("ms");n+=r.optInt("sessions")}}
-        return if(n>0&&ms>=60000)ms/n else null}
-    fun longestSession():Pair<Long,LocalDate?>?{val r=data.optJSONObject("records")?:return null;val ms=r.optLong("session");if(ms<60000)return null
-        val at=r.optLong("sessionAt").takeIf{it>0}?.let{Instant.ofEpochMilli(it).atZone(model.zone).toLocalDate()};return ms to at}
-    fun bestDay():Pair<Int,LocalDate>?{val best=model.entries.maxByOrNull{it.second.optLong("chars")}?:return null;val pages=(best.second.optLong("chars")/PAGE_CHARS).toInt();return if(pages>0)pages to best.first else null}
-    private fun readMs(b:JSONObject)=data.optJSONObject("books")?.optJSONObject(b.str("id"))?.optLong("ms")?:0L
-    /** The finished book that took the fewest days from the start to the end. */
+    /** Seconds one of the reader's own pages takes at their speed now. */
+    fun pageSeconds():Int?{val wpm=model.speed;if(wpm<=0)return null
+        return (model.pageChars*60.0/(wpm*ReadingTracker.CHARS_PER_WORD)).roundToInt()}
+    /** One sitting on average between two days: reading without a break of over five minutes, from a minute long.
+     *  Null while none was counted then (sittings are counted so since the honest count began). */
+    fun averageSession(from:LocalDate,to:LocalDate):Long?{var n=0;var ms=0L;var d=from;while(!d.isAfter(to)){val (sn,sms)=model.sittings(d);n+=sn;ms+=sms;d=d.plusDays(1)}
+        return if(n>0)ms/n else null}
+    fun longestSession():Pair<Long,LocalDate?>?{val r=data.optJSONObject("records")?:return null;val ms=r.optLong("longest");if(ms<60000)return null
+        val at=r.optLong("longestAt").takeIf{it>0}?.let{Instant.ofEpochMilli(it).atZone(model.zone).toLocalDate()};return ms to at}
+    /** The day with the most of the reader's own pages. */
+    fun bestDay():Pair<Int,LocalDate>?{val best=model.entries.maxByOrNull{model.pages(it.first)}?:return null;val pages=model.pages(best.first).roundToInt();return if(pages>0)pages to best.first else null}
+    /**
+     * The finished book read the fastest: of the books really read here (four fifths of the text, at least ten minutes),
+     * the days from the start of its reading to its end. A book put aside for over two months starts again where it
+     * was taken up again, and the first tenth of its time (a look into it long before) does not stretch the count.
+     */
     fun fastestBook():Triple<JSONObject,Int,Long>?{
-        return model.finished.mapNotNull{f->val start=f.book.optLong("startedAt");val end=f.book.optLong("completedAt");if(start<=0||end<start)return@mapNotNull null
-            val days=(ChronoUnit.DAYS.between(Instant.ofEpochMilli(start).atZone(model.zone).toLocalDate(),Instant.ofEpochMilli(end).atZone(model.zone).toLocalDate())+1).toInt()
-            Triple(f.book,days,readMs(f.book))}.minWithOrNull(compareBy<Triple<JSONObject,Int,Long>>{it.second}.thenBy{it.third})}
+        val recs=data.optJSONObject("books")
+        val byBook=HashMap<String,MutableList<Pair<LocalDate,Long>>>()
+        for((d,o) in model.entries){val b=o.optJSONObject("books")?:continue;val it=b.keys();while(it.hasNext()){val k=it.next();val ms=b.optLong(k);if(ms>0)byBook.getOrPut(k){mutableListOf()}.add(d to ms)}}
+        return model.finished.mapNotNull{f->val end=f.date?:return@mapNotNull null;val id=f.book.str("id")
+            if(readShare(recs?.optJSONObject(id))<.8)return@mapNotNull null
+            val days=byBook[id]?.filter{!it.first.isAfter(end)}?.sortedByDescending{it.first}?:return@mapNotNull null
+            // the last stretch of reading (no gap over 60 days)
+            val stretch=ArrayList<Pair<LocalDate,Long>>();for(p in days){if(stretch.isNotEmpty()&&ChronoUnit.DAYS.between(p.first,stretch.last().first)>60)break;stretch.add(p)}
+            val total=stretch.sumOf{it.second};if(total<10*60000L)return@mapNotNull null
+            var acc=0L;var start=end;for((d,ms) in stretch){acc+=ms;start=d;if(acc>=total*.9)break}
+            Triple(f.book,(ChronoUnit.DAYS.between(start,end)+1).toInt(),total)}
+            .minWithOrNull(compareBy<Triple<JSONObject,Int,Long>>{it.second}.thenBy{it.third})}
+    private fun readMs(b:JSONObject)=data.optJSONObject("books")?.optJSONObject(b.str("id"))?.optLong("ms")?:0L
     /** Books that count for the taste: finished ones and the ones actually read for a while. */
     private val tasted get()=books.distinctBy{it.str("id")}.filter{Library.status(it)=="done"||readMs(it)>=10*60000L}
     class Author(val name:String,val books:List<JSONObject>,val ms:Long)

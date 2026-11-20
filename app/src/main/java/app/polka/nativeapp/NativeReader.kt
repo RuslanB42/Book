@@ -69,23 +69,23 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     /** Before writing the whole text back (page edit), every chapter must be in memory. */
     internal fun ensureAllHtml(){for(i in 0 until chapters.length())chapterHtml(i)}
     private var openedAt=System.currentTimeMillis()
-    private var activeAt=openedAt
-    private var lastCredit=openedAt
+    /** Counts the time, the text and the sittings honestly (see [ReadingTracker]). */
+    private val tracker=ReadingTracker(true).also{a.seedTracker(it,book.str("id"))}
     private var paused=false
     private var opening=false
     private var openingReflowPending=false
     fun openingReady()=(quickShown || (!preparing && chapterRich.isNotEmpty())) && scroll.width>0 && scroll.height>0 && !view.isLayoutRequested && !body.isLayoutRequested && !scroll.isLayoutRequested
     fun openingArea():RectF { val r=Rect(); scroll.getDrawingRect(r); view.offsetDescendantRectToMyCoords(scroll,r); return RectF((r.left+body.paddingLeft).toFloat(),(r.top+body.paddingTop).toFloat(),(r.right-body.paddingRight).toFloat(),(r.bottom-body.paddingBottom).toFloat()) }
     fun openingChrome(alpha:Float){topBar.alpha=if(calm)0f else alpha;bottom.alpha=if(calm)0f else alpha;folio.alpha=alpha}
-    fun openingState(on:Boolean){ opening=on; lastCredit=System.currentTimeMillis(); activeAt=lastCredit;if(!on && openingReflowPending){openingReflowPending=false;handler.post(reflow)} }
+    fun openingState(on:Boolean){ opening=on; tracker.skipTime(); tracker.touch();if(!on && openingReflowPending){openingReflowPending=false;handler.post(reflow)} }
     private var completed=false
     /** Books that were already finished when opened never ask for a rating again. */
     private val startedDone=Library.status(book)=="done"
     private var promptArmed=false
     private var ratingShown=false
     private var calm=false
-    private var lastPosition=0
-    private var sessionRecorded=false
+    /** The book was at its end but had not been read in the app: asked once whether it is read. */
+    private var askedDone=false
     private var editorOpen=false
     internal var pageEditor:ChapterEditor?=null;private set
     internal val backgroundColor get()=readerBackground
@@ -163,7 +163,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             override fun onInitializeAccessibilityNodeInfo(v:View,info:android.view.accessibility.AccessibilityNodeInfo){super.onInitializeAccessibilityNodeInfo(v,info);if(paged()){info.isScrollable=true;info.addAction(android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD,"Следующая страница"));info.addAction(android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD,"Предыдущая страница"))}}
             override fun performAccessibilityAction(v:View,action:Int,args:android.os.Bundle?):Boolean {if(paged()&&action in listOf(android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD,android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)){turn(if(action==android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)1 else -1);return true};return super.performAccessibilityAction(v,action,args)}
         }
-        scroll.setOnScrollChangeListener { _,_,_,_,_ -> if(!restoring && !editorOpen) { activeAt=System.currentTimeMillis(); handler.removeCallbacks(saveTask); handler.postDelayed(saveTask,600) }; updateFooter() }
+        scroll.setOnScrollChangeListener { _,_,_,_,_ -> if(!restoring && !editorOpen) { tracker.touch(); handler.removeCallbacks(saveTask); handler.postDelayed(saveTask,600) }; updateFooter() }
         val positionRow=a.line()
         val chapterButton=a.line().apply{contentDescription="Оглавление";minimumHeight=a.d(44);setOnClickListener{navigation()}}
         chapterButton.addView(IconView(a,"toc",a.fg).apply{chromeIcons.add(this)},LinearLayout.LayoutParams(a.d(20),a.d(20)))
@@ -190,7 +190,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val detector=GestureDetector(a,gestures)
         fun pageTouch(e:MotionEvent):Boolean {
             if(!paged()||editorOpen)return false
-            activeAt=System.currentTimeMillis()
+            tracker.touch()
             when(e.actionMasked){
                 MotionEvent.ACTION_DOWN->{if(isTurning())return true;lastTouchX=e.x;lastTouchY=e.y;pullZone=true;pulling=false;touchHeld=false;touchDragging=false;touchDirection=0;velocity?.recycle();velocity=VelocityTracker.obtain();velocity?.addMovement(e);detector.onTouchEvent(e);return true}
                 MotionEvent.ACTION_MOVE->{velocity?.addMovement(e);if(touchHeld){quoteSelection.continueHold(e);return true};if(quoteSelection.active)return true
@@ -246,7 +246,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(key==requestKey && preparing)return
         if(key==committedKey && loadedChapter==chapter){val offset=pendingAnchor?.let{chapterAnchors[it]} ?: pendingOffset;pendingAnchor=null;pendingOffset=null;pendingFraction=null;if(offset!=null)jumpOffset(offset);return}
         if(!preparing && loadedChapter==chapter && pendingOffset==null && pendingFraction==null)pendingOffset=if(paged())pageBase()else body.layout?.let{it.getLineStart(it.getLineForVertical(scroll.scrollY))}?:0
-        layoutJob?.cancel(true);val generation=++layoutGeneration;requestKey=key;preparing=true;lastCredit=System.currentTimeMillis();footer.text="Подготовка главы…"
+        layoutJob?.cancel(true);val generation=++layoutGeneration;requestKey=key;preparing=true;tracker.skipTime();footer.text="Подготовка главы…"
         val targetChapter=chapter;val quotes=JSONArray(quoteSnapshot).objects();val maxImage=(height-size*3).toInt().coerceAtLeast(a.d(80))
         // First open of a chapter in page mode: show the page the reader stopped on as soon as the chapter text is parsed.
         val quickFrom=if(paged()&&chapterRich.isEmpty()&&!pendingLastPage&&pendingAnchor==null)pendingOffset else null;val quickFraction=if(quickFrom==null&&paged()&&chapterRich.isEmpty()&&!pendingLastPage&&pendingAnchor==null)pendingFraction else null
@@ -270,7 +270,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
                 val offset=if(pendingLastPage)rich.length else pendingAnchor?.let{chapterAnchors[it]} ?: pendingOffset ?: ((pendingFraction?:0.0)*rich.length).toInt();pendingOffset=null;pendingAnchor=null;pendingFraction=null;pendingLastPage=false;preparing=false
                 restoring=true;body.animate().cancel();body.alpha=1f;body.translationX=0f
                 if(paged()){pageIndex=pageStarts.indexOfLast{it<=offset}.coerceAtLeast(0);paintPage();revealPage()}else{body.text=rich;stretchNow();body.post{jumpOffset(offset)}}
-                body.post{restoring=false;lastPosition=position();lastCredit=System.currentTimeMillis();updateFooter()}
+                body.post{restoring=false;tracker.rebase(position(),pageChars());tracker.skipTime();updateFooter()}
             }
             reflowAfterLayout()
         })
@@ -287,8 +287,13 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     private fun checkFinished() {
         if(!atEnd())return
-        if(!completed){completed=true;if(!startedDone)book.put("completedAt",System.currentTimeMillis());handler.post{if(!disposed)save()}}
-        if(!startedDone&&!ratingShown&&!promptArmed&&book.optInt("rating")==0){promptArmed=true;handler.postDelayed(promptTask,1300)}
+        if(!completed){
+            // the end counts as read only when the book was really read here (at least half of it); otherwise ask once
+            if(!startedDone&&!tracker.seeded){}
+            else if(startedDone||tracker.share()>=.5){completed=true;if(!startedDone)book.put("completedAt",System.currentTimeMillis());handler.post{if(!disposed)save()}}
+            else if(!askedDone){askedDone=true;a.confirm("Книга прочитана?","Отметить книгу прочитанной?"){if(disposed)return@confirm;completed=true;book.put("completedAt",System.currentTimeMillis());save();checkFinished()}}
+        }
+        if(completed&&!startedDone&&!ratingShown&&!promptArmed&&book.optInt("rating")==0){promptArmed=true;handler.postDelayed(promptTask,1300)}
     }
     private val promptTask=Runnable {
         promptArmed=false
@@ -302,20 +307,23 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun persist() { val snap=book.copyJson(); a.saveBook(snap) {} }
     fun pause() { Ambience.pause(a);save();paused=true;handler.removeCallbacks(heartbeat) }
     fun dispose(){if(disposed)return;Ambience.unlisten(soundWatch);Ambience.stop(a);if(a.window.attributes.screenBrightness!=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};a.ratingPrompt?.let{(it.parent as? ViewGroup)?.removeView(it)};a.ratingPrompt=null;a.streakCelebration=null;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
-    fun resume() { Ambience.resume(a);ReaderWindow.configure(a.window,true,readerBackground);a.root.requestApplyInsets();paused=false; activeAt=System.currentTimeMillis(); lastCredit=activeAt; handler.removeCallbacks(heartbeat); handler.postDelayed(heartbeat,5000) }
-    /** Reading time of this opening of the book (one session). */
-    private var sessionMs=0L
+    fun resume() { Ambience.resume(a);ReaderWindow.configure(a.window,true,readerBackground);a.root.requestApplyInsets();paused=false; tracker.skipTime(); tracker.touch(); handler.removeCallbacks(heartbeat); handler.postDelayed(heartbeat,5000) }
+    /** Characters on a page as it is laid out now: the chapter's pages, or one screen when scrolling. */
+    private fun pageChars():Int{
+        if(paged())return if(pageStarts.size>=2)(pageStarts.last()-pageStarts.first())/(pageStarts.size-1) else chapterRich.length.coerceAtLeast(1)
+        return if(body.height>0&&scroll.height>0)(chapterRich.length.toLong()*scroll.height/body.height).toInt().coerceIn(1,maxOf(1,chapterRich.length)) else PAGE_CHARS.toInt()}
+    /** The page size to remember for the statistics, only from a chapter long enough to tell it. */
+    private fun calibration():Int=if(paged()){if(pageStarts.size>=4)pageChars() else 0}else if(body.height>scroll.height*3)pageChars() else 0
     fun save() {
         handler.removeCallbacks(saveTask)
         if(restoring || editorOpen || opening || preparing || disposed) return
         val before=Library.status(book)
         val p=book.optJSONObject("progress")?.copyJson() ?: JSONObject(); p.put("ch",chapter).put("pct",if(completed) 1.0 else progress()).put("nativeFraction",fraction()).put("nativeOffset",if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0).put("block",0).put("off",0); book.put("progress",p)
-        val now=System.currentTimeMillis(); val elapsed=if(!paused && now-activeAt<120000) (now-lastCredit).coerceIn(0,120000) else 0; lastCredit=now
-        val pos=position(); val delta=pos-lastPosition; val chars=if(delta in 1 until 12000) delta.toLong() else 0L; lastPosition=pos; val credit=if(elapsed>0) chars else 0L
-        val newSession=!sessionRecorded; sessionRecorded=true; sessionMs+=elapsed; val sessionNow=sessionMs
+        val now=System.currentTimeMillis(); val total=chapters.objects().sumOf { it.optInt("len") }; val calib=calibration()
+        val credit=tracker.tick(now,position(),pageChars(),paused); tracker.noteCredit(credit,total)
         // the status moves only forward by itself: real reading makes «Хочу»/«Отложено» into «Читаю», the end makes it «Прочитано»
         if(completed&&!startedDone)book.put("state","done")
-        else if((before=="want"||before=="paused")&&chars>0){book.put("state","reading");if(book.optLong("startedAt")==0L)book.put("startedAt",now)}
+        else if((before=="want"||before=="paused")&&credit.chars>0){book.put("state","reading");if(book.optLong("startedAt")==0L)book.put("startedAt",now)}
         val snap=book.copyJson();var streakUp=0;var streakWeek=BooleanArray(7);var streakToday=0
         a.work({
             a.library.db.runInTransaction {
@@ -323,11 +331,9 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
                 val raw=a.library.dao.meta("stats") ?: return@runInTransaction
                 val meta=JSONObject(raw.json); val data=meta.getJSONObject("data"); val id=snap.getString("id")
                 val metBefore=ReadingStatistics(data,emptyList()).let{it.met(it.today)}
-                creditReading(data,id,now,elapsed,credit)
-                // the longest single sitting (one opening of a book), for «Рекорды»
-                if(sessionNow>0){val rec=data.optJSONObject("records") ?: JSONObject().also { data.put("records",it) }; if(sessionNow>rec.optLong("session")) rec.put("session",sessionNow).put("sessionAt",now)}
+                recordReading(data,id,snap.str("title"),total,credit,now,calib)
                 ReadingStatistics(data,emptyList()).let{if(!metBefore&&it.met(it.today)){streakUp=it.streak;val monday=it.today.minusDays(it.today.dayOfWeek.value-1L);streakToday=it.today.dayOfWeek.value-1;streakWeek=BooleanArray(7){d->it.met(monday.plusDays(d.toLong()))}}}
-                val records=data.optJSONObject("books") ?: JSONObject().also { data.put("books",it) }; val b=records.optJSONObject(id) ?: JSONObject().put("sessions",0).put("first",openedAt).put("chars",0).also { records.put(id,it) }; b.put("ms",b.optLong("ms")+elapsed).put("chars",b.optLong("chars")+credit).put("sessions",b.optInt("sessions")+if(newSession) 1 else 0).put("total",chapters.objects().sumOf { it.optInt("len") }).put("last",now).put("title",snap.str("title")); a.library.dao.putMeta(MetaRow("stats",meta.toString()))
+                a.library.dao.putMeta(MetaRow("stats",meta.toString()))
             }
         }) { a.checkpointSoon(); }
     }
@@ -492,7 +498,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(table!=null){val bottom=layout.getLineBaseline(line)+body.paint.fontMetricsInt.descent.coerceAtLeast(0);table.linkAt(localX-layout.getLineLeft(line),localY-(bottom-table.sliceHeight))?.let{openLink(it);return true}};return false
     }
     private fun jumpAnchor(id:String){if(preparing){pendingAnchor=id;pendingOffset=null}else jumpOffset(chapterAnchors[id]?:0)}
-    fun jumpOffset(offset:Int) { if(preparing || loadedChapter!=chapter){pendingOffset=offset;pendingFraction=null;return};if(paged()) { pageIndex=pageStarts.indexOfLast { it<=offset }.coerceAtLeast(0); paintPage() } else { val layout=body.layout ?: return; val at=offset.coerceIn(0,body.text.length); scroll.scrollTo(0,layout.getLineTop(layout.getLineForOffset(at))) }; lastPosition=position() }
+    fun jumpOffset(offset:Int) { if(preparing || loadedChapter!=chapter){pendingOffset=offset;pendingFraction=null;return};if(paged()) { pageIndex=pageStarts.indexOfLast { it<=offset }.coerceAtLeast(0); paintPage() } else { val layout=body.layout ?: return; val at=offset.coerceIn(0,body.text.length); scroll.scrollTo(0,layout.getLineTop(layout.getLineForOffset(at))) }; tracker.rebase(position(),pageChars()) }
     fun lineHeight()=if(a.prefs.has("lhv"))a.prefs.optDouble("lhv",1.6).toFloat() else when(a.prefs.str("lh","normal")) { "tight"->1.42f; "loose"->1.82f; else->1.6f }
     internal fun samplePageMotion(ms:Long){turnClock?.let{it.pause();if(ms>=it.duration)it.end()else it.currentPlayTime=ms}}
     private fun isTurning()=pageSlidePending||turnClock!=null||curl!=null
@@ -624,7 +630,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(!beginCurl(direction,false,scroll.height*.9f)){selectionTurnDone=null;done(false)}
     }
     fun turn(direction:Int) {
-        activeAt=System.currentTimeMillis();if(preparing||disposed||editorOpen||isTurning())return
+        tracker.touch();if(preparing||disposed||editorOpen||isTurning())return
         if(!paged()){scroll.smoothScrollBy(0,direction*pageHeight());return}
         quoteSelection.clear()
         if(a.prefs.str("motion")=="reduced"||a.prefs.str("turn","curl")=="none"){
@@ -754,7 +760,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     internal fun unmountEditor(editor:EditText,toolbar:View,draft:PageDraft,changed:Boolean){
         fun restore(){
             if(a.prefs.str("motion")!="reduced")crossfadePage()
-            scroll.removeView(editor);scroll.layoutParams=(scroll.layoutParams as FrameLayout.LayoutParams).apply{topMargin=0;bottomMargin=0};scroll.addView(body,FrameLayout.LayoutParams(-1,-2));editorOpen=false;scroll.scrollTo(0,0);pageEditor=null;lastCredit=System.currentTimeMillis();activeAt=lastCredit
+            scroll.removeView(editor);scroll.layoutParams=(scroll.layoutParams as FrameLayout.LayoutParams).apply{topMargin=0;bottomMargin=0};scroll.addView(body,FrameLayout.LayoutParams(-1,-2));editorOpen=false;scroll.scrollTo(0,0);pageEditor=null;tracker.skipTime();tracker.touch()
             setCalm(draft.calm,true);if(changed){committedKey="";pendingOffset=draft.start;paintChapter()}else if(paged())paintPage()else body.post{jumpOffset(draft.start)}
             syncBookmark(false)
         }

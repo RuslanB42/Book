@@ -150,6 +150,8 @@ class MainActivity : Activity() {
     var pendingExport:Pair<JSONObject,String>?=null
     private var pendingActivityResult:Triple<Int,Int,Intent>?=null
     var reader: NativeReader? = null
+    /** The comic/PDF reader on screen, for pausing its count with the app. */
+    internal var pageReading:PageReader?=null
     internal var bookClosing=false
     val light get() = when(prefs.str("ui",prefs.str("theme","dark"))) { "light" -> true; "system" -> resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK != android.content.res.Configuration.UI_MODE_NIGHT_YES; else -> false }
     val bg get() = if(light) 0xfff2f2f0.toInt() else 0xff161617.toInt()
@@ -619,8 +621,8 @@ class MainActivity : Activity() {
     }
     @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; goalRoad!=null -> goalRoad?.back(); tierList!=null && bookDetailSheet?.isShowing!=true -> tierList?.back(); readBooksOverlay!=null && bookDetailSheet==null -> closeReadBooks(); addMenu!=null -> addMenu?.close(); shelvesEditing && reader==null -> { shelvesTopBarLabel?.performClick() }; ratingPrompt?.isShowing==true -> ratingPrompt?.dismiss(); bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() };bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();settingsPage!=null -> closeSettings(); profileOverlay!=null -> dismissProfile(); streakCelebration!=null && reader!=null -> streakCelebration?.dismiss(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> { shelf=null; auto=null; tab="shelves"; render() }; query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
     override fun onSaveInstanceState(out:Bundle) { reader?.save(); out.putString("calendarImage",pendingCalendarImage?.name); out.putString("attachId",attachId); out.putString("coverTarget",coverTarget); pendingExport?.let { out.putString("exportId",it.first.str("id")); out.putString("exportFormat",it.second) }; out.putString("tab",tab); out.putString("shelf",shelf); out.putString("auto",auto); out.putString("query",query); out.putBoolean("searchOpen",searchOpen); reader?.let { out.putString("readerId",it.book.str("id")) }; super.onSaveInstanceState(out) }
-    override fun onPause() { shelfReorder?.cancel();screenMotion.stop();root.childrenOpening()?.finish();reader?.pause(); super.onPause() }
-    override fun onResume() { super.onResume(); if(reader!=null)reader?.resume() else if(::root.isInitialized){ReaderWindow.configure(window,false,bg);root.requestApplyInsets()} }
+    override fun onPause() { shelfReorder?.cancel();screenMotion.stop();root.childrenOpening()?.finish();reader?.pause();pageReading?.pause(); super.onPause() }
+    override fun onResume() { super.onResume(); pageReading?.resume(); if(reader!=null)reader?.resume() else if(::root.isInitialized){ReaderWindow.configure(window,false,bg);root.requestApplyInsets()} }
     /** The extra keyboard trigger: when the app's window gets the focus back (a sheet or dialog over it has closed) and
      *  a text field of the page still holds the view focus — for one, a search field keeps it invisibly after its
      *  search closed — Android shows the keyboard for that field by itself (adjustResize + a focused text editor), and
