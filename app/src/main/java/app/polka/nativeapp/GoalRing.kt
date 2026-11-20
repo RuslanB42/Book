@@ -72,7 +72,7 @@ internal fun MainActivity.yearTiles(list:List<YearBook>,goal:Int,big:Boolean):Li
     fun tile(build:(LinearLayout)->Unit){val t=column().apply{background=shape(if(light)0x0a000000 else (if(big)0xff242426.toInt() else 0x0affffff),if(big)18 else 16);setPadding(d(12),d(12),d(12),d(13))}
         build(t);row.addView(t,LinearLayout.LayoutParams(0,-1,1f).apply{if(row.childCount>0)marginStart=d(8)})}
     fun value(main:String,tail:String,lead:String="")=android.text.SpannableStringBuilder().apply{
-        if(lead.isNotEmpty()){append(lead);setSpan(android.text.style.ForegroundColorSpan(StarRow.starYellow(this@yearTiles)),0,length,0);setSpan(android.text.style.RelativeSizeSpan(.78f),0,length,0);append(" ")}
+        if(lead.isNotEmpty()){append(lead);setSpan(RoundStarSpan(StarRow.starYellow(this@yearTiles),.72f),0,length,0);append(" ")}
         append(main);if(tail.isNotEmpty()){val st=length;append(" $tail");setSpan(android.text.style.ForegroundColorSpan(if(light)0xff9a9aa0.toInt() else 0xff6e6e73.toInt()),st,length,0);setSpan(android.text.style.AbsoluteSizeSpan(unit.toInt(),true),st,length,0)}}
     fun caption(t:String)=text(t,if(big)12f else 11.5f,muted).apply{setPadding(0,d(6),0,0)}
     val done=list.size
@@ -97,7 +97,7 @@ internal fun MainActivity.yearBookCell(yb:YearBook,w:Int):LinearLayout{
     cell.addView(cv,LinearLayout.LayoutParams(w,(w*1.5f).toInt()))
     val under=line().apply{gravity=Gravity.CENTER_VERTICAL}
     val r=yb.book.optInt("rating")
-    under.addView(text(if(r>0)"★ $r" else "",11.5f,StarRow.starYellow(this),true),LinearLayout.LayoutParams(0,-2,1f))
+    under.addView(text("",11.5f,StarRow.starYellow(this),true).apply{text=if(r>0)android.text.SpannableStringBuilder("★ $r").apply{setSpan(RoundStarSpan(StarRow.starYellow(this@yearBookCell),.95f),0,1,0)} else ""},LinearLayout.LayoutParams(0,-2,1f))
     val h=yb.ms/3_600_000L
     under.addView(text(if(h>0)"$h ч" else if(yb.ms>=60_000L)"${yb.ms/60_000L} мин" else "",11.5f,if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt(),true))
     cell.addView(under,LinearLayout.LayoutParams(w,-2).apply{topMargin=d(6)})
@@ -146,4 +146,14 @@ internal fun MainActivity.goalYearPage(model:ReadingStatistics,list:List<YearBoo
         rails.rows.add(row to left)
         row.contentDescription="${names[m-1]}: ${books.size} ${booksWord(books.size)}"}
     return page
+}
+
+/** The app's rounded star (as in the ratings everywhere) set inline in text, in place of the font's sharp «★». */
+internal class RoundStarSpan(private val color:Int,private val scale:Float):android.text.style.ReplacementSpan(){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun getSize(paint:Paint,text:CharSequence?,start:Int,end:Int,fm:Paint.FontMetricsInt?)=(paint.textSize*scale).roundToInt()
+    override fun draw(c:Canvas,text:CharSequence?,start:Int,end:Int,x:Float,top:Int,y:Int,bottom:Int,paint:Paint){
+        val size=paint.textSize*scale;p.color=color
+        // sits on the baseline like a capital letter
+        StarRow.drawStar(c,x,y-size*.92f,size,p)}
 }
