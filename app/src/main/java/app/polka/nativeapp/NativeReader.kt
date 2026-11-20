@@ -303,6 +303,8 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun pause() { Ambience.pause(a);save();paused=true;handler.removeCallbacks(heartbeat) }
     fun dispose(){if(disposed)return;Ambience.unlisten(soundWatch);Ambience.stop(a);if(a.window.attributes.screenBrightness!=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};a.ratingPrompt?.let{(it.parent as? ViewGroup)?.removeView(it)};a.ratingPrompt=null;a.streakCelebration=null;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
     fun resume() { Ambience.resume(a);ReaderWindow.configure(a.window,true,readerBackground);a.root.requestApplyInsets();paused=false; activeAt=System.currentTimeMillis(); lastCredit=activeAt; handler.removeCallbacks(heartbeat); handler.postDelayed(heartbeat,5000) }
+    /** Reading time of this opening of the book (one session). */
+    private var sessionMs=0L
     fun save() {
         handler.removeCallbacks(saveTask)
         if(restoring || editorOpen || opening || preparing || disposed) return
@@ -310,7 +312,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         val p=book.optJSONObject("progress")?.copyJson() ?: JSONObject(); p.put("ch",chapter).put("pct",if(completed) 1.0 else progress()).put("nativeFraction",fraction()).put("nativeOffset",if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0).put("block",0).put("off",0); book.put("progress",p)
         val now=System.currentTimeMillis(); val elapsed=if(!paused && now-activeAt<120000) (now-lastCredit).coerceIn(0,120000) else 0; lastCredit=now
         val pos=position(); val delta=pos-lastPosition; val chars=if(delta in 1 until 12000) delta.toLong() else 0L; lastPosition=pos; val credit=if(elapsed>0) chars else 0L
-        val newSession=!sessionRecorded; sessionRecorded=true
+        val newSession=!sessionRecorded; sessionRecorded=true; sessionMs+=elapsed; val sessionNow=sessionMs
         // the status moves only forward by itself: real reading makes «Хочу»/«Отложено» into «Читаю», the end makes it «Прочитано»
         if(completed&&!startedDone)book.put("state","done")
         else if((before=="want"||before=="paused")&&chars>0){book.put("state","reading");if(book.optLong("startedAt")==0L)book.put("startedAt",now)}
@@ -322,6 +324,8 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
                 val meta=JSONObject(raw.json); val data=meta.getJSONObject("data"); val id=snap.getString("id")
                 val metBefore=ReadingStatistics(data,emptyList()).let{it.met(it.today)}
                 creditReading(data,id,now,elapsed,credit)
+                // the longest single sitting (one opening of a book), for «Рекорды»
+                if(sessionNow>0){val rec=data.optJSONObject("records") ?: JSONObject().also { data.put("records",it) }; if(sessionNow>rec.optLong("session")) rec.put("session",sessionNow).put("sessionAt",now)}
                 ReadingStatistics(data,emptyList()).let{if(!metBefore&&it.met(it.today)){streakUp=it.streak;val monday=it.today.minusDays(it.today.dayOfWeek.value-1L);streakToday=it.today.dayOfWeek.value-1;streakWeek=BooleanArray(7){d->it.met(monday.plusDays(d.toLong()))}}}
                 val records=data.optJSONObject("books") ?: JSONObject().also { data.put("books",it) }; val b=records.optJSONObject(id) ?: JSONObject().put("sessions",0).put("first",openedAt).put("chars",0).also { records.put(id,it) }; b.put("ms",b.optLong("ms")+elapsed).put("chars",b.optLong("chars")+credit).put("sessions",b.optInt("sessions")+if(newSession) 1 else 0).put("total",chapters.objects().sumOf { it.optInt("len") }).put("last",now).put("title",snap.str("title")); a.library.dao.putMeta(MetaRow("stats",meta.toString()))
             }

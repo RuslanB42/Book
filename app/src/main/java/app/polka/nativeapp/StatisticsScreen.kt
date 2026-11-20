@@ -26,6 +26,7 @@ private val ru=Locale("ru")
  */
 internal class StatisticsScreen(private val a:MainActivity,private val data:JSONObject,range:Int,private val animate:Boolean) {
     private val model=ReadingStatistics(data,a.books)
+    private val more=StatsMore(data,a.books,model)
     private val today=model.today
     private val content=a.column().apply{clipChildren=false;clipToPadding=false}
     /** The page scrolls under the status bar and fades into it (no hard cut at the top edge). */
@@ -116,7 +117,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
-        streak();speed();readingTime();books();volumes();tiers()
+        streak();speed();readingTime();books();taste();records();tiers()
         if(!motionOn)return
         // a simple, calm entrance: the whole page fades in, everything on it already in place
         // starts after the page's first (heavier) frame has been drawn, so no part of it is skipped; the still page
@@ -230,59 +231,124 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         add(box)
     }
 
-    /** Speed: the number, how it compares with the average reader, and the blue bar from slower to faster. */
+    /** A chart that is the floor of its card: it runs to the card's edges at the sides and the bottom. */
+    private fun floorChart(box:LinearLayout,chart:View,top:Int=12){box.clipToOutline=true
+        box.addView(chart,LinearLayout.LayoutParams(-1,a.d(124)).apply{topMargin=a.d(top);leftMargin=-a.d(18);rightMargin=-a.d(18);bottomMargin=-a.d(18)})}
+    private fun headRow(box:LinearLayout,title:String,right:View?){val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL};row.addView(kicker(title),LinearLayout.LayoutParams(0,-2,1f));right?.let{row.addView(it)};box.addView(row)}
+    private fun shortDate(d:LocalDate)=if(d==today)"сегодня" else d.format(DateTimeFormatter.ofPattern("EE, d MMMM",ru)).replace(".","")
+
+    /** Speed (approved «Линия»): the number, a page's time in plain words, and the weeks as the card's floor; the
+     *  month's change sits small in the corner; holding the line shows a week. */
     private fun speed(){
-        val box=surface(if(light)0xff1b8abd.toInt() else 0xff4cb0e5.toInt(),.88f,.15f,.8f)
-        box.addView(kicker("Скорость"));space(box,6)
+        val box=surface()
+        val trend=more.trend()?.takeIf{abs(it)>=1}
+        headRow(box,"Скорость",trend?.let{t->label("${if(t>0)"+" else "−"}${abs(t)}% за месяц",11.5f,if(t>0)mint else rose,true)})
+        space(box,10)
         box.addView(if(model.speed>0)bigCount(model.speed," слов в минуту",40f,.4f) else big("—",40f))
         space(box,4)
-        val diff=((model.speed-200)/2.0).roundToInt()
-        box.addView(label(when{model.speed<=0->"появится после пары минут чтения";abs(diff)<3->"как у среднего читателя";diff>0->"на $diff% быстрее среднего читателя";else->"на ${-diff}% медленнее среднего читателя"},12.5f))
-        space(box,14)
-        box.addView(SpeedBar(a,if(model.speed>0)(model.speed/400f).coerceIn(0f,1f) else null,.5f,live),LinearLayout.LayoutParams(-1,a.d(26)))
-        val foot=a.line();foot.addView(label("медленнее",10.5f),LinearLayout.LayoutParams(0,-2,1f));foot.addView(label("~200",10.5f).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f));foot.addView(label("быстрее",10.5f).apply{gravity=Gravity.END},LinearLayout.LayoutParams(0,-2,1f));box.addView(foot)
+        box.addView(label(more.pageSeconds()?.let{"страница в среднем за ${pageTime(it)}"}?:"появится после пары минут чтения",12.5f))
+        val weeks=more.weeklySpeed()
+        if(weeks.size>=2){val chart=EdgeLine(a,blue,live)
+            val fmt=DateTimeFormatter.ofPattern("d MMM",ru)
+            val pts=weeks.mapIndexed{i,(w,v)->EdgeLine.Point(v.toFloat(),"$v слов в минуту",if(i==weeks.size-1&&!w.plusDays(6).isBefore(today))"эта неделя" else "${w.format(fmt).replace(".","")} – ${w.plusDays(6).format(fmt).replace(".","")}")}
+            // a month's name under the first week that starts in it
+            val labels=weeks.mapIndexedNotNull{i,(w,_)->if(i==0||w.monthValue!=weeks[i-1].first.monthValue)i to w.month.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE,ru).trimEnd('.').take(3) else null}
+            chart.set(pts,labels,-1,200f,"средний читатель",false);floorChart(box,chart)}
         box.contentDescription=if(model.speed>0)"Скорость чтения: ${model.speed} слов в минуту" else "Скорость чтения появится после пары минут чтения"
         add(box)
     }
 
-    /** Reading time: the total and the daily average, the Week / Month / Year switch, and a glowing line chart. */
+    /** Reading time: the total, the averages in one line (minutes and pages a day, a usual sitting), and the same floor
+     *  line as speed; Week / Month / Year; holding the line shows a day (a month in the year). */
     private fun readingTime(){
-        val box=surface(if(light)0xff7973ca.toInt() else 0xff9d98f2.toInt(),.3f,.82f,.7f)
-        val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL};head.addView(kicker("Время чтения"),LinearLayout.LayoutParams(0,-2,1f))
-        val left=a.column()
+        val box=surface()
         val names=listOf("Неделя","Месяц","Год")
-        val chartHost=FrameLayout(a).apply{clipChildren=false}
         lateinit var bind:(Boolean)->Unit
-        head.addView(PeriodPills(a,names,period){i->period=i;a.profileRange=i;bind(false)});box.addView(head);space(box,10);box.addView(left);space(box,4)
-        box.addView(chartHost,LinearLayout.LayoutParams(-1,a.d(176)))
-        fun minutes(ms:Long)=ms/60000.0
-        var chart:ReadingLine?=null
+        headRow(box,"Время чтения",PeriodPills(a,names,period){i->period=i;a.profileRange=i;bind(false)})
+        space(box,10)
+        val left=a.column();box.addView(left)
+        val chart=EdgeLine(a,violet,live)
+        fun minutes(ms:Long)=(ms/60000.0).toFloat()
+        val session=more.averageSession()
         bind={first->
-            val values:List<Double>;val labels:List<String>;val tips:List<String>;val total:Long;val avg:Double;val avgText:String;val caption:String;val sparse:Boolean
+            val pts:List<EdgeLine.Point>;val labels:List<Pair<Int,String>>;val strong:Int;val total:Long;val avg:Float;val caption:String
             when(period){
-                0->{val days=(6 downTo 0).map{today.minusDays(it.toLong())};values=days.map{minutes(model.ms(it))};labels=days.map{weekNames[it.dayOfWeek.value-1].lowercase()}
-                    tips=days.map{d->(if(d==today)"сегодня" else d.format(DateTimeFormatter.ofPattern("d MMM",ru)).trimEnd('.'))+" · "+duration(model.ms(d))}
-                    total=days.sumOf{model.ms(it)};avg=minutes(total)/7;avgText="ср. ${avg.roundToInt()} мин";caption="в среднем ${duration((total/7))} в день";sparse=false}
-                1->{val days=(1..today.dayOfMonth).map{today.withDayOfMonth(it)};values=days.map{minutes(model.ms(it))};labels=days.map{"${it.dayOfMonth}"}
-                    tips=days.map{d->(if(d==today)"сегодня" else d.format(DateTimeFormatter.ofPattern("d MMMM",ru)))+" · "+duration(model.ms(d))}
-                    total=model.total(0);avg=minutes(model.average(0));avgText="ср. ${avg.roundToInt()} мин";caption="в среднем ${duration(model.average(0))} в день";sparse=true}
-                else->{val months=(1..today.monthValue).map{YearMonth.of(today.year,it)};val ms=months.map{m->(1..m.lengthOfMonth()).sumOf{d->model.ms(m.atDay(d))}}
-                    values=ms.map{minutes(it)};labels=months.map{it.month.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE,ru).trimEnd('.').take(3)}
-                    tips=months.indices.map{i->months[i].month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE,ru)+" · "+duration(ms[i])}
-                    total=model.total(1);avg=values.average();avgText="ср. ${duration((avg*60000).toLong())}";caption="в среднем ${duration((avg*60000).toLong())} в месяц";sparse=false}
+                0->{val days=(6 downTo 0).map{today.minusDays(it.toLong())}
+                    pts=days.map{d->val pg=(model.chars(d)/PAGE_CHARS).toInt();EdgeLine.Point(minutes(model.ms(d)),duration(model.ms(d))+if(pg>0)", $pg стр." else "",shortDate(d))}
+                    labels=days.mapIndexed{i,d->i to weekNames[d.dayOfWeek.value-1].lowercase()};strong=6
+                    total=days.sumOf{model.ms(it)};avg=minutes(total)/7;val pages=(days.sumOf{model.chars(it)}/PAGE_CHARS/7).toInt()
+                    caption="в среднем ${duration(total/7)}"+(if(pages>0)" и $pages ${pagesWord(pages)}" else "")+" в день"}
+                1->{val days=(1..today.dayOfMonth).map{today.withDayOfMonth(it)}
+                    pts=days.map{d->val pg=(model.chars(d)/PAGE_CHARS).toInt();EdgeLine.Point(minutes(model.ms(d)),duration(model.ms(d))+if(pg>0)", $pg стр." else "",shortDate(d))}
+                    labels=days.mapIndexedNotNull{i,d->if(d.dayOfMonth%7==1)i to "${d.dayOfMonth}" else null};strong=-1
+                    total=model.total(0);avg=minutes(model.average(0));val pages=(days.sumOf{model.chars(it)}/PAGE_CHARS/days.size).toInt()
+                    caption="в среднем ${duration(model.average(0))}"+(if(pages>0)" и $pages ${pagesWord(pages)}" else "")+" в день"}
+                else->{val months=(1..today.monthValue).map{YearMonth.of(today.year,it)}
+                    val ms=months.map{m->(1..m.lengthOfMonth()).sumOf{d->model.ms(m.atDay(d))}};val ch=months.map{m->(1..m.lengthOfMonth()).sumOf{d->model.chars(m.atDay(d))}}
+                    pts=months.indices.map{i->val pg=(ch[i]/PAGE_CHARS).toInt();EdgeLine.Point(minutes(ms[i]),duration(ms[i])+if(pg>0)", $pg стр." else "",months[i].month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE,ru))}
+                    labels=months.mapIndexed{i,m->i to m.month.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE,ru).trimEnd('.').take(3)};strong=months.size-1
+                    total=model.total(1);avg=ms.average().toFloat()/60000f;val pages=(ch.sum()/PAGE_CHARS/months.size).toInt()
+                    caption="в среднем ${duration((avg*60000).toLong())}"+(if(pages>0)" и $pages ${pagesWord(pages)}" else "")+" в месяц"}
             }
-            // the number and its caption: the old ones lift away, the new ones rise in (the chart morphs meanwhile)
             fun fill(){left.removeAllViews()
                 left.addView(big(if(total>0)duration(total) else "0 мин",40f).apply{maxLines=1;isSingleLine=true})
-                space(left,4);left.addView(label(caption,12.5f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})}
+                space(left,4);left.addView(label(caption,12.5f))
+                session?.let{left.addView(label("обычно ${duration(it)} за один заход",12.5f))}}
             if(first||!live)fill()
             else{left.animate().cancel();left.animate().alpha(0f).translationY(-a.d(8).toFloat()).setDuration(150).setInterpolator(Ease.inCubic).withEndAction{fill();left.translationY=a.d(10).toFloat()
                 left.animate().alpha(1f).translationY(0f).setDuration(420).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
-            val c=chart
-            if(c==null){val n=ReadingLine(a,values,labels,tips,avg,avgText,live,sparse);chart=n;chartHost.addView(n,FrameLayout.LayoutParams(-1,-1))}
-            else c.setData(values,labels,tips,avg,avgText,sparse)
+            chart.set(pts,labels,strong,avg,"в среднем",true)
         }
-        bind(true);add(box)
+        bind(true);floorChart(box,chart);add(box)
+    }
+
+    /** «Вкус»: the favourite author with their covers, the genres as one bar, the decade the books come from; parts
+     *  apart by air, no rules. Shown when there is anything to say. */
+    private fun taste(){
+        val author=more.favouriteAuthor();val genres=more.genres();val decades=more.decades()
+        if(author==null&&genres.isEmpty()&&decades==null)return
+        val warm=if(light)0xffc87600.toInt() else 0xfff0a83a.toInt()
+        val box=surface();box.addView(kicker("Вкус"))
+        author?.let{au->space(box,14);val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+            val pile=FrameLayout(a);au.books.take(3).withIndex().reversed().forEach{(i,b)->pile.addView(MiniCover(a,b).apply{elevation=a.d(3).toFloat();alpha=if(i==0)1f else .85f},FrameLayout.LayoutParams(a.d(36),a.d(54)).apply{leftMargin=a.d(11)*i})}
+            row.addView(pile,LinearLayout.LayoutParams(a.d(36+11*(min(3,au.books.size)-1)),a.d(56)).apply{marginEnd=a.d(14)})
+            val t=a.column();t.addView(label("Любимый автор",12.5f));t.addView(a.text(au.name,19f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(2),0,0)})
+            val n=au.books.size;t.addView(label("$n ${booksWord(n)}"+if(au.ms>=3_600_000L)", ${(au.ms/3_600_000L)} ч чтения" else "",12.5f).apply{setPadding(0,a.d(2),0,0)})
+            row.addView(t,LinearLayout.LayoutParams(0,-2,1f));box.addView(row)}
+        if(genres.isNotEmpty()){space(box,if(author!=null)24 else 14);box.addView(label("Жанры",12.5f));space(box,10)
+            val colors=listOf(violet,blue,mint,if(light)0xffe2e2e6.toInt() else 0xff3a3a3d.toInt())
+            val bar=a.line();genres.forEachIndexed{i,(_,pct)->bar.addView(View(a).apply{background=pill(if(i<3)colors[i] else colors[3],4)},LinearLayout.LayoutParams(0,a.d(8),pct.toFloat()).apply{if(i>0)marginStart=a.d(2)})}
+            box.addView(bar,LinearLayout.LayoutParams(-1,a.d(8)))
+            genres.take(3).forEachIndexed{i,(name,pct)->val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(8),0,0)}
+                r.addView(View(a).apply{background=pill(colors[i],4)},LinearLayout.LayoutParams(a.d(8),a.d(8)).apply{marginEnd=a.d(8)})
+                r.addView(a.text(name,13f,a.fg),LinearLayout.LayoutParams(0,-2,1f));r.addView(label("$pct%",13f));box.addView(r)}}
+        decades?.let{(shown,top)->space(box,if(author!=null||genres.isNotEmpty())24 else 14)
+            val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL};r.addView(label("Период",12.5f),LinearLayout.LayoutParams(0,-2,1f));r.addView(a.text("$top-е",14f,a.fg,true));box.addView(r);space(box,12)
+            val mx=shown.maxOf{it.second}.coerceAtLeast(1)
+            val bars=a.line().apply{gravity=Gravity.BOTTOM};val names=a.line()
+            shown.forEachIndexed{i,(d,n)->val on=d==top;val h=if(n>0)max(4,(44*n/mx)) else 4
+                bars.addView(View(a).apply{background=pill(when{on->warm;n>0->(warm and 0xffffff) or 0x66000000;else->if(light)0xffe2e2e6.toInt() else 0xff3a3a3d.toInt()},4)},LinearLayout.LayoutParams(0,a.d(h),1f).apply{if(i>0)marginStart=a.d(6)})
+                names.addView(label(if(on||i%2==1&&abs(shown.indexOfFirst{it.first==top}-i)>1)"$d" else "",10.5f,if(on)a.fg else captionInk,on).apply{gravity=Gravity.CENTER;maxLines=1},LinearLayout.LayoutParams(0,-2,1f).apply{if(i>0)marginStart=a.d(6)})}
+            box.addView(bars,LinearLayout.LayoutParams(-1,a.d(44)));box.addView(names,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(7)})}
+        box.contentDescription="Вкус"+(author?.let{": любимый автор ${it.name}"}?:"")
+        add(box)
+    }
+
+    /** «Рекорды»: the fastest book, the longest sitting, the most pages in a day; one look for all three rows. */
+    private fun records(){
+        val fast=more.fastestBook();val sitting=more.longestSession();val day=more.bestDay()
+        if(fast==null&&sitting==null&&day==null)return
+        val box=surface();box.addView(kicker("Рекорды"))
+        fun row(lead:View,title:String,value:String,side:String){space(box,if(box.childCount==1)14 else 18)
+            val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL};r.addView(lead,LinearLayout.LayoutParams(a.d(34),a.d(50)).apply{marginEnd=a.d(14)})
+            val t=a.column();t.addView(label(title,12.5f));t.addView(a.text(value,19f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)});r.addView(t,LinearLayout.LayoutParams(0,-2,1f))
+            if(side.isNotBlank())r.addView(label(side,12.5f).apply{gravity=Gravity.END},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)});box.addView(r)}
+        fun tileOf(kind:String,c:Int)=FrameLayout(a).apply{background=pill((c and 0xffffff) or ((if(light)0x22 else 0x26) shl 24),11);addView(RecordIcon(a,kind,c),FrameLayout.LayoutParams(a.d(22),a.d(22),Gravity.CENTER))}
+        fast?.let{(b,days,ms)->row(MiniCover(a,b).apply{elevation=a.d(3).toFloat()},"Быстрее всего прочитана","«${b.str("title")}» за $days ${daysWordRu(days)}",if(ms>=3_600_000L)"${ms/3_600_000L} ч\nчтения" else if(ms>=60000)"${ms/60000} мин\nчтения" else "")}
+        sitting?.let{(ms,at)->row(tileOf("clock",violet),"Самая долгая сессия",duration(ms),at?.let{dayMonth(it)}?:"")}
+        day?.let{(pages,at)->row(tileOf("page",mint),"Больше всего за день","$pages ${pagesWord(pages)}",dayMonth(at))}
+        box.contentDescription="Рекорды"
+        add(box)
     }
 
     private fun books(){
@@ -334,8 +400,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             box.contentDescription="Книги за $goalYear: $done"+if(target>0)" из $target" else ""}
         bind();add(box)
     }
-    /** «Стопка страниц» and «Прочитано слов», two small cards side by side (approved). */
-    private fun volumes(){add(a.volumeCards(data,today.year,{surface()},{kicker(it)}))}
     /** «Тир-лист»: the year's ratings as five short rows of small covers; the card opens the whole list. */
     private fun tiers(){
         val ys=Tiers.years(model);if(ys.isEmpty())return
