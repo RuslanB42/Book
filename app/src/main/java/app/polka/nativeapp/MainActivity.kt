@@ -232,7 +232,7 @@ class MainActivity : Activity() {
         onActivityResult(10,RESULT_OK,Intent().setData(uri))
     }
     fun loadData() {
-        prefs=library.prefs(); if(!prefs.has("size")) prefs.put("size",prefs.optInt("fontSize",19)); if(!prefs.has("ui")) prefs.put("ui",prefs.str("theme","dark")); books=library.allBooks().filterNot { it.str("id") in pendingDeletes }.onEach { if(QuoteNotes.fold(it)) library.save(it) }; sort=prefs.str("sort","manual")
+        prefs=library.prefs(); if(!prefs.has("size")) prefs.put("size",prefs.optInt("fontSize",19)); if(!prefs.has("ui")) prefs.put("ui",prefs.str("theme","dark")); books=library.allBooks().filterNot { it.str("id") in pendingDeletes }.onEach { if(QuoteNotes.fold(it)) library.save(it) }.also { AuthorPhotos.prefetch(this,it) }; sort=prefs.str("sort","manual")
     }
     fun requestCover(book:JSONObject,done:(Bitmap?)->Unit) {
         val id=book.optJSONObject("cover")?.str("__polkaBlob")?.takeIf { it.isNotBlank() } ?: return
@@ -539,6 +539,9 @@ class MainActivity : Activity() {
     private var fontPicked:((String)->Unit)?=null
     /** Picks a TTF/OTF file; [done] gets the new font's key once it is checked and stored. */
     fun pickFont(done:(String)->Unit) { fontPicked=done; startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_MIME_TYPES,arrayOf("font/*","application/x-font-ttf","application/x-font-otf","application/font-sfnt","application/vnd.ms-opentype","application/zip","application/x-zip-compressed","application/octet-stream")) },18) }
+    private var authorPhotoPicked:((ByteArray)->Unit)?=null
+    /** Picks the reader's own photo for an author; [done] gets the image's bytes (read off the main thread). */
+    fun pickAuthorPhoto(done:(ByteArray)->Unit) { authorPhotoPicked=done; startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="image/*"; addCategory(Intent.CATEGORY_OPENABLE) },20) }
     fun pickBackup() { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE) },11) }
     fun exportBackup() { startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type="application/octet-stream"; putExtra(Intent.EXTRA_TITLE,"polka-${java.time.LocalDate.now()}.polka"); addCategory(Intent.CATEGORY_OPENABLE) },12) }
     fun fileName(uri:Uri):String { contentResolver.query(uri,arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),null,null,null)?.use { if(it.moveToFirst()) return it.getString(0) }; return "book.fb2" }
@@ -546,6 +549,8 @@ class MainActivity : Activity() {
     @Deprecated("Android activity result API") override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?) {
         super.onActivityResult(requestCode,resultCode,data); if(resultCode!=RESULT_OK || data==null) return; if(!bootFinished) { pendingActivityResult=Triple(requestCode,resultCode,data); return }
         when(requestCode) {
+            20 -> data.data?.let { uri -> val done=authorPhotoPicked ?: return; authorPhotoPicked=null; var bytes:ByteArray?=null
+                work({ bytes=readLimited(uri).takeIf { it.size<=30*1024*1024 } }) { bytes?.let(done) ?: Notice.short(this,Notice.Kind.ERROR,"Файл слишком большой") } }
             19 -> data.data?.let { uri -> val done=soundPicked ?: return; soundPicked=null; val name=fileName(uri); var added:org.json.JSONObject?=null; var reason=""
                 work({ try { val bytes=readLimited(uri); require(bytes.size<=80*1024*1024) { "Файл слишком большой" }; added=Ambience.add(this,bytes,name) } catch(e:Exception) { reason=e.message ?: "Не удалось открыть звук" } }) {
                     val got=added; if(got!=null) { Ambience.register(this,got); savePreferences(); done(got); Notice.short(this,Notice.Kind.OK,"Звук «${got.str("name")}» добавлен") } else Notice.short(this,Notice.Kind.ERROR,reason) } }

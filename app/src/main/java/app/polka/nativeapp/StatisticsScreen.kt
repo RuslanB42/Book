@@ -288,33 +288,32 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         bind(true);floorChart(box,chart);add(box)
     }
 
-    /** «Вкус»: the favourite author with their covers, the genres as one bar, the decade the books come from; parts
-     *  apart by air, no rules. Shown when there is anything to say. */
+    /** «Вкус» (approved): the favourite author's portrait (a real photo when there is one, the initials till then),
+     *  the genres and the decades the books were written in as the same small pills; parts apart by air, no rules. */
     private fun taste(){
-        val author=more.favouriteAuthor();val genres=more.genres();val decades=more.decades()
-        if(author==null&&genres.isEmpty()&&decades==null)return
-        val warm=if(light)0xffc87600.toInt() else 0xfff0a83a.toInt()
+        val author=more.favouriteAuthor();val genres=more.genres().filter{it.first!="Другое"};val decades=more.decadeCounts()
+        if(author==null&&genres.isEmpty()&&decades.isEmpty())return
         val box=surface();box.addView(kicker("Вкус"))
-        author?.let{au->space(box,14);val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-            row.addView(AuthorMark(a,au.name),LinearLayout.LayoutParams(a.d(56),a.d(56)).apply{marginEnd=a.d(14)})
-            val t=a.column();t.addView(label("Любимый автор",12.5f));t.addView(a.text(au.name,19f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(2),0,0)})
-            val n=au.books.size;t.addView(label("$n ${booksWord(n)}"+if(au.ms>=3_600_000L)", ${(au.ms/3_600_000L)} ч чтения" else "",12.5f).apply{setPadding(0,a.d(2),0,0)})
+        author?.let{au->space(box,16);val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+            row.addView(AuthorPortrait(a,au.name,au.books.firstOrNull()?.str("title")),LinearLayout.LayoutParams(a.d(64),a.d(64)).apply{marginEnd=a.d(16)})
+            val t=a.column();t.addView(label("Любимый автор",12.5f));t.addView(a.text(au.name,20f,a.fg,true,serif=true).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)})
+            val n=au.books.size;t.addView(label("$n ${booksWord(n)}"+if(au.ms>=3_600_000L)", ${(au.ms/3_600_000L)} ч чтения" else "",12.5f).apply{setPadding(0,a.d(3),0,0)})
             row.addView(t,LinearLayout.LayoutParams(0,-2,1f));box.addView(row)}
-        if(genres.isNotEmpty()){space(box,if(author!=null)24 else 14);box.addView(label("Жанры",12.5f));space(box,10)
-            val colors=listOf(violet,blue,mint,if(light)0xffe2e2e6.toInt() else 0xff3a3a3d.toInt())
-            val bar=a.line();genres.forEachIndexed{i,(_,pct)->bar.addView(View(a).apply{background=pill(if(i<3)colors[i] else colors[3],4)},LinearLayout.LayoutParams(0,a.d(8),pct.toFloat()).apply{if(i>0)marginStart=a.d(2)})}
-            box.addView(bar,LinearLayout.LayoutParams(-1,a.d(8)))
-            genres.take(3).forEachIndexed{i,(name,pct)->val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,a.d(8),0,0)}
-                r.addView(View(a).apply{background=pill(colors[i],4)},LinearLayout.LayoutParams(a.d(8),a.d(8)).apply{marginEnd=a.d(8)})
-                r.addView(a.text(name,13f,a.fg),LinearLayout.LayoutParams(0,-2,1f));r.addView(label("$pct%",13f));box.addView(r)}}
-        decades?.let{(shown,top)->space(box,if(author!=null||genres.isNotEmpty())24 else 14)
-            val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL};r.addView(label("Период",12.5f),LinearLayout.LayoutParams(0,-2,1f));r.addView(a.text("$top-е",14f,a.fg,true));box.addView(r);space(box,12)
-            val mx=shown.maxOf{it.second}.coerceAtLeast(1)
-            val bars=a.line().apply{gravity=Gravity.BOTTOM};val names=a.line()
-            shown.forEachIndexed{i,(d,n)->val on=d==top;val h=if(n>0)max(4,(44*n/mx)) else 4
-                bars.addView(View(a).apply{background=pill(when{on->warm;n>0->(warm and 0xffffff) or 0x66000000;else->if(light)0xffe2e2e6.toInt() else 0xff3a3a3d.toInt()},4)},LinearLayout.LayoutParams(0,a.d(h),1f).apply{if(i>0)marginStart=a.d(6)})
-                names.addView(label(if(on||i%2==1&&abs(shown.indexOfFirst{it.first==top}-i)>1)"$d" else "",10.5f,if(on)a.fg else captionInk,on).apply{gravity=Gravity.CENTER;maxLines=1},LinearLayout.LayoutParams(0,-2,1f).apply{if(i>0)marginStart=a.d(6)})}
-            box.addView(bars,LinearLayout.LayoutParams(-1,a.d(44)));box.addView(names,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(7)})}
+        // a pill: a coloured dot, the name, the figure quieter; tinted with its colour
+        fun chip(row:FlowRow,name:String,figure:String,c:Int,warm:Boolean=true){
+            val p=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(7),a.d(12),a.d(7));background=pill((c and 0xffffff) or ((if(warm)0x26 else 0x12) shl 24),14)}
+            p.addView(View(a).apply{background=pill(if(warm)c else captionInk,4)},LinearLayout.LayoutParams(a.d(8),a.d(8)).apply{marginEnd=a.d(8)})
+            p.addView(a.text(name,13f,if(warm)a.fg else (if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt())))
+            p.addView(a.text(figure,13f,if(light)0x99000000.toInt() else 0x80ffffff.toInt()).apply{setPadding(a.d(8),0,0,0)})
+            row.addView(p)}
+        if(genres.isNotEmpty()){space(box,if(author!=null)22 else 14);box.addView(label("Жанры",12.5f));space(box,10)
+            val colors=listOf(violet,blue,mint);val row=FlowRow(a,a.d(8),a.d(8)){false}
+            genres.take(3).forEachIndexed{i,(name,pct)->chip(row,name,"$pct%",colors[i])}
+            box.addView(row,LinearLayout.LayoutParams(-1,-2))}
+        if(decades.isNotEmpty()){space(box,if(author!=null||genres.isNotEmpty())22 else 14);box.addView(label("Время написания",12.5f));space(box,10)
+            val warm=if(light)0xffc87600.toInt() else 0xfff0a83a.toInt();val row=FlowRow(a,a.d(8),a.d(8)){false}
+            decades.take(4).forEachIndexed{i,(d,n)->chip(row,"$d-е","$n ${booksWord(n)}",if(i==0)warm else (if(light)0xff000000.toInt() else 0xffffffff.toInt()),i==0)}
+            box.addView(row,LinearLayout.LayoutParams(-1,-2))}
         box.contentDescription="Вкус"+(author?.let{": любимый автор ${it.name}"}?:"")
         add(box)
     }

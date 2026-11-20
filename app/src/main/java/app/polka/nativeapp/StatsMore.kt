@@ -65,6 +65,10 @@ internal class StatsMore(private val data:JSONObject,private val books:List<JSON
         val last=byDecade.keys.maxOrNull()!!;val first=max(byDecade.keys.minOrNull()!!,last-70)
         val shown=(first..last step 10).map{d->d to if(d==first)byDecade.filterKeys{it<=d}.values.sum() else (byDecade[d]?:0)}
         return shown to top}
+    /** Decades by the number of books written in them, most first (needs five books with a year). */
+    fun decadeCounts():List<Pair<Int,Int>>{
+        val years=tasted.map{it.optInt("year")}.filter{it in 1000..today.year};if(years.size<5)return emptyList()
+        return years.groupingBy{it/10*10}.eachCount().entries.sortedWith(compareByDescending<Map.Entry<Int,Int>>{it.value}.thenByDescending{it.key}).map{it.key to it.value}}
 }
 
 /** Russian names for the FB2 genre codes (and EPUB subjects as they are). */
