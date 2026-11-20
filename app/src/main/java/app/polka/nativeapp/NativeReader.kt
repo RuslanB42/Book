@@ -306,7 +306,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun changeChapter(next:Int) { if(next !in 0 until chapters.length())return;quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=0;pendingFraction=null;paintChapter() }
     fun persist() { val snap=book.copyJson(); a.saveBook(snap) {} }
     fun pause() { Ambience.pause(a);save();paused=true;handler.removeCallbacks(heartbeat) }
-    fun dispose(){if(disposed)return;Ambience.unlisten(soundWatch);Ambience.stop(a);if(a.window.attributes.screenBrightness!=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};a.ratingPrompt?.let{(it.parent as? ViewGroup)?.removeView(it)};a.ratingPrompt=null;a.streakCelebration=null;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
+    fun dispose(){if(disposed)return;Ambience.unlisten(soundWatch);Ambience.stop(a);if(a.window.attributes.screenBrightness!=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};a.ratingPrompt?.let{(it.parent as? ViewGroup)?.removeView(it)};a.ratingPrompt=null;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
     fun resume() { Ambience.resume(a);ReaderWindow.configure(a.window,true,readerBackground);a.root.requestApplyInsets();paused=false; tracker.skipTime(); tracker.touch(); handler.removeCallbacks(heartbeat); handler.postDelayed(heartbeat,5000) }
     /** Characters on a page as it is laid out now: the chapter's pages, or one screen when scrolling. */
     private fun pageChars():Int{
@@ -324,21 +324,17 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         // the status moves only forward by itself: real reading makes «Хочу»/«Отложено» into «Читаю», the end makes it «Прочитано»
         if(completed&&!startedDone)book.put("state","done")
         else if((before=="want"||before=="paused")&&credit.chars>0){book.put("state","reading");if(book.optLong("startedAt")==0L)book.put("startedAt",now)}
-        val snap=book.copyJson();var streakUp=0;var streakWeek=BooleanArray(7);var streakToday=0
+        val snap=book.copyJson()
         a.work({
             a.library.db.runInTransaction {
                 a.library.save(snap)
                 val raw=a.library.dao.meta("stats") ?: return@runInTransaction
                 val meta=JSONObject(raw.json); val data=meta.getJSONObject("data"); val id=snap.getString("id")
-                val metBefore=ReadingStatistics(data,emptyList()).let{it.met(it.today)}
                 recordReading(data,id,snap.str("title"),total,credit,now,calib)
-                ReadingStatistics(data,emptyList()).let{if(!metBefore&&it.met(it.today)){streakUp=it.streak;val monday=it.today.minusDays(it.today.dayOfWeek.value-1L);streakToday=it.today.dayOfWeek.value-1;streakWeek=BooleanArray(7){d->it.met(monday.plusDays(d.toLong()))}}}
                 a.library.dao.putMeta(MetaRow("stats",meta.toString()))
             }
         }) { a.checkpointSoon(); }
     }
-    /** The day's goal was just reached: celebrate it on top of the page, clear of the status bar. */
-    private fun showStreak(n:Int,week:BooleanArray,today:Int){a.streakCelebration?.dismiss();StreakCelebration(a,view,n,week,today).show()}
     private val quoteInk=0x44f0a742
     /** Saved quotes of the current chapter with where they sit in its text. */
     internal fun quoteRanges():List<Pair<JSONObject,IntRange>> { val text=chapterRich.toString(); return book.optJSONArray("quotes")?.objects().orEmpty().filter { it.optInt("ch")==chapter }.mapNotNull { q -> TextAnchors.locate(text,q.str("rawText",q.str("text")),q.optInt("start"))?.let { q to it } } }
