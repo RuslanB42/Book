@@ -64,7 +64,7 @@ internal fun MainActivity.goalShelf(list:List<YearBook>,fit:Int):LinearLayout{
     return row
 }
 
-/** The year's three numbers as equal quiet tiles (approved): books (of the goal, with its thin bar), hours read,
+/** The year's three numbers as equal quiet tiles (approved): books (of the goal), hours read,
  *  the average rating. [big] is the full-screen size. */
 internal fun MainActivity.yearTiles(list:List<YearBook>,goal:Int,big:Boolean):LinearLayout{
     val row=line().apply{gravity=Gravity.TOP}
@@ -76,14 +76,8 @@ internal fun MainActivity.yearTiles(list:List<YearBook>,goal:Int,big:Boolean):Li
         append(main);if(tail.isNotEmpty()){val st=length;append(" $tail");setSpan(android.text.style.ForegroundColorSpan(if(light)0xff9a9aa0.toInt() else 0xff6e6e73.toInt()),st,length,0);setSpan(android.text.style.AbsoluteSizeSpan(unit.toInt(),true),st,length,0)}}
     fun caption(t:String)=text(t,if(big)12f else 11.5f,muted).apply{setPadding(0,d(6),0,0)}
     val done=list.size
-    // the goal's bar sits on the caption's line, so all three tiles keep the same height
     tile{t->t.addView(text("",num,fg,true,serif=true).apply{text=value("$done",if(goal>0)"/$goal" else "");maxLines=1})
-        val cap=line().apply{gravity=Gravity.CENTER_VERTICAL};cap.addView(caption(booksWord(done)),LinearLayout.LayoutParams(-2,-2));t.addView(cap,LinearLayout.LayoutParams(-1,-2))
-        if(goal>0)cap.addView(View(this).apply{background=object:android.graphics.drawable.Drawable(){
-            private val pp=Paint(Paint.ANTI_ALIAS_FLAG)
-            override fun draw(c:Canvas){val b=bounds;val r=b.height()/2f;pp.color=if(light)0x14000000 else 0x14ffffff;c.drawRoundRect(RectF(b),r,r,pp)
-                val f=(done.toFloat()/goal).coerceIn(0f,1f);if(f>0f){pp.color=if(light)0xff009a5c.toInt() else 0xff4fd6a2.toInt();c.drawRoundRect(RectF(b.left.toFloat(),b.top.toFloat(),b.left+max(b.height().toFloat(),b.width()*f),b.bottom.toFloat()),r,r,pp)}}
-            override fun setAlpha(x:Int){};override fun setColorFilter(x:ColorFilter?){};@Deprecated("") override fun getOpacity()=PixelFormat.TRANSLUCENT}},LinearLayout.LayoutParams(0,d(4),1f).apply{marginStart=d(10);topMargin=d(6)})}
+        t.addView(caption(booksWord(done)))}
     val ms=list.sumOf{it.ms};val hours=ms/3_600_000L
     tile{t->t.addView(text("",num,fg,true,serif=true).apply{text=if(hours>0)value("$hours","ч") else value("${ms/60_000L}","мин");maxLines=1});t.addView(caption("за чтением"))}
     val rated=list.map{it.book.optInt("rating")}.filter{it>0}
