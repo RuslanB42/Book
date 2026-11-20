@@ -64,38 +64,86 @@ internal fun MainActivity.goalShelf(list:List<YearBook>,fit:Int):LinearLayout{
     return row
 }
 
-/** The full-screen year (variant «Кольцо»): the big ring, the chip and the words, the year's results in three tiles
- *  and the books month by month, newest first. */
-internal fun MainActivity.goalYearPage(model:ReadingStatistics,list:List<YearBook>,goal:Int,year:Int,today:LocalDate,motion:Boolean):LinearLayout{
-    val page=column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(d(18),0,d(18),0)}
-    page.addView(GoalRing(this,list.size,goal,true,motion),LinearLayout.LayoutParams(d(210),d(210)).apply{topMargin=d(14)})
-    val w=goalWords(model,year,today,list.size,goal)
-    w.chip?.let{page.addView(goalChip(it,w.good),LinearLayout.LayoutParams(-2,d(26)).apply{topMargin=d(16)})}
-    val words=listOf(w.first,w.second).filter{it.isNotBlank()}.joinToString(", ")
-    if(words.isNotBlank())page.addView(text(words,14f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(16)})
-    if(list.isEmpty())return page
-    // the year's results
-    val tiles=line().apply{gravity=Gravity.TOP}
-    fun tile(value:String,caption:String){val t=column().apply{background=shape(if(light)0x0a000000 else 0x0dffffff,18);setPadding(d(12),d(12),d(12),d(12))}
-        t.addView(text(value,20f,fg,true,serif=true));t.addView(text(caption,12f,muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(3)})
-        tiles.addView(t,LinearLayout.LayoutParams(0,-1,1f).apply{if(tiles.childCount>0)marginStart=d(10)})}
+/** The year's three numbers as equal quiet tiles (approved): books (of the goal, with its thin bar), hours read,
+ *  the average rating. [big] is the full-screen size. */
+internal fun MainActivity.yearTiles(list:List<YearBook>,goal:Int,big:Boolean):LinearLayout{
+    val row=line().apply{gravity=Gravity.TOP}
+    val num=if(big)26f else 22f;val unit=if(big)15f else 13f
+    fun tile(build:(LinearLayout)->Unit){val t=column().apply{background=shape(if(light)0x0a000000 else (if(big)0xff242426.toInt() else 0x0affffff),if(big)18 else 16);setPadding(d(12),d(12),d(12),d(13))}
+        build(t);row.addView(t,LinearLayout.LayoutParams(0,-1,1f).apply{if(row.childCount>0)marginStart=d(8)})}
+    fun value(main:String,tail:String,lead:String="")=android.text.SpannableStringBuilder().apply{
+        if(lead.isNotEmpty()){append(lead);setSpan(android.text.style.ForegroundColorSpan(StarRow.starYellow(this@yearTiles)),0,length,0);setSpan(android.text.style.RelativeSizeSpan(.78f),0,length,0);append(" ")}
+        append(main);if(tail.isNotEmpty()){val st=length;append(" $tail");setSpan(android.text.style.ForegroundColorSpan(if(light)0xff9a9aa0.toInt() else 0xff6e6e73.toInt()),st,length,0);setSpan(android.text.style.AbsoluteSizeSpan(unit.toInt(),true),st,length,0)}}
+    fun caption(t:String)=text(t,if(big)12f else 11.5f,muted).apply{setPadding(0,d(6),0,0)}
+    val done=list.size
+    tile{t->t.addView(text("",num,fg,true,serif=true).apply{text=value("$done",if(goal>0)"/$goal" else "");maxLines=1});t.addView(caption(booksWord(done)))
+        if(goal>0)t.addView(View(this).apply{background=object:android.graphics.drawable.Drawable(){
+            private val pp=Paint(Paint.ANTI_ALIAS_FLAG)
+            override fun draw(c:Canvas){val b=bounds;val r=b.height()/2f;pp.color=if(light)0x14000000 else 0x14ffffff;c.drawRoundRect(RectF(b),r,r,pp)
+                val f=(done.toFloat()/goal).coerceIn(0f,1f);if(f>0f){pp.color=if(light)0xff009a5c.toInt() else 0xff4fd6a2.toInt();c.drawRoundRect(RectF(b.left.toFloat(),b.top.toFloat(),b.left+max(b.height().toFloat(),b.width()*f),b.bottom.toFloat()),r,r,pp)}}
+            override fun setAlpha(x:Int){};override fun setColorFilter(x:ColorFilter?){};@Deprecated("") override fun getOpacity()=PixelFormat.TRANSLUCENT}},LinearLayout.LayoutParams(-1,d(4)).apply{topMargin=d(if(big)14 else 10)})}
     val ms=list.sumOf{it.ms};val hours=ms/3_600_000L
-    tile(if(hours>0)"$hours ч" else "${max(1L,ms/60_000L)} мин","за чтением")
+    tile{t->t.addView(text("",num,fg,true,serif=true).apply{text=if(hours>0)value("$hours","ч") else value("${ms/60_000L}","мин");maxLines=1});t.addView(caption("за чтением"))}
     val rated=list.map{it.book.optInt("rating")}.filter{it>0}
-    if(rated.isNotEmpty())tile(String.format(java.util.Locale("ru"),"%.1f",rated.average()),"средняя оценка")
-    val days=list.map{(java.time.temporal.ChronoUnit.DAYS.between(it.start,it.end)+1).toInt().coerceAtLeast(1)}.average().roundToInt()
-    tile(daysWord(days),"на книгу")
-    page.addView(tiles,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(22)})
-    page.addView(text("По месяцам",13f,muted,true),LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(24);bottomMargin=d(4);leftMargin=d(2)})
-    val months=listOf("янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек")
-    list.groupBy{it.end.monthValue}.toSortedMap(compareByDescending{it}).forEach{(m,books)->
-        if(page.childCount>0&&page.getChildAt(page.childCount-1).tag=="month")page.addView(View(this).apply{setBackgroundColor(if(light)0x0d000000 else 0x0dffffff)},LinearLayout.LayoutParams(-1,1))
-        val row=line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=d(58);tag="month"}
-        row.addView(text(months[m-1],13.5f,fg,true),LinearLayout.LayoutParams(d(56),-2))
-        val covers=line().apply{clipChildren=false}
-        books.sortedByDescending{it.end}.take(6).forEach{yb->covers.addView(MiniCover(this,yb.book).apply{elevation=d(2).toFloat()},LinearLayout.LayoutParams(d(26),d(39)).apply{if(covers.childCount>0)marginStart=d(5)})}
-        row.addView(covers,LinearLayout.LayoutParams(0,-2,1f))
-        row.addView(text("${books.size}",13f,muted))
-        page.addView(row,LinearLayout.LayoutParams(-1,-2))}
+    tile{t->t.addView(text("",num,fg,true,serif=true).apply{text=if(rated.isEmpty())"—" else value(String.format(java.util.Locale("ru"),"%.1f",rated.average()),"","★");maxLines=1});t.addView(caption("оценка"))}
+    row.contentDescription="$done ${booksWord(done)}"+(if(goal>0)" из $goal" else "")+", за чтением ${if(hours>0)"$hours ч" else "${ms/60_000L} мин"}"+if(rated.isNotEmpty())", средняя оценка ${String.format(java.util.Locale("ru"),"%.1f",rated.average())}" else ""
+    return row
+}
+
+/** A book of the year: its cover clean, and under it the stars it got and the hours it took. */
+internal fun MainActivity.yearBookCell(yb:YearBook,w:Int):LinearLayout{
+    val cell=column().apply{clipChildren=false;clipToPadding=false}
+    val cv=CoverView(this,yb.book,cover(yb.book)).apply{softShadow=true;isClickable=true;contentDescription=yb.book.str("title");setOnClickListener{detail(yb.book,this)}}
+    cell.addView(cv,LinearLayout.LayoutParams(w,(w*1.5f).toInt()))
+    val under=line().apply{gravity=Gravity.CENTER_VERTICAL}
+    val r=yb.book.optInt("rating")
+    under.addView(text(if(r>0)"★ $r" else "",11.5f,StarRow.starYellow(this),true),LinearLayout.LayoutParams(0,-2,1f))
+    val h=yb.ms/3_600_000L
+    under.addView(text(if(h>0)"$h ч" else if(yb.ms>=60_000L)"${yb.ms/60_000L} мин" else "",11.5f,if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt(),true))
+    cell.addView(under,LinearLayout.LayoutParams(w,-2).apply{topMargin=d(6)})
+    return cell
+}
+
+/** The month names of the year page stay at the top while their books scroll under them. */
+internal class YearRails(private val a:MainActivity){
+    val rows=mutableListOf<Pair<View,View>>()
+    private val at=IntArray(2)
+    fun stick(scroll:View){scroll.getLocationOnScreen(at);val top=at[1]+a.d(8)
+        rows.forEach{(row,label)->row.getLocationOnScreen(at);val room=row.height-label.height-a.d(22);label.translationY=(top-at[1]).toFloat().coerceIn(0f,max(0,room).toFloat())}}
+    fun reset(){rows.forEach{it.second.translationY=0f}}
+}
+
+/** The full-screen year (approved «Мой год в книгах, месяцы слева»): the year large, the three numbers as tiles,
+ *  then the months from this one back to January — the month, its hours and books on the left, its covers on the
+ *  right with stars and hours; an empty month is one quiet line. */
+internal fun MainActivity.goalYearPage(model:ReadingStatistics,list:List<YearBook>,goal:Int,year:Int,today:LocalDate,motion:Boolean):LinearLayout{
+    val page=column().apply{setPadding(d(20),0,d(20),0);clipChildren=false}
+    val rails=YearRails(this);page.tag=rails
+    page.addView(text("МОЙ ГОД В КНИГАХ",13f,if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt(),true).apply{letterSpacing=.16f},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(18)})
+    page.addView(text("$year",84f,fg,true,serif=true).apply{includeFontPadding=false;maxLines=1},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(2)})
+    page.addView(yearTiles(list,goal,true),LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(20)})
+    val last=if(year==today.year)today.monthValue else 12
+    val names=listOf("Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь")
+    val railW=74;val gap=9
+    val cw=66;val perRow=max(1,(resources.configuration.screenWidthDp-40-railW-14+gap)/(cw+gap))
+    val byMonth=list.groupBy{it.end.monthValue}
+    space(page,26)
+    for(m in last downTo 1){val books=byMonth[m].orEmpty().sortedByDescending{it.end}
+        val row=line().apply{gravity=Gravity.TOP;clipChildren=false}
+        val left=column()
+        left.addView(text(names[m-1],15f,if(books.isEmpty())(if(light)0xffa8a8ad.toInt() else 0xff5c5c62.toInt()) else fg,true,serif=true).apply{maxLines=1})
+        row.addView(left,LinearLayout.LayoutParams(d(railW),-2).apply{marginEnd=d(14)})
+        if(books.isEmpty()){row.addView(text("без книг",12.5f,if(light)0xffa8a8ad.toInt() else 0xff5c5c62.toInt()),LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(2)})
+            page.addView(row,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=d(14)});continue}
+        val ms=books.sumOf{it.ms};val h=ms/3_600_000L
+        left.addView(text(if(h>0)"$h ч" else "${ms/60_000L} мин",12f,muted).apply{setPadding(0,d(4),0,0)})
+        left.addView(text("${books.size} ${booksWord(books.size)}",12f,if(light)0xff9a9aa0.toInt() else 0xff6e6e73.toInt()).apply{setPadding(0,d(1),0,0)})
+        val grid=column().apply{clipChildren=false}
+        books.chunked(perRow).forEach{chunk->val r=line().apply{clipChildren=false};chunk.forEach{yb->r.addView(yearBookCell(yb,d(cw)),LinearLayout.LayoutParams(-2,-2).apply{if(r.childCount>0)marginStart=d(gap)})}
+            grid.addView(r,LinearLayout.LayoutParams(-2,-2).apply{if(grid.childCount>0)topMargin=d(14)})}
+        row.addView(grid,LinearLayout.LayoutParams(0,-2,1f))
+        page.addView(row,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=d(26)})
+        rails.rows.add(row to left)
+        row.contentDescription="${names[m-1]}: ${books.size} ${booksWord(books.size)}"}
     return page
 }

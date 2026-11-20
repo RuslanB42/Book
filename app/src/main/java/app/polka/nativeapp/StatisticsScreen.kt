@@ -337,53 +337,31 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         add(box)
     }
 
+    /** «Мой год в книгах» (approved): the year, the three numbers as tiles, the year's latest books with their stars and
+     *  hours; the card (or its button) opens the whole year. */
     private fun books(){
         val box=surface(if(light)0xff009a5c.toInt() else 0xff37c080.toInt(),.86f,.12f,.8f)
         val years=(model.finished.mapNotNull{it.date?.year}+today.year).distinct().sortedDescending().take(8)
-        if(goalYear !in years&&goalYear!=today.year+1)goalYear=today.year
+        goalYear=today.year
         fun bind(){box.removeAllViews()
-            val list=yearBooks(model,data,goalYear);val target=model.target(goalYear);val done=list.size
-            // approved: the years side by side as in the tier list — this one large in serif, the others quiet;
-            // a tap on a year (or a swipe across the card) switches it
+            val list=yearBooks(model,data,today.year);val target=model.target(today.year)
             val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-            fun switchTo(y:Int,dir:Int){if(y==goalYear)return;goalYear=y;a.statisticsGoalYear=y
-                if(live)box.animate().alpha(0f).translationX(-dir*a.d(14).toFloat()).setDuration(150).setInterpolator(Ease.inCubic).withEndAction{bind();box.translationX=dir*a.d(14).toFloat()
-                    box.animate().alpha(1f).translationX(0f).setDuration(380).setInterpolator(Ease.outCubic).start()}.start() else bind()}
-            val tabs=a.line().apply{gravity=Gravity.BOTTOM}
-            years.forEach{y->val on=y==goalYear
-                val t=if(on)a.text("$y",24f,a.fg,true,serif=true) else a.text("$y",15f,if(light)0xff9a9aa0.toInt() else 0xff5c5c62.toInt()).apply{typeface=PolkaFonts.sans(500)}
-                t.isClickable=true;t.contentDescription=if(on)"$y год, выбран" else "Показать $y год";t.setOnClickListener{switchTo(y,if(y<goalYear)1 else -1)};if(!on)a.press(t)
-                tabs.addView(t,LinearLayout.LayoutParams(-2,-2).apply{if(tabs.childCount>0)marginStart=a.d(16)})}
-            val tabScroll=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(tabs)}
-            top.addView(tabScroll,LinearLayout.LayoutParams(0,-2,1f))
-            val expand=FrameLayout(a).apply{isClickable=true;contentDescription="Открыть дорогу года";setOnClickListener{openRoad(box,years){bind()}}
+            val title=a.column();title.addView(kicker("Мой год в книгах"));title.addView(a.text("${today.year}",30f,a.fg,true,serif=true).apply{includeFontPadding=false;setPadding(0,a.d(6),0,0)})
+            top.addView(title,LinearLayout.LayoutParams(0,-2,1f))
+            val expand=FrameLayout(a).apply{isClickable=true;contentDescription="Открыть год в книгах";setOnClickListener{openRoad(box,years){bind()}}
                 background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(light)0x0d000000 else 0x12ffffff)}
                 addView(Glyph(a,"expand",a.fg),FrameLayout.LayoutParams(a.d(15),a.d(15),Gravity.CENTER));a.press(this)}
             top.addView(expand,LinearLayout.LayoutParams(a.d(34),a.d(34)).apply{marginStart=a.d(10)})
-            // a swipe across the card goes to the next or previous year
-            var x0=0f;var y0=0f;var swiping=false
-            box.setOnTouchListener{_,e->when(e.actionMasked){
-                MotionEvent.ACTION_DOWN->{x0=e.rawX;y0=e.rawY;swiping=false;false}
-                MotionEvent.ACTION_MOVE->{val dx=e.rawX-x0;if(!swiping&&kotlin.math.abs(dx)>a.d(24)&&kotlin.math.abs(dx)>kotlin.math.abs(e.rawY-y0)*1.5f){swiping=true;box.parent?.requestDisallowInterceptTouchEvent(true);box.isPressed=false;box.cancelLongPress()};swiping}
-                MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{if(swiping){val dx=e.rawX-x0;val i=years.indexOf(goalYear)
-                    // years run newest first: a swipe to the left goes back in time
-                    val next=if(dx<0)years.getOrNull(i+1) else years.getOrNull(i-1);if(next!=null)switchTo(next,if(dx<0)1 else -1)};swiping}
-                else->false}}
             box.addView(top)
-            if(list.isEmpty()&&target<=0){space(box,16);box.addView(a.emptyGoal(goalYear),LinearLayout.LayoutParams(-1,-2));return}
-            // approved «Кольцо»: the ring with the count, the chip and two short lines beside it, the year's covers below
-            val mid=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-            mid.addView(GoalRing(a,done,target,false,live),LinearLayout.LayoutParams(a.d(112),a.d(112)))
-            val words=a.column();val w=goalWords(model,goalYear,today,done,target)
-            w.chip?.let{words.addView(a.goalChip(it,w.good),LinearLayout.LayoutParams(-2,a.d(26)).apply{bottomMargin=a.d(9)})}
-            if(w.first.isNotBlank())words.addView(a.text(w.first,14f,a.fg))
-            if(w.second.isNotBlank())words.addView(label(w.second,13f),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(3)})
-            mid.addView(words,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(18)})
-            space(box,14);box.addView(mid)
-            if(list.isNotEmpty()){val fit=((a.resources.configuration.screenWidthDp-32-36-40)/48).coerceIn(3,9)
-                space(box,16);box.addView(a.goalShelf(list,fit),LinearLayout.LayoutParams(-1,-2))}
+            if(list.isEmpty()&&target<=0){space(box,16);box.addView(a.emptyGoal(today.year),LinearLayout.LayoutParams(-1,-2));return}
+            space(box,16);box.addView(a.yearTiles(list,target,false),LinearLayout.LayoutParams(-1,-2))
+            // the latest books in one row, newest first
+            if(list.isNotEmpty()){val gap=9;val w=((a.resources.configuration.screenWidthDp-32-36-gap*4)/5).coerceAtMost(72)
+                val row=a.line().apply{clipChildren=false;clipToPadding=false}
+                list.sortedByDescending{it.end}.take(5).forEach{yb->row.addView(a.yearBookCell(yb,a.d(w)),LinearLayout.LayoutParams(-2,-2).apply{if(row.childCount>0)marginStart=a.d(gap)})}
+                space(box,18);box.addView(row,LinearLayout.LayoutParams(-1,-2))}
             box.isClickable=true;box.setOnClickListener{openRoad(box,years){bind()}}
-            box.contentDescription="Книги за $goalYear: $done"+if(target>0)" из $target" else ""}
+            box.contentDescription="Мой год в книгах: ${list.size}"+if(target>0)" из $target" else ""}
         bind();add(box)
     }
     /** «Тир-лист»: the year's ratings as five short rows of small covers; the card opens the whole list. */

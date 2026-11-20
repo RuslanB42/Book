@@ -75,6 +75,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
     private lateinit var progress:LinearLayout
     private lateinit var scroll:ScrollView
     private lateinit var roadHost:FrameLayout
+    private lateinit var page:LinearLayout
     private var column:RoadColumn?=null
     private var share:FrameLayout?=null
     private var closing=false
@@ -96,12 +97,12 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
             background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x14ffffff)}
             addView(Glyph(a,kind,a.fg),FrameLayout.LayoutParams(a.d(17),a.d(17),Gravity.CENTER));a.press(this)}
         bar.addView(round("down","Свернуть"){close()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
-        bar.addView(a.text("ЦЕЛЬ НА ГОД",12.5f,a.muted,true).apply{letterSpacing=.06f;gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f))
+        // approved «Мой год в книгах»: the years small in the middle of the bar (this one bright), the page below
+        tabs=a.line().apply{gravity=Gravity.CENTER}
+        bar.addView(HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(tabs)},LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(10);marginEnd=a.d(10)})
         bar.addView(round("share","Поделиться годом в книгах"){openShare()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
         col.addView(bar)
-        tabs=a.line().apply{gravity=Gravity.BOTTOM;setPadding(a.d(18),0,a.d(18),0)}
-        val page=a.column()
-        page.addView(HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(tabs)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(10)})
+        val page=a.column();this.page=page
         progress=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),0,a.d(18),0)}
         page.addView(progress,LinearLayout.LayoutParams(-1,a.d(30)).apply{topMargin=a.d(12)})
         roadHost=FrameLayout(a);page.addView(roadHost,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(6)})
@@ -109,6 +110,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         scroll=object:ScrollView(a){override fun getBottomFadingEdgeStrength()=0f}.apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS;clipToPadding=false;setPadding(0,0,0,insets.bottom+a.d(24))
             isVerticalFadingEdgeEnabled=true;setFadingEdgeLength(a.d(28))}
         scroll.addView(page,ViewGroup.LayoutParams(-1,-2))
+        scroll.setOnScrollChangeListener{_,_,_,_,_->(roadHost.getChildAt(roadHost.childCount-1)?.tag as? YearRails)?.stick(scroll)}
         col.addView(scroll,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=a.d(4)})
         col.setPadding(insets.left,insets.top,insets.right,0)
         frame.addView(col,FrameLayout.LayoutParams(-1,-1))
@@ -145,14 +147,14 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
     private fun bindYear(animated:Boolean){
         tabs.removeAllViews()
         years.forEach{y->val on=y==year
-            tabs.addView(a.text("$y",28f,if(on)a.fg else if(a.light)0xffbdbdc1.toInt() else 0xff4b4b52.toInt(),true,serif=true).apply{isClickable=true;contentDescription="$y год"
-                setOnClickListener{if(y!=year){year=y;onYear(y);bindYear(true)}}},LinearLayout.LayoutParams(-2,-2).apply{marginEnd=a.d(20)})}
+            tabs.addView(a.text("$y",15f,if(on)a.fg else a.muted,on).apply{if(!on)typeface=PolkaFonts.sans(500);isClickable=true;contentDescription=if(on)"$y год, выбран" else "$y год";setPadding(a.d(8),a.d(8),a.d(8),a.d(8))
+                setOnClickListener{if(y!=year){year=y;onYear(y);bindYear(true)}}},LinearLayout.LayoutParams(-2,-2))}
         val list=yearBooks(model,data,year);val goal=model.target(year)
         // approved «Кольцо»: the big ring, the words, the year's results and the books by month
         progress.removeAllViews();progress.visibility=View.GONE
         val old=roadHost.getChildAt(0);val nw=a.goalYearPage(model,list,goal,year,today,motion)
         roadHost.addView(nw,FrameLayout.LayoutParams(-1,-2))
-        scroll.scrollTo(0,0)
+        scroll.scrollTo(0,0);nw.post{(nw.tag as? YearRails)?.stick(scroll)}
         if(old!=null){if(animated&&motion){old.animate().alpha(0f).setDuration(180).withEndAction{roadHost.removeView(old)}.start()
             nw.alpha=0f;nw.animate().alpha(1f).setStartDelay(120).setDuration(380).setInterpolator(Ease.outCubic).start()} else roadHost.removeView(old)}
     }
@@ -185,7 +187,12 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         if(motion){layer.alpha=0f;layer.animate().alpha(1f).setDuration(220).start()
             img.translationY=a.d(24).toFloat();img.alpha=0f
             img.animate().translationY(0f).alpha(1f).setStartDelay(60).setDuration(520).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}
-        GoalPoster.render(a,list,goal,y){bmp->if(share!==layer){bmp.recycle();return@render};poster?.recycle();poster=bmp;img.setImageBitmap(bmp)}
+        // the year page itself, whole, as one picture (the month names back in their places)
+        (roadHost.getChildAt(roadHost.childCount-1)?.tag as? YearRails)?.reset()
+        val bmp=try{val w=page.width;val h=min(page.height,w*6);Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888).also{val c=Canvas(it);c.drawColor(a.bg);page.draw(c)}}catch(e:Throwable){null}
+        (roadHost.getChildAt(roadHost.childCount-1)?.tag as? YearRails)?.stick(scroll)
+        if(bmp!=null){poster?.recycle();poster=bmp;img.setImageBitmap(bmp)
+            val r=bmp.height.toFloat()/bmp.width;val iw=if(ph/r>pw)pw else (ph/r).toInt();img.layoutParams=img.layoutParams.apply{width=if(ph/r>pw)pw else iw;height=if(ph/r>pw)(pw*r).toInt() else ph}}
     }
     private fun closeShare(){val layer=share?:return;share=null
         if(motion)layer.animate().alpha(0f).setDuration(180).withEndAction{frame.removeView(layer)}.start() else frame.removeView(layer)}
