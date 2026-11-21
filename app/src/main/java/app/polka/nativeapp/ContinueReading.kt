@@ -235,7 +235,8 @@ internal class HeroProgress(private val a:MainActivity,private val fraction:Floa
  override fun onDraw(c:Canvas){val h=a.d(4).toFloat();val cy=height/2f;val w=width.toFloat();val r=h/2
   val ink=a.fg and 0xffffff
   p.shader=null;p.color=ink or ((if(a.light)0x1a else 0x26) shl 24);c.drawRoundRect(0f,cy-r,w,cy+r,r,r,p)
-  val f=fraction*shown;if(f<=0f)return;val x=(w*f).coerceIn(h,w)
+  // the fill starts at one percent: below it the bar is empty, as its «0%» says
+  val f=fraction*shown;if(fraction<.01f||f<=0f)return;val x=(w*f).coerceIn(h,w)
   val g=a.d(12).toFloat();p.shader=RadialGradient(x-r,cy,g,intArrayOf(ink or (0x40 shl 24),ink),null,Shader.TileMode.CLAMP);c.drawCircle(x-r,cy,g,p)
   p.shader=null;p.color=a.fg;c.drawRoundRect(0f,cy-r,x,cy+r,r,r,p)}
 }

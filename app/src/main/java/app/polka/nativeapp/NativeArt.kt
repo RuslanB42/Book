@@ -145,5 +145,5 @@ open class IconView(context: Context, private val kind: String, var ink: Int) : 
 }
 
 class ThinProgress(context:Context,val fraction:Double,val foreground:Int,val track:Int):View(context) {
-    override fun onDraw(c:Canvas) { val p=Paint(Paint.ANTI_ALIAS_FLAG); val radius=height/2f; p.color=track; c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),radius,radius,p); p.color=foreground; c.drawRoundRect(0f,0f,(width*fraction).toFloat(),height.toFloat(),radius,radius,p) }
+    override fun onDraw(c:Canvas) { val p=Paint(Paint.ANTI_ALIAS_FLAG); val radius=height/2f; p.color=track; c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),radius,radius,p); if(fraction<.01) return; p.color=foreground; c.drawRoundRect(0f,0f,(width*fraction).toFloat(),height.toFloat(),radius,radius,p) }
 }

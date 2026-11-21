@@ -78,7 +78,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val go=a.button("Читать",true){if(book.optBoolean("noFile")){a.attachId=book.str("id");a.pickBooks(14)}else{a.returnDetailId=book.str("id");a.openBook(book,heroCover)}};reading.addView(go,LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
   val nofile=a.text("Добавьте файл FB2 или EPUB, чтобы читать книгу и сохранять цитаты.",13f,a.muted).apply{cssLeading(1.5f);setPadding(0,a.d(10),0,0)};reading.addView(nofile)
   var chapterTitle=""
-  updates.add{val p=pct();val missing=book.optBoolean("noFile");status.text=when{missing->"В вашей библиотеке";p>=1->"Книга прочитана";Library.status(book)=="reading"->"Сейчас читаете";Library.status(book)=="paused"->"Чтение отложено";else->"Начните новую историю"};percent.text=if(missing||p<=0)"" else "${(p*100).toInt()}%";chapter.text=chapterTitle;chapter.visibility=if(chapterTitle.isBlank()||missing||p>=1)View.GONE else View.VISIBLE;track.visibility=if(missing||p>=1)View.GONE else View.VISIBLE;bar.scaleX=p;go.text=when{missing->"Добавить файл книги";p>=1->"Читать снова";Library.status(book)=="reading"->"Продолжить чтение";else->"Читать"};nofile.visibility=if(missing)View.VISIBLE else View.GONE
+  updates.add{val p=pct();val missing=book.optBoolean("noFile");status.text=when{missing->"В вашей библиотеке";p>=1->"Книга прочитана";Library.status(book)=="reading"->"Сейчас читаете";Library.status(book)=="paused"->"Чтение отложено";else->"Начните новую историю"};percent.text=if(missing||p<=0)"" else "${(p*100).toInt()}%";chapter.text=chapterTitle;chapter.visibility=if(chapterTitle.isBlank()||missing||p>=1)View.GONE else View.VISIBLE;track.visibility=if(missing||p>=1)View.GONE else View.VISIBLE;bar.scaleX=if(p<.01f)0f else p;go.text=when{missing->"Добавить файл книги";p>=1->"Читать снова";Library.status(book)=="reading"->"Продолжить чтение";else->"Читать"};nofile.visibility=if(missing)View.VISIBLE else View.GONE
    val chars=book.optInt("chars",book.optInt("recPages")*1800);volume.text=if(chars>0)"${maxOf(1,kotlin.math.round(chars/1800.0).toInt())} стр." else "Объём уточняется";time.text=""
    spentRow.removeAllViews();val j=journey;val done=p>=1
    if(j!=null&&!missing){if(j.ms>=60_000L)fact(duration(j.ms),"за чтением")
@@ -179,7 +179,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   a.work({val stats=a.library.dao.meta("stats")?.let{JSONObject(it.json).optJSONObject("data")}
     val end=book.optLong("completedAt").takeIf{it>0&&Library.status(book)=="done"}?.let{java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()}?:java.time.LocalDate.now()
     if(Library.status(book)!="want")found=BookJourney.of(stats,book,end)
-    val chapters=a.chapterIndex(book);length=chapters?.objects()?.sumOf{it.optInt("len")}?:0;chTitle=chapters?.optJSONObject(chIndex)?.str("title").orEmpty()}){
+    val chapters=a.chapterIndex(book);length=chapters?.objects()?.sumOf{it.optInt("len")}?:0;chTitle=ChapterTitles.pretty(chapters?.optJSONObject(chIndex)?.str("title").orEmpty(),book.str("lang").startsWith("en"))}){
     if(isShowing){journey=found;if(length>0)book.put("chars",length);chapterTitle=chTitle;updates.forEach{it()}}}
  }
  // Draw the shared cover explicitly in the root overlay coordinate space.

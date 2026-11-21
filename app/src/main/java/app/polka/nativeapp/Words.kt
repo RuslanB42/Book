@@ -64,7 +64,12 @@ internal object Words {
     fun stage(w:JSONObject):Int{if(w.has("st"))return w.optInt("st").coerceIn(0,KNOWN)
         if(w.optInt("reps")==0)return 0;val s=w.optDouble("s",0.0);return when{s>=21->KNOWN;s>=4->2;else->1}}
     fun known(w:JSONObject)=stage(w)>=KNOWN
-    fun meaning(w:JSONObject)=w.str("t").ifBlank{w.str("d")}
+    /** The meaning learned; a name's opening «Грунгнир — …» loses the name (it would give the answer away). */
+    fun meaning(w:JSONObject):String{val m=w.str("t").ifBlank{w.str("d")}
+        val head=Regex("^(\\S+(?:[\\s\\u00a0]\\S+)?)[\\s\\u00a0]+[—–][\\s\\u00a0]+").find(m)?:return m
+        return if(Dictionary.key(head.groupValues[1]).startsWith(Dictionary.key(w.str("w")).take(4)))m.substring(head.range.last+1) else m}
+    /** A name (from the encyclopedia, or saved with a capital letter): its wrong choices are other names. */
+    fun isName(w:JSONObject)=w.str("src")=="wiki"||w.str("w").firstOrNull()?.isUpperCase()==true
     /** Where the word was met: (sentence, book id, book title), the first one first. */
     fun meetings(w:JSONObject):List<Triple<String,String,String>>{
         val m=w.optJSONArray("met")?.objects()?.map{Triple(it.str("s"),it.str("b"),it.str("t"))}?.filter{it.first.isNotBlank()}
@@ -80,7 +85,7 @@ internal object Words {
             .put("d",senses?.optJSONArray(0)?.optString(0)?:"").put("p",entry.optString("p")).put("i",entry.optString("i"))
             .put("surf",surface).put("ctx",source?.sentence?:"").put("book",source?.bookId?:"").put("title",source?.title?:"")
             .put("met",JSONArray().apply{if(source!=null&&source.sentence.isNotBlank())put(JSONObject().put("s",source.sentence).put("b",source.bookId).put("t",source.title))})
-            .put("forms",JSONArray((forms+Dictionary.key(lemma)+Dictionary.key(surface)).filter{it.isNotBlank()}.distinct()))
+            .put("forms",JSONArray((forms+Dictionary.key(lemma)+Dictionary.key(surface)).filter{it.isNotBlank()}.distinct())).put("src",entry.optString("src"))
             .put("added",System.currentTimeMillis()).put("due",System.currentTimeMillis()).put("reps",0).put("lapses",0).put("st",0)
         list(a).put(w);a.savePreferences();return w
     }
@@ -175,13 +180,37 @@ internal object Words {
         spot(w,sentence)?.let{r->sb.setSpan(android.text.style.ForegroundColorSpan(strong),r.first,r.last+1,0);sb.setSpan(TypefaceSpanCompat(PolkaFonts.literata(a,true)),r.first,r.last+1,0)}
         return TextView(a).apply{text=sb;textSize=size;setTextColor(color);typeface=PolkaFonts.literata(a);cssLeading(1.5f)}
     }
-    /** Other meanings (or other words) for the choices: the reader's own words first, then the dictionary's. */
-    fun others(a:MainActivity,w:JSONObject,words:Boolean,n:Int=3):List<String>{
-        val mine=all(a).filter{it.str("id")!=w.str("id")&&it.str("lang")==w.str("lang")}.map{if(words)it.str("w") else meaning(it)}
-        val own=if(words)w.str("w") else meaning(w)
-        val out=mine.filter{it.isNotBlank()&&it!=own&&it.length<=110}.distinct().shuffled().take(n).toMutableList()
-        if(out.size<n)Dictionary.random(a,w.str("lang"),(n-out.size)*2).map{if(words)it.first else it.second}.filter{it.isNotBlank()&&it!=own&&it !in out}.take(n-out.size).forEach{out+=it}
-        return out}
+    /** A meaning as a choice shows it: without the labels in front («спец.», «перен., книжн.»), which give a choice away. */
+    fun plain(m:String)=m.replace(Regex("^(?:\\(?[а-яёa-z]{2,10}\\.\\)?,?\\s+)+"),"").trim().replaceFirstChar{it.lowercaseChar()}
+    /** A meaning that only points elsewhere says nothing as a wrong choice. */
+    fun vague(m:String)=Regex("^(?:действие|свойство|состояние|качество|результат|процесс) (?:по (?:значению|знач\\.)|по гл|по прил)|^то же,? что|^форма |^(?:мн|ед)\\. ч|^(?:прич|деепр|уменьш|ласк|увелич)\\.|^plural of|^past (?:tense|participle) of|^alternative (?:form|spelling) of|^see ").containsMatchIn(m.lowercase())
+    private fun pos(p:String)=p.lowercase().split(Regex("[\\s,.;()]+")).firstOrNull{it.isNotBlank()}.orEmpty()
+    private val stems=Regex("[\\p{L}]{5,}")
+    /**
+     * The wrong choices for [w]: as alike to the right one as can be found, so knowing the word is what answers it.
+     * The same part of speech, a meaning (or a word) of about the same length, meanings sharing words with the right
+     * one; the reader's own words first (they are from the same books), a name among names. [pool] is a sample of
+     * the dictionary taken for the lesson.
+     */
+    fun choices(a:MainActivity,w:JSONObject,words:Boolean,pool:List<Triple<String,String,String>>,n:Int=3):List<String>{
+        val name=isName(w);val myPos=pos(w.str("p"))
+        val right=if(words)w.str("w") else plain(meaning(w));if(right.isBlank())return emptyList()
+        val rightStems=stems.findAll(right.lowercase()).map{it.value.take(5)}.toSet()
+        data class C(val word:String,val meaning:String,val pos:String,val own:Boolean)
+        val mine=all(a).filter{it.str("id")!=w.str("id")&&it.str("lang")==w.str("lang")&&isName(it)==name}.map{C(it.str("w"),plain(meaning(it)),pos(it.str("p")),true)}
+        // a name picked among plain words would stand out by its capital letter: names only, or none
+        val cands=(mine+(if(name&&words)emptyList() else pool.map{C(it.first,it.second,pos(it.third),false)})).filter{c->val v=if(words)c.word else c.meaning
+            v.isNotBlank()&&v!=right&&v.length<=120&&!v.contains(w.str("w"),true)&&!(!words&&vague(v))}
+        val rnd=java.util.Random()
+        fun close(x:Int,y:Int)=1.0-kotlin.math.abs(x-y).toDouble()/maxOf(x,y,1)
+        val scored=cands.map{c->var sc=rnd.nextDouble()
+            sc+=when{myPos.isBlank()||c.pos.isBlank()->0.0;c.pos==myPos->3.0;else->-4.0}
+            if(c.own)sc+=1.0
+            if(words){sc+=close(c.word.length,right.length)*3;if(c.word.firstOrNull()==right.firstOrNull())sc+=1.5;if(c.word.takeLast(2)==right.takeLast(2))sc+=1.5}
+            else{sc+=close(c.meaning.length,right.length)*3;sc+=stems.findAll(c.meaning.lowercase()).map{it.value.take(5)}.toSet().count{it in rightStems}*2.5
+                if(c.meaning.contains(',')==right.contains(','))sc+=.5}
+            (if(words)c.word else c.meaning) to sc}
+        return scored.sortedByDescending{it.second}.map{it.first}.distinct().take(n)}
 }
 
 internal class TypefaceSpanCompat(private val face:Typeface):android.text.style.MetricAffectingSpan(){
@@ -269,6 +298,8 @@ internal fun MainActivity.closeWord(){val page=wordPage?:return;wordPage=null;De
  * right answer and waits for «Дальше», and the word comes once more at the end.
  */
 internal class WordLesson(private val a:MainActivity){
+    /** A sample of the dictionary per language, taken once for the lesson: the wrong choices come from it. */
+    private val pools=HashMap<String,List<Triple<String,String,String>>>()
     private val queue=ArrayDeque<JSONObject>();private val tried=HashSet<String>();private val misses=HashMap<String,Int>()
     private val learned=HashSet<String>();private var total=0;private var done=0
     private var dialog:android.app.Dialog?=null
@@ -305,7 +336,8 @@ internal class WordLesson(private val a:MainActivity){
         dlg.show()
         // the lesson rises over the app like a sheet (see MotionSpec)
         if(!reduced){root.translationY=a.resources.displayMetrics.heightPixels.toFloat();root.animate().translationY(0f).setDuration(MotionSpec.SHEET_IN).setInterpolator(MotionSpec.enter).start()}
-        root.post{ask(true)}
+        val langs=queue.map{it.str("lang")}.toSet()
+        Thread{langs.forEach{l->pools[l]=try{Dictionary.sample(a,l,900)}catch(_:Exception){emptyList()}};root.post{if(dialog!=null)ask(true)}}.start()
     }
     private fun close(){val d=dialog?:return;dialog=null;handler.removeCallbacksAndMessages(null);hideKeyboard()
         val end={d.dismiss();if(a.tab=="words")a.renderLibraryResults()}
@@ -318,7 +350,7 @@ internal class WordLesson(private val a:MainActivity){
         bar.set(done.toFloat()/total);answered=false;next.visibility=View.GONE
         val st=Words.stage(w)
         val kind=when{st<=1->"meaning";st==2->"word";else->"write"}
-        val choices=if(kind=="write")emptyList() else Words.others(a,w,kind=="word")
+        val choices=if(kind=="write")emptyList() else Words.choices(a,w,kind=="word",pools[w.str("lang")]?:emptyList())
         val view=if(kind=="write"||choices.size<2)write(w) else choose(w,kind=="word",choices)
         val old=if(stage.childCount>0)stage.getChildAt(0) else null
         stage.addView(view,FrameLayout.LayoutParams(-1,-1))
@@ -333,8 +365,8 @@ internal class WordLesson(private val a:MainActivity){
         val c=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(0,a.d(36),0,0)}
         if(!words){c.addView(TextView(a).apply{text=w.str("w");textSize=40f;setTextColor(a.fg);typeface=PolkaFonts.literata(a,true);gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2))
             sentenceOf(w)?.let{s->c.addView(Words.context(a,w,s,16.5f,a.muted,a.fg).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14);leftMargin=a.d(6);rightMargin=a.d(6)})}}
-        else c.addView(TextView(a).apply{text=Words.meaning(w);textSize=22f;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{leftMargin=a.d(6);rightMargin=a.d(6)})
-        val right=if(words)w.str("w") else Words.meaning(w)
+        else c.addView(TextView(a).apply{text=Words.plain(Words.meaning(w));textSize=22f;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{leftMargin=a.d(6);rightMargin=a.d(6)})
+        val right=if(words)w.str("w") else Words.plain(Words.meaning(w))
         val options=(others+right).shuffled()
         val list=a.column();val rows=ArrayList<TextView>()
         options.forEach{o->val t=TextView(a).apply{text=o;tag=o;textSize=if(words)19f else 16f;setTextColor(a.fg);typeface=PolkaFonts.literata(a,words);maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END

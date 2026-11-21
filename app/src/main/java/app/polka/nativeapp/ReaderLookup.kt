@@ -71,14 +71,16 @@ internal object Dictionary{
         val cyr=clean.any{it in 'а'..'я'||it in 'А'..'Я'||it=='ё'||it=='Ё'}
         // the language of the letters first, then the more common word (so «ran» finds «run» before the rare noun «ran»)
         return out.sortedWith(compareBy<Pair<String,JSONObject>>{if((it.first=="ru")==cyr)0 else 1}.thenByDescending{it.second.optDouble("f",0.0)}).map{it.second.put("lang",it.first)}}
-    /** Random words of [lang] with a short meaning (word, meaning), for the wrong choices of an exercise. */
-    fun random(c:Context,lang:String,n:Int):List<Pair<String,String>>{val d=open(c)?:return emptyList();val out=ArrayList<Pair<String,String>>()
+    /** A random sample of [lang] (word, meaning, part of speech), from which an exercise picks its wrong choices:
+     *  plain lowercase words with a short meaning of their own (no «действие по значению…», no references). */
+    fun sample(c:Context,lang:String,n:Int):List<Triple<String,String,String>>{val d=open(c)?:return emptyList();val out=ArrayList<Triple<String,String,String>>()
         val top=d.rawQuery("SELECT MAX(rowid) FROM e",null).use{if(it.moveToFirst())it.getLong(0) else 0L};if(top<=0)return out
-        val rnd=java.util.Random();var tries=0
-        while(out.size<n&&tries<60){tries++
-            d.rawQuery("SELECT data FROM e WHERE rowid>=? AND lang=? LIMIT 1",arrayOf((1+(rnd.nextDouble()*top).toLong()).toString(),lang)).use{cur->if(cur.moveToFirst()){val e=JSONObject(cur.getString(0))
-                val w=e.optString("w").replace("́","");val tr=e.optJSONArray("t");val m=if(tr!=null&&tr.length()>0)(0 until minOf(tr.length(),3)).joinToString(", "){tr.getString(it)} else e.optJSONArray("s")?.optJSONArray(0)?.optString(0)?:""
-                if(w.length in 3..20&&w.none{it.isUpperCase()}&&m.length in 4..110&&out.none{it.first==w})out+=w to m}}}
+        val rnd=java.util.Random();val seen=HashSet<String>();var tries=0
+        while(out.size<n&&tries<n*3){tries++
+            d.rawQuery("SELECT data FROM e WHERE rowid>=? AND lang=? LIMIT 1",arrayOf((1+(rnd.nextDouble()*top).toLong()).toString(),lang)).use{cur->if(cur.moveToFirst()){val e=try{JSONObject(cur.getString(0))}catch(_:Exception){null}
+                val w=e?.optString("w")?.replace("́","").orEmpty();val tr=e?.optJSONArray("t")
+                val m=Words.plain(if(tr!=null&&tr.length()>0)(0 until minOf(tr.length(),3)).joinToString(", "){tr.getString(it)} else e?.optJSONArray("s")?.optJSONArray(0)?.optString(0).orEmpty())
+                if(e!=null&&w.length in 3..20&&w.all{it.isLetter()||it=='-'}&&w.none{it.isUpperCase()}&&m.length in 6..120&&!Words.vague(m)&&seen.add(w))out+=Triple(w,m,e.optString("p"))}}}
         return out}
 }
 
@@ -120,7 +122,7 @@ internal object Encyclopedia{
         return out}
     /** What is learned for a name: its one-line description, or the opening sentence after its dash. */
     fun meaning(e:JSONObject):String{val d=e.optString("description").trim();if(d.length in 3..120)return d
-        val x=e.optString("extract");val after=x.substringAfter(" — ",x).substringBefore(". ").trim().trimEnd('.')
+        val x=e.optString("extract");val after=Regex("[\\s\\u00a0][—–][\\s\\u00a0]").split(x,2).let{if(it.size>1)it[1] else x}.substringBefore(". ").trim().trimEnd('.')
         return if(after.length<=140)after else after.take(137).substringBeforeLast(' ')+"…"}
 }
 
@@ -277,7 +279,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
             addView(TextView(a).apply{text=extract;textSize=15.5f;setTextColor(a.fg);typeface=serif;cssLeading(1.5f)})
             addView(a.text("Википедия",12f,a.muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10)})
             copyText="$title — $extract"
-            val learn=JSONObject().put("w",title).put("lang",lang).put("s",JSONArray().put(JSONArray().put(Encyclopedia.meaning(e))))
+            val learn=JSONObject().put("w",title).put("lang",lang).put("src","wiki").put("p","имя").put("s",JSONArray().put(JSONArray().put(Encyclopedia.meaning(e))))
             val surface=word.trim{!it.isLetter()&&it!='-'}
             val forms=(Words.nameForms(surface)+(if(!title.contains(' '))Words.nameForms(title) else emptyList())).distinct()
             learnActions(this,learn,forms)}}
