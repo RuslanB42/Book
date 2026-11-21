@@ -68,7 +68,7 @@ internal object Words {
     fun meaning(w:JSONObject):String{val m=w.str("t").ifBlank{w.str("d")}
         val head=Regex("^(\\S+(?:[\\s\\u00a0]\\S+)?)[\\s\\u00a0]+[—–][\\s\\u00a0]+").find(m)?:return m
         return if(Dictionary.key(head.groupValues[1]).startsWith(Dictionary.key(w.str("w")).take(4)))m.substring(head.range.last+1) else m}
-    /** A name (from the encyclopedia, or saved with a capital letter): its wrong choices are other names. */
+    /** A name (from the encyclopedia, or saved with a capital letter): it is only asked by its meaning. */
     fun isName(w:JSONObject)=w.str("src")=="wiki"||w.str("w").firstOrNull()?.isUpperCase()==true
     /** Where the word was met: (sentence, book id, book title), the first one first. */
     fun meetings(w:JSONObject):List<Triple<String,String,String>>{
@@ -188,24 +188,24 @@ internal object Words {
     private val stems=Regex("[\\p{L}]{5,}")
     /**
      * The wrong choices for [w]: as alike to the right one as can be found, so knowing the word is what answers it.
-     * The same part of speech, a meaning (or a word) of about the same length, meanings sharing words with the right
-     * one; the reader's own words first (they are from the same books), a name among names. [pool] is a sample of
-     * the dictionary taken for the lesson.
+     * Only from the dictionary, never another word being learned (one's own words must not stand for each other's
+     * wrong answers): the same part of speech, a meaning (or a word) of about the same length, meanings sharing words
+     * with the right one. A name is picked by its meaning only: among plain words its capital letter would show.
+     * [pool] is a sample of the dictionary taken for the lesson.
      */
     fun choices(a:MainActivity,w:JSONObject,words:Boolean,pool:List<Triple<String,String,String>>,n:Int=3):List<String>{
         val name=isName(w);val myPos=pos(w.str("p"))
         val right=if(words)w.str("w") else plain(meaning(w));if(right.isBlank())return emptyList()
         val rightStems=stems.findAll(right.lowercase()).map{it.value.take(5)}.toSet()
-        data class C(val word:String,val meaning:String,val pos:String,val own:Boolean)
-        val mine=all(a).filter{it.str("id")!=w.str("id")&&it.str("lang")==w.str("lang")&&isName(it)==name}.map{C(it.str("w"),plain(meaning(it)),pos(it.str("p")),true)}
-        // a name picked among plain words would stand out by its capital letter: names only, or none
-        val cands=(mine+(if(name&&words)emptyList() else pool.map{C(it.first,it.second,pos(it.third),false)})).filter{c->val v=if(words)c.word else c.meaning
+        if(name&&words)return emptyList()
+        val learned=all(a).map{it.str("k")}.toSet()
+        data class C(val word:String,val meaning:String,val pos:String)
+        val cands=pool.map{C(it.first,it.second,pos(it.third))}.filter{c->Dictionary.key(c.word) !in learned}.filter{c->val v=if(words)c.word else c.meaning
             v.isNotBlank()&&v!=right&&v.length<=120&&!v.contains(w.str("w"),true)&&!(!words&&vague(v))}
         val rnd=java.util.Random()
         fun close(x:Int,y:Int)=1.0-kotlin.math.abs(x-y).toDouble()/maxOf(x,y,1)
         val scored=cands.map{c->var sc=rnd.nextDouble()
             sc+=when{myPos.isBlank()||c.pos.isBlank()->0.0;c.pos==myPos->3.0;else->-4.0}
-            if(c.own)sc+=1.0
             if(words){sc+=close(c.word.length,right.length)*3;if(c.word.firstOrNull()==right.firstOrNull())sc+=1.5;if(c.word.takeLast(2)==right.takeLast(2))sc+=1.5}
             else{sc+=close(c.meaning.length,right.length)*3;sc+=stems.findAll(c.meaning.lowercase()).map{it.value.take(5)}.toSet().count{it in rightStems}*2.5
                 if(c.meaning.contains(',')==right.contains(','))sc+=.5}
