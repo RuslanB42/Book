@@ -36,6 +36,8 @@ internal class ReadingTracker(private val text:Boolean,private val pdf:Boolean=f
     /** A new place to read from. A small step forward (the next chapter right after the last page of this one) keeps
      *  the page being read, so its text still counts once it has been read. */
     fun rebase(pos:Int,pageSize:Int){if(base<0||pos<base||pos-base>max(pageSize,1)*3/2){base=pos;dwell=0}}
+    /** How long the current page has been read so far. */
+    fun dwellNow(now:Long=System.currentTimeMillis()):Double=(dwell+(min(now,activeAt+60_000L)-lastTick).coerceAtLeast(0L)).toDouble()
     private fun allowance(pageSize:Int):Long=if(text)(pageSize/pace*2).toLong().coerceIn(60_000L,300_000L) else if(pdf)240_000L else 90_000L
 
     /** Time and text since the last tick. [pos] is the place in the book (characters, or the page of a comic/PDF),

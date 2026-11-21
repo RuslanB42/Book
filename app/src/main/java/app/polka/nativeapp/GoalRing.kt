@@ -24,7 +24,7 @@ internal fun MainActivity.yearTiles(list:List<YearBook>,goal:Int,big:Boolean):Li
         t.addView(caption(booksWord(done)))}
     val ms=list.sumOf{it.ms};val hours=ms/3_600_000L
     tile{t->t.addView(text("",num,fg,true,serif=true).apply{text=if(hours>0)value("$hours","ч") else value("${ms/60_000L}","мин");maxLines=1});t.addView(caption("за чтением"))}
-    val rated=list.map{it.book.optInt("rating")}.filter{it>0}
+    val rated=list.map{Rating.halves(it.book)/2.0}.filter{it>0}
     tile{t->t.addView(text("",num,fg,true,serif=true).apply{text=if(rated.isEmpty())"—" else value(String.format(java.util.Locale("ru"),"%.1f",rated.average()),"","★");maxLines=1});t.addView(caption("оценка"))}
     row.contentDescription="$done ${booksWord(done)}"+(if(goal>0)" из $goal" else "")+", за чтением ${if(hours>0)"$hours ч" else "${ms/60_000L} мин"}"+if(rated.isNotEmpty())", средняя оценка ${String.format(java.util.Locale("ru"),"%.1f",rated.average())}" else ""
     return row
@@ -36,8 +36,8 @@ internal fun MainActivity.yearBookCell(yb:YearBook,w:Int):LinearLayout{
     val cv=CoverView(this,yb.book,cover(yb.book)).apply{softShadow=true;isClickable=true;contentDescription=yb.book.str("title");setOnClickListener{detail(yb.book,this)}}
     cell.addView(cv,LinearLayout.LayoutParams(w,(w*1.5f).toInt()))
     val under=line().apply{gravity=Gravity.CENTER_VERTICAL}
-    val r=yb.book.optInt("rating")
-    under.addView(text("",11.5f,StarRow.starYellow(this),true).apply{text=if(r>0)android.text.SpannableStringBuilder("★ $r").apply{setSpan(RoundStarSpan(StarRow.starYellow(this@yearBookCell),.95f),0,1,0)} else ""},LinearLayout.LayoutParams(0,-2,1f))
+    val r=Rating.halves(yb.book)
+    under.addView(text("",11.5f,StarRow.starYellow(this),true).apply{text=if(r>0)android.text.SpannableStringBuilder("★ ${Rating.text(r)}").apply{setSpan(RoundStarSpan(StarRow.starYellow(this@yearBookCell),.95f),0,1,0)} else ""},LinearLayout.LayoutParams(0,-2,1f))
     val h=yb.ms/3_600_000L
     under.addView(text(if(h>0)"$h ч" else if(yb.ms>=60_000L)"${yb.ms/60_000L} мин" else "",11.5f,if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt(),true))
     cell.addView(under,LinearLayout.LayoutParams(w,-2).apply{topMargin=d(6)})

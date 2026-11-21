@@ -20,7 +20,7 @@ import kotlin.math.*
 internal object Tiers {
     val letters=listOf("S","A","B","C","D")
     val names=listOf("Любимые","Понравились","Неплохо","Так себе","Не понравились")
-    fun of(book:JSONObject)=book.optInt("rating").let{if(it in 1..5)5-it else -1}
+    fun of(book:JSONObject)=Rating.halves(book).let{h->if(h>0)5-(h+1)/2 else -1}
     /** Light and deep tone of each tier's letter. */
     /** Approved «Награды»: gold, silver, bronze, then tarnished metal and dark graphite — the order reads like medals. */
     fun tone(a:MainActivity,k:Int):Pair<Int,Int> =if(a.light)when(k){0->0xffd9a63a.toInt() to 0xffa87a20.toInt();1->0xff9aa0a8.toInt() to 0xff6b7078.toInt();2->0xffc98a55.toInt() to 0xff8e5428.toInt();3->0xff8a8f96.toInt() to 0xff5e636a.toInt();else->0xff6a6a70.toInt() to 0xff45454a.toInt()}
@@ -329,7 +329,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     /** Saves the new rating and the order inside the row the book landed in. */
     private fun commit(book:JSONObject,row:TierRow,flow:FlowRow){
         val before=Tiers.of(book);val now=if(row.k==5)-1 else row.k
-        if(now!=before){if(now<0)book.remove("rating") else book.put("rating",5-now)}
+        if(now!=before){Rating.put(book,if(now<0)0 else (5-now)*2)}
         shown[book.str("id")]=now
         for(i in 0 until flow.childCount){val b=flow.getChildAt(i).tag as? JSONObject?:continue
             if(b.optDouble("tierPos",-1.0)!=i.toDouble()||b===book){b.put("tierPos",i.toDouble());a.saveBook(b){}}}

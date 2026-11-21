@@ -35,7 +35,6 @@ class MainActivity : Activity() {
     internal var tab = "home"
     internal var shelf: String? = null
     internal var auto: String? = null
-    internal var ratingPrompt:RatingPrompt?=null
     var bookDetailSheet:BookDetailSheet?=null
     var query = ""
     internal var searchOpen=false
@@ -515,11 +514,14 @@ class MainActivity : Activity() {
         if(!r.requestClose())return
         root.childrenOpening()?.finish()
         if(prefs.str("motion")!="reduced")r.pageImage()?.let{(key,image)->PageImages.save(this,r.book.str("id"),key,image)}
+        // closed on the last page after reading it: the book is read, and its end is shown once it has closed
+        val finished=r.finishOnClose()
         r.dispose() // Save the final position once, before any reverse-motion time is credited.
         val updated=r.book.copyJson();books=books.map{if(it.str("id")==updated.str("id"))updated else it}
         reader=null
-        if(prefs.str("motion")=="reduced" || r.view.width<=0 || isFinishing || isDestroyed){ReaderWindow.configure(window,false,bg);root.requestApplyInsets();render(true,false);return}
+        if(prefs.str("motion")=="reduced" || r.view.width<=0 || isFinishing || isDestroyed){ReaderWindow.configure(window,false,bg);root.requestApplyInsets();render(true,false);if(finished&&!isFinishing&&!isDestroyed)BookFinish(this,updated){}.show();return}
         closeWithFade(r)
+        if(finished)root.postDelayed({if(!isFinishing&&!isDestroyed)BookFinish(this,updated){}.show()},520)
     }
     internal fun finishBookReturn(){bookClosing=false;renderDeferred=false;ReaderWindow.configure(window,false,bg);root.requestApplyInsets()}
     fun pickBooks(code:Int=10) { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_ALLOW_MULTIPLE,code==10) },code) }
@@ -607,7 +609,7 @@ class MainActivity : Activity() {
         val labels=files.map { (when(it.nameWithoutExtension) { "latest"->"Последняя"; "previous"->"Предыдущая"; else->"Перед изменением" })+" · "+java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it.lastModified())) }
         dialog().setTitle("Локальные копии").setItemIcons(*(files.map{"undo"}+"plus").toTypedArray()).setItems((labels+"Создать точку сейчас").toTypedArray()) { _,i -> if(i==files.size) work({ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"))}); else confirm("Восстановить точку?","Текущая библиотека будет заменена.") { work({ val source=File(cacheDir,"recovery-input.polka"); try { files[i].copyTo(source,true); ArchiveIO.restore(applicationContext,library,source) { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety") }; loadData() } finally { source.delete() } }) { initialized=true; reader=null; shelf=null; auto=null; render(); checkpointSoon() } } }.setNegativeButton("Закрыть",null).show()
     }
-    @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; goalRoad!=null -> goalRoad?.back(); tierList!=null && bookDetailSheet?.isShowing!=true -> tierList?.back(); addMenu!=null -> addMenu?.close(); shelvesEditing && reader==null -> { shelvesTopBarLabel?.performClick() }; ratingPrompt?.isShowing==true -> ratingPrompt?.dismiss(); bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() };bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();settingsPage!=null -> closeSettings(); profileOverlay!=null -> dismissProfile(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> { shelf=null; auto=null; tab="shelves"; render() }; query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
+    @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; goalRoad!=null -> goalRoad?.back(); tierList!=null && bookDetailSheet?.isShowing!=true -> tierList?.back(); addMenu!=null -> addMenu?.close(); shelvesEditing && reader==null -> { shelvesTopBarLabel?.performClick() }; bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() };bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();settingsPage!=null -> closeSettings(); profileOverlay!=null -> dismissProfile(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> { shelf=null; auto=null; tab="shelves"; render() }; query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
     override fun onSaveInstanceState(out:Bundle) { reader?.save(); out.putString("calendarImage",pendingCalendarImage?.name); out.putString("attachId",attachId); out.putString("coverTarget",coverTarget); pendingExport?.let { out.putString("exportId",it.first.str("id")); out.putString("exportFormat",it.second) }; out.putString("tab",tab); out.putString("shelf",shelf); out.putString("auto",auto); out.putString("query",query); out.putBoolean("searchOpen",searchOpen); reader?.let { out.putString("readerId",it.book.str("id")) }; super.onSaveInstanceState(out) }
     override fun onPause() { shelfReorder?.cancel();screenMotion.stop();root.childrenOpening()?.finish();reader?.pause();pageReading?.pause(); super.onPause() }
     override fun onResume() { super.onResume(); pageReading?.resume(); if(reader!=null)reader?.resume() else if(::root.isInitialized){ReaderWindow.configure(window,false,bg);root.requestApplyInsets()} }

@@ -9,7 +9,7 @@ import java.io.File
 
 fun MainActivity.detail(book:JSONObject,source:View?=null) { BookDetailSheet(this,book,source).show() }
 fun MainActivity.ratingStars(book:JSONObject,onChange:(Int)->Unit):View {
-    return NativeRating(this,book.optInt("rating"),true,onChange)
+    return NativeRating(this,Rating.halves(book),true,changed=onChange)
 
 }
 /** «Данные книги»: a live cover preview on top, grouped borderless fields on floating cards, one primary action. */
@@ -65,7 +65,7 @@ fun MainActivity.bookActions(book:JSONObject,fromDetail:Boolean=false) {
     if(fromDetail) all.removeAll{it.first in setOf("О книге","Переместить на полку","Оценить","Статус")}
     val actions=all.map{it.first}
     dialog().setTitle(book.str("title")).setItemIcons(*all.map{it.second}.toTypedArray()).setDestructiveItems(actions.lastIndex).setItems(actions.toTypedArray()) { _,i -> when(actions[i]) {
-        "О книге"->detail(book); "Изменить данные"->metadataEditor(book); "Переместить на полку"->moveBook(book); "Оценить"->dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().put("rating",it)) {} }).show()
+        "О книге"->detail(book); "Изменить данные"->metadataEditor(book); "Переместить на полку"->moveBook(book); "Оценить"->dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().also{c->Rating.put(c,it)}) {} }).show()
         "Прикрепить файл" -> { attachId=book.str("id"); pickBooks(14) }; "Статус" -> statusSheet(book)
         "Скачать FB2"->exportBook(book,"fb2"); "Скачать файл"->exportBook(book,"doc"); "Скачать EPUB"->exportBook(book,"epub")
         "Удалить книгу" -> confirm("Удалить книгу?","Текст, цитаты и заметки этой книги будут удалены из библиотеки.") { deleteBook(book) }

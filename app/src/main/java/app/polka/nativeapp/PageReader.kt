@@ -59,7 +59,6 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     /** Time, pages and sittings, counted as in the text reader (see [ReadingTracker]). */
     private val tracker=ReadingTracker(false,doc.str("type")=="pdf").also{a.seedTracker(it,book.str("id"))}
     private var paused=false
-    private var askedDone=false
     private val heartbeat=object:Runnable{override fun run(){credit();root.postDelayed(this,5000)}}
     private val stage=FrameLayout(a)
     private lateinit var top:LinearLayout;private lateinit var bottom:LinearLayout
@@ -101,26 +100,41 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         root.postDelayed({setChrome(false)},1400)
     }
     private fun close(){root.animate().alpha(0f).setDuration(if(reduced)0 else 180).withEndAction{dialog.dismiss()}.start()}
-    private fun finish(){root.removeCallbacks(heartbeat);credit();paused=true;if(a.pageReading===this)a.pageReading=null;a.immersiveSheets=false;Ambience.stop(a);save(true);io.shutdownNow();source.close()}
+    private fun finish(){root.removeCallbacks(heartbeat);val finished=finishOnClose();credit(finished);paused=true;if(a.pageReading===this)a.pageReading=null;a.immersiveSheets=false;Ambience.stop(a);save(true);io.shutdownNow();source.close()
+        if(finished)a.root.postDelayed({if(!a.isFinishing&&!a.isDestroyed)BookFinish(a,book){}.show()},300)}
+    /** The end of the book is being shown (the window «Книга прочитана» or the question before it). */
+    private var finishing=false
+    /** Swiped on past the last page: the book is read (never on coming to the last page, it is still being read then). */
+    private fun pastEnd(){
+        if(finishing||Library.status(book)=="done"||n<=0||page<n-1)return
+        credit();finishing=true
+        val go:()->Unit={markDone();BookFinish(a,book){leave->finishing=false;tracker.skipTime();if(leave)close()}.show()}
+        if(!tracker.seeded||tracker.share()>=.5)go()
+        else{var chosen=false
+            a.dialog().setTitle("Книга прочитана?").setMessage("Отметить книгу прочитанной?").setNegativeButton("Нет",null).setPositiveButton("Прочитана"){_,_->chosen=true;go()}.show()
+                .setOnDismissListener{if(!chosen){finishing=false;tracker.skipTime()}}}
+    }
+    private fun markDone(){credit(true);book.put("state","done").put("completedAt",System.currentTimeMillis());save(false)}
+    /** Closed on the last page after a look at it, the book really read here: it is read, shown once closed. */
+    private fun finishOnClose():Boolean{
+        if(finishing||Library.status(book)=="done"||n<=0||page<n-1||!tracker.seeded||tracker.share()<.5||tracker.dwellNow()<4000)return false
+        book.put("state","done").put("completedAt",System.currentTimeMillis());return true}
     private fun save(done:Boolean){
         // the status sheet and the data editor save the book on their own: keep what they changed
         a.books.firstOrNull{it.str("id")==book.str("id")}?.takeIf{it!==book}?.let{latest->latest.keys().forEach{k->if(k !in setOf("progress","pageMode","pageMarks","openedAt","state","completedAt","startedAt"))book.put(k,latest.get(k))}
             if(latest.optLong("modifiedAt")>=book.optLong("modifiedAt"))listOf("state","completedAt","startedAt").forEach{k->if(latest.has(k))book.put(k,latest.get(k))}}
-        book.put("progress",(book.optJSONObject("progress")?:JSONObject()).put("page",page).put("pct",if(n<=1)1.0 else page/(n-1).toDouble()))
+        book.put("progress",(book.optJSONObject("progress")?:JSONObject()).put("page",page).put("pct",if(Library.status(book)=="done"||n<=1)1.0 else minOf(page/(n-1).toDouble(),.999)))
         val st=Library.status(book)
         credit()
-        // the last page makes the book read only when it was really read here (at least half of it); otherwise ask once
-        if(n>0&&page>=n-1&&st!="done"&&tracker.seeded){
-            if(tracker.share()>=.5){book.put("state","done");book.put("completedAt",System.currentTimeMillis())}
-            else if(!done&&!askedDone){askedDone=true;root.post{a.confirm("Книга прочитана?","Отметить книгу прочитанной?"){book.put("state","done");book.put("completedAt",System.currentTimeMillis());save(false)}}}}
-        else if(page>0&&(st=="want"||st=="paused")){book.put("state","reading");if(book.optLong("startedAt")==0L)book.put("startedAt",System.currentTimeMillis())}
+        if(page>0&&(st=="want"||st=="paused")){book.put("state","reading");if(book.optLong("startedAt")==0L)book.put("startedAt",System.currentTimeMillis())}
         val copy=book.copyJson();a.work({a.library.save(copy)}){if(done)a.reload()}}
 
     fun pause(){credit();paused=true}
     fun resume(){paused=false;tracker.skipTime();tracker.touch()}
     /** The time and pages since the last tick, into the statistics. */
-    private fun credit(){
-        val now=System.currentTimeMillis();val c=tracker.tick(now,page,0,paused);tracker.noteCredit(c,n)
+    /** [end] — the book was just finished: its last page counts as read. */
+    private fun credit(end:Boolean=false){
+        val now=System.currentTimeMillis();val c=tracker.tick(now,if(end)n else page,0,paused||finishing);tracker.noteCredit(c,n)
         if(c.elapsed<=0&&c.pages<=0&&c.sittingAdd<=0)return
         val id=book.str("id");val title=book.str("title")
         a.work({a.library.db.runInTransaction{val raw=a.library.dao.meta("stats")?:return@runInTransaction
@@ -343,7 +357,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         /** +1: the next page. The page carries on from exactly where the finger left it (no jump back), and a quick
          *  throw settles faster, like the year pages in the tier list. */
         fun turn(d:Int)=step(d)
-        private fun step(d:Int,velocity:Float=0f){val t=page+d;if(t<0||t>=n){settle(0f,velocity);return};val visual=if(rtl)-d else d
+        private fun step(d:Int,velocity:Float=0f){val t=page+d;if(t<0||t>=n){settle(0f,velocity);if(t>=n)pastEnd();return};val visual=if(rtl)-d else d
             val from=shift;go(t,false);pan=0f;shift=from+visual*width.toFloat();settle(0f,velocity)}
         fun show(i:Int,animate:Boolean){scale=1f;px=0f;py=0f;pan=0f;if(!animate){shift=0f;invalidate()}}
         private fun settle(to:Float,velocity:Float=0f){anim?.cancel();settled=false;if(reduced){shift=to;settled=true;invalidate();return}

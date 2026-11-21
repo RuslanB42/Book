@@ -19,7 +19,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  private var clock:ValueAnimator?=null;private var closing=false;private var ended=false;private var begun=false
  private var flight:CoverView?=null;private var from=RectF();private var to=RectF();private var base=1f
  private val curve=PathInterpolator(.2f,.75f,.25f,1f)
- private var spent=0L;private var readSpeed=190.0
+ private var journey:BookJourney?=null
  val isShowing get()=parent!=null&&!ended
  private fun reduced()=a.prefs.str("motion")=="reduced"
  init{a.controlSurface(panel,22f,sheet=true).apply{flushBottom=true;refresh()};clipChildren=false;clipToPadding=false;elevation=a.d(40).toFloat();isClickable=true;isFocusableInTouchMode=true;contentDescription="О книге: ${book.str("title")}";addView(scrim,LayoutParams(-1,-1));addView(panel,LayoutParams(-1,-1,Gravity.BOTTOM).apply{topMargin=a.d(48)})
@@ -71,11 +71,20 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val chapter=a.text("",13f,a.muted).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(6),0,0)};reading.addView(chapter)
   val track=FrameLayout(a).apply{background=a.shape(if(a.light)0xffe2e2df.toInt()else 0xff39393c.toInt(),2)};val bar=View(a).apply{background=a.shape(a.fg,2);pivotX=0f};track.addView(bar,LayoutParams(-1,-1));reading.addView(track,LinearLayout.LayoutParams(-1,a.d(3)).apply{topMargin=a.d(14)})
   val facts=a.line();val volume=a.text("",12f,a.muted);val time=a.text("",12f,a.muted).apply{gravity=Gravity.END};facts.addView(volume,LinearLayout.LayoutParams(0,-2,1f));facts.addView(time,LinearLayout.LayoutParams(0,-2,1f));reading.addView(facts,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(10)})
+  // a started book: how long it has been read and since when (a read one: in how many days, from — to)
+  val spentRow=a.line().apply{gravity=Gravity.TOP};reading.addView(spentRow,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})
+  fun fact(value:String,caption:String){val t=a.column().apply{background=a.shape(if(a.light)0x0d000000 else 0x0fffffff,16);setPadding(a.d(12),a.d(11),a.d(12),a.d(10))}
+   t.addView(a.text(value,18f,a.fg,true,serif=true).apply{maxLines=1});t.addView(a.text(caption,12f,a.muted).apply{maxLines=1;setPadding(0,a.d(3),0,0)})
+   spentRow.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{if(spentRow.childCount>0)leftMargin=a.d(8)})}
   val go=a.button("Читать",true){if(book.optBoolean("noFile")){a.attachId=book.str("id");a.pickBooks(14)}else{a.returnDetailId=book.str("id");a.openBook(book,heroCover)}};reading.addView(go,LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
   val nofile=a.text("Добавьте файл FB2 или EPUB, чтобы читать книгу и сохранять цитаты.",13f,a.muted).apply{cssLeading(1.5f);setPadding(0,a.d(10),0,0)};reading.addView(nofile)
   var chapterTitle=""
   updates.add{val p=pct();val missing=book.optBoolean("noFile");status.text=when{missing->"В вашей библиотеке";p>=1->"Книга прочитана";Library.status(book)=="reading"->"Сейчас читаете";Library.status(book)=="paused"->"Чтение отложено";else->"Начните новую историю"};percent.text=if(missing||p<=0)"" else "${(p*100).toInt()}%";chapter.text=chapterTitle;chapter.visibility=if(chapterTitle.isBlank()||missing||p>=1)View.GONE else View.VISIBLE;track.visibility=if(missing||p>=1)View.GONE else View.VISIBLE;bar.scaleX=p;go.text=when{missing->"Добавить файл книги";p>=1->"Читать снова";Library.status(book)=="reading"->"Продолжить чтение";else->"Читать"};nofile.visibility=if(missing)View.VISIBLE else View.GONE
-   val chars=book.optInt("chars",book.optInt("recPages")*1800);volume.text=if(chars>0)"${maxOf(1,kotlin.math.round(chars/1800.0).toInt())} стр." else "Объём уточняется";time.text=if(p>=1)"За чтением ${duration(spent)}" else if(chars>0)"≈ ${duration(maxOf(60000L,(chars*(1-p)/5.0/readSpeed*60000).toLong()))}" else ""}
+   val chars=book.optInt("chars",book.optInt("recPages")*1800);volume.text=if(chars>0)"${maxOf(1,kotlin.math.round(chars/1800.0).toInt())} стр." else "Объём уточняется";time.text=""
+   spentRow.removeAllViews();val j=journey;val done=p>=1
+   if(j!=null&&!missing){if(j.ms>=60_000L)fact(duration(j.ms),"за чтением")
+    if(done)j.days?.let{n->fact("$n ${daysWordRu(n)}",j.range())} else j.start?.let{fact(dayMonth(it),"начата")}}
+   spentRow.visibility=if(spentRow.childCount>0)View.VISIBLE else View.GONE;facts.visibility=if(spentRow.childCount>0)View.GONE else View.VISIBLE}
   fun section(top:Int):LinearLayout{val sec=a.column().apply{setPadding(0,a.d(top),0,0);clipChildren=false;clipToPadding=false};main.addView(sec);return sec}
   // block headings, like the sections on the home screen
   fun heading(sec:LinearLayout,label:String){sec.addView(a.text(label,17f,a.fg,true).apply{setPadding(a.d(2),0,a.d(2),0)},LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(12)})}
@@ -167,8 +176,12 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
    replaceJson(book,fresh);updates.forEach{it()}
    if(coverChanged&&!reduced()&&isShowing){heroCover.animate().cancel();heroCover.animate().alpha(.25f).scaleX(.96f).scaleY(.96f).setDuration(140).withEndAction{heroCover.invalidate();heroGlow.refresh();heroCover.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(380).setInterpolator(android.view.animation.OvershootInterpolator(1.4f)).start()}.start()}
    else{heroCover.invalidate();heroGlow.refresh()}}
-  val id=book.str("id");val chIndex=book.optJSONObject("progress")?.optInt("ch")?:0;var detailStats=Triple(0L,190.0,Pair(0,""))
-  a.work({val stats=a.library.dao.meta("stats")?.let{JSONObject(it.json).optJSONObject("data")};val total=stats?.optJSONObject("books")?.optJSONObject(id)?.optLong("ms")?:0;val days=stats?.optJSONObject("days");var ms=0L;var chars=0L;days?.keys()?.forEach{k->val d=days.optJSONObject(k);ms+=d?.let{if(it.has("tms"))it.optLong("tms") else it.optLong("ms")}?:0;chars+=d?.optLong("chars")?:0};val speed=if(ms>0)chars/5.0/(ms/60000.0)else 190.0;val chapters=a.chapterIndex(book);detailStats=Triple(total,if(speed in 60.0..900.0)speed else 190.0,Pair(chapters?.objects()?.sumOf{it.optInt("len")}?:0,chapters?.optJSONObject(chIndex)?.str("title").orEmpty()))}){if(isShowing){spent=detailStats.first;readSpeed=detailStats.second;if(detailStats.third.first>0)book.put("chars",detailStats.third.first);chapterTitle=detailStats.third.second;updates.forEach{it()}}}
+  val id=book.str("id");val chIndex=book.optJSONObject("progress")?.optInt("ch")?:0;var found:BookJourney?=null;var length=0;var chTitle=""
+  a.work({val stats=a.library.dao.meta("stats")?.let{JSONObject(it.json).optJSONObject("data")}
+    val end=book.optLong("completedAt").takeIf{it>0&&Library.status(book)=="done"}?.let{java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()}?:java.time.LocalDate.now()
+    if(Library.status(book)!="want")found=BookJourney.of(stats,book,end)
+    val chapters=a.chapterIndex(book);length=chapters?.objects()?.sumOf{it.optInt("len")}?:0;chTitle=chapters?.optJSONObject(chIndex)?.str("title").orEmpty()}){
+    if(isShowing){journey=found;if(length>0)book.put("chars",length);chapterTitle=chTitle;updates.forEach{it()}}}
  }
  // Draw the shared cover explicitly in the root overlay coordinate space.
  // A transformed child inside a bounded saveLayer can be cropped by RenderNode

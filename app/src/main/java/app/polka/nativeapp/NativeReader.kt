@@ -77,11 +77,9 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private var completed=false
     /** Books that were already finished when opened never ask for a rating again. */
     private val startedDone=Library.status(book)=="done"
-    private var promptArmed=false
-    private var ratingShown=false
     private var calm=false
-    /** The book was at its end but had not been read in the app: asked once whether it is read. */
-    private var askedDone=false
+    /** The end of the book is being shown (the window «Книга прочитана» or the question before it). */
+    private var finishing=false
     private var editorOpen=false
     internal var pageEditor:ChapterEditor?=null;private set
     internal val backgroundColor get()=readerBackground
@@ -185,6 +183,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         }
         val detector=GestureDetector(a,gestures)
         fun pageTouch(e:MotionEvent):Boolean {
+            if(!paged()&&!editorOpen)pullPastEnd(e)
             if(!paged()||editorOpen)return false
             tracker.touch()
             when(e.actionMasked){
@@ -281,28 +280,47 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(disposed||preparing||restoring||opening||chapters.length()==0||chapter!=chapters.length()-1||chapterRich.isEmpty()||scroll.width<=0||scroll.height<=0)return false
         return if(paged())pageStarts.isNotEmpty()&&pageIndex>=pageStarts.lastIndex else body.height<=scroll.height||scroll.scrollY>=body.height-scroll.height-a.d(4)
     }
-    private fun checkFinished() {
-        if(!atEnd())return
-        if(!completed){
-            // the end counts as read only when the book was really read here (at least half of it); otherwise ask once
-            if(!startedDone&&!tracker.seeded){}
-            else if(startedDone||tracker.share()>=.5){completed=true;if(!startedDone)book.put("completedAt",System.currentTimeMillis());handler.post{if(!disposed)save()}}
-            else if(!askedDone){askedDone=true;a.confirm("Книга прочитана?","Отметить книгу прочитанной?"){if(disposed)return@confirm;completed=true;book.put("completedAt",System.currentTimeMillis());save();checkFinished()}}
-        }
-        if(completed&&!startedDone&&!ratingShown&&!promptArmed&&book.optInt("rating")==0){promptArmed=true;handler.postDelayed(promptTask,1300)}
+    /**
+     * The reader went on past the last page (turned it, or pulled the end of the scroll up): the book is read. Never on
+     * coming to the last page — it is still being read then. A book not even half read here is asked about first.
+     */
+    private fun pastEnd(){
+        if(finishing||completed||startedDone||disposed||editorOpen||!atEnd())return
+        // the reading up to here counts; the time over the end window does not
+        save();finishing=true
+        val go:()->Unit={
+            if(disposed)finishing=false
+            else{markFinished();BookFinish(a,book){leave->finishing=false;tracker.skipTime();if(leave&&!disposed)a.closeReader()}.show()}
+            Unit}
+        if(!tracker.seeded||tracker.share()>=.5)go()
+        else{var chosen=false
+            a.dialog().setTitle("Книга прочитана?").setMessage("Отметить книгу прочитанной?").setNegativeButton("Нет",null).setPositiveButton("Прочитана"){_,_->chosen=true;go()}.show()
+                .setOnDismissListener{if(!chosen){finishing=false;tracker.skipTime()}}}
     }
-    private val promptTask=Runnable {
-        promptArmed=false
-        if(disposed||ratingShown||editorOpen||isTurning()||!atEnd()||a.ratingPrompt?.isShowing==true)return@Runnable
-        ratingShown=true
-        a.ratingPrompt=RatingPrompt(a,book){n->book.put("rating",n);a.saveBook(book){}}.also{it.show()}
+    /** In the scroll: a pull up of the end of the book, once it is in view, goes past it. */
+    private var pullFrom=-1f
+    private fun pullPastEnd(e:MotionEvent){when(e.actionMasked){
+        MotionEvent.ACTION_DOWN->pullFrom=if(atEnd())e.rawY else -1f
+        MotionEvent.ACTION_UP->{if(pullFrom>=0f&&atEnd()&&pullFrom-e.rawY>a.d(72))pastEnd();pullFrom=-1f}
+        MotionEvent.ACTION_CANCEL->pullFrom=-1f}}
+    /** Marks the book read now, with its last page counted as read when it was on the screen long enough for it. */
+    private fun markFinished(){completed=true;book.put("completedAt",System.currentTimeMillis());save(true)}
+    /**
+     * Closing the book on its last page after reading it (it was on the screen for at least half the usual time of a
+     * page, and the book was really read here) finishes it too; the window is shown once the book is closed.
+     */
+    internal fun finishOnClose():Boolean{
+        if(finishing||completed||startedDone||!tracker.seeded||!atEnd()||tracker.share()<.5)return false
+        val page=pageChars()/tracker.pace
+        if(tracker.dwellNow()<maxOf(8_000.0,page*.5))return false
+        markFinished();return true
     }
     fun progress():Double { if(atEnd())return 1.0; val total=chapters.objects().sumOf { it.optInt("len") }.coerceAtLeast(1); val before=(0 until chapter).sumOf { chapters.getJSONObject(it).optInt("len") }; return ((before+chapters.getJSONObject(chapter).optInt("len")*fraction())/total).coerceIn(0.0,1.0) }
-    fun updateFooter() { countBackTurns();syncBookmark(false);folio.text=if(paged())"${pageIndex+1} из ${pageStarts.size}" else "";if(!scrubbing) slider.progress=(progress()*1000).toInt(); percent.text="${(progress()*100).toInt()}% от всей книги"; footer.text=prettyTitle(chapters.getJSONObject(chapter).str("title"));remaining.text=if(paged()){val left=pageStarts.size-pageIndex-1;if(left>0)"ещё $left стр" else "конец главы"}else "${(fraction()*100).toInt()}% главы";checkFinished() }
+    fun updateFooter() { countBackTurns();syncBookmark(false);folio.text=if(paged())"${pageIndex+1} из ${pageStarts.size}" else "";if(!scrubbing) slider.progress=(progress()*1000).toInt(); percent.text="${(progress()*100).toInt()}% от всей книги"; footer.text=prettyTitle(chapters.getJSONObject(chapter).str("title"));remaining.text=if(paged()){val left=pageStarts.size-pageIndex-1;if(left>0)"ещё $left стр" else "конец главы"}else "${(fraction()*100).toInt()}% главы";}
     fun changeChapter(next:Int) { if(next !in 0 until chapters.length())return;quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=0;pendingFraction=null;paintChapter() }
     fun persist() { val snap=book.copyJson(); a.saveBook(snap) {} }
     fun pause() { Ambience.pause(a);save();paused=true;handler.removeCallbacks(heartbeat) }
-    fun dispose(){if(disposed)return;Ambience.unlisten(soundWatch);Ambience.stop(a);if(a.window.attributes.screenBrightness!=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};a.ratingPrompt?.let{(it.parent as? ViewGroup)?.removeView(it)};a.ratingPrompt=null;quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
+    fun dispose(){if(disposed)return;Ambience.unlisten(soundWatch);Ambience.stop(a);if(a.window.attributes.screenBrightness!=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
     fun resume() { Ambience.resume(a);ReaderWindow.configure(a.window,true,readerBackground);a.root.requestApplyInsets();paused=false; tracker.skipTime(); tracker.touch(); handler.removeCallbacks(heartbeat); handler.postDelayed(heartbeat,5000) }
     /** Characters on a page as it is laid out now: the chapter's pages, or one screen when scrolling. */
     private fun pageChars():Int{
@@ -310,13 +328,14 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         return if(body.height>0&&scroll.height>0)(chapterRich.length.toLong()*scroll.height/body.height).toInt().coerceIn(1,maxOf(1,chapterRich.length)) else PAGE_CHARS.toInt()}
     /** The page size to remember for the statistics, only from a chapter long enough to tell it. */
     private fun calibration():Int=if(paged()){if(pageStarts.size>=4)pageChars() else 0}else if(body.height>scroll.height*3)pageChars() else 0
-    fun save() {
+    /** [endOfBook] — the book was just finished: the last page counts as read up to the end. */
+    fun save(endOfBook:Boolean=false) {
         handler.removeCallbacks(saveTask)
         if(restoring || editorOpen || opening || preparing || disposed) return
         val before=Library.status(book)
-        val p=book.optJSONObject("progress")?.copyJson() ?: JSONObject(); p.put("ch",chapter).put("pct",if(completed) 1.0 else progress()).put("nativeFraction",fraction()).put("nativeOffset",if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0).put("block",0).put("off",0); book.put("progress",p)
+        val p=book.optJSONObject("progress")?.copyJson() ?: JSONObject(); p.put("ch",chapter).put("pct",if(completed) 1.0 else minOf(progress(),.999)).put("nativeFraction",fraction()).put("nativeOffset",if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0).put("block",0).put("off",0); book.put("progress",p)
         val now=System.currentTimeMillis(); val total=chapters.objects().sumOf { it.optInt("len") }; val calib=calibration()
-        val credit=tracker.tick(now,position(),pageChars(),paused); tracker.noteCredit(credit,total)
+        val credit=tracker.tick(now,if(endOfBook) total else position(),pageChars(),paused||finishing); tracker.noteCredit(credit,total)
         // the status moves only forward by itself: real reading makes «Хочу»/«Отложено» into «Читаю», the end makes it «Прочитано»
         if(completed&&!startedDone)book.put("state","done")
         else if((before=="want"||before=="paused")&&credit.chars>0){book.put("state","reading");if(book.optLong("startedAt")==0L)book.put("startedAt",now)}
@@ -555,7 +574,8 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     private fun beginCurl(direction:Int,interactive:Boolean,y:Float):Boolean {
         if(preparing||disposed||editorOpen||isTurning()||!paged()||scroll.width<=0||scroll.height<=0)return false
-        val next=pageIndex+direction;if(next<0&&chapter==0||next>pageStarts.lastIndex&&chapter==chapters.length()-1)return false
+        val next=pageIndex+direction;if(next<0&&chapter==0)return false
+        if(next>pageStarts.lastIndex&&chapter==chapters.length()-1){if(direction>0)handler.post{pastEnd()};return false}
         if(direction>0&&!calm&&selectionTurnDone==null)setCalm(true,true)
         pageSlidePending=true;gestureTurn=interactive;released=null;targetCommitted=false;dragProgress=0f;dragY=y
         val token=++curlToken;val currentKey="${chapterKey(chapter)}:$pageIndex:${hasBookmark()}"
@@ -619,11 +639,11 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     }
     fun turn(direction:Int) {
         tracker.touch();if(preparing||disposed||editorOpen||isTurning())return
-        if(!paged()){scroll.smoothScrollBy(0,direction*pageHeight());return}
+        if(!paged()){if(direction>0&&atEnd())pastEnd() else scroll.smoothScrollBy(0,direction*pageHeight());return}
         quoteSelection.clear()
         if(a.prefs.str("motion")=="reduced"||a.prefs.str("turn","curl")=="none"){
             if(direction>0)setCalm(true,false)
-            findTarget(direction){target->if(target!=null){targetPage=target;commitTarget();targetPage=null;targetCommitted=false;save()}};return
+            findTarget(direction){target->if(target!=null){targetPage=target;commitTarget();targetPage=null;targetCommitted=false;save()}else if(direction>0)pastEnd()};return
         }
         beginCurl(direction,false,scroll.height*.9f)
     }

@@ -3,54 +3,75 @@ import android.animation.*
 import android.graphics.*
 import android.view.*
 import android.view.animation.*
-import android.widget.LinearLayout
+import org.json.JSONObject
+import kotlin.math.roundToInt
+
+/** A rating in half stars: 0 — none, 1…10 — half a star to five stars. Kept in the book as 0.5…5 («rating»). */
+internal object Rating{
+    fun halves(b:JSONObject)=(b.optDouble("rating",0.0).let{if(it.isNaN())0.0 else it}*2).roundToInt().coerceIn(0,10)
+    fun put(b:JSONObject,h:Int){if(h<=0)b.remove("rating") else if(h%2==0)b.put("rating",h/2) else b.put("rating",h/2.0)}
+    /** «4», «4,5». */
+    fun text(h:Int)=if(h%2==0)"${h/2}" else "${h/2},5"
+}
 
 /**
- * Five stars. Choosing fills them one after another from the left (each fill grows softly from the star's centre)
- * and the chosen star gives a short, quiet press; lowering or clearing drains the extra stars right to left.
+ * Five stars in half steps: the left half of a star gives half of it, the right half the whole star, and a finger
+ * drawn along the row picks as it goes. The fill sweeps to the new value; the chosen star gives a short press.
+ * Tapping the chosen value again clears it when [toggle].
  */
-class NativeRating(val a:MainActivity,initial:Int=0,val toggle:Boolean=true,val changed:(Int)->Unit):LinearLayout(a) {
-    var value=initial; private set
-    private val stars=mutableListOf<Star>()
+class NativeRating(val a:MainActivity,initial:Int=0,val toggle:Boolean=true,private val starDp:Float=30f,private val gapDp:Float=10f,private val center:Boolean=true,val changed:(Int)->Unit):View(a) {
+    /** Half stars, 0…10. */
+    var value=initial.coerceIn(0,10); private set
+    private var shown=value/2f
+    private var sweep:ValueAnimator?=null
+    private var press=FloatArray(5){1f}
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    init { orientation=HORIZONTAL; gravity=Gravity.CENTER; clipChildren=false; clipToPadding=false; contentDescription="Ваша оценка"; for(n in 1..5) { val star=Star(n); star.fill=if(n<=initial)1f else 0f; stars.add(star); addView(star,LayoutParams(0,a.d(52),1f)) }; describe() }
-    private fun describe() { stars.forEach { it.contentDescription="${it.n} из 5"+(if(it.n==value) ", выбрано" else "") } }
-    private fun choose(n:Int) {
-        val old=value; value=if(toggle && value==n) 0 else n; describe(); changed(value)
-        if(a.prefs.optBoolean("haptics",true)) performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-        if(reduced) { stars.forEach { it.fill=if(it.n<=value)1f else 0f }; return }
-        val rising=stars.filter { it.n<=value && it.fill<1f }
-        val falling=stars.filter { it.n>value && it.fill>0f }.reversed()
-        rising.forEachIndexed { i,s -> s.animateFill(1f,i*55L) }
-        falling.forEachIndexed { i,s -> s.animateFill(0f,i*45L) }
-        val hop=stars.getOrNull((if(value>0) value else n)-1) ?: return
-        hop.hop(if(value>0) rising.size*55L else 0L)
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeJoin=Paint.Join.ROUND;strokeCap=Paint.Cap.ROUND}
+    private val star get()=a.d(1)*starDp
+    private val gap get()=a.d(1)*gapDp
+    private val rowWidth get()=star*5+gap*4
+    private val left get()=if(center)(width-rowWidth)/2f else 0f
+    private var downValue=0;private var dragged=false;private var downX=0f
+    init{isClickable=true;isFocusable=true;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES;describe()}
+    override fun onMeasure(w:Int,h:Int){val want=kotlin.math.ceil(rowWidth).toInt();val mw=MeasureSpec.getMode(w);val sw=MeasureSpec.getSize(w)
+        val width=when(mw){MeasureSpec.EXACTLY->sw;MeasureSpec.AT_MOST->if(center)sw else minOf(want,sw);else->want}
+        setMeasuredDimension(width,resolveSize((star+a.d(12)).roundToInt(),h))}
+    private fun describe(){contentDescription=if(value==0)"Без оценки" else "Оценка ${Rating.text(value)} из 5"}
+    /** The half step under [x]. */
+    private fun at(x:Float):Int{val rel=x-left;if(rel<=0f)return 1
+        val i=(rel/(star+gap)).toInt().coerceIn(0,4);val inStar=rel-i*(star+gap)
+        return if(inStar>star)(i+1)*2 else i*2+if(inStar<star/2)1 else 2}
+    override fun onTouchEvent(e:MotionEvent):Boolean{
+        when(e.actionMasked){
+            MotionEvent.ACTION_DOWN->{parent?.requestDisallowInterceptTouchEvent(true);downValue=value;dragged=false;downX=e.x;set(at(e.x),false)}
+            MotionEvent.ACTION_MOVE->{if(kotlin.math.abs(e.x-downX)>a.d(6))dragged=true;set(at(e.x),false)}
+            MotionEvent.ACTION_UP->{val v=at(e.x);if(!dragged&&toggle&&v==downValue)set(0,false) else set(v,false)
+                hop(value);changed(value);performClick()}
+            MotionEvent.ACTION_CANCEL->set(downValue,false)}
+        return true}
+    override fun performClick():Boolean{super.performClick();return true}
+    /** Shows [v] (half stars); [silent] — no haptics. */
+    fun set(v:Int,silent:Boolean){val n=v.coerceIn(0,10);if(n==value)return;value=n;describe()
+        if(!silent&&a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        sweep?.cancel();val from=shown;val to=n/2f
+        if(reduced||!isAttachedToWindow){shown=to;invalidate();return}
+        sweep=ValueAnimator.ofFloat(0f,1f).apply{duration=(140+kotlin.math.abs(to-from)*40).toLong().coerceAtMost(320);interpolator=PathInterpolator(.2f,0f,0f,1f)
+            addUpdateListener{shown=from+(to-from)*(it.animatedValue as Float);invalidate()};start()}}
+    private fun hop(v:Int){if(v<=0||reduced)return;val i=(v+1)/2-1
+        ValueAnimator.ofFloat(0f,1f).apply{duration=420;addUpdateListener{val t=it.animatedFraction;press[i]=if(t<.25f)1f-.14f*(t/.25f) else .86f+.14f*PathInterpolator(.3f,1.4f,.5f,1f).getInterpolation((t-.25f)/.75f);invalidate()};start()}}
+    override fun onDraw(c:Canvas){
+        val path=StarShape.path;val y=(height-star)/2f;val yellow=StarRow.starYellow(a)
+        for(i in 0 until 5){val x=left+i*(star+gap);val f=(shown-i).coerceIn(0f,1f)
+            c.save();c.translate(x+star/2,y+star/2);c.scale(press[i],press[i]);c.translate(-star/2,-star/2);c.scale(star/24,star/24)
+            if(f<1f){p.style=Paint.Style.STROKE;p.strokeWidth=1.5f;p.color=a.muted;c.drawPath(path,p)}
+            if(f>0f){c.save();c.clipRect(0f,0f,24f*f,24f);p.color=yellow;p.style=Paint.Style.FILL_AND_STROKE;p.strokeWidth=1.5f;c.drawPath(path,p);c.restore()}
+            c.restore()}
     }
-    inner class Star(val n:Int):View(a) {
-        private val path=StarShape.path
-        private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeJoin=Paint.Join.ROUND;strokeCap=Paint.Cap.ROUND}
-        var fill=0f; set(v) { field=v; invalidate() }
-        private var fillAnim:Animator?=null
-        init { isClickable=true; isFocusable=true; setOnClickListener { choose(n) } }
-        fun animateFill(to:Float,delay:Long) { fillAnim?.cancel(); val from=fill
-            fillAnim=ValueAnimator.ofFloat(0f,1f).apply { startDelay=delay; duration=if(to>from) 300 else 200; interpolator=if(to>from) PathInterpolator(.3f,1.25f,.5f,1f) else PathInterpolator(.4f,0f,1f,1f); addUpdateListener { fill=from+(to-from)*(it.animatedValue as Float) }; start() } }
-        /** A short press on the chosen star: in a little, back with a soft settle. No turn, no rays. */
-        fun hop(delay:Long) {
-            animate().cancel(); animate().scaleX(.86f).scaleY(.86f).setStartDelay(delay).setDuration(110).setInterpolator(DecelerateInterpolator())
-                .withEndAction { animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(360).setInterpolator(PathInterpolator(.3f,1.4f,.5f,1f)).start() }.start()
-        }
-        override fun onDraw(c:Canvas) {
-            val size=a.d(30).toFloat(); val cx=width/2f; val cy=height/2f
-            c.save(); c.translate(cx-size/2,cy-size/2); c.scale(size/24,size/24)
-            val f=fill.coerceIn(0f,1f)
-            // the empty star: a thin outline with the same rounded corners
-            if(f<1f){ p.style=Paint.Style.STROKE; p.strokeWidth=1.5f; p.color=a.muted; p.alpha=(255*(1f-f)).toInt(); c.drawPath(path,p) }
-            // the full star: the same silhouette, filled, grown from the centre
-            if(fill>0f){ p.alpha=255; p.color=StarRow.starYellow(a); p.style=Paint.Style.FILL_AND_STROKE; p.strokeWidth=1.5f; c.save(); val k=fill.coerceAtLeast(0f); c.scale(k,k,12f,12.6f); c.drawPath(path,p); c.restore() }
-            c.restore()
-        }
-        override fun onInitializeAccessibilityNodeInfo(info:android.view.accessibility.AccessibilityNodeInfo) { super.onInitializeAccessibilityNodeInfo(info); info.className="android.widget.RadioButton"; info.isCheckable=true; info.isChecked=n==value }
-    }
+    override fun onInitializeAccessibilityNodeInfo(info:android.view.accessibility.AccessibilityNodeInfo){super.onInitializeAccessibilityNodeInfo(info);info.className="android.widget.SeekBar"
+        info.addAction(android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD);info.addAction(android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_BACKWARD)}
+    override fun performAccessibilityAction(action:Int,args:android.os.Bundle?):Boolean{
+        val step=when(action){android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_FORWARD->1;android.view.accessibility.AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD->-1;else->return super.performAccessibilityAction(action,args)}
+        set(value+step,true);changed(value);return true}
 }
 
 /** The star used for ratings: five points with every corner rounded off, outer and inner alike. */
