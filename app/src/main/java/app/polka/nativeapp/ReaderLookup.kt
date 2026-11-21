@@ -30,20 +30,7 @@ internal class LineIcon(c:Context,private var kind:String,var ink:Int):View(c){
     override fun onDraw(c:Canvas){val px=size*resources.displayMetrics.density;val s=px/24f
         c.save();c.translate((width-px)/2f,(height-px)/2f);c.scale(s,s);p.color=ink;p.strokeWidth=1.8f;p.style=Paint.Style.STROKE
         if(kind=="colordot"){p.style=Paint.Style.FILL;p.color=dot?:ink;c.drawCircle(12f,12f,8f,p);p.style=Paint.Style.STROKE;p.color=0x40ffffff;p.strokeWidth=1f;c.drawCircle(12f,12f,8f,p);c.restore();return}
-        if(!IosIcons.draw(c,kind,ink))PATHS[kind]?.forEach{c.drawPath(it,p)};c.restore()}
-    companion object{
-        private fun parse(vararg d:String)=d.map{androidx.core.graphics.PathParser.createPathFromPathData(it)!!}
-        val PATHS:Map<String,List<Path>> by lazy{mapOf(
-            "quote" to parse("M10 9.5a2.5 2.5 0 1 0-2.5 2.5H10V9.5c0 3.2-1.4 5.4-4 6.8","M18.5 9.5a2.5 2.5 0 1 0-2.5 2.5h2.5V9.5c0 3.2-1.4 5.4-4 6.8"),
-            "note" to parse("M4 20h16","M14.5 5.5l3 3L9 17H6v-3z","M12.5 7.5l3 3"),
-            "translate" to parse("M13 9V5.5A2.5 2.5 0 0 0 10.5 3h-5A2.5 2.5 0 0 0 3 5.5v5A2.5 2.5 0 0 0 5.5 13H9","M6 10.5L8 5.5l2 5M6.7 8.8h2.6",
-                "M13.5 11h5a2.5 2.5 0 0 1 2.5 2.5v5a2.5 2.5 0 0 1-2.5 2.5h-5a2.5 2.5 0 0 1-2.5-2.5v-5a2.5 2.5 0 0 1 2.5-2.5z","M17.6 18.5v-5h-1.7a1.5 1.5 0 0 0 0 3h1.7M16.1 16.5l-1.9 2"),
-            "dictionary" to parse("M5 19V5.5A2.5 2.5 0 0 1 7.5 3H19v14H7.5A2.5 2.5 0 0 0 5 19.5 2.5 2.5 0 0 0 7.5 22H19v-5","M9.5 13l2.5-6 2.5 6M10.4 11h3.2"),
-            "copy" to parse("M10.5 8h7A2.5 2.5 0 0 1 20 10.5v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 8 17.5v-7A2.5 2.5 0 0 1 10.5 8z","M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"),
-            "trash" to parse("M4 7h16","M9.5 7V4.5h5V7","M6.5 7l1 12.5A1.5 1.5 0 0 0 9 21h6a1.5 1.5 0 0 0 1.5-1.5L17.5 7","M10 11v6M14 11v6"),
-            "speaker" to parse("M4 9.5v5h3.5L12 18V6L7.5 9.5z","M15.5 9.5a3.5 3.5 0 0 1 0 5M18 7a7 7 0 0 1 0 10"),
-            "swap" to parse("M7 8h11l-3-3","M17 16H6l3 3"))}
-    }
+        IosIcons.draw(c,kind,ink);c.restore()}
 }
 
 /** The offline dictionary: Russian and English from Wiktionary (CC BY-SA), one SQLite file downloaded once. */

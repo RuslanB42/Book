@@ -460,11 +460,9 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(paged()){if(p!=backSeen){backTurns++;backSeen=p}}else if(abs(p-backSeen)>1500){backTurns++;backSeen=p}
         if(backTurns>=3)clearBack()}
     private inner class BackGlyph(var kind:String):View(a){
-        var ink=Color.WHITE;private val pt=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND}
-        private val arrow=androidx.core.graphics.PathParser.createPathFromPathData("M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11")
-        private val cross=androidx.core.graphics.PathParser.createPathFromPathData("M7 7L17 17M17 7L7 17")
+        var ink=Color.WHITE
         override fun onDraw(c:Canvas){val s=minOf(width,height)/24f;c.save();c.translate((width-24*s)/2,(height-24*s)/2);c.scale(s,s)
-            if(kind=="fwd"){c.scale(-1f,1f,12f,12f)};pt.color=ink;pt.strokeWidth=if(kind=="x")2.4f else 2f;c.drawPath(if(kind=="x")cross else arrow,pt);c.restore()}}
+            if(kind=="fwd"){c.scale(-1f,1f,12f,12f)};IosIcons.draw(c,if(kind=="x")"x" else "undo",ink);c.restore()}}
     private fun showBack(){val point=backPoint?:return
         backChip.background=a.shape((a.fg and 0xffffff) or (0x14 shl 24),15);backLabel.setTextColor(a.fg)
         backArrow.kind=if(backForward)"fwd" else "back";backArrow.ink=a.fg;backArrow.invalidate()

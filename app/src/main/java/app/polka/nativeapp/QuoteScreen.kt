@@ -56,19 +56,8 @@ internal fun MainActivity.quoteStack(b:JSONObject,qs:List<JSONObject>,onOpen:(()
 internal fun quoteInk(q:JSONObject)=(0xff shl 24) or QuoteColors.rgb(q.optString("color").ifBlank{"amber"})
 /** Copy / delete drawn as line icons (two sheets with rounded corners; a bin with a lid and slots). */
 internal class QuoteActionIcon(c:Context,private val kind:String,private val ink:Int):View(c){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND;color=ink}
-    private val path=Path()
-    override fun onDraw(cv:Canvas){val s=minOf(width,height)/24f*.84f;cv.save();cv.translate(width/2f-12f*s,height/2f-12f*s);cv.scale(s,s);p.strokeWidth=1.8f
-        path.rewind()
-        if(kind=="go"){path.moveTo(5f,12f);path.lineTo(18f,12f);path.moveTo(13f,6.5f);path.lineTo(18.5f,12f);path.lineTo(13f,17.5f)}
-        else if(kind=="pen"){path.moveTo(4.5f,19.5f);path.lineTo(5.5f,15.5f);path.lineTo(15.8f,5.2f);path.quadTo(17.25f,3.75f,18.7f,5.2f);path.lineTo(18.8f,5.3f);path.quadTo(20.25f,6.75f,18.8f,8.2f);path.lineTo(8.5f,18.5f);path.close()}
-        else if(kind=="copy"){path.addRoundRect(RectF(8.5f,8.5f,19.5f,20.5f),2.6f,2.6f,Path.Direction.CW)
-            path.moveTo(15.5f,8.5f);path.lineTo(15.5f,6.6f);path.quadTo(15.5f,4.5f,13.4f,4.5f);path.lineTo(6.6f,4.5f);path.quadTo(4.5f,4.5f,4.5f,6.6f);path.lineTo(4.5f,14.4f);path.quadTo(4.5f,16.5f,6.6f,16.5f);path.lineTo(8.5f,16.5f)}
-        else{path.moveTo(4.5f,6.8f);path.lineTo(19.5f,6.8f)
-            path.moveTo(9.3f,6.8f);path.lineTo(9.3f,5.2f);path.quadTo(9.3f,3.8f,10.7f,3.8f);path.lineTo(13.3f,3.8f);path.quadTo(14.7f,3.8f,14.7f,5.2f);path.lineTo(14.7f,6.8f)
-            path.moveTo(6.6f,6.8f);path.lineTo(7.4f,18.2f);path.quadTo(7.5f,20.2f,9.5f,20.2f);path.lineTo(14.5f,20.2f);path.quadTo(16.5f,20.2f,16.6f,18.2f);path.lineTo(17.4f,6.8f)
-            path.moveTo(10.4f,10.8f);path.lineTo(10.4f,16.2f);path.moveTo(13.6f,10.8f);path.lineTo(13.6f,16.2f)}
-        cv.drawPath(path,p);cv.restore()}
+    override fun onDraw(cv:Canvas){val s=minOf(width,height)/24f*.84f;cv.save();cv.translate(width/2f-12f*s,height/2f-12f*s);cv.scale(s,s)
+        IosIcons.draw(cv,kind,ink);cv.restore()}
 }
 /** [onDelete] is the notebook's own removal (with a question); a tap on the quote opens its place in the book. */
 internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->Unit)?=null,onDelete:(()->Unit)?=null):View {

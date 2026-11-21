@@ -184,7 +184,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                     else content.addView(a.text(s.toString(),16f,if(i in destructiveItems)0xffd9504e.toInt() else a.fg).apply {
                         minHeight=a.d(52);gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(12),a.d(12),a.d(12));isFocusable=true
                         itemIcons?.getOrNull(i)?.let{kind->
-                            setCompoundDrawablesRelative(ActionIconDrawable(a,kind,currentTextColor).apply{setBounds(0,0,a.d(22),a.d(22))},null,null,null);compoundDrawablePadding=a.d(16)
+                            setCompoundDrawablesRelative(ActionIconDrawable(kind,currentTextColor).apply{setBounds(0,0,a.d(22),a.d(22))},null,null,null);compoundDrawablePadding=a.d(16)
                         }
                         a.press(this);setOnClickListener { if(isEnabled){isEnabled=false;dismiss();onItem?.invoke(owner,i)} }
                     },LinearLayout.LayoutParams(-1,-2))

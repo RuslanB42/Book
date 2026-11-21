@@ -20,18 +20,11 @@ internal fun daysWord(n:Int)="$n "+if(n%100 in 11..14)"дней" else when(n%10)
 
 /** Small line glyphs drawn on a 16-unit grid: chevron down, expand, share. */
 internal class Glyph(private val a:MainActivity,private val kind:String,var ink:Int):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND}
-    private val path=Path().apply{when(kind){
-        "down"->{moveTo(3.5f,6f);lineTo(8f,10.5f);lineTo(12.5f,6f)}
-        "expand"->{moveTo(9.5f,2.5f);lineTo(13.5f,2.5f);lineTo(13.5f,6.5f);moveTo(6.5f,13.5f);lineTo(2.5f,13.5f);lineTo(2.5f,9.5f);moveTo(13.5f,2.5f);lineTo(9f,7f);moveTo(2.5f,13.5f);lineTo(7f,9f)}
-        else->{moveTo(8f,10f);lineTo(8f,2.5f);moveTo(5f,5.5f);lineTo(8f,2.5f);lineTo(11f,5.5f);moveTo(3f,9f);lineTo(3f,12.5f);lineTo(13f,12.5f);lineTo(13f,9f)}}}
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     override fun onDraw(c:Canvas){
         // the same icons as everywhere else in the app
         val z=min(width,height).toFloat();c.save();c.translate((width-z)/2,(height-z)/2);c.scale(z/24f,z/24f)
-        val drawn=IosIcons.draw(c,when(kind){"down"->"chevdown";"expand"->"expand";else->"share"},ink,false,0);c.restore();if(drawn)return
-        val s=min(width,height)/16f;c.save();c.translate((width-16*s)/2,(height-16*s)/2);c.scale(s,s)
-        p.color=ink;p.strokeWidth=1.7f;c.drawPath(path,p);c.restore()}
+        IosIcons.draw(c,when(kind){"down"->"chevdown";"expand"->"expand";else->"share"},ink);c.restore()}
 }
 
 // ───────────────────────── year menu on the card ─────────────────────────

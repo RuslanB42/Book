@@ -186,17 +186,8 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
 
 /** Line icons for «Рекорды»: a bolt (fastest), an hourglass (longest sitting), lines of a page (most pages in a day). */
 internal class RecordIcon(private val a:MainActivity,private val kind:String,private val ink:Int):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND;color=ink}
-    private val path=Path()
-    override fun onDraw(c:Canvas){val s=min(width,height)/24f;c.save();c.translate(width/2f-12f*s,height/2f-12f*s);c.scale(s,s);p.strokeWidth=2f
-        path.rewind()
-        when(kind){
-            "bolt"->{path.moveTo(13f,3f);path.lineTo(5f,14f);path.lineTo(11f,14f);path.lineTo(10f,21f);path.lineTo(18f,10f);path.lineTo(12f,10f);path.close()}
-            "hour"->{path.moveTo(7f,3.5f);path.lineTo(17f,3.5f);path.moveTo(7f,20.5f);path.lineTo(17f,20.5f)
-                path.moveTo(8f,3.5f);path.cubicTo(8f,8f,16f,8f,16f,12f);path.cubicTo(16f,16f,8f,16f,8f,20.5f)
-                path.moveTo(16f,3.5f);path.cubicTo(16f,8f,8f,8f,8f,12f);path.cubicTo(8f,16f,16f,16f,16f,20.5f)}
-            else->{path.addRoundRect(RectF(4f,4f,20f,20f),3f,3f,Path.Direction.CW);path.moveTo(8f,9f);path.lineTo(16f,9f);path.moveTo(8f,12f);path.lineTo(16f,12f);path.moveTo(8f,15f);path.lineTo(13f,15f)}}
-        c.drawPath(path,p);c.restore()}
+    override fun onDraw(c:Canvas){val s=min(width,height)/24f;c.save();c.translate(width/2f-12f*s,height/2f-12f*s);c.scale(s,s)
+        IosIcons.draw(c,when(kind){"bolt"->"bolt";"hour"->"hourglass";else->"sheet"},ink);c.restore()}
 }
 
 /** The streak's week as one strip of seven segments (approved): lit, kept by a freeze, missed; today's fills up. */

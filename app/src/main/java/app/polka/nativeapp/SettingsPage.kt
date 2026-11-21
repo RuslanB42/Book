@@ -84,7 +84,7 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     // where the reading tools come from
     group("О приложении")
     content.addView(text("Glyph ${packageManager.getPackageInfo(packageName,0).versionName}",14f,fg).apply{setPadding(d(4),0,0,0)})
-    content.addView(text("Перевод: Google Переводчик (на устройстве). Словарь: Викисловарь, CC BY-SA 4.0. Фоновые звуки: свободная лицензия CC0.",12.5f,muted2).apply{setPadding(d(4),d(6),d(4),0);cssLeading(1.4f)})
+    content.addView(text("Перевод: Google Переводчик (на устройстве). Словарь: Викисловарь, CC BY-SA 4.0. Фоновые звуки: свободная лицензия CC0. Иконки: Lucide, ISC.",12.5f,muted2).apply{setPadding(d(4),d(6),d(4),0);cssLeading(1.4f)})
     if(animate&&prefs.str("motion")!="reduced"){scroll.alpha=0f;scroll.translationY=d(18).toFloat();scroll.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withLayer().start()}
 }
 

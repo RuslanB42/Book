@@ -3,12 +3,15 @@ package app.polka.nativeapp
 import android.graphics.*
 import androidx.core.graphics.PathParser
 
-/** iOS-style icon set: 24 grid, 1.7 line, round caps and joins. Filled variants mark the selected tab. */
+/**
+ * The app's icons: Lucide (https://lucide.dev, ISC licence; the text is in assets/icons/lucide-LICENSE.txt), on a
+ * 24 grid with a 1.75 line, round caps and joins. The selected tab draws the same icon with a heavier line.
+ */
 internal object IosIcons {
   private class Op(val fill:Boolean,val cut:Boolean,val w:Float,val round:Boolean,val d:String,val m:FloatArray?){
     val path:Path by lazy{PathParser.createPathFromPathData(d).also{p->m?.let{val mx=Matrix();mx.setValues(floatArrayOf(it[0],it[2],it[4],it[1],it[3],it[5],0f,0f,1f));p.transform(mx)}}}
   }
-  private val ALIAS=mapOf("contents" to "toc","list" to "toc","bm" to "bookmark","information" to "info","shelf" to "shelves","cards" to "foryou")
+  private val ALIAS=mapOf("contents" to "toc","list" to "toc","bm" to "bookmark","information" to "info","shelf" to "shelves","cards" to "foryou","down" to "chevdown")
   private val paint=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeJoin=Paint.Join.ROUND}
   private fun key(kind:String)=ALIAS[kind]?:kind
   fun has(kind:String)=OUTLINE.containsKey(key(kind))
@@ -20,202 +23,67 @@ internal object IosIcons {
     return true
   }
   private val OUTLINE:Map<String,List<Op>> by lazy{mapOf(
-    "back" to listOf(
-      Op(false,false,1.7f,true,"M15 4.5 7.5 12l7.5 7.5",null)),
-    "next" to listOf(
-      Op(false,false,1.7f,true,"M9 4.5l7.5 7.5L9 19.5",null)),
-    "chevdown" to listOf(
-      Op(false,false,1.7f,true,"M5 9l7 7 7-7",null)),
-    "x" to listOf(
-      Op(false,false,1.7f,true,"M6 6l12 12M18 6 6 18",null)),
-    "plus" to listOf(
-      Op(false,false,1.7f,true,"M12 4.5v15M4.5 12h15",null)),
-    "check" to listOf(
-      Op(false,false,1.7f,true,"M4.5 12.5 9.5 17.5 19.5 6.5",null)),
-    "done" to listOf(
-      Op(false,false,1.7f,true,"M3.4 12a8.6 8.6 0 1 0 17.2 0a8.6 8.6 0 1 0 -17.2 0Z",null),
-      Op(false,false,1.7f,true,"M8.3 12.3l2.6 2.6 4.9-5.3",null)),
-    "paused" to listOf(
-      Op(false,false,1.7f,true,"M3.4 12a8.6 8.6 0 1 0 17.2 0a8.6 8.6 0 1 0 -17.2 0Z",null),
-      Op(false,false,1.7f,true,"M10 9v6M14 9v6",null)),
-    "more" to listOf(
-      Op(true,false,0f,true,"M3.9 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0 -3.2 0Z",null),
-      Op(true,false,0f,true,"M10.4 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0 -3.2 0Z",null),
-      Op(true,false,0f,true,"M16.9 12a1.6 1.6 0 1 0 3.2 0a1.6 1.6 0 1 0 -3.2 0Z",null)),
-    "home" to listOf(
-      Op(false,false,1.7f,true,"M3 10.8 12 3.5l9 7.3",null),
-      Op(false,false,1.7f,true,"M5.5 9v10a1.5 1.5 0 0 0 1.5 1.5h3V15a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5.5h3a1.5 1.5 0 0 0 1.5-1.5V9",null)),
-    "shelves" to listOf(
-      Op(false,false,1.7f,true,"M20.65 13.45H6.3A2.9499999999999997 2.9499999999999997 0 0 0 6.3 19.349999999999998H20.65",null),
-      Op(false,false,1f,true,"M6.3 15.7H20.099999999999998M6.3 17.099999999999998H20.099999999999998M20.099999999999998 14.299999999999999V18.5",null),
-      Op(false,false,1.7f,true,"M18.65 4.6499999999999995H8.3A2.9499999999999997 2.9499999999999997 0 0 0 8.3 10.549999999999999H18.65",null),
-      Op(false,false,1f,true,"M8.3 6.8999999999999995H18.099999999999998M8.3 8.299999999999999H18.099999999999998M18.099999999999998 5.5V9.7",null)),
-    "quotes" to listOf(
-      Op(true,false,0f,true,"M7.42 18.38Q5.7 18.38 4.6 17.21Q3.5 16.04 3.5 14.1Q3.5 12.58 4.2 11.1Q4.9 9.63 6.32 8.24Q7.75 6.85 9.89 5.62L11.62 8.04Q10.06 8.69 8.84 9.72Q7.62 10.75 7.06 11.77Q8.12 11.71 9.01 12.08Q9.89 12.46 10.41 13.19Q10.94 13.92 10.94 14.93Q10.94 16.48 9.96 17.43Q8.98 18.38 7.42 18.38ZM16.31 18.38Q14.58 18.38 13.48 17.21Q12.38 16.04 12.38 14.1Q12.38 12.58 13.08 11.1Q13.78 9.63 15.21 8.24Q16.63 6.85 18.77 5.62L20.5 8.04Q18.94 8.69 17.72 9.72Q16.5 10.75 15.95 11.77Q17.01 11.71 17.89 12.08Q18.77 12.46 19.3 13.19Q19.82 13.92 19.82 14.93Q19.82 16.48 18.84 17.43Q17.86 18.38 16.31 18.38Z",floatArrayOf(1.08f,0f,0f,1.08f,-0.96f,-0.66f))),
-    "foryou" to listOf(
-      Op(false,false,1.7f,true,"M10 3.5c.7 4.3 2.7 6.3 7 7-4.3.7-6.3 2.7-7 7-.7-4.3-2.7-6.3-7-7 4.3-.7 6.3-2.7 7-7Z",null),
-      Op(true,false,0f,true,"M18.5 13.8c.3 1.8 1.1 2.6 2.9 2.9-1.8.3-2.6 1.1-2.9 2.9-.3-1.8-1.1-2.6-2.9-2.9 1.8-.3 2.6-1.1 2.9-2.9Z",null),
-      Op(false,false,1.7f,true,"M18.5 13.8c.3 1.8 1.1 2.6 2.9 2.9-1.8.3-2.6 1.1-2.9 2.9-.3-1.8-1.1-2.6-2.9-2.9 1.8-.3 2.6-1.1 2.9-2.9Z",null),
-      Op(true,false,0f,true,"M18 2.8c.2 1.1.7 1.6 1.8 1.8-1.1.2-1.6.7-1.8 1.8-.2-1.1-.7-1.6-1.8-1.8 1.1-.2 1.6-.7 1.8-1.8Z",null),
-      Op(false,false,1.7f,true,"M18 2.8c.2 1.1.7 1.6 1.8 1.8-1.1.2-1.6.7-1.8 1.8-.2-1.1-.7-1.6-1.8-1.8 1.1-.2 1.6-.7 1.8-1.8Z",null)),
-    "search" to listOf(
-      Op(false,false,1.7f,true,"M3.7 10.5a6.8 6.8 0 1 0 13.6 0a6.8 6.8 0 1 0 -13.6 0Z",null),
-      Op(false,false,1.7f,true,"M15.4 15.4 20.5 20.5",null)),
-    "settings" to listOf(
-      Op(false,false,1.7f,true,"M19.06,9.77L21.09,10.56A9.2 9.2 0 0 1 21.09,13.44L19.06,14.23A7.4 7.4 0 0 1 18.56,15.42L18.56,15.42L19.44,17.41A9.2 9.2 0 0 1 17.41,19.44L15.42,18.56A7.4 7.4 0 0 1 14.23,19.06L14.23,19.06L13.44,21.09A9.2 9.2 0 0 1 10.56,21.09L9.77,19.06A7.4 7.4 0 0 1 8.58,18.56L8.58,18.56L6.59,19.44A9.2 9.2 0 0 1 4.56,17.41L5.44,15.42A7.4 7.4 0 0 1 4.94,14.23L4.94,14.23L2.91,13.44A9.2 9.2 0 0 1 2.91,10.56L4.94,9.77A7.4 7.4 0 0 1 5.44,8.58L5.44,8.58L4.56,6.59A9.2 9.2 0 0 1 6.59,4.56L8.58,5.44A7.4 7.4 0 0 1 9.77,4.94L9.77,4.94L10.56,2.91A9.2 9.2 0 0 1 13.44,2.91L14.23,4.94A7.4 7.4 0 0 1 15.42,5.44L15.42,5.44L17.41,4.56A9.2 9.2 0 0 1 19.44,6.59L18.56,8.58A7.4 7.4 0 0 1 19.06,9.77Z",null),
-      Op(false,false,1.7f,true,"M8.9 12a3.1 3.1 0 1 0 6.2 0a3.1 3.1 0 1 0 -6.2 0Z",null)),
-    // the usual profile figure: a head and shoulders
-    "user" to listOf(
-      Op(false,false,1.7f,true,"M7.9 7.6a4.1 4.1 0 1 0 8.2 0a4.1 4.1 0 1 0 -8.2 0Z",null),
-      Op(false,false,1.7f,true,"M4.5 20.2c.5-3.6 3.6-6 7.5-6s7 2.4 7.5 6",null)),
-    "filter" to listOf(
-      Op(false,false,1.7f,true,"M4 7h16M7 12h10M10 17h4",null)),
-    "sliders" to listOf(
-      Op(false,false,1.7f,true,"M4 7h8.5M17.5 7H20M4 12h2.5M11.5 12H20M4 17h10M19 17h1",null),
-      Op(false,false,1.7f,true,"M12.7 7a2.3 2.3 0 1 0 4.6 0a2.3 2.3 0 1 0 -4.6 0Z",null),
-      Op(false,false,1.7f,true,"M6.7 12a2.3 2.3 0 1 0 4.6 0a2.3 2.3 0 1 0 -4.6 0Z",null),
-      Op(false,false,1.7f,true,"M14.2 17a2.3 2.3 0 1 0 4.6 0a2.3 2.3 0 1 0 -4.6 0Z",null)),
-    "share" to listOf(
-      Op(false,false,1.7f,true,"M12 3.5v11M8.3 7.2 12 3.5l3.7 3.7",null),
-      Op(false,false,1.7f,true,"M8.5 10H7a2 2 0 0 0-2 2v6.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V12a2 2 0 0 0-2-2h-1.5",null)),
-    "download" to listOf(
-      Op(false,false,1.7f,true,"M12 3.5v12M7.3 11 12 15.7l4.7-4.7M5 20h14",null)),
-    "expand" to listOf(
-      Op(false,false,1.7f,true,"M14 4h6v6M20 4l-6.5 6.5M10 20H4v-6M4 20l6.5-6.5",null)),
-    "trash" to listOf(
-      Op(false,false,1.7f,true,"M3.8 6.3h16.4M9.3 6.3V4.8a1.3 1.3 0 0 1 1.3-1.3h2.8a1.3 1.3 0 0 1 1.3 1.3v1.5",null),
-      Op(false,false,1.7f,true,"M5.8 6.3l.9 12.4a2 2 0 0 0 2 1.8h6.6a2 2 0 0 0 2-1.8l.9-12.4M10 10.5v6M14 10.5v6",null)),
-    "copy" to listOf(
-      Op(false,false,1.7f,true,"M10.8 8.5H17.7A2.3 2.3 0 0 1 20 10.8V18.2A2.3 2.3 0 0 1 17.7 20.5H10.8A2.3 2.3 0 0 1 8.5 18.2V10.8A2.3 2.3 0 0 1 10.8 8.5Z",null),
-      Op(false,false,1.7f,true,"M15.5 8.5V6A2.3 2.3 0 0 0 13.2 3.7H6.3A2.3 2.3 0 0 0 4 6v8.4a2.3 2.3 0 0 0 2.3 2.3h2.2",null)),
-    "pen" to listOf(
-      Op(false,false,1.7f,true,"M15.9 4.6a2 2 0 0 1 2.8 0l.7.7a2 2 0 0 1 0 2.8L8.8 18.7 4 20l1.3-4.8Z",null),
-      Op(false,false,1.7f,true,"M14.2 6.3l3.5 3.5",null)),
-    "note" to listOf(
-      Op(false,false,1.7f,true,"M19.5 13v5.2a2.3 2.3 0 0 1-2.3 2.3H6.3A2.3 2.3 0 0 1 4 18.2V7.3A2.3 2.3 0 0 1 6.3 5h5.2",null),
-      Op(false,false,1.7f,true,"M17.6 3.9a1.7 1.7 0 0 1 2.5 2.5l-7.6 7.6-3.3.9.9-3.3Z",null)),
-    "quote" to listOf(
-      Op(true,false,0f,true,"M7.42 18.38Q5.7 18.38 4.6 17.21Q3.5 16.04 3.5 14.1Q3.5 12.58 4.2 11.1Q4.9 9.63 6.32 8.24Q7.75 6.85 9.89 5.62L11.62 8.04Q10.06 8.69 8.84 9.72Q7.62 10.75 7.06 11.77Q8.12 11.71 9.01 12.08Q9.89 12.46 10.41 13.19Q10.94 13.92 10.94 14.93Q10.94 16.48 9.96 17.43Q8.98 18.38 7.42 18.38ZM16.31 18.38Q14.58 18.38 13.48 17.21Q12.38 16.04 12.38 14.1Q12.38 12.58 13.08 11.1Q13.78 9.63 15.21 8.24Q16.63 6.85 18.77 5.62L20.5 8.04Q18.94 8.69 17.72 9.72Q16.5 10.75 15.95 11.77Q17.01 11.71 17.89 12.08Q18.77 12.46 19.3 13.19Q19.82 13.92 19.82 14.93Q19.82 16.48 18.84 17.43Q17.86 18.38 16.31 18.38Z",floatArrayOf(1.08f,0f,0f,1.08f,-0.96f,-0.66f))),
-    "translate" to listOf(
-      Op(false,false,1.7f,true,"M13.5 7.4V5.5a3 3 0 0 0-3-3h-5a3 3 0 0 0-3 3v5a3 3 0 0 0 3 3h1.9",null),
-      Op(false,false,1.7f,true,"M13.5 10.5H18.5A3 3 0 0 1 21.5 13.5V18.5A3 3 0 0 1 18.5 21.5H13.5A3 3 0 0 1 10.5 18.5V13.5A3 3 0 0 1 13.5 10.5Z",null),
-      Op(true,false,0f,true,"M0.0048 0 0.3787 -1H0.6538L1.0309 0H0.7634L0.693 -0.2025H0.3341L0.2652 0ZM0.3877 -0.4007H0.638L0.5123 -0.7464Z",floatArrayOf(5.4f,0f,0f,5.4f,4.404f,10.4f)),
-      Op(true,false,0f,true,"M0.4369 -1V-0.8314H0.0191V-0.7073H0.1718C0.2301 -0.5514 0.3022 -0.4189 0.3987 -0.3097C0.2906 -0.2269 0.158 -0.1665 0 -0.1241C0.0255 -0.0933 0.0657 -0.0329 0.0806 0C0.2428 -0.0509 0.3807 -0.1198 0.4963 -0.2131C0.6087 -0.1177 0.7466 -0.0477 0.9183 -0.0032C0.9374 -0.0392 0.9788 -0.0997 1.0095 -0.1304C0.8473 -0.1665 0.7126 -0.2291 0.6034 -0.3128C0.702 -0.4199 0.7794 -0.5493 0.8367 -0.7073H0.9905V-0.8314H0.5673V-1ZM0.5027 -0.404C0.421 -0.4899 0.3584 -0.5928 0.3139 -0.7073H0.6861C0.6416 -0.5875 0.5801 -0.4867 0.5027 -0.404Z",floatArrayOf(5.8f,0f,0f,5.8f,13.072f,18.8f))),
-    "dictionary" to listOf(
-      Op(false,false,1.7f,true,"M7.6 3.5H16.4A3.6 3.6 0 0 1 20 7.1V13.500000000000002A3.6 3.6 0 0 1 16.4 17.1H7.6A3.6 3.6 0 0 1 4 13.500000000000002V7.1A3.6 3.6 0 0 1 7.6 3.5Z",null),
-      Op(false,false,1.7f,true,"M4 13.5V17a3.6 3.6 0 0 0 3.6 3.6h8.8A3.6 3.6 0 0 0 20 17v-3.5",null),
-      Op(true,false,0f,true,"M0.0048 0 0.3787 -1H0.6538L1.0309 0H0.7634L0.693 -0.2025H0.3341L0.2652 0ZM0.3877 -0.4007H0.638L0.5123 -0.7464Z",floatArrayOf(6.8f,0f,0f,6.8f,8.479f,13.2f))),
-    "speaker" to listOf(
-      Op(false,false,1.7f,true,"M4.5 9.2h2.8l4.4-3.9a.6.6 0 0 1 1 .5v12.4a.6.6 0 0 1-1 .5l-4.4-3.9H4.5a1 1 0 0 1-1-1V10.2a1 1 0 0 1 1-1Z",null),
-      Op(false,false,1.7f,true,"M15.8 9a4.3 4.3 0 0 1 0 6M18.6 6.4a8 8 0 0 1 0 11.2",null)),
-    "swap" to listOf(
-      Op(false,false,1.7f,true,"M4 8h15M15.5 4.5 19 8l-3.5 3.5M20 16H5M8.5 12.5 5 16l3.5 3.5",null)),
-    "bookmark" to listOf(
-      Op(false,false,1.7f,true,"M7.3 3.5h9.4a1.3 1.3 0 0 1 1.3 1.3v15.4a.5.5 0 0 1-.8.4L12 16.8l-5.2 3.8a.5.5 0 0 1-.8-.4V4.8a1.3 1.3 0 0 1 1.3-1.3Z",null)),
-    "toc" to listOf(
-      Op(true,false,0f,true,"M3.6 6.5a1.4 1.4 0 1 0 2.8 0a1.4 1.4 0 1 0 -2.8 0Z",null),
-      Op(true,false,0f,true,"M3.6 12a1.4 1.4 0 1 0 2.8 0a1.4 1.4 0 1 0 -2.8 0Z",null),
-      Op(true,false,0f,true,"M3.6 17.5a1.4 1.4 0 1 0 2.8 0a1.4 1.4 0 1 0 -2.8 0Z",null),
-      Op(false,false,1.7f,true,"M9.5 6.5h10.5M9.5 12h10.5M9.5 17.5h10.5",null)),
-    "aa" to listOf(
-      Op(false,false,1.7f,true,"M2.8 18.5 7.6 5.5l4.8 13M4.6 14h6",null),
-      Op(false,false,1.7f,true,"M14 18.5l3.2-8.5 3.2 8.5M15.2 15.6h4",null)),
-    "book" to listOf(
-      Op(false,false,1.7f,true,"M12 6.3C10.2 4.9 7.7 4.3 3.5 4.3v14c4.2 0 6.7.6 8.5 2 1.8-1.4 4.3-2 8.5-2v-14c-4.2 0-6.7.6-8.5 2Z",null),
-      Op(false,false,1.7f,true,"M12 6.3v14",null)),
-    "pages" to listOf(
-      Op(false,false,1.7f,true,"M7 3.5H15A2 2 0 0 1 17 5.5V17A2 2 0 0 1 15 19H7A2 2 0 0 1 5 17V5.5A2 2 0 0 1 7 3.5Z",null),
-      Op(false,false,1.7f,true,"M8.5 21h9a2.5 2.5 0 0 0 2.5-2.5V7.5",null)),
-    "scroll" to listOf(
-      Op(false,false,1.7f,true,"M12 3.5v17M8.3 7.2 12 3.5l3.7 3.7M8.3 16.8l3.7 3.7 3.7-3.7",null)),
-    "undo" to listOf(
-      Op(false,false,1.7f,true,"M8.5 4.5 4 9l4.5 4.5",null),
-      Op(false,false,1.7f,true,"M4 9h10.5a5 5 0 0 1 0 10H11",null)),
-    "redo" to listOf(
-      Op(false,false,1.7f,true,"M15.5 4.5 20 9l-4.5 4.5",null),
-      Op(false,false,1.7f,true,"M20 9H9.5a5 5 0 0 0 0 10H13",null)),
-    "info" to listOf(
-      Op(false,false,1.7f,true,"M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0Z",null),
-      Op(false,false,1.7f,true,"M12 11v5.6",null),
-      Op(true,false,0f,true,"M10.75 7.8a1.25 1.25 0 1 0 2.5 0a1.25 1.25 0 1 0 -2.5 0Z",null)),
-    "target" to listOf(
-      Op(false,false,1.7f,true,"M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0Z",null),
-      Op(false,false,1.7f,true,"M7 12a5 5 0 1 0 10 0a5 5 0 1 0 -10 0Z",null),
-      Op(true,false,0f,true,"M10.6 12a1.4 1.4 0 1 0 2.8 0a1.4 1.4 0 1 0 -2.8 0Z",null)),
-    "star" to listOf(
-      Op(false,false,1.7f,true,"M12 3.6l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.5l-5.1 2.7 1-5.6-4.1-4 5.7-.8Z",null)),
-    "flame" to listOf(
-      Op(false,false,1.7f,true,"M12 21c-3.9 0-6.8-2.6-6.8-6.4 0-3.4 2.4-5.3 3.7-8.2.3 1.6 1 2.8 2 3.4.2-2.9 1.8-5.3 4-6.8-.2 2.7 1 4.4 2.3 6 1 1.3 1.6 3 1.6 5.4C18.8 18.3 15.9 21 12 21Z",null),
-      Op(false,false,1.7f,true,"M12 21c-1.7 0-2.9-1.2-2.9-2.9 0-1.6 1.2-2.5 2.2-3.8.4 1 1.2 1.6 1.9 1.9.2-.7.3-1.4.2-2.1 1 .8 1.6 2.2 1.6 3.6C15 19.8 13.7 21 12 21Z",null)),
-    "sound" to listOf(
-      Op(false,false,1.7f,true,"M4 10v4M8 7v10M12 4v16M16 8v8M20 10.5v3",null)),
-    "move" to listOf(
-      Op(false,false,1.7f,true,"M20.65 13.45H6.3A2.9499999999999997 2.9499999999999997 0 0 0 6.3 19.349999999999998H20.65",null),
-      Op(false,false,1f,true,"M6.3 15.7H20.099999999999998M6.3 17.099999999999998H20.099999999999998M20.099999999999998 14.299999999999999V18.5",null),
-      Op(false,false,1.7f,true,"M18.65 4.6499999999999995H8.3A2.9499999999999997 2.9499999999999997 0 0 0 8.3 10.549999999999999H18.65",null),
-      Op(false,false,1f,true,"M8.3 6.8999999999999995H18.099999999999998M8.3 8.299999999999999H18.099999999999998M18.099999999999998 5.5V9.7",null)),
-    "paperclip" to listOf(
-      Op(false,false,1.7f,true,"M19.6 11.3l-7.7 7.7a5 5 0 0 1-7.1-7.1l8.3-8.3a3.3 3.3 0 0 1 4.7 4.7l-8.3 8.3a1.6 1.6 0 0 1-2.3-2.3l7.6-7.6",null)),
-    "notebook" to listOf(
-      Op(false,false,1.7f,true,"M7.8 3.5H17.2A2.3 2.3 0 0 1 19.5 5.8V18.2A2.3 2.3 0 0 1 17.2 20.5H7.8A2.3 2.3 0 0 1 5.5 18.2V5.8A2.3 2.3 0 0 1 7.8 3.5Z",null),
-      Op(false,false,1.7f,true,"M9.5 3.5v17M3.5 7.5h4M3.5 12h4M3.5 16.5h4",null)),
-    "sunmin" to listOf(
-      Op(false,false,1.7f,true,"M9.1 12a2.9 2.9 0 1 0 5.8 0a2.9 2.9 0 1 0 -5.8 0Z",null),
-      Op(false,false,1.7f,true,"M17.60 12.00L19.00 12.00",null),
-      Op(false,false,1.7f,true,"M15.96 15.96L16.95 16.95",null),
-      Op(false,false,1.7f,true,"M12.00 17.60L12.00 19.00",null),
-      Op(false,false,1.7f,true,"M8.04 15.96L7.05 16.95",null),
-      Op(false,false,1.7f,true,"M6.40 12.00L5.00 12.00",null),
-      Op(false,false,1.7f,true,"M8.04 8.04L7.05 7.05",null),
-      Op(false,false,1.7f,true,"M12.00 6.40L12.00 5.00",null),
-      Op(false,false,1.7f,true,"M15.96 8.04L16.95 7.05",null)),
-    "sunmax" to listOf(
-      Op(false,false,1.7f,true,"M8.4 12a3.6 3.6 0 1 0 7.2 0a3.6 3.6 0 1 0 -7.2 0Z",null),
-      Op(false,false,1.7f,true,"M18.20 12.00L21.00 12.00",null),
-      Op(false,false,1.7f,true,"M16.38 16.38L18.36 18.36",null),
-      Op(false,false,1.7f,true,"M12.00 18.20L12.00 21.00",null),
-      Op(false,false,1.7f,true,"M7.62 16.38L5.64 18.36",null),
-      Op(false,false,1.7f,true,"M5.80 12.00L3.00 12.00",null),
-      Op(false,false,1.7f,true,"M7.62 7.62L5.64 5.64",null),
-      Op(false,false,1.7f,true,"M12.00 5.80L12.00 3.00",null),
-      Op(false,false,1.7f,true,"M16.38 7.62L18.36 5.64",null)),
-    "moon" to listOf(
-      Op(false,false,1.7f,true,"M19.8 14.6A8.2 8.2 0 0 1 9.4 4.2a8.3 8.3 0 1 0 10.4 10.4Z",null)),
-    // the same picture as «Словарь» in the reader's selection menu
-    "words" to listOf(
-      Op(false,false,1.7f,true,"M7.6 3.5H16.4A3.6 3.6 0 0 1 20 7.1V13.500000000000002A3.6 3.6 0 0 1 16.4 17.1H7.6A3.6 3.6 0 0 1 4 13.500000000000002V7.1A3.6 3.6 0 0 1 7.6 3.5Z",null),
-      Op(false,false,1.7f,true,"M4 13.5V17a3.6 3.6 0 0 0 3.6 3.6h8.8A3.6 3.6 0 0 0 20 17v-3.5",null),
-      Op(true,false,0f,true,"M0.0048 0 0.3787 -1H0.6538L1.0309 0H0.7634L0.693 -0.2025H0.3341L0.2652 0ZM0.3877 -0.4007H0.638L0.5123 -0.7464Z",floatArrayOf(6.8f,0f,0f,6.8f,8.479f,13.2f))),
-    "learn" to listOf(
-      Op(false,false,1.7f,true,"M12 5 2.5 9.5 12 14l9.5-4.5Z",null),
-      Op(false,false,1.7f,true,"M6.5 11.8v4c0 1.4 2.5 2.9 5.5 2.9s5.5-1.5 5.5-2.9v-4M21.5 9.5V15",null)))}
+    "back" to listOf(Op(false,false,1.75f,true,"M15 18 l-6 -6 6 -6",null)),
+    "next" to listOf(Op(false,false,1.75f,true,"M9 18 l6 -6 -6 -6",null)),
+    "chevdown" to listOf(Op(false,false,1.75f,true,"M6 9 l6 6 6 -6",null)),
+    "x" to listOf(Op(false,false,1.75f,true,"M18 6 6 18 M6 6 l12 12",null)),
+    "plus" to listOf(Op(false,false,1.75f,true,"M5 12 h14 M12 5 v14",null)),
+    "check" to listOf(Op(false,false,1.75f,true,"M20 6 9 17 l-5 -5",null)),
+    "done" to listOf(Op(false,false,1.75f,true,"M2 12 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 M16 9 l-5.5 5.5 L8 12",null)),
+    "paused" to listOf(Op(false,false,1.75f,true,"M2 12 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 M10 15 L10 9 M14 15 L14 9",null)),
+    "more" to listOf(Op(false,false,1.75f,true,"M11 12 a1 1 0 1 0 2 0 a1 1 0 1 0 -2 0 M18 12 a1 1 0 1 0 2 0 a1 1 0 1 0 -2 0 M4 12 a1 1 0 1 0 2 0 a1 1 0 1 0 -2 0",null)),
+    "home" to listOf(Op(false,false,1.75f,true,"M15 21 v-8 a1 1 0 0 0 -1 -1 h-4 a1 1 0 0 0 -1 1 v8 M3 10 a2 2 0 0 1 .709 -1.528 l7 -6 a2 2 0 0 1 2.582 0 l7 6 A2 2 0 0 1 21 10 v9 a2 2 0 0 1 -2 2 H5 a2 2 0 0 1 -2 -2 z",null)),
+    "shelves" to listOf(Op(false,false,1.75f,true,"M4 3 h6 a1 1 0 0 1 1 1 v16 a1 1 0 0 1 -1 1 h-6 a1 1 0 0 1 -1 -1 v-16 a1 1 0 0 1 1 -1ZM7 3 v18 M20.4 18.9 c.2 .5 -.1 1.1 -.6 1.3 l-1.9 .7 c-.5 .2 -1.1 -.1 -1.3 -.6 L11.1 5.1 c-.2 -.5 .1 -1.1 .6 -1.3 l1.9 -.7 c.5 -.2 1.1 .1 1.3 .6Z",null)),
+    "quotes" to listOf(Op(false,false,1.75f,true,"M16 3 a2 2 0 0 0 -2 2 v6 a2 2 0 0 0 2 2 1 1 0 0 1 1 1 v1 a2 2 0 0 1 -2 2 1 1 0 0 0 -1 1 v2 a1 1 0 0 0 1 1 6 6 0 0 0 6 -6 V5 a2 2 0 0 0 -2 -2 zM5 3 a2 2 0 0 0 -2 2 v6 a2 2 0 0 0 2 2 1 1 0 0 1 1 1 v1 a2 2 0 0 1 -2 2 1 1 0 0 0 -1 1 v2 a1 1 0 0 0 1 1 6 6 0 0 0 6 -6 V5 a2 2 0 0 0 -2 -2 z",null)),
+    "foryou" to listOf(Op(false,false,1.75f,true,"M11.017 2.814 a1 1 0 0 1 1.966 0 l1.051 5.558 a2 2 0 0 0 1.594 1.594 l5.558 1.051 a1 1 0 0 1 0 1.966 l-5.558 1.051 a2 2 0 0 0 -1.594 1.594 l-1.051 5.558 a1 1 0 0 1 -1.966 0 l-1.051 -5.558 a2 2 0 0 0 -1.594 -1.594 l-5.558 -1.051 a1 1 0 0 1 0 -1.966 l5.558 -1.051 a2 2 0 0 0 1.594 -1.594 zM20 2 v4 M22 4 h-4 M2 20 a2 2 0 1 0 4 0 a2 2 0 1 0 -4 0",null)),
+    "search" to listOf(Op(false,false,1.75f,true,"M21 21 l-4.34 -4.34 M3 11 a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0",null)),
+    "settings" to listOf(Op(false,false,1.75f,true,"M9.671 4.136 a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1 -2.33 4.033 2.34 2.34 0 0 0 -3.319 1.915 2.34 2.34 0 0 1 -4.659 0 2.34 2.34 0 0 0 -3.32 -1.915 2.34 2.34 0 0 1 -2.33 -4.033 2.34 2.34 0 0 0 0 -3.831 A2.34 2.34 0 0 1 6.35 6.051 a2.34 2.34 0 0 0 3.319 -1.915 M9 12 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0",null)),
+    "user" to listOf(Op(false,false,1.75f,true,"M19 21 v-2 a4 4 0 0 0 -4 -4 H9 a4 4 0 0 0 -4 4 v2 M8 7 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0",null)),
+    "filter" to listOf(Op(false,false,1.75f,true,"M2 5 h20 M6 12 h12 M9 19 h6",null)),
+    "sliders" to listOf(Op(false,false,1.75f,true,"M10 5 H3 M12 19 H3 M14 3 v4 M16 17 v4 M21 12 h-9 M21 19 h-5 M21 5 h-7 M8 10 v4 M8 12 H3",null)),
+    "share" to listOf(Op(false,false,1.75f,true,"M12 2 v13 M16 6 l-4 -4 -4 4 M4 12 v8 a2 2 0 0 0 2 2 h12 a2 2 0 0 0 2 -2 v-8",null)),
+    "download" to listOf(Op(false,false,1.75f,true,"M12 15 V3 M21 15 v4 a2 2 0 0 1 -2 2 H5 a2 2 0 0 1 -2 -2 v-4 M7 10 l5 5 5 -5",null)),
+    "expand" to listOf(Op(false,false,1.75f,true,"M15 3 h6 v6 M21 3 l-7 7 M3 21 l7 -7 M9 21 H3 v-6",null)),
+    "trash" to listOf(Op(false,false,1.75f,true,"M10 11 v6 M14 11 v6 M19 6 v14 a2 2 0 0 1 -2 2 H7 a2 2 0 0 1 -2 -2 V6 M3 6 h18 M8 6 V4 a2 2 0 0 1 2 -2 h4 a2 2 0 0 1 2 2 v2",null)),
+    "copy" to listOf(Op(false,false,1.75f,true,"M10 8 h10 a2 2 0 0 1 2 2 v10 a2 2 0 0 1 -2 2 h-10 a2 2 0 0 1 -2 -2 v-10 a2 2 0 0 1 2 -2ZM4 16 c-1.1 0 -2 -.9 -2 -2 V4 c0 -1.1 .9 -2 2 -2 h10 c1.1 0 2 .9 2 2",null)),
+    "pen" to listOf(Op(false,false,1.75f,true,"M21.174 6.812 a1 1 0 0 0 -3.986 -3.987 L3.842 16.174 a2 2 0 0 0 -.5 .83 l-1.321 4.352 a.5 .5 0 0 0 .623 .622 l4.353 -1.32 a2 2 0 0 0 .83 -.497 zM15 5 l4 4",null)),
+    "note" to listOf(Op(false,false,1.75f,true,"M12 3 H5 a2 2 0 0 0 -2 2 v14 a2 2 0 0 0 2 2 h14 a2 2 0 0 0 2 -2 v-7 M18.375 2.625 a1 1 0 0 1 3 3 l-9.013 9.014 a2 2 0 0 1 -.853 .505 l-2.873 .84 a.5 .5 0 0 1 -.62 -.62 l.84 -2.873 a2 2 0 0 1 .506 -.852 z",null)),
+    "quote" to listOf(Op(false,false,1.75f,true,"M16 3 a2 2 0 0 0 -2 2 v6 a2 2 0 0 0 2 2 1 1 0 0 1 1 1 v1 a2 2 0 0 1 -2 2 1 1 0 0 0 -1 1 v2 a1 1 0 0 0 1 1 6 6 0 0 0 6 -6 V5 a2 2 0 0 0 -2 -2 zM5 3 a2 2 0 0 0 -2 2 v6 a2 2 0 0 0 2 2 1 1 0 0 1 1 1 v1 a2 2 0 0 1 -2 2 1 1 0 0 0 -1 1 v2 a1 1 0 0 0 1 1 6 6 0 0 0 6 -6 V5 a2 2 0 0 0 -2 -2 z",null)),
+    "translate" to listOf(Op(false,false,1.75f,true,"M5 8 l6 6 M4 14 l6 -6 2 -3 M2 5 h12 M7 2 h1 M22 22 l-5 -10 -5 10 M14 18 h6",null)),
+    "dictionary" to listOf(Op(false,false,1.75f,true,"M4 19.5 v-15 A2.5 2.5 0 0 1 6.5 2 H19 a1 1 0 0 1 1 1 v18 a1 1 0 0 1 -1 1 H6.5 a1 1 0 0 1 0 -5 H20 M8 13 l4 -7 4 7 M9.1 11 h5.7",null)),
+    "speaker" to listOf(Op(false,false,1.75f,true,"M11 4.702 a.705 .705 0 0 0 -1.203 -.498 L6.413 7.587 A1.4 1.4 0 0 1 5.416 8 H3 a1 1 0 0 0 -1 1 v6 a1 1 0 0 0 1 1 h2.416 a1.4 1.4 0 0 1 .997 .413 l3.383 3.384 A.705 .705 0 0 0 11 19.298 zM16 9 a5 5 0 0 1 0 6 M19.364 18.364 a9 9 0 0 0 0 -12.728",null)),
+    "swap" to listOf(Op(false,false,1.75f,true,"M8 3 4 7 l4 4 M4 7 h16 M16 21 l4 -4 -4 -4 M20 17 H4",null)),
+    "bookmark" to listOf(Op(false,false,1.75f,true,"M17 3 a2 2 0 0 1 2 2 v15 a1 1 0 0 1 -1.496 .868 l-4.512 -2.578 a2 2 0 0 0 -1.984 0 l-4.512 2.578 A1 1 0 0 1 5 20 V5 a2 2 0 0 1 2 -2 z",null)),
+    "toc" to listOf(Op(false,false,1.75f,true,"M3 5 h.01 M3 12 h.01 M3 19 h.01 M8 5 h13 M8 12 h13 M8 19 h13",null)),
+    "aa" to listOf(Op(false,false,1.75f,true,"M15 16 l2.536 -7.328 a1.02 1.02 1 0 1 1.928 0 L22 16 M15.697 14 h5.606 M2 16 l4.039 -9.69 a.5 .5 0 0 1 .923 0 L11 16 M3.304 13 h6.392",null)),
+    "book" to listOf(Op(false,false,1.75f,true,"M12 5 v16 M20.001 19 A2 2 0 0 0 22 17 V5 a2 2 0 0 0 -1.999 -2 L16 3.002 A5 5 0 0 0 12 5 a5 5 0 0 0 -4 -2 H4 a2 2 0 0 0 -2 2 v12 a2 2 0 0 0 1.999 2 H8 a5 5 0 0 1 4 2 5 5 0 0 1 4 -2 z",null)),
+    "pages" to listOf(Op(false,false,1.75f,true,"M15 2 h-4 a2 2 0 0 0 -2 2 v11 a2 2 0 0 0 2 2 h8 a2 2 0 0 0 2 -2 V8 M16.706 2.706 A2.4 2.4 0 0 0 15 2 v5 a1 1 0 0 0 1 1 h5 a2.4 2.4 0 0 0 -.706 -1.706 zM5 7 a2 2 0 0 0 -2 2 v11 a2 2 0 0 0 2 2 h8 a2 2 0 0 0 1.732 -1",null)),
+    "scroll" to listOf(Op(false,false,1.75f,true,"M21 16 l-4 4 -4 -4 M17 20 V4 M3 8 l4 -4 4 4 M7 4 v16",null)),
+    "undo" to listOf(Op(false,false,1.75f,true,"M9 14 4 9 l5 -5 M4 9 h10.5 a5.5 5.5 0 0 1 5.5 5.5 a5.5 5.5 0 0 1 -5.5 5.5 H11",null)),
+    "redo" to listOf(Op(false,false,1.75f,true,"M15 14 l5 -5 -5 -5 M20 9 H9.5 A5.5 5.5 0 0 0 4 14.5 A5.5 5.5 0 0 0 9.5 20 H13",null)),
+    "info" to listOf(Op(false,false,1.75f,true,"M2 12 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 M12 16 v-4 M12 8 h.01",null)),
+    "target" to listOf(Op(false,false,1.75f,true,"M2 12 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 M6 12 a6 6 0 1 0 12 0 a6 6 0 1 0 -12 0 M10 12 a2 2 0 1 0 4 0 a2 2 0 1 0 -4 0",null)),
+    "star" to listOf(Op(false,false,1.75f,true,"M11.525 2.295 a.53 .53 0 0 1 .95 0 l2.31 4.679 a2.123 2.123 0 0 0 1.595 1.16 l5.166 .756 a.53 .53 0 0 1 .294 .904 l-3.736 3.638 a2.123 2.123 0 0 0 -.611 1.878 l.882 5.14 a.53 .53 0 0 1 -.771 .56 l-4.618 -2.428 a2.122 2.122 0 0 0 -1.973 0 L6.396 21.01 a.53 .53 0 0 1 -.77 -.56 l.881 -5.139 a2.122 2.122 0 0 0 -.611 -1.879 L2.16 9.795 a.53 .53 0 0 1 .294 -.906 l5.165 -.755 a2.122 2.122 0 0 0 1.597 -1.16 z",null)),
+    "flame" to listOf(Op(false,false,1.75f,true,"M12 3 q1 4 4 6.5 t3 5.5 a1 1 0 0 1 -14 0 5 5 0 0 1 1 -3 1 1 0 0 0 5 0 c0 -2 -1.5 -3 -1.5 -5 q0 -2 2.5 -4",null)),
+    "sound" to listOf(Op(false,false,1.75f,true,"M2 10 v3 M6 6 v11 M10 3 v18 M14 8 v7 M18 5 v13 M22 10 v3",null)),
+    "move" to listOf(Op(false,false,1.75f,true,"M5 7 a2 2 0 0 0 -2 2 v11 M5.803 18 H5 a2 2 0 0 0 0 4 h9.5 a.5 .5 0 0 0 .5 -.5 V21 M9 15 V4 a2 2 0 0 1 2 -2 h9.5 a.5 .5 0 0 1 .5 .5 v14 a.5 .5 0 0 1 -.5 .5 H11 a2 2 0 0 1 0 -4 h10",null)),
+    "paperclip" to listOf(Op(false,false,1.75f,true,"M16 6 l-8.414 8.586 a2 2 0 0 0 2.829 2.829 l8.414 -8.586 a4 4 0 1 0 -5.657 -5.657 l-8.379 8.551 a6 6 0 1 0 8.485 8.485 l8.379 -8.551",null)),
+    "notebook" to listOf(Op(false,false,1.75f,true,"M2 6 h4 M2 10 h4 M2 14 h4 M2 18 h4 M6 2 h12 a2 2 0 0 1 2 2 v16 a2 2 0 0 1 -2 2 h-12 a2 2 0 0 1 -2 -2 v-16 a2 2 0 0 1 2 -2ZM16 2 v20",null)),
+    "sunmin" to listOf(Op(false,false,1.75f,true,"M8 12 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M12 4 h.01 M20 12 h.01 M12 20 h.01 M4 12 h.01 M17.657 6.343 h.01 M17.657 17.657 h.01 M6.343 17.657 h.01 M6.343 6.343 h.01",null)),
+    "sunmax" to listOf(Op(false,false,1.75f,true,"M8 12 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M12 2 v2 M12 20 v2 M4.93 4.93 l1.41 1.41 M17.66 17.66 l1.41 1.41 M2 12 h2 M20 12 h2 M6.34 17.66 l-1.41 1.41 M19.07 4.93 l-1.41 1.41",null)),
+    "moon" to listOf(Op(false,false,1.75f,true,"M20.985 12.486 a9 9 0 1 1 -9.473 -9.472 c.405 -.022 .617 .46 .402 .803 a6 6 0 0 0 8.268 8.268 c.344 -.215 .825 -.004 .803 .401",null)),
+    "words" to listOf(Op(false,false,1.75f,true,"M4 19.5 v-15 A2.5 2.5 0 0 1 6.5 2 H19 a1 1 0 0 1 1 1 v18 a1 1 0 0 1 -1 1 H6.5 a1 1 0 0 1 0 -5 H20 M8 13 l4 -7 4 7 M9.1 11 h5.7",null)),
+    "learn" to listOf(Op(false,false,1.75f,true,"M21.42 10.922 a1 1 0 0 0 -.019 -1.838 L12.83 5.18 a2 2 0 0 0 -1.66 0 L2.6 9.08 a1 1 0 0 0 0 1.832 l8.57 3.908 a2 2 0 0 0 1.66 0 zM22 10 v6 M6 12.5 V16 a6 3 0 0 0 12 0 v-3.5",null)),
+    "go" to listOf(Op(false,false,1.75f,true,"M5 12 h14 M12 5 l7 7 -7 7",null)),
+    "bolt" to listOf(Op(false,false,1.75f,true,"M15.914 4 a1.5 1.5 0 0 0 -2.474 -1.561 l-9 9 A1.5 1.5 0 0 0 5.5 14 h4.002 a.5 .5 0 0 1 .471 .666 L8.086 20 a1.5 1.5 0 0 0 2.475 1.56 l9 -9 A1.5 1.5 0 0 0 18.5 10 h-3.997 a.5 .5 0 0 1 -.472 -.667 z",null)),
+    "hourglass" to listOf(Op(false,false,1.75f,true,"M5 22 h14 M5 2 h14 M17 22 v-4.172 a2 2 0 0 0 -.586 -1.414 L12 12 l-4.414 4.414 A2 2 0 0 0 7 17.828 V22 M7 2 v4.172 a2 2 0 0 0 .586 1.414 L12 12 l4.414 -4.414 A2 2 0 0 0 17 6.172 V2",null)),
+    "sheet" to listOf(Op(false,false,1.75f,true,"M6 22 a2 2 0 0 1 -2 -2 V4 a2 2 0 0 1 2 -2 h8 a2.4 2.4 0 0 1 1.704 .706 l3.588 3.588 A2.4 2.4 0 0 1 20 8 v12 a2 2 0 0 1 -2 2 zM14 2 v5 a1 1 0 0 0 1 1 h5 M10 9 H8 M16 13 H8 M16 17 H8",null)),
+    "head" to listOf(Op(false,false,1.75f,true,"M4 12 h8 M4 18 V6 M12 18 V6 M17 12 l3 -2 v8",null)))}
   private val FILLED:Map<String,List<Op>> by lazy{mapOf(
-    "home" to listOf(
-      Op(true,false,0f,true,"M12.8 3.1a1.3 1.3 0 0 0-1.6 0L3.4 9.4c-.6.5-.2 1.4.5 1.4H5.5V19a1.5 1.5 0 0 0 1.5 1.5h3V15a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5.5h3a1.5 1.5 0 0 0 1.5-1.5v-8.2h1.6c.7 0 1.1-.9.5-1.4Z",null)),
-    "shelves" to listOf(
-      Op(true,false,0f,true,"M20.9 12.6H6.3A3.8 3.8 0 0 0 6.3 20.2H20.9A.6 .6 0 0 0 21.5 19.599999999999998V13.2A.6 .6 0 0 0 20.9 12.6Z",null),
-      Op(true,true,0f,true,"M22.5 14.1H6.3A2.3 2.3 0 0 0 6.3 18.7H22.5Z",null),
-      Op(false,false,1.05f,true,"M6.3 15.633333333333333H20.4M6.3 17.166666666666664H20.4",null),
-      Op(false,false,1.05f,true,"M20.4 14.1V18.7",null),
-      Op(true,false,0f,true,"M18.9 3.8H8.3A3.8 3.8 0 0 0 8.3 11.399999999999999H18.9A.6 .6 0 0 0 19.5 10.799999999999999V4.3999999999999995A.6 .6 0 0 0 18.9 3.8Z",null),
-      Op(true,true,0f,true,"M20.5 5.3H8.3A2.3 2.3 0 0 0 8.3 9.899999999999999H20.5Z",null),
-      Op(false,false,1.05f,true,"M8.3 6.833333333333333H18.4M8.3 8.366666666666667H18.4",null),
-      Op(false,false,1.05f,true,"M18.4 5.3V9.899999999999999",null)),
-    "quotes" to listOf(
-      Op(true,false,0f,true,"M7.42 18.38Q5.7 18.38 4.6 17.21Q3.5 16.04 3.5 14.1Q3.5 12.58 4.2 11.1Q4.9 9.63 6.32 8.24Q7.75 6.85 9.89 5.62L11.62 8.04Q10.06 8.69 8.84 9.72Q7.62 10.75 7.06 11.77Q8.12 11.71 9.01 12.08Q9.89 12.46 10.41 13.19Q10.94 13.92 10.94 14.93Q10.94 16.48 9.96 17.43Q8.98 18.38 7.42 18.38ZM16.31 18.38Q14.58 18.38 13.48 17.21Q12.38 16.04 12.38 14.1Q12.38 12.58 13.08 11.1Q13.78 9.63 15.21 8.24Q16.63 6.85 18.77 5.62L20.5 8.04Q18.94 8.69 17.72 9.72Q16.5 10.75 15.95 11.77Q17.01 11.71 17.89 12.08Q18.77 12.46 19.3 13.19Q19.82 13.92 19.82 14.93Q19.82 16.48 18.84 17.43Q17.86 18.38 16.31 18.38Z",floatArrayOf(1.08f,0f,0f,1.08f,-0.96f,-0.66f))),
-    "foryou" to listOf(
-      Op(true,false,0f,true,"M10 3.5c.7 4.3 2.7 6.3 7 7-4.3.7-6.3 2.7-7 7-.7-4.3-2.7-6.3-7-7 4.3-.7 6.3-2.7 7-7Z",null),
-      Op(false,false,1.7f,true,"M10 3.5c.7 4.3 2.7 6.3 7 7-4.3.7-6.3 2.7-7 7-.7-4.3-2.7-6.3-7-7 4.3-.7 6.3-2.7 7-7Z",null),
-      Op(true,false,0f,true,"M18.5 13.8c.3 1.8 1.1 2.6 2.9 2.9-1.8.3-2.6 1.1-2.9 2.9-.3-1.8-1.1-2.6-2.9-2.9 1.8-.3 2.6-1.1 2.9-2.9Z",null),
-      Op(false,false,1.7f,true,"M18.5 13.8c.3 1.8 1.1 2.6 2.9 2.9-1.8.3-2.6 1.1-2.9 2.9-.3-1.8-1.1-2.6-2.9-2.9 1.8-.3 2.6-1.1 2.9-2.9Z",null),
-      Op(true,false,0f,true,"M18 2.8c.2 1.1.7 1.6 1.8 1.8-1.1.2-1.6.7-1.8 1.8-.2-1.1-.7-1.6-1.8-1.8 1.1-.2 1.6-.7 1.8-1.8Z",null),
-      Op(false,false,1.7f,true,"M18 2.8c.2 1.1.7 1.6 1.8 1.8-1.1.2-1.6.7-1.8 1.8-.2-1.1-.7-1.6-1.8-1.8 1.1-.2 1.6-.7 1.8-1.8Z",null)),
-    "bookmark" to listOf(
-      Op(true,false,0f,true,"M7.3 3.5h9.4a1.3 1.3 0 0 1 1.3 1.3v15.4a.5.5 0 0 1-.8.4L12 16.8l-5.2 3.8a.5.5 0 0 1-.8-.4V4.8a1.3 1.3 0 0 1 1.3-1.3Z",null),
-      Op(false,false,1.7f,true,"M7.3 3.5h9.4a1.3 1.3 0 0 1 1.3 1.3v15.4a.5.5 0 0 1-.8.4L12 16.8l-5.2 3.8a.5.5 0 0 1-.8-.4V4.8a1.3 1.3 0 0 1 1.3-1.3Z",null)),
-    "words" to listOf(
-      Op(true,false,0f,true,"M7.6 3.5H16.4A3.6 3.6 0 0 1 20 7.1V13.500000000000002A3.6 3.6 0 0 1 16.4 17.1H7.6A3.6 3.6 0 0 1 4 13.500000000000002V7.1A3.6 3.6 0 0 1 7.6 3.5Z",null),
-      Op(false,false,1.7f,true,"M7.6 3.5H16.4A3.6 3.6 0 0 1 20 7.1V13.500000000000002A3.6 3.6 0 0 1 16.4 17.1H7.6A3.6 3.6 0 0 1 4 13.500000000000002V7.1A3.6 3.6 0 0 1 7.6 3.5Z",null),
-      Op(false,false,1.7f,true,"M4 13.5V17a3.6 3.6 0 0 0 3.6 3.6h8.8A3.6 3.6 0 0 0 20 17v-3.5",null),
-      Op(true,true,0f,true,"M0.0048 0 0.3787 -1H0.6538L1.0309 0H0.7634L0.693 -0.2025H0.3341L0.2652 0ZM0.3877 -0.4007H0.638L0.5123 -0.7464Z",floatArrayOf(6.8f,0f,0f,6.8f,8.479f,13.2f))))}
+    "home" to listOf(Op(false,false,2.3f,true,"M15 21 v-8 a1 1 0 0 0 -1 -1 h-4 a1 1 0 0 0 -1 1 v8 M3 10 a2 2 0 0 1 .709 -1.528 l7 -6 a2 2 0 0 1 2.582 0 l7 6 A2 2 0 0 1 21 10 v9 a2 2 0 0 1 -2 2 H5 a2 2 0 0 1 -2 -2 z",null)),
+    "shelves" to listOf(Op(false,false,2.3f,true,"M4 3 h6 a1 1 0 0 1 1 1 v16 a1 1 0 0 1 -1 1 h-6 a1 1 0 0 1 -1 -1 v-16 a1 1 0 0 1 1 -1ZM7 3 v18 M20.4 18.9 c.2 .5 -.1 1.1 -.6 1.3 l-1.9 .7 c-.5 .2 -1.1 -.1 -1.3 -.6 L11.1 5.1 c-.2 -.5 .1 -1.1 .6 -1.3 l1.9 -.7 c.5 -.2 1.1 .1 1.3 .6Z",null)),
+    "quotes" to listOf(Op(false,false,2.3f,true,"M16 3 a2 2 0 0 0 -2 2 v6 a2 2 0 0 0 2 2 1 1 0 0 1 1 1 v1 a2 2 0 0 1 -2 2 1 1 0 0 0 -1 1 v2 a1 1 0 0 0 1 1 6 6 0 0 0 6 -6 V5 a2 2 0 0 0 -2 -2 zM5 3 a2 2 0 0 0 -2 2 v6 a2 2 0 0 0 2 2 1 1 0 0 1 1 1 v1 a2 2 0 0 1 -2 2 1 1 0 0 0 -1 1 v2 a1 1 0 0 0 1 1 6 6 0 0 0 6 -6 V5 a2 2 0 0 0 -2 -2 z",null)),
+    "foryou" to listOf(Op(false,false,2.3f,true,"M11.017 2.814 a1 1 0 0 1 1.966 0 l1.051 5.558 a2 2 0 0 0 1.594 1.594 l5.558 1.051 a1 1 0 0 1 0 1.966 l-5.558 1.051 a2 2 0 0 0 -1.594 1.594 l-1.051 5.558 a1 1 0 0 1 -1.966 0 l-1.051 -5.558 a2 2 0 0 0 -1.594 -1.594 l-5.558 -1.051 a1 1 0 0 1 0 -1.966 l5.558 -1.051 a2 2 0 0 0 1.594 -1.594 zM20 2 v4 M22 4 h-4 M2 20 a2 2 0 1 0 4 0 a2 2 0 1 0 -4 0",null)),
+    "bookmark" to listOf(Op(false,false,2.3f,true,"M17 3 a2 2 0 0 1 2 2 v15 a1 1 0 0 1 -1.496 .868 l-4.512 -2.578 a2 2 0 0 0 -1.984 0 l-4.512 2.578 A1 1 0 0 1 5 20 V5 a2 2 0 0 1 2 -2 z",null)),
+    "words" to listOf(Op(false,false,2.3f,true,"M4 19.5 v-15 A2.5 2.5 0 0 1 6.5 2 H19 a1 1 0 0 1 1 1 v18 a1 1 0 0 1 -1 1 H6.5 a1 1 0 0 1 0 -5 H20 M8 13 l4 -7 4 7 M9.1 11 h5.7",null)))}
 }

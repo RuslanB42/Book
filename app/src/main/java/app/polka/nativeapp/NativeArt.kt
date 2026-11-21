@@ -139,27 +139,8 @@ open class IconView(context: Context, private val kind: String, var ink: Int) : 
     var cut:Int?=null
     override fun onDraw(c: Canvas) {
         super.onDraw(c); c.save(); val size=(if(kind=="plus") 26f else if(minOf(width,height)<=context.resources.displayMetrics.density*30f) 16f else if(minOf(width,height)<=context.resources.displayMetrics.density*44.5f) 22f else 24f)*context.resources.displayMetrics.density; c.translate((width-size)/2,(height-size)/2); c.scale(size/24,size/24)
-        if(IosIcons.draw(c,kind,ink,isSelected&&cut!=null&&IosIcons.hasFilled(kind),cut?:0)) { c.restore(); return }
-        if(OriginalIcons.draw(context,c,kind,ink)) { c.restore(); return }
-        val p=Paint(Paint.ANTI_ALIAS_FLAG).apply { color=ink; style=Paint.Style.STROKE; strokeWidth=1.6f; strokeCap=Paint.Cap.ROUND; strokeJoin=Paint.Join.ROUND }
-        fun line(vararg a:Float) { val path=Path(); path.moveTo(a[0],a[1]); for(i in 2 until a.size step 2) path.lineTo(a[i],a[i+1]); c.drawPath(path,p) }
-        when(kind) {
-            "expand" -> { line(4f,10f,4f,4f,10f,4f);line(14f,4f,20f,4f,20f,10f);line(20f,14f,20f,20f,14f,20f);line(10f,20f,4f,20f,4f,14f) }
-            "share" -> { line(12f,15f,12f,3f);line(7f,8f,12f,3f,17f,8f);line(5f,13f,5f,21f,19f,21f,19f,13f) }
-            "download" -> { line(12f,3f,12f,16f);line(7f,11f,12f,16f,17f,11f);line(4f,18f,4f,21f,20f,21f,20f,18f) }
-            "home" -> { line(3f,10f,12f,3f,21f,10f,21f,21f,15f,21f,15f,14f,9f,14f,9f,21f,3f,21f,3f,10f) }
-            "shelves" -> { line(4f,20f,4f,5f); line(8f,20f,8f,3f); line(12f,20f,12f,7f); line(17f,5f,21f,20f); line(2f,21f,22f,21f) }
-            "quotes" -> { c.drawRect(4f,12f,9f,20f,p); c.drawRect(15f,12f,20f,20f,p); line(4f,12f,4f,8f,8f,4f); line(15f,12f,15f,8f,19f,4f) }
-            "foryou" -> { c.drawRoundRect(6f,4f,18f,20f,2f,2f,p); line(2f,7f,2f,17f); line(22f,7f,22f,17f) }
-            "search" -> { c.drawCircle(10f,10f,6f,p); line(15f,15f,21f,21f) }
-            "filter" -> { line(4f,6f,20f,6f); line(7f,12f,17f,12f); line(10f,18f,14f,18f) }
-            "settings" -> { c.drawCircle(12f,7f,4f,p); c.drawArc(4f,13f,20f,26f,180f,180f,false,p) }
-            "plus" -> { line(12f,4f,12f,20f); line(4f,12f,20f,12f) }
-            "back" -> line(15f,5f,8f,12f,15f,19f)
-            "more" -> { p.style=Paint.Style.FILL; for(x in listOf(5f,12f,19f)) c.drawCircle(x,12f,1.2f,p) }
-            "bookmark" -> line(6f,3f,18f,3f,18f,21f,12f,17f,6f,21f,6f,3f)
-            "toc" -> { line(4f,6f,20f,6f);line(4f,12f,20f,12f);line(4f,18f,20f,18f) }
-        }; c.restore()
+        IosIcons.draw(c,kind,ink,isSelected&&cut!=null&&IosIcons.hasFilled(kind),cut?:0)
+        c.restore()
     }
 }
 
