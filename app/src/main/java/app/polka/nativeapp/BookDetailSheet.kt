@@ -18,7 +18,6 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  private val updates=mutableListOf<()->Unit>()
  private var clock:ValueAnimator?=null;private var closing=false;private var ended=false;private var begun=false
  private var flight:CoverView?=null;private var from=RectF();private var to=RectF();private var base=1f
- private val curve=PathInterpolator(.2f,.75f,.25f,1f)
  private var journey:BookJourney?=null
  val isShowing get()=parent!=null&&!ended
  private fun reduced()=a.prefs.str("motion")=="reduced"
@@ -100,7 +99,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   fun renderQuotes(animated:Boolean=false,unfold:Boolean=false,settle:Boolean=false){
    folding=false;val cards=mutableListOf<View>();val extras=mutableListOf<View>()
    val fan=unfold&&animated&&!reducedMotion()
-   quoteReveal.change(animated,dissolveInk=!unfold&&!settle,crossfadeInk=fan||settle,duration=if(fan)580L else if(settle)200L else 360L,clip=!(fan||settle),curve=if(fan)android.view.animation.PathInterpolator(.32f,.06f,.16f,1f) else MotionSpec.settle){
+   quoteReveal.change(animated,dissolveInk=!unfold&&!settle,crossfadeInk=fan||settle,duration=if(fan)580L else if(settle)200L else 360L,clip=!(fan||settle),curve=if(fan)android.view.animation.PathInterpolator(.32f,.06f,.16f,1f) else MotionSpec.enter){
    quoteBody.removeAllViews()
    val quotes=book.optJSONArray("quotes")?.objects().orEmpty().sortedWith(compareBy<JSONObject>{it.optInt("ch")}.thenBy{it.optInt("start")})
    quoteSection.visibility=if(quotes.isEmpty())View.GONE else View.VISIBLE
@@ -219,7 +218,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  private fun duration(ms:Long):String{if(ms<=0)return "—";val m=maxOf(1,ms/60000);return if(m<60)"$m мин" else "${m/60} ч"+if(m%60>0)" ${m%60} мин" else ""}
  /** Shown already settled (returning from the reader under a fade): no flight, no slide. */
  var instant=false
- fun show(){a.bookDetailSheet?.finish();a.bookDetailSheet=this;panel.alpha=0f;scrim.alpha=0f;a.root.addView(this,LayoutParams(-1,-1));requestFocus();panel.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{panel.viewTreeObserver.removeOnPreDrawListener(this);if(instant){begun=true;sampleMotion(460);heroGlow.prepare{if(!ended)sampleMotion(460)};return true};heroGlow.prepare{if(!ended&&!closing&&!begun){begun=true;setupFlight();if(reduced()){sampleMotion(460);clearFlight()}else animate(false)}};return true}})}
+ fun show(){a.bookDetailSheet?.finish();a.bookDetailSheet=this;panel.alpha=0f;scrim.alpha=0f;a.root.addView(this,LayoutParams(-1,-1));requestFocus();panel.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{panel.viewTreeObserver.removeOnPreDrawListener(this);if(instant){begun=true;sampleMotion(MotionSpec.SHEET_IN);heroGlow.prepare{if(!ended)sampleMotion(MotionSpec.SHEET_IN)};return true};heroGlow.prepare{if(!ended&&!closing&&!begun){begun=true;setupFlight();if(reduced()){sampleMotion(MotionSpec.SHEET_IN);clearFlight()}else animate(false)}};return true}})}
  private fun rect(v:View):RectF{val at=IntArray(2);val root=IntArray(2);v.getLocationOnScreen(at);getLocationOnScreen(root);return RectF((at[0]-root[0]).toFloat(),(at[1]-root[1]).toFloat(),(at[0]-root[0]+v.width).toFloat(),(at[1]-root[1]+v.height).toFloat())}
  private fun cover(v:View?):CoverView?{if(v is CoverView)return v;if(v is ViewGroup)for(i in 0 until v.childCount)cover(v.getChildAt(i))?.let{return it};return null}
  private var originCover:CoverView?=null
@@ -237,10 +236,11 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   // Manual overlay transform must re-record the parent display list every frame.
   invalidate()
  }
- fun sampleMotion(elapsed:Long,returning:Boolean=closing){val t=curve.getInterpolation((elapsed/460f).coerceIn(0f,1f));pose(if(returning)1-t else t)}
+ fun sampleMotion(elapsed:Long,returning:Boolean=closing){val t=MotionSpec.enter.getInterpolation((elapsed/MotionSpec.SHEET_IN.toFloat()).coerceIn(0f,1f));pose(if(returning)1-t else t)}
  fun freezeMotion(){clock?.removeAllListeners();clock?.cancel();clock=null}
  private fun animate(back:Boolean){pose(if(back)1f else 0f);animateTo(if(back)0f else 1f)}
- private fun animateTo(target:Float){freezeMotion();val initial=presentation;clock=ValueAnimator.ofFloat(initial,target).apply{duration=(460*maxOf(.35f,kotlin.math.abs(target-initial))).toLong();interpolator=curve;addUpdateListener{pose(it.animatedValue as Float)};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){if(target==0f)finish()else clearFlight()}});start()}}
+ private fun animateTo(target:Float){freezeMotion();val initial=presentation;// up it comes in like any sheet; back down the cover lands in its place in the grid (a move, not a fall)
+  val up=target>initial;clock=ValueAnimator.ofFloat(initial,target).apply{duration=((if(up)MotionSpec.SHEET_IN else MotionSpec.DEEP_BACK)*maxOf(.35f,kotlin.math.abs(target-initial))).toLong();interpolator=if(up)MotionSpec.enter else MotionSpec.move;addUpdateListener{pose(it.animatedValue as Float)};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){if(target==0f)finish()else clearFlight()}});start()}}
  internal fun beginDrag(){if(ended||closing||!begun)return;freezeMotion();if(flight==null)setupFlight()}
  internal fun dragTo(offset:Float){if(!ended&&!closing&&begun)pose(1-offset.coerceAtLeast(0f)/maxOf(1,panel.height))}
  internal fun endDrag(commit:Boolean){if(ended||closing)return;if(commit)dismiss()else if(reduced()){pose(1f);clearFlight()}else animateTo(1f)}
@@ -267,7 +267,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  val bookId get()=book.str("id")
  /** The book is gone (deleted): no cover flight back to the grid; the sheet sinks away, the cover shrinks out with it. */
  fun discard(){if(closing||ended)return;closing=true;freezeMotion();clearFlight();if(reduced()){finish();return}
-  val start=presentation;clock=ValueAnimator.ofFloat(0f,1f).apply{duration=380;interpolator=PathInterpolator(.4f,0f,.2f,1f)
+  val start=presentation;clock=ValueAnimator.ofFloat(0f,1f).apply{duration=MotionSpec.SHEET_OUT;interpolator=MotionSpec.exit
    addUpdateListener{val t=it.animatedValue as Float;panel.translationY=panel.height*(1-start*(1-t));scrim.alpha=start*(1-t);heroCover.alpha=1f-t;heroCover.scaleX=1f-.2f*t;heroCover.scaleY=heroCover.scaleX}
    addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){finish()}});start()}}
  /** Runs once the sheet has fully gone (the deleted book's card leaves the grid only then). */

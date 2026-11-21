@@ -2,7 +2,6 @@ package app.polka.nativeapp
 
 import android.graphics.*
 import android.view.*
-import android.view.animation.PathInterpolator
 import android.widget.*
 import org.json.JSONObject
 import java.time.LocalDate
@@ -85,7 +84,7 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     group("О приложении")
     content.addView(text("Glyph ${packageManager.getPackageInfo(packageName,0).versionName}",14f,fg).apply{setPadding(d(4),0,0,0)})
     content.addView(text("Перевод: Google Переводчик (на устройстве). Словарь: Викисловарь, CC BY-SA 4.0. Фоновые звуки: свободная лицензия CC0. Иконки: Lucide, ISC.",12.5f,muted2).apply{setPadding(d(4),d(6),d(4),0);cssLeading(1.4f)})
-    if(animate&&prefs.str("motion")!="reduced"){scroll.alpha=0f;scroll.translationY=d(18).toFloat();scroll.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withLayer().start()}
+    if(animate)Depth(this,scroll).enter()
 }
 
 /** The whole window changes colours under a soft crossfade from a picture of how it looked a moment ago. */
@@ -97,12 +96,11 @@ internal fun MainActivity.themeCrossfade(change:()->Unit){
     val cover=ImageView(this).apply{setImageBitmap(pic);scaleType=ImageView.ScaleType.FIT_XY;isClickable=true;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;elevation=d(60).toFloat()}
     decor.addView(cover,FrameLayout.LayoutParams(-1,-1))
     change()
-    cover.animate().alpha(0f).setStartDelay(60).setDuration(460).setInterpolator(PathInterpolator(.4f,0f,.2f,1f)).withEndAction{decor.removeView(cover);cover.setImageDrawable(null);pic.recycle()}.start()
+    cover.animate().alpha(0f).setStartDelay(60).setDuration(MotionSpec.PAGE_IN).setInterpolator(MotionSpec.move).withEndAction{decor.removeView(cover);cover.setImageDrawable(null);pic.recycle()}.start()
 }
 
 internal fun MainActivity.closeSettings(){val page=settingsPage?:return;settingsPage=null
-    if(prefs.str("motion")=="reduced"){root.removeView(page);return}
-    page.animate().alpha(0f).translationY(d(14).toFloat()).setDuration(220).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{root.removeView(page)}.start()}
+    Depth(this,page).leave{root.removeView(page)}}
 
 /** A number typed in, with quick choices: a big serif field in the middle, the unit under it, presets as capsules, «Готово».
  *  [extra] adds a quiet action under the button (e.g. removing the goal). */

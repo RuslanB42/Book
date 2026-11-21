@@ -19,7 +19,6 @@ class MainActivity : Activity() {
     val screenMotion by lazy { ScreenMotion(this) }
     /** Which quote is on top of each book's deck on the «Цитаты» tab. */
     internal val quoteDeckIndex=mutableMapOf<String,Int>()
-    internal var pendingMotion:Pair<MotionPose,Long>?=null
     private val tabScroll=mutableMapOf<String,Int>()
     private val io = Executors.newSingleThreadScheduledExecutor()
     private var checkpointTask: java.util.concurrent.ScheduledFuture<*>? = null
@@ -112,7 +111,6 @@ class MainActivity : Activity() {
     internal var goalRoad:GoalRoadOverlay?=null
     internal var tierList:TierListOverlay?=null
     /** The tier-list card on the statistics screen now (the screen is rebuilt when a book is saved). */
-    internal var tierCard:View?=null
     var pendingCalendarImage:File?=null
     var profileOverlay:View?=null
     var profileStats:JSONObject?=null
@@ -173,17 +171,39 @@ class MainActivity : Activity() {
     internal var backdrop:android.graphics.Bitmap?=null
     internal var backdropY=0
     private var backdropTab="shelves"
-    internal fun captureBackdrop(){wasDeep=true;if(!::scroll.isInitialized||scroll.width<=0||scroll.height<=0)return
-        backdrop=try{val b=android.graphics.Bitmap.createBitmap(scroll.width,scroll.height,android.graphics.Bitmap.Config.ARGB_8888)
-            val c=android.graphics.Canvas(b);c.drawColor(bg);c.translate(0f,-scroll.scrollY.toFloat());scroll.draw(c);backdropY=scroll.scrollY;backdropTab=tab;b}catch(e:Throwable){null}}
+    internal fun captureBackdrop(){wasDeep=true;if(!::scroll.isInitialized||root.width<=0||root.height<=0)return
+        // the whole screen as it is, the navigation included: it goes with the list it belongs to
+        backdrop=try{val b=android.graphics.Bitmap.createBitmap(root.width,root.height,android.graphics.Bitmap.Config.ARGB_8888)
+            val c=android.graphics.Canvas(b);c.drawColor(bg);root.draw(c);backdropY=scroll.scrollY;backdropTab=tab;b}catch(e:Throwable){null}}
     override fun dispatchTouchEvent(ev:android.view.MotionEvent):Boolean{if(ev.actionMasked==android.view.MotionEvent.ACTION_DOWN)touchWatchers.forEach{it(ev)}
         if(::scroll.isInitialized&&swipeBack.handle(ev){val now=android.os.SystemClock.uptimeMillis();val c=android.view.MotionEvent.obtain(now,now,android.view.MotionEvent.ACTION_CANCEL,ev.x,ev.y,0);super.dispatchTouchEvent(c);c.recycle()})return true
         return super.dispatchTouchEvent(ev)}
     /** An overlay (settings, profile) was swiped off the screen: it goes without a second animation. */
     internal fun swipedAway(v:View){when{v===settingsPage->settingsPage=null;v===profileOverlay->{profileOverlay=null;profileStats=null}};root.removeView(v)}
-    /** A swipe back finished: the list this page came from glides in from the left. */
-    internal fun swipedBack(){when{
-        shelf!=null||auto!=null->{val y=backdropY;val back=if(backdrop!=null)backdropTab else "shelves";shelf=null;auto=null;query="";tab=back;render(false,false);scroll.post{scroll.scrollTo(0,y)}}}}
+    /** A swipe back finished: the list this page came from is already uncovered; it is built live where it was. */
+    internal fun swipedBack(){if(shelf==null&&auto==null)return;navRevealed=true
+        val y=backdropY;val back=if(backdrop!=null)backdropTab else "shelves";shelf=null;auto=null;query="";tab=back;render(false,false);restoreScroll(y)}
+    /** Scrolls the new page to [y] after its layout but before its first frame (a posted scroll showed a frame at the top). */
+    private fun restoreScroll(y:Int){val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this);sv.scrollTo(0,y);return true}})}
+    /** Into a shelf (yours or a status one), see [Depth]: the shelf's page comes in from the right over the list (a
+     *  picture of it, the navigation in it), which moves a third of the way left and darkens. */
+    fun enterShelf(change:()->Unit){val before=if(::scroll.isInitialized)scroll else null;change();render(false,false)
+        val b=backdrop;val page=scroll;if(b==null||page===before||prefs.str("motion")=="reduced")return
+        val img=ImageView(this).apply{setImageBitmap(b);scaleType=ImageView.ScaleType.MATRIX;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
+        root.addView(img,0,FrameLayout.LayoutParams(b.width,b.height))
+        // the page is see-through (the window colour shows through it); over the list it must be solid
+        val bgWas=page.background;page.setBackgroundColor(bg)
+        Depth(this,page).enter{root.removeView(img);page.background=bgWas}}
+    /** Out of a shelf by its back button or the system back: the shelf's page goes to the right and the list it was
+     *  opened from comes back from the left, out of the dark, where it was left. */
+    fun leaveShelf(){
+        val pic=if(prefs.str("motion")=="reduced"||root.width<=0||root.height<=0)null else try{android.graphics.Bitmap.createBitmap(root.width,root.height,android.graphics.Bitmap.Config.ARGB_8888).also{val c=android.graphics.Canvas(it);c.drawColor(bg);root.draw(c)}}catch(e:Throwable){null}
+        navRevealed=true
+        val y=backdropY;val back=if(backdrop!=null)backdropTab else "shelves";shelf=null;auto=null;query="";tab=back;render(false,false);restoreScroll(y)
+        if(pic==null)return
+        val img=ImageView(this).apply{setImageBitmap(pic);isClickable=true;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
+        root.addView(img,FrameLayout.LayoutParams(-1,-1))
+        Depth(this,img).leave{root.removeView(img);img.setImageDrawable(null);pic.recycle()}}
     override fun onCreate(savedInstanceState: Bundle?) {
         PolkaFonts.init(this)
         setTheme(R.style.AppTheme)
@@ -306,7 +326,7 @@ class MainActivity : Activity() {
         // which cut off the shelf glass (it reaches into the side margins) until the fade ended.
         page=col().apply{clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)};wrapper.addView(page,LinearLayout.LayoutParams(-1,-2))
         renderLibraryResults()
-        navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; tierList?.reattach(); if(preservePosition) scroll.post { scroll.scrollTo(0,oldY) }; gridSnap?.let { playGrid(it,if(preservePosition) oldY else null) }; val motion=pendingMotion;pendingMotion=null;if(gridSnap==null){if(motion!=null)screenMotion.play(page,motion.first,motion.second) else if(animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),450,curve=MotionSpec.settle)}
+        navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; tierList?.reattach(); if(preservePosition) scroll.post { scroll.scrollTo(0,oldY) }; gridSnap?.let { playGrid(it,if(preservePosition) oldY else null) }; if(gridSnap==null&&animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),MotionSpec.PAGE_IN)
     }
     internal fun searchBooks():List<JSONObject> {val q=query.trim();return (if(tab=="home")homeBooks()else books).filter{(it.str("title")+" "+authors(it)+" "+it.str("series")+" "+it.str("shelf")).contains(q,true)}.sortedByDescending{maxOf(it.optLong("openedAt"),it.optLong("addedAt"))}}
     internal fun renderLibraryResults(){
@@ -328,8 +348,8 @@ class MainActivity : Activity() {
         }
 
     }
-    fun backAndCount() { val r=row(); val leave={ pendingMotion=MotionPose(.4f,x=-d(18).toFloat()) to MotionSpec.SHELF;shelf=null;auto=null;query="";tab="shelves";render(false,false) }
-        r.addView(icon("back","Назад к полкам") { leave() },LinearLayout.LayoutParams(d(44),d(44)))
+    fun backAndCount() { val r=row()
+        r.addView(icon("back","Назад к полкам") { leaveShelf() },LinearLayout.LayoutParams(d(44),d(44)))
         r.addView(text(title(),26f,fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(d(12),0,d(8),0)},LinearLayout.LayoutParams(0,-2,1f))
         addIcon(r,"filter","Фильтры и сортировка") { filters() }; page.addView(r); space(page,18) }
     internal var continueBookId:String?=null
@@ -370,15 +390,14 @@ class MainActivity : Activity() {
         val add=icon("plus","Добавить",true) { if(addMenu!=null) addMenu?.close() else AddMenu(this).open() }; addButton=add;add.background=Floating(this,add.background,d(29).toFloat());add.elevation=0f
         root.addView(add,FrameLayout.LayoutParams(d(58),d(58),Gravity.BOTTOM or Gravity.END))
         followInsets(add){i->add.layoutParams=(add.layoutParams as FrameLayout.LayoutParams).apply{rightMargin=d(16)+i.right;bottomMargin=navigationBottom(baseInsets)}}
-        // Inside a shelf there is no navigation, as in the profile: it slips down and away on the way in and comes
-        // back on the way out (a swipe back uncovers it already, see SwipeBack).
+        // Inside a shelf there is no navigation, as in the profile: it goes into the shelf with the list it belongs to
+        // (in its picture, see enterShelf) and comes back with it.
         val inside=shelf!=null||auto!=null;val was=navAway;navAway=inside
         val reduced=prefs.str("motion")=="reduced"
         listOf<View>(nav,add).forEach{v->v.animate().cancel();v.clipBounds=null
             when{
-                inside&&(was||reduced)->{v.visibility=View.INVISIBLE;v.alpha=1f;v.translationY=0f}
-                inside->{v.visibility=View.VISIBLE;v.alpha=1f;v.translationY=0f;v.animate().alpha(0f).translationY(d(24).toFloat()).setDuration(200).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,1f,1f)).withEndAction{if(navAway){v.visibility=View.INVISIBLE;v.alpha=1f;v.translationY=0f}}.start()}
-                was&&!navRevealed&&!reduced->{v.visibility=View.VISIBLE;v.alpha=0f;v.translationY=d(24).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(60).setDuration(320).setInterpolator(MotionSpec.settle).start()}
+                inside->{v.visibility=View.INVISIBLE;v.alpha=1f;v.translationY=0f}
+                was&&!navRevealed&&!reduced->{v.visibility=View.VISIBLE;v.alpha=0f;v.translationY=d(24).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(60).setDuration(MotionSpec.PAGE_IN).setInterpolator(MotionSpec.enter).start()}
                 else->{v.visibility=View.VISIBLE;v.alpha=1f;v.translationY=0f}}}
         navRevealed=false
     }
@@ -434,7 +453,7 @@ class MainActivity : Activity() {
     /** The quick menu of a status shelf («Хочу прочитать», «Читаю»…): open it, or put more books on it (they get that status). */
     fun autoShelfActions(key:String) { val title=autoTitle(key)
         dialog().setTitle(title).setItemIcons("next","plus").setItems(arrayOf("Открыть полку","Добавить книги на полку")) { _,i -> when(i) {
-            0 -> { pendingMotion=MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF;auto=key;render(false,false) }
+            0 -> enterShelf{auto=key}
             1 -> { val others=books.filter{Library.status(it)!=key}
                 if(others.isEmpty())return@setItems
                 val checked=BooleanArray(others.size)
@@ -494,7 +513,7 @@ class MainActivity : Activity() {
             if(veil==null){picture?.recycle();return}
             // The page as it was left: visible the moment the fade lifts; the live page replaces it when ready.
             val still=picture?.let{bmp->android.widget.ImageView(this).apply{setImageBitmap(bmp);scaleType=android.widget.ImageView.ScaleType.FIT_XY;isClickable=true;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}}
-            still?.let{root.addView(it,1,FrameLayout.LayoutParams(-1,-1));veil.animate().alpha(0f).setDuration(260).setInterpolator(fadeOut).withEndAction{root.removeView(veil)}.start()}
+            still?.let{root.addView(it,1,FrameLayout.LayoutParams(-1,-1));veil.animate().alpha(0f).setDuration(MotionSpec.DARK_OUT).setInterpolator(MotionSpec.enter).withEndAction{root.removeView(veil)}.start()}
             // Lift the dark only when the first page is laid out and stable.
             var stable=0;var signature="";val observer=r.view.viewTreeObserver
             observer.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
@@ -503,9 +522,9 @@ class MainActivity : Activity() {
                 if(!r.openingReady()||next!=signature){signature=next;stable=0;r.view.postInvalidateOnAnimation();return true}
                 if(++stable<2){r.view.postInvalidateOnAnimation();return true}
                 if(observer.isAlive)observer.removeOnPreDrawListener(this)
-                if(still!=null){root.removeView(still);picture?.recycle()}else veil.animate().alpha(0f).setDuration(320).setInterpolator(fadeOut).withEndAction{root.removeView(veil)}.start();return true}})
+                if(still!=null){root.removeView(still);picture?.recycle()}else veil.animate().alpha(0f).setDuration(MotionSpec.DARK_OUT).setInterpolator(MotionSpec.enter).withEndAction{root.removeView(veil)}.start();return true}})
         }
-        veil?.animate()?.alpha(1f)?.setDuration(240)?.setInterpolator(fadeIn)?.withEndAction{dark=true;build()}?.start()
+        veil?.animate()?.alpha(1f)?.setDuration(MotionSpec.DARK_IN)?.setInterpolator(MotionSpec.exit)?.withEndAction{dark=true;build()}?.start()
         work({ loaded=loadContent(book);if(veil!=null)picture=PageImages.load(this,book.str("id"),pictureKey) }, failed={ loadingReader=false;veil?.let{v->v.animate().cancel();root.removeView(v)};flushDeferredRender() }) { build() }
     }
     fun closeReader() {
@@ -609,7 +628,7 @@ class MainActivity : Activity() {
         val labels=files.map { (when(it.nameWithoutExtension) { "latest"->"Последняя"; "previous"->"Предыдущая"; else->"Перед изменением" })+" · "+java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it.lastModified())) }
         dialog().setTitle("Локальные копии").setItemIcons(*(files.map{"undo"}+"plus").toTypedArray()).setItems((labels+"Создать точку сейчас").toTypedArray()) { _,i -> if(i==files.size) work({ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"))}); else confirm("Восстановить точку?","Текущая библиотека будет заменена.") { work({ val source=File(cacheDir,"recovery-input.polka"); try { files[i].copyTo(source,true); ArchiveIO.restore(applicationContext,library,source) { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety") }; loadData() } finally { source.delete() } }) { initialized=true; reader=null; shelf=null; auto=null; render(); checkpointSoon() } } }.setNegativeButton("Закрыть",null).show()
     }
-    @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; goalRoad!=null -> goalRoad?.back(); tierList!=null && bookDetailSheet?.isShowing!=true -> tierList?.back(); addMenu!=null -> addMenu?.close(); shelvesEditing && reader==null -> { shelvesTopBarLabel?.performClick() }; bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() };bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();settingsPage!=null -> closeSettings(); profileOverlay!=null -> dismissProfile(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> { shelf=null; auto=null; tab="shelves"; render() }; query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
+    @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; goalRoad!=null -> goalRoad?.back(); tierList!=null && bookDetailSheet?.isShowing!=true -> tierList?.back(); addMenu!=null -> addMenu?.close(); shelvesEditing && reader==null -> { shelvesTopBarLabel?.performClick() }; bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() };bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();settingsPage!=null -> closeSettings(); profileOverlay!=null -> dismissProfile(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> leaveShelf(); query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
     override fun onSaveInstanceState(out:Bundle) { reader?.save(); out.putString("calendarImage",pendingCalendarImage?.name); out.putString("attachId",attachId); out.putString("coverTarget",coverTarget); pendingExport?.let { out.putString("exportId",it.first.str("id")); out.putString("exportFormat",it.second) }; out.putString("tab",tab); out.putString("shelf",shelf); out.putString("auto",auto); out.putString("query",query); out.putBoolean("searchOpen",searchOpen); reader?.let { out.putString("readerId",it.book.str("id")) }; super.onSaveInstanceState(out) }
     override fun onPause() { shelfReorder?.cancel();screenMotion.stop();root.childrenOpening()?.finish();reader?.pause();pageReading?.pause(); super.onPause() }
     override fun onResume() { super.onResume(); pageReading?.resume(); if(reader!=null)reader?.resume() else if(::root.isInitialized){ReaderWindow.configure(window,false,bg);root.requestApplyInsets()} }

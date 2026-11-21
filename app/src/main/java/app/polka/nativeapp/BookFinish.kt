@@ -104,7 +104,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         dialog.setContentView(root)
         dialog.setCancelable(true)
         dialog.setOnCancelListener{finish(false,false)}
-        dialog.window?.let{w->w.setLayout(-1,-1);w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(a.bg))
+        dialog.window?.let{w->w.setLayout(-1,-1);w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)) // the page's own colour fades with it
             w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
             WindowCompat.setDecorFitsSystemWindows(w,false)
             w.statusBarColor=Color.TRANSPARENT;w.navigationBarColor=Color.TRANSPARENT
@@ -114,14 +114,22 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         ViewCompat.setOnApplyWindowInsetsListener(root){_,ins->val bars=ins.getInsets(WindowInsetsCompat.Type.systemBars()or WindowInsetsCompat.Type.displayCutout());keyboard=ins.getInsets(WindowInsetsCompat.Type.ime()).bottom
             page.setPadding(a.d(20)+bars.left,bars.top+a.d(10),a.d(20)+bars.right,maxOf(bars.bottom,keyboard)+a.d(12));ins}
         ImeKeeper(scroll,a.d(20)){keyboard}.attach()
+        // the end of the book comes out of the dark, like the book itself (see MotionSpec)
+        val motion=a.prefs.str("motion")!="reduced"
+        dialog.window?.setWindowAnimations(0)
         dialog.show()
+        if(motion){root.alpha=0f;root.animate().alpha(1f).setDuration(MotionSpec.DARK_OUT).setInterpolator(MotionSpec.enter).start()}
+        this.root=root
     }
+    private var root:View?=null
 
     private fun finish(keep:Boolean,closeBook:Boolean){
         if(closed)return;closed=true
         if(!keep){before.forEach{(k,v)->if(v==null)book.remove(k) else book.put(k,v)};a.saveBook(book){}}
         a.currentFocus?.let{f->(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)}
-        dialog.setOnCancelListener(null);dialog.dismiss();done(closeBook)
+        dialog.setOnCancelListener(null)
+        val r=root;if(r==null||a.prefs.str("motion")=="reduced"){dialog.dismiss();done(closeBook);return}
+        r.animate().alpha(0f).setDuration(MotionSpec.DARK_IN).setInterpolator(MotionSpec.exit).withEndAction{dialog.dismiss();done(closeBook)}.start()
     }
 
     /** A soft, saturated wash of the cover: shrunk to a few pixels and blurred, then drawn large and smooth. */

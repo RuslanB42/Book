@@ -129,7 +129,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
             private var allowFinalDismiss=false
             private var widePanel=false
             private var shade:View?=null
-            private var motion:LiquidSpring?=null
+            private var motion:SheetMotion?=null
             private fun moveSheet(fraction:Float){val body=panel?:return;val f=fraction.coerceIn(0f,1f);body.translationY=(if(widePanel)a.d(24).toFloat()else body.height.toFloat())*f;body.alpha=if(widePanel)1-f else 1f;shade?.alpha=1-f;if(closing&&fraction>=.999f&&!allowFinalDismiss){allowFinalDismiss=true;motion?.stop()
                 // After the keyboard: the window is removed only a little later. Removed the moment the keyboard reported
                 // itself gone, Android had not finished hiding it yet and handed it to the page's window still visible:
@@ -170,7 +170,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 if(!wide){val r=a.d(22).toFloat();(box.background as android.graphics.drawable.GradientDrawable).cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)}
                 a.controlSurface(box,22f,sheet=true).apply{flushBottom=!wide;refresh()};panel=box
                 val animated=a.prefs.str("motion")!="reduced";if(animated)box.alpha=0f
-                motion=LiquidSpring{value,_->moveSheet(value)}
+                motion=SheetMotion{value->moveSheet(value)}
                 val handle=FrameLayout(a).apply { addView(View(a).apply { background=a.shape(if(a.light) 0xffcccccc.toInt() else 0xff424244.toInt(),4) },FrameLayout.LayoutParams(a.d(38),a.d(5),Gravity.CENTER)) }
                 box.addView(handle,LinearLayout.LayoutParams(-1,a.d(18)))
                 val head=FrameLayout(a); head.addView(a.text(title,17f,bold=true).apply { gravity=Gravity.CENTER },FrameLayout.LayoutParams(-1,a.d(48)))

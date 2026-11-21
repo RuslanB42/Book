@@ -9,7 +9,6 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.view.*
-import android.view.animation.OvershootInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.*
 import org.json.JSONArray
@@ -127,12 +126,12 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         dlg.setOnDismissListener{tts?.shutdown();Dictionary.cancel=true;io.shutdownNow()}
         loading()
         dlg.show()
-        if(!reduced){holder.translationY=a.d(900).toFloat();holder.post{val h=holder.height+a.d(24).toFloat();LiquidSpring{v,_->holder.translationY=h*v}.apply{snap(1f);to(0f)}}}
+        if(!reduced){holder.translationY=a.d(900).toFloat();holder.post{val h=holder.height+a.d(24).toFloat();SheetMotion{v->holder.translationY=h*v}.apply{snap(1f);to(0f)}}}
     }
     private fun close(velocity:Float=0f){val dl=dialog?:return;dialog=null
         if(reduced){dl.dismiss();return}
         val left=holder.height+a.d(24)-holder.translationY
-        holder.animate().translationY(holder.height+a.d(24).toFloat()).setDuration((if(velocity>0f)(left/velocity*1000f).toLong() else 240L).coerceIn(140L,260L)).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{dl.dismiss()}.start()}
+        holder.animate().translationY(holder.height+a.d(24).toFloat()).setDuration((if(velocity>0f)(left/velocity*1000f).toLong() else MotionSpec.SHEET_OUT).coerceIn(140L,MotionSpec.SHEET_OUT)).setInterpolator(MotionSpec.exit).withEndAction{dl.dismiss()}.start()}
     /** Replaces the content; the card eases to its new height. */
     private fun content(build:LinearLayout.()->Unit){
         val h0=holder.height;body.removeAllViews();body.build()
@@ -269,6 +268,6 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
                 MotionEvent.ACTION_MOVE->holder.translationY=(e.rawY-y0).coerceAtLeast(0f)
                 MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{vt?.computeCurrentVelocity(1000);val v=vt?.yVelocity?:0f;dragging=false
                     if(holder.translationY>holder.height*.25f||v>a.d(900))close(v.coerceAtLeast(0f))
-                    else holder.animate().translationY(0f).setDuration(320).setInterpolator(OvershootInterpolator(.8f)).start()}};return true}
+                    else holder.animate().translationY(0f).setDuration(MotionSpec.SETTLE).setInterpolator(MotionSpec.move).start()}};return true}
     }
 }

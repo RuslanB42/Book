@@ -84,7 +84,7 @@ internal class TierRow(private val a:MainActivity,val k:Int,val covers:FlowRow):
  * the row under the finger lights up in its colour and opens a place, letting go puts the book there and saves the
  * new rating. A short tap opens the book card. The share button makes a picture of the list.
  */
-internal class TierListOverlay(private val a:MainActivity,private val model:ReadingStatistics,startYear:Int?,private val source:()->View?,private val onClose:()->Unit){
+internal class TierListOverlay(private val a:MainActivity,private val model:ReadingStatistics,startYear:Int?,private val onClose:()->Unit){
     private val motion get()=a.prefs.str("motion")!="reduced"
     private val years=Tiers.years(model)
     private var year:Int?=startYear?.takeIf{it in years}?:years.firstOrNull()
@@ -108,31 +108,6 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     private var share:FrameLayout?=null
     private var poster:Bitmap?=null
     private val shown=HashMap<String,Int>()
-    // container transform from the statistics card, the same as the goal road's
-    private val snapView=ImageView(a).apply{scaleType=ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
-    private var snap:Bitmap?=null;private var from:RectF?=null
-    private val bounds=RectF();private var radius=0f;private var k=1f
-    private var anim:android.animation.ValueAnimator?=null
-    private fun run(f:Float,t:Float,ms:Long,i:android.animation.TimeInterpolator,end:()->Unit){anim?.cancel()
-        anim=android.animation.ValueAnimator.ofFloat(f,t).apply{duration=ms;interpolator=i;addUpdateListener{morph(it.animatedValue as Float)}
-            addListener(object:android.animation.AnimatorListenerAdapter(){var cancelled=false
-                override fun onAnimationCancel(x:android.animation.Animator){cancelled=true}
-                override fun onAnimationEnd(x:android.animation.Animator){if(!cancelled)end()}});start()}}
-    /** One step of the morph: [p] 0 is the card, 1 the whole screen. */
-    private fun morph(p:Float){k=p;val W=frame.width.takeIf{it>0}?.toFloat()?:a.root.width.toFloat();val H=frame.height.takeIf{it>0}?.toFloat()?:a.root.height.toFloat()
-        val f=from?:RectF(0f,0f,W,H)
-        bounds.set(f.left*(1-p),f.top*(1-p),f.right+(W-f.right)*p,f.bottom+(H-f.bottom)*p);radius=a.d(24)*(1-p);frame.invalidateOutline()
-        val sc=bounds.width()/W;col.pivotX=0f;col.pivotY=0f;col.scaleX=sc;col.scaleY=sc;col.translationX=bounds.left;col.translationY=bounds.top
-        col.alpha=((p-.12f)/.42f).coerceIn(0f,1f)
-        val b=snap;if(b!=null){val ss=bounds.width()/b.width;snapView.pivotX=0f;snapView.pivotY=0f;snapView.scaleX=ss;snapView.scaleY=ss;snapView.translationX=bounds.left;snapView.translationY=bounds.top
-            snapView.alpha=(1f-p/.32f).coerceIn(0f,1f)}}
-    /** Where the card is now and a picture of it, for the morph. */
-    private fun capture(){val v=source();frame.removeView(snapView);snapView.setImageDrawable(null);snap?.recycle();snap=null
-        if(v==null||!v.isAttachedToWindow||v.width==0){from=null;return}
-        val l=IntArray(2);v.getLocationInWindow(l);val o=IntArray(2);a.root.getLocationInWindow(o)
-        from=RectF((l[0]-o[0]).toFloat(),(l[1]-o[1]).toFloat(),(l[0]-o[0]+v.width).toFloat(),(l[1]-o[1]+v.height).toFloat())
-        snap=try{Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888).also{v.draw(Canvas(it))}}catch(e:Throwable){null}
-        snap?.let{snapView.setImageBitmap(it);frame.addView(snapView,FrameLayout.LayoutParams(it.width,it.height,Gravity.TOP or Gravity.START))}}
 
     private inner class Frame:FrameLayout(a){
         var lastX=0f;var lastY=0f;private var cancelled=false
@@ -144,14 +119,11 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
 
     fun show(){
         frame.isClickable=true;frame.setBackgroundColor(a.bg);frame.elevation=a.d(30).toFloat()
-        frame.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){
-            if(bounds.isEmpty)o.setRect(0,0,v.width,v.height) else o.setRoundRect(bounds.left.roundToInt(),bounds.top.roundToInt(),bounds.right.roundToInt(),bounds.bottom.roundToInt(),radius)}}
-        frame.clipToOutline=true
         val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),a.d(8),a.d(16),0)}
         fun round(kind:String,desc:String,click:()->Unit)=FrameLayout(a).apply{isClickable=true;contentDescription=desc;setOnClickListener{click()}
             background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x14ffffff)}
             addView(Glyph(a,kind,a.fg),FrameLayout.LayoutParams(a.d(17),a.d(17),Gravity.CENTER));a.press(this)}
-        bar.addView(round("down","Закрыть"){close()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+        bar.addView(round("back","Назад"){close()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
         bar.addView(a.text("ТИР-ЛИСТ",12.5f,a.muted,true).apply{letterSpacing=.06f;gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f))
         bar.addView(round("share","Поделиться тир-листом"){openShare()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
         col.addView(bar)
@@ -174,10 +146,9 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         a.tierList=this
         bind(false)
         if(!motion)return
-        capture();morph(0f);col.setLayerType(View.LAYER_TYPE_HARDWARE,null)
-        // start on the first drawn frame, so no step of the morph is skipped
-        frame.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{frame.viewTreeObserver.removeOnPreDrawListener(this)
-            run(0f,1f,520,PathInterpolator(.2f,0f,0f,1f)){col.setLayerType(View.LAYER_TYPE_NONE,null);frame.removeView(snapView);bounds.setEmpty();frame.invalidateOutline()};return true}})
+        // one level in (see Depth), started on the first drawn frame (off screen), so no step of the move is skipped
+        val depth=Depth(a,frame);depth.pose(1f)
+        frame.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{frame.viewTreeObserver.removeOnPreDrawListener(this);depth.enter();return true}})
     }
 
     private fun cell(b:JSONObject,small:Boolean=false):CoverView{
@@ -341,12 +312,11 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     fun back(){if(share!=null)closeShare() else close()}
     fun close(){if(closing)return;closing=true;closeShare()
         val d=drag;if(d!=null){frame.removeView(d.float);drag=null}
-        fun done(){(frame.parent as? ViewGroup)?.removeView(frame);if(a.tierList===this)a.tierList=null;poster?.recycle();poster=null;snapView.setImageDrawable(null);snap?.recycle();snap=null}
-        // the card under the list is brought up to date first, so the list folds back into the new picture
+        fun done(){(frame.parent as? ViewGroup)?.removeView(frame);if(a.tierList===this)a.tierList=null;poster?.recycle();poster=null}
+        // the card under the list is brought up to date first, so the page it goes back to is already current
         onClose()
         if(!motion){done();return}
-        frame.post{capture();bounds.set(0f,0f,frame.width.toFloat(),frame.height.toFloat());col.setLayerType(View.LAYER_TYPE_HARDWARE,null);morph(k)
-            run(k,0f,420,PathInterpolator(.3f,0f,.1f,1f)){done()}}}
+        Depth(a,frame).leave{done()}}
 
     // ───── share picture ─────
     private fun openShare(){if(share!=null||drag!=null)return
@@ -367,12 +337,13 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         box.addView(acts,LinearLayout.LayoutParams((bmp.width*k).toInt(),-2).apply{topMargin=a.d(20)})
         layer.addView(box,FrameLayout.LayoutParams(-2,-2,Gravity.CENTER))
         frame.addView(layer,FrameLayout.LayoutParams(-1,-1));share=layer
-        if(motion){layer.alpha=0f;layer.animate().alpha(1f).setDuration(220).start()
-            img.translationY=a.d(24).toFloat();img.alpha=0f
-            img.animate().translationY(0f).alpha(1f).setStartDelay(60).setDuration(520).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}
+        // a picture to keep or send, over the page: it shows and grows a little in place
+        if(motion){layer.alpha=0f;layer.animate().alpha(1f).setDuration(MotionSpec.ASK_IN).setInterpolator(MotionSpec.enter).start()
+            img.scaleX=.94f;img.scaleY=.94f;img.alpha=0f
+            img.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(MotionSpec.ASK_IN).setInterpolator(MotionSpec.enter).start()}
     }
     private fun closeShare(){val layer=share?:return;share=null
-        if(motion)layer.animate().alpha(0f).setDuration(180).withEndAction{frame.removeView(layer)}.start() else frame.removeView(layer)}
+        if(motion)layer.animate().alpha(0f).setDuration(MotionSpec.ASK_OUT).setInterpolator(MotionSpec.exit).withEndAction{frame.removeView(layer)}.start() else frame.removeView(layer)}
     private fun fileName()="Glyph-tier-${year?:"all"}.png"
     private fun send(){val bmp=poster?:return;val dir=File(a.cacheDir,"calendar-share").apply{mkdirs()};val file=File(dir,fileName())
         a.work({file.outputStream().use{bmp.compress(Bitmap.CompressFormat.PNG,100,it)}}){

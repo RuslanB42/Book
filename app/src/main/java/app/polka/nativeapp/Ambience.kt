@@ -240,12 +240,12 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
         dlg.setOnDismissListener{Ambience.unlisten(update)}
         Ambience.listen(update);paint(false)
         dlg.show()
-        if(!reduced){scroll.translationY=a.d(1200).toFloat();scroll.post{val h=scroll.height+a.d(24).toFloat();LiquidSpring{v,_->scroll.translationY=h*v}.apply{snap(1f);to(0f)}}}
+        if(!reduced){scroll.translationY=a.d(1200).toFloat();scroll.post{val h=scroll.height+a.d(24).toFloat();SheetMotion{v->scroll.translationY=h*v}.apply{snap(1f);to(0f)}}}
     }
     private fun close(velocity:Float=0f){val d=dialog?:return;dialog=null
         if(reduced){d.dismiss();return}
         val v=holder;val left=v.height+a.d(24)-v.translationY
-        v.animate().translationY(v.height+a.d(24).toFloat()).setDuration((if(velocity>0f)(left/velocity*1000f).toLong() else 240L).coerceIn(140L,260L)).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{d.dismiss()}.start()}
+        v.animate().translationY(v.height+a.d(24).toFloat()).setDuration((if(velocity>0f)(left/velocity*1000f).toLong() else MotionSpec.SHEET_OUT).coerceIn(140L,MotionSpec.SHEET_OUT)).setInterpolator(MotionSpec.exit).withEndAction{d.dismiss()}.start()}
     private fun toggle(k:String){if(Ambience.key==k)Ambience.stop(a) else Ambience.play(a,k)}
     private fun paint(animate:Boolean){tiles.forEach{it.refresh(animate)}
         val on=Ambience.key!=null;off.animate().cancel()
@@ -268,7 +268,7 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
                 MotionEvent.ACTION_MOVE->holder.translationY=(e.rawY-y0).coerceAtLeast(0f)
                 MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{vt?.computeCurrentVelocity(1000);val v=vt?.yVelocity?:0f;dragging=false
                     if(holder.translationY>holder.height*.25f||v>a.d(900))close(v.coerceAtLeast(0f))
-                    else holder.animate().translationY(0f).setDuration(320).setInterpolator(android.view.animation.OvershootInterpolator(.8f)).start()}};return true}
+                    else holder.animate().translationY(0f).setDuration(MotionSpec.SETTLE).setInterpolator(MotionSpec.move).start()}};return true}
     }
 
     /** A sound tile: its colour glowing from the top right over a deep shade, the icon, the name and a quiet line.

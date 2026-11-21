@@ -26,7 +26,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     /** A held control lifts on a card 6dp round it: half the gap above, below and at the sides. */
     private val RIM get()=a.d(6)
     private var dialog:android.app.Dialog?=null
-    private var entrance:LiquidSpring?=null
+    private var entrance:SheetMotion?=null
     private lateinit var sheet:LinearLayout
     private lateinit var pages:FrameLayout
     private lateinit var main:View
@@ -55,7 +55,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         dlg.setOnKeyListener{_,code,e->if(code==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){if(sub!=null)back() else close();true}else false}
         dlg.show()
         // the usual sheet entrance: the panel slides up from below the screen on the app's sheet spring
-        if(!reduced){sheet.translationY=a.d(1200).toFloat();sheet.post{val h=sheet.height+a.d(24).toFloat();val spring=LiquidSpring{v,_->sheet.translationY=h*v};entrance=spring;spring.snap(1f);spring.to(0f)}}
+        if(!reduced){sheet.translationY=a.d(1200).toFloat();sheet.post{val h=sheet.height+a.d(24).toFloat();val spring=SheetMotion{v->sheet.translationY=h*v};entrance=spring;spring.snap(1f);spring.to(0f)}}
     }
     /** The panel follows a downward drag (from anywhere on it that is not a control being dragged) and leaves past a
      *  quarter of its height or on a quick flick; otherwise it settles back. */
@@ -76,12 +76,12 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
                 MotionEvent.ACTION_MOVE->{val dy=e.rawY-y0;sheet.translationY=if(dy>0)dy else dy*.2f}
                 MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{dragging=false;vt?.computeCurrentVelocity(1000);val vy=vt?.yVelocity?:0f;vt?.recycle();vt=null
                     if(e.actionMasked==MotionEvent.ACTION_UP&&(sheet.translationY>sheet.height*.25f||vy>a.d(900)))close()
-                    else{val sp=Spring.of(.2,420.0);sheet.animate().translationY(0f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}}
+                    else sheet.animate().translationY(0f).setDuration(MotionSpec.SETTLE).setInterpolator(MotionSpec.move).start()}}
             return true}
     }
     private fun close(){val d=dialog?:return;dialog=null;entrance?.stop()
         if(reduced){d.dismiss();return}
-        sheet.animate().translationY(sheet.height+a.d(24).toFloat()).setDuration(240).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{d.dismiss()}.start()}
+        sheet.animate().translationY(sheet.height+a.d(24).toFloat()).setDuration(MotionSpec.SHEET_OUT).setInterpolator(MotionSpec.exit).withEndAction{d.dismiss()}.start()}
 
     // ---- pages -------------------------------------------------------------------------------
 
@@ -106,7 +106,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     private var heightAnim:ValueAnimator?=null
     private fun glideHeight(from:Int,to:Int,done:()->Unit={}){heightAnim?.cancel();val lp=pages.layoutParams
         if(reduced||from==to){lp.height=to;pages.layoutParams=lp;done();return}
-        val sp=Spring.of(.12,520.0);heightAnim=ValueAnimator.ofInt(from,to).apply{duration=sp.duration;interpolator=sp.interpolator;addUpdateListener{lp.height=it.animatedValue as Int;pages.layoutParams=lp}
+        heightAnim=ValueAnimator.ofInt(from,to).apply{duration=if(to>from)MotionSpec.DEEP_IN else MotionSpec.DEEP_BACK;interpolator=if(to>from)MotionSpec.enter else MotionSpec.move;addUpdateListener{lp.height=it.animatedValue as Int;pages.layoutParams=lp}
             addListener(object:android.animation.AnimatorListenerAdapter(){var cancelled=false;override fun onAnimationCancel(x:android.animation.Animator){cancelled=true};override fun onAnimationEnd(x:android.animation.Animator){if(!cancelled)done()}});start()}}
     /** While a page slides, it is cut at the sheet's own edges — not at the pages' edges, which run through the
      *  ring around the chosen theme (it sits outside its tile) and cut it off for the length of the slide. */
@@ -129,14 +129,14 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         glideHeight(h,target)
         val w=pages.width.toFloat()
         if(reduced){main.visibility=View.INVISIBLE;return}
-        slideClip(true);holder.translationX=w;holder.animate().translationX(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withEndAction{slideClip(false)}.start()
-        main.animate().translationX(-w*.3f).alpha(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
+        slideClip(true);holder.translationX=w;holder.animate().translationX(0f).setDuration(MotionSpec.DEEP_IN).setInterpolator(MotionSpec.enter).withEndAction{slideClip(false)}.start()
+        main.animate().translationX(-w*MotionSpec.DEEP_SHIFT).alpha(0f).setDuration(MotionSpec.DEEP_IN).setInterpolator(MotionSpec.enter).start()}
     private fun back(){val s=sub?:return;sub=null;val w=pages.width.toFloat();refresh()
         val mainH=main.height.takeIf{it>0}?:pages.height
         glideHeight(pages.height,mainH){pages.layoutParams=pages.layoutParams.apply{height=ViewGroup.LayoutParams.WRAP_CONTENT}}
         if(reduced){pages.removeView(s);main.visibility=View.VISIBLE;main.alpha=1f;main.translationX=0f;return}
-        slideClip(true);s.animate().translationX(w).setDuration(280).setInterpolator(PathInterpolator(.4f,0f,.2f,1f)).withEndAction{pages.removeView(s);slideClip(false)}.start()
-        main.animate().translationX(0f).alpha(1f).setDuration(280).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
+        slideClip(true);s.animate().translationX(w).setDuration(MotionSpec.DEEP_BACK).setInterpolator(MotionSpec.move).withEndAction{pages.removeView(s);slideClip(false)}.start()
+        main.animate().translationX(0f).alpha(1f).setDuration(MotionSpec.DEEP_BACK).setInterpolator(MotionSpec.move).start()}
 
     private fun layoutPage():View{
         val box=a.column().apply{tag="Ещё";clipChildren=false;clipToPadding=false}

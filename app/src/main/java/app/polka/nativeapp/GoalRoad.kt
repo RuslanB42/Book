@@ -1,12 +1,10 @@
 package app.polka.nativeapp
 
-import android.animation.ValueAnimator
 import android.content.ClipData
 import android.content.Intent
 import android.graphics.*
 import android.graphics.drawable.GradientDrawable
 import android.view.*
-import android.view.animation.PathInterpolator
 import android.widget.*
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
@@ -24,7 +22,7 @@ internal class Glyph(private val a:MainActivity,private val kind:String,var ink:
     override fun onDraw(c:Canvas){
         // the same icons as everywhere else in the app
         val z=min(width,height).toFloat();c.save();c.translate((width-z)/2,(height-z)/2);c.scale(z/24f,z/24f)
-        IosIcons.draw(c,when(kind){"down"->"chevdown";"expand"->"expand";else->"share"},ink);c.restore()}
+        IosIcons.draw(c,when(kind){"back"->"back";"expand"->"expand";else->"share"},ink);c.restore()}
 }
 
 // ───────────────────────── year menu on the card ─────────────────────────
@@ -33,16 +31,14 @@ internal class Glyph(private val a:MainActivity,private val kind:String,var ink:
 
 /**
  * The goal road opened to the whole screen, as a layer over the app (no new window, so nothing stalls the first
- * frames). It grows out of the card as a container transform: the rounded bounds morph from the card to the screen
- * while the card's picture fades out and the road, scaled with the bounds, fades in; closing runs it backwards.
+ * frames). It is a page one level in (see [Depth]): it comes in from the right over the statistics and goes back.
  * Year tabs and the progress sit on top; below winds the road with big covers and their details.
  */
 internal class GoalRoadOverlay(private val a:MainActivity,private val model:ReadingStatistics,private val data:JSONObject,private var year:Int,
-    private val years:List<Int>,private val motion:Boolean,private val source:()->View?,private val onYear:(Int)->Unit){
+    private val years:List<Int>,private val motion:Boolean,private val onYear:(Int)->Unit){
     private val today=model.today
     private val frame=FrameLayout(a)
     private val col=a.column()
-    private val snapView=ImageView(a).apply{scaleType=ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
     private lateinit var tabs:LinearLayout
     private lateinit var progress:LinearLayout
     private lateinit var scroll:ScrollView
@@ -51,23 +47,16 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
     private var share:FrameLayout?=null
     private var closing=false
     private val insets=android.graphics.Rect()
-    private var from:RectF?=null
-    private var snap:Bitmap?=null
-    private val bounds=RectF();private var radius=0f
-    private var anim:ValueAnimator?=null
     fun show(){
         val decor=a.window.decorView as ViewGroup
         frame.isClickable=true;frame.setBackgroundColor(a.bg)
-        frame.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){
-            if(bounds.isEmpty)o.setRect(0,0,v.width,v.height) else o.setRoundRect(bounds.left.roundToInt(),bounds.top.roundToInt(),bounds.right.roundToInt(),bounds.bottom.roundToInt(),radius)}}
-        frame.clipToOutline=true
         ViewCompat.getRootWindowInsets(decor)?.let{val s=SafeArea.content(it,false);insets.set(s.left,s.top,s.right,s.bottom)}
         // header: collapse · caption · share, then the years as big serif tabs and the progress
         val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),a.d(8),a.d(16),0)}
         fun round(kind:String,desc:String,click:()->Unit)=FrameLayout(a).apply{isClickable=true;contentDescription=desc;setOnClickListener{click()}
             background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x14ffffff)}
             addView(Glyph(a,kind,a.fg),FrameLayout.LayoutParams(a.d(17),a.d(17),Gravity.CENTER));a.press(this)}
-        bar.addView(round("down","Свернуть"){close()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+        bar.addView(round("back","Назад"){close()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
         // approved «Мой год в книгах»: the years small in the middle of the bar (this one bright), the page below
         tabs=a.line().apply{gravity=Gravity.CENTER}
         bar.addView(HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(tabs)},LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(10);marginEnd=a.d(10)})
@@ -89,32 +78,10 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         a.goalRoad=this
         bindYear(false)
         if(!motion)return
-        capture();apply(0f);col.setLayerType(View.LAYER_TYPE_HARDWARE,null)
-        // start on the first drawn frame, so no step of the morph is skipped
-        frame.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{frame.viewTreeObserver.removeOnPreDrawListener(this)
-            run(0f,1f,520,PathInterpolator(.2f,0f,0f,1f)){col.setLayerType(View.LAYER_TYPE_NONE,null);frame.removeView(snapView);bounds.setEmpty();frame.invalidateOutline()};return true}})
+        // start on the first drawn frame (off screen), so no step of the move is skipped
+        val depth=Depth(a,frame);depth.pose(1f)
+        frame.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{frame.viewTreeObserver.removeOnPreDrawListener(this);depth.enter();return true}})
     }
-    private fun run(f:Float,t:Float,ms:Long,i:android.animation.TimeInterpolator,end:()->Unit){anim?.cancel()
-        anim=ValueAnimator.ofFloat(f,t).apply{duration=ms;interpolator=i;addUpdateListener{apply(it.animatedValue as Float)}
-            addListener(object:android.animation.AnimatorListenerAdapter(){var cancelled=false
-                override fun onAnimationCancel(x:android.animation.Animator){cancelled=true}
-                override fun onAnimationEnd(x:android.animation.Animator){if(!cancelled)end()}});start()}}
-    private var k=1f
-    /** One step of the morph: [p] 0 is the card, 1 the whole screen. */
-    private fun apply(p:Float){k=p;val W=frame.width.takeIf{it>0}?.toFloat()?:(a.window.decorView.width.toFloat());val H=frame.height.takeIf{it>0}?.toFloat()?:(a.window.decorView.height.toFloat())
-        val f=from?:RectF(0f,0f,W,H)
-        bounds.set(f.left*(1-p),f.top*(1-p),f.right+(W-f.right)*p,f.bottom+(H-f.bottom)*p);radius=a.d(28)*(1-p);frame.invalidateOutline()
-        val sc=bounds.width()/W;col.pivotX=0f;col.pivotY=0f;col.scaleX=sc;col.scaleY=sc;col.translationX=bounds.left;col.translationY=bounds.top
-        col.alpha=((p-.12f)/.42f).coerceIn(0f,1f)
-        val s=snap;if(s!=null){val ss=bounds.width()/s.width;snapView.pivotX=0f;snapView.pivotY=0f;snapView.scaleX=ss;snapView.scaleY=ss;snapView.translationX=bounds.left;snapView.translationY=bounds.top
-            snapView.alpha=(1f-p/.32f).coerceIn(0f,1f)}}
-    /** Where the card is now and a picture of it, for the morph. */
-    private fun capture(){val v=source();frame.removeView(snapView);snapView.setImageDrawable(null);snap?.recycle();snap=null
-        if(v==null||!v.isAttachedToWindow||v.width==0){from=null;return}
-        val l=IntArray(2);v.getLocationOnScreen(l);val o=IntArray(2);a.window.decorView.getLocationOnScreen(o)
-        from=RectF((l[0]-o[0]).toFloat(),(l[1]-o[1]).toFloat(),(l[0]-o[0]+v.width).toFloat(),(l[1]-o[1]+v.height).toFloat())
-        snap=try{Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888).also{v.draw(Canvas(it))}}catch(e:Throwable){null}
-        snap?.let{snapView.setImageBitmap(it);frame.addView(snapView,FrameLayout.LayoutParams(it.width,it.height,Gravity.TOP or Gravity.START))}}
     private fun bindYear(animated:Boolean){
         tabs.removeAllViews()
         years.forEach{y->val on=y==year
@@ -133,9 +100,8 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
     fun close(){if(closing)return;closing=true
         closeShare()
         if(!motion){finish();return}
-        capture();bounds.set(0f,0f,frame.width.toFloat(),frame.height.toFloat());col.setLayerType(View.LAYER_TYPE_HARDWARE,null);apply(k)
-        run(k,0f,420,PathInterpolator(.3f,0f,.1f,1f)){finish()}}
-    private fun finish(){(frame.parent as? ViewGroup)?.removeView(frame);if(a.goalRoad===this)a.goalRoad=null;snapView.setImageDrawable(null);snap?.recycle();snap=null;poster?.recycle();poster=null}
+        Depth(a,frame).leave{finish()}}
+    private fun finish(){(frame.parent as? ViewGroup)?.removeView(frame);if(a.goalRoad===this)a.goalRoad=null;poster?.recycle();poster=null}
 
     // ───── share picture ─────
     private var poster:Bitmap?=null
@@ -155,9 +121,10 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         box.addView(acts,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(18)})
         layer.addView(box,FrameLayout.LayoutParams(-2,-2,Gravity.CENTER))
         frame.addView(layer,FrameLayout.LayoutParams(-1,-1));share=layer
-        if(motion){layer.alpha=0f;layer.animate().alpha(1f).setDuration(220).start()
-            img.translationY=a.d(24).toFloat();img.alpha=0f
-            img.animate().translationY(0f).alpha(1f).setStartDelay(60).setDuration(520).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}
+        // a picture to keep or send, over the page: it shows and grows a little in place
+        if(motion){layer.alpha=0f;layer.animate().alpha(1f).setDuration(MotionSpec.ASK_IN).setInterpolator(MotionSpec.enter).start()
+            img.scaleX=.94f;img.scaleY=.94f;img.alpha=0f
+            img.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(MotionSpec.ASK_IN).setInterpolator(MotionSpec.enter).start()}
         // the year page itself, whole, as one picture (the month names back in their places)
         (roadHost.getChildAt(roadHost.childCount-1)?.tag as? YearRails)?.reset()
         val bmp=try{val w=page.width;val h=min(page.height,w*6);Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888).also{val c=Canvas(it);c.drawColor(a.bg);page.draw(c)}}catch(e:Throwable){null}
@@ -166,7 +133,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
             val r=bmp.height.toFloat()/bmp.width;val iw=if(ph/r>pw)pw else (ph/r).toInt();img.layoutParams=img.layoutParams.apply{width=if(ph/r>pw)pw else iw;height=if(ph/r>pw)(pw*r).toInt() else ph}}
     }
     private fun closeShare(){val layer=share?:return;share=null
-        if(motion)layer.animate().alpha(0f).setDuration(180).withEndAction{frame.removeView(layer)}.start() else frame.removeView(layer)}
+        if(motion)layer.animate().alpha(0f).setDuration(MotionSpec.ASK_OUT).setInterpolator(MotionSpec.exit).withEndAction{frame.removeView(layer)}.start() else frame.removeView(layer)}
     private fun send(y:Int){val bmp=poster?:return;val dir=File(a.cacheDir,"calendar-share").apply{mkdirs()};val file=File(dir,"Polka-goal-$y.png")
         a.work({file.outputStream().use{bmp.compress(Bitmap.CompressFormat.PNG,100,it)}}){
             val uri=FileProvider.getUriForFile(a,"${a.packageName}.calendar",file)

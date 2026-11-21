@@ -37,10 +37,11 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private fun switchTo(index:Int){
   if(index==selected)return;val direction=if(index>selected)1 else -1;selected=index;val token=++transition
   if(reduced()||!pane.isAttachedToWindow){pane.animate().cancel();pane.alpha=1f;pane.translationX=0f;fill();return}
-  val shift=a.d(18).toFloat();pane.animate().cancel()
-  pane.animate().alpha(0f).translationX(-direction*shift).setDuration(110).setInterpolator(android.view.animation.AccelerateInterpolator()).withEndAction{
+  // the tabs of the sheet move like the app's own tabs (see MotionSpec)
+  val shift=a.d(MotionSpec.TAB_SHIFT).toFloat();pane.animate().cancel()
+  pane.animate().alpha(0f).translationX(-direction*shift).setDuration(MotionSpec.TAB_OUT).setInterpolator(MotionSpec.exit).withEndAction{
    if(token!=transition)return@withEndAction;fill();pane.translationX=direction*shift
-   pane.animate().alpha(1f).translationX(0f).setDuration(260).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()
+   pane.animate().alpha(1f).translationX(0f).setDuration(MotionSpec.TAB_IN).setInterpolator(MotionSpec.enter).start()
   }.start()
  }
  /** Containers the notebook opened up for its cards' shadows, with how they were; the other tabs get them back clipped,

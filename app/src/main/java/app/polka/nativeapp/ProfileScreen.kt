@@ -16,6 +16,5 @@ fun MainActivity.showProfile(stats:JSONObject,range:Int,animate:Boolean=true) {
 
 /** Same presentation-to-target transition for toolbar and system Back. */
 fun MainActivity.dismissProfile(){val panel=profileOverlay?:return;profileOverlay=null;profileStats=null
- if(prefs.str("motion")=="reduced"){root.removeView(panel);return}
- NativeMotion(panel,MotionPose(panel.alpha,panel.translationX,panel.translationY,panel.scaleX),MotionPose(0f,y=d(14).toFloat(),scale=.985f),240,curve=MotionSpec.settle,complete={root.removeView(panel)}).start()
+ Depth(this,panel).leave{root.removeView(panel)}
 }

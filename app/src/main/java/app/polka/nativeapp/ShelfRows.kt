@@ -323,13 +323,12 @@ internal fun MainActivity.shelfRows(){
     val byShelf=books.groupBy{it.str("shelf")};val names=(prefs.optJSONArray("shelves")?.strings().orEmpty()+byShelf.keys.filter{it.isNotBlank()}).distinct()
     val manual=names.sortedWith(compareByDescending<String>{byShelf[it]?.size ?: 0}.thenBy{it})
     lateinit var editor:ShelfEditor
-    val motion={MotionPose(.4f,x=d(18).toFloat()) to MotionSpec.SHELF}
     /** One of your shelves. Its name can change while the page stays up, so everything asks for the current one. */
     fun own(name0:String,list:List<JSONObject>):ShelfRow{var cur=name0;lateinit var row:ShelfRow
-        row=ShelfRow(this,"s:$name0",name0,sortBooks(list),{pendingMotion=motion();shelf=cur;render(false,false)},{shelfActions(cur)},
+        row=ShelfRow(this,"s:$name0",name0,sortBooks(list),{enterShelf{shelf=cur}},{shelfActions(cur)},
             {next:String->val old=cur;cur=next;renameShelf(old,next,quiet=true)},{val gone=cur;editor.delete(row){removeShelfQuietly(gone)}})
         return row}
-    val autos=(listOf("reading","want","done")+listOf("paused").filter{k->books.any{Library.status(it)==k}}).map{key->ShelfRow(this,"a:$key",MainActivity.autoTitle(key),sortBooks(books.groupBy{Library.status(it)}[key].orEmpty()),{pendingMotion=motion();auto=key;render(false,false)},{autoShelfActions(key)},null)}
+    val autos=(listOf("reading","want","done")+listOf("paused").filter{k->books.any{Library.status(it)==k}}).map{key->ShelfRow(this,"a:$key",MainActivity.autoTitle(key),sortBooks(books.groupBy{Library.status(it)}[key].orEmpty()),{enterShelf{auto=key}},{autoShelfActions(key)},null)}
     val saved=prefs.optJSONArray("shelfOrder")?.strings().orEmpty()
     val rows=(manual.map{own(it,byShelf[it].orEmpty())}+autos).sortedBy{saved.indexOf(it.key).let{i->if(i<0)Int.MAX_VALUE else i}}
     rows.forEachIndexed{i,r->page.addView(r,LinearLayout.LayoutParams(-1,-2).apply{if(i>0)topMargin=d(26)})}

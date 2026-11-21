@@ -78,12 +78,11 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         space(content,8)
         streak();speed();readingTime();books();taste();records();tiers()
         if(!motionOn)return
-        // a simple, calm entrance: the whole page fades in, everything on it already in place
-        // starts after the page's first (heavier) frame has been drawn, so no part of it is skipped; the still page
-        // is cached in a layer while it fades and rises, which keeps every frame light
-        scroll.alpha=0f;scroll.translationY=a.d(18).toFloat();scroll.scaleX=.985f;scroll.scaleY=.985f
+        // one level in (see Depth): the page comes in from the right over the one it was opened from; it starts after
+        // the page's first (heavier) frame has been drawn off screen, so no part of the move is skipped
+        val depth=Depth(a,scroll);depth.pose(1f)
         val ch=android.view.Choreographer.getInstance()
-        ch.postFrameCallback{ch.postFrameCallback{scroll.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(340).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withLayer().start()}}
+        ch.postFrameCallback{ch.postFrameCallback{if(scroll.isAttachedToWindow)depth.enter()}}
     }
     // ───────────────────────── glass cards ─────────────────────────
     /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
@@ -313,7 +312,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun tiers(){
         val ys=Tiers.years(model);if(ys.isEmpty())return
         TierBackdrop.prepare(a)
-        val box=surface(StarRow.starYellow(a),.86f,.1f,.8f);a.tierCard=box
+        val box=surface(StarRow.starYellow(a),.86f,.1f,.8f)
         fun bind(){box.removeAllViews()
             val y=if(today.year in ys)today.year else ys.first()
             val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
@@ -334,13 +333,13 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 inTier.take(fit).forEach{b->row.addView(CoverView(a,b,a.cover(b)).apply{softShadow=true},LinearLayout.LayoutParams(a.d(40),a.d(60)).apply{marginStart=a.d(if(row.childCount==1)16 else 8)})}
                 box.addView(row,LinearLayout.LayoutParams(-1,a.d(72)))}
             box.contentDescription="Тир-лист за $y"}
-        box.isClickable=true;box.setOnClickListener{if(a.tierList==null)TierListOverlay(a,model,if(today.year in ys)today.year else ys.first(),{a.tierCard?.takeIf{it.isAttachedToWindow}?:box}){bind()}.show()}
+        box.isClickable=true;box.setOnClickListener{if(a.tierList==null)TierListOverlay(a,model,if(today.year in ys)today.year else ys.first()){bind()}.show()}
         a.press(box)
         bind();add(box)
     }
     /** The whole road of the year, opened out of the card; switching the year there switches it on the card too. */
     private fun openRoad(box:View,years:List<Int>,rebind:()->Unit){if(a.goalRoad!=null)return
-        GoalRoadOverlay(a,model,data,goalYear,years,live,{box}){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.show()}
+        GoalRoadOverlay(a,model,data,goalYear,years,live){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.show()}
 }
 
 internal fun MainActivity.updateStatistics(change:(JSONObject)->Unit) {

@@ -23,7 +23,7 @@ internal class DetailReveal(private val a:MainActivity):FrameLayout(a){
  private val paint=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
  init{setWillNotDraw(false);clipChildren=false;clipToPadding=false;addView(body,LayoutParams(-1,-2))}
  private fun stop(){clock?.removeAllListeners();clock?.cancel();clock=null}
- fun change(animated:Boolean,dissolveInk:Boolean=true,crossfadeInk:Boolean=false,duration:Long=360,clip:Boolean=true,curve:android.animation.TimeInterpolator=MotionSpec.settle,update:()->Unit){
+ fun change(animated:Boolean,dissolveInk:Boolean=true,crossfadeInk:Boolean=false,duration:Long=360,clip:Boolean=true,curve:android.animation.TimeInterpolator=MotionSpec.enter,update:()->Unit){
   val move=animated&&a.prefs.str("motion")!="reduced"&&isLaidOut&&width>0&&height>0
   val h=height
   val capture=if(move&&(dissolveInk||crossfadeInk)){val scale=minOf(1f,1024f/max(width,height));Bitmap.createBitmap(max(1,(width*scale).roundToInt()),max(1,(height*scale).roundToInt()),Bitmap.Config.ARGB_8888).also{val c=Canvas(it);c.scale(scale,scale);draw(c)}}else null

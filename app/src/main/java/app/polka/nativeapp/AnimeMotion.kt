@@ -54,7 +54,6 @@ internal class Spring private constructor(private val m:Double,private val s:Dou
         fun of(bounce:Double=.5,perceivedMs:Double=628.0):Spring{val bn=bounce.coerceIn(-1.0,1.0);val pds=perceivedMs.coerceAtLeast(10.0)/1000
             val stiffness=(2*PI/pds).pow(2);val damping=if(bn>=0)((1-bn)*4*PI)/pds else (4*PI)/(pds*(1+bn))
             return Spring(1.0,stiffness,damping.coerceAtMost(300.0),0.0)}
-        val snappy by lazy{of(.18,340.0)}
     }
 }
 

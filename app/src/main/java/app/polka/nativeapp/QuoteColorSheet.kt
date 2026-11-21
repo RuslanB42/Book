@@ -71,13 +71,13 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         dlg.setOnDismissListener{onClose?.invoke()}
         paint()
         dlg.show()
-        if(!reduced){sheet.translationY=a.d(1200).toFloat();sheet.post{val h=sheet.height+a.d(24).toFloat();LiquidSpring{v,_->sheet.translationY=h*v}.apply{snap(1f);to(0f)}}}
+        if(!reduced){sheet.translationY=a.d(1200).toFloat();sheet.post{val h=sheet.height+a.d(24).toFloat();SheetMotion{v->sheet.translationY=h*v}.apply{snap(1f);to(0f)}}}
     }
     private var sectLabel:TextView?=null
     private fun close(velocity:Float=0f){val d=dialog?:return;dialog=null
         if(reduced){d.dismiss();return}
         val v=holder;val left=v.height+a.d(24)-v.translationY
-        v.animate().translationY(v.height+a.d(24).toFloat()).setDuration((if(velocity>0f)(left/velocity*1000f).toLong() else 240L).coerceIn(140L,260L)).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{d.dismiss()}.start()}
+        v.animate().translationY(v.height+a.d(24).toFloat()).setDuration((if(velocity>0f)(left/velocity*1000f).toLong() else MotionSpec.SHEET_OUT).coerceIn(140L,MotionSpec.SHEET_OUT)).setInterpolator(MotionSpec.exit).withEndAction{d.dismiss()}.start()}
 
     /** Everything that shows the current colour. */
     private fun paint(){pad.invalidate();hue.invalidate();swatch.invalidate()
@@ -213,7 +213,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
                 MotionEvent.ACTION_MOVE->holder.translationY=(e.rawY-y0).coerceAtLeast(0f)
                 MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{vt?.computeCurrentVelocity(1000);val v=vt?.yVelocity?:0f;dragging=false
                     if(holder.translationY>holder.height*.25f||v>a.d(900))close(v.coerceAtLeast(0f))
-                    else holder.animate().translationY(0f).setDuration(320).setInterpolator(OvershootInterpolator(.8f)).start()}};return true}
+                    else holder.animate().translationY(0f).setDuration(MotionSpec.SETTLE).setInterpolator(MotionSpec.move).start()}};return true}
     }
     private fun MainActivity.d(v:Float)=v*resources.displayMetrics.density
 }

@@ -96,10 +96,10 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         dialog.setOnDismissListener{finish()}
         setMode(mode,false)
         dialog.show()
-        root.alpha=0f;root.animate().alpha(1f).setDuration(if(reduced)0 else 220).start()
+        root.alpha=0f;root.animate().alpha(1f).setDuration(if(reduced)0 else MotionSpec.DARK_OUT).setInterpolator(MotionSpec.enter).start()
         root.postDelayed({setChrome(false)},1400)
     }
-    private fun close(){root.animate().alpha(0f).setDuration(if(reduced)0 else 180).withEndAction{dialog.dismiss()}.start()}
+    private fun close(){root.animate().alpha(0f).setDuration(if(reduced)0 else MotionSpec.DARK_IN).setInterpolator(MotionSpec.exit).withEndAction{dialog.dismiss()}.start()}
     private fun finish(){root.removeCallbacks(heartbeat);val finished=finishOnClose();credit(finished);paused=true;if(a.pageReading===this)a.pageReading=null;a.immersiveSheets=false;Ambience.stop(a);save(true);io.shutdownNow();source.close()
         if(finished)a.root.postDelayed({if(!a.isFinishing&&!a.isDestroyed)BookFinish(a,book){}.show()},300)}
     /** The end of the book is being shown (the window «Книга прочитана» or the question before it). */
@@ -272,9 +272,9 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         sheet.addView(segment(listOf("Страница целиком","По ширине"),if(widthFit)1 else 0){k->a.prefs.put("comicFit",if(k==1)"width" else "page");a.savePreferences();paged?.refit()},LinearLayout.LayoutParams(-1,H))
         val lp=FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{setMargins(a.d(8),0,a.d(8),a.d(8))}
         root2.addView(sheet,lp)
-        var entrance:LiquidSpring?=null;var closing=false
+        var entrance:SheetMotion?=null;var closing=false
         fun dismiss(){if(closing)return;closing=true;entrance?.stop();if(reduced){dlg.dismiss();return}
-            sheet.animate().translationY(sheet.height+a.d(24).toFloat()).setDuration(240).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{dlg.dismiss()}.start()}
+            sheet.animate().translationY(sheet.height+a.d(24).toFloat()).setDuration(MotionSpec.SHEET_OUT).setInterpolator(MotionSpec.exit).withEndAction{dlg.dismiss()}.start()}
         root2.setOnClickListener{dismiss()}
         dlg.setContentView(root2)
         dlg.window?.let{w->w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0));w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);w.setLayout(-1,-1);w.setWindowAnimations(0)
@@ -284,7 +284,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         SafeArea.bind(root2){i->val s=SafeArea.content(i,false);lp.bottomMargin=a.d(8)+s.bottom;lp.leftMargin=a.d(8)+s.left;lp.rightMargin=a.d(8)+s.right;sheet.layoutParams=lp}
         dlg.setOnKeyListener{_,code,e->if(code==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){dismiss();true}else false}
         dlg.show()
-        if(!reduced){sheet.translationY=a.d(1200).toFloat();sheet.post{val h=sheet.height+a.d(24).toFloat();val spring=LiquidSpring{v,_->sheet.translationY=h*v};entrance=spring;spring.snap(1f);spring.to(0f)}}
+        if(!reduced){sheet.translationY=a.d(1200).toFloat();sheet.post{val h=sheet.height+a.d(24).toFloat();val spring=SheetMotion{v->sheet.translationY=h*v};entrance=spring;spring.snap(1f);spring.to(0f)}}
     }
     /** A page in the «Страницы» grid: the picture as a card, ringed when it is the open page, a ribbon when bookmarked. */
     private inner class GridThumb(val i:Int,private val marked:Boolean):View(a){
