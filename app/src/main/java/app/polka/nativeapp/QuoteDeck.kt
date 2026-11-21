@@ -18,6 +18,8 @@ import kotlin.math.*
  */
 internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,quotes:List<JSONObject>,private val showHead:Boolean=true,private val onOpen:((JSONObject)->Unit)?=null):LinearLayout(a){
     private val list=quotes.sortedWith(compareBy<JSONObject>{it.optInt("ch")}.thenBy{it.optInt("start")})
+    /** Which quote each card shows. */
+    private val quoteOf=HashMap<View,Int>()
     private var index=(a.quoteDeckIndex[book.str("id")]?:0).coerceIn(0,(list.size-1).coerceAtLeast(0))
     private val counter=a.text("",12.5f,a.muted)
     private val deck=Deck()
@@ -70,7 +72,7 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
     private fun card(i:Int):View=a.quoteCardNative(book,list[i],onOpen?.let{f->{f(list[i])}}).apply{
         val r=a.d(24).toFloat()
         outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){val h=((view.tag as? Int)?:view.height).coerceAtMost(view.height);o.setRoundRect(0,0,view.width,maxOf(h,1),r)}}
-        clipToOutline=true}
+        clipToOutline=true}.also{quoteOf[it]=i}
 
     /**
      * The fan (approved «карточка уходит под веер»). The sheets under the card are real quote cards — the next quotes —
@@ -126,6 +128,9 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
         private fun pose(p:Float){lift=p;for(k in 1 until cards.size){place(cards[k],k-1,p);content(cards[k],0f)}}
         /** The sheets under the card are blank: only the card on top shows its words and buttons. */
         private fun content(v:View,al:Float){(v as? ViewGroup)?.let{g->for(i in 0 until g.childCount)g.getChildAt(i).alpha=al}}
+        /** Puts the quote that really comes at place [k] (index + k) onto that sheet. Sheets are blank, so it does not show. */
+        private fun hold(k:Int){val want=Math.floorMod(index+k,list.size);val v=cards[k];if(quoteOf[v]==want)return
+            val fresh=card(want);fresh.tag=v.tag;val at=indexOfChild(v);removeView(v);quoteOf.remove(v);addView(fresh,at);cards[k]=fresh;content(fresh,0f)}
         override fun onInterceptTouchEvent(e:MotionEvent):Boolean{
             if(list.size<2||busy)return false
             when(e.actionMasked){MotionEvent.ACTION_DOWN->{downX=e.x;downY=e.y;dragging=false;velocity?.recycle();velocity=VelocityTracker.obtain().also{it.addMovement(e)}}
@@ -150,15 +155,15 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             val sx=old.translationX;val sy=old.translationY;val sr=old.rotation;val from=lift
             val outX=width*.82f*dir;val outY=a.d(28).toFloat();val outR=dir*16f
             val back=cards.size-2 // the last place in the fan
+            // the sheet that rises is the quote that comes now: the next one, or the one before when thrown to the right
+            if(cards.size>1){hold(1);pose(lift)}
             val next=if(cards.size>1)cards[1] else null
             fun finish(){
                 // the deck turns round: the risen sheet is the card now, the thrown card the last sheet
                 cards.removeAt(0);cards.add(old);heldH=-1;resizing=false
-                // with more quotes than places, the last sheet shows the quote that really comes there; it fades in
-                // over the thrown card, which only peeks out at the edges
-                if(list.size>cards.size){val k=cards.size-1;val fresh=card(Math.floorMod(index+k,list.size));fresh.alpha=0f;addView(fresh,indexOfChild(old)+1)
-                    cards[k]=fresh;measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));layout(left,top,right,bottom)
-                    pose(0f);fresh.animate().alpha(1f).setDuration(220).withEndAction{removeView(old)}.start()}
+                // every sheet holds the quote that really comes at its place (the thrown card may not)
+                for(k in 1 until cards.size)hold(k)
+                measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));layout(left,top,right,bottom)
                 pose(0f);content(front,1f);requestLayout();busy=false}
             if(reduced()||next==null){old.translationX=0f;old.translationY=0f;old.rotation=0f;finish();return}
             // the deck keeps the height it had while the card flies off; then, the card gone blank, every card takes the
