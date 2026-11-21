@@ -406,7 +406,7 @@ class MainActivity : Activity() {
     internal var navRevealed=false
     /** Switches to the tab [key] the way a tap on the navigation does: the pages slide, the pill glides. */
     fun goTab(key:String) {
-            if(tab!=key || shelf!=null || auto!=null) { val from=listOf("home","shelves","quotes","words").indexOf(tab);val to=listOf("home","shelves","quotes","words").indexOf(key);tabScroll[tab]=scroll.scrollY;val oldScroll=scroll;screenMotion.stop();pendingMotion=null;librarySearch?.close(false);tab=key;shelf=null;auto=null;query="";render(false,false)
+            if(tab!=key || shelf!=null || auto!=null) { val from=listOf("home","shelves","quotes","words").indexOf(tab);val to=listOf("home","shelves","quotes","words").indexOf(key);tabScroll[tab]=scroll.scrollY;val oldScroll=scroll;screenMotion.stop();librarySearch?.close(false);tab=key;shelf=null;auto=null;query="";render(false,false)
                 // Restore the tab's scroll after layout but BEFORE the first frame (a posted scroll showed one frame
                 // at the top — with its top buttons — and then jumped).
                 val target=tabScroll[key] ?: 0;val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this);sv.scrollTo(0,target);return true}})

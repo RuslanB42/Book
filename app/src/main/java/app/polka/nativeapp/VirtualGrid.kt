@@ -50,6 +50,6 @@ class VirtualGrid(context:Context,private val count:Int,private val columns:Int,
         val before=live.values.associateWith{floatArrayOf(it.left+it.translationX,it.top+it.translationY)}
         val remap=sortedMapOf<Int,View>();live.forEach{(i,v)->val next=when{ i==from->to;from<to&&i in from+1..to->i-1;to<from&&i in to until from->i+1;else->i };remap[next]=v};live.clear();live.putAll(remap)
         mutate();geometry(width);measureCells();place();requestLayout()
-        live.values.forEach{v->val old=before[v]?:return@forEach;v.animate().cancel();v.translationX=old[0]-v.left;v.translationY=old[1]-v.top;if(animate&&v!==pinned)v.animate().translationX(0f).translationY(0f).setDuration(260).setInterpolator(MotionSpec.settle).start()else{v.translationX=0f;v.translationY=0f}}
+        live.values.forEach{v->val old=before[v]?:return@forEach;v.animate().cancel();v.translationX=old[0]-v.left;v.translationY=old[1]-v.top;if(animate&&v!==pinned)v.animate().translationX(0f).translationY(0f).setDuration(260).setInterpolator(MotionSpec.enter).start()else{v.translationX=0f;v.translationY=0f}}
     }
 }
