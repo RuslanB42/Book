@@ -104,7 +104,7 @@ internal class ReviewChip(private val a:MainActivity,val label:String,selected:B
 }
 
 /**
- * «Ваша оценка» in the book card: the stars in the middle; once a book is rated, four quick marks and a short note
+ * «Ваша оценка» in the book card: the stars across the card; once a book is rated, four quick marks and a short note
  * open up below them. While nobody is typing, the review rests as a small
  * note: your words, the marks, the date and a pencil. Everything saves by itself.
  */
@@ -134,7 +134,7 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
 
     init{orientation=VERTICAL;clipChildren=false;clipToPadding=false
         a.floatCard(this,24);setPadding(a.d(16),a.d(10),a.d(16),a.d(10));clipToOutline=true
-        // the stars in the middle, no words
+        // the stars across the whole card, no words
         starsBox.addView(stars,FrameLayout.LayoutParams(-1,-1))
         addView(starsBox,LayoutParams(-1,a.d(52)))
         // editor
@@ -172,7 +172,7 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
         show(if(r==0)Mode.EMPTY else if(hasContent())Mode.NOTE else Mode.EDIT,false)
     }
 
-    private fun makeStars(r:Int)=NativeRating(a,r,true,30f,8f){n->rate(n)}
+    private fun makeStars(r:Int)=NativeRating(a,r,true,30f,8f,spread=true){n->rate(n)}
     private fun tags():List<String> =book.optJSONArray("reviewTags")?.let{j->(0 until j.length()).map{j.optString(it)}.filter{it.isNotBlank()}}?:emptyList()
     private fun text()=if(mode==Mode.EDIT||field.hasFocus())field.text.toString().trim() else book.optString("review","").trim()
     private fun hasContent()=text().isNotEmpty()||tags().isNotEmpty()

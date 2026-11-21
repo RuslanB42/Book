@@ -17,9 +17,10 @@ internal object Rating{
 /**
  * Five stars in half steps: the left half of a star gives half of it, the right half the whole star, and a finger
  * drawn along the row picks as it goes. The fill sweeps to the new value; the chosen star gives a short press.
- * Tapping the chosen value again clears it when [toggle].
+ * Tapping the chosen value again clears it when [toggle]. With [spread] the stars run across the whole width, the
+ * first at the left edge and the last at the right.
  */
-class NativeRating(val a:MainActivity,initial:Int=0,val toggle:Boolean=true,private val starDp:Float=30f,private val gapDp:Float=10f,private val center:Boolean=true,val changed:(Int)->Unit):View(a) {
+class NativeRating(val a:MainActivity,initial:Int=0,val toggle:Boolean=true,private val starDp:Float=30f,private val gapDp:Float=10f,private val center:Boolean=true,private val spread:Boolean=false,val changed:(Int)->Unit):View(a) {
     /** Half stars, 0…10. */
     var value=initial.coerceIn(0,10); private set
     private var shown=value/2f
@@ -28,13 +29,14 @@ class NativeRating(val a:MainActivity,initial:Int=0,val toggle:Boolean=true,priv
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeJoin=Paint.Join.ROUND;strokeCap=Paint.Cap.ROUND}
     private val star get()=a.d(1)*starDp
-    private val gap get()=a.d(1)*gapDp
+    private val gap get()=if(spread&&width>0)((width-star*5)/4f).coerceAtLeast(a.d(1)*gapDp) else a.d(1)*gapDp
     private val rowWidth get()=star*5+gap*4
-    private val left get()=if(center)(width-rowWidth)/2f else 0f
+    private val left get()=if(center&&!spread)(width-rowWidth)/2f else 0f
     private var downValue=0;private var dragged=false;private var downX=0f
     init{isClickable=true;isFocusable=true;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES;describe()}
-    override fun onMeasure(w:Int,h:Int){val want=kotlin.math.ceil(rowWidth).toInt();val mw=MeasureSpec.getMode(w);val sw=MeasureSpec.getSize(w)
-        val width=when(mw){MeasureSpec.EXACTLY->sw;MeasureSpec.AT_MOST->if(center)sw else minOf(want,sw);else->want}
+    override fun onMeasure(w:Int,h:Int){val mw=MeasureSpec.getMode(w);val sw=MeasureSpec.getSize(w)
+        val want=kotlin.math.ceil(star*5+a.d(1)*gapDp*4).toInt()
+        val width=when(mw){MeasureSpec.EXACTLY->sw;MeasureSpec.AT_MOST->if(center||spread)sw else minOf(want,sw);else->want}
         setMeasuredDimension(width,resolveSize((star+a.d(12)).roundToInt(),h))}
     private fun describe(){contentDescription=if(value==0)"Без оценки" else "Оценка ${Rating.text(value)} из 5"}
     /** The half step under [x]. */
