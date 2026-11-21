@@ -17,11 +17,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Words and quick marks offered for each rating. */
+/** Quick marks and the note's question offered for each rating. */
 internal object Reviews {
     /** The whole stars of a rating in half stars (4,5 reads as a four that is better than four). */
     private fun whole(h:Int)=h/2
-    fun verdict(h:Int)=when{h>=10->"Любимая";h>=8->"Понравилась";h>=6->"Неплохо";h>=4->"Так себе";h>=1->"Не понравилась";else->""}
     fun marks(h:Int)=when(whole(h)){
         5->listOf("Не оторваться","Перечитаю","Красивый язык","Сильный финал")
         4->listOf("Не оторваться","Заставила думать","Красивый язык","Перечитаю")
@@ -105,8 +104,8 @@ internal class ReviewChip(private val a:MainActivity,val label:String,selected:B
 }
 
 /**
- * «Ваша оценка» in the book card: the stars as before; once a book is rated, a word for the rating appears on the right,
- * and below the stars four quick marks and a short note open up. While nobody is typing, the review rests as a small
+ * «Ваша оценка» in the book card: the stars in the middle; once a book is rated, four quick marks and a short note
+ * open up below them. While nobody is typing, the review rests as a small
  * note: your words, the marks, the date and a pencil. Everything saves by itself.
  */
 internal class ReviewBlock(private val a:MainActivity,private val book:JSONObject):LinearLayout(a){
@@ -114,7 +113,6 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
     private var mode=Mode.EMPTY
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private val ru=Locale("ru")
-    private val verdict=a.text("",15f,StarRow.starYellow(a),true).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL;maxLines=1}
     private var stars=makeStars(Rating.halves(book))
     private val starsBox=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
     // editor
@@ -136,9 +134,8 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
 
     init{orientation=VERTICAL;clipChildren=false;clipToPadding=false
         a.floatCard(this,24);setPadding(a.d(16),a.d(10),a.d(16),a.d(10));clipToOutline=true
-        // the stars on the left, the word for the rating on the right
-        starsBox.addView(stars,FrameLayout.LayoutParams(-2,-1,Gravity.START or Gravity.CENTER_VERTICAL))
-        starsBox.addView(verdict,FrameLayout.LayoutParams(-2,-2,Gravity.END or Gravity.CENTER_VERTICAL))
+        // the stars in the middle, no words
+        starsBox.addView(stars,FrameLayout.LayoutParams(-1,-1))
         addView(starsBox,LayoutParams(-1,a.d(52)))
         // editor
         editor.addView(ask,LayoutParams(-1,-2).apply{topMargin=a.d(6);bottomMargin=a.d(10)})
@@ -171,34 +168,24 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
             override fun onViewDetachedFromWindow(v:View){a.focusKeepers.remove(chips);removeCallbacks(saveTask);removeCallbacks(collapseTask);persist()}})
         lastSig=signature()
         val r=Rating.halves(book)
-        setVerdict(r,false);fillChips(r,false);field.hint=Reviews.question(r)
+        fillChips(r,false);field.hint=Reviews.question(r)
         show(if(r==0)Mode.EMPTY else if(hasContent())Mode.NOTE else Mode.EDIT,false)
     }
 
-    private fun makeStars(r:Int)=NativeRating(a,r,true,30f,8f,false){n->rate(n)}
+    private fun makeStars(r:Int)=NativeRating(a,r,true,30f,8f){n->rate(n)}
     private fun tags():List<String> =book.optJSONArray("reviewTags")?.let{j->(0 until j.length()).map{j.optString(it)}.filter{it.isNotBlank()}}?:emptyList()
     private fun text()=if(mode==Mode.EDIT||field.hasFocus())field.text.toString().trim() else book.optString("review","").trim()
     private fun hasContent()=text().isNotEmpty()||tags().isNotEmpty()
 
     private fun rate(n:Int){val old=shownRating;shownRating=n
         Rating.put(book,n);persist(true)
-        setVerdict(n,true);field.hint=if(n>0)Reviews.question(n) else ""
+        field.hint=if(n>0)Reviews.question(n) else ""
         if(n==0){show(Mode.EMPTY,true);return}
         // marks the new rating also offers stay chosen; the rest fall away
         val keep=tags().filter{it in Reviews.marks(n)};if(keep!=tags()){putTags(keep);persist(true)}
         if(Reviews.marks(old)!=Reviews.marks(n)){if(mode==Mode.EDIT)swapChips(n) else fillChips(n,false)}
         if(mode!=Mode.EDIT)show(Mode.EDIT,true)
     }
-
-    private fun setVerdict(n:Int,animate:Boolean){val s=Reviews.verdict(n)
-        if(!animate||reduced||!isAttachedToWindow){verdict.animate().cancel();verdict.text=s;verdict.alpha=if(s.isEmpty())0f else 1f;verdict.translationY=0f;return}
-        // appearing or leaving with the card is done by the card's own move; only a change of word is animated here
-        if(s.isEmpty()){verdict.animate().cancel();verdict.animate().alpha(0f).setStartDelay(0).setDuration(160).start();return}
-        if(verdict.visibility!=VISIBLE||verdict.text.isEmpty()){verdict.animate().cancel();verdict.text=s;verdict.translationY=0f;verdict.animate().alpha(1f).setStartDelay(0).setDuration(220).start();return}
-        val up=-a.d(6).toFloat()
-        verdict.animate().cancel();verdict.animate().alpha(0f).translationY(up).setStartDelay(0).setDuration(if(verdict.text.isEmpty())1 else 120).setInterpolator(AccelerateInterpolator()).withEndAction{
-            verdict.text=s;verdict.translationY=-up
-            if(s.isNotEmpty())verdict.animate().alpha(1f).translationY(0f).setDuration(320).setInterpolator(PathInterpolator(.2f,.9f,.3f,1f)).start()}.start()}
 
     private fun fillChips(n:Int,stagger:Boolean){chips.removeAllViews();if(!stagger)chips.reset();val chosen=tags()
         Reviews.marks(n).forEachIndexed{i,m->val c=ReviewChip(a,m,m in chosen){chip->onChip(chip)}
@@ -280,8 +267,8 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
 
     /** The book changed elsewhere (rated in the finish window, restored…): follow it without disturbing typing. */
     fun sync(){val r=Rating.halves(book)
-        if(r!=shownRating){shownRating=r;starsBox.removeView(stars);stars=makeStars(r);starsBox.addView(stars,0,FrameLayout.LayoutParams(-2,-1,Gravity.START or Gravity.CENTER_VERTICAL))
-            setVerdict(r,false);field.hint=Reviews.question(r);fillChips(r,false)
+        if(r!=shownRating){shownRating=r;starsBox.removeView(stars);stars=makeStars(r);starsBox.addView(stars,0,FrameLayout.LayoutParams(-1,-1))
+            field.hint=Reviews.question(r);fillChips(r,false)
             show(if(r==0)Mode.EMPTY else if(hasContent())Mode.NOTE else Mode.EDIT,isAttachedToWindow);return}
         if(mode==Mode.NOTE)fillNote()}
 }
