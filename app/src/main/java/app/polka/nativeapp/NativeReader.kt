@@ -255,7 +255,8 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             val rendered=ReadingText(a,size,width,maxImage,images,ink,leading,trimEmpty=trim).render(html);val rich=rendered.text
             WordGap.apply(rich,gapScale)
             quotes.filter{it.optInt("ch")==targetChapter}.forEach{q->val raw=q.str("rawText",q.str("text"));val range=TextAnchors.locate(rich.toString(),raw,q.optInt("start"));if(range!=null)rich.setSpan(QuoteInk(QuoteColors.ink(q.optString("color"))),range.first,range.last+1,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
-            Words.mark(rich,marks)
+            // the words being learned are underlined, and each one's sentence here joins its other sentences
+            val met=Words.mark(rich,marks);if(met.isNotEmpty())handler.post{if(!disposed)Words.meet(a,met,book.str("id"),book.str("title"))}
             rendered
         },paint,width,height,justify,hyph,early)},failed={if(generation==layoutGeneration){preparing=false;view.alpha=1f;reflowAfterLayout()}},done={result->
             if(!disposed && generation==layoutGeneration && chapter==targetChapter){

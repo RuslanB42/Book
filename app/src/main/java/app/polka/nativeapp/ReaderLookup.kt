@@ -71,6 +71,57 @@ internal object Dictionary{
         val cyr=clean.any{it in 'а'..'я'||it in 'А'..'Я'||it=='ё'||it=='Ё'}
         // the language of the letters first, then the more common word (so «ran» finds «run» before the rare noun «ran»)
         return out.sortedWith(compareBy<Pair<String,JSONObject>>{if((it.first=="ru")==cyr)0 else 1}.thenByDescending{it.second.optDouble("f",0.0)}).map{it.second.put("lang",it.first)}}
+    /** Random words of [lang] with a short meaning (word, meaning), for the wrong choices of an exercise. */
+    fun random(c:Context,lang:String,n:Int):List<Pair<String,String>>{val d=open(c)?:return emptyList();val out=ArrayList<Pair<String,String>>()
+        val top=d.rawQuery("SELECT MAX(rowid) FROM e",null).use{if(it.moveToFirst())it.getLong(0) else 0L};if(top<=0)return out
+        val rnd=java.util.Random();var tries=0
+        while(out.size<n&&tries<60){tries++
+            d.rawQuery("SELECT data FROM e WHERE rowid>=? AND lang=? LIMIT 1",arrayOf((1+(rnd.nextDouble()*top).toLong()).toString(),lang)).use{cur->if(cur.moveToFirst()){val e=JSONObject(cur.getString(0))
+                val w=e.optString("w").replace("́","");val tr=e.optJSONArray("t");val m=if(tr!=null&&tr.length()>0)(0 until minOf(tr.length(),3)).joinToString(", "){tr.getString(it)} else e.optJSONArray("s")?.optJSONArray(0)?.optString(0)?:""
+                if(w.length in 3..20&&w.none{it.isUpperCase()}&&m.length in 4..110&&out.none{it.first==w})out+=w to m}}}
+        return out}
+}
+
+/**
+ * Names and things a dictionary does not know (gods, places, peoples, objects of a myth): the article of Wikipedia
+ * that fits the word in its sentence best, its one-line description and its opening. Needs the internet; what was
+ * found is kept, so the second time it opens at once and without it.
+ */
+internal object Encyclopedia{
+    private const val UA="Glyph (Android e-book reader; https://github.com/RuslanB42/Book)"
+    private fun get(url:String):String{val c=URL(url).openConnection() as HttpURLConnection
+        c.setRequestProperty("User-Agent",UA);c.connectTimeout=8000;c.readTimeout=10000
+        try{if(c.responseCode!=200)throw java.io.IOException("код ${c.responseCode}");return c.inputStream.bufferedReader().readText()}finally{c.disconnect()}}
+    private fun cacheFile(c:Context)=File(c.filesDir,"encyclopedia.json")
+    private fun cache(c:Context)=try{JSONObject(cacheFile(c).readText())}catch(_:Exception){JSONObject()}
+    private val wordRx=Regex("[\\p{L}]{5,}")
+    /** The article for [word] (as it stands in the text) met in [context]; null when there is none. Off the UI thread. */
+    fun lookup(c:Context,word:String,context:String):JSONObject?{
+        val clean=word.trim().trim{!it.isLetterOrDigit()&&it!='-'}
+        if(clean.length<2)return null
+        val lang=if(clean.any{it in 'а'..'я'||it in 'А'..'Я'||it=='ё'||it=='Ё'})"ru" else "en"
+        val key="$lang:${Dictionary.key(clean)}"
+        synchronized(this){cache(c).optJSONObject(key)?.let{return it.takeIf{a->a.length()>0}}}
+        val q=java.net.URLEncoder.encode(clean,"UTF-8")
+        val found=JSONObject(get("https://$lang.wikipedia.org/w/api.php?action=query&list=search&srsearch=$q&srlimit=6&srprop=snippet&format=json&utf8=1")).optJSONObject("query")?.optJSONArray("search")
+        val ctx=wordRx.findAll(context.lowercase()).map{it.value.take(6)}.toSet()
+        val stem=Dictionary.key(clean).let{it.take(maxOf(3,it.length-2))}
+        // the rank, a title that is the word itself, and how much of the sentence (and the book) the snippet shares
+        val ranked=(0 until (found?.length()?:0)).map{i->val r=found!!.getJSONObject(i);val t=r.optString("title");val snip=r.optString("snippet").replace(Regex("<[^>]+>"),"").lowercase()
+            val share=wordRx.findAll(snip+" "+t.lowercase()).map{it.value.take(6)}.toSet().count{it in ctx}
+            val score=(6-i)+(if(Dictionary.key(t).startsWith(stem))4 else 0)+share*2-(if(t.contains("значения")||t.contains("disambiguation"))8 else 0)
+            t to score}.sortedByDescending{it.second}
+        var out:JSONObject?=null
+        for((title,_) in ranked.take(3)){val s=JSONObject(get("https://$lang.wikipedia.org/api/rest_v1/page/summary/"+java.net.URLEncoder.encode(title.replace(' ','_'),"UTF-8")))
+            if(s.optString("type")=="disambiguation")continue
+            val extract=s.optString("extract").trim();if(extract.isBlank())continue
+            out=JSONObject().put("title",s.optString("title",title)).put("description",s.optString("description")).put("extract",extract).put("lang",lang);break}
+        synchronized(this){val all=cache(c);all.put(key,out?:JSONObject());try{cacheFile(c).writeText(all.toString())}catch(_:Exception){}}
+        return out}
+    /** What is learned for a name: its one-line description, or the opening sentence after its dash. */
+    fun meaning(e:JSONObject):String{val d=e.optString("description").trim();if(d.length in 3..120)return d
+        val x=e.optString("extract");val after=x.substringAfter(" — ",x).substringBefore(". ").trim().trimEnd('.')
+        return if(after.length<=140)after else after.take(137).substringBeforeLast(' ')+"…"}
 }
 
 /** On-device translation (Google ML Kit): the language is recognised, the model is fetched once per language. */
@@ -94,7 +145,8 @@ internal object Translation{
 }
 
 /** The card under the page for «Словарь» and «Перевод» (approved): word or languages on top, a hairline, the content,
- *  and two equal buttons «Копировать» and «В заметку». Pulled down or tapped outside, it leaves. */
+ *  and the buttons: «Копировать» and «Учить слово» for a word or a name, «Копировать» and «В заметку» for a
+ *  translation. Pulled down or tapped outside, it leaves. */
 internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,private val selected:String,private val source:WordSource?=null,private val toNote:(String)->Unit){
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()
@@ -106,7 +158,9 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
     private val serif get()=PolkaFonts.literata(a)
     private fun d(v:Float)=v*a.resources.displayMetrics.density
 
-    fun dictionary(){show();if(Dictionary.ready(a))lookupWord() else offerDownload()}
+    /** A word with a capital letter is most likely a name: it is looked up in the encyclopedia even without the dictionary. */
+    private val isName get()=selected.trim().trimStart{!it.isLetter()}.firstOrNull()?.isUpperCase()==true
+    fun dictionary(){show();if(Dictionary.ready(a)||isName)lookupWord() else offerDownload()}
     fun translation(){show();translate(null,null)}
 
     private fun show(){
@@ -141,29 +195,37 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
     private fun hairline(p:LinearLayout)=p.addView(View(a).apply{setBackgroundColor(if(a.light)0x14000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})
     private fun round(kind:String,desc:String,fn:()->Unit)=FrameLayout(a).apply{background=a.shape(quiet,20);isClickable=true;contentDescription=desc;a.press(this);setOnClickListener{fn()}
         addView(LineIcon(a,kind,a.fg).apply{size=20f},FrameLayout.LayoutParams(-1,-1))}
-    private fun actions(p:LinearLayout,learn:JSONObject?=null){
+    private fun copy(){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Glyph",copyText));Notice.short(a,Notice.Kind.COPIED,"Скопировано");close()}
+    /** A translation: «Копировать» and «В заметку», equal icon buttons (approved). */
+    private fun actions(p:LinearLayout){
         val row=a.line().apply{gravity=Gravity.CENTER}
-        // icons only (approved): equal buttons, the label goes to accessibility
         fun btn(kind:String,label:String,fn:()->Unit)=a.line().apply{gravity=Gravity.CENTER;background=a.shape(quiet,22);isClickable=true;contentDescription=label;a.press(this);setOnClickListener{fn()}
-            addView(LineIcon(a,kind,a.fg).apply{size=21f;tag="icon"},LinearLayout.LayoutParams(a.d(24),a.d(24)))}
-        row.addView(btn("copy","Копировать"){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Glyph",copyText));Notice.short(a,Notice.Kind.COPIED,"Скопировано");close()},LinearLayout.LayoutParams(0,a.d(44),1f))
+            addView(LineIcon(a,kind,a.fg).apply{size=21f},LinearLayout.LayoutParams(a.d(24),a.d(24)))}
+        row.addView(btn("copy","Копировать"){copy()},LinearLayout.LayoutParams(0,a.d(44),1f))
         row.addView(View(a),LinearLayout.LayoutParams(a.d(10),1))
         row.addView(btn("note","В заметку"){close();toNote(copyText)},LinearLayout.LayoutParams(0,a.d(44),1f))
-        if(learn!=null){
-            val lemma=learn.optString("w");val lang=learn.optString("lang","ru")
-            fun saved()=Words.find(a,Dictionary.key(lemma),lang)
-            lateinit var b:LinearLayout
-            fun paint(){val on=saved()!=null;(b.findViewWithTag<LineIcon>("icon")).set(if(on)"check" else "learn",a.fg);b.contentDescription=if(on)"Убрать из изучения" else "Учить слово"}
-            b=btn("learn","Учить"){val have=saved()
-                if(have!=null){Words.remove(a,have.str("id"));paint();a.reader?.refreshWordMarks()}
-                else{val surface=selected.trim().split(Regex("\\s+")).firstOrNull()?.trim{!it.isLetter()&&it!='-'&&it!='\''&&it!='’'}?:lemma
-                    // saved at once; the other forms of the word are looked up in the background (a full scan of the keys)
-                    val w=Words.add(a,learn,surface,source,emptyList());paint();a.reader?.refreshWordMarks()
-                    Thread{val forms=try{Dictionary.forms(a,lemma,lang)}catch(_:Exception){emptyList()}
-                        if(forms.isNotEmpty())a.runOnUiThread{Words.setForms(a,w.str("id"),forms);a.reader?.refreshWordMarks()}}.start()}}
-            paint()
-            row.addView(View(a),LinearLayout.LayoutParams(a.d(10),1))
-            row.addView(b,LinearLayout.LayoutParams(0,a.d(44),1f))}
+        p.addView(row,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18)})}
+    /** A word or a name (approved «Слова»): «Копировать» as a round button and «Учить слово» with its label. Nothing here
+     *  makes a quote: notes belong to quotes, a word goes only to the words. [forms] are known at once for a name. */
+    private fun learnActions(p:LinearLayout,learn:JSONObject,forms:List<String>?=null){
+        val row=a.line().apply{gravity=Gravity.CENTER}
+        row.addView(round("copy","Копировать"){copy()},LinearLayout.LayoutParams(a.d(52),a.d(52)))
+        row.addView(View(a),LinearLayout.LayoutParams(a.d(10),1))
+        val lemma=learn.optString("w");val lang=learn.optString("lang","ru")
+        fun saved()=Words.find(a,Dictionary.key(lemma),lang)
+        val icon=LineIcon(a,"learn",a.bg).apply{size=20f};val label=a.text("",16f,a.bg,true)
+        val b=a.line().apply{gravity=Gravity.CENTER;isClickable=true;a.press(this);addView(icon,LinearLayout.LayoutParams(a.d(22),a.d(22)));addView(label,LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)})}
+        fun paint(){val on=saved()!=null;b.background=a.shape(if(on)quiet else a.fg,26);icon.set(if(on)"check" else "learn",if(on)a.fg else a.bg);label.setTextColor(if(on)a.fg else a.bg)
+            label.text=if(on)"Учу" else "Учить слово";b.contentDescription=if(on)"Убрать из изучения" else "Учить слово"}
+        b.setOnClickListener{val have=saved()
+            if(have!=null){Words.remove(a,have.str("id"));paint();a.reader?.refreshWordMarks();return@setOnClickListener}
+            val surface=selected.trim().split(Regex("\\s+")).firstOrNull()?.trim{!it.isLetter()&&it!='-'&&it!='\''&&it!='’'}?:lemma
+            val w=Words.add(a,learn,surface,source,forms?:emptyList());paint();a.reader?.refreshWordMarks()
+            // a dictionary word: its other forms are looked up in the background (a full scan of the keys)
+            if(forms==null)Thread{val f=try{Dictionary.forms(a,lemma,lang)}catch(_:Exception){emptyList()}
+                if(f.isNotEmpty())a.runOnUiThread{Words.setForms(a,w.str("id"),f);a.reader?.refreshWordMarks()}}.start()}
+        paint()
+        row.addView(b,LinearLayout.LayoutParams(0,a.d(52),1f))
         p.addView(row,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18)})}
     private fun message(title:String,sub:String?,action:String?=null,fn:(()->Unit)?=null)=content{
         addView(a.text(title,16f,a.fg,true));if(sub!=null)addView(a.text(sub,13.5f,a.muted).apply{cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})
@@ -190,9 +252,35 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
                 holder.post{if(dialog!=null)lookupWord()}}
             catch(_:InterruptedException){}
             catch(e:Exception){holder.post{if(dialog!=null)message("Не удалось скачать словарь","Проверьте интернет и попробуйте ещё раз","Повторить"){download()}}}}}
-    private fun lookupWord(){val word=selected.trim().split(Regex("\\s+")).firstOrNull()?:""
+    private fun lookupWord(){val word=selected.trim().split(Regex("\\s+")).firstOrNull()?:"";val name=isName
         io.execute{val found=try{Dictionary.lookup(a,word)}catch(_:Exception){emptyList()}
-            holder.post{if(dialog==null)return@post;if(found.isEmpty())message("Слова «${word.take(40)}» нет в словаре",null,"Перевести"){translate(null,null)} else showEntries(found)}}}
+            // a name, or a word the dictionary does not have, is looked for in the encyclopedia
+            var offline=false
+            val article=if(name||found.isEmpty())try{Encyclopedia.lookup(a,word,(source?.sentence?:"")+" "+(source?.title?:""))}catch(_:Exception){offline=true;null} else null
+            holder.post{if(dialog==null)return@post
+                when{article!=null&&(name||found.isEmpty())->showArticle(article,word)
+                    found.isNotEmpty()->showEntries(found)
+                    offline->message("Нужен интернет","Имена и названия ищутся в Википедии","Перевести"){translate(null,null)}
+                    else->message("«${word.take(40)}» нет ни в словаре, ни в Википедии",null,"Перевести"){translate(null,null)}}}}}
+    /** A name: the article's title, its one line, the opening of the article and where it is from. */
+    private fun showArticle(e:JSONObject,word:String){
+        val title=e.optString("title").substringBefore(" (").trim();val lang=e.optString("lang","ru")
+        content{
+            val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(44)}
+            val t=a.column()
+            t.addView(TextView(a).apply{text=title;textSize=24f;setTextColor(a.fg);typeface=PolkaFonts.literata(a,true)})
+            e.optString("description").takeIf{it.isNotBlank()}?.let{t.addView(a.text(it,12.5f,a.muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(4)})}
+            head.addView(t,LinearLayout.LayoutParams(0,-2,1f))
+            head.addView(round("speaker","Произнести"){speak(title,lang)},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+            addView(head);hairline(this)
+            val extract=e.optString("extract").let{x->if(x.length<=520)x else x.take(520).substringBeforeLast(". ")+"."}
+            addView(TextView(a).apply{text=extract;textSize=15.5f;setTextColor(a.fg);typeface=serif;cssLeading(1.5f)})
+            addView(a.text("Википедия",12f,a.muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10)})
+            copyText="$title — $extract"
+            val learn=JSONObject().put("w",title).put("lang",lang).put("s",JSONArray().put(JSONArray().put(Encyclopedia.meaning(e))))
+            val surface=word.trim{!it.isLetter()&&it!='-'}
+            val forms=(Words.nameForms(surface)+(if(!title.contains(' '))Words.nameForms(title) else emptyList())).distinct()
+            learnActions(this,learn,forms)}}
     private fun showEntries(list:List<JSONObject>){
         val first=list[0];val lang=first.optString("lang","ru")
         val sb=StringBuilder()
@@ -224,7 +312,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
             first.optJSONArray("y")?.let{y->val s=(0 until y.length()).joinToString(", "){y.getString(it)}
                 addView(a.text("СИНОНИМЫ",11f,a.muted,true).apply{letterSpacing=.06f},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})
                 addView(TextView(a).apply{text=s;textSize=14.5f;setTextColor(a.fg);typeface=serif},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(3)})}
-            copyText=sb.toString();actions(this,first)}}
+            copyText=sb.toString();learnActions(this,first)}}
     private fun speak(text:String,lang:String){
         val go={tts?.language=Locale(lang);tts?.speak(text,TextToSpeech.QUEUE_FLUSH,null,"w")}
         if(tts==null)tts=TextToSpeech(a){if(it==TextToSpeech.SUCCESS)go()} else go()}

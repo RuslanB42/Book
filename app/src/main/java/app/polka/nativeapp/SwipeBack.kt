@@ -19,7 +19,7 @@ internal class SwipeBack(private val a:MainActivity){
     /** What the swipe takes away and what is done once it has gone. The tier list and the goal road page through
      *  their years sideways themselves, so they close by their own button. */
     private fun target():Pair<View,()->Unit>?{if(a.reader!=null||a.addMenu!=null||a.goalRoad!=null||a.tierList!=null)return null
-        a.settingsPage?.let{v->return v to {a.swipedAway(v)}};a.profileOverlay?.let{v->return v to {a.swipedAway(v)}}
+        a.wordPage?.let{v->return v to {a.swipedAway(v)}};a.settingsPage?.let{v->return v to {a.swipedAway(v)}};a.profileOverlay?.let{v->return v to {a.swipedAway(v)}}
         return if(!a.shelvesEditing&&(a.shelf!=null||a.auto!=null))a.scroll to {a.swipedBack()} else null}
     private var view:View?=null;private var gone:(()->Unit)?=null
     private var depth:Depth?=null
