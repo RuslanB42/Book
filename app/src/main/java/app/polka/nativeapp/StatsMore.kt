@@ -96,7 +96,7 @@ internal object Genres {
 internal class EdgeLine(private val a:MainActivity,private val ink:Int,private val live:Boolean):View(a){
     class Point(val value:Float,val title:String,val sub:String)
     private var points=listOf<Point>();private var labels=listOf<Pair<Int,String>>();private var strong=-1
-    private var avg:Float?=null;private var avgWord="";private var zeroBased=false
+    private var avg:Float?=null;private var avgWord="";private var zeroBased=false;private var spans=false
     private var shown=FloatArray(0);private var from=FloatArray(0);private var morph=1f;private val reveal=1f
     private var hold=-1
     private val dp=a.resources.displayMetrics.density
@@ -112,14 +112,15 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
     private val muted get()=if(a.light)0xff86868b.toInt() else 0xff8a8a8e.toInt()
     private val card get()=if(a.light)Color.WHITE else 0xff242426.toInt()
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES}
-    /** New data; with the same number of points the line glides from the old values to the new ones. */
-    fun set(points:List<Point>,labels:List<Pair<Int,String>>,strong:Int,avg:Float?,avgWord:String,zeroBased:Boolean){
+    /** New data; with the same number of points the line glides from the old values to the new ones. With [spans] a
+     *  label stands for the points from it to the next one (a month over its weeks) and sits in their middle. */
+    fun set(points:List<Point>,labels:List<Pair<Int,String>>,strong:Int,avg:Float?,avgWord:String,zeroBased:Boolean,spans:Boolean=false){
         val glide=live&&shown.isNotEmpty()&&isAttachedToWindow
         // the old line, read at the new points' places (column centres), so a week can turn into a month smoothly
         val old=shown.copyOf();val m=old.size;val n=points.size
         from=if(glide)FloatArray(n){j->val pos=((j+.5f)/n)*m-.5f;val i0=pos.toInt().coerceIn(0,m-1);val i1=(i0+1).coerceAtMost(m-1);val f=(pos-i0).coerceIn(0f,1f);old[i0]+(old[i1]-old[i0])*f} else FloatArray(n){points[it].value}
         val avgFrom=this.avgShown?:avg;val loFrom=lo;val hiFrom=hi
-        this.points=points;this.labels=labels;this.strong=strong;this.avg=avg;this.avgWord=avgWord;this.zeroBased=zeroBased;hold=-1
+        this.points=points;this.labels=labels;this.strong=strong;this.avg=avg;this.avgWord=avgWord;this.zeroBased=zeroBased;this.spans=spans;hold=-1
         shown=from.copyOf();contentDescription=points.lastOrNull()?.let{"${it.title}, ${it.sub}"}
         morphAnim?.cancel()
         if(glide){avgShown=avgFrom;scaleFrom=floatArrayOf(loFrom,hiFrom);morph=0f
@@ -156,8 +157,11 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
                 when{clearAbove->c.drawText(avgWord,w-18f*dp,ay-7f*dp,text);clearBelow->c.drawText(avgWord,w-18f*dp,ay+15f*dp,text)}}}
         // labels along the bottom
         text.textAlign=Paint.Align.CENTER
-        labels.forEach{(i,s)->if(i !in points.indices)return@forEach;val on=i==strong;text.color=if(on)a.fg else muted;text.typeface=PolkaFonts.sans(if(on)600 else 400)
-            val tw=text.measureText(s);val cx=x(i).coerceIn(tw/2+4f*dp,w-tw/2-4f*dp);c.drawText(s,cx,h-9f*dp,text)}
+        // a span's label keeps inside the card's own padding, so both edges are even
+        val edge=(if(spans)18f else 4f)*dp
+        labels.forEachIndexed{k,(i,s)->if(i !in points.indices)return@forEachIndexed;val on=i==strong;text.color=if(on)a.fg else muted;text.typeface=PolkaFonts.sans(if(on)600 else 400)
+            val at=if(spans){val last=(labels.getOrNull(k+1)?.first?:points.size).coerceAtMost(points.size)-1;(x(i)+x(maxOf(i,last)))/2} else x(i)
+            val tw=text.measureText(s);val cx=at.coerceIn(tw/2+edge,w-tw/2-edge);c.drawText(s,cx,h-9f*dp,text)}
         text.typeface=PolkaFonts.sans(400)
         if(reveal<1f)return
         if(hold<0){val ex=x(shown.size-1);dot.color=(ink and 0xffffff) or 0x38000000;c.drawCircle(ex,ey,10f*dp,dot);dot.color=ink;c.drawCircle(ex,ey,5f*dp,dot);return}

@@ -181,9 +181,9 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         if(weeks.size>=2){val chart=EdgeLine(a,blue,live)
             val fmt=DateTimeFormatter.ofPattern("d MMM",ru)
             val pts=weeks.mapIndexed{i,(w,v)->EdgeLine.Point(v.toFloat(),"$v слов в минуту",if(i==weeks.size-1&&!w.plusDays(6).isBefore(today))"эта неделя" else "${w.format(fmt).replace(".","")} – ${w.plusDays(6).format(fmt).replace(".","")}")}
-            // a month's name under the first week that starts in it
+            // a month's name in the middle of its weeks
             val labels=weeks.mapIndexedNotNull{i,(w,_)->if(i==0||w.monthValue!=weeks[i-1].first.monthValue)i to w.month.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE,ru).trimEnd('.').take(3) else null}
-            chart.set(pts,labels,-1,ReadingTracker.USUAL_WPM.toFloat(),"средний читатель",false);floorChart(box,chart)}
+            chart.set(pts,labels,-1,ReadingTracker.USUAL_WPM.toFloat(),"средний читатель",false,spans=true);floorChart(box,chart)}
         box.contentDescription=if(model.speed>0)"Скорость чтения: ${model.speed} слов в минуту" else "Скорость чтения появится после пары минут чтения"
         add(box)
     }
@@ -245,19 +245,19 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             val t=a.column();t.addView(label("Любимый автор",12.5f));t.addView(a.text(au.name,20f,a.fg,true,serif=true).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)})
             val n=au.books.size;t.addView(label("$n ${booksWord(n)}"+if(au.ms>=3_600_000L)", ${(au.ms/3_600_000L)} ч чтения" else "",12.5f).apply{setPadding(0,a.d(3),0,0)})
             row.addView(t,LinearLayout.LayoutParams(0,-2,1f));box.addView(row)}
-        // a pill: a coloured dot, the name, the figure quieter; tinted with its colour
+        // a pill: a coloured dot, the name, the figure quieter at the far end; tinted with its colour; a line of pills fills the width
         fun chip(row:FlowRow,name:String,figure:String,c:Int,warm:Boolean=true){
             val p=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(7),a.d(12),a.d(7));background=pill((c and 0xffffff) or ((if(warm)0x26 else 0x12) shl 24),14)}
             p.addView(View(a).apply{background=pill(if(warm)c else captionInk,4)},LinearLayout.LayoutParams(a.d(8),a.d(8)).apply{marginEnd=a.d(8)})
-            p.addView(a.text(name,13f,if(warm)a.fg else (if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt())))
-            p.addView(a.text(figure,13f,if(light)0x99000000.toInt() else 0x80ffffff.toInt()).apply{setPadding(a.d(8),0,0,0)})
+            p.addView(a.text(name,13f,if(warm)a.fg else (if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt())).apply{maxLines=1},LinearLayout.LayoutParams(-2,-2,1f))
+            p.addView(a.text(figure,13f,if(light)0x99000000.toInt() else 0x80ffffff.toInt()).apply{maxLines=1;setPadding(a.d(12),0,0,0)})
             row.addView(p)}
         if(genres.isNotEmpty()){space(box,if(author!=null)22 else 14);box.addView(label("Жанры",12.5f));space(box,10)
-            val colors=listOf(violet,blue,mint);val row=FlowRow(a,a.d(8),a.d(8)){false}
+            val colors=listOf(violet,blue,mint);val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
             genres.take(3).forEachIndexed{i,(name,pct)->chip(row,name,"$pct%",colors[i])}
             box.addView(row,LinearLayout.LayoutParams(-1,-2))}
         if(decades.isNotEmpty()){space(box,if(author!=null||genres.isNotEmpty())22 else 14);box.addView(label("Время написания",12.5f));space(box,10)
-            val warm=if(light)0xffc87600.toInt() else 0xfff0a83a.toInt();val row=FlowRow(a,a.d(8),a.d(8)){false}
+            val warm=if(light)0xffc87600.toInt() else 0xfff0a83a.toInt();val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
             decades.take(4).forEachIndexed{i,(d,n)->chip(row,"$d-е","$n ${booksWord(n)}",if(i==0)warm else (if(light)0xff000000.toInt() else 0xffffffff.toInt()),i==0)}
             box.addView(row,LinearLayout.LayoutParams(-1,-2))}
         box.contentDescription="Вкус"+(author?.let{": любимый автор ${it.name}"}?:"")

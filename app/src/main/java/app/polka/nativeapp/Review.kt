@@ -35,7 +35,7 @@ internal object Reviews {
  * Wraps its children into rows. When a child moves to another row it glides there instead of jumping,
  * and the height follows on a short ease, so chips that grow or shrink never make the card snap.
  */
-internal class FlowRow(c:Context,private val hGap:Int,private val vGap:Int,private val glideAll:Boolean=false,private val smooth:()->Boolean):ViewGroup(c){
+internal class FlowRow(c:Context,private val hGap:Int,private val vGap:Int,private val glideAll:Boolean=false,private val stretch:Boolean=false,private val smooth:()->Boolean):ViewGroup(c){
     private var shownH=-1;private var targetH=-1;private var hAnim:ValueAnimator?=null
     private val spots=HashMap<View,Point>()
     init{clipChildren=false;clipToPadding=false}
@@ -48,6 +48,14 @@ internal class FlowRow(c:Context,private val hGap:Int,private val vGap:Int,priva
         for(i in 0 until childCount){val ch=getChildAt(i);val lp=ch.layoutParams
             ch.measure(if(lp!=null&&lp.width>0)MeasureSpec.makeMeasureSpec(lp.width,MeasureSpec.EXACTLY) else MeasureSpec.makeMeasureSpec(maxW,MeasureSpec.AT_MOST),
                 if(lp!=null&&lp.height>0)MeasureSpec.makeMeasureSpec(lp.height,MeasureSpec.EXACTLY) else MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED))}
+        // stretched: each line's free width goes evenly to its pills, so every line reaches the right edge
+        if(stretch){val line=ArrayList<View>();var x=0
+            fun widen(){val free=maxW-x+hGap;if(line.isEmpty()||free<=0)return;val each=free/line.size
+                line.forEach{ch->ch.measure(MeasureSpec.makeMeasureSpec(ch.measuredWidth+each,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(ch.measuredHeight,MeasureSpec.EXACTLY))}}
+            for(i in 0 until childCount){val ch=getChildAt(i);if(ch.visibility==GONE)continue
+                if(x>0&&x+ch.measuredWidth>maxW){widen();line.clear();x=0}
+                line.add(ch);x+=ch.measuredWidth+hGap}
+            widen()}
         val h=place(maxW){_,_,_->}
         if(shownH<0||!smooth()||!isLaidOut){hAnim?.cancel();shownH=h;targetH=h}
         else if(h!=targetH){targetH=h;val from=shownH;hAnim?.cancel()
