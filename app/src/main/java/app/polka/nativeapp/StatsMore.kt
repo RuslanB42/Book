@@ -98,6 +98,8 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
     private var points=listOf<Point>();private var labels=listOf<Pair<Int,String>>();private var strong=-1
     private var avg:Float?=null;private var avgWord="";private var zeroBased=false;private var spans=false
     private var shown=FloatArray(0);private var from=FloatArray(0);private var morph=1f;private val reveal=1f
+    // what was on the chart before a switch: its labels fade out where they were while the new ones fade in
+    private var oldLabels=listOf<Pair<Int,String>>();private var oldStrong=-1;private var oldN=0;private var oldSpans=false
     private var hold=-1
     private val dp=a.resources.displayMetrics.density
     private val line=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=2.6f*dp;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND;color=ink}
@@ -116,15 +118,18 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
      *  label stands for the points from it to the next one (a month over its weeks) and sits in their middle. */
     fun set(points:List<Point>,labels:List<Pair<Int,String>>,strong:Int,avg:Float?,avgWord:String,zeroBased:Boolean,spans:Boolean=false){
         val glide=live&&shown.isNotEmpty()&&isAttachedToWindow
-        // the old line, read at the new points' places (column centres), so a week can turn into a month smoothly
-        val old=shown.copyOf();val m=old.size;val n=points.size
-        from=if(glide)FloatArray(n){j->val pos=((j+.5f)/n)*m-.5f;val i0=pos.toInt().coerceIn(0,m-1);val i1=(i0+1).coerceAtMost(m-1);val f=(pos-i0).coerceIn(0f,1f);old[i0]+(old[i1]-old[i0])*f} else FloatArray(n){points[it].value}
+        // the old line exactly as it is drawn (its curves, not straight lines between its points), read at the new
+        // points' places, so the new line starts as the very same line and only then turns into the new one
+        val old=shown.copyOf();val n=points.size
+        from=if(glide)FloatArray(n){j->along(old,(j+.5f)/n)} else FloatArray(n){points[it].value}
+        if(glide){oldLabels=this.labels;oldStrong=this.strong;oldN=this.points.size;oldSpans=this.spans}
         val avgFrom=this.avgShown?:avg;val loFrom=lo;val hiFrom=hi
         this.points=points;this.labels=labels;this.strong=strong;this.avg=avg;this.avgWord=avgWord;this.zeroBased=zeroBased;this.spans=spans;hold=-1
         shown=from.copyOf();contentDescription=points.lastOrNull()?.let{"${it.title}, ${it.sub}"}
         morphAnim?.cancel()
         if(glide){avgShown=avgFrom;scaleFrom=floatArrayOf(loFrom,hiFrom);morph=0f
-            morphAnim=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=520;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+            // the same time and curve as the period pill sliding over, so the pill, the figures and the line arrive together
+            morphAnim=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=MotionSpec.SWITCH;interpolator=MotionSpec.move
             addUpdateListener{v->val t=v.animatedValue as Float;morph=t;for(i in shown.indices)shown[i]=from[i]+(points[i].value-from[i])*t
                 avgShown=if(avgFrom!=null&&avg!=null)avgFrom+(avg-avgFrom)*t else avg;invalidate()};start()}}
         else{for(i in shown.indices)shown[i]=points[i].value;avgShown=avg;morph=1f;invalidate()}
@@ -132,6 +137,15 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
     private var morphAnim:android.animation.ValueAnimator?=null
     private var avgShown:Float?=null;private var scaleFrom=floatArrayOf(0f,1f)
     private fun x(i:Int)=width*(i+.5f)/max(1,points.size)
+    private fun xn(i:Int,n:Int)=width*(i+.5f)/max(1,n)
+    /** The value the drawn line has at [f] (0..1 of the width), for [v] spread over the width as the points are: flat
+     *  out to the edges, and between two points the same S-curve the path draws (control points at the middle). */
+    private fun along(v:FloatArray,f:Float):Float{val m=v.size;if(m==0)return 0f;if(m==1)return v[0]
+        val pos=f*m-.5f;if(pos<=0f)return v[0];if(pos>=m-1)return v[m-1]
+        val i=pos.toInt().coerceIn(0,m-2);val u=pos-i
+        // x along the segment is 1.5t(1−t)+t³ for the path's control points; find t, then y is 3t²−2t³ of the way
+        var lo=0f;var hi=1f;repeat(24){val t=(lo+hi)/2;if(1.5f*t*(1-t)+t*t*t<u)lo=t else hi=t}
+        val t=(lo+hi)/2;return v[i]+(v[i+1]-v[i])*(3*t*t-2*t*t*t)}
     private var lo=0f;private var hi=1f
     private fun y(v:Float):Float{val top=12f*dp;val bottom=height-26f*dp;return bottom-(v-lo)/max(.0001f,hi-lo)*(bottom-top)}
     override fun onDraw(c:Canvas){
@@ -155,16 +169,12 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
                 val tw=text.measureText(avgWord);val x0=w-18f*dp-tw;val under=shown.indices.filter{x(it)>=x0-x(0)}.map{y(shown[it])}+ey
                 val clearAbove=under.all{it>ay-2f*dp||it<ay-22f*dp};val clearBelow=under.all{it<ay+2f*dp||it>ay+22f*dp}&&ay+15f*dp<h-24f*dp
                 when{clearAbove->c.drawText(avgWord,w-18f*dp,ay-7f*dp,text);clearBelow->c.drawText(avgWord,w-18f*dp,ay+15f*dp,text)}}}
-        // labels along the bottom
-        text.textAlign=Paint.Align.CENTER
-        // a span's label keeps inside the card's own padding, so both edges are even
-        val edge=(if(spans)18f else 4f)*dp
-        labels.forEachIndexed{k,(i,s)->if(i !in points.indices)return@forEachIndexed;val on=i==strong;text.color=if(on)a.fg else muted;text.typeface=PolkaFonts.sans(if(on)600 else 400)
-            val at=if(spans){val last=(labels.getOrNull(k+1)?.first?:points.size).coerceAtMost(points.size)-1;(x(i)+x(maxOf(i,last)))/2} else x(i)
-            val tw=text.measureText(s);val cx=at.coerceIn(tw/2+edge,w-tw/2-edge);c.drawText(s,cx,h-9f*dp,text)}
-        text.typeface=PolkaFonts.sans(400)
+        // labels along the bottom; on a switch the old ones fade out where they were as the new ones fade in
+        if(morph<1f&&oldN>0)drawLabels(c,oldLabels,oldStrong,oldN,oldSpans,(1f-morph/.45f).coerceIn(0f,1f))
+        drawLabels(c,labels,strong,points.size,spans,if(morph<1f&&oldN>0)((morph-.35f)/.65f).coerceIn(0f,1f) else 1f)
         if(reveal<1f)return
-        if(hold<0){val ex=x(shown.size-1);dot.color=(ink and 0xffffff) or 0x38000000;c.drawCircle(ex,ey,10f*dp,dot);dot.color=ink;c.drawCircle(ex,ey,5f*dp,dot);return}
+        // today's point travels from where it was to where it is now, along the line
+        if(hold<0){val ex=if(morph<1f&&oldN>0)xn(oldN-1,oldN)+(x(shown.size-1)-xn(oldN-1,oldN))*morph else x(shown.size-1);val ey=y(along(shown,ex/w));dot.color=(ink and 0xffffff) or 0x38000000;c.drawCircle(ex,ey,10f*dp,dot);dot.color=ink;c.drawCircle(ex,ey,5f*dp,dot);return}
         // held: the guide, the point, and its bubble above it
         val hx=x(hold);val hy=y(shown[hold]);hair.color=(a.fg and 0xffffff) or 0x59000000;c.drawLine(hx,0f,hx,h,hair)
         dot.color=card;c.drawCircle(hx,hy,9f*dp,dot);dot.color=ink;c.drawCircle(hx,hy,6f*dp,dot)
@@ -174,6 +184,14 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
         tip.set(tx,ty,tx+tw,ty+th);tipBg.color=if(a.light)0xfff0f0f2.toInt() else 0xff3a3a3d.toInt();tipBg.setShadowLayer(14f*dp,0f,5f*dp,0x55000000);c.drawRoundRect(tip,12f*dp,12f*dp,tipBg)
         tipTitle.textAlign=Paint.Align.LEFT;c.drawText(p.title,tx+11f*dp,ty+21f*dp,tipTitle);c.drawText(p.sub,tx+11f*dp,ty+39f*dp,tipSub)
     }
+    private fun drawLabels(c:Canvas,labels:List<Pair<Int,String>>,strong:Int,n:Int,spans:Boolean,alpha:Float){if(alpha<=0f)return
+        val w=width.toFloat();val h=height.toFloat();text.textAlign=Paint.Align.CENTER
+        // a span's label keeps inside the card's own padding, so both edges are even
+        val edge=(if(spans)18f else 4f)*dp
+        labels.forEachIndexed{k,(i,s)->if(i<0||i>=n)return@forEachIndexed;val on=i==strong;text.color=if(on)a.fg else muted;text.alpha=(text.alpha*alpha).toInt();text.typeface=PolkaFonts.sans(if(on)600 else 400)
+            val at=if(spans){val last=(labels.getOrNull(k+1)?.first?:n).coerceAtMost(n)-1;(xn(i,n)+xn(maxOf(i,last),n))/2} else xn(i,n)
+            val tw=text.measureText(s);val cx=at.coerceIn(tw/2+edge,w-tw/2-edge);c.drawText(s,cx,h-9f*dp,text)}
+        text.typeface=PolkaFonts.sans(400)}
     // a hold (not a tap) picks the point under the finger; moving the finger moves along the line; letting go clears it
     private var downX=0f;private var downY=0f
     private val slop=ViewConfiguration.get(a).scaledTouchSlop

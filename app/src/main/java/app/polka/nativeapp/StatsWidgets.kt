@@ -56,7 +56,7 @@ internal class PeriodPills(private val a:MainActivity,labels:List<String>,select
         val x0=thumb.translationX;val w0=thumb.layoutParams.width.toFloat();val x1=items[i].left.toFloat();val w1=items[i].width.toFloat()
         if(a.prefs.str("motion")=="reduced"){place(x1,w1);items.forEachIndexed{k,t->t.setTextColor(if(k==i)on else a.muted)};return}
         val ev=android.animation.ArgbEvaluator()
-        slide?.cancel();slide=ValueAnimator.ofFloat(0f,1f).apply{duration=420;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+        slide?.cancel();slide=ValueAnimator.ofFloat(0f,1f).apply{duration=MotionSpec.SWITCH;interpolator=MotionSpec.move
             addUpdateListener{val k=it.animatedValue as Float;place(x0+(x1-x0)*k,w0+(w1-w0)*k)
                 items[from].setTextColor(ev.evaluate(k,on,a.muted) as Int);items[i].setTextColor(ev.evaluate(k,a.muted,on) as Int)};start()}}
 }

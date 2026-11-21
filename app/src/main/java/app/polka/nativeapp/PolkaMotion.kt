@@ -27,6 +27,8 @@ object MotionSpec {
     /** A question or a picture shown over the page, in place. */
     const val ASK_IN=220L;const val ASK_OUT=150L
     const val DARK_IN=240L;const val DARK_OUT=320L
+    /** A switch in place (week, month, year): the pill, the figures and the chart arrive together. */
+    const val SWITCH=420L
     /** A page built anew in place. */
     const val PAGE_IN=340L
 }

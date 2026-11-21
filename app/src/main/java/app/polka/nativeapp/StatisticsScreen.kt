@@ -226,8 +226,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 val tiles=a.line();tile(tiles,duration((avg*60000).toLong()),per);if(perPages>0)tile(tiles,"$perPages стр.",per);session?.let{tile(tiles,duration(it),"за один заход")}
                 space(left,14);left.addView(tiles,LinearLayout.LayoutParams(-1,-2))}
             if(first||!live)fill()
-            else{left.animate().cancel();left.animate().alpha(0f).translationY(-a.d(8).toFloat()).setDuration(150).setInterpolator(Ease.inCubic).withEndAction{fill();left.translationY=a.d(10).toFloat()
-                left.animate().alpha(1f).translationY(0f).setDuration(420).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
+            // the figures change within the switch's own time: out in its first third, in for the rest, so they settle
+            // together with the pill and the line
+            else{left.animate().cancel();left.animate().alpha(0f).translationY(-a.d(6).toFloat()).setDuration(MotionSpec.SWITCH/3).setInterpolator(MotionSpec.exit).withEndAction{fill();left.translationY=a.d(6).toFloat()
+                left.animate().alpha(1f).translationY(0f).setDuration(MotionSpec.SWITCH*2/3).setInterpolator(MotionSpec.enter).start()}.start()}
             chart.set(pts,labels,strong,avg,"",true)
         }
         bind(true);floorChart(box,chart);add(box)
