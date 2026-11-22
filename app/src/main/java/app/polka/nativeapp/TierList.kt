@@ -21,10 +21,10 @@ internal object Tiers {
     val letters=listOf("S","A","B","C","D")
     val names=listOf("Любимые","Понравились","Неплохо","Так себе","Не понравились")
     fun of(book:JSONObject)=Rating.halves(book).let{h->if(h>0)5-(h+1)/2 else -1}
-    /** Light and deep tone of each tier's letter. */
-    /** Approved «Награды»: gold, silver, bronze, then tarnished metal and dark graphite — the order reads like medals. */
-    fun tone(a:MainActivity,k:Int):Pair<Int,Int> =if(a.light)when(k){0->0xffd9a63a.toInt() to 0xffa87a20.toInt();1->0xff9aa0a8.toInt() to 0xff6b7078.toInt();2->0xffc98a55.toInt() to 0xff8e5428.toInt();3->0xff8a8f96.toInt() to 0xff5e636a.toInt();else->0xff6a6a70.toInt() to 0xff45454a.toInt()}
-        else when(k){0->0xffffe39a.toInt() to 0xffe2a93a.toInt();1->0xfff4f5f7.toInt() to 0xffa9adb5.toInt();2->0xfff0b98a.toInt() to 0xffb06a3a.toInt();3->0xff8f949b.toInt() to 0xff5e636a.toInt();else->0xff6a6a70.toInt() to 0xff45454a.toInt()}
+    /** Light and deep tone of each tier's letter. Approved «Приглушённая»: the classic tier-list order (S red, A orange,
+     *  B amber, C yellow, D green), quieter and denser so it sits on the app's graphite; deeper on a light page. */
+    fun tone(a:MainActivity,k:Int):Pair<Int,Int> =if(a.light)when(k){0->0xffd9625c.toInt() to 0xffb8433d.toInt();1->0xffd98a4a.toInt() to 0xffb0662a.toInt();2->0xffcfa548.toInt() to 0xffa37c22.toInt();3->0xffb5a83e.toInt() to 0xff8a7f22.toInt();else->0xff7fa650.toInt() to 0xff5c8233.toInt()}
+        else when(k){0->0xfff2a3a0.toInt() to 0xffd9625c.toInt();1->0xfff2c49b.toInt() to 0xffd98a4a.toInt();2->0xfff0d79a.toInt() to 0xffcfa548.toInt();3->0xffe8e2a0.toInt() to 0xffbdb45a.toInt();else->0xffc9e3a2.toInt() to 0xff8fb862.toInt()}
     /** Finished books of [year] (all of them when null), own order inside a tier first, then the latest finished. */
     fun books(model:ReadingStatistics,year:Int?)=model.finished.filter{year==null||it.date?.year==year}.map{it.book}
     fun sorted(list:List<JSONObject>)=list.sortedWith(compareBy<JSONObject>{it.optDouble("tierPos",Double.MAX_VALUE)}.thenByDescending{it.optLong("completedAt")})
