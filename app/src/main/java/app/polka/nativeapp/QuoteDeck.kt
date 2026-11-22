@@ -90,16 +90,19 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
         /** While the deck changes height after a throw: the cards keep the layout they were given for it and only how
          *  much of them shows moves, so a frame costs no text measuring. */
         private var resizing=false
+        /** Each card's own height (its words whole, nothing stretched), as last measured. */
+        private val natural=HashMap<View,Int>()
         private var downX=0f;private var downY=0f;private var dragging=false;private var velocity:VelocityTracker?=null
         private var busy=false
         private var lift=0f
         init{clipChildren=false;clipToPadding=false;cards.asReversed().forEach{addView(it)};pose(0f)}
         override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws)
-            if(resizing){for(i in 0 until childCount)getChildAt(i).tag=heldH;setMeasuredDimension(w,heldH+if(cards.size>1)a.d(18) else 0);return}
+            // the risen sheet keeps its own height; the others follow the deck's
+            if(resizing){val rising=cards.getOrNull(1);for(i in 0 until childCount){val c=getChildAt(i);if(c!==rising)c.tag=heldH};setMeasuredDimension(w,heldH+if(cards.size>1)a.d(18) else 0);return}
             val exactW=MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY);val free=MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED)
             // every card is laid out at its own natural height (never squeezed); only how much of it shows changes
-            front.measure(exactW,free);val h=if(heldH>=0)heldH else front.measuredHeight
-            for(i in 0 until childCount){val c=getChildAt(i);if(c!==front)c.measure(exactW,free)
+            front.measure(exactW,free);natural[front]=front.measuredHeight;val h=if(heldH>=0)heldH else front.measuredHeight
+            for(i in 0 until childCount){val c=getChildAt(i);if(c!==front){c.measure(exactW,free);natural[c]=c.measuredHeight}
                 // sheets show the card's height, so their edges peek out evenly whatever their own text
                 c.tag=h;if(c.measuredHeight<h)c.measure(exactW,MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))}
             front.tag=h
@@ -123,14 +126,19 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             val to=slot-1;v.pivotX=v.width/2f;v.pivotY=((v.tag as? Int)?:v.height)/2f
             v.rotation=r(slot)+(r(to)-r(slot))*p;v.translationX=x(slot)+(x(to)-x(slot))*p;v.translationY=y(slot)+(y(to)-y(slot))*p
             v.elevation=e(slot)+(e(to)-e(slot))*p.coerceIn(0f,1f);v.translationZ=-a.d(1)*(slot+1-p)}
-        /** [p] (0..1, may overshoot a little) moves every sheet one place forward. The sheets stay blank: a sheet shown
-         *  at another card's height would cut its words or leave a gap under them, so the words come once it is on top. */
-        private fun pose(p:Float){lift=p;for(k in 1 until cards.size){place(cards[k],k-1,p);content(cards[k],0f)}}
+        /** [p] (0..1, may overshoot a little) moves every sheet one place forward. The sheet right under the card first
+         *  takes its own height (so its words are never cut or left with a gap under them), then shows its words as
+         *  the card moves off it; the sheets further down stay blank. */
+        private fun pose(p:Float){lift=p;for(k in 1 until cards.size){val v=cards[k]
+            if(k==1){val h=(front.tag as? Int)?:front.height;val own=natural[v]?:h;val shown=(h+(own-h)*(p/.2f).coerceIn(0f,1f)).toInt()
+                if(v.tag!=shown){v.tag=shown;fit(v);v.invalidateOutline()};content(v,((p-.15f)/.3f).coerceIn(0f,1f))}
+            else content(v,0f)
+            place(v,k-1,p)}}
         /** The sheets under the card are blank: only the card on top shows its words and buttons. */
         private fun content(v:View,al:Float){(v as? ViewGroup)?.let{g->for(i in 0 until g.childCount)g.getChildAt(i).alpha=al}}
-        /** Puts the quote that really comes at place [k] (index + k) onto that sheet. Sheets are blank, so it does not show. */
-        private fun hold(k:Int){val want=Math.floorMod(index+k,list.size);val v=cards[k];if(quoteOf[v]==want)return
-            val fresh=card(want);fresh.tag=v.tag;val at=indexOfChild(v);removeView(v);quoteOf.remove(v);addView(fresh,at);cards[k]=fresh;content(fresh,0f)}
+        /** Puts quote [want] onto the card at place [k] if it holds another one (only ever done to a blank sheet). */
+        private fun hold(k:Int,want:Int){val v=cards[k];if(quoteOf[v]==want)return
+            val fresh=card(want);fresh.tag=v.tag;val at=indexOfChild(v);removeView(v);quoteOf.remove(v);natural.remove(v);addView(fresh,at);cards[k]=fresh;content(fresh,if(k==0)1f else 0f)}
         override fun onInterceptTouchEvent(e:MotionEvent):Boolean{
             if(list.size<2||busy)return false
             when(e.actionMasked){MotionEvent.ACTION_DOWN->{downX=e.x;downY=e.y;dragging=false;velocity?.recycle();velocity=VelocityTracker.obtain().also{it.addMovement(e)}}
@@ -140,7 +148,12 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             if(!dragging){if(e.actionMasked==MotionEvent.ACTION_DOWN&&list.size>1&&!busy){downX=e.x;downY=e.y;velocity?.recycle();velocity=VelocityTracker.obtain().also{it.addMovement(e)};return true};return super.onTouchEvent(e)}
             velocity?.addMovement(e);val dx=e.x-downX
             when(e.actionMasked){
-                MotionEvent.ACTION_MOVE->{front.translationX=dx;front.translationY=abs(dx)*.05f;front.rotation=dx/width*10f;pose((abs(dx)/(width*.6f)).coerceIn(0f,1f)*.55f)}
+                MotionEvent.ACTION_MOVE->{
+                    // the sheet under the card is the quote the throw will bring: the next one to the left, the one
+                    // before to the right; it is swapped while still blank, as the direction shows
+                    val want=Math.floorMod(index+(if(dx<0)1 else -1),list.size)
+                    if(cards.size>1&&quoteOf[cards[1]]!=want&&abs(dx)<width*.12f){hold(1,want);measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));layout(left,top,right,bottom)}
+                    front.translationX=dx;front.translationY=abs(dx)*.05f;front.rotation=dx/width*10f;pose((abs(dx)/(width*.6f)).coerceIn(0f,1f)*.55f)}
                 MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{velocity?.computeCurrentVelocity(1000);val vx=velocity?.xVelocity?:0f;dragging=false;parent?.requestDisallowInterceptTouchEvent(false)
                     val go=e.actionMasked==MotionEvent.ACTION_UP&&(abs(dx)>width*.3f||abs(vx)>a.d(700)&&sign(vx)==sign(dx))
                     if(go)fling(if(dx<0)-1 else 1) else settleBack()}
@@ -155,14 +168,15 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             val sx=old.translationX;val sy=old.translationY;val sr=old.rotation;val from=lift
             val outX=width*.82f*dir;val outY=a.d(28).toFloat();val outR=dir*16f
             val back=cards.size-2 // the last place in the fan
-            // the sheet that rises is the quote that comes now: the next one, or the one before when thrown to the right
-            if(cards.size>1){hold(1);pose(lift)}
+            // the sheet that rises is the quote that comes now (the index is already the new one): the next one, or the
+            // one before when thrown to the right
+            if(cards.size>1&&quoteOf[cards[1]]!=index){hold(1,index);measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));layout(left,top,right,bottom)}
             val next=if(cards.size>1)cards[1] else null
             fun finish(){
                 // the deck turns round: the risen sheet is the card now, the thrown card the last sheet
                 cards.removeAt(0);cards.add(old);heldH=-1;resizing=false
-                // every sheet holds the quote that really comes at its place (the thrown card may not)
-                for(k in 1 until cards.size)hold(k)
+                // the card holds the current quote and every sheet the one that really comes at its place
+                for(k in 0 until cards.size)hold(k,Math.floorMod(index+k,list.size))
                 measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));layout(left,top,right,bottom)
                 pose(0f);content(front,1f);requestLayout();busy=false}
             if(reduced()||next==null){old.translationX=0f;old.translationY=0f;old.rotation=0f;finish();return}
@@ -171,8 +185,8 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             // from here on a frame only moves the edge.
             val exactW=MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY);val free=MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED)
             val newH=run{next.measure(exactW,free);next.measuredHeight};val tall=maxOf(oldH,newH)
-            for(c in cards){c.measure(exactW,free);if(c.measuredHeight<tall)c.measure(exactW,MeasureSpec.makeMeasureSpec(tall,MeasureSpec.EXACTLY));c.layout(0,0,width,c.measuredHeight);c.tag=oldH;fit(c);c.invalidateOutline()}
-            heldH=oldH;resizing=true
+            for(c in cards){c.measure(exactW,free);natural[c]=c.measuredHeight;if(c.measuredHeight<tall)c.measure(exactW,MeasureSpec.makeMeasureSpec(tall,MeasureSpec.EXACTLY));c.layout(0,0,width,c.measuredHeight);if(c!==next)c.tag=oldH;fit(c);c.invalidateOutline()}
+            heldH=oldH;resizing=true;pose(lift)
             ValueAnimator.ofFloat(0f,1f).apply{duration=230;interpolator=glide
                 addUpdateListener{val t=it.animatedValue as Float;old.translationX=sx+(outX-sx)*t;old.translationY=sy+(outY-sy)*t;old.rotation=sr+(outR-sr)*t;pose(from+(.75f-from)*t)}
                 addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){
@@ -184,10 +198,9 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
                             old.pivotX=old.width/2f;old.pivotY=((old.tag as? Int)?:old.height)/2f
                             old.translationX=outX+(fanX[back]-outX)*t;old.translationY=outY+(fanY[back]-outY)*t;old.rotation=outR+(fanRot[back]-outR)*t
                             pose(lp+(1f-lp)*settle.getInterpolation(t))
-                            // the thrown card goes blank as it slips under; the rising sheet shows its words once on top
+                            // the thrown card goes blank as it slips under; then the deck takes the risen card's height
                             content(old,1f-(t/.2f).coerceIn(0f,1f))
                             heldH=(oldH+(newH-oldH)*glide.getInterpolation(((t-.2f)/.4f).coerceIn(0f,1f))).toInt()
-                            content(next,((t-.55f)/.3f).coerceIn(0f,1f))
                             requestLayout()}
                         addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){finish()}});start()}}});start()}
         }
