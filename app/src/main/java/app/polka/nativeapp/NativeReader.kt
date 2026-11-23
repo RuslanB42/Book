@@ -262,7 +262,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             if(!disposed && generation==layoutGeneration && chapter==targetChapter){
                 chapterRich=android.text.SpannableStringBuilder(result.text);chapterAnchors=result.anchors;pageStarts=result.starts;lastLayoutWorker=result.worker;committedKey=key;loadedChapter=chapter
                 val rich=chapterRich as android.text.SpannableStringBuilder
-                rich.getSpans(0,rich.length,android.text.style.URLSpan::class.java).forEach{span->val begin=rich.getSpanStart(span);val end=rich.getSpanEnd(span);val href=span.url;rich.removeSpan(span);rich.setSpan(object:android.text.style.ClickableSpan(){override fun onClick(v:View){openLink(href)};override fun updateDrawState(ds:android.text.TextPaint){ds.color=a.accent;ds.isUnderlineText=false}},begin,end,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
+                activateLinks(rich)
                 val offset=if(pendingLastPage)rich.length else pendingAnchor?.let{chapterAnchors[it]} ?: pendingOffset ?: ((pendingFraction?:0.0)*rich.length).toInt();pendingOffset=null;pendingAnchor=null;pendingFraction=null;pendingLastPage=false;preparing=false
                 restoring=true;body.animate().cancel();body.alpha=1f;body.translationX=0f
                 if(paged()){pageIndex=pageStarts.indexOfLast{it<=offset}.coerceAtLeast(0);paintPage();revealPage()}else{body.text=rich;stretchNow();body.post{jumpOffset(offset)}}
@@ -500,7 +500,14 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     private fun openPageLink(x:Float,y:Float):Boolean {
         val layout=body.layout?:return false;val sp=body.text as? android.text.Spanned?:return false
         val localY=y-body.totalPaddingTop+body.scrollY;val localX=x-body.totalPaddingLeft+body.scrollX;val line=layout.getLineForVertical(localY.toInt());val offset=JustifiedGeometry.offset(body,layout,line,localX).coerceIn(0,sp.length)
-        sp.getSpans(offset,minOf(sp.length,offset+1),android.text.style.ClickableSpan::class.java).firstOrNull()?.let{it.onClick(body);return true}
+        var hit=sp.getSpans(offset,minOf(sp.length,offset+1),android.text.style.ClickableSpan::class.java).firstOrNull()
+        // a footnote's mark is small: a finger next to it still finds it
+        if(hit==null)for(dx in intArrayOf(-1,1,-2,2)){val o=JustifiedGeometry.offset(body,layout,line,localX+dx*a.d(9)).coerceIn(0,sp.length)
+            hit=sp.getSpans(o,minOf(sp.length,o+1),NoteClick::class.java).firstOrNull();if(hit!=null)break}
+        hit?.let{h->val b=IntArray(2);body.getLocationInWindow(b);val v=IntArray(2);view.getLocationInWindow(v);val dy=(b[1]-v[1]+body.totalPaddingTop-body.scrollY).toFloat()
+            val at=sp.getSpanStart(h).coerceIn(0,sp.length)
+            noteAt=floatArrayOf(b[0]-v[0]+body.totalPaddingLeft+JustifiedGeometry.x(body,layout,at),layout.getLineTop(line)+dy,layout.getLineBottom(line)+dy)
+            h.onClick(body);return true}
         val first=layout.getLineStart(line);val table=sp.getSpans(first,minOf(sp.length,first+1),TableRowSpan::class.java).firstOrNull()
         if(table!=null){val bottom=layout.getLineBaseline(line)+body.paint.fontMetricsInt.descent.coerceAtLeast(0);table.linkAt(localX-layout.getLineLeft(line),localY-(bottom-table.sliceHeight))?.let{openLink(it);return true}};return false
     }
@@ -589,7 +596,10 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             if(!interactive){commitTarget();revealPage()}else{pageSlidePending=false;released?.let{releaseCurl(it,releaseVelocity)}}
         };return true
     }
-    private fun activateLinks(rich:CharSequence){val sp=rich as? android.text.Spannable?:return;sp.getSpans(0,sp.length,android.text.style.URLSpan::class.java).forEach{span->val start=sp.getSpanStart(span);val end=sp.getSpanEnd(span);val href=span.url;sp.removeSpan(span);sp.setSpan(object:android.text.style.ClickableSpan(){override fun onClick(v:View){openLink(href)};override fun updateDrawState(ds:android.text.TextPaint){ds.color=a.accent;ds.isUnderlineText=false}},start,end,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}}
+    /** A tapped footnote mark (its colour stays the mark's own). */
+    private inner class NoteClick(val href:String):android.text.style.ClickableSpan(){override fun onClick(v:View){openLink(href,true)};override fun updateDrawState(ds:android.text.TextPaint){ds.isUnderlineText=false}}
+    private fun activateLinks(rich:CharSequence){val sp=rich as? android.text.Spannable?:return;sp.getSpans(0,sp.length,android.text.style.URLSpan::class.java).forEach{span->val start=sp.getSpanStart(span);val end=sp.getSpanEnd(span);val href=span.url;val note=span is NoteRef;sp.removeSpan(span)
+        sp.setSpan(if(note)NoteClick(href) else object:android.text.style.ClickableSpan(){override fun onClick(v:View){openLink(href)};override fun updateDrawState(ds:android.text.TextPaint){ds.color=a.accent;ds.isUnderlineText=false}},start,end,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}}
     private fun commitTarget(){val target=targetPage?:return;if(targetCommitted)return
         save();targetCommitted=true
         if(target.chapter!=chapter){chapter=target.chapter;chapterRich=target.rich;pageStarts=target.starts;chapterAnchors=target.anchors;committedKey=target.key;requestKey=target.key;loadedChapter=chapter;lastLayoutWorker=target.worker;activateLinks(chapterRich)}
@@ -710,20 +720,35 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
             };results.toList()
         },done={if(!disposed)done(it)})
     }
-    fun openLink(href:String) {
+    /** Where the tapped footnote mark is: its x, and its line's top and bottom, in the reader's coordinates. */
+    private var noteAt:FloatArray?=null
+    private var noteCard:FootnoteCard?=null
+    fun openLink(href:String,isNote:Boolean=false) {
         if(!href.contains(":")) {
             val path=href.substringBefore('#'); val id=href.substringAfter('#',"")
+            // in the notes themselves a mark leads back to the text: that is a jump, not a note
+            val asNote=isNote && chapters.optJSONObject(chapter)?.optBoolean("notes")!=true
             val candidates=chapters.objects().mapIndexedNotNull { index,ch ->
                 if(path.isNotBlank() && ch.str("path").isNotBlank() && ch.str("path")!=path) return@mapIndexedNotNull null
                 val element=if(id.isNotBlank()) Jsoup.parse(chapterHtml(index)).getElementById(id) else null
                 val saved=ch.optJSONObject("anchors")?.str(id)
-                if(element!=null) Triple(index,element.text(),element.attr("epub:type").contains("note") || element.attr("role")=="doc-footnote" || ch.optBoolean("notes"))
-                else if(!saved.isNullOrBlank()) Triple(index,saved,ch.optBoolean("notes"))
-                else if(id.isBlank() && ch.str("path")==path) Triple(index,"",false) else null
+                if(element!=null) Triple(index,element,asNote || element.attr("epub:type").contains("note") || element.attr("role")=="doc-footnote" || ch.optBoolean("notes"))
+                else if(!saved.isNullOrBlank()) Triple(index,org.jsoup.nodes.Element("p").text(saved),asNote || ch.optBoolean("notes"))
+                else if(id.isBlank() && ch.str("path")==path) Triple(index,null,false) else null
             }
-            val found=candidates.firstOrNull { it.first==chapter } ?: candidates.firstOrNull() ?: return
+            val found=candidates.firstOrNull { it.first==chapter } ?: candidates.firstOrNull() ?: run { noteAt=null; return }
             fun jump() { markJump(); changeChapter(found.first); jumpAnchor(id) }
-            if(found.third) a.dialog().setTitle("Примечание").setMessage(found.second).setPositiveButton("Перейти") { _,_ -> jump() }.show() else jump()
+            val el=found.second
+            if(found.third && el!=null) {
+                val note=FootnoteCard.noteText(el)
+                val text=ReadingText(a,body.textSize*.9f,(view.width-a.d(68)).coerceAtLeast(a.d(120)),a.d(240),images,body.currentTextColor,1.5f,false,true).render(note.second).text
+                while(text.isNotEmpty()&&text[text.length-1].isWhitespace())text.delete(text.length-1,text.length)
+                activateLinks(text)
+                noteCard?.close(false)
+                noteCard=FootnoteCard(a,view,readerBackground,body.currentTextColor,body.typeface,body.textSize*.9f,note.first,text,noteAt,{noteCard=null}) { jump() }
+                noteCard?.show()
+                noteAt=null
+            } else { noteAt=null; jump() }
         } else if(href.startsWith("https://") || href.startsWith("http://") || href.startsWith("mailto:")) a.confirm("Открыть ссылку?",href) { try { a.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(href))) } catch(_:android.content.ActivityNotFoundException) { a.dialog().setMessage("Нет приложения для открытия ссылки").setPositiveButton("Закрыть",null).show() } }
     }
     fun editChapter() {
@@ -772,5 +797,5 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         restore()
         if(a.prefs.str("motion")=="reduced"||!toolbar.isAttachedToWindow)view.removeView(toolbar) else{toolbar.isEnabled=false;toolbar.animate().alpha(0f).translationY(a.d(20).toFloat()).setStartDelay(0).setDuration(200).withEndAction{view.removeView(toolbar)}.start()}
     }
-    fun requestClose():Boolean {val edit=pageEditor?:return true;edit.cancel();return false}
+    fun requestClose():Boolean {noteCard?.let{it.close(true);return false};val edit=pageEditor?:return true;edit.cancel();return false}
 }

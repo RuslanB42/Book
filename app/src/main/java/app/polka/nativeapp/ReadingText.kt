@@ -57,7 +57,16 @@ class ReadingText(private val a:MainActivity,private val textSize:Float,private 
             "sup" -> { span(SuperscriptSpan(),start); span(RelativeSizeSpan(.72f),start) }
             "sub" -> { span(SubscriptSpan(),start); span(RelativeSizeSpan(.72f),start) }
             "code","pre" -> { span(TypefaceSpan("monospace"),start); span(RelativeSizeSpan(.85f),start) }
-            "a" -> { val href=el.attr("data-href").ifBlank { el.attr("href") }; if(href.isNotBlank() && !href.startsWith("javascript:",true)) span(URLSpan(href),start) }
+            "a" -> { val href=el.attr("data-href").ifBlank { el.attr("href") }
+                if(href.isNotBlank() && !href.startsWith("javascript:",true)) {
+                    if(NoteMark.isRef(el,href,out.substring(start,end))) {
+                        // a footnote's mark: a small raised figure in its own colour (approved «Цифра-индекс»); a <sup>
+                        // of the book's own gives way to it, and brackets around it are kept in the text but not shown
+                        for(k in listOf(SuperscriptSpan::class.java,SubscriptSpan::class.java,RelativeSizeSpan::class.java)) out.getSpans(start,end,k).forEach { sp -> if(out.getSpanStart(sp)>=start && out.getSpanEnd(sp)<=end) out.removeSpan(sp) }
+                        val color=NoteMark.color(ink)
+                        for(i in start until end) if(!out[i].isLetterOrDigit() && out[i] !in "*†‡§") span(NoteMark.Hidden(),i,i+1)
+                        span(NoteMark(color),start); span(NoteRef(href),start)
+                    } else span(URLSpan(href),start) } }
         }
         if(end<=start || !block) return
         val heading=tag.matches(Regex("h[1-6]")); val parents=el.parents(); val epigraph=el.hasClass("epigraph") || parents.any { it.hasClass("epigraph") }; val poem=el.hasClass("poem") || parents.any { it.hasClass("poem") }; val cite=tag=="blockquote" || parents.any { it.tagName()=="blockquote" || it.hasClass("cite") }
@@ -154,3 +163,29 @@ class ParagraphSpace(private val before:Int,private val after:Int,private val li
     }
 }
 
+
+/** A link to a footnote (it opens the note itself, not a jump). */
+internal class NoteRef(url:String):URLSpan(url)
+
+/** The mark of a footnote in the text: a small raised figure, medium weight, in the note colour — quiet but never
+ *  taken for a stray digit of the text. */
+internal class NoteMark(private val color:Int):MetricAffectingSpan(){
+    private fun shape(tp:TextPaint){val size=tp.textSize;tp.textSize=size*.66f;tp.baselineShift+=(size*.42f).toInt().let{-it}
+        tp.typeface=Typeface.create(tp.typeface,Typeface.BOLD)}
+    override fun updateMeasureState(tp:TextPaint)=shape(tp)
+    override fun updateDrawState(tp:TextPaint){shape(tp);tp.color=color;tp.isUnderlineText=false}
+    /** A character kept in the text (offsets of quotes and bookmarks stay as they were) but drawn as nothing. */
+    class Hidden:MetricAffectingSpan(){
+        override fun updateMeasureState(tp:TextPaint){tp.textSize=.01f}
+        override fun updateDrawState(tp:TextPaint){tp.textSize=.01f;tp.color=Color.TRANSPARENT}
+    }
+    companion object{
+        private val marker=Regex("^\\s*[\\[({]?\\s*(\\d{1,4}|[*†‡§]{1,3})\\s*[\\])}]?\\s*$",RegexOption.IGNORE_CASE)
+        /** A footnote reference: so marked by the book (FB2 «note», EPUB «noteref»), or a short mark (a figure, a
+         *  star) linking to a place in the book. */
+        fun isRef(el:org.jsoup.nodes.Element,href:String,shown:String):Boolean{if(!href.contains('#')||href.contains("://"))return false
+            return el.attr("type")=="note"||el.attr("epub:type").contains("noteref")||el.attr("role")=="doc-noteref"||marker.matches(shown)}
+        /** Calm blue on a dark page, a deeper blue on a light one. */
+        fun color(ink:Int):Int{val l=(Color.red(ink)*.299+Color.green(ink)*.587+Color.blue(ink)*.114)/255;return if(l>.5)0xff8ab4f8.toInt() else 0xff2f6bd0.toInt()}
+    }
+}
