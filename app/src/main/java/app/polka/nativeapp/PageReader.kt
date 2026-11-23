@@ -114,7 +114,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     private fun pastEnd(){
         if(finishing||Library.status(book)=="done"||n<=0||page<n-1)return
         credit();finishing=true
-        val go:()->Unit={markDone();BookFinish(a,book){leave->finishing=false;tracker.skipTime();if(leave)close()}.show()}
+        val go:()->Unit={markDone();BookFinish(a,book){leave->finishing=false;tracker.skipTime();if(leave)close()}.show(fromPage=true)}
         if(!tracker.seeded||tracker.share()>=.5)go()
         else{var chosen=false
             a.dialog().setTitle("Книга прочитана?").setMessage("Отметить книгу прочитанной?").setNegativeButton("Нет",null).setPositiveButton("Прочитана"){_,_->chosen=true;go()}.show()
