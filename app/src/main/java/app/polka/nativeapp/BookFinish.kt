@@ -48,9 +48,11 @@ internal class BookJourney(val start:LocalDate?,val end:LocalDate,val ms:Long){
 }
 
 /**
- * The end of a book as an event: the cover in its own light, how many days and hours it took, and right under it the
- * rating (half stars), the marks and the review. «Готово» keeps what was given, «Без оценки» leaves the book without
- * what was put in here. The window is its own, over the reader or the library.
+ * The end of a book as an event (approved «Конец книги В»): the cover's own colours, blurred, over the whole screen,
+ * the cover large in the middle of them, and at the foot one glass panel — how long it took, the title, the rating
+ * (half stars), the marks and the review, «Готово» and «Без оценки». The cover gives way as the panel grows (the
+ * marks open up, the keyboard comes). «Готово» keeps what was given, «Без оценки» leaves the book without what was
+ * put in here. The window is its own, over the reader or the library.
  */
 internal class BookFinish(private val a:MainActivity,private val book:JSONObject,private val done:(closeBook:Boolean)->Unit){
     private val dialog=Dialog(a,android.R.style.Theme_Black_NoTitleBar)
@@ -58,51 +60,65 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
     private var closed=false
 
     fun show(){
-        val root=FrameLayout(a).apply{setBackgroundColor(a.bg)}
-        // the cover's own colours, blurred, behind the top of the page and fading into it
-        val glow=ImageView(a).apply{scaleType=ImageView.ScaleType.CENTER_CROP;alpha=if(a.light).4f else .55f}
-        root.addView(glow,FrameLayout.LayoutParams(-1,a.d(520)))
-        // the wash fades out gently and is gone well before its own edge, so no line is left where it ends
-        val clear=a.bg and 0x00ffffff
-        root.addView(View(a).apply{background=android.graphics.drawable.PaintDrawable().apply{shaderFactory=object:android.graphics.drawable.ShapeDrawable.ShaderFactory(){
-            override fun resize(w:Int,h:Int)=LinearGradient(0f,0f,0f,h.toFloat(),intArrayOf(clear,clear,(a.bg and 0x00ffffff) or 0x66000000,(a.bg and 0x00ffffff) or 0xd9000000.toInt(),a.bg,a.bg),floatArrayOf(0f,.3f,.55f,.72f,.86f,1f),Shader.TileMode.CLAMP)}}},FrameLayout.LayoutParams(-1,a.d(520)))
+        val root=FrameLayout(a).apply{setBackgroundColor(if(a.light)0xffe9e7e3.toInt() else 0xff0e0e10.toInt())}
+        // the cover's colours over the whole screen: darkened (lightened in the light theme) more toward the foot
+        val glow=ImageView(a).apply{scaleType=ImageView.ScaleType.CENTER_CROP
+            colorFilter=ColorMatrixColorFilter(ColorMatrix().apply{setSaturation(1.4f);if(!a.light)postConcat(ColorMatrix().apply{setScale(.75f,.75f,.75f,1f)})})}
+        root.addView(glow,FrameLayout.LayoutParams(-1,-1))
+        root.addView(View(a).apply{background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+            if(a.light)intArrayOf(0x1affffff,0x66ffffff,0xa6ffffff.toInt()) else intArrayOf(0x0d000000,0x59000000,0x99000000.toInt()))},FrameLayout.LayoutParams(-1,-1))
         val scroll=ScrollView(a).apply{isFillViewport=true;overScrollMode=View.OVER_SCROLL_NEVER;isVerticalScrollBarEnabled=false}
         val page=a.col().apply{clipChildren=false;clipToPadding=false}
         scroll.addView(page,FrameLayout.LayoutParams(-1,-2))
         root.addView(scroll,FrameLayout.LayoutParams(-1,-1))
-
-        val top=FrameLayout(a)
-        val close=FrameLayout(a).apply{background=a.shape(if(a.light)0x14000000 else 0x33000000,20);contentDescription="Закрыть";isClickable=true;isFocusable=true
+        val close=FrameLayout(a).apply{background=a.shape(if(a.light)0x14000000 else 0x40000000,20);contentDescription="Закрыть";isClickable=true;isFocusable=true
             addView(IconView(a,"x",a.fg),FrameLayout.LayoutParams(a.d(18),a.d(18),Gravity.CENTER));setOnClickListener{finish(false,false)}}
-        top.addView(close,FrameLayout.LayoutParams(a.d(40),a.d(40),Gravity.END))
-        page.addView(top,LinearLayout.LayoutParams(-1,-2))
+        root.addView(close,FrameLayout.LayoutParams(a.d(40),a.d(40),Gravity.TOP or Gravity.END).apply{rightMargin=a.d(18)})
 
+        // the cover, as large as the room above the panel allows
         val cover=CoverView(a,book,a.cover(book)).apply{softShadow=true}
-        page.addView(cover,LinearLayout.LayoutParams(a.d(124),a.d(186)).apply{gravity=Gravity.CENTER_HORIZONTAL;topMargin=a.d(4)})
+        val coverBox=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
+        coverBox.addView(cover,FrameLayout.LayoutParams(a.d(200),a.d(300),Gravity.CENTER_HORIZONTAL))
+        page.addView(coverBox,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(52)})
         cover.prepareArtwork{glow.setImageDrawable(BitmapDrawable(a.resources,blurred(cover.glowArtwork())).apply{isFilterBitmap=true})}
-        page.addView(a.text(book.str("title"),28f,a.fg,true,serif=true).apply{gravity=Gravity.CENTER;maxLines=3},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(22)})
-        MainActivity.authors(book).takeIf{it.isNotBlank()}?.let{page.addView(a.text(it,14f,if(a.light)0xff5a5650.toInt() else 0xffc9c2b8.toInt()).apply{gravity=Gravity.CENTER;maxLines=2},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})}
-
-        val tiles=a.row().apply{gravity=Gravity.TOP}
-        page.addView(tiles,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(22)})
-        // the rating is one of the page's tiles here: the same soft fill over the cover's light, not a raised card
-        val review=ReviewBlock(a,book).apply{a.floatCard(this,16,if(a.light)0x0d000000 else 0x12ffffff,0)}
-        page.addView(review,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(12)})
         page.addView(View(a),LinearLayout.LayoutParams(1,0,1f))
-        page.addView(a.button("Готово",true){finish(true,true)}.apply{background=a.shape(a.fg,25);minHeight=a.d(50)},LinearLayout.LayoutParams(-1,a.d(50)).apply{topMargin=a.d(24)})
-        page.addView(a.text("Без оценки",15f,a.muted).apply{gravity=Gravity.CENTER;isClickable=true;isFocusable=true;setOnClickListener{finish(false,true)}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(2)})
+
+        // the glass panel: how long it took, the title, the rating and the review, the two ways out
+        val panel=a.col().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(a.d(20),a.d(22),a.d(20),a.d(8))
+            background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)0xd1f7f7f5.toInt() else 0xb81c1c1e.toInt());cornerRadius=a.d(30).toFloat();setStroke(1,if(a.light)0x14000000 else 0x14ffffff)}}
+        val kicker=a.text("ПРОЧИТАНО",11.5f,if(a.light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt(),true).apply{letterSpacing=.14f;gravity=Gravity.CENTER}
+        panel.addView(kicker,LinearLayout.LayoutParams(-1,-2))
+        panel.addView(a.text(book.str("title"),26f,a.fg,true,serif=true).apply{gravity=Gravity.CENTER;maxLines=3},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(6)})
+        MainActivity.authors(book).takeIf{it.isNotBlank()}?.let{panel.addView(a.text(it,14f,a.muted).apply{gravity=Gravity.CENTER;maxLines=2},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})}
+        val facts=a.text("",13f,a.muted).apply{gravity=Gravity.CENTER;visibility=View.GONE}
+        panel.addView(facts,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(6)})
+        // the rating lies on the glass itself, no card of its own
+        val review=ReviewBlock(a,book).apply{background=null;elevation=0f;clipToOutline=false;setPadding(0,a.d(6),0,0)}
+        panel.addView(review,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(12)})
+        panel.addView(a.button("Готово",true){finish(true,true)}.apply{background=a.shape(a.fg,25);minHeight=a.d(50)},LinearLayout.LayoutParams(-1,a.d(50)).apply{topMargin=a.d(18)})
+        panel.addView(a.text("Без оценки",15f,a.muted).apply{gravity=Gravity.CENTER;isClickable=true;isFocusable=true;setOnClickListener{finish(false,true)}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(2)})
+        page.addView(panel,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(24)})
+
+        // the cover takes the room left above the panel (300 dp at most, 150 at least) and glides to a new size
+        var sizing:android.animation.ValueAnimator?=null
+        fun fit(animate:Boolean){val lp=cover.layoutParams as FrameLayout.LayoutParams
+            val free=scroll.height-page.paddingTop-page.paddingBottom-a.d(52)-a.d(24)-panel.height
+            val to=free.coerceIn(a.d(150),a.d(300));if(scroll.height==0||kotlin.math.abs(to-lp.height)<3)return
+            sizing?.cancel()
+            fun set(h:Int){lp.height=h;lp.width=(h/1.5f).toInt();cover.layoutParams=lp}
+            if(!animate||a.prefs.str("motion")=="reduced"){set(to);return}
+            sizing=android.animation.ValueAnimator.ofInt(lp.height,to).apply{duration=MotionSpec.SETTLE;interpolator=MotionSpec.move;addUpdateListener{set(it.animatedValue as Int)};start()}}
+        var seen=-1;var first=true
+        page.addOnLayoutChangeListener{_,_,_,_,_,_,_,_,_->val key=panel.height*31+scroll.height+page.paddingBottom
+            if(key!=seen){seen=key;val anim=!first;first=false;page.post{fit(anim)}}}
 
         // the facts: how many days (from — to) and how long it was read
         var journey:BookJourney?=null
         a.work({val data=a.library.dao.meta("stats")?.let{JSONObject(it.json).optJSONObject("data")}
             val end=book.optLong("completedAt").takeIf{it>0}?.let{Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()}?:LocalDate.now()
             journey=BookJourney.of(data,book,end)}){val j=journey?:return@work
-            fun tile(value:String,caption:String){val t=a.col().apply{background=a.shape(if(a.light)0x0d000000 else 0x12ffffff,16);setPadding(a.d(12),a.d(12),a.d(12),a.d(11))}
-                t.addView(a.text(value,21f,a.fg,true,serif=true).apply{maxLines=1})
-                t.addView(a.text(caption,12f,a.muted).apply{maxLines=1;setPadding(0,a.d(4),0,0)})
-                tiles.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{if(tiles.childCount>0)leftMargin=a.d(8)})}
-            j.days?.let{n->tile("$n ${daysWordRu(n)}",j.range())}?:tile(dayMonth(j.end),"прочитана")
-            if(j.ms>=60_000L)tile(duration(j.ms),"за чтением")}
+            j.days?.let{n->kicker.text="ПРОЧИТАНО ЗА $n ${daysWordRu(n).uppercase()}"}
+            facts.text=listOfNotNull(j.range(),if(j.ms>=60_000L)"${duration(j.ms)} за чтением" else null).joinToString(", ");facts.visibility=View.VISIBLE}
 
         dialog.setContentView(root)
         dialog.setCancelable(true)
@@ -115,7 +131,8 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         // the page keeps clear of the bars and of the keyboard; the line being typed stays above it
         var keyboard=0
         ViewCompat.setOnApplyWindowInsetsListener(root){_,ins->val bars=ins.getInsets(WindowInsetsCompat.Type.systemBars()or WindowInsetsCompat.Type.displayCutout());keyboard=ins.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            page.setPadding(a.d(20)+bars.left,bars.top+a.d(10),a.d(20)+bars.right,maxOf(bars.bottom,keyboard)+a.d(12));ins}
+            page.setPadding(a.d(14)+bars.left,bars.top,a.d(14)+bars.right,maxOf(bars.bottom,keyboard)+a.d(14))
+            (close.layoutParams as FrameLayout.LayoutParams).topMargin=bars.top+a.d(8);close.requestLayout();ins}
         ImeKeeper(scroll,a.d(20)){keyboard}.attach()
         // the end of the book comes out of the dark, like the book itself (see MotionSpec)
         val motion=a.prefs.str("motion")!="reduced"
