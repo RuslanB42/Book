@@ -55,7 +55,7 @@ internal object IosIcons {
     "swap" to listOf(Op(false,false,1.75f,true,"M8 3 4 7 l4 4 M4 7 h16 M16 21 l4 -4 -4 -4 M20 17 H4",null)),
     "bookmark" to listOf(Op(false,false,1.75f,true,"M17 3 a2 2 0 0 1 2 2 v15 a1 1 0 0 1 -1.496 .868 l-4.512 -2.578 a2 2 0 0 0 -1.984 0 l-4.512 2.578 A1 1 0 0 1 5 20 V5 a2 2 0 0 1 2 -2 z",null)),
     "toc" to listOf(Op(false,false,1.75f,true,"M3 5 h.01 M3 12 h.01 M3 19 h.01 M8 5 h13 M8 12 h13 M8 19 h13",null)),
-    "aa" to listOf(Op(false,false,1.75f,true,"M15 16 l2.536 -7.328 a1.02 1.02 1 0 1 1.928 0 L22 16 M15.697 14 h5.606 M2 16 l4.039 -9.69 a.5 .5 0 0 1 .923 0 L11 16 M3.304 13 h6.392",null)),
+    "aa" to listOf(Op(false,false,1.75f,true,"M14.2 19 L17.35 9.7 a1 1 0 0 1 1.9 0 L22.4 19 M15.3 16 h6 M1.5 19 L6.25 5.5 a.55 .55 0 0 1 1 0 L12 19 M3.2 14.5 h7.1",null)),
     "book" to listOf(Op(false,false,1.75f,true,"M12 5 v16 M20.001 19 A2 2 0 0 0 22 17 V5 a2 2 0 0 0 -1.999 -2 L16 3.002 A5 5 0 0 0 12 5 a5 5 0 0 0 -4 -2 H4 a2 2 0 0 0 -2 2 v12 a2 2 0 0 0 1.999 2 H8 a5 5 0 0 1 4 2 5 5 0 0 1 4 -2 z",null)),
     "pages" to listOf(Op(false,false,1.75f,true,"M15 2 h-4 a2 2 0 0 0 -2 2 v11 a2 2 0 0 0 2 2 h8 a2 2 0 0 0 2 -2 V8 M16.706 2.706 A2.4 2.4 0 0 0 15 2 v5 a1 1 0 0 0 1 1 h5 a2.4 2.4 0 0 0 -.706 -1.706 zM5 7 a2 2 0 0 0 -2 2 v11 a2 2 0 0 0 2 2 h8 a2 2 0 0 0 1.732 -1",null)),
     "scroll" to listOf(Op(false,false,1.75f,true,"M21 16 l-4 4 -4 -4 M17 20 V4 M3 8 l4 -4 4 4 M7 4 v16",null)),
