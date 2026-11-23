@@ -64,13 +64,29 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
     private val rise=android.view.animation.PathInterpolator(.16f,1f,.3f,1f)
     private var cover:View?=null;private var panel:View?=null
 
+    /** Takes a picture of the screen as it is (the last page) first, so the page can turn into the cover. */
     fun show(){
-        val root=FrameLayout(a).apply{setBackgroundColor(if(a.light)0xffe9e7e3.toInt() else 0xff0e0e10.toInt())}
+        if(!motion){build(null);return}
+        val v=a.window.decorView
+        if(v.width<=0||v.height<=0){build(null);return}
+        val bmp=try{Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888)}catch(_:Throwable){build(null);return}
+        try{android.view.PixelCopy.request(a.window,bmp,{res->if(a.isFinishing||a.isDestroyed)return@request
+                if(res==android.view.PixelCopy.SUCCESS)build(bmp) else{bmp.recycle();build(null)}},android.os.Handler(android.os.Looper.getMainLooper()))}
+        catch(_:Throwable){bmp.recycle();build(null)}
+    }
+    private fun build(shot:Bitmap?){
+        val ground=if(a.light)0xffe9e7e3.toInt() else 0xff0e0e10.toInt()
+        val root=FrameLayout(a).apply{setBackgroundColor(if(shot!=null)Color.BLACK else ground)}
+        // approved «Страница в обложку»: the screen as it was is the first layer; it closes in on the cover's place
+        val shrink=shot?.let{Shrink(it).also{v->root.addView(v,FrameLayout.LayoutParams(-1,-1))}}
+        val dark=View(a).apply{setBackgroundColor(ground)};root.addView(dark,FrameLayout.LayoutParams(-1,-1))
         // the cover's colours over the whole screen: darkened (lightened in the light theme) more toward the foot
+        val light=FrameLayout(a)
         val glow=ImageView(a).apply{scaleType=ImageView.ScaleType.CENTER_CROP
             colorFilter=ColorMatrixColorFilter(ColorMatrix().apply{setSaturation(1.4f);if(!a.light)postConcat(ColorMatrix().apply{setScale(.75f,.75f,.75f,1f)})})}
-        root.addView(glow,FrameLayout.LayoutParams(-1,-1))
-        root.addView(View(a).apply{background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+        light.addView(glow,FrameLayout.LayoutParams(-1,-1))
+        root.addView(light,FrameLayout.LayoutParams(-1,-1))
+        light.addView(View(a).apply{background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
             if(a.light)intArrayOf(0x1affffff,0x66ffffff,0xa6ffffff.toInt()) else intArrayOf(0x0d000000,0x59000000,0x99000000.toInt()))},FrameLayout.LayoutParams(-1,-1))
         val scroll=ScrollView(a).apply{isFillViewport=true;overScrollMode=View.OVER_SCROLL_NEVER;isVerticalScrollBarEnabled=false}
         val page=a.col().apply{clipChildren=false;clipToPadding=false}
@@ -85,9 +101,9 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         val coverBox=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
         coverBox.addView(cover,FrameLayout.LayoutParams(a.d(200),a.d(300),Gravity.CENTER_HORIZONTAL))
         page.addView(coverBox,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(52)})
-        // the light comes up slowly once the cover's colours are ready, never at once
+        // the light never comes at once: when the cover's colours are ready late, they fade in too
         cover.prepareArtwork{glow.setImageDrawable(BitmapDrawable(a.resources,blurred(cover.glowArtwork())).apply{isFilterBitmap=true})
-            if(motion){glow.alpha=0f;glow.animate().alpha(1f).setDuration(900).setInterpolator(MotionSpec.enter).start()}}
+            if(motion){glow.alpha=0f;glow.animate().alpha(1f).setDuration(700).setInterpolator(MotionSpec.enter).start()}}
         page.addView(View(a),LinearLayout.LayoutParams(1,0,1f))
 
         // the glass panel: how long it took, the title, the rating and the review, the two ways out
@@ -117,7 +133,8 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             sizing=android.animation.ValueAnimator.ofInt(lp.height,to).apply{duration=MotionSpec.SETTLE;interpolator=MotionSpec.move;addUpdateListener{set(it.animatedValue as Int)};start()}}
         var seen=-1;var first=true
         page.addOnLayoutChangeListener{_,_,_,_,_,_,_,_,_->val key=panel.height*31+scroll.height+page.paddingBottom
-            if(key!=seen){seen=key;val anim=!first;first=false;page.post{fit(anim)}}}
+            if(key!=seen){seen=key;val anim=!first;first=false
+                page.post{fit(anim);if(!anim&&shrink!=null)startOnceLaidOut(root){entrance(shrink,dark,light,glow,cover,panel,close)}}}}
 
         // the facts: how many days (from — to) and how long it was read
         var journey:BookJourney?=null
@@ -144,28 +161,54 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         ImeKeeper(scroll,a.d(20)){keyboard}.attach()
         dialog.window?.setWindowAnimations(0)
         this.root=root;this.cover=coverBox;this.panel=panel
-        if(motion)entrance(root,coverBox,panel,close)
+        // until the move starts only the screen as it was shows, so opening the window changes nothing on it
+        if(shrink!=null){dark.alpha=0f;light.alpha=0f;cover.alpha=0f;close.alpha=0f;panel.alpha=0f;for(i in 0 until panel.childCount)panel.getChildAt(i).alpha=0f}
         dialog.show()
     }
     private var root:View?=null
 
-    /** The end of the book as a moment: the dark comes first, the cover rises out of it and grows into place, then the
-     *  glass panel slides up from the edge and its lines come one after another; the cover's light follows slowly. */
-    private fun entrance(root:View,coverBox:View,panel:LinearLayout,close:View){
-        root.alpha=0f;coverBox.alpha=0f;close.alpha=0f
-        for(i in 0 until panel.childCount)panel.getChildAt(i).alpha=0f
-        panel.alpha=0f
-        root.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
-            root.viewTreeObserver.removeOnPreDrawListener(this)
-            root.animate().alpha(1f).setDuration(MotionSpec.DARK_OUT).setInterpolator(MotionSpec.enter).start()
-            coverBox.scaleX=.86f;coverBox.scaleY=.86f;coverBox.translationY=a.d(36).toFloat()
-            coverBox.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setStartDelay(120).setDuration(720).setInterpolator(rise).start()
-            panel.alpha=1f;panel.translationY=(panel.height+a.d(40)).toFloat()
-            panel.animate().translationY(0f).setStartDelay(340).setDuration(620).setInterpolator(rise).start()
-            for(i in 0 until panel.childCount){val c=panel.getChildAt(i);c.translationY=a.d(14).toFloat()
-                c.animate().alpha(1f).translationY(0f).setStartDelay(480L+i*55).setDuration(420).setInterpolator(MotionSpec.enter).start()}
-            close.animate().alpha(1f).setStartDelay(700).setDuration(300).start()
-            return true}})
+    /** Runs [go] on the next frame drawn after the layout that is pending now (the cover at its final size). */
+    private fun startOnceLaidOut(v:View,go:()->Unit){v.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{
+        override fun onPreDraw():Boolean{v.viewTreeObserver.removeOnPreDrawListener(this);go();return true}});v.invalidate()}
+
+    /** The last page, drawn inside a rounded window that closes in on the cover's place, a little smaller and darker
+     *  as it goes ([t] 0…1). */
+    private inner class Shrink(val shot:Bitmap):View(a){
+        var t=0f;set(v){field=v;invalidate()}
+        val target=RectF()
+        private val p=Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG);private val clip=Path();private val dst=RectF()
+        override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val k=t
+            clip.rewind();val rad=a.d(5)*k
+            clip.addRoundRect(target.left*k,target.top*k,w+(target.right-w)*k,h+(target.bottom-h)*k,rad,rad,Path.Direction.CW)
+            c.save();c.clipPath(clip);val s=1f-.38f*k;c.scale(s,s,w/2,h/2)
+            val g=(255*(1f-.2f*k)).toInt();p.colorFilter=LightingColorFilter(Color.rgb(g,g,g),0)
+            dst.set(0f,0f,w,h);c.drawBitmap(shot,null,dst,p);c.restore()}
+        override fun onDetachedFromWindow(){super.onDetachedFromWindow();shot.recycle()}
+    }
+
+    /** As approved in the prototype («Страница в обложку»): the last page closes in on the cover's place while the
+     *  dark comes over it and the cover shows through, the cover's light comes up behind, the glass panel rises from
+     *  below and its lines come one after another. */
+    private fun entrance(shrink:Shrink,dark:View,light:View,glow:View,cover:View,panel:LinearLayout,close:View){
+        val at=IntArray(2);cover.getLocationInWindow(at);val o=IntArray(2);shrink.getLocationInWindow(o)
+        shrink.target.set((at[0]-o[0]).toFloat(),(at[1]-o[1]).toFloat(),(at[0]-o[0]+cover.width).toFloat(),(at[1]-o[1]+cover.height).toFloat())
+        fun clock(ms:Long,delay:Long=0,curve:android.animation.TimeInterpolator=MotionSpec.enter,step:(Float)->Unit)=
+            android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=ms;startDelay=delay;interpolator=curve;addUpdateListener{step(it.animatedValue as Float)};start()}
+        // the page: 760 ms into the cover's place; it is let go of once the cover has come through it
+        clock(760,0,rise){shrink.t=it}
+        clock(820,0,android.view.animation.LinearInterpolator()){shrink.alpha=if(it<.7f)1f else 1f-(it-.7f)/.3f;if(it>=1f)shrink.visibility=View.GONE}
+        dark.animate().alpha(1f).setDuration(420).setInterpolator(MotionSpec.enter).start()
+        // the cover shows through from a quarter of the way
+        cover.animate().alpha(1f).setStartDelay(155).setDuration(465).setInterpolator(MotionSpec.move).start()
+        // the light: up over 1.1 s, settling from a little larger
+        light.animate().alpha(1f).setStartDelay(260).setDuration(1100).setInterpolator(MotionSpec.enter).start()
+        glow.scaleX=1.18f;glow.scaleY=1.18f;glow.animate().scaleX(1f).scaleY(1f).setStartDelay(260).setDuration(1700).setInterpolator(rise).start()
+        // the panel from below, then its lines in turn, the cross last
+        panel.alpha=0f;panel.translationY=a.d(70).toFloat()
+        panel.animate().alpha(1f).translationY(0f).setStartDelay(420).setDuration(760).setInterpolator(rise).start()
+        for(i in 0 until panel.childCount){val c=panel.getChildAt(i);c.translationY=a.d(10).toFloat()
+            c.animate().alpha(1f).translationY(0f).setStartDelay(560L+i*60).setDuration(520).setInterpolator(MotionSpec.enter).start()}
+        close.animate().alpha(1f).setStartDelay(920).setDuration(400).setInterpolator(MotionSpec.enter).start()
     }
 
     private fun finish(keep:Boolean,closeBook:Boolean){
