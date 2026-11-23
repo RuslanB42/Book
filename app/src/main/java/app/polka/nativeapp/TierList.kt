@@ -92,15 +92,13 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     private val col=a.column()
     private val scroll=ScrollView(a).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_IF_CONTENT_SCROLLS;clipToPadding=false;isVerticalFadingEdgeEnabled=true;setFadingEdgeLength(a.d(24))}
     private val page=a.column().apply{clipChildren=false;clipToPadding=false}
-    // approved: the years side by side over the page, swiped like pages; the last one is «Все годы»
-    private val tabs:List<Int?> =years.map<Int,Int?>{it}+listOf<Int?>(null)
-    private val tabRow=a.line().apply{gravity=Gravity.BOTTOM}
-    private val tabStrip=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(tabRow)}
-    private val tabViews=mutableListOf<TextView>()
-    private val pager=Pager()
-    private val sideL=a.column().apply{clipChildren=false;clipToPadding=false}
-    private val sideR=a.column().apply{clipChildren=false;clipToPadding=false}
-    private var pageAnim:android.animation.ValueAnimator?=null
+    // approved (variant А): one list for everything, narrowed by pills above it — the year, books or comics, the genre;
+    // a pill opens a short menu under itself, a chosen filter turns the pill white and names what is chosen
+    private var kind:String?=null
+    private var genre:String?=null
+    private val pills=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+    private val pillStrip=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;setPadding(a.d(18),0,a.d(18),0);addView(pills)}
+    private var menu:FrameLayout?=null
     private val countText=a.text("",14f,a.muted)
     private val rowsBox=a.column().apply{clipChildren=false;clipToPadding=false}
     private val rows=mutableListOf<TierRow>()
@@ -127,21 +125,13 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         bar.addView(a.text("ТИР-ЛИСТ",12.5f,a.muted,true).apply{letterSpacing=.06f;gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f))
         bar.addView(round("share","Поделиться тир-листом"){openShare()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
         col.addView(bar)
-        // the years over the page: the chosen one white, the others quiet; a swipe turns the page
-        tabs.forEachIndexed{i,y->val t=if(y==null)a.text("Все годы",17f,a.muted,true) else a.text("$y",40f,a.muted,true,serif=true)
-            t.includeFontPadding=false;t.isClickable=true;t.setOnClickListener{goTo(i)};tabViews.add(t)
-            tabRow.addView(t,LinearLayout.LayoutParams(-2,-2).apply{marginEnd=a.d(20);if(y==null)bottomMargin=a.d(5)})}
-        tabStrip.setPadding(a.d(22),0,a.d(22),0)
-        col.addView(tabStrip,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18)})
+        col.addView(pillStrip,LinearLayout.LayoutParams(-1,a.d(36)).apply{topMargin=a.d(18)})
         col.addView(countText.apply{setPadding(a.d(22),a.d(8),a.d(22),a.d(10))})
         page.addView(rowsBox)
         scroll.addView(page,ViewGroup.LayoutParams(-1,-2))
-        pager.addView(sideL,FrameLayout.LayoutParams(-1,-1));pager.addView(sideR,FrameLayout.LayoutParams(-1,-1))
-        pager.addView(scroll,FrameLayout.LayoutParams(-1,-1))
-        col.addView(pager,LinearLayout.LayoutParams(-1,0,1f))
+        col.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         frame.addView(col,FrameLayout.LayoutParams(-1,-1))
         a.followInsets(frame){i->col.setPadding(i.left,i.top,i.right,0);scroll.setPadding(0,0,0,i.bottom+a.d(28))}
-        pager.post{offset(0f)}
         a.root.addView(frame,FrameLayout.LayoutParams(-1,-1))
         a.tierList=this
         bind(false)
@@ -161,22 +151,72 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     private val rebindTask=Runnable{if(drag==null&&!closing)bind(true)}
     private fun cellSize(small:Boolean)=if(small)Pair(a.d(40),a.d(60)) else Pair(a.d(48),a.d(72))
 
-    /** Lays the chosen year out: five rows and the tray of books without a rating. */
+    // ───── filters ─────
+    private fun isComic(b:JSONObject)=PageDocs.isDoc(b)&&b.optJSONObject("doc")?.str("type")!="pdf"
+    private fun genresOf(b:JSONObject)=b.optJSONArray("genres")?.strings().orEmpty().mapNotNull{Genres.name(it)}.distinct()
+    /** The finished books the filters let through. */
+    private fun filtered()=Tiers.books(model,year).filter{b->(kind==null||(kind=="comic")==isComic(b))&&(genre==null||genre in genresOf(b))}
+    private val kinds=listOf<String?>(null,"book","comic")
+    private val kindNames=listOf("Книги и комиксы","Книги","Комиксы")
+    /** The pills: the year always; books or comics only when there are both; the genre only when the books have any. */
+    private fun renderPills(){pills.removeAllViews();val all=Tiers.books(model,null)
+        fun add(label:String,on:Boolean,open:(View)->Unit){val ink=if(on)a.bg else a.fg
+            val p=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(11),0);isClickable=true;contentDescription=label
+                background=GradientDrawable().apply{cornerRadius=a.d(18).toFloat();setColor(if(on)a.fg else if(a.light)0x0d000000 else 0x14ffffff)};a.press(this)}
+            p.addView(a.text(label,14f,ink,true).apply{maxLines=1})
+            p.addView(IconView(a,"chevdown",ink),LinearLayout.LayoutParams(a.d(13),a.d(13)).apply{marginStart=a.d(6)})
+            p.setOnClickListener{open(p)}
+            pills.addView(p,LinearLayout.LayoutParams(-2,a.d(36)).apply{if(pills.childCount>0)marginStart=a.d(8)})}
+        val ys=listOf<Int?>(null)+years
+        add(year?.toString()?:"Все годы",year!=null){v->choose(v,ys.map{it?.toString()?:"Все годы"},ys.indexOf(year)){i->year=ys[i];refilter()}}
+        if(all.any{isComic(it)}&&all.any{!isComic(it)}||kind!=null)
+            add(kindNames[kinds.indexOf(kind)],kind!=null){v->choose(v,kindNames,kinds.indexOf(kind)){i->kind=kinds[i];refilter()}}
+        val gs=all.flatMap{genresOf(it)}.distinct().sortedWith(compareBy(java.text.Collator.getInstance(java.util.Locale("ru"))){it})
+        if(gs.isNotEmpty()||genre!=null){val opts=listOf<String?>(null)+gs
+            add(genre?:"Жанр",genre!=null){v->choose(v,listOf("Все жанры")+gs,opts.indexOf(genre).coerceAtLeast(0)){i->genre=opts[i];refilter()}}}
+    }
+    private fun refilter(){scroll.scrollTo(0,0);bind(true)}
+    /** A short menu under [anchor]: the chosen line marked with a tick; picking one closes it. */
+    private fun choose(anchor:View,items:List<String>,chosen:Int,pick:(Int)->Unit){if(menu!=null||drag!=null||closing)return
+        val layer=FrameLayout(a).apply{isClickable=true;setOnClickListener{closeMenu()}}
+        val card=FrameLayout(a).apply{background=GradientDrawable().apply{setColor(if(a.light)Color.WHITE else 0xff2a2a2d.toInt());cornerRadius=a.d(18).toFloat()}
+            elevation=a.d(16).toFloat();clipToOutline=true;isClickable=true}
+        val list=a.column().apply{setPadding(a.d(6),a.d(6),a.d(6),a.d(6))}
+        items.forEachIndexed{i,t->val on=i==chosen
+            val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(12),0);isClickable=true;contentDescription=t
+                if(on)background=GradientDrawable().apply{setColor(if(a.light)0x0d000000 else 0x0fffffff);cornerRadius=a.d(12).toFloat()}
+                setOnClickListener{closeMenu();if(i!=chosen)pick(i)};a.press(this)}
+            row.addView(a.text(t,15f,a.fg,on).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
+            if(on)row.addView(IconView(a,"check",a.fg),LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{marginStart=a.d(12)})
+            list.addView(row,LinearLayout.LayoutParams(-1,a.d(44)))}
+        card.addView(ScrollView(a).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(list)},FrameLayout.LayoutParams(-1,-1))
+        val at=IntArray(2);anchor.getLocationInWindow(at);val f=IntArray(2);frame.getLocationInWindow(f)
+        val w=maxOf(anchor.width,a.d(210));val x=(at[0]-f[0]).coerceIn(a.d(16),maxOf(a.d(16),frame.width-a.d(16)-w));val y=at[1]-f[1]+anchor.height+a.d(8)
+        val h=minOf(items.size*a.d(44)+a.d(12),frame.height-y-a.d(24))
+        layer.addView(card,FrameLayout.LayoutParams(w,h).apply{leftMargin=x;topMargin=y})
+        frame.addView(layer,FrameLayout.LayoutParams(-1,-1));menu=layer
+        // the menu grows out of its pill (see MotionSpec, asks)
+        if(motion){card.pivotX=(at[0]-f[0]-x+anchor.width/2).toFloat();card.pivotY=0f;card.scaleX=.94f;card.scaleY=.94f;card.alpha=0f
+            card.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(MotionSpec.ASK_IN).setInterpolator(MotionSpec.enter).start()}}
+    private fun closeMenu(){val layer=menu?:return;menu=null;val card=layer.getChildAt(0)
+        if(motion)card.animate().scaleX(.96f).scaleY(.96f).alpha(0f).setDuration(MotionSpec.ASK_OUT).setInterpolator(MotionSpec.exit).withEndAction{frame.removeView(layer)}.start() else frame.removeView(layer)}
+
+    /** Lays the filtered books out: five rows and the tray of books without a rating. */
     private fun bind(animated:Boolean){
-        val list=Tiers.books(model,year)
+        val list=filtered()
         countText.text=MainActivity.countBooks(list.size)
-        paintTabs(index().toFloat())
+        renderPills()
         shown.clear();list.forEach{shown[it.str("id")]=Tiers.of(it)}
-        fun build(){fill(rowsBox,list,true);sides()}
+        fun build(){fill(rowsBox,list)}
         if(animated&&motion){rowsBox.animate().cancel();rowsBox.animate().alpha(0f).setDuration(140).withEndAction{build();rowsBox.translationY=a.d(8).toFloat()
             rowsBox.animate().alpha(1f).translationY(0f).setDuration(340).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}.start()} else build()
     }
-    /** Lays five rows (and the tray) into [box]; [live] ones can be dragged, the neighbours shown during a swipe are pictures. */
-    private fun fill(box:LinearLayout,list:List<JSONObject>,live:Boolean){box.removeAllViews();if(live)rows.clear()
+    /** Lays five rows (and the tray) into [box]. */
+    private fun fill(box:LinearLayout,list:List<JSONObject>){box.removeAllViews();rows.clear()
             for(k in 0..5){val small=k==5;val items=Tiers.sorted(list.filter{Tiers.of(it)==(if(k==5)-1 else k)})
                 if(k==5&&items.isEmpty())continue
                 val flow=FlowRow(a,a.d(if(small)8 else 7),a.d(8),true){motion}
-                items.forEach{b->val (w,h)=cellSize(small);flow.addView(if(live)cell(b,small) else CoverView(a,b,a.cover(b)).apply{softShadow=true;if(small)alpha=.6f},ViewGroup.LayoutParams(w,h))}
+                items.forEach{b->val (w,h)=cellSize(small);flow.addView(cell(b,small),ViewGroup.LayoutParams(w,h))}
                 val row=TierRow(a,k,flow)
                 if(k==5){row.minimumHeight=0;row.setPadding(a.d(14),a.d(12),a.d(14),a.d(14));(row.getChildAt(0)).visibility=View.GONE
                     (flow.layoutParams as LinearLayout.LayoutParams).apply{marginStart=0;topMargin=a.d(28)}
@@ -186,59 +226,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
                     tray.addView(row,FrameLayout.LayoutParams(-1,-2))
                     box.addView(tray,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=a.d(16);rightMargin=a.d(16);topMargin=a.d(14)})}
                 else box.addView(row,LinearLayout.LayoutParams(-1,-2))
-                if(live)rows.add(row)}
-    }
-
-    // ───── years as pages ─────
-    private fun index()=tabs.indexOf(year).coerceAtLeast(0)
-    /** The neighbouring years, ready to slide in. */
-    private fun sides(){val i=index()
-        tabs.getOrNull(i-1).let{if(i>0)fill(sideL,Tiers.books(model,it),false) else sideL.removeAllViews()}
-        tabs.getOrNull(i+1).let{if(i<tabs.size-1)fill(sideR,Tiers.books(model,it),false) else sideR.removeAllViews()}}
-    /** [px] is how far the page is pulled: left is the next year. */
-    private fun offset(px:Float){val w=pager.width.toFloat().coerceAtLeast(1f)
-        scroll.translationX=px;sideL.translationX=px-w;sideR.translationX=px+w
-        paintTabs(index()-px/w)}
-    /** Colours the years for a position between pages and keeps the chosen one in view. */
-    private fun paintTabs(at:Float){val dim=if(a.light)0xffc7c7cc.toInt() else 0xff4a4a4e.toInt()
-        tabViews.forEachIndexed{i,t->val near=(1f-abs(at-i)).coerceIn(0f,1f);t.setTextColor(androidx.core.graphics.ColorUtils.blendARGB(dim,a.fg,near))}
-        val lo=at.toInt().coerceIn(0,tabViews.size-1);val hi=(lo+1).coerceAtMost(tabViews.size-1);val f=at-lo
-        val x=tabViews[lo].left+(tabViews[hi].left-tabViews[lo].left)*f
-        // the chosen year stays at the left edge, the strip follows the swipe
-        if(tabViews[lo].width>0)tabStrip.scrollTo(x.toInt().coerceAtLeast(0),0)}
-    /** Turns to page [i]: slides there when it is next door, otherwise changes in place. */
-    private fun goTo(i:Int,fromPx:Float=0f,velocity:Float=0f){if(closing||drag!=null)return;val cur=index();if(i==cur&&fromPx==0f)return
-        if(abs(i-cur)>1||!motion){year=tabs[i];scroll.scrollTo(0,0);offset(0f);bind(motion);return}
-        val w=pager.width.toFloat();val to=if(i>cur)-w else if(i<cur)w else 0f
-        pageAnim?.cancel();pageAnim=android.animation.ValueAnimator.ofFloat(fromPx,to).apply{duration=if(velocity>0f)(abs(to-fromPx)/velocity*1000f).toLong().coerceIn(160L,340L) else 340L
-            interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{offset(it.animatedValue as Float)}
-            addListener(object:android.animation.AnimatorListenerAdapter(){var cancelled=false
-                override fun onAnimationCancel(x:android.animation.Animator){cancelled=true}
-                override fun onAnimationEnd(x:android.animation.Animator){if(cancelled)return
-                    if(i!=cur){year=tabs[i];scroll.scrollTo(0,0);bind(false)};offset(0f)}});start()}}
-    /** The page area: a sideways swipe pulls the neighbouring year in. */
-    private inner class Pager:FrameLayout(a){
-        private var x0=0f;private var y0=0f;private var swiping=false;private var vt:VelocityTracker?=null
-        private val slop=ViewConfiguration.get(a).scaledTouchSlop
-        init{clipChildren=true}
-        private fun pull(dx:Float):Float{val i=index();return if((dx>0&&i==0)||(dx<0&&i==tabs.size-1))dx*.25f else dx}
-        override fun onInterceptTouchEvent(e:MotionEvent):Boolean{if(drag!=null||tabs.size<2||closing)return false
-            when(e.actionMasked){
-                MotionEvent.ACTION_DOWN->{x0=e.x;y0=e.y;swiping=false;vt?.recycle();vt=VelocityTracker.obtain();vt?.addMovement(e)}
-                MotionEvent.ACTION_MOVE->{vt?.addMovement(e);val dx=e.x-x0;val dy=e.y-y0
-                    if(abs(dx)>slop&&abs(dx)>abs(dy)*1.3f){swiping=true;x0=e.x-(if(dx>0)slop else -slop).toFloat();pageAnim?.cancel();parent?.requestDisallowInterceptTouchEvent(true)}}}
-            return swiping}
-        override fun onTouchEvent(e:MotionEvent):Boolean{if(drag!=null)return false
-            vt?.addMovement(e)
-            when(e.actionMasked){
-                MotionEvent.ACTION_DOWN->{x0=e.x;y0=e.y;swiping=false;vt?.recycle();vt=VelocityTracker.obtain();vt?.addMovement(e);return true}
-                MotionEvent.ACTION_MOVE->{val dx=e.x-x0;if(!swiping&&abs(dx)>slop&&abs(dx)>abs(e.y-y0)*1.3f){swiping=true;x0=e.x}
-                    if(swiping)offset(pull(e.x-x0))}
-                MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{if(swiping){vt?.computeCurrentVelocity(1000);val v=vt?.xVelocity?:0f;val px=scroll.translationX;val i=index()
-                    val fling=abs(v)>a.d(600)
-                    val target=when{(px<-width*.3f||(fling&&v<0&&px<0))&&i<tabs.size-1->i+1;(px>width*.3f||(fling&&v>0&&px>0))&&i>0->i-1;else->i}
-                    goTo(target,px,abs(v))};swiping=false;vt?.recycle();vt=null}}
-            return true}
+                rows.add(row)}
     }
 
     // ───── dragging ─────
@@ -309,8 +297,8 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
 
     /** The main screen is rebuilt when a book is saved (a rating set here): the list stays open on top of it. */
     fun reattach(){if(closing||frame.parent===a.root)return;(frame.parent as? ViewGroup)?.removeView(frame);a.root.addView(frame,FrameLayout.LayoutParams(-1,-1))}
-    fun back(){if(share!=null)closeShare() else close()}
-    fun close(){if(closing)return;closing=true;closeShare()
+    fun back(){if(menu!=null)closeMenu() else if(share!=null)closeShare() else close()}
+    fun close(){if(closing)return;closing=true;closeShare();closeMenu()
         val d=drag;if(d!=null){frame.removeView(d.float);drag=null}
         fun done(){(frame.parent as? ViewGroup)?.removeView(frame);if(a.tierList===this)a.tierList=null;poster?.recycle();poster=null}
         // the card under the list is brought up to date first, so the page it goes back to is already current
@@ -320,10 +308,11 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
 
     // ───── share picture ─────
     private fun openShare(){if(share!=null||drag!=null)return
-        val list=Tiers.books(model,year).filter{Tiers.of(it)>=0}
+        val list=filtered().filter{Tiers.of(it)>=0}
         val layer=FrameLayout(a).apply{setBackgroundColor(if(a.light)0xe6f2f2f0.toInt() else 0xe608080a.toInt());isClickable=true;setOnClickListener{closeShare()}}
         val box=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
-        val bmp=TierPoster.render(a,year,list);poster?.recycle();poster=bmp
+        val title=if(kind=="comic")(if(year!=null)"Мои комиксы $year" else "Мои комиксы") else if(year!=null)"Мой $year в книгах" else "Мои книги"
+        val bmp=TierPoster.render(a,title,genre,list);poster?.recycle();poster=bmp
         val img=ImageView(a).apply{setImageBitmap(bmp);scaleType=ImageView.ScaleType.FIT_CENTER;elevation=a.d(16).toFloat();clipToOutline=true;isClickable=true;contentDescription="Тир-лист"
             outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,a.d(22).toFloat())}}}
         val maxW=a.resources.displayMetrics.widthPixels-a.d(48);val maxH=(frame.height*.66f).toInt()
@@ -344,7 +333,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     }
     private fun closeShare(){val layer=share?:return;share=null
         if(motion)layer.animate().alpha(0f).setDuration(MotionSpec.ASK_OUT).setInterpolator(MotionSpec.exit).withEndAction{frame.removeView(layer)}.start() else frame.removeView(layer)}
-    private fun fileName()="Glyph-tier-${year?:"all"}.png"
+    private fun fileName()="Glyph-tier-${year?:"all"}${kind?.let{"-$it"}?:""}.png"
     private fun send(){val bmp=poster?:return;val dir=File(a.cacheDir,"calendar-share").apply{mkdirs()};val file=File(dir,fileName())
         a.work({file.outputStream().use{bmp.compress(Bitmap.CompressFormat.PNG,100,it)}}){
             val uri=FileProvider.getUriForFile(a,"${a.packageName}.calendar",file)
@@ -361,7 +350,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
 
 /** The picture to share: the title, the count and every non-empty tier with its covers, on the same golden backdrop. */
 internal object TierPoster{
-    fun render(a:MainActivity,year:Int?,books:List<JSONObject>):Bitmap{
+    fun render(a:MainActivity,title:String,genre:String?,books:List<JSONObject>):Bitmap{
         val W=1080;val pad=64f;val labelW=150f;val cw=118f;val ch=177f;val gap=16f
         val perLine=max(1,((W-pad*2-labelW+gap)/(cw+gap)).toInt())
         val groups=(0..4).map{k->Tiers.sorted(books.filter{Tiers.of(it)==k})}.withIndex().filter{it.value.isNotEmpty()}
@@ -372,8 +361,8 @@ internal object TierPoster{
         Glow.face(W,H,a.bg,if(a.light)0xfff5b52a.toInt() else 0xffe0a12a.toInt(),W*.5f,0f,W*1.6f,if(a.light).12f else .16f,2.6f*1.7f*1.7f)?.let{c.drawBitmap(it,0f,0f,null);it.recycle()}
         val tp=Paint(Paint.ANTI_ALIAS_FLAG)
         tp.typeface=PolkaFonts.sans(600);tp.textSize=30f;tp.letterSpacing=.08f;tp.color=a.muted;c.drawText("ТИР-ЛИСТ",pad,130f,tp);tp.letterSpacing=0f
-        tp.typeface=PolkaFonts.serif(a,true);tp.textSize=74f;tp.color=a.fg;c.drawText(if(year!=null)"Мой $year в книгах" else "Мои книги",pad,222f,tp)
-        tp.typeface=PolkaFonts.sans(400);tp.textSize=34f;tp.color=a.muted;c.drawText(MainActivity.countBooks(books.size),pad,278f,tp)
+        tp.typeface=PolkaFonts.serif(a,true);tp.textSize=74f;tp.color=a.fg;c.drawText(title,pad,222f,tp)
+        tp.typeface=PolkaFonts.sans(400);tp.textSize=34f;tp.color=a.muted;c.drawText(MainActivity.countBooks(books.size)+(genre?.let{", ${it.lowercase()}"}?:""),pad,278f,tp)
         tp.typeface=PolkaFonts.display(600);tp.textSize=30f;tp.color=a.muted;tp.textAlign=Paint.Align.RIGHT;c.drawText("Glyph",W-pad,130f,tp);tp.textAlign=Paint.Align.LEFT
         val hair=Paint().apply{color=if(a.light)0x14000000 else 0x12ffffff}
         var y=top
