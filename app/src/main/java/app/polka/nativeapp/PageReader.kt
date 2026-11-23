@@ -338,7 +338,8 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
             animate().cancel()
             if(reduced||!isAttachedToWindow){scaleX=s;scaleY=s;translationX=tx} else animate().scaleX(s).scaleY(s).translationX(tx).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start();invalidate()}
         override fun onDraw(c:Canvas){val r=a.d(5).toFloat();val w=width.toFloat();val h=height.toFloat()
-            val vis=Rect();val shown=getGlobalVisibleRect(vis)
+            // in view along the strip (the bar itself may still be sliding in from off the screen)
+            val x=left-stripScroll.scrollX;val shown=x+width>0&&x<stripScroll.width
             val b=if(shown)bitmap(i,a.d(76)){invalidate()} else cache.get(key(i,a.d(76)))
             p.alpha=if(on)255 else 190
             c.save();c.clipPath(Path().apply{addRoundRect(0f,0f,w,h,r,r,Path.Direction.CW)})

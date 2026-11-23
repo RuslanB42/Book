@@ -49,7 +49,9 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val shelfTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true;contentDescription="Полка, сменить"
    background=a.shape(if(a.light)0x0d000000 else 0x12ffffff,16);setOnClickListener{a.moveBook(book)};a.press(this)}
   shelfTag.addView(IconView(a,"shelves",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
-  val shelf=a.text("",13f).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)};live(shelf){book.str("shelf").ifBlank{"Без полки"}};shelfTag.addView(shelf)
+  val shelf=a.text("",13f).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)};live(shelf){book.str("shelf").ifBlank{"Без полки"}}
+  // when the two tags don't fit side by side, the shelf's name gives way (with «…»), never the arrow after it
+  shelfTag.addView(shelf,LinearLayout.LayoutParams(-2,-2,1f))
   shelfTag.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
   // approved: the reading status is a second tag of the same kind, beside the shelf
   val statusTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true
