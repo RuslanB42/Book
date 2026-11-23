@@ -1,1 +1,1 @@
-<paths xmlns:android="http://schemas.android.com/apk/res/android"><cache-path name="calendar" path="calendar-share/"/></paths>
+<paths xmlns:android="http://schemas.android.com/apk/res/android"><cache-path name="calendar" path="calendar-share/"/><cache-path name="camera" path="camera/"/></paths>

@@ -44,6 +44,8 @@ internal object IosIcons {
     "share" to listOf(Op(false,false,1.75f,true,"M12 2 v13 M16 6 l-4 -4 -4 4 M4 12 v8 a2 2 0 0 0 2 2 h12 a2 2 0 0 0 2 -2 v-8",null)),
     "download" to listOf(Op(false,false,1.75f,true,"M12 15 V3 M21 15 v4 a2 2 0 0 1 -2 2 H5 a2 2 0 0 1 -2 -2 v-4 M7 10 l5 5 5 -5",null)),
     "expand" to listOf(Op(false,false,1.75f,true,"M15 3 h6 v6 M21 3 l-7 7 M3 21 l7 -7 M9 21 H3 v-6",null)),
+    "camera" to listOf(Op(false,false,1.75f,true,"M14.5 4 h-5 L7 7 H4 a2 2 0 0 0 -2 2 v9 a2 2 0 0 0 2 2 h16 a2 2 0 0 0 2 -2 V9 a2 2 0 0 0 -2 -2 h-3 z M9 13 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0",null)),
+    "image" to listOf(Op(false,false,1.75f,true,"M5 3 h14 a2 2 0 0 1 2 2 v14 a2 2 0 0 1 -2 2 H5 a2 2 0 0 1 -2 -2 V5 a2 2 0 0 1 2 -2 z M7 9 a2 2 0 1 0 4 0 a2 2 0 1 0 -4 0 M21 15 l-3.086 -3.086 a2 2 0 0 0 -2.828 0 L6 21",null)),
     "trash" to listOf(Op(false,false,1.75f,true,"M10 11 v6 M14 11 v6 M19 6 v14 a2 2 0 0 1 -2 2 H7 a2 2 0 0 1 -2 -2 V6 M3 6 h18 M8 6 V4 a2 2 0 0 1 2 -2 h4 a2 2 0 0 1 2 2 v2",null)),
     "copy" to listOf(Op(false,false,1.75f,true,"M10 8 h10 a2 2 0 0 1 2 2 v10 a2 2 0 0 1 -2 2 h-10 a2 2 0 0 1 -2 -2 v-10 a2 2 0 0 1 2 -2ZM4 16 c-1.1 0 -2 -.9 -2 -2 V4 c0 -1.1 .9 -2 2 -2 h10 c1.1 0 2 .9 2 2",null)),
     "pen" to listOf(Op(false,false,1.75f,true,"M21.174 6.812 a1 1 0 0 0 -3.986 -3.987 L3.842 16.174 a2 2 0 0 0 -.5 .83 l-1.321 4.352 a.5 .5 0 0 0 .623 .622 l4.353 -1.32 a2 2 0 0 0 .83 -.497 zM15 5 l4 4",null)),

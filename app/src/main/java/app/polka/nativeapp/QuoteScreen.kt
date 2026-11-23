@@ -74,6 +74,11 @@ internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->
     card.addView(body,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(6)})
     // the reader's own note: plain text right under the fragment, no box and no label
     q.str("note").trim().takeIf{it.isNotBlank()}?.let{n->card.addView(text(n,16f).apply{cssLeading(1.5f);setOnClickListener{editQuoteNote(b,q)}},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,d(14),d(4),0)})}
+    // its photos: a row of small squares under the words; a tap shows them large
+    NotePhotos.of(q).takeIf{it.isNotEmpty()}?.let{ids->val row=line();val size=d(64)
+        ids.forEachIndexed{i,id->val img=NotePhotos.tile(this,size,d(10)).apply{isClickable=true;contentDescription="Фото ${i+1}";setOnClickListener{NotePhotos.show(this@quoteCardNative,ids,i)}}
+            NotePhotos.load(this,id,size){bmp->img.setImageBitmap(bmp)};row.addView(img,LinearLayout.LayoutParams(size,size).apply{if(i>0)marginStart=d(8)})}
+        card.addView(HorizontalScrollView(this).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(row)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(12)})}
     card.addView(View(this).apply{setBackgroundColor(if(light)0x10000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1).apply{topMargin=d(16)})
     val foot=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(10),0,d(2))}
     // where the quote is from and when it was saved, quietly
@@ -85,7 +90,7 @@ internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->
         isClickable=true;contentDescription=desc;addView(QuoteActionIcon(this@quoteCardNative,kind,fg),FrameLayout.LayoutParams(d(22),d(22),Gravity.CENTER))
         setOnTouchListener{v,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->v.animate().scaleX(.88f).scaleY(.88f).setDuration(90).start();MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->v.animate().scaleX(1f).scaleY(1f).setDuration(240).setInterpolator(android.view.animation.OvershootInterpolator(2f)).start()};false}
         setOnClickListener{act()}}
-    foot.addView(round("pen",if(q.str("note").isBlank())"Добавить заметку" else "Изменить заметку"){editQuoteNote(b,q)},LinearLayout.LayoutParams(d(38),d(38)).apply{rightMargin=d(8)})
+    foot.addView(round("pen",if(q.str("note").isBlank()&&NotePhotos.of(q).isEmpty())"Добавить заметку" else "Изменить заметку"){editQuoteNote(b,q)},LinearLayout.LayoutParams(d(38),d(38)).apply{rightMargin=d(8)})
     foot.addView(round("copy","Копировать цитату"){(getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата","«${q.str("text")}»\n— ${MainActivity.authors(b)}, «${b.str("title")}»"+q.str("note").trim().let{if(it.isBlank())"" else "\n\n$it"}));Notice.short(this,Notice.Kind.COPIED,"Цитата скопирована")},LinearLayout.LayoutParams(d(38),d(38)))
     foot.addView(round("trash","Удалить цитату"){
         if(onDelete!=null){onDelete();return@round}
@@ -115,13 +120,17 @@ internal object QuoteNotes {
  *  (a translation or a word's meaning sent «В заметку»). */
 internal fun MainActivity.editQuoteNote(b:JSONObject,q:JSONObject,prefill:String="",after:()->Unit={}){
     val was=q.str("note").trim()
-    noteSheet(q.str("text"),quoteInk(q),listOf(was,prefill.trim()).filter{it.isNotBlank()}.joinToString("\n\n"),was){v->
-        fun apply(o:JSONObject){if(v.isBlank())o.remove("note") else o.put("note",v);o.put("updatedAt",System.currentTimeMillis())}
-        b.optJSONArray("quotes")?.objects()?.firstOrNull{it.str("id")==q.str("id")}?.let{apply(it)};apply(q)
-        saveBook(b){after()}}
+    noteSheet(q.str("text"),quoteInk(q),listOf(was,prefill.trim()).filter{it.isNotBlank()}.joinToString("\n\n"),was,NotePhotos.of(q)){v,photos->
+        // new photos are kept in the library first (like a cover), then the quote points to them
+        val ids=ArrayList<String>()
+        work({photos.forEach{p->ids.add(p.id?:uid().also{id->library.dao.putAsset(AssetRow(id,"image/jpeg",p.bytes!!))})}}){
+            fun apply(o:JSONObject){if(v.isBlank())o.remove("note") else o.put("note",v);NotePhotos.put(o,ids);o.put("updatedAt",System.currentTimeMillis())}
+            b.optJSONArray("quotes")?.objects()?.firstOrNull{it.str("id")==q.str("id")}?.let{apply(it)};apply(q)
+            saveBook(b){after()}}}
 }
-/** The note sheet: the fragment it is about on top (with the quote's line), a roomy field under it, then «Готово». */
-internal fun MainActivity.noteSheet(fragment:String,ink:Int,value:String,saved:String,done:(String)->Unit){
+/** The note sheet: the fragment it is about on top (with the quote's line), a roomy field under it with the note's
+ *  photos in a row at its foot («Фото» at the end), then «Готово». */
+internal fun MainActivity.noteSheet(fragment:String,ink:Int,value:String,saved:String,savedPhotos:List<String>,done:(String,List<NotePhotos.Photo>)->Unit){
     val box=column()
     val about=line().apply{gravity=Gravity.TOP}
     about.addView(View(this).apply{background=shape(ink,2);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(d(3),-1).apply{rightMargin=d(14)})
@@ -137,16 +146,40 @@ internal fun MainActivity.noteSheet(fragment:String,ink:Int,value:String,saved:S
         setLineSpacing(0f,1.2f);setPadding(d(16),d(14),d(16),d(14))
         if(android.os.Build.VERSION.SDK_INT>=29){textCursorDrawable=android.graphics.drawable.GradientDrawable().apply{setColor(fg);setSize(d(2),d(22))};highlightColor=(fg and 0xffffff) or 0x33000000}
         setSelection(text.length)}
-    frame.addView(input,FrameLayout.LayoutParams(-1,-2))
+    val inside=column();inside.addView(input,LinearLayout.LayoutParams(-1,-2))
+    // the photos: small squares with a cross, «Фото» last
+    val photos=savedPhotos.map{NotePhotos.Photo(it,null)}.toMutableList()
+    val strip=line().apply{clipChildren=false;clipToPadding=false}
+    val stripScroll=HorizontalScrollView(this).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;setPadding(d(16),0,d(16),d(14));addView(strip)}
+    inside.addView(stripScroll,LinearLayout.LayoutParams(-1,-2))
+    frame.addView(inside,FrameLayout.LayoutParams(-1,-2))
     box.addView(frame,LinearLayout.LayoutParams(-1,-2))
+    lateinit var paintReady:()->Unit
+    fun fillStrip(){strip.removeAllViews();val size=d(72)
+        photos.forEachIndexed{i,p->val cell=FrameLayout(this)
+            val img=NotePhotos.tile(this,size,d(12));cell.addView(img,FrameLayout.LayoutParams(size,size))
+            if(p.id!=null)NotePhotos.load(this,p.id,size){bmp->img.setImageBitmap(bmp)} else img.setImageBitmap(NotePhotos.preview(p,size))
+            img.setOnClickListener{p.id?.let{NotePhotos.show(this,photos.mapNotNull{it.id},photos.filter{it.id!=null}.indexOf(p))}}
+            cell.addView(FrameLayout(this).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(0x8c000000.toInt())};isClickable=true;contentDescription="Убрать фото"
+                addView(IconView(this@noteSheet,"x",Color.WHITE),FrameLayout.LayoutParams(d(11),d(11),Gravity.CENTER))
+                setOnClickListener{photos.remove(p);fillStrip();paintReady()}},FrameLayout.LayoutParams(d(22),d(22),Gravity.TOP or Gravity.END).apply{setMargins(0,d(5),d(5),0)})
+            strip.addView(cell,LinearLayout.LayoutParams(size,size).apply{marginEnd=d(8)})}
+        if(photos.size<NotePhotos.MAX){val add=column().apply{gravity=Gravity.CENTER;isClickable=true;contentDescription="Добавить фото"
+                background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=d(12).toFloat();setStroke(d(1)+d(1)/2,if(light)0x2e000000 else 0x2effffff)};press(this)
+                addView(IconView(this@noteSheet,"camera",muted),LinearLayout.LayoutParams(d(20),d(20)))
+                addView(text("Фото",12f,muted).apply{gravity=Gravity.CENTER;setPadding(0,d(4),0,0)})
+                setOnClickListener{NotePhotos.pick(this@noteSheet,NotePhotos.MAX-photos.size){got->got.take(NotePhotos.MAX-photos.size).forEach{photos.add(NotePhotos.Photo(null,it))};fillStrip();paintReady()
+                    stripScroll.post{stripScroll.fullScroll(View.FOCUS_RIGHT)}}}}
+            strip.addView(add,LinearLayout.LayoutParams(size,size))}}
     var stroke:android.animation.ValueAnimator?=null
     input.setOnFocusChangeListener{_,has->stroke?.cancel();val bg=frame.background as android.graphics.drawable.GradientDrawable
         stroke=android.animation.ValueAnimator.ofArgb(if(has)rest else focus,if(has)focus else rest).apply{duration=180;addUpdateListener{bg.setStroke(d(1),it.animatedValue as Int)};start()}}
     space(box,16)
     var sheet:android.app.AlertDialog?=null
-    fun ready()=input.text.toString().trim()!=saved.trim()
-    val go=button("Готово",true){if(ready()){val v=input.text.toString().trim();sheet?.dismiss();done(v)}}
+    fun ready()=input.text.toString().trim()!=saved.trim()||photos.any{it.id==null}||photos.mapNotNull{it.id}!=savedPhotos
+    val go=button("Готово",true){if(ready()){val v=input.text.toString().trim();sheet?.dismiss();done(v,photos.toList())}}
     fun paint(){val on=ready();go.isEnabled=on;go.animate().alpha(if(on)1f else .38f).setDuration(140).start()}
+    paintReady={paint()};fillStrip()
     go.alpha=if(ready())1f else .38f;go.isEnabled=ready()
     box.addView(go,LinearLayout.LayoutParams(-1,d(52)))
     input.addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun afterTextChanged(s:android.text.Editable?){paint()}})

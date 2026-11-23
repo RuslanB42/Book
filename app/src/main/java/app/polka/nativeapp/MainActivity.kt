@@ -552,6 +552,9 @@ class MainActivity : Activity() {
     /** Picks a TTF/OTF file; [done] gets the new font's key once it is checked and stored. */
     fun pickFont(done:(String)->Unit) { fontPicked=done; startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_MIME_TYPES,arrayOf("font/*","application/x-font-ttf","application/x-font-otf","application/font-sfnt","application/vnd.ms-opentype","application/zip","application/x-zip-compressed","application/octet-stream")) },18) }
     private var authorPhotoPicked:((ByteArray)->Unit)?=null
+    /** A note waiting for its photos (see [NotePhotos.pick]); [cameraFile] is where the camera writes one. */
+    internal var notePhotosPicked:((List<ByteArray>)->Unit)?=null
+    internal var cameraFile:File?=null
     /** Picks the reader's own photo for an author; [done] gets the image's bytes (read off the main thread). */
     fun pickAuthorPhoto(done:(ByteArray)->Unit) { authorPhotoPicked=done; startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="image/*"; addCategory(Intent.CATEGORY_OPENABLE) },20) }
     fun pickBackup() { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE) },11) }
@@ -559,8 +562,14 @@ class MainActivity : Activity() {
     fun fileName(uri:Uri):String { contentResolver.query(uri,arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),null,null,null)?.use { if(it.moveToFirst()) return it.getString(0) }; return "book.fb2" }
     fun readLimited(uri:Uri):ByteArray { val input=contentResolver.openInputStream(uri) ?: error("Файл недоступен"); return input.use { val out=ByteArrayOutputStream(); val buf=ByteArray(32768); while(true) { val n=it.read(buf); if(n<0) break; require(out.size()+n<=128*1024*1024) { "Файл больше 128 МБ" }; out.write(buf,0,n) }; out.toByteArray() } }
     @Deprecated("Android activity result API") override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?) {
-        super.onActivityResult(requestCode,resultCode,data); if(resultCode!=RESULT_OK || data==null) return; if(!bootFinished) { pendingActivityResult=Triple(requestCode,resultCode,data); return }
+        super.onActivityResult(requestCode,resultCode,data)
+        // the camera gives no data back: the photo is in the file it was given
+        if(requestCode==22) { val f=cameraFile; cameraFile=null; if(resultCode==RESULT_OK && f!=null && f.length()>0) NotePhotos.received(this) { listOf(f.readBytes()).also { f.delete() } } else { f?.delete(); notePhotosPicked=null }; return }
+        if(requestCode==21 && resultCode!=RESULT_OK) notePhotosPicked=null
+        if(resultCode!=RESULT_OK || data==null) return; if(!bootFinished) { pendingActivityResult=Triple(requestCode,resultCode,data); return }
         when(requestCode) {
+            21 -> { val uris=data.clipData?.let { c -> (0 until c.itemCount).map { c.getItemAt(it).uri } } ?: listOfNotNull(data.data)
+                NotePhotos.received(this) { uris.take(NotePhotos.MAX).mapNotNull { u -> runCatching { readLimited(u) }.getOrNull()?.takeIf { it.size<=40*1024*1024 } } } }
             20 -> data.data?.let { uri -> val done=authorPhotoPicked ?: return; authorPhotoPicked=null; var bytes:ByteArray?=null
                 work({ bytes=readLimited(uri).takeIf { it.size<=30*1024*1024 } }) { bytes?.let(done) ?: Notice.short(this,Notice.Kind.ERROR,"Файл слишком большой") } }
             19 -> data.data?.let { uri -> val done=soundPicked ?: return; soundPicked=null; val name=fileName(uri); var added:org.json.JSONObject?=null; var reason=""
