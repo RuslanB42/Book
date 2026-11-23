@@ -29,6 +29,55 @@ internal object Tiers {
     fun books(model:ReadingStatistics,year:Int?)=model.finished.filter{year==null||it.date?.year==year}.map{it.book}
     fun sorted(list:List<JSONObject>)=list.sortedWith(compareBy<JSONObject>{it.optDouble("tierPos",Double.MAX_VALUE)}.thenByDescending{it.optLong("completedAt")})
     fun years(model:ReadingStatistics)=model.finished.mapNotNull{it.date?.year}.distinct().sortedDescending()
+
+    // ── a series of comics is one place in the list (approved «Веер»): its read issues fanned behind the first ──
+    /** The series a comic belongs to (null for books, PDFs and comics without one). */
+    fun seriesKey(b:JSONObject):String?=if(PageDocs.isDoc(b)&&b.optJSONObject("doc")?.str("type")!="pdf")b.str("series").trim().lowercase().takeIf{it.isNotBlank()} else null
+    /** The issues behind each series place, by the place's id. */
+    val members=HashMap<String,List<JSONObject>>()
+    fun isSeries(o:JSONObject)=o.str("id").startsWith("series:")
+    private fun issueOrder(list:List<JSONObject>)=list.sortedWith(compareBy<JSONObject>{it.optDouble("seriesNo",Double.MAX_VALUE)}.thenBy{it.optLong("completedAt")})
+    /** [list] with the comics of one series (two read issues or more) gathered into one place each. */
+    fun group(a:MainActivity,list:List<JSONObject>):List<JSONObject>{
+        val by=list.groupBy{seriesKey(it)};val made=HashSet<String>();val out=ArrayList<JSONObject>()
+        list.forEach{b->val k=seriesKey(b);val g=k?.let{by[it]}
+            if(k==null||g==null||g.size<2)out.add(b)
+            else if(made.add(k)){val issues=issueOrder(g);val id="series:$k";members[id]=issues
+                val store=stored(a,k)
+                out.add(JSONObject().put("id",id).put("series",k).put("title",issues.first().str("series").trim()).put("completedAt",issues.maxOf{it.optLong("completedAt")})
+                    .apply{store?.optDouble("pos")?.takeIf{!it.isNaN()}?.let{put("tierPos",it)}})}}
+        return out}
+    private fun stored(a:MainActivity,key:String)=a.prefs.optJSONObject("seriesTiers")?.optJSONObject(key)
+    /** The tier of a book, or of a series: the one it was put in by hand, else the mean of its issues' stars. */
+    fun tierOf(a:MainActivity,o:JSONObject):Int{val issues=members[o.str("id")]?:return of(o)
+        stored(a,o.str("series"))?.takeIf{it.has("k")}?.let{return it.optInt("k",-1)}
+        val rated=issues.map{Rating.halves(it)}.filter{it>0};if(rated.isEmpty())return -1
+        val h=Math.round(rated.average()).toInt().coerceIn(1,10);return 5-(h+1)/2}
+    /** Puts series [key] into tier [k] (-1: not rated) at place [pos] of its row. */
+    fun place(a:MainActivity,key:String,k:Int?,pos:Double){val all=a.prefs.optJSONObject("seriesTiers")?:JSONObject().also{a.prefs.put("seriesTiers",it)}
+        val e=all.optJSONObject(key)?:JSONObject().also{all.put(key,it)};if(k!=null)e.put("k",k);e.put("pos",pos)}
+    /** «8 книг, 3 серии комиксов». */
+    fun count(list:List<JSONObject>):String{val series=list.count{isSeries(it)};val books=list.size-series
+        val sw=if(series%100 in 11..14)"серий" else when(series%10){1->"серия";2,3,4->"серии";else->"серий"}
+        return when{series==0->MainActivity.countBooks(books);books==0->"$series $sw комиксов";else->"${MainActivity.countBooks(books)}, $series $sw комиксов"}}
+}
+
+/** A series in the tier list: the first read issue in front, the next two fanned behind it, quieter, and how many
+ *  issues were read in a small dark tag at its foot. */
+internal class SeriesFan(a:MainActivity,issues:List<JSONObject>,small:Boolean):FrameLayout(a){
+    init{clipChildren=false;clipToPadding=false
+        val k=if(small)40f/48f else 1f;fun dp(v:Float)=(a.d(1)*v*k).toInt()
+        val w=dp(48f);val h=dp(72f);val show=issues.take(3)
+        for(i in show.indices.reversed()){val b=show[i];val cv=CoverView(a,b,a.cover(b)).apply{softShadow=true}
+            if(i>0){cv.pivotX=w/2f;cv.pivotY=h.toFloat();cv.rotation=if(i==1)4.5f else 9f
+                val g=if(i==1)191 else 140;cv.setLayerType(View.LAYER_TYPE_HARDWARE,Paint().apply{colorFilter=LightingColorFilter(Color.rgb(g,g,g),0)})}
+            addView(cv,LayoutParams(w,h).apply{leftMargin=if(i==0)dp(2f) else dp(6f);topMargin=dp(3f)})}
+        addView(TextView(a).apply{text="${issues.size} вып.";textSize=10.5f*k;typeface=PolkaFonts.sans(600);setTextColor(0xfff3f2ef.toInt());gravity=Gravity.CENTER
+            includeFontPadding=false;setPadding(dp(7f),0,dp(7f),0)
+            background=GradientDrawable().apply{cornerRadius=dp(10f).toFloat();setColor(0xe0121214.toInt());setStroke(1,0x24ffffff)};elevation=a.d(3).toFloat()},
+            LayoutParams(-2,dp(20f),Gravity.BOTTOM or Gravity.START).apply{leftMargin=dp(2f)})
+        importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES}
+    companion object{fun size(a:MainActivity,small:Boolean)=if(small)Pair(a.d(50),a.d(68)) else Pair(a.d(60),a.d(82))}
 }
 
 /** A tier letter: big serif, filled top to bottom with the tier's two tones and a soft glow of the same colour. */
@@ -141,7 +190,10 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         frame.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{frame.viewTreeObserver.removeOnPreDrawListener(this);depth.enter();return true}})
     }
 
-    private fun cell(b:JSONObject,small:Boolean=false):CoverView{
+    private fun cell(b:JSONObject,small:Boolean=false):View{
+        if(Tiers.isSeries(b)){val issues=Tiers.members[b.str("id")].orEmpty()
+            return SeriesFan(a,issues,small).apply{tag=b;contentDescription="${b.str("title")}, ${issues.size} вып.";isClickable=true;isLongClickable=true;if(small)alpha=.6f
+                setOnClickListener{openSeries(b)};setOnLongClickListener{startDrag(this,b);true};a.press(this)}}
         val cv=CoverView(a,b,a.cover(b)).apply{softShadow=true;tag=b;contentDescription=b.str("title");isClickable=true;isLongClickable=true;if(small)alpha=.6f}
         cv.setOnClickListener{a.detail(b,cv)}
         cv.setOnLongClickListener{startDrag(cv,b);true}
@@ -150,6 +202,30 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         return cv}
     private val rebindTask=Runnable{if(drag==null&&!closing)bind(true)}
     private fun cellSize(small:Boolean)=if(small)Pair(a.d(40),a.d(60)) else Pair(a.d(48),a.d(72))
+    private fun sizeOf(b:JSONObject,small:Boolean)=if(Tiers.isSeries(b))SeriesFan.size(a,small) else cellSize(small)
+    private fun tierOf(b:JSONObject)=Tiers.tierOf(a,b)
+    /** The series' sheet: its read issues with their numbers and stars, how many there are, the series' letter. */
+    private fun openSeries(item:JSONObject){val issues=Tiers.members[item.str("id")]?:return
+        val total=a.books.count{Tiers.seriesKey(it)==item.str("series")}
+        val box=a.column().apply{setPadding(a.d(20),a.d(4),a.d(20),a.d(12))}
+        val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+        head.addView(a.text("${total} ${if(total%100 in 11..14)"выпусков" else when(total%10){1->"выпуск";2,3,4->"выпуска";else->"выпусков"}}, прочитано ${issues.size}",13.5f,a.muted),LinearLayout.LayoutParams(0,-2,1f))
+        tierOf(item).takeIf{it>=0}?.let{k->head.addView(TierLetter(a,k,34f,false),LinearLayout.LayoutParams(a.d(44),a.d(44)))}
+        box.addView(head,LinearLayout.LayoutParams(-1,-2))
+        var dialog:android.app.AlertDialog?=null
+        issues.chunked(4).forEach{chunk->val rowL=a.line().apply{gravity=Gravity.TOP}
+            chunk.forEach{b->val c=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
+                val cover=FrameLayout(a)
+                cover.addView(CoverView(a,b,a.cover(b)).apply{softShadow=true;isClickable=true;contentDescription=b.str("title");setOnClickListener{dialog?.dismiss();a.detail(b,this)};a.press(this)},FrameLayout.LayoutParams(-1,-1))
+                b.optDouble("seriesNo").takeIf{!it.isNaN()}?.let{n->cover.addView(a.text("#"+(if(n%1.0==0.0)n.toLong().toString() else n.toString()),10.5f,0xfff3f2ef.toInt(),true).apply{setPadding(a.d(6),a.d(1),a.d(6),a.d(1))
+                    background=GradientDrawable().apply{cornerRadius=a.d(9).toFloat();setColor(0x99000000.toInt())};elevation=a.d(2).toFloat()},FrameLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(5);topMargin=a.d(5)})}
+                c.addView(cover,LinearLayout.LayoutParams(a.d(68),a.d(102)))
+                val h=Rating.halves(b)
+                c.addView(a.text(if(h>0)"★ ${Rating.text(h)}" else "",11.5f,StarRow.starYellow(a),true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,a.d(20)).apply{topMargin=a.d(4)})
+                rowL.addView(c,LinearLayout.LayoutParams(0,-2,1f))}
+            repeat(4-chunk.size){rowL.addView(View(a),LinearLayout.LayoutParams(0,1,1f))}
+            box.addView(rowL,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})}
+        dialog=a.dialog().setTitle(item.str("title")).setView(ScrollView(a).apply{addView(box)}).show()}
 
     // ───── filters ─────
     private fun isComic(b:JSONObject)=PageDocs.isDoc(b)&&b.optJSONObject("doc")?.str("type")!="pdf"
@@ -203,20 +279,20 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
 
     /** Lays the filtered books out: five rows and the tray of books without a rating. */
     private fun bind(animated:Boolean){
-        val list=filtered()
-        countText.text=MainActivity.countBooks(list.size)
+        val list=Tiers.group(a,filtered())
+        countText.text=Tiers.count(list)
         renderPills()
-        shown.clear();list.forEach{shown[it.str("id")]=Tiers.of(it)}
+        shown.clear();list.forEach{shown[it.str("id")]=tierOf(it)}
         fun build(){fill(rowsBox,list)}
         if(animated&&motion){rowsBox.animate().cancel();rowsBox.animate().alpha(0f).setDuration(140).withEndAction{build();rowsBox.translationY=a.d(8).toFloat()
             rowsBox.animate().alpha(1f).translationY(0f).setDuration(340).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}.start()} else build()
     }
     /** Lays five rows (and the tray) into [box]. */
     private fun fill(box:LinearLayout,list:List<JSONObject>){box.removeAllViews();rows.clear()
-            for(k in 0..5){val small=k==5;val items=Tiers.sorted(list.filter{Tiers.of(it)==(if(k==5)-1 else k)})
+            for(k in 0..5){val small=k==5;val items=Tiers.sorted(list.filter{tierOf(it)==(if(k==5)-1 else k)})
                 if(k==5&&items.isEmpty())continue
                 val flow=FlowRow(a,a.d(if(small)8 else 7),a.d(8),true){motion}
-                items.forEach{b->val (w,h)=cellSize(small);flow.addView(cell(b,small),ViewGroup.LayoutParams(w,h))}
+                items.forEach{b->val (w,h)=sizeOf(b,small);flow.addView(cell(b,small),ViewGroup.LayoutParams(w,h))}
                 val row=TierRow(a,k,flow)
                 if(k==5){row.minimumHeight=0;row.setPadding(a.d(14),a.d(12),a.d(14),a.d(14));(row.getChildAt(0)).visibility=View.GONE
                     (flow.layoutParams as LinearLayout.LayoutParams).apply{marginStart=0;topMargin=a.d(28)}
@@ -230,17 +306,17 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     }
 
     // ───── dragging ─────
-    private class Drag(val book:JSONObject,val float:CoverView,val hole:View,val dx:Float,val dy:Float,var row:TierRow,val from:Int)
+    private class Drag(val book:JSONObject,val float:View,val hole:View,val dx:Float,val dy:Float,var row:TierRow,val from:Int)
     private var drag:Drag?=null
     private fun where(v:View):RectF{val l=IntArray(2);v.getLocationInWindow(l);val f=IntArray(2);frame.getLocationInWindow(f)
         val x=(l[0]-f[0]).toFloat();val y=(l[1]-f[1]).toFloat();return RectF(x,y,x+v.width,y+v.height)}
-    private fun startDrag(cv:CoverView,b:JSONObject){if(drag!=null||closing||share!=null)return
+    private fun startDrag(cv:View,b:JSONObject){if(drag!=null||closing||share!=null)return
         val flow=cv.parent as? FlowRow?:return;val row=rows.firstOrNull{it.covers===flow}?:return
         val r=where(cv);val idx=flow.indexOfChild(cv)
-        val (w,h)=cellSize(false)
+        val (w,h)=sizeOf(b,row.k==5)
         val hole=View(a)
-        flow.removeView(cv);flow.addView(hole,idx,ViewGroup.LayoutParams(if(row.k==5)a.d(40) else w,if(row.k==5)a.d(60) else h))
-        val fl=CoverView(a,b,a.cover(b)).apply{softShadow=true;elevation=a.d(16).toFloat();pivotX=r.width()/2;pivotY=r.height()/2}
+        flow.removeView(cv);flow.addView(hole,idx,ViewGroup.LayoutParams(w,h))
+        val fl=(if(Tiers.isSeries(b))SeriesFan(a,Tiers.members[b.str("id")].orEmpty(),row.k==5) else CoverView(a,b,a.cover(b)).apply{softShadow=true}).apply{elevation=a.d(16).toFloat();pivotX=r.width()/2;pivotY=r.height()/2}
         frame.addView(fl,FrameLayout.LayoutParams(r.width().toInt(),r.height().toInt()));fl.translationX=r.left;fl.translationY=r.top
         val sc=if(row.k==5)1.45f else 1.2f
         if(motion)fl.animate().scaleX(sc).scaleY(sc).rotation(-4f).setDuration(180).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start() else {fl.scaleX=sc;fl.scaleY=sc}
@@ -262,7 +338,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         if(target!==d.row){d.row.light(false,motion);d.row=target;if(target.k<5)target.light(true,motion);frame.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
             val small=target.k==5;d.float.animate().scaleX(if(small)1.45f else 1.2f).scaleY(if(small)1.45f else 1.2f).setDuration(160).start()}
         val cur=d.hole.parent as? FlowRow
-        if(cur!==flow||cur.indexOfChild(d.hole)!=idx){cur?.removeView(d.hole);val (w,h)=cellSize(target.k==5)
+        if(cur!==flow||cur.indexOfChild(d.hole)!=idx){cur?.removeView(d.hole);val (w,h)=sizeOf(d.book,target.k==5)
             flow.addView(d.hole,idx.coerceAtMost(flow.childCount),ViewGroup.LayoutParams(w,h))}}
     /** Near the top or bottom edge the list scrolls under the lifted cover. */
     private val edgeScroll=object:Runnable{override fun run(){if(drag==null)return
@@ -276,7 +352,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         fun settle(){val f=d.hole.parent as? FlowRow;val i=f?.indexOfChild(d.hole)?:-1
             f?.removeView(d.hole);frame.removeView(d.float);d.row.light(false,motion);drag=null
             if(f==null||i<0){bind(false);return}
-            val small=target.k==5;val (w,h)=cellSize(small);f.addView(cell(d.book,small),i,ViewGroup.LayoutParams(w,h))
+            val small=target.k==5;val (w,h)=sizeOf(d.book,small);f.addView(cell(d.book,small),i,ViewGroup.LayoutParams(w,h))
             commit(d.book,target,f)}
         if(flow==null){settle();return}
         if(!motion){settle();return}
@@ -287,11 +363,16 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     }
     /** Saves the new rating and the order inside the row the book landed in. */
     private fun commit(book:JSONObject,row:TierRow,flow:FlowRow){
-        val before=Tiers.of(book);val now=if(row.k==5)-1 else row.k
-        if(now!=before){Rating.put(book,if(now<0)0 else (5-now)*2)}
+        val before=tierOf(book);val now=if(row.k==5)-1 else row.k
+        // a series is put in its row by hand (its issues keep their own stars); a book gets the row's stars
+        if(Tiers.isSeries(book))Tiers.place(a,book.str("series"),now,book.optDouble("tierPos",0.0))
+        else if(now!=before){Rating.put(book,if(now<0)0 else (5-now)*2)}
         shown[book.str("id")]=now
+        var prefs=Tiers.isSeries(book)
         for(i in 0 until flow.childCount){val b=flow.getChildAt(i).tag as? JSONObject?:continue
-            if(b.optDouble("tierPos",-1.0)!=i.toDouble()||b===book){b.put("tierPos",i.toDouble());a.saveBook(b){}}}
+            if(Tiers.isSeries(b)){b.put("tierPos",i.toDouble());Tiers.place(a,b.str("series"),if(b===book)now else null,i.toDouble());prefs=true}
+            else if(b.optDouble("tierPos",-1.0)!=i.toDouble()||b===book){b.put("tierPos",i.toDouble());a.saveBook(b){}}}
+        if(prefs)a.savePreferences()
         if(now!=before)frame.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
     }
 
@@ -308,7 +389,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
 
     // ───── share picture ─────
     private fun openShare(){if(share!=null||drag!=null)return
-        val list=filtered().filter{Tiers.of(it)>=0}
+        val list=Tiers.group(a,filtered()).filter{tierOf(it)>=0}
         val layer=FrameLayout(a).apply{setBackgroundColor(if(a.light)0xe6f2f2f0.toInt() else 0xe608080a.toInt());isClickable=true;setOnClickListener{closeShare()}}
         val box=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
         val title=if(kind=="comic")(if(year!=null)"Мои комиксы $year" else "Мои комиксы") else if(year!=null)"Мой $year в книгах" else "Мои книги"
@@ -353,7 +434,7 @@ internal object TierPoster{
     fun render(a:MainActivity,title:String,genre:String?,books:List<JSONObject>):Bitmap{
         val W=1080;val pad=64f;val labelW=150f;val cw=118f;val ch=177f;val gap=16f
         val perLine=max(1,((W-pad*2-labelW+gap)/(cw+gap)).toInt())
-        val groups=(0..4).map{k->Tiers.sorted(books.filter{Tiers.of(it)==k})}.withIndex().filter{it.value.isNotEmpty()}
+        val groups=(0..4).map{k->Tiers.sorted(books.filter{Tiers.tierOf(a,it)==k})}.withIndex().filter{it.value.isNotEmpty()}
         val heights=groups.map{g->val lines=(g.value.size+perLine-1)/perLine;max(150f,lines*ch+(lines-1)*gap)+48f}
         val top=330f;val H=(top+heights.sum()+pad+40f).toInt().coerceAtLeast(720)
         val bmp=Bitmap.createBitmap(W,H,Bitmap.Config.ARGB_8888);val c=Canvas(bmp)
@@ -362,7 +443,7 @@ internal object TierPoster{
         val tp=Paint(Paint.ANTI_ALIAS_FLAG)
         tp.typeface=PolkaFonts.sans(600);tp.textSize=30f;tp.letterSpacing=.08f;tp.color=a.muted;c.drawText("ТИР-ЛИСТ",pad,130f,tp);tp.letterSpacing=0f
         tp.typeface=PolkaFonts.serif(a,true);tp.textSize=74f;tp.color=a.fg;c.drawText(title,pad,222f,tp)
-        tp.typeface=PolkaFonts.sans(400);tp.textSize=34f;tp.color=a.muted;c.drawText(MainActivity.countBooks(books.size)+(genre?.let{", ${it.lowercase()}"}?:""),pad,278f,tp)
+        tp.typeface=PolkaFonts.sans(400);tp.textSize=34f;tp.color=a.muted;c.drawText(Tiers.count(books)+(genre?.let{", ${it.lowercase()}"}?:""),pad,278f,tp)
         tp.typeface=PolkaFonts.display(600);tp.textSize=30f;tp.color=a.muted;tp.textAlign=Paint.Align.RIGHT;c.drawText("Glyph",W-pad,130f,tp);tp.textAlign=Paint.Align.LEFT
         val hair=Paint().apply{color=if(a.light)0x14000000 else 0x12ffffff}
         var y=top
@@ -373,8 +454,13 @@ internal object TierPoster{
             tp.shader=LinearGradient(0f,y+40f,0f,y+150f,c1,c2,Shader.TileMode.CLAMP);c.drawText(Tiers.letters[k],pad+labelW/2-14f,y+24f+104f*.78f+20f,tp);tp.shader=null;tp.textAlign=Paint.Align.LEFT
             g.value.forEachIndexed{i,b->val line=i/perLine;val col=i%perLine
                 val x=pad+labelW+col*(cw+gap);val cy=y+24f+line*(ch+gap)
-                val cv=CoverView(a,b,a.cover(b)).apply{softShadow=true};cv.measure(View.MeasureSpec.makeMeasureSpec(cw.toInt(),View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(ch.toInt(),View.MeasureSpec.EXACTLY))
-                cv.layout(0,0,cw.toInt(),ch.toInt());c.save();c.translate(x,cy);cv.draw(c);c.restore()}
+                // a series: its next two issues fanned behind the first, quieter, as in the list
+                val fan=Tiers.members[b.str("id")]?.take(3)?:listOf(b)
+                for(fi in fan.indices.reversed()){val ib=fan[fi]
+                    val cv=CoverView(a,ib,a.cover(ib)).apply{softShadow=true};cv.measure(View.MeasureSpec.makeMeasureSpec(cw.toInt(),View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(ch.toInt(),View.MeasureSpec.EXACTLY))
+                    cv.layout(0,0,cw.toInt(),ch.toInt());c.save();c.translate(x+(if(fi>0)10f else 0f),cy)
+                    if(fi>0){c.rotate(if(fi==1)4.5f else 9f,cw/2,ch);val g=if(fi==1)191 else 140;c.saveLayer(-40f,-40f,cw+40f,ch+40f,Paint().apply{colorFilter=LightingColorFilter(Color.rgb(g,g,g),0)})}
+                    cv.draw(c);if(fi>0)c.restore();c.restore()}}
             y+=h}
         return bmp
     }
