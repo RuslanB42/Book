@@ -10,9 +10,11 @@ import java.net.URLEncoder
 import java.util.concurrent.Executors
 
 /**
- * Real portraits of authors (approved plan): found through Wikidata — a human whose occupation is writing, with a
- * portrait on Wikimedia Commons; when several people share the name, the one who wrote a book from the library is
- * taken, and when that still leaves doubt there is no photo (initials are better than a stranger's face). A 256-px
+ * Real portraits of authors (approved plan): found through Wikidata — a human whose occupation is writing; the
+ * portrait is the one on Wikimedia Commons or, when Commons has none (many living writers), the author's photo on
+ * Open Library, linked from the same Wikidata entry. When several writers share the name, the one who wrote a book
+ * from the library is taken, and when that still leaves doubt there is no photo (initials are better than a
+ * stranger's face). A 256-px
  * square copy is kept on the phone once per author together with its credit line (the photographer and the licence).
  * Searched in the background for books added from now on and for the favourite author; a miss is retried at most
  * once a month. The reader's own photo, or a removed one, is never overwritten.
@@ -20,6 +22,8 @@ import java.util.concurrent.Executors
 internal object AuthorPhotos {
     private const val UA="GlyphReader/1.0 (Android ebook reader; https://github.com/RuslanB42/Book)"
     private const val MONTH=30L*24*3600*1000
+    /** The way photos are looked for; a miss of an older way is looked for again. */
+    private const val SEARCH=2
     private val pool=Executors.newSingleThreadExecutor()
     private val memory=LruCache<String,Bitmap>(24)
     private val busy=HashSet<String>()
@@ -49,7 +53,8 @@ internal object AuthorPhotos {
         val n=name.trim();if(!single(n))return
         val k=key(n);val e=info(a,n)
         if(e!=null&&(e.optBoolean("manual")||e.optBoolean("removed")||File(dir(a),"$k.jpg").exists()))return
-        if(e!=null&&e.optBoolean("miss")&&System.currentTimeMillis()-e.optLong("at")<MONTH)return
+        // a miss is tried again after a month, or at once when it was missed before the photos came from Open Library too
+        if(e!=null&&e.optBoolean("miss")&&e.optInt("v")>=SEARCH&&System.currentTimeMillis()-e.optLong("at")<MONTH)return
         synchronized(busy){if(!busy.add(k))return}
         pool.execute{try{val got=find(a,n,title);if(got!=null){memory.put(k,got);done?.let{d->a.runOnUiThread{d(got)}}}}catch(_:Exception){}finally{synchronized(busy){busy.remove(k)}}}
     }
@@ -66,9 +71,10 @@ internal object AuthorPhotos {
         c.setRequestProperty("User-Agent",UA);c.connectTimeout=12000;c.readTimeout=15000
         try{if(c.responseCode!=200)error("HTTP ${c.responseCode}");return c.inputStream.bufferedReader().readText()}finally{c.disconnect()}}
     private fun enc(s:String)=URLEncoder.encode(s,"UTF-8")
-    private fun search(q:String,lang:String):List<String> = try{
+    // no network is not a miss: the error goes up and nothing is written down, so the next look tries again
+    private fun search(q:String,lang:String):List<String> =
         JSONObject(get("https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&type=item&limit=7&language=$lang&uselang=$lang&search=${enc(q)}"))
-            .optJSONArray("search")?.let{arr->(0 until arr.length()).map{arr.getJSONObject(it).optString("id")}}.orEmpty()}catch(_:Exception){emptyList()}
+            .optJSONArray("search")?.let{arr->(0 until arr.length()).map{arr.getJSONObject(it).optString("id")}}.orEmpty()
     private fun entities(ids:List<String>):JSONObject=if(ids.isEmpty())JSONObject() else
         JSONObject(get("https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&props=claims&ids=${ids.joinToString("|")}")).optJSONObject("entities")?:JSONObject()
     private fun claimIds(e:JSONObject,p:String):List<String> = e.optJSONObject("claims")?.optJSONArray(p)?.let{arr->(0 until arr.length()).mapNotNull{arr.getJSONObject(it).optJSONObject("mainsnak")?.optJSONObject("datavalue")?.opt("value")?.let{v->if(v is JSONObject)v.optString("id") else v.toString()}}}.orEmpty()
@@ -78,7 +84,7 @@ internal object AuthorPhotos {
         val ids=(listOf(name,swapped).distinct().flatMap{q->search(q,"ru")+search(q,"en")}).distinct().take(12)
         val ents=entities(ids)
         val writers=ids.filter{id->val e=ents.optJSONObject(id)?:return@filter false
-            "Q5" in claimIds(e,"P31")&&claimIds(e,"P106").any{it in writing}&&claimIds(e,"P18").isNotEmpty()}
+            "Q5" in claimIds(e,"P31")&&claimIds(e,"P106").any{it in writing}}
         val chosen=when{
             writers.size==1->writers[0]
             writers.size>1&&!title.isNullOrBlank()->{
@@ -87,15 +93,21 @@ internal object AuthorPhotos {
                 val authors=works.flatMap{claimIds(we.optJSONObject(it)?:JSONObject(),"P50")}.toSet()
                 writers.filter{it in authors}.singleOrNull()}
             else->null}
-        val k=key(name);val entry=JSONObject().put("name",name).put("at",System.currentTimeMillis())
-        if(chosen==null){synchronized(this){idx(a).put(k,entry.put("miss",true));save(a)};return null}
-        val file=claimIds(ents.getJSONObject(chosen),"P18").first()
-        val bytes=URL("https://commons.wikimedia.org/wiki/Special:FilePath/${enc(file).replace("+","%20")}?width=320").openConnection().let{c->c as HttpURLConnection
-            c.setRequestProperty("User-Agent",UA);c.connectTimeout=12000;c.readTimeout=20000;c.instanceFollowRedirects=true
-            try{c.inputStream.readBytes()}finally{c.disconnect()}}
-        val src=BitmapFactory.decodeByteArray(bytes,0,bytes.size)?:run{synchronized(this){idx(a).put(k,entry.put("miss",true));save(a)};return null}
+        val k=key(name);val entry=JSONObject().put("name",name).put("at",System.currentTimeMillis()).put("v",SEARCH)
+        fun miss():Bitmap?{synchronized(this){idx(a).put(k,entry.put("miss",true));save(a)};return null}
+        if(chosen==null)return miss()
+        val e=ents.getJSONObject(chosen)
+        val file=claimIds(e,"P18").firstOrNull()
+        // Commons first; without a portrait there, the author's photo on Open Library (none there: a 404, so a miss)
+        val ol=if(file==null)claimIds(e,"P648").firstOrNull{it.matches(Regex("OL\\d+A"))} else null
+        val url=when{file!=null->"https://commons.wikimedia.org/wiki/Special:FilePath/${enc(file).replace("+","%20")}?width=320"
+            ol!=null->"https://covers.openlibrary.org/a/olid/$ol-L.jpg?default=false"
+            else->return miss()}
+        val bytes=download(url)?:return miss()
+        val src=BitmapFactory.decodeByteArray(bytes,0,bytes.size)?.takeIf{it.width>=48&&it.height>=48}?:return miss()
         val square=crop(src,256);src.recycle()
         File(dir(a),"$k.jpg").outputStream().use{square.compress(Bitmap.CompressFormat.JPEG,88,it)}
+        if(file==null){synchronized(this){idx(a).put(k,entry.put("qid",chosen).put("file","openlibrary:$ol").put("artist","Open Library"));save(a)};return square}
         // the credit line: who took the photo and under what licence
         var artist="";var licence=""
         try{val meta=JSONObject(get("https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=extmetadata&titles=${enc("File:$file")}"))
@@ -105,6 +117,16 @@ internal object AuthorPhotos {
         synchronized(this){idx(a).put(k,entry.put("qid",chosen).put("file",file).put("artist",artist).put("licence",licence));save(a)}
         return square
     }
+    /** The picture at [url]; null when there is none (404). */
+    private fun download(url:String):ByteArray?{var u=url
+        // Open Library answers with a redirect to its archive host
+        repeat(4){val c=URL(u).openConnection() as HttpURLConnection
+            c.setRequestProperty("User-Agent",UA);c.connectTimeout=12000;c.readTimeout=20000;c.instanceFollowRedirects=true
+            try{val code=c.responseCode
+                if(code in 300..399){u=URL(URL(u),c.getHeaderField("Location")?:error("no location")).toString();return@repeat}
+                if(code==404)return null
+                if(code!=200)error("HTTP $code");return c.inputStream.readBytes()}finally{c.disconnect()}}
+        error("redirects")}
     /** The face is usually in the upper middle of a portrait: a square from there. */
     private fun crop(src:Bitmap,size:Int):Bitmap{val s=minOf(src.width,src.height);val x=(src.width-s)/2;val y=if(src.height>src.width)((src.height-s)*.18f).toInt() else 0
         val out=Bitmap.createBitmap(size,size,Bitmap.Config.ARGB_8888);Canvas(out).drawBitmap(src,Rect(x,y,x+s,y+s),Rect(0,0,size,size),Paint(Paint.FILTER_BITMAP_FLAG));return out}
