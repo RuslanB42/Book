@@ -26,13 +26,13 @@ internal object Tiers {
     fun tone(a:MainActivity,k:Int):Pair<Int,Int> =if(a.light)when(k){0->0xffd9625c.toInt() to 0xffb8433d.toInt();1->0xffd98a4a.toInt() to 0xffb0662a.toInt();2->0xffcfa548.toInt() to 0xffa37c22.toInt();3->0xffb5a83e.toInt() to 0xff8a7f22.toInt();else->0xff7fa650.toInt() to 0xff5c8233.toInt()}
         else when(k){0->0xfff2a3a0.toInt() to 0xffd9625c.toInt();1->0xfff2c49b.toInt() to 0xffd98a4a.toInt();2->0xfff0d79a.toInt() to 0xffcfa548.toInt();3->0xffe8e2a0.toInt() to 0xffbdb45a.toInt();else->0xffc9e3a2.toInt() to 0xff8fb862.toInt()}
     /** Finished books of [year] (all of them when null), own order inside a tier first, then the latest finished. */
-    fun books(model:ReadingStatistics,year:Int?)=model.finished.filter{year==null||it.date?.year==year}.map{it.book}
+    fun books(model:ReadingStatistics,year:Int?)=model.finishedAll.filter{year==null||it.date?.year==year}.map{it.book}
     fun sorted(list:List<JSONObject>)=list.sortedWith(compareBy<JSONObject>{it.optDouble("tierPos",Double.MAX_VALUE)}.thenByDescending{it.optLong("completedAt")})
-    fun years(model:ReadingStatistics)=model.finished.mapNotNull{it.date?.year}.distinct().sortedDescending()
+    fun years(model:ReadingStatistics)=model.finishedAll.mapNotNull{it.date?.year}.distinct().sortedDescending()
 
     // ── a series of comics is one place in the list (approved «Веер»): its read issues fanned behind the first ──
     /** The series a comic belongs to (null for books, PDFs and comics without one). */
-    fun seriesKey(b:JSONObject):String?=if(PageDocs.isDoc(b)&&b.optJSONObject("doc")?.str("type")!="pdf")b.str("series").trim().lowercase().takeIf{it.isNotBlank()} else null
+    fun seriesKey(b:JSONObject):String?=if(isComic(b))b.str("series").trim().lowercase().takeIf{it.isNotBlank()} else null
     /** The issues behind each series place, by the place's id. */
     val members=HashMap<String,List<JSONObject>>()
     fun isSeries(o:JSONObject)=o.str("id").startsWith("series:")
@@ -228,7 +228,6 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         dialog=a.dialog().setTitle(item.str("title")).setView(ScrollView(a).apply{addView(box)}).show()}
 
     // ───── filters ─────
-    private fun isComic(b:JSONObject)=PageDocs.isDoc(b)&&b.optJSONObject("doc")?.str("type")!="pdf"
     private fun genresOf(b:JSONObject)=b.optJSONArray("genres")?.strings().orEmpty().mapNotNull{Genres.name(it)}.distinct()
     /** The finished books the filters let through. */
     private fun filtered()=Tiers.books(model,year).filter{b->(kind==null||(kind=="comic")==isComic(b))&&(genre==null||genre in genresOf(b))}

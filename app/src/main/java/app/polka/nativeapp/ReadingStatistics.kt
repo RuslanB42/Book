@@ -8,10 +8,13 @@ import kotlin.math.*
 /** Date-based aggregates. Unknown completion dates are never invented from import/open timestamps. */
 class ReadingStatistics(val source:JSONObject,books:List<JSONObject>,val today:LocalDate=LocalDate.now(),val zone:ZoneId=ZoneId.systemDefault()) {
     data class Finished(val book:JSONObject,val date:LocalDate?)
-    val finished=books.distinctBy { it.str("id") }.filter { Library.status(it)=="done" }.map { b ->
+    /** Everything finished, comics too (the tier list, which has its own place for comics). */
+    val finishedAll=books.distinctBy { it.str("id") }.filter { Library.status(it)=="done" }.map { b ->
         val date=runCatching { val n=b.optLong("completedAt"); if(n>0) Instant.ofEpochMilli(n).atZone(zone).toLocalDate().takeIf { it.year>=1900 && it<=today } else null }.getOrNull()
         Finished(b,date)
     }
+    /** Finished books: comics are comics, not books — they count for no goal, no year in books, no taste. */
+    val finished=finishedAll.filter { !isComic(it.book) }
     val days=source.optJSONObject("days") ?: JSONObject()
     val entries=days.keys().asSequence().mapNotNull { key -> runCatching { LocalDate.parse(key).takeIf { it<=today && it.year>=1900 }?.let { it to days.getJSONObject(key) } }.getOrNull() }.sortedBy { it.first }.toList()
     fun ms(day:LocalDate)=if(day>today) 0L else max(0L,days.optJSONObject(day.toString())?.optLong("ms") ?: 0L)
@@ -61,6 +64,9 @@ class ReadingStatistics(val source:JSONObject,books:List<JSONObject>,val today:L
         Ledger(run,best,freezes,if(freezes>=2)0 else 7-since,marks,lost,repair)}
     val streak:Int get()=ledger.count
 }
+
+/** A comic (not a PDF, which is usually a book). */
+internal fun isComic(b:JSONObject)=PageDocs.isDoc(b)&&b.optJSONObject("doc")?.str("type")!="pdf"
 
 /** Preserve unrelated statistics and daily ledgers while changing an annual target. Called inside a transaction. */
 internal fun changeAnnualGoal(data:JSONObject,year:Int,count:Int?) {

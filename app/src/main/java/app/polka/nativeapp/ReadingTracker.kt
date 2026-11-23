@@ -66,7 +66,8 @@ internal class ReadingTracker(private val text:Boolean,private val pdf:Boolean=f
                 // one page (or two, across a chapter's end) read in a plausible time; a jump or a fling is not reading
                 val honest=if(text)delta<=MAX_JUMP&&delta<=max(pageSize,1)*5/2&&delta<=spent*MAX_PACE else delta<=2&&spent>=delta*(if(pdf)PDF_PAGE_MS else COMIC_PAGE_MS)
                 if(honest){from=base;to=pos
-                    if(text){chars=delta.toLong();textMs=spent;pages=delta/max(pageSize,1).toDouble()}else pages=delta.toDouble()}
+                    if(text){chars=delta.toLong();textMs=spent;pages=delta/max(pageSize,1).toDouble()}else if(pdf)pages=delta.toDouble()}
+                    // a comic's page is a picture, not a page of a book: it adds to no count of pages
                 base=pos;dwell=0}
         }
         return Credit(elapsed,chars,textMs,pages,moved,from,to,if(Sitting.counted)Sitting.ms else 0L,sNew,sAdd,Sitting.day)
