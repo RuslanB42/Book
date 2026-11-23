@@ -38,7 +38,7 @@ internal class StatsMore(private val data:JSONObject,private val books:List<JSON
     /** The day with the most of the reader's own pages. */
     fun bestDay():Pair<Int,LocalDate>?{val best=model.entries.maxByOrNull{model.pages(it.first)}?:return null;val pages=model.pages(best.first).roundToInt();return if(pages>0)pages to best.first else null}
     /**
-     * The finished book read the fastest: of the books really read here (four fifths of the text, at least ten minutes),
+     * The finished book read the fastest (comics left out): of the books really read here (four fifths of the text, at least ten minutes),
      * the days from the start of its reading to its end. A book put aside for over two months starts again where it
      * was taken up again, and the first tenth of its time (a look into it long before) does not stretch the count.
      */
@@ -47,6 +47,8 @@ internal class StatsMore(private val data:JSONObject,private val books:List<JSON
         val byBook=HashMap<String,MutableList<Pair<LocalDate,Long>>>()
         for((d,o) in model.entries){val b=o.optJSONObject("books")?:continue;val it=b.keys();while(it.hasNext()){val k=it.next();val ms=b.optLong(k);if(ms>0)byBook.getOrPut(k){mutableListOf()}.add(d to ms)}}
         return model.finished.mapNotNull{f->val end=f.date?:return@mapNotNull null;val id=f.book.str("id")
+            // a comic is read in minutes: it is no book to be the fastest of
+            if(PageDocs.isDoc(f.book)&&f.book.optJSONObject("doc")?.str("type")!="pdf")return@mapNotNull null
             if(readShare(recs?.optJSONObject(id))<.8)return@mapNotNull null
             val days=byBook[id]?.filter{!it.first.isAfter(end)}?.sortedByDescending{it.first}?:return@mapNotNull null
             // the last stretch of reading (no gap over 60 days)
