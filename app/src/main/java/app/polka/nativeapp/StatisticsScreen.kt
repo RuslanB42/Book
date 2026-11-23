@@ -303,7 +303,8 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             space(box,16);box.addView(a.yearTiles(list,target,false),LinearLayout.LayoutParams(-1,-2))
             // the latest books in one row, newest first
             if(list.isNotEmpty()){val gap=9;val w=((a.resources.configuration.screenWidthDp-32-36-gap*4)/5).coerceAtMost(72)
-                val row=a.line().apply{clipChildren=false;clipToPadding=false}
+                // the covers stay on one line even when a cell has more under it
+                val row=a.line().apply{clipChildren=false;clipToPadding=false;gravity=Gravity.TOP}
                 list.sortedByDescending{it.end}.take(5).forEach{yb->row.addView(a.yearBookCell(yb,a.d(w)),LinearLayout.LayoutParams(-2,-2).apply{if(row.childCount>0)marginStart=a.d(gap)})}
                 space(box,18);box.addView(row,LinearLayout.LayoutParams(-1,-2))}
             box.isClickable=true;box.setOnClickListener{openRoad(box,years){bind()}}

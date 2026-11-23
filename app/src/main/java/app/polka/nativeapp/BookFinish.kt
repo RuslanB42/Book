@@ -3,7 +3,6 @@ package app.polka.nativeapp
 import android.app.Dialog
 import android.graphics.*
 import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.GradientDrawable
 import android.view.*
 import android.widget.*
 import androidx.core.view.ViewCompat
@@ -63,7 +62,10 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         // the cover's own colours, blurred, behind the top of the page and fading into it
         val glow=ImageView(a).apply{scaleType=ImageView.ScaleType.CENTER_CROP;alpha=if(a.light).4f else .55f}
         root.addView(glow,FrameLayout.LayoutParams(-1,a.d(520)))
-        root.addView(View(a).apply{background=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(a.bg and 0x00ffffff,a.bg and 0x00ffffff,a.bg))},FrameLayout.LayoutParams(-1,a.d(560)))
+        // the wash fades out gently and is gone well before its own edge, so no line is left where it ends
+        val clear=a.bg and 0x00ffffff
+        root.addView(View(a).apply{background=android.graphics.drawable.PaintDrawable().apply{shaderFactory=object:android.graphics.drawable.ShapeDrawable.ShaderFactory(){
+            override fun resize(w:Int,h:Int)=LinearGradient(0f,0f,0f,h.toFloat(),intArrayOf(clear,clear,(a.bg and 0x00ffffff) or 0x66000000,(a.bg and 0x00ffffff) or 0xd9000000.toInt(),a.bg,a.bg),floatArrayOf(0f,.3f,.55f,.72f,.86f,1f),Shader.TileMode.CLAMP)}}},FrameLayout.LayoutParams(-1,a.d(520)))
         val scroll=ScrollView(a).apply{isFillViewport=true;overScrollMode=View.OVER_SCROLL_NEVER;isVerticalScrollBarEnabled=false}
         val page=a.col().apply{clipChildren=false;clipToPadding=false}
         scroll.addView(page,FrameLayout.LayoutParams(-1,-2))
@@ -83,7 +85,8 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
 
         val tiles=a.row().apply{gravity=Gravity.TOP}
         page.addView(tiles,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(22)})
-        val review=ReviewBlock(a,book)
+        // the rating is one of the page's tiles here: the same soft fill over the cover's light, not a raised card
+        val review=ReviewBlock(a,book).apply{a.floatCard(this,16,if(a.light)0x0d000000 else 0x12ffffff,0)}
         page.addView(review,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(12)})
         page.addView(View(a),LinearLayout.LayoutParams(1,0,1f))
         page.addView(a.button("Готово",true){finish(true,true)}.apply{background=a.shape(a.fg,25);minHeight=a.d(50)},LinearLayout.LayoutParams(-1,a.d(50)).apply{topMargin=a.d(24)})

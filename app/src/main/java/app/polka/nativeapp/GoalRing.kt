@@ -35,11 +35,16 @@ internal fun MainActivity.yearBookCell(yb:YearBook,w:Int):LinearLayout{
     val cell=column().apply{clipChildren=false;clipToPadding=false}
     val cv=CoverView(this,yb.book,cover(yb.book)).apply{softShadow=true;isClickable=true;contentDescription=yb.book.str("title");setOnClickListener{detail(yb.book,this)}}
     cell.addView(cv,LinearLayout.LayoutParams(w,(w*1.5f).toInt()))
-    val under=line().apply{gravity=Gravity.CENTER_VERTICAL}
     val r=Rating.halves(yb.book)
-    under.addView(text("",11.5f,StarRow.starYellow(this),true).apply{text=if(r>0)android.text.SpannableStringBuilder("★ ${Rating.text(r)}").apply{setSpan(RoundStarSpan(StarRow.starYellow(this@yearBookCell),.95f),0,1,0)} else ""},LinearLayout.LayoutParams(0,-2,1f))
+    val stars=text("",11.5f,StarRow.starYellow(this),true).apply{maxLines=1;text=if(r>0)android.text.SpannableStringBuilder("★ ${Rating.text(r)}").apply{setSpan(RoundStarSpan(StarRow.starYellow(this@yearBookCell),.95f),0,1,0)} else ""}
     val h=yb.ms/3_600_000L
-    under.addView(text(if(h>0)"$h ч" else if(yb.ms>=60_000L)"${yb.ms/60_000L} мин" else "",11.5f,if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt(),true))
+    val time=text(if(h>0)"$h ч" else if(yb.ms>=60_000L)"${yb.ms/60_000L} мин" else "",11.5f,if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt(),true).apply{maxLines=1}
+    // the stars and the time share one line under the cover; when both do not fit («★ 4,5» and «23 мин» under a
+    // narrow cover) the time goes under the stars instead of the stars breaking in two
+    val fits=stars.paint.measureText(stars.text.toString())+d(6)+time.paint.measureText(time.text.toString())<=w
+    val under=if(fits)line().apply{gravity=Gravity.CENTER_VERTICAL} else column()
+    under.addView(stars,if(fits)LinearLayout.LayoutParams(0,-2,1f) else LinearLayout.LayoutParams(-2,-2))
+    under.addView(time,LinearLayout.LayoutParams(-2,-2).apply{if(!fits)topMargin=d(2)})
     cell.addView(under,LinearLayout.LayoutParams(w,-2).apply{topMargin=d(6)})
     return cell
 }
@@ -79,7 +84,7 @@ internal fun MainActivity.goalYearPage(model:ReadingStatistics,list:List<YearBoo
         left.addView(text(if(h>0)"$h ч" else "${ms/60_000L} мин",12f,muted).apply{setPadding(0,d(4),0,0)})
         left.addView(text("${books.size} ${booksWord(books.size)}",12f,if(light)0xff9a9aa0.toInt() else 0xff6e6e73.toInt()).apply{setPadding(0,d(1),0,0)})
         val grid=column().apply{clipChildren=false}
-        books.chunked(perRow).forEach{chunk->val r=line().apply{clipChildren=false};chunk.forEach{yb->r.addView(yearBookCell(yb,d(cw)),LinearLayout.LayoutParams(-2,-2).apply{if(r.childCount>0)marginStart=d(gap)})}
+        books.chunked(perRow).forEach{chunk->val r=line().apply{clipChildren=false;gravity=Gravity.TOP};chunk.forEach{yb->r.addView(yearBookCell(yb,d(cw)),LinearLayout.LayoutParams(-2,-2).apply{if(r.childCount>0)marginStart=d(gap)})}
             grid.addView(r,LinearLayout.LayoutParams(-2,-2).apply{if(grid.childCount>0)topMargin=d(14)})}
         row.addView(grid,LinearLayout.LayoutParams(0,-2,1f))
         page.addView(row,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=d(26)})
