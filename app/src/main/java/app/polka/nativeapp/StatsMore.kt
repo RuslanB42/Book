@@ -85,6 +85,8 @@ internal object Genres {
         "nonf_publicism" to "Публицистика","nonfiction" to "Нон-фикшн","religion" to "Религия","reference" to "Справочники","children" to "Детская","humor" to "Юмор")
     private val prefix=listOf("sf" to "Фантастика","det" to "Детектив","love" to "Любовный роман","adv" to "Приключения","antique" to "Античная литература","sci" to "Научпоп",
         "humor" to "Юмор","child" to "Детская","psy" to "Психология","comp" to "Компьютеры","home" to "Дом и семья","business" to "Бизнес","nonf" to "Нон-фикшн","prose" to "Проза","romance" to "Любовный роман")
+    /** Every genre to choose from in «Данные книги». */
+    val all:List<String> by lazy{(exact.values+prefix.map{it.second}+listOf("Комиксы","Манга")).distinct()}
     fun name(raw:String):String?{val g=raw.trim();if(g.isBlank())return null
         if(g.any{it in 'а'..'я'||it in 'А'..'Я'})return g.replaceFirstChar{it.uppercase()}
         val key=g.lowercase();exact[key]?.let{return it}

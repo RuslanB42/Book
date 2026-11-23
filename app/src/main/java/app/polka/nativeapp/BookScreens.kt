@@ -30,7 +30,7 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     coverActions.addView(pick); coverActions.addView(drop,LinearLayout.LayoutParams(-2,-2).apply{leftMargin=d(8)}); box.addView(coverActions)
     fun card()=column().apply{floatCard(this,24);setPadding(d(16),d(4),d(16),d(4))}
     fun divider(parent:LinearLayout){parent.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,1))}
-    fun value(key:String)=when(key) { "authors"->MainActivity.authors(book); "genres"->book.optJSONArray(key)?.strings()?.joinToString(", ").orEmpty(); "seriesNo"->book.optDouble(key,0.0).let{if(it<=0)"" else if(it%1==0.0)it.toInt().toString() else it.toString()}; else->book.str(key) }
+    fun value(key:String)=when(key) { "authors"->MainActivity.authors(book); "seriesNo"->book.optDouble(key,0.0).let{if(it<=0)"" else if(it%1==0.0)it.toInt().toString() else it.toString()}; else->book.str(key) }
     fun field(parent:LinearLayout,key:String,name:String,hint:String,multi:Boolean=false,lp:LinearLayout.LayoutParams=LinearLayout.LayoutParams(-1,-2)):EditText{
         val cell=column().apply{setPadding(0,d(10),0,d(8))}
         cell.addView(text(name,12f,muted))
@@ -44,7 +44,17 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     section("Серия")
     val serie=card();val row=line().apply{gravity=Gravity.TOP};field(row,"series","Серия","Название серии",lp=LinearLayout.LayoutParams(0,-2,1f));row.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(1,-1).apply{setMargins(d(12),d(10),d(12),d(10))});field(row,"seriesNo","Номер","—",lp=LinearLayout.LayoutParams(d(72),-2));serie.addView(row);box.addView(serie)
     section("Подробности")
-    val more=card();field(more,"shelf","Полка","Без полки");divider(more);field(more,"genres","Жанры","Через запятую");divider(more);field(more,"lang","Язык","ru, en…");box.addView(more)
+    val more=card();field(more,"shelf","Полка","Без полки");divider(more);
+    // the genres as tags: every genre there is (and the library's own), the book's are lit; a tap adds or takes one off
+    val raw=book.optJSONArray("genres")?.strings().orEmpty()
+    val had=raw.mapNotNull{Genres.name(it)}.distinct()
+    val chosen=had.toMutableList()
+    run{val cell=column().apply{setPadding(0,d(10),0,d(14))};cell.addView(text("Жанры",12f,muted))
+        val tags=FlowRow(this,d(8),d(8)){false}
+        val names=(Genres.all+books.flatMap{b->b.optJSONArray("genres")?.strings().orEmpty().mapNotNull{Genres.name(it)}}+had).distinct().sortedWith(compareBy(java.text.Collator.getInstance(java.util.Locale("ru")),{it}))
+        names.forEach{n->tags.addView(ReviewChip(this,n,n in had){chip->if(chip.selectedNow){if(n !in chosen)chosen.add(n)}else chosen.remove(n)})}
+        cell.addView(tags,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(10)});more.addView(cell)}
+    divider(more);field(more,"lang","Язык","ru, en…");box.addView(more)
     section("Описание")
     val about=card();field(about,"annotation","Аннотация","О чём эта книга",true);box.addView(about)
     val error=text("",13f,0xffe5534b.toInt()).apply{visibility=View.GONE;setPadding(d(4),d(10),0,0)}; box.addView(error)
@@ -52,7 +62,9 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     space(box,20)
     box.addView(button("Сохранить",true) {
         if(fields.getValue("title").text.isBlank()) { error.text="Укажите название"; error.visibility=View.VISIBLE; fields.getValue("title").requestFocus(); return@button }
-        val updated=book.copyJson(); fields.forEach { (k,f) -> val v=f.text.toString().trim(); when(k) { "authors","genres" -> updated.put(k,JSONArray(v.split(Regex("[,;]")).map { it.trim() }.filter { it.isNotBlank() })); "seriesNo" -> updated.put(k,v.replace(',','.').toDoubleOrNull() ?: 0.0); else->updated.put(k,v) } }
+        val updated=book.copyJson(); fields.forEach { (k,f) -> val v=f.text.toString().trim(); when(k) { "authors" -> updated.put(k,JSONArray(v.split(Regex("[,;]")).map { it.trim() }.filter { it.isNotBlank() })); "seriesNo" -> updated.put(k,v.replace(',','.').toDoubleOrNull() ?: 0.0); else->updated.put(k,v) } }
+        // the codes the book came with stay while their genre is still chosen; a new genre is kept by its name
+        if(chosen.toSet()!=had.toSet())updated.put("genres",JSONArray(raw.filter{Genres.name(it) in chosen}+chosen.filter{n->raw.none{Genres.name(it)==n}}))
         preview.optJSONObject("cover")?.let{ if(it.toString()!=book.optJSONObject("cover")?.toString()) updated.put("cover",it).put("coverChanged",true) }
         updated.put("modifiedAt",System.currentTimeMillis()); saveBook(updated) { sheet?.dismiss() }
     },LinearLayout.LayoutParams(-1,d(52)))
