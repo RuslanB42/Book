@@ -51,7 +51,11 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     private val io=Executors.newFixedThreadPool(2)
     private val cache=object:LruCache<String,Bitmap>((Runtime.getRuntime().maxMemory()/5).toInt()){override fun sizeOf(k:String,v:Bitmap)=v.byteCount}
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    private var mode=book.str("pageMode","paged")
+    private var mode=book.str("pageMode","paged").let{if(it=="rtl"){book.put("pageRtl",true);"paged"}else it}
+    /** Pages turn right to left (manga). */
+    private var rtl=book.optBoolean("pageRtl")
+    /** How a page turns, as in the book reader: «curl», «slide», «cover» or «none». */
+    private val turnStyle get()=a.prefs.str("comicTurn","slide")
     private var page=(book.optJSONObject("progress")?.optInt("page",0)?:0).coerceIn(0,maxOf(0,n-1))
     private val dialog=android.app.Dialog(a,android.R.style.Theme_Black_NoTitleBar_Fullscreen)
     /** Every touch is the reader being with the page. */
@@ -82,6 +86,8 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         book.put("openedAt",System.currentTimeMillis());a.immersiveSheets=true;a.pageReading=this
         tracker.skipTime();tracker.touch();root.postDelayed(heartbeat,5000)
         root.addView(stage,FrameLayout.LayoutParams(-1,-1))
+        // the bars' soft shade lies outside them
+        root.clipChildren=false
         buildChrome()
         dialog.setContentView(root)
         dialog.window?.let{w->w.setLayout(-1,-1)
@@ -90,8 +96,8 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         applyBrightness(dialog.window)
         // the bars run to the screen's edges like the reader's: the safe area is room inside them
         SafeArea.bind(root){i->val s=SafeArea.content(i,false)
-            top.layoutParams=(top.layoutParams as FrameLayout.LayoutParams).apply{height=a.d(52+30)+s.top};top.setPadding(a.d(8)+s.left,a.d(4)+s.top,a.d(8)+s.right,a.d(4+30))
-            bottom.setPadding(a.d(18)+s.left,a.d(8+36),a.d(18)+s.right,a.d(4)+s.bottom)}
+            top.layoutParams=(top.layoutParams as FrameLayout.LayoutParams).apply{height=a.d(52)+s.top};top.setPadding(a.d(8)+s.left,a.d(4)+s.top,a.d(8)+s.right,a.d(4))
+            bottom.setPadding(a.d(18)+s.left,a.d(8),a.d(18)+s.right,a.d(4)+s.bottom)}
         dialog.setOnKeyListener{_,code,e->if(code==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){close();true}else false}
         dialog.setOnDismissListener{finish()}
         setMode(mode,false)
@@ -121,7 +127,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         book.put("state","done").put("completedAt",System.currentTimeMillis());return true}
     private fun save(done:Boolean){
         // the status sheet and the data editor save the book on their own: keep what they changed
-        a.books.firstOrNull{it.str("id")==book.str("id")}?.takeIf{it!==book}?.let{latest->latest.keys().forEach{k->if(k !in setOf("progress","pageMode","pageMarks","openedAt","state","completedAt","startedAt"))book.put(k,latest.get(k))}
+        a.books.firstOrNull{it.str("id")==book.str("id")}?.takeIf{it!==book}?.let{latest->latest.keys().forEach{k->if(k !in setOf("progress","pageMode","pageRtl","pageMarks","openedAt","state","completedAt","startedAt"))book.put(k,latest.get(k))}
             if(latest.optLong("modifiedAt")>=book.optLong("modifiedAt"))listOf("state","completedAt","startedAt").forEach{k->if(latest.has(k))book.put(k,latest.get(k))}}
         book.put("progress",(book.optJSONObject("progress")?:JSONObject()).put("page",page).put("pct",if(Library.status(book)=="done"||n<=1)1.0 else minOf(page/(n-1).toDouble(),.999)))
         val st=Library.status(book)
@@ -157,28 +163,32 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         else paged=PagedView().also{stage.addView(it,FrameLayout.LayoutParams(-1,-1));it.post{it.show(page,false)}}
         if(animate&&!reduced){stage.alpha=0f;stage.animate().alpha(1f).setDuration(220).start()}
         // the strip runs the way the pages turn
-        strip.layoutDirection=if(m=="rtl")View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+        strip.layoutDirection=if(rtl&&m!="ribbon")View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
         root.post{paint()}}
     fun toggleChrome()=setChrome(!chrome)
     private fun setChrome(on:Boolean){chrome=on;listOf(top to -1,bottom to 1).forEach{(v,s)->v.animate().cancel()
-        if(reduced){v.alpha=if(on)1f else 0f;v.visibility=if(on)View.VISIBLE else View.INVISIBLE;return@forEach}
-        if(on){v.visibility=View.VISIBLE;v.animate().alpha(1f).translationY(0f).setDuration(240).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
-        else v.animate().alpha(0f).translationY(s*v.height.coerceAtLeast(a.d(16)).toFloat()*.6f).setDuration(180).withEndAction{if(!chrome)v.visibility=View.INVISIBLE}.start()}}
+        chromeSprings[v]?.stop()
+        if(reduced){v.alpha=if(on)1f else 0f;v.translationY=if(on)0f else s*v.height.toFloat();v.visibility=if(on)View.VISIBLE else View.INVISIBLE;return@forEach}
+        // the same spring as the book reader's bars: they glide in and out with the sheets that rise from below
+        v.visibility=View.VISIBLE;val off=s*v.height.toFloat().coerceAtLeast(1f);val start=(v.translationY/off).coerceIn(0f,1f)
+        val sp=chromeSprings.getOrPut(v){LiquidSpring{k,_->v.translationY=off*k;v.alpha=(1f-k*1.25f).coerceIn(0f,1f);if(k>=.999f&&!chrome)v.visibility=View.INVISIBLE}}
+        sp.snap(start);sp.to(if(on)0f else 1f)}}
+    private val chromeSprings=HashMap<View,LiquidSpring>()
 
     // ── panels: the same bars, icons and sheets as the book reader ──
     private fun icon(kind:String,label:String,fn:()->Unit)=IconView(a,kind,ink()).apply{icons.add(this);contentDescription=label;isClickable=true;setOnClickListener{fn()};a.press(this)}
     private fun buildChrome(){
-        top=a.line().apply{gravity=Gravity.TOP;setPadding(a.d(8),a.d(4),a.d(8),a.d(34))}
+        top=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(8),a.d(4),a.d(8),a.d(4))}
         top.addView(icon("chevdown","Закрыть книгу"){close()},LinearLayout.LayoutParams(a.d(48),a.d(48)))
         val texts=a.column()
         titleView=a.text(book.str("title"),15f,ink(),true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END};texts.addView(titleView)
         authorView=a.text(MainActivity.authors(book),13f,mutedInk()).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;visibility=if(text.isBlank())View.GONE else View.VISIBLE};texts.addView(authorView)
         top.addView(texts,LinearLayout.LayoutParams(0,a.d(48),1f));texts.gravity=Gravity.CENTER_VERTICAL
-        soundChip=SoundChip(a){AmbienceSheet(a,bgColor()).show()};top.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6);topMargin=a.d(10)})
+        soundChip=SoundChip(a){AmbienceSheet(a,bgColor()).show()};top.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
         top.addView(icon("more","Меню книги"){menu()},LinearLayout.LayoutParams(a.d(48),a.d(48)))
         top.forceHasOverlappingRendering(false)
-        root.addView(top,FrameLayout.LayoutParams(-1,a.d(82),Gravity.TOP))
-        bottom=a.column().apply{setPadding(a.d(18),a.d(44),a.d(18),a.d(4));clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)}
+        root.addView(top,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
+        bottom=a.column().apply{setPadding(a.d(18),a.d(8),a.d(18),a.d(4));clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)}
         val row=a.line()
         pageLabel=a.text("",15f,ink()).apply{gravity=Gravity.CENTER_VERTICAL};leftLabel=a.text("",14f,mutedInk()).apply{gravity=Gravity.CENTER_VERTICAL}
         row.addView(pageLabel,LinearLayout.LayoutParams(0,a.d(40),1f));row.addView(leftLabel,LinearLayout.LayoutParams(-2,a.d(40)))
@@ -201,8 +211,8 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     /** Backdrop, bars and ink for the chosen background. */
     private fun applyLook(){val c=bgColor();root.setBackgroundColor(c)
         dialog.window?.let{w->w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(c));ReaderWindow.configure(w,true,c)}
-        top.background=Shade(c,true,a.d(30).toFloat());bottom.background=Shade(c,false,a.d(36).toFloat())
-        icons.forEach{it.ink=ink();it.cut=c;it.invalidate()};soundButton.ink=ink();soundChip.repaint()
+        listOf(top to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{float=true;themeLight=lightBg;flushTop=bar===top;flushBottom=bar===bottom;refresh()}}
+        val surface=(bottom.background as OpaqueSurface).fillColor;icons.forEach{it.ink=ink();it.cut=surface;it.invalidate()};soundButton.ink=ink();soundChip.repaint()
         titleView.setTextColor(ink());authorView.setTextColor(mutedInk());pageLabel.setTextColor(ink());leftLabel.setTextColor(mutedInk())
         paged?.invalidate();ribbon?.invalidate()}
     private fun applyBrightness(w:android.view.Window?){w?:return;val v=a.prefs.optDouble("bright",-1.0).toFloat()
@@ -265,9 +275,24 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
             fun tint(k:Int){for(i in 0 until seg.childCount)(seg.getChildAt(i) as TextView).setTextColor(if(i==k)(if(a.light)a.fg else 0xff111111.toInt()) else a.muted)}
             labels.forEachIndexed{k,l->seg.addView(a.text(l,13.5f,bold=true).apply{gravity=Gravity.CENTER;maxLines=1;a.press(this);setOnClickListener{seg.choose(k);tint(k);pick(k)}},LinearLayout.LayoutParams(0,-1,1f))}
             tint(selected);return seg}
-        caption("Листание")
-        val modes=listOf("paged","ribbon","rtl")
-        sheet.addView(segment(listOf("Страницы","Лента","Справа налево"),modes.indexOf(mode).coerceAtLeast(0)){k->if(mode!=modes[k])root.postDelayed({setMode(modes[k],true)},if(reduced)0L else 300L)},LinearLayout.LayoutParams(-1,H))
+        // how pages turn, as in the book reader: the same live previews, the strip («Лента») being one of them
+        val turns=a.line().apply{gravity=Gravity.TOP}
+        val shows=ArrayList<()->Unit>()
+        fun current()=if(mode=="ribbon")"ribbon" else turnStyle
+        listOf("curl" to "Листание","slide" to "Сдвиг","cover" to "Наложение","none" to "Без анимации","ribbon" to "Лента").forEach{(key,label)->
+            val col=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;isClickable=true;contentDescription=label}
+            val tile=TurnTile(a,if(key=="ribbon")"scroll" else key,bgColor(),ink());col.addView(tile,LinearLayout.LayoutParams(-1,-2))
+            val name=a.text(label,11.5f,a.muted).apply{gravity=Gravity.CENTER;maxLines=2;setLineSpacing(0f,1.1f)};col.addView(name,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})
+            val show={val on=current()==key;tile.on=on;name.setTextColor(if(on)a.fg else a.muted);name.typeface=PolkaFonts.sans(if(on)600 else 400)}
+            show();shows.add(show)
+            col.setOnClickListener{if(current()==key)return@setOnClickListener
+                if(key!="ribbon"){a.prefs.put("comicTurn",key);a.savePreferences()}
+                val want=if(key=="ribbon")"ribbon" else "paged"
+                if(mode!=want)root.postDelayed({setMode(want,true)},if(reduced)0L else 300L)
+                mode=want;shows.forEach{it()}}
+            a.press(col);turns.addView(col,LinearLayout.LayoutParams(0,-2,1f))}
+        sheet.addView(turns,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16)})
+        sheet.addView(LayoutToggle(a,"Справа налево",rtl){on->rtl=on;book.put("pageRtl",on);save(false);if(mode!="ribbon")setMode(mode,true)},LinearLayout.LayoutParams(-1,H).apply{topMargin=a.d(12)})
         caption("Масштаб")
         sheet.addView(segment(listOf("Страница целиком","По ширине"),if(widthFit)1 else 0){k->a.prefs.put("comicFit",if(k==1)"width" else "page");a.savePreferences();paged?.refit()},LinearLayout.LayoutParams(-1,H))
         val lp=FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{setMargins(a.d(8),0,a.d(8),a.d(8))}
@@ -308,7 +333,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         /** The open page's card is larger; the cards beside it step aside by as much as it grew (and its ring), so
          *  the gaps round it are the same as between all the others. Nothing else changes the cards' size. */
         fun place(cur:Int){val was=on;on=i==cur;val s=if(on)1.18f else 1f
-            val side=if(i==cur)0 else if(i<cur)-1 else 1;val tx=side*(if(mode=="rtl")-1 else 1)*(a.d(44)*.09f+a.d(3))
+            val side=if(i==cur)0 else if(i<cur)-1 else 1;val tx=side*(if(rtl&&mode!="ribbon")-1 else 1)*(a.d(44)*.09f+a.d(3))
             if(scaleX==s&&translationX==tx&&was==on)return
             animate().cancel()
             if(reduced||!isAttachedToWindow){scaleX=s;scaleY=s;translationX=tx} else animate().scaleX(s).scaleY(s).translationX(tx).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start();invalidate()}
@@ -331,7 +356,6 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         private fun maxPan(i:Int)=if(widthFit)(fit(i).height()-height).coerceAtLeast(0f) else 0f
         fun refit(){pan=0f;scale=1f;px=0f;py=0f;invalidate()}
         private var anim:ValueAnimator?=null;var settled=true
-        private val rtl get()=mode=="rtl"
         private val scaler=ScaleGestureDetector(a,object:ScaleGestureDetector.SimpleOnScaleGestureListener(){
             override fun onScale(d:ScaleGestureDetector):Boolean{val ns=(scale*d.scaleFactor).coerceIn(1f,5f);val f=ns/scale;px=d.focusX-(d.focusX-px)*f;py=d.focusY-(d.focusY-py)*f;scale=ns;clamp();invalidate();return true}})
         private val gestures=GestureDetector(a,object:GestureDetector.SimpleOnGestureListener(){
@@ -342,14 +366,24 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
             override fun onScroll(e1:MotionEvent?,e2:MotionEvent,dx:Float,dy:Float):Boolean{
                 if(scale>1.01f){px-=dx;py-=dy;clamp();invalidate()}else if(!scaler.isInProgress&&axis==0)axis=if(kotlin.math.abs(dy)>kotlin.math.abs(dx)&&maxPan(page)>0f)2 else 1
                 if(scale<=1.01f&&axis==2){panAnim?.cancel();pan=(pan+dy).coerceIn(0f,maxPan(page));invalidate()}
+                else if(scale<=1.01f&&!scaler.isInProgress&&sheetTurn){
+                    // the page turns as a sheet over the screen, following the finger (as in the book reader)
+                    if(turning==null&&!refused){val side=if(dx>0)1 else -1;if(!beginTurn(side,e2.y,downY))refused=true}
+                    // past the first or the last page the page only gives a little
+                    val v=turning;if(v!=null)v.pose((-(e2.x-downX)*turnSide/width).coerceIn(0f,1f),e2.y,downY) else{anim?.cancel();settled=false;shift-=dx*.3f;invalidate()}}
                 else if(scale<=1.01f&&!scaler.isInProgress){anim?.cancel();settled=false
                     // past the first or the last page the page only gives a little, there is nothing to pull in
                     val edge=(shift-dx>0&&!has(-1))||(shift-dx<0&&!has(1));shift-=if(edge)dx*.3f else dx;invalidate()};return true}
             override fun onFling(e1:MotionEvent?,e2:MotionEvent,vx:Float,vy:Float):Boolean{
                 if(axis==2){val to=(pan-vy*.28f).coerceIn(0f,maxPan(page));panAnim?.cancel();if(reduced){pan=to;invalidate()}else panAnim=ValueAnimator.ofFloat(pan,to).apply{duration=420;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{pan=it.animatedValue as Float;invalidate()};start()};return true}
+                if(turning!=null){flingX=vx;return true}
                 if(scale<=1.01f&&kotlin.math.abs(vx)>a.d(500)&&kotlin.math.abs(vx)>kotlin.math.abs(vy)){flung=true;step(if((vx<0)!=rtl)1 else -1,kotlin.math.abs(vx))};return true}})
         private var flung=false
-        override fun onTouchEvent(e:MotionEvent):Boolean{scaler.onTouchEvent(e);if(e.actionMasked==MotionEvent.ACTION_DOWN){flung=false;axis=0;panAnim?.cancel()};gestures.onTouchEvent(e)
+        override fun onTouchEvent(e:MotionEvent):Boolean{if(turnClock!=null)return true
+            scaler.onTouchEvent(e);if(e.actionMasked==MotionEvent.ACTION_DOWN){flung=false;axis=0;panAnim?.cancel();downX=e.x;downY=e.y;flingX=0f;refused=false};gestures.onTouchEvent(e)
+            val sheet=turning
+            if(sheet!=null&&(e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)){
+                val commit=e.actionMasked==MotionEvent.ACTION_UP&&(if(kotlin.math.abs(flingX)>a.d(650))-flingX*turnSide>0 else sheet.progress>.32f);endTurn(commit,flingX);return true}
             if((e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)&&scale<=1.01f&&!flung&&shift!=0f){
                 val dir=if(shift< -width*.22f)1 else if(shift>width*.22f)-1 else 0;if(dir!=0)step(if(rtl)-dir else dir) else settle(0f)};return true}
         /** Is there a page on that side of the screen (-1 left, +1 right)? */
@@ -358,12 +392,42 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
          *  throw settles faster, like the year pages in the tier list. */
         fun turn(d:Int)=step(d)
         private fun step(d:Int,velocity:Float=0f){val t=page+d;if(t<0||t>=n){settle(0f,velocity);if(t>=n)pastEnd();return};val visual=if(rtl)-d else d
+            if(sheetTurn){if(turning==null&&beginTurn(visual,height*.9f,height*.9f))endTurn(true,0f,false);return}
             val from=shift;go(t,false);pan=0f;shift=from+visual*width.toFloat();settle(0f,velocity)}
         fun show(i:Int,animate:Boolean){scale=1f;px=0f;py=0f;pan=0f;if(!animate){shift=0f;invalidate()}}
         private fun settle(to:Float,velocity:Float=0f){anim?.cancel();settled=false;if(reduced){shift=to;settled=true;invalidate();return}
             val span=kotlin.math.abs(to-shift)
             anim=ValueAnimator.ofFloat(shift,to).apply{duration=if(velocity>0f)(span/velocity*1000f).toLong().coerceIn(160L,340L) else (180+160*span/width.coerceAtLeast(1)).toLong().coerceIn(180L,340L);interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shift=it.animatedValue as Float;invalidate()}
                 addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){settled=true}});start()}}
+        // ── a turn as in the book reader: the page and the one it turns to as two pictures of the screen, turned over it ──
+        private val sheetTurn get()=turnStyle!="slide"
+        private var turning:PageCurlView?=null;private var turnSide=0;private var turnClock:ValueAnimator?=null
+        private var downX=0f;private var downY=0f;private var flingX=0f;private var refused=false
+        /** The screen with page [i] on it, as it is drawn. */
+        private fun shot(i:Int,panned:Boolean):Bitmap{val b=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);val c=Canvas(b);c.drawColor(bgColor())
+            val r=fit(i);if(panned)c.translate(0f,-pan)
+            val pic=bitmap(i,width){};if(pic!=null)c.drawBitmap(pic,null,r,p) else{p.color=if(lightBg)0xffdcdcd8.toInt() else 0xff1c1c1e.toInt();c.drawRect(r,p)};return b}
+        /** Starts turning toward the page on [side] of the screen (-1 left, +1 right); false when there is none. */
+        private fun beginTurn(side:Int,y:Float,anchor:Float):Boolean{if(turning!=null||!has(side)||width<=0||height<=0)return false
+            val t=page+(if(rtl)-side else side)
+            val v=PageCurlView(a,shot(page,true),shot(t,false),side,bgColor(),reduced).apply{style=turnStyle}
+            turning=v;turnSide=side;anim?.cancel();shift=0f
+            stage.addView(v,FrameLayout.LayoutParams(-1,-1));v.measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(height,MeasureSpec.EXACTLY));v.layout(0,0,width,height)
+            v.pose(0f,y,anchor);return true}
+        /** Finishes the turn: the sheet goes on to the new page or falls back; [gesture] — let go by the finger, at [vx]. */
+        private fun endTurn(commit:Boolean,vx:Float,gesture:Boolean=true){val v=turning?:return;turnClock?.cancel()
+            fun done(){turnClock=null;if(commit)go(page+(if(rtl)-turnSide else turnSide),false);stage.removeView(v);turning=null;invalidate()}
+            val start=v.progress;val end=if(commit)1f else 0f
+            if(reduced||v.style=="none"){v.pose(end,v.touchY);done();return}
+            // as in the book reader: let go, the sheet leaves at the finger's own speed, then settles
+            val remaining=kotlin.math.abs(end-start).coerceAtLeast(.001f)
+            val toward=((-vx*turnSide/width.coerceAtLeast(1))*(if(commit)1f else -1f)).coerceAtLeast(0f)
+            val flight=if(toward>0f)(1.6f*remaining/toward*1000f).toLong().coerceIn(200L,520L) else (remaining*560f).toLong().coerceIn(220L,480L)
+            val slope=(toward*flight/1000f/remaining).coerceIn(0f,2.6f)
+            turnClock=ValueAnimator.ofFloat(start,end).apply{duration=if(gesture)flight else 520L;interpolator=if(gesture)android.animation.TimeInterpolator{u->slope*u+(3f-2f*slope)*u*u+(slope-2f)*u*u*u} else PathInterpolator(.42f,0f,.16f,1f)
+                addUpdateListener{v.pose(it.animatedValue as Float,v.touchY)}
+                addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){done()}});start()}}
+        override fun onDetachedFromWindow(){turnClock?.removeAllListeners();turnClock?.cancel();turnClock=null;super.onDetachedFromWindow()}
         private fun zoomTo(s:Float,fx:Float,fy:Float){val from=scale;val fpx=px;val fpy=py
             val tpx=if(s<=1f)0f else fx-(fx-px)*(s/scale);val tpy=if(s<=1f)0f else fy-(fy-py)*(s/scale)
             if(reduced){scale=s;px=tpx;py=tpy;clamp();invalidate();return}
@@ -419,18 +483,4 @@ internal class BackdropTile(private val a:MainActivity,private val bg:Int,privat
         p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=if(Color.red(bg)>128)0x1a000000 else 0x24ffffff;c.drawRoundRect(r,rad,rad,p)
         p.style=Paint.Style.FILL;p.color=if(Color.red(bg)>128)0xff1e1d1b.toInt() else 0xfff3f2ef.toInt();p.textSize=13.5f*a.resources.displayMetrics.scaledDensity;p.typeface=PolkaFonts.sans(500);p.textAlign=Paint.Align.CENTER
         c.drawText(label,width/2f,height/2f-(p.ascent()+p.descent())/2f,p)}
-}
-
-/** The comics bars' backdrop: the page's own colour, solid behind the controls and fading out over [fade] toward the page. */
-internal class Shade(private val color:Int,private val top:Boolean,private val fade:Float):android.graphics.drawable.Drawable(){
-    private val p=Paint();private var shader:LinearGradient?=null
-    override fun onBoundsChange(b:Rect){val rgb=color and 0xffffff;val solid=rgb or 0xf2000000.toInt();val h=b.height().toFloat()
-        val edge=if(top)(h-fade)/h else fade/h
-        shader=if(top)LinearGradient(0f,b.top.toFloat(),0f,b.bottom.toFloat(),intArrayOf(solid,solid,rgb),floatArrayOf(0f,edge.coerceIn(0f,1f),1f),Shader.TileMode.CLAMP)
-            else LinearGradient(0f,b.top.toFloat(),0f,b.bottom.toFloat(),intArrayOf(rgb,solid,solid),floatArrayOf(0f,edge.coerceIn(0f,1f),1f),Shader.TileMode.CLAMP)
-        p.shader=shader}
-    override fun draw(c:Canvas){c.drawRect(bounds,p)}
-    override fun setAlpha(alpha:Int){p.alpha=alpha}
-    override fun setColorFilter(cf:ColorFilter?){}
-    @Deprecated("Drawable") override fun getOpacity()=PixelFormat.TRANSLUCENT
 }
