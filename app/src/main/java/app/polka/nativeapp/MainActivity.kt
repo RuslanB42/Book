@@ -186,25 +186,33 @@ class MainActivity : Activity() {
         val y=backdropY;val back=if(backdrop!=null)backdropTab else "shelves";shelf=null;auto=null;query="";tab=back;render(false,false);restoreScroll(y)}
     /** Scrolls the new page to [y] after its layout but before its first frame (a posted scroll showed a frame at the top). */
     private fun restoreScroll(y:Int){val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this);sv.scrollTo(0,y);return true}})}
-    /** Into a shelf (yours or a status one), see [Depth]: the shelf's page comes in from the right over the list (a
-     *  picture of it, the navigation in it), which moves a third of the way left and darkens. */
-    fun enterShelf(change:()->Unit){val before=if(::scroll.isInitialized)scroll else null;change();render(false,false)
+    /** Into a shelf (yours or a status one). From its card on «Полки» ([from], its fan) the fanned covers fly into
+     *  the shelf's first places while its page fades in (see [ShelfFlight]); otherwise see [Depth]: the shelf's page
+     *  comes in from the right over the list (a picture of it, the navigation in it), which moves left and darkens. */
+    fun enterShelf(from:ShelfFan?=null,change:()->Unit){val before=if(::scroll.isInitialized)scroll else null
+        val spots=from?.let{f->f.books.indices.mapNotNull{i->f.spot(i)?.let{(r,t)->ShelfFlight.Spot(f.books[i],r,t)}}}.orEmpty()
+        val fanAt=from?.takeIf{spots.isNotEmpty()}?.let{f->val at=IntArray(2);f.getLocationOnScreen(at);android.graphics.RectF(at[0].toFloat(),at[1].toFloat(),(at[0]+f.width).toFloat(),(at[1]+f.height).toFloat())}
+        change();render(false,false)
         val b=backdrop;val page=scroll;if(b==null||page===before||prefs.str("motion")=="reduced")return
         val img=ImageView(this).apply{setImageBitmap(b);scaleType=ImageView.ScaleType.MATRIX;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
         root.addView(img,0,FrameLayout.LayoutParams(b.width,b.height))
         // the page is see-through (the window colour shows through it); over the list it must be solid
         val bgWas=page.background;page.setBackgroundColor(bg)
+        if(fanAt!=null){ShelfFlight.open(this,page,img,fanAt,spots){root.removeView(img);page.background=bgWas};return}
         Depth(this,page).enter{root.removeView(img);page.background=bgWas}}
     /** Out of a shelf by its back button or the system back: the shelf's page goes to the right and the list it was
      *  opened from comes back from the left, out of the dark, where it was left. */
     fun leaveShelf(){
         val pic=if(prefs.str("motion")=="reduced"||root.width<=0||root.height<=0)null else try{android.graphics.Bitmap.createBitmap(root.width,root.height,android.graphics.Bitmap.Config.ARGB_8888).also{val c=android.graphics.Canvas(it);c.drawColor(bg);root.draw(c)}}catch(e:Throwable){null}
+        // back to «Полки»: the first books fly home into the shelf's fan (see [ShelfFlight.back])
+        val key=shelf?.let{"s:$it"}?:auto?.let{"a:$it"};val cells=if(pic!=null)ShelfFlight.cells(this) else emptyMap()
         navRevealed=true
         val y=backdropY;val back=if(backdrop!=null)backdropTab else "shelves";shelf=null;auto=null;query="";tab=back;render(false,false);restoreScroll(y)
         if(pic==null)return
         val img=ImageView(this).apply{setImageBitmap(pic);isClickable=true;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
         root.addView(img,FrameLayout.LayoutParams(-1,-1))
-        Depth(this,img).leave{root.removeView(img);img.setImageDrawable(null);pic.recycle()}}
+        val done={root.removeView(img);img.setImageDrawable(null);pic.recycle()}
+        ShelfFlight.back(this,key,cells,img,pic,done){Depth(this,img).leave(done)}}
     override fun onCreate(savedInstanceState: Bundle?) {
         PolkaFonts.init(this)
         setTheme(R.style.AppTheme)
@@ -338,7 +346,7 @@ class MainActivity : Activity() {
             tab=="words" -> wordsPage()
             tab=="quotes" -> quotes()
             query.isNotBlank() -> {val found=searchBooks();if(found.isEmpty()){space(page,96);page.addView(emptyView("search","Ничего не нашлось","Попробуйте название, автора или серию."),LinearLayout.LayoutParams(-1,-2))}else{val row=line();row.addView(text("Найдено",17f,bold=true),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(countBooks(found.size),14f,muted));page.addView(row);space(page,14);bookGrid(found)}}
-            shelf!=null || auto!=null -> { backAndCount(); val list=currentBooks(); if(list.isEmpty()){space(page,96);page.addView(if(auto=="reading")emptyView("open","Ничего не читаете","Откройте любую книгу — она появится здесь.") else emptyView("shelf","Полка пустая","Добавьте книги через «О книге» или в режиме редактирования."),LinearLayout.LayoutParams(-1,-2))} else bookGrid(list) }
+            shelf!=null || auto!=null -> { val list=currentBooks(); shelfHead(list); if(list.isEmpty()){space(page,96);page.addView(if(auto=="reading")emptyView("open","Ничего не читаете","Откройте любую книгу — она появится здесь.") else emptyView("shelf","Полка пустая","Добавьте книги через «О книге» или в режиме редактирования."),LinearLayout.LayoutParams(-1,-2))} else shelfGrid(list) }
             tab=="shelves" && query.isBlank() -> shelfRows()
             tab=="quotes" -> quotes()
             else -> {
@@ -349,10 +357,30 @@ class MainActivity : Activity() {
         }
 
     }
-    fun backAndCount() { val r=row()
-        r.addView(icon("back","Назад к полкам") { leaveShelf() },LinearLayout.LayoutParams(d(44),d(44)))
-        r.addView(text(title(),26f,fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(d(12),0,d(8),0)},LinearLayout.LayoutParams(0,-2,1f))
-        addIcon(r,"filter","Фильтры и сортировка") { filters() }; page.addView(r); space(page,18) }
+    /** An open shelf's head (approved «Полка открыта»): back and filters in the corners, the shelf's name in the middle,
+     *  how many books are on it, and a search through this shelf only. */
+    private fun shelfHead(list:List<JSONObject>) { val head=FrameLayout(this)
+        head.addView(icon("back","Назад к полкам") { leaveShelf() },FrameLayout.LayoutParams(d(44),d(44),Gravity.START or Gravity.CENTER_VERTICAL).apply{marginStart=-d(4)})
+        head.addView(text(title(),26f,fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;gravity=Gravity.CENTER},FrameLayout.LayoutParams(-1,-2,Gravity.CENTER).apply{leftMargin=d(52);rightMargin=d(52)})
+        head.addView(icon("filter","Фильтры и сортировка",action={ filters() }),FrameLayout.LayoutParams(d(44),d(44),Gravity.END or Gravity.CENTER_VERTICAL))
+        page.addView(head,LinearLayout.LayoutParams(-1,d(44)))
+        if(list.isEmpty()){space(page,18);return}
+        page.addView(text(countBooks(list.size),13.5f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
+        shelfSearch=null
+        val field=EditText(this).apply{hint="Найти на полке";setHintTextColor(muted);setTextColor(fg);textSize=15f;typeface=PolkaFonts.sans(400);background=null;setSingleLine(true);setPadding(0,0,0,0)
+            imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH;setOnEditorActionListener{v,_,_->(getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(v.windowToken,0);true}}
+        val bar=row().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(16),0,d(16),0);background=shape(if(light)0x0f000000 else 0x12ffffff,22)}
+        bar.addView(IconView(this,"search",muted),LinearLayout.LayoutParams(d(18),d(18)).apply{marginEnd=d(10)});bar.addView(field,LinearLayout.LayoutParams(0,-2,1f))
+        page.addView(bar,LinearLayout.LayoutParams(-1,d(44)).apply{topMargin=d(16);bottomMargin=d(22)})
+        shelfSearch=field }
+    private var shelfSearch:EditText?=null
+    /** The open shelf's books; its search narrows them in place (no dragging into a new order while it does). */
+    private fun shelfGrid(list:List<JSONObject>) { val host=col().apply{clipChildren=false;clipToPadding=false};page.addView(host,LinearLayout.LayoutParams(-1,-2))
+        fun show(q:String){host.removeAllViews();val found=if(q.isBlank())list else list.filter{(it.str("title")+" "+authors(it)+" "+it.str("series")).contains(q,true)}
+            if(found.isEmpty())host.addView(text("Ничего не нашлось",15f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(40)})
+            else bookGrid(found,host,reorder=q.isBlank())}
+        show("");shelfSearch?.addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){}
+            override fun afterTextChanged(s:android.text.Editable?){show(s?.toString()?.trim().orEmpty())}}) }
     internal var continueBookId:String?=null
     private var continueCarousel:ContinueReading?=null
     fun continueCard() {
@@ -369,7 +397,7 @@ class MainActivity : Activity() {
         else { val row=row(); row.addView(bar,LinearLayout.LayoutParams(0,d(3),1f)); row.addView(text("${(pct*100).toInt()}%",13f,muted).apply { setPadding(d(10),0,0,0) }); parent.addView(row) }
     }
     fun columns():Int = when { resources.configuration.screenWidthDp>=980 ->4; resources.configuration.screenWidthDp>=680 ->3; else ->2 }
-    fun bookGrid(source:List<JSONObject>) {
+    fun bookGrid(source:List<JSONObject>,into:LinearLayout=page,reorder:Boolean=true) {
         val list=source.toMutableList()
         val width=(resources.configuration.screenWidthDp-40-(columns()-1)*24)/columns()
         fun cell(index:Int):View { val book=list[index];return col().apply {
@@ -381,7 +409,7 @@ class MainActivity : Activity() {
         val cols=columns();val gap=d(24);val paint=android.text.TextPaint().apply { textSize=15*resources.displayMetrics.scaledDensity;typeface=PolkaFonts.sans(400) }
         val virtual=VirtualGrid(this,list.size,cols,gap,d(30),{ row,w -> val batch=list.subList(row*cols,minOf(list.size,(row+1)*cols)); val lines=batch.maxOfOrNull { if(paint.measureText(it.str("title"))>w)2 else 1 } ?: 1
             (w*1.5f).toInt()+d(16)+(18*resources.displayMetrics.scaledDensity*lines).toInt()+d(4)+(17*resources.displayMetrics.scaledDensity).toInt()+if(batch.any{(it.optJSONObject("progress")?.optDouble("pct") ?: 0.0)>0})d(38)else 0
-        },::cell);virtual.reorder=ShelfReorder(this,virtual,list) { saveGridOrder(it) };page.addView(col().apply{clipChildren=false;clipToPadding=false;setPadding(d(2),d(6),d(5),0);addView(virtual,LinearLayout.LayoutParams(-1,-2))},LinearLayout.LayoutParams(-1,-2))
+        },::cell);if(reorder)virtual.reorder=ShelfReorder(this,virtual,list) { saveGridOrder(it) };into.addView(col().apply{clipChildren=false;clipToPadding=false;setPadding(d(2),d(6),d(5),0);addView(virtual,LinearLayout.LayoutParams(-1,-2))},LinearLayout.LayoutParams(-1,-2))
     }
     fun navigation() {
         val nav=nativeNavigation ?: PolkaNavigation(this).also { nativeNavigation=it }
