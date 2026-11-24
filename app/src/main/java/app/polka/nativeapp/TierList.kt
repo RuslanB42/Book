@@ -133,7 +133,7 @@ internal class TierRow(private val a:MainActivity,val k:Int,val covers:FlowRow):
  * the row under the finger lights up in its colour and opens a place, letting go puts the book there and saves the
  * new rating. A short tap opens the book card. The share button makes a picture of the list.
  */
-internal class TierListOverlay(private val a:MainActivity,private val model:ReadingStatistics,startYear:Int?,private val onClose:()->Unit){
+internal class TierListOverlay(private val a:MainActivity,private val model:ReadingStatistics,startYear:Int?,private val source:()->View?,private val onClose:()->Unit):SwipeClosable{
     private val motion get()=a.prefs.str("motion")!="reduced"
     private val years=Tiers.years(model)
     private var year:Int?=startYear?.takeIf{it in years}?:years.firstOrNull()
@@ -155,6 +155,8 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     private var share:FrameLayout?=null
     private var poster:Bitmap?=null
     private val shown=HashMap<String,Int>()
+    // it grows out of its card on the statistics and folds back into it (see CardMorph)
+    private val morph=CardMorph(a,frame,col,source,24)
 
     private inner class Frame:FrameLayout(a){
         var lastX=0f;var lastY=0f;private var cancelled=false
@@ -185,9 +187,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         a.tierList=this
         bind(false)
         if(!motion)return
-        // one level in (see Depth), started on the first drawn frame (off screen), so no step of the move is skipped
-        val depth=Depth(a,frame);depth.pose(1f)
-        frame.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{frame.viewTreeObserver.removeOnPreDrawListener(this);depth.enter();return true}})
+        morph.open()
     }
 
     private fun cell(b:JSONObject,small:Boolean=false):View{
@@ -381,10 +381,15 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     fun close(){if(closing)return;closing=true;closeShare();closeMenu()
         val d=drag;if(d!=null){frame.removeView(d.float);drag=null}
         fun done(){(frame.parent as? ViewGroup)?.removeView(frame);if(a.tierList===this)a.tierList=null;poster?.recycle();poster=null}
-        // the card under the list is brought up to date first, so the page it goes back to is already current
+        // the card under the list is brought up to date first, so the list folds back into the new picture
         onClose()
         if(!motion){done();return}
-        Depth(a,frame).leave{done()}}
+        morph.close{done()}}
+    // a swipe back: only over the list itself (no menu, picture or dragged book over it)
+    override val swipeView:View get()=frame
+    override fun swipeReady()=!closing&&motion&&menu==null&&share==null&&drag==null
+    override fun swipeMove(dx:Float)=morph.hold(dx)
+    override fun swipeEnd(go:Boolean){if(go)close() else morph.settle()}
 
     // ───── share picture ─────
     private fun openShare(){if(share!=null||drag!=null)return

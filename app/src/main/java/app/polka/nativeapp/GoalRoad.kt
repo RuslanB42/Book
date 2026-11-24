@@ -31,11 +31,11 @@ internal class Glyph(private val a:MainActivity,private val kind:String,var ink:
 
 /**
  * The goal road opened to the whole screen, as a layer over the app (no new window, so nothing stalls the first
- * frames). It is a page one level in (see [Depth]): it comes in from the right over the statistics and goes back.
+ * frames). It grows out of its card and folds back into it (see [CardMorph]), by the back button or a swipe back.
  * Year tabs and the progress sit on top; below winds the road with big covers and their details.
  */
 internal class GoalRoadOverlay(private val a:MainActivity,private val model:ReadingStatistics,private val data:JSONObject,private var year:Int,
-    private val years:List<Int>,private val motion:Boolean,private val onYear:(Int)->Unit){
+    private val years:List<Int>,private val motion:Boolean,private val source:()->View?,private val onYear:(Int)->Unit):SwipeClosable{
     private val today=model.today
     private val frame=FrameLayout(a)
     private val col=a.column()
@@ -47,6 +47,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
     private var share:FrameLayout?=null
     private var closing=false
     private val insets=android.graphics.Rect()
+    private val morph=CardMorph(a,frame,col,source,28)
     fun show(){
         val decor=a.window.decorView as ViewGroup
         frame.isClickable=true;frame.setBackgroundColor(a.bg)
@@ -78,9 +79,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         a.goalRoad=this
         bindYear(false)
         if(!motion)return
-        // start on the first drawn frame (off screen), so no step of the move is skipped
-        val depth=Depth(a,frame);depth.pose(1f)
-        frame.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{frame.viewTreeObserver.removeOnPreDrawListener(this);depth.enter();return true}})
+        morph.open()
     }
     private fun bindYear(animated:Boolean){
         tabs.removeAllViews()
@@ -100,7 +99,11 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
     fun close(){if(closing)return;closing=true
         closeShare()
         if(!motion){finish();return}
-        Depth(a,frame).leave{finish()}}
+        morph.close{finish()}}
+    override val swipeView:View get()=frame
+    override fun swipeReady()=!closing&&motion&&share==null
+    override fun swipeMove(dx:Float)=morph.hold(dx)
+    override fun swipeEnd(go:Boolean){if(go)close() else morph.settle()}
     private fun finish(){(frame.parent as? ViewGroup)?.removeView(frame);if(a.goalRoad===this)a.goalRoad=null;poster?.recycle();poster=null}
 
     // ───── share picture ─────

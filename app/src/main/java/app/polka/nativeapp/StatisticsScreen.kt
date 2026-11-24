@@ -287,6 +287,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
      *  hours; the card (or its button) opens the whole year. */
     private fun books(){
         val box=surface(if(light)0xff009a5c.toInt() else 0xff37c080.toInt(),.86f,.12f,.8f)
+        a.goalCard=box
         val years=(model.finished.mapNotNull{it.date?.year}+today.year).distinct().sortedDescending().take(8)
         goalYear=today.year
         fun bind(){box.removeAllViews()
@@ -336,13 +337,14 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 inTier.take(fit).forEach{b->row.addView(CoverView(a,b,a.cover(b)).apply{softShadow=true},LinearLayout.LayoutParams(a.d(40),a.d(60)).apply{marginStart=a.d(if(row.childCount==1)16 else 8)})}
                 box.addView(row,LinearLayout.LayoutParams(-1,a.d(72)))}
             box.contentDescription="Тир-лист за $y"}
-        box.isClickable=true;box.setOnClickListener{if(a.tierList==null)TierListOverlay(a,model,if(today.year in ys)today.year else ys.first()){bind()}.show()}
+        a.tierCard=box
+        box.isClickable=true;box.setOnClickListener{if(a.tierList==null)TierListOverlay(a,model,if(today.year in ys)today.year else ys.first(),{a.tierCard?.takeIf{it.isAttachedToWindow}?:box}){bind()}.show()}
         a.press(box)
         bind();add(box)
     }
     /** The whole road of the year, opened out of the card; switching the year there switches it on the card too. */
     private fun openRoad(box:View,years:List<Int>,rebind:()->Unit){if(a.goalRoad!=null)return
-        GoalRoadOverlay(a,model,data,goalYear,years,live){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.show()}
+        GoalRoadOverlay(a,model,data,goalYear,years,live,{a.goalCard?.takeIf{it.isAttachedToWindow}?:box}){y->goalYear=y;a.statisticsGoalYear=y;rebind()}.show()}
 }
 
 internal fun MainActivity.updateStatistics(change:(JSONObject)->Unit) {

@@ -73,6 +73,72 @@ class ScreenMotion(private val a:MainActivity) {
 }
 
 /**
+ * A page that grows out of its card (the tier list, the year in books): a container transform — the rounded bounds
+ * morph from the card to the screen while the card's picture fades out and the page, scaled with the bounds, fades in;
+ * closing runs it backwards into the card as it is now. A swipe back holds the page under the finger (it shrinks a
+ * little and follows it, its corners round); let go far enough and it folds into the card from there, else it settles.
+ * [frame] is the full-screen layer, [content] its page; [source] is the card.
+ */
+internal class CardMorph(private val a:MainActivity,private val frame:FrameLayout,private val content:View,private val source:()->View?,private val corner:Int){
+    private val snapView=android.widget.ImageView(a).apply{scaleType=android.widget.ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
+    private var snap:Bitmap?=null;private var from:RectF?=null
+    /** Where the page is when the morph is at 1: the whole screen, or where a swipe left it. */
+    private val home=RectF()
+    private val bounds=RectF();private var radius=0f
+    private var anim:ValueAnimator?=null
+    private var k=1f
+    private val W get()=frame.width.takeIf{it>0}?.toFloat()?:a.root.width.toFloat()
+    private val H get()=frame.height.takeIf{it>0}?.toFloat()?:a.root.height.toFloat()
+    init{frame.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){
+            if(bounds.isEmpty)o.setRect(0,0,v.width,v.height) else o.setRoundRect(Math.round(bounds.left),Math.round(bounds.top),Math.round(bounds.right),Math.round(bounds.bottom),radius)}}
+        frame.clipToOutline=true}
+    /** One step: [p] 0 is the card, 1 the page at [home]; [round] is how round its corners are there. */
+    private fun pose(p:Float,round:Float=0f){k=p;val f=from?:RectF(home)
+        bounds.set(f.left+(home.left-f.left)*p,f.top+(home.top-f.top)*p,f.right+(home.right-f.right)*p,f.bottom+(home.bottom-f.bottom)*p)
+        radius=a.d(corner)*(1-p)+round*p;frame.invalidateOutline()
+        val sc=bounds.width()/W;content.pivotX=0f;content.pivotY=0f;content.scaleX=sc;content.scaleY=sc;content.translationX=bounds.left;content.translationY=bounds.top
+        content.alpha=((p-.12f)/.42f).coerceIn(0f,1f)
+        val b=snap;if(b!=null){val ss=bounds.width()/b.width;snapView.pivotX=0f;snapView.pivotY=0f;snapView.scaleX=ss;snapView.scaleY=ss;snapView.translationX=bounds.left;snapView.translationY=bounds.top
+            snapView.alpha=(1f-p/.32f).coerceIn(0f,1f)}}
+    /** Where the card is now and a picture of it. */
+    private fun capture(){val v=source();frame.removeView(snapView);snapView.setImageDrawable(null);snap?.recycle();snap=null
+        if(v==null||!v.isAttachedToWindow||v.width==0){from=null;return}
+        val l=IntArray(2);v.getLocationOnScreen(l);val o=IntArray(2);frame.getLocationOnScreen(o)
+        from=RectF((l[0]-o[0]).toFloat(),(l[1]-o[1]).toFloat(),(l[0]-o[0]+v.width).toFloat(),(l[1]-o[1]+v.height).toFloat())
+        snap=try{Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888).also{v.draw(Canvas(it))}}catch(e:Throwable){null}
+        snap?.let{snapView.setImageBitmap(it);frame.addView(snapView,FrameLayout.LayoutParams(it.width,it.height,Gravity.TOP or Gravity.START))}}
+    private fun run(f:Float,t:Float,ms:Long,i:TimeInterpolator,step:(Float)->Unit,end:()->Unit){stop()
+        anim=ValueAnimator.ofFloat(f,t).apply{duration=ms;interpolator=i;addUpdateListener{step(it.animatedValue as Float)}
+            addListener(object:AnimatorListenerAdapter(){var cancelled=false
+                override fun onAnimationCancel(x:Animator){cancelled=true}
+                override fun onAnimationEnd(x:Animator){if(!cancelled)end()}});start()}}
+    private fun stop(){anim?.removeAllListeners();anim?.cancel();anim=null}
+    private fun still(){content.setLayerType(View.LAYER_TYPE_NONE,null);frame.removeView(snapView);snapView.setImageDrawable(null);snap?.recycle();snap=null
+        bounds.setEmpty();frame.invalidateOutline();content.scaleX=1f;content.scaleY=1f;content.translationX=0f;content.translationY=0f;content.alpha=1f}
+    private fun full(){home.set(0f,0f,W,H)}
+
+    /** Out of the card, started on the first drawn frame so no step is skipped. */
+    fun open(){full();capture();pose(0f);content.setLayerType(View.LAYER_TYPE_HARDWARE,null)
+        frame.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{frame.viewTreeObserver.removeOnPreDrawListener(this)
+            full();run(0f,1f,520,MotionSpec.enter,{pose(it)}){still()};return true}})}
+    /** Back into the card (as it is now, so it is brought up to date first), from wherever the page is. */
+    fun close(done:()->Unit){val held=!bounds.isEmpty&&swiping;swiping=false
+        frame.post{val r=radius;if(held)home.set(bounds) else full();capture();content.setLayerType(View.LAYER_TYPE_HARDWARE,null);pose(if(held)1f else k,if(held)r else 0f)
+            run(k,0f,if(held)380 else 420,PathInterpolator(.3f,0f,.1f,1f),{pose(it,if(held)r else 0f)}){done()}}}
+
+    // ── the swipe back ──
+    private var swiping=false
+    /** The page under the finger, [dx] to the right of where the swipe started. */
+    fun hold(dx:Float){if(!swiping){stop();swiping=true;from=null;content.setLayerType(View.LAYER_TYPE_HARDWARE,null)}
+        val q=(dx/W).coerceIn(0f,1f);val s=1f-.14f*q
+        val w=W*s;val h=H*s;val left=(W-w)/2f+dx*.5f;val top=(H-h)/2f
+        home.set(left,top,left+w,top+h);pose(1f,a.d(corner)*(q*5f).coerceAtMost(1f))}
+    /** Let go too early: the page settles back to the whole screen. */
+    fun settle(){if(!swiping)return;swiping=false;val h0=RectF(home);val r0=radius
+        run(0f,1f,MotionSpec.SETTLE,MotionSpec.move,{t->home.set(h0.left*(1-t),h0.top*(1-t),h0.right+(W-h0.right)*t,h0.bottom+(H-h0.bottom)*t);pose(1f,r0*(1-t))}){still()}}
+}
+
+/**
  * «Вглубь»: the page on [top] comes in from the right edge while everything beneath it (its siblings: the live page or
  * a picture of it) moves a third of the way left and darkens. Back is the same motion reversed, and a swipe back drives
  * it under the finger. [at] 0 is the top page fully in, 1 fully away to the right.

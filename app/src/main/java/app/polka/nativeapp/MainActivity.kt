@@ -111,6 +111,8 @@ class MainActivity : Activity() {
     internal var bookCalendar:BookCalendarDialog?=null
     internal var goalRoad:GoalRoadOverlay?=null
     internal var tierList:TierListOverlay?=null
+    /** The statistics' tier list and year cards (the pages fold back into them, even after the statistics are rebuilt). */
+    internal var tierCard:View?=null;internal var goalCard:View?=null
     /** The tier-list card on the statistics screen now (the screen is rebuilt when a book is saved). */
     var pendingCalendarImage:File?=null
     var profileOverlay:View?=null
