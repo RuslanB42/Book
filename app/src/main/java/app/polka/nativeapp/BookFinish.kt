@@ -65,13 +65,14 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
     private var cover:View?=null;private var panel:View?=null
 
     /** Opened on the last page ([fromPage]): a picture of the screen is taken first, so the page can turn into the
-     *  cover. Opened later (the book closed as read), the page comes out of the dark instead. */
-    fun show(fromPage:Boolean=false){
+     *  cover — of the reader's own [window] (comics are read in a window of their own, over the book's page). Opened
+     *  later (the book closed as read), the page comes out of the dark instead. */
+    fun show(fromPage:Boolean=false,window:Window?=null){
         if(!motion||!fromPage){build(null);return}
-        val v=a.window.decorView
+        val w=window?:a.window;val v=w.decorView
         if(v.width<=0||v.height<=0){build(null);return}
         val bmp=try{Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888)}catch(_:Throwable){build(null);return}
-        try{android.view.PixelCopy.request(a.window,bmp,{res->if(a.isFinishing||a.isDestroyed)return@request
+        try{android.view.PixelCopy.request(w,bmp,{res->if(a.isFinishing||a.isDestroyed)return@request
                 if(res==android.view.PixelCopy.SUCCESS)build(bmp) else{bmp.recycle();build(null)}},android.os.Handler(android.os.Looper.getMainLooper()))}
         catch(_:Throwable){bmp.recycle();build(null)}
     }
@@ -115,7 +116,8 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         panel.addView(kicker,LinearLayout.LayoutParams(-1,-2))
         panel.addView(a.text(book.str("title"),26f,a.fg,true,serif=true).apply{gravity=Gravity.CENTER;maxLines=3},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(6)})
         MainActivity.authors(book).takeIf{it.isNotBlank()}?.let{panel.addView(a.text(it,14f,a.muted).apply{gravity=Gravity.CENTER;maxLines=2},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})}
-        val facts=a.text("",13f,a.muted).apply{gravity=Gravity.CENTER;visibility=View.GONE}
+        // its line is kept from the start (the facts come a moment later): the panel never grows under the move
+        val facts=a.text(" ",13f,a.muted).apply{gravity=Gravity.CENTER;visibility=View.INVISIBLE;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
         panel.addView(facts,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(6)})
         // the rating lies on the glass itself, no card of its own
         val review=ReviewBlock(a,book).apply{background=null;elevation=0f;clipToOutline=false;setPadding(0,a.d(6),0,0)}
@@ -136,7 +138,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         var seen=-1;var first=true
         page.addOnLayoutChangeListener{_,_,_,_,_,_,_,_,_->val key=panel.height*31+scroll.height+page.paddingBottom
             if(key!=seen){seen=key;val anim=!first;first=false
-                page.post{fit(anim);if(!anim&&motion)startOnceLaidOut(root){entrance(card,glow,scrim,cover,panel,close)}}}}
+                page.post{fit(anim);if(!anim&&motion)startOnceLaidOut(root){afterFirstFrames{entrance(card,glow,scrim,cover,panel,close)}}}}}
 
         // the facts: how many days (from — to) and how long it was read
         var journey:BookJourney?=null
@@ -171,6 +173,9 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
     }
     private var root:View?=null
 
+    /** Runs [go] once the window's first frames (the heaviest: a new window, the whole page) are drawn; they show the
+     *  page as it was, so the wait is not seen and the move loses none of its steps to them. */
+    private fun afterFirstFrames(go:()->Unit){val ch=Choreographer.getInstance();ch.postFrameCallback{ch.postFrameCallback{if(!closed)go()}}}
     /** Runs [go] on the next frame drawn after the layout that is pending now (the cover at its final size). */
     private fun startOnceLaidOut(v:View,go:()->Unit){v.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{
         override fun onPreDraw():Boolean{v.viewTreeObserver.removeOnPreDrawListener(this);go();return true}});v.invalidate()}

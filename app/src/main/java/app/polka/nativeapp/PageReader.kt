@@ -119,13 +119,14 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     private fun pastEnd(){
         if(finishing||Library.status(book)=="done"||n<=0||page<n-1)return
         credit();finishing=true
-        val go:()->Unit={markDone();BookFinish(a,book){leave->finishing=false;tracker.skipTime();if(leave)close()}.show(fromPage=true)}
+        val go:()->Unit={markDone();BookFinish(a,book){leave->finishing=false;tracker.skipTime();if(leave)close()}.show(fromPage=true,window=dialog.window)}
         if(!tracker.seeded||tracker.share()>=.5)go()
         else{var chosen=false
             a.dialog().setTitle("Книга прочитана?").setMessage("Отметить книгу прочитанной?").setNegativeButton("Нет",null).setPositiveButton("Прочитана"){_,_->chosen=true;go()}.show()
                 .setOnDismissListener{if(!chosen){finishing=false;tracker.skipTime()}}}
     }
-    private fun markDone(){credit(true);book.put("state","done").put("completedAt",System.currentTimeMillis());save(false)}
+    // newer than the library's copy, so saving does not take the old «Читаю» back from it
+    private fun markDone(){credit(true);val now=System.currentTimeMillis();book.put("state","done").put("completedAt",now).put("modifiedAt",now);save(false)}
     /** Closed on the last page after a look at it, the book really read here: it is read, shown once closed. */
     private fun finishOnClose():Boolean{
         if(finishing||Library.status(book)=="done"||n<=0||page<n-1||!tracker.seeded||tracker.share()<.5||tracker.dwellNow()<4000)return false
@@ -422,7 +423,9 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
             if(sheet!=null&&(e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)){
                 val commit=e.actionMasked==MotionEvent.ACTION_UP&&(if(kotlin.math.abs(flingX)>a.d(650))-flingX*turnSide>0 else sheet.progress>.32f);endTurn(commit,flingX);return true}
             if((e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)&&scale<=1.01f&&!flung&&shift!=0f){
-                val dir=if(shift< -width*.22f)1 else if(shift>width*.22f)-1 else 0;if(dir!=0)step(if(rtl)-dir else dir) else settle(0f)};return true}
+                // past the last page the page only gives a little: a short pull is enough there to finish the book
+                val edge=(shift<0f&&!has(1))||(shift>0f&&!has(-1));val lim=width*(if(edge).07f else .22f)
+                val dir=if(shift< -lim)1 else if(shift>lim)-1 else 0;if(dir!=0)step(if(rtl)-dir else dir) else settle(0f)};return true}
         /** Is there a page on that side of the screen (-1 left, +1 right)? */
         private fun has(side:Int)=(page+(if(rtl)-side else side)) in 0 until n
         /** +1: the next page. The page carries on from exactly where the finger left it (no jump back), and a quick
