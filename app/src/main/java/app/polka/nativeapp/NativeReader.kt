@@ -12,7 +12,12 @@ import kotlin.math.abs
 
 @android.annotation.SuppressLint("WrongConstant")
 class NativeReader(private val a:MainActivity, val book:JSONObject, private val content:JSONObject, private val images:Map<String,ByteArray>) {
-    val view=FrameLayout(a).apply { setBackgroundColor(a.bg);clipToPadding=false;clipChildren=false }
+    val view=object:FrameLayout(a){
+        // the automatic reading sees every touch first: a tap is its pause (see [AutoRead])
+        override fun dispatchTouchEvent(e:MotionEvent):Boolean{val au=auto
+            if(au!=null&&au.intercept(e){val c=MotionEvent.obtain(e).apply{action=MotionEvent.ACTION_CANCEL};super.dispatchTouchEvent(c);c.recycle()})return true
+            return super.dispatchTouchEvent(e)}
+    }.apply { setBackgroundColor(a.bg);clipToPadding=false;clipChildren=false }
     private lateinit var topBar:LinearLayout
     private var titleText:TextView?=null
     // declared before init: setCalm runs while the reader is still being built
@@ -169,11 +174,11 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         slider.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener { override fun onProgressChanged(s:SeekBar?,v:Int,user:Boolean) { if(user) percent.text="${v/10}% от всей книги" }; override fun onStartTrackingTouch(s:SeekBar?) { scrubbing=true }; override fun onStopTrackingTouch(s:SeekBar?) { scrubbing=false; jumpProgress((s?.progress ?: 0)/1000.0) } }); bottom.addView(slider,LinearLayout.LayoutParams(-1,a.d(28)))
         percent.setTextColor(a.muted); percent.textSize=13f; percent.gravity=Gravity.CENTER; bottom.addView(percent)
         val tools=a.line().apply { gravity=Gravity.CENTER;setPadding(0,a.d(4),0,0) }
-        listOf("contents" to "Оглавление и заметки","bm" to "Добавить закладку","aa" to "Настройки текста","pen" to "Править текущую страницу").forEachIndexed { i,p -> tools.addView((if(p.first=="bm")bookmarkIcon else IconView(a,p.first,a.fg)).apply { chromeIcons.add(this);contentDescription=p.second; setOnClickListener { when(i) { 0->navigation(); 1->addBookmark(); 2->settings(); 3->editChapter() } }; a.press(this) },LinearLayout.LayoutParams(0,a.d(48),1f)) }; soundButton=SoundButton(a,a.fg).apply{isClickable=true;setOnClickListener{AmbienceSheet(a,readerBackground).show()};a.press(this)};tools.addView(soundButton,3,LinearLayout.LayoutParams(0,a.d(48),1f));bottom.addView(tools);view.addView(bottom,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));folio.setTextColor(a.muted);folio.textSize=12f;folio.gravity=Gravity.CENTER;folio.importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;view.addView(folio,1,FrameLayout.LayoutParams(-1,a.d(16),Gravity.BOTTOM).apply{bottomMargin=a.d(14)});view.addView(ribbon,2,FrameLayout.LayoutParams(-1,-1));calm=paged()&&a.prefs.optBoolean("seenReader",false);setCalm(calm,false)
+        listOf("contents" to "Оглавление и заметки","bm" to "Добавить закладку","play" to "Автолистание","aa" to "Настройки текста","pen" to "Править текущую страницу").forEachIndexed { i,p -> tools.addView((if(p.first=="bm")bookmarkIcon else IconView(a,p.first,a.fg)).apply { chromeIcons.add(this);contentDescription=p.second; setOnClickListener { when(i) { 0->navigation(); 1->addBookmark(); 2->autoRead(); 3->settings(); 4->editChapter() } }; a.press(this) },LinearLayout.LayoutParams(0,a.d(48),1f)) }; soundButton=SoundButton(a,a.fg).apply{isClickable=true;setOnClickListener{AmbienceSheet(a,readerBackground).show()};a.press(this)};tools.addView(soundButton,4,LinearLayout.LayoutParams(0,a.d(48),1f));bottom.addView(tools);view.addView(bottom,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));folio.setTextColor(a.muted);folio.textSize=12f;folio.gravity=Gravity.CENTER;folio.importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;view.addView(folio,1,FrameLayout.LayoutParams(-1,a.d(16),Gravity.BOTTOM).apply{bottomMargin=a.d(14)});view.addView(ribbon,2,FrameLayout.LayoutParams(-1,-1));calm=paged()&&a.prefs.optBoolean("seenReader",false);setCalm(calm,false)
 
         val gestures=object:GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e:MotionEvent)=true
-            override fun onLongPress(e:MotionEvent){if(paged()&&!isTurning()&&!preparing&&!editorOpen){quoteSelection.begin(selectionOffset(e.x,e.y));touchHeld=true}}
+            override fun onLongPress(e:MotionEvent){auto?.held();if(paged()&&!isTurning()&&!preparing&&!editorOpen){quoteSelection.begin(selectionOffset(e.x,e.y));touchHeld=true}}
             override fun onSingleTapConfirmed(e:MotionEvent):Boolean {
                 if(touchHeld||quoteSelection.active)return true
                 if(openPageLink(e.x,e.y))return true
@@ -320,8 +325,8 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     fun updateFooter() { countBackTurns();syncBookmark(false);folio.text=if(paged())"${pageIndex+1} из ${pageStarts.size}" else "";if(!scrubbing) slider.progress=(progress()*1000).toInt(); percent.text="${(progress()*100).toInt()}% от всей книги"; footer.text=prettyTitle(chapters.getJSONObject(chapter).str("title"));remaining.text=if(paged()){val left=pageStarts.size-pageIndex-1;if(left>0)"ещё $left стр" else "конец главы"}else "${(fraction()*100).toInt()}% главы";}
     fun changeChapter(next:Int) { if(next !in 0 until chapters.length())return;quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=0;pendingFraction=null;paintChapter() }
     fun persist() { val snap=book.copyJson(); a.saveBook(snap) {} }
-    fun pause() { Ambience.pause(a);save();paused=true;handler.removeCallbacks(heartbeat) }
-    fun dispose(){if(disposed)return;Ambience.unlisten(soundWatch);Ambience.stop(a);if(a.window.attributes.screenBrightness!=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
+    fun pause() { auto?.appPaused();Ambience.pause(a);save();paused=true;handler.removeCallbacks(heartbeat) }
+    fun dispose(){if(disposed)return;auto?.stop();Ambience.unlisten(soundWatch);Ambience.stop(a);if(a.window.attributes.screenBrightness!=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)a.window.attributes=a.window.attributes.apply{screenBrightness=android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE};quoteSelection.clear();cachedNext=null;previewGeneration++;previewJobs.values.forEach{it.cancel(true)};previewJobs.clear();pageEditor?.detach();pause();disposed=true;layoutGeneration++;layoutJob?.cancel(true);handler.removeCallbacksAndMessages(null);body.animate().cancel();stopPageMotion()}
     fun resume() { Ambience.resume(a);ReaderWindow.configure(a.window,true,readerBackground);a.root.requestApplyInsets();paused=false; tracker.skipTime(); tracker.touch(); handler.removeCallbacks(heartbeat); handler.postDelayed(heartbeat,5000) }
     /** Characters on a page as it is laid out now: the chapter's pages, or one screen when scrolling. */
     private fun pageChars():Int{
@@ -485,7 +490,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(end in 1 until rich.length&&rich[end-1].isLetter()&&rich[end].isLetter()&&hyphenFreq()!=android.text.Layout.HYPHENATION_FREQUENCY_NONE)page.append("-")
         return page
     }
-    fun paintPage() {body.text=pageText(chapterRich,pageStarts,pageIndex);stretchNow();scroll.scrollTo(0,0);updateFooter();positionSelection();quoteSelection.invalidate();warmPages();warmSnapshot()}
+    fun paintPage() {body.text=pageText(chapterRich,pageStarts,pageIndex);stretchNow();scroll.scrollTo(0,0);updateFooter();positionSelection();quoteSelection.invalidate();warmPages();warmSnapshot();auto?.pageShown()}
     internal fun selectionFullText()=chapterRich
     /** A tap on an underlined word opens its dictionary card. */
     private fun openWordAt(offset:Int):Boolean{val t=chapterRich as? android.text.Spanned?:return false;if(t.isEmpty())return false
@@ -668,6 +673,29 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     /** While a setting is being dragged the reader's bars fade away (only their opacity: the calm state is not touched). */
     internal fun fadeChrome(hide:Boolean){if(calm)return;val reduced=a.prefs.str("motion")=="reduced";listOf(topBar,bottom).forEach{v->v.animate().cancel();v.translationY=0f;if(reduced)v.alpha=if(hide)0f else 1f else v.animate().alpha(if(hide)0f else 1f).setDuration(if(hide)160 else 240).setInterpolator(MotionSpec.enter).start()}}
     fun toggleChrome(){if(!editorOpen)setCalm(!calm,true)}
+
+    // ── Автолистание (see [AutoRead]) ──
+    internal var auto:AutoRead?=null;private set
+    private fun autoRead(){if(auto!=null||preparing||editorOpen)return;auto=AutoRead(a,this).also{it.start()}}
+    internal fun autoEnded(){auto=null}
+    internal fun autoBusy()=preparing||disposed||editorOpen||opening||finishing||restoring||isTurning()
+    internal fun calmForAuto(){if(!calm)setCalm(true,true)}
+    /** The page on the screen, told apart from any other (its chapter, its start and the chapter's layout). */
+    internal fun pageKey()="$chapter:${pageBase()}:${pageStarts.size}"
+    internal fun pageCharsNow()=(pageLimit()-pageBase()).coerceAtLeast(0)
+    internal fun pageImagesNow()=(chapterRich as? android.text.Spanned)?.getSpans(pageBase(),pageLimit(),android.text.style.ImageSpan::class.java)?.size?:0
+    /** Letters a pixel on the screen of the scroll now. */
+    internal fun scrollCharsPerPx():Float{val l=body.layout?:return 0f;val h=scroll.height;if(h<=0)return 0f
+        val top=(scroll.scrollY-body.paddingTop).coerceAtLeast(0);val first=l.getLineForVertical(top);val last=l.getLineForVertical(top+h)
+        return (l.getLineEnd(last)-l.getLineStart(first)).coerceAtLeast(0).toFloat()/h}
+    internal fun inkColor()=body.currentTextColor
+    internal fun quoteActive()=quoteSelection.active
+    /** The reader's own speed (words a minute), from the statistics. */
+    internal fun readerWpm()=(tracker.pace*60000/ReadingTracker.CHARS_PER_WORD).toInt()
+    internal fun herePointNow()=herePoint()
+    internal fun pageLabel(p:JSONObject):String?=if(p.optInt("ch")==chapter)pageOf(chapter,p.optInt("off"))?.let{"стр. $it"} else "«${chapterName(p.optInt("ch"))}»"
+    internal fun autoReturn(p:JSONObject){markJump();goPoint(p)}
+    internal fun nextChapterAuto(){changeChapter(chapter+1)}
     private fun setCalm(value:Boolean,animate:Boolean){calm=value;chromeSprings.values.forEach{it.stop()};val reduced=!animate||a.prefs.str("motion")=="reduced";listOf(topBar to -1,bottom to 1).forEach{(v,sign)->v.animate().cancel();if(reduced){v.alpha=if(value)0f else 1f;v.translationY=if(value)sign*v.height.toFloat() else 0f;v.visibility=if(value)View.INVISIBLE else View.VISIBLE;if(value)v.post{if(calm&&v.visibility==View.INVISIBLE)v.translationY=sign*v.height.toFloat()}}else{v.visibility=View.VISIBLE
             // the same spring as the sheets that rise from below: the bars glide in and out instead of fading on a curve
             val h=v.height.toFloat().coerceAtLeast(1f);val off=sign*h;val start=(v.translationY/off).coerceIn(0f,1f)

@@ -27,6 +27,7 @@ internal object IosIcons {
     "next" to listOf(Op(false,false,1.75f,true,"M9 18 l6 -6 -6 -6",null)),
     "chevdown" to listOf(Op(false,false,1.75f,true,"M6 9 l6 6 6 -6",null)),
     "x" to listOf(Op(false,false,1.75f,true,"M18 6 6 18 M6 6 l12 12",null)),
+    "play" to listOf(Op(false,false,1.75f,true,"M6 5 a1.5 1.5 0 0 1 2.26 -1.3 l11.2 6.99 a1.5 1.5 0 0 1 0 2.62 l-11.2 6.99 A1.5 1.5 0 0 1 6 19 z",null)),
     "plus" to listOf(Op(false,false,1.75f,true,"M5 12 h14 M12 5 v14",null)),
     "check" to listOf(Op(false,false,1.75f,true,"M20 6 9 17 l-5 -5",null)),
     "done" to listOf(Op(false,false,1.75f,true,"M2 12 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 M16 9 l-5.5 5.5 L8 12",null)),
