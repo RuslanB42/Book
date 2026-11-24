@@ -113,9 +113,12 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         // pass, so as the panel grows or shrinks (a rating, the marks, the keyboard) the cover follows it frame by
         // frame, on the panel's own curve — never a move of its own after it
         val coverBox=object:FrameLayout(a){
-            override fun onMeasure(ws:Int,hs:Int){val room=MeasureSpec.getSize(hs);val h=room.coerceIn(a.d(150),a.d(300));val w=(h/1.5f).toInt()
+            // asked without a limit (the scroll's first look at the page), it is as small as it may be: the page then
+            // fits the screen and is measured again with the room it really has
+            override fun onMeasure(ws:Int,hs:Int){val free=MeasureSpec.getMode(hs)==MeasureSpec.UNSPECIFIED
+                val room=if(free)a.d(150) else MeasureSpec.getSize(hs);val h=room.coerceIn(a.d(150),a.d(300));val w=(h/1.5f).toInt()
                 cover.measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))
-                setMeasuredDimension(MeasureSpec.getSize(ws),if(MeasureSpec.getMode(hs)==MeasureSpec.UNSPECIFIED)h else maxOf(room,a.d(150)))}
+                setMeasuredDimension(MeasureSpec.getSize(ws),maxOf(room,a.d(150)))}
             override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){val x=(width-cover.measuredWidth)/2;cover.layout(x,0,x+cover.measuredWidth,cover.measuredHeight)}
         }.apply{clipChildren=false;clipToPadding=false;minimumHeight=a.d(150)}
         coverBox.addView(cover)
@@ -222,7 +225,8 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             now.set(from.left+(target.left-from.left)*k,from.top+(target.top-from.top)*k,from.right+(target.right-from.right)*k,from.bottom+(target.bottom-from.bottom)*k)
             val s=maxOf(now.width()/from.width(),now.height()/from.height())
             pic.scaleX=s;pic.scaleY=s;pic.translationX=now.centerX()-from.centerX()*s;pic.translationY=now.centerY()-from.centerY()*s
-            shade.alpha=.22f*k.coerceIn(0f,1f);elevation=a.d(18)*k.coerceIn(0f,1f);invalidateOutline()
+            // its shadow lifts with it and lies down again as it lands (the cover's own shadow takes over from there)
+            shade.alpha=.22f*k.coerceIn(0f,1f);elevation=a.d(18)*Math.sin(Math.PI*k.coerceIn(0f,1f)).toFloat();invalidateOutline()
             // the cover fills the window as the real one fills its place (cut evenly), coming up over the page
             val fw=target.width();val fh=target.height()
             if(fw>0f&&fh>0f){val fs=maxOf(now.width()/fw,now.height()/fh);face.scaleX=fs;face.scaleY=fs;face.translationX=now.centerX()-fw*fs/2;face.translationY=now.centerY()-fh*fs/2;face.alpha=faceAlpha()}}
@@ -255,8 +259,11 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             card.aim(RectF((at[0]-o[0]).toFloat(),(at[1]-o[1]).toFloat(),(at[0]-o[0]+cover.width).toFloat(),(at[1]-o[1]+cover.height).toFloat()))
             // the page flies and turns into the cover on the way; the real cover only takes over once the card has
             // become it (same picture, same place), so nothing changes there
-            clock(820,0,android.view.animation.LinearInterpolator(),{f->card.time=f;card.t=glide.getInterpolation(f)
-                cover.alpha=((f-.8f)/.2f).coerceIn(0f,1f)}){cover.alpha=1f;card.visibility=View.GONE}
+            // landed, the card is the cover (same picture, same place, no shadow): the real one takes its place, and
+            // its shadow comes up under it slowly
+            (cover as? CoverView)?.shadowFade=0f
+            clock(820,0,android.view.animation.LinearInterpolator(),{f->card.time=f;card.t=glide.getInterpolation(f)}){cover.alpha=1f;card.visibility=View.GONE
+                (cover as? CoverView)?.let{cv->clock(700,0,MotionSpec.enter,{cv.shadowFade=it})}}
             backdrop?.animate()?.alpha(0f)?.setDuration(520)?.setInterpolator(MotionSpec.move)?.start()}
         else{p.animate().alpha(1f).setDuration(MotionSpec.DARK_OUT).setInterpolator(MotionSpec.enter).start()
             cover.scaleX=.9f;cover.scaleY=.9f;cover.translationY=a.d(24).toFloat()
