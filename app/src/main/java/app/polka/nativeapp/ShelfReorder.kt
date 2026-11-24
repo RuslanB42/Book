@@ -37,7 +37,7 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
     private fun begin(){val at=pending;val view=grid.viewAt(at)?:return;clearPending();if(!grid.isAttachedToWindow||view.width<=0||view.height<=0)return
         grid.cancelChildTouch()
         index=at;original=items.toList();grabbed=view;grid.pinned=view
-        moved=false;pad=a.d(if(hasShelfArt(view))60 else 36) // shelf glass casts a 34dp blur + 18dp offset shadow; a smaller margin clips it into a black box
+        moved=false;pad=a.d(56) // room for the lift shadow's whole soft fall: a smaller margin cuts it into a visible box
         val loc=IntArray(2);view.getLocationOnScreen(loc);gx=px-loc[0]+pad;gy=py-loc[1]+pad
         // The whole card (art AND caption) floats as one picture, so text can never lag behind or stay in the slot.
         val cover=(view as? ViewGroup)?.getChildAt(0)
@@ -63,14 +63,14 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         // Keep only the solid body: the view's own soft shadows must not widen the silhouette.
         for(k in 0 until n)px[k]=if((px[k] ushr 24)>=235)0xff000000.toInt() else 0
         val mask=Bitmap.createBitmap(px,card.width,card.height,Bitmap.Config.ARGB_8888)
-        val offset=IntArray(2);val soft=mask.extractAlpha(Paint().apply{maskFilter=BlurMaskFilter(a.d(13).toFloat(),BlurMaskFilter.Blur.NORMAL)},offset);mask.recycle()
-        val tight=Bitmap.createBitmap(px,card.width,card.height,Bitmap.Config.ARGB_8888).extractAlpha(Paint().apply{maskFilter=BlurMaskFilter(a.d(3).toFloat(),BlurMaskFilter.Blur.NORMAL)},IntArray(2))
+        val offset=IntArray(2);val soft=mask.extractAlpha(Paint().apply{maskFilter=BlurMaskFilter(a.d(22).toFloat(),BlurMaskFilter.Blur.NORMAL)},offset);mask.recycle()
+        val near=IntArray(2);val tight=Bitmap.createBitmap(px,card.width,card.height,Bitmap.Config.ARGB_8888).extractAlpha(Paint().apply{maskFilter=BlurMaskFilter(a.d(8).toFloat(),BlurMaskFilter.Blur.NORMAL)},near)
         val out=Bitmap.createBitmap(card.width,card.height,Bitmap.Config.ARGB_8888);val c=Canvas(out);val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        p.color=0x4d000000;c.drawBitmap(soft,offset[0].toFloat(),offset[1].toFloat()+a.d(10),p)
-        p.color=0x40000000;c.drawBitmap(tight,0f,a.d(2).toFloat(),p)
+        // one broad fall and a faint near one: no ring that could show as an edge
+        p.color=if(a.light)0x2e000000 else 0x3d000000;c.drawBitmap(soft,offset[0].toFloat(),offset[1].toFloat()+a.d(10),p)
+        p.color=if(a.light)0x12000000 else 0x1a000000;c.drawBitmap(tight,near[0].toFloat(),near[1].toFloat()+a.d(3),p)
         soft.recycle();tight.recycle();return card to out
     }
-    private fun hasShelfArt(v:View):Boolean=v is ShelfArt||(v is ViewGroup&&(0 until v.childCount).any{hasShelfArt(v.getChildAt(it))})
     private fun position(){if(hypot(px-sx,py-sy)>a.d(12))moved=true;val at=IntArray(2);a.root.getLocationOnScreen(at);val x=px-gx-at[0];val y=py-gy-at[1];for(g in listOfNotNull(ghost,shade)){g.translationX=x;g.translationY=y}}
     private fun hit(){if(!active)return;val at=IntArray(2);grid.getLocationOnScreen(at);val r=grid.slot(index);val target=grid.nearest(px-gx+pad-at[0]+r.width()/2f,py-gy+pad-at[1]+r.width()*.75f,index);if(target!=index){val from=index;index=target;grid.move(from,target,{items.add(target,items.removeAt(from))},!reduced())}}
     private fun finish(save:Boolean){if(!active)return;grid.removeCallbacks(frame);clearPending();val from=index

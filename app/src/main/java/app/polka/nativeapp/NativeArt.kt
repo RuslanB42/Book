@@ -85,55 +85,6 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
         canvas.restore()
     }
 }
-class ShelfArt(context: Context, val previews: List<Pair<JSONObject, Bitmap?>>, val light: Boolean, val add: Boolean = false) : View(context) {
-    override fun onMeasure(ws:Int,hs:Int) { if(layoutParams?.height==android.view.ViewGroup.LayoutParams.WRAP_CONTENT) { val w=MeasureSpec.getSize(ws); setMeasuredDimension(w,(w*.94f).toInt()) } else super.onMeasure(ws,hs) }
-    private val retained=mutableMapOf<String,Bitmap>()
-    private val requested=mutableSetOf<String>(); private var frost:Bitmap?=null;private var frostKey=""
-    private val renderer=CoverView(context,org.json.JSONObject())
-    private fun left(index:Int,count:Int,w:Float)=w*(.27f-(count-1)*.08f+index*.16f)
-    override fun onDraw(c:Canvas) {
-        super.onDraw(c); if(width<1 || height<1) return
-        val a=context as? MainActivity; val density=resources.displayMetrics.density; val w=width.toFloat(); val h=height.toFloat(); val top=h*.46f; val radius=w*.045f; val p=Paint(Paint.ANTI_ALIAS_FLAG)
-        val glass=RectF(0f,top,w,h); val background=if(light) 0xfff2f2f0.toInt() else 0xff161617.toInt()
-        val books=previews.take(3).map { (b,bitmap) -> b to (a?.cover(b) ?: retained[b.str("id")] ?: bitmap) }
-        books.forEach { (book,bitmap) -> if(bitmap==null && book.optJSONObject("cover")!=null && requested.add(book.str("id"))) a?.requestCover(book) { loaded -> if(loaded!=null)retained[book.str("id")]=loaded;requested.remove(book.str("id")); invalidate() } }
-        // The glass has its own shadow and opaque backing, rather than tinting sharp covers twice.
-        p.color=background; p.setShadowLayer(if(light) 25*density else 34*density,0f,if(light) 14*density else 18*density,if(light) 0x22000000 else 0x73000000); c.drawRoundRect(glass,radius,radius,p); p.clearShadowLayer()
-        if(!add && books.isEmpty()) { p.color=if(light) 0x55808080 else 0x44777777; p.style=Paint.Style.STROKE; p.strokeWidth=density; p.pathEffect=DashPathEffect(floatArrayOf(5*density,4*density),0f); c.drawRoundRect(w*.27f,h*.90f-w*.69f,w*.73f,h*.90f,3*density,3*density,p); p.pathEffect=null; p.style=Paint.Style.FILL }
-        
-        fun covers(canvas:Canvas) { books.indices.reversed().forEach { i -> val (book,bitmap)=books[i]; val x=left(i,books.size,w);val r=RectF(x,h*.90f-w*.69f,x+w*.46f,h*.90f)
-            if(book.optBoolean("comic"))ComicCover.shadow(canvas,r,!light) else BookCoverVolume.shadow(canvas,r,!light);renderer.drawCover(canvas,r,book,bitmap,true) } }
-        covers(c)
-        val key="$width:$height:$light:"+books.joinToString { it.first.str("id")+it.first.str("title")+it.first.str("authors")+System.identityHashCode(it.second) }
-        if(key!=frostKey) {
-            val targetWidth=(width/density).toInt().coerceIn(1,160);val targetHeight=(targetWidth*.94f).toInt().coerceAtLeast(1)
-            // Commit the sharp covers and matching frosted front in one draw. The bounded
-            // cached raster is never injected into an already visible blank shelf later.
-            frost=ShelfFrost.prepared(key){
-                val bitmap=Bitmap.createBitmap(targetWidth,targetHeight,Bitmap.Config.ARGB_8888);val layer=Canvas(bitmap);layer.scale(targetWidth/w,targetHeight/h);covers(layer)
-                try{ShelfFrost.blur(bitmap,3*density*targetWidth/w)}finally{bitmap.recycle()}
-            };frostKey=key
-        }
-        // CSS paints an opaque background under the border. The filtered children are
-        // clipped to the padding box, not composited underneath the border itself.
-        val outer=Path().apply { addRoundRect(glass,radius,radius,Path.Direction.CW) }
-        c.save();c.clipPath(outer);p.color=background;c.drawRect(glass,p)
-        p.style=Paint.Style.STROKE;p.strokeWidth=density
-        p.color=if(light)0xccffffff.toInt() else 0x21ffffff
-        val edgeRadius=(radius-density*.5f).coerceAtLeast(0f)
-        c.drawRoundRect(RectF(density*.5f,top+density*.5f,w-density*.5f,h-density*.5f),edgeRadius,edgeRadius,p)
-        p.style=Paint.Style.FILL;p.color=Color.WHITE
-        val inner=RectF(density,top+density,w-density,h-density)
-        val innerRadius=(radius-density).coerceAtLeast(0f)
-        c.clipPath(Path().apply{addRoundRect(inner,innerRadius,innerRadius,Path.Direction.CW)})
-        frost?.let { bitmap -> val matrix=ColorMatrix().apply { setSaturation(1.12f) }; val brightness=if(light) 1.05f else .82f; matrix.postConcat(ColorMatrix(floatArrayOf(brightness,0f,0f,0f,0f,0f,brightness,0f,0f,0f,0f,0f,brightness,0f,0f,0f,0f,0f,1f,0f))); p.colorFilter=ColorMatrixColorFilter(matrix); c.drawBitmap(bitmap,null,RectF(0f,0f,w,h),p); p.colorFilter=null }
-        p.color=if(light) 0x66ffffff else 0x0effffff; c.drawRect(glass,p); c.restore()
-        val size=(w*.047f).coerceIn(8*density,11*density);val sr=size/2;val inset=density+w*.045f+sr
-        listOf(inset to top+inset,w-inset to top+inset,inset to h-inset,w-inset to h-inset).forEachIndexed{index,(x,y)->ShelfScrew.draw(c,x,y,size,density,ShelfScrew.turns[index])}
-        if(add) { p.color=if(light) 0xff777777.toInt() else 0xffbbbbbb.toInt(); p.strokeWidth=density*1.6f; val y=(top+h)/2; c.drawLine(w*.44f,y,w*.56f,y,p); c.drawLine(w*.5f,y-w*.06f,w*.5f,y+w*.06f,p) }
-    }
-    override fun onDetachedFromWindow() { frost=null;frostKey="";super.onDetachedFromWindow() }
-}
 open class IconView(context: Context, private val kind: String, var ink: Int) : View(context) {
     /** Colour behind the icon; when set and the view is selected, the filled variant is drawn with details cut in this colour. */
     var cut:Int?=null

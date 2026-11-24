@@ -183,7 +183,7 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
         val p=points[hold];tipTitle.color=a.fg;tipSub.color=if(a.light)0xff6e6e73.toInt() else 0xffb4b4b8.toInt()
         val tw=max(tipTitle.measureText(p.title),tipSub.measureText(p.sub))+22f*dp;val th=48f*dp
         val tx=(hx-tw/2).coerceIn(10f*dp,w-10f*dp-tw);val ty=hy-14f*dp-th
-        tip.set(tx,ty,tx+tw,ty+th);tipBg.color=if(a.light)0xfff0f0f2.toInt() else 0xff3a3a3d.toInt();tipBg.setShadowLayer(14f*dp,0f,5f*dp,0x55000000);c.drawRoundRect(tip,12f*dp,12f*dp,tipBg)
+        tip.set(tx,ty,tx+tw,ty+th);tipBg.color=if(a.light)0xfff0f0f2.toInt() else 0xff3a3a3d.toInt();tipBg.setShadowLayer(18f*dp,0f,5f*dp,if(a.light)0x26000000 else 0x40000000);c.drawRoundRect(tip,12f*dp,12f*dp,tipBg)
         tipTitle.textAlign=Paint.Align.LEFT;c.drawText(p.title,tx+11f*dp,ty+21f*dp,tipTitle);c.drawText(p.sub,tx+11f*dp,ty+39f*dp,tipSub)
     }
     private fun drawLabels(c:Canvas,labels:List<Pair<Int,String>>,strong:Int,n:Int,spans:Boolean,alpha:Float){if(alpha<=0f)return

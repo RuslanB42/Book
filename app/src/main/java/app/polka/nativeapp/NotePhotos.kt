@@ -66,7 +66,7 @@ internal object NotePhotos {
     // ───── looking at them ─────
     /** The photos large, one screen each, swiped sideways; a tap or «Назад» closes them. */
     fun show(a:MainActivity,ids:List<String>,start:Int){if(ids.isEmpty())return
-        val d=Dialog(a,android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val d=Dialog(a,R.style.PolkaBlackFull)
         val root=FrameLayout(a).apply{setBackgroundColor(Color.BLACK)}
         val row=LinearLayout(a)
         val strip=object:HorizontalScrollView(a){

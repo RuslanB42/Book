@@ -20,7 +20,8 @@ private fun quoteWord(n:Int)=if(n%100 in 11..14)"цитат" else when(n%10){1->
 internal fun MainActivity.floatCard(v:View,radiusDp:Int=24,color:Int=if(light)Color.WHITE else 0xff242426.toInt(),lift:Int=if(light)8 else 10){
     val r=d(radiusDp).toFloat();v.background=android.graphics.drawable.GradientDrawable().apply{setColor(color);cornerRadius=r};v.elevation=d(lift).toFloat()
     v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,r)}}
-    if(android.os.Build.VERSION.SDK_INT>=28){v.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();v.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
+    // a faint key-light shadow only (the theme has no ambient ring): the card lifts without a visible edge or dark patch
+    if(android.os.Build.VERSION.SDK_INT>=28)v.outlineSpotShadowColor=if(light)0x80000000.toInt() else 0xb3000000.toInt()
 }
 /** A real pile: one or two narrower sheets peek out under the front card, each with its own shadow. */
 internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){

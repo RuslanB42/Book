@@ -55,7 +55,7 @@ internal class BookJourney(val start:LocalDate?,val end:LocalDate,val ms:Long){
  * put in here. The window is its own, over the reader or the library.
  */
 internal class BookFinish(private val a:MainActivity,private val book:JSONObject,private val done:(closeBook:Boolean)->Unit){
-    private val dialog=Dialog(a,android.R.style.Theme_Black_NoTitleBar)
+    private val dialog=Dialog(a,R.style.PolkaBlack)
     private val before=listOf("rating","reviewTags","review","reviewAt").associateWith{book.opt(it)}
     private var closed=false
 

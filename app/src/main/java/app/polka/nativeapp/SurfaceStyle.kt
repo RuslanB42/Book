@@ -59,16 +59,21 @@ internal object FloatShade{
  private val p=Paint(Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
  private val cache=object:android.util.LruCache<String,Bitmap>(24){override fun entryRemoved(e:Boolean,k:String,o:Bitmap,n:Bitmap?){}}
  private val dst=RectF()
+ /** Room round the shape for the whole soft fall (three sigmas of the wide shade and its drop): a smaller margin cut
+  *  the shade off at the bitmap's edge, which showed as a faint box round the card. */
+ private fun pad(a:MainActivity)=a.d(72).toFloat()
  private fun bake(a:MainActivity,w:Int,h:Int,light:Boolean,shape:(Canvas,Paint,Float)->Unit):Bitmap?{
   val key="$w:$h:$light:${shape.hashCode()}";cache.get(key)?.let{return it}
-  val pad=a.d(40).toFloat();val W=(w+2*pad).toInt();val H=(h+2*pad).toInt()
-  val wide=Glow.blurred(W,H,4,a.d(16).toFloat()){c,pp->pp.color=if(light)0x1c000000 else 0x7a000000;shape(c,pp,pad)}?:return null
-  val near=Glow.blurred(W,H,4,a.d(3).toFloat()){c,pp->pp.color=if(light)0x12000000 else 0x46000000;shape(c,pp,pad)}
+  val pad=pad(a);val W=(w+2*pad).toInt();val H=(h+2*pad).toInt()
+  // Only wide, faint gaussians: one broad fall a little below the card and a soft near one. No tight contact layer —
+  // that was the line you could see round every plaque, and on a dark page the dark shades read as black patches.
+  val wide=Glow.blurred(W,H,4,a.d(20).toFloat()){c,pp->pp.color=if(light)0x16000000 else 0x40000000;shape(c,pp,pad)}?:return null
+  val near=Glow.blurred(W,H,4,a.d(7).toFloat()){c,pp->pp.color=if(light)0x0c000000 else 0x1c000000;shape(c,pp,pad)}
   val out=Bitmap.createBitmap(wide.width,wide.height,Bitmap.Config.ARGB_8888);val c=Canvas(out);val fp=Paint(Paint.FILTER_BITMAP_FLAG)
-  // the wide shade sits a hair lower than the edge (light from above), the near one right under the edge
-  c.drawBitmap(wide,0f,a.d(2)/4f,fp);near?.let{c.drawBitmap(it,0f,a.d(1)/4f,fp);it.recycle()};wide.recycle()
+  // the shades are baked at a quarter of the size, so their drops are in quarters too (light from above)
+  c.drawBitmap(wide,0f,a.d(6)/4f,fp);near?.let{c.drawBitmap(it,0f,a.d(2)/4f,fp);it.recycle()};wide.recycle()
   cache.put(key,out);return out}
- private fun put(c:Canvas,a:MainActivity,b:Bitmap,r:RectF,opacity:Int){val pad=a.d(40).toFloat();dst.set(r.left-pad,r.top-pad,r.right+pad,r.bottom+pad);p.alpha=opacity;c.drawBitmap(b,null,dst,p)}
+ private fun put(c:Canvas,a:MainActivity,b:Bitmap,r:RectF,opacity:Int){val pad=pad(a);dst.set(r.left-pad,r.top-pad,r.right+pad,r.bottom+pad);p.alpha=opacity;c.drawBitmap(b,null,dst,p)}
  fun draw(c:Canvas,a:MainActivity,r:RectF,radius:Float,light:Boolean,opacity:Int=255){val w=r.width().toInt();val h=r.height().toInt();if(w<2||h<2)return
   val rad=radius;bake(a,w,h,light,Shape.round(rad))?.let{put(c,a,it,r,opacity)}}
  fun drawPath(c:Canvas,a:MainActivity,path:Path,light:Boolean,opacity:Int=255){val r=RectF();path.computeBounds(r,true);val w=r.width().toInt();val h=r.height().toInt();if(w<2||h<2)return

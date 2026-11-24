@@ -38,23 +38,22 @@ internal object BookCoverVolume {
         }
         if(soft){
             // Floating recommendation cards: a broad feathered penumbra, no hard contact ring.
-            p.setShadowLayer(28f,3f,18f,if(dark)0x38000000 else 0x1f000000);c.drawRoundRect(r,3f,3f,p)
-            p.setShadowLayer(14f,2f,7f,if(dark)0x29000000 else 0x19000000);c.drawRoundRect(r,3f,3f,p)
+            p.setShadowLayer(36f,2f,18f,if(dark)0x2c000000 else 0x18000000);c.drawRoundRect(r,3f,3f,p)
+            p.setShadowLayer(16f,1f,7f,if(dark)0x1a000000 else 0x10000000);c.drawRoundRect(r,3f,3f,p)
             shadows[index]=b;return b
         }
-        // A hardcover lying on a table, lit from above-left (approved Т2+): a tight dark contact all round, a short cast
-        // to the lower right and a soft penumbra beyond it. Built from the approved CSS layers at reference 240×360.
+        // A hardcover lying on a table, lit from above-left (approved Т2+): a short cast to the lower right and a soft
+        // penumbra beyond it, built from CSS-like layers at reference 240×360. Only blurred, faint layers: the tight
+        // contact ones drew a crisp dark outline round every cover, and on a dark page the shade read as a black patch.
         val m=THICK_MARGIN;val t=Bitmap.createBitmap(240+2*m,360+2*m,Bitmap.Config.ARGB_8888);val tc=Canvas(t);val tp=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.BLACK}
         val k=240f/170f
         fun layer(dx:Float,dy:Float,blur:Float,spread:Float,light:Float,darkA:Float){val sigma=blur/2f*k
             tp.maskFilter=if(sigma<.6f)null else BlurMaskFilter(((sigma-.5f)/.57735f).coerceAtLeast(.5f),BlurMaskFilter.Blur.NORMAL)
             tp.alpha=(255*(if(dark)darkA else light)).toInt();val g=spread*k
             tc.drawRoundRect(m+dx*k-g,m+dy*k-g,m+240f+dx*k+g,m+360f+dy*k+g,4f,4f,tp)}
-        layer(7f,11f,16f,-4f,.22f,.85f)
-        layer(3f,5f,7f,-1f,.24f,.90f)
-        layer(1f,2f,2f,0f,.26f,.95f)
-        layer(0f,0f,2f,0f,.12f,.60f)
-        layer(0f,0f,0f,.5f,.14f,.70f)
+        layer(5f,10f,22f,-4f,.16f,.42f)
+        layer(2f,5f,10f,-1f,.14f,.30f)
+        layer(1f,2f,5f,0f,.12f,.22f)
         shadows[index]=t;return t
     }
     @Synchronized fun shadow(c:Canvas,r:RectF,dark:Boolean,soft:Boolean=false,stack:Boolean=false,fade:Float=1f) {

@@ -1,7 +1,6 @@
 package app.polka.nativeapp
 
 import android.graphics.*
-import android.os.Build
 import android.graphics.drawable.GradientDrawable
 import android.view.*
 import android.widget.*
@@ -119,7 +118,6 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   a.cover(book).let{b->if(b!=null)shades(b,book).let{paint(it,b)} else if(book.optJSONObject("cover")!=null)a.requestCover(book){bmp->if(bmp!=null)shades(bmp,book).let{paint(it,bmp);focus(carousel.scrollX)}}}
   card.elevation=0f
   card.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,radius)}}
-  if(Build.VERSION.SDK_INT>=28){card.outlineAmbientShadowColor=if(light)0x1a000000 else 0x80000000.toInt();card.outlineSpotShadowColor=if(light)0x40000000 else 0xcc000000.toInt()}
  }
  private fun shades(b:Bitmap?,book:JSONObject):IntArray{
   // the cover's leading colour: pixels weighted by how colourful and bright they are, so a yellow cover with black

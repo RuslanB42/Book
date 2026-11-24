@@ -59,7 +59,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     /** How a page turns, as in the book reader: «curl», «slide», «cover» or «none». */
     private val turnStyle get()=a.prefs.str("comicTurn","slide")
     private var page=(book.optJSONObject("progress")?.optInt("page",0)?:0).coerceIn(0,maxOf(0,n-1))
-    private val dialog=android.app.Dialog(a,android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+    private val dialog=android.app.Dialog(a,R.style.PolkaBlackFull)
     /** Every touch is the reader being with the page. */
     private val root=object:FrameLayout(a){override fun dispatchTouchEvent(e:MotionEvent):Boolean{tracker.touch()
         // the automatic reading sees every touch first: a tap is its pause (see [AutoRead])

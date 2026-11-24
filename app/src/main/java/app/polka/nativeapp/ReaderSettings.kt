@@ -457,7 +457,7 @@ internal class LayoutToggle(private val a:MainActivity,private val title:String,
         p.color=androidx.core.graphics.ColorUtils.blendARGB(offTrack,onTrack,k);c.drawRoundRect(sx,sy,sx+sw,sy+sh,sh/2,sh/2,p)
         val kr=(sh-5*d)/2;val kx=sx+2.5f*d+kr+(sw-5*d-2*kr)*k
         val offKnob=if(a.light)Color.WHITE else 0xffcfcfd4.toInt();val onKnob=if(a.light)Color.WHITE else 0xff1d1d20.toInt()
-        p.color=androidx.core.graphics.ColorUtils.blendARGB(offKnob,onKnob,k);p.setShadowLayer(1.5f*d,0f,.6f*d,0x40000000);c.drawCircle(kx,h/2,kr,p);p.clearShadowLayer()}
+        p.color=androidx.core.graphics.ColorUtils.blendARGB(offKnob,onKnob,k);p.setShadowLayer(2.2f*d,0f,.6f*d,0x2a000000);c.drawCircle(kx,h/2,kr,p);p.clearShadowLayer()}
 }
 
 /** One look for every pill slider: a solid fill in the text colour (no grey gradient, never dimmed), growing exactly

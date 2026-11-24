@@ -115,7 +115,7 @@ internal object ComicCover {
     private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val m=Matrix()
     fun shadow(c:Canvas,r:RectF,dark:Boolean){val left=r.width()*.045f;val right=r.width()*.012f
-        p.shader=null;p.color=0;p.setShadowLayer(r.width()*.035f,r.width()*.008f,r.width()*.03f,if(dark)0x8c000000.toInt() else 0x33000000)
+        p.shader=null;p.color=0;p.setShadowLayer(r.width()*.05f,r.width()*.006f,r.width()*.03f,if(dark)0x4d000000 else 0x24000000)
         c.drawPath(outline(r,left,right),p);p.clearShadowLayer()}
     private fun outline(r:RectF,left:Float,right:Float)=Path().apply{addRoundRect(r,floatArrayOf(left,left,right,right,right,right,left,left),Path.Direction.CW)}
     fun draw(c:Canvas,r:RectF,bitmap:Bitmap?,fallback:Int){

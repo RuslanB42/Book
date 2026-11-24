@@ -55,7 +55,7 @@ class SlidingSegment(val a:MainActivity,selected:Int,val count:Int,private val t
     private val shadow=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c:android.graphics.Canvas) { super.onDraw(c); val pad=a.d(2).toFloat(); val cell=(width-pad*2)/count;
         // Soft shadow under the selected thumb so the active tab lifts off the track.
-        shadow.color=thumbColor?:(if(a.light)android.graphics.Color.WHITE else 0xff4a4a4e.toInt());shadow.setShadowLayer(a.d(5).toFloat(),0f,a.d(2).toFloat(),if(a.light)0x2e000000 else 0x8c000000.toInt())
+        shadow.color=thumbColor?:(if(a.light)android.graphics.Color.WHITE else 0xff4a4a4e.toInt());shadow.setShadowLayer(a.d(6).toFloat(),0f,a.d(2).toFloat(),if(a.light)0x24000000 else 0x52000000)
         val r=if(thumbColor!=null)a.d(pillRadius-2).toFloat() else a.d(9).toFloat();c.drawRoundRect(pad+cell*index+a.d(1),pad+a.d(1),pad+cell*(index+1)-a.d(1),height-pad-a.d(1),r,r,shadow)
 if(thumbColor!=null){ink.color=thumbColor;c.drawRoundRect(pad+cell*index,pad,pad+cell*(index+1),height-pad,a.d(pillRadius-2).toFloat(),a.d(pillRadius-2).toFloat(),ink)}else{c.save();c.translate(pad+cell*index,pad);segmentThumb.setBounds(0,0,cell.toInt(),(height-pad*2).toInt());segmentThumb.draw(c);c.restore()} }
     override fun onDetachedFromWindow() { spring.stop(); super.onDetachedFromWindow() }
@@ -315,14 +315,14 @@ internal class PolkaSheetFrame(private val a:MainActivity,internal val panel:Lin
 fun replaceJson(target:org.json.JSONObject,source:org.json.JSONObject) { if(target===source) return; val copy=source.copyJson(); target.keys().asSequence().toList().forEach { target.remove(it) }; copy.keys().forEach { target.put(it,copy.get(it)) } }
 
 /** Persistent native indicator; content updates do not restart its transition. */
-/** The active tab's pill with a clearly visible soft shadow beneath it (drawn, so it shows on a dark bar too). */
+/** The active tab's pill with a soft shadow beneath it (drawn, so it shows on a dark bar too) — wide and faint, so it
+ *  never reads as a dark halo round the pill. */
 internal class LiftedPill(private val a:MainActivity,private val fill:Int):android.graphics.drawable.Drawable(){
     private val shadow=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
     private val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply{color=fill}
     override fun draw(c:android.graphics.Canvas){val b=android.graphics.RectF(bounds);val r=b.height()/2f
-        shadow.color=if(a.light)0x55000000 else 0xff000000.toInt();shadow.maskFilter=android.graphics.BlurMaskFilter(a.d(7).toFloat(),android.graphics.BlurMaskFilter.Blur.NORMAL)
         // the active tab floats too: its shade all round, hardly offset (not dropped below it)
-        shadow.maskFilter=android.graphics.BlurMaskFilter(a.d(9).toFloat(),android.graphics.BlurMaskFilter.Blur.NORMAL);shadow.color=if(a.light)0x33000000 else 0xcc000000.toInt()
+        shadow.maskFilter=android.graphics.BlurMaskFilter(a.d(11).toFloat(),android.graphics.BlurMaskFilter.Blur.NORMAL);shadow.color=if(a.light)0x24000000 else 0x66000000
         c.drawRoundRect(b.left,b.top+a.d(2),b.right,b.bottom+a.d(2),r,r,shadow)
         c.drawRoundRect(b,r,r,paint)}
     override fun setAlpha(alpha:Int){paint.alpha=alpha}

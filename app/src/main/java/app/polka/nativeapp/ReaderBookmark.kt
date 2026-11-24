@@ -41,7 +41,7 @@ internal class BookmarkRibbon(private val a:MainActivity):View(a) {
         fun draw(c:Canvas,a:MainActivity,length:Float){
             if(length<=.5f)return;val w=a.d(WIDTH_DP).toFloat();val notch=min(w*.4f,length*.45f)
             val p=Paint(Paint.ANTI_ALIAS_FLAG);val path=Path().apply{moveTo(0f,-4f);lineTo(w,-4f);lineTo(w,length);lineTo(w/2f,length-notch);lineTo(0f,length);close()}
-            p.setShadowLayer(a.d(3).toFloat(),0f,a.d(1).toFloat(),0x55000000);p.color=a.accent;c.drawPath(path,p)
+            p.setShadowLayer(a.d(4).toFloat(),0f,a.d(1).toFloat(),0x33000000);p.color=a.accent;c.drawPath(path,p)
         }
     }
     var length=0f;private set

@@ -55,7 +55,7 @@ internal class TurnTile(private val a:MainActivity,private val kind:String,priva
         c.save();c.clipPath(Path().apply{moveTo(x,y);lineTo(at,y);lineTo(b,y+h);lineTo(x,y+h);close()});page(c,x,y,w,h,false);c.restore()
         val r1=refl(x+w,y);val r2=refl(x+w,y+h)
         val flap=Path().apply{moveTo(at,y);lineTo(r1.x,r1.y);lineTo(r2.x,r2.y);lineTo(b,y+h);close()}
-        p.style=Paint.Style.FILL;p.shader=null;p.color=0x40000000;p.setShadowLayer(4*d,-2*d,0f,0x55000000)
+        p.style=Paint.Style.FILL;p.shader=null;p.color=0x40000000;p.setShadowLayer(6*d,-2*d,0f,0x33000000)
         val back=if(Color.luminance(paper)>.4f)Color.rgb((Color.red(paper)*.9f).toInt(),(Color.green(paper)*.9f).toInt(),(Color.blue(paper)*.9f).toInt()) else Color.rgb(minOf(255,Color.red(paper)+40),minOf(255,Color.green(paper)+40),minOf(255,Color.blue(paper)+44))
         p.color=back;c.drawPath(flap,p);p.clearShadowLayer()}
 }
