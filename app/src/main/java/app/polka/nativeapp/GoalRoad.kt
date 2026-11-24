@@ -143,20 +143,22 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
             a.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="image/png";putExtra(Intent.EXTRA_STREAM,uri);clipData=ClipData.newUri(a.contentResolver,"Мой год в книгах",uri);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)},"Поделиться"))}}
 }
 
-/** Five plain stars, filled yellow up to the rating. */
+/** Five plain stars, filled yellow up to the rating; the rest are yellow outlines. */
 internal class StarRow(private val a:MainActivity,var rating:Int,private val sizeDp:Float,private val gapDp:Float=2f):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     init{contentDescription=if(rating in 1..5)"Оценка $rating из 5" else "Без оценки"}
     override fun onMeasure(w:Int,h:Int)=setMeasuredDimension((a.d(1)*(sizeDp*5+gapDp*4)).roundToInt(),(a.d(1)*sizeDp).roundToInt())
     override fun onDraw(c:Canvas){val s=a.d(1)*sizeDp;val g=a.d(1)*gapDp
-        for(i in 0 until 5){p.color=if(i<rating)starYellow(a) else starEmpty(a);drawStar(c,i*(s+g),0f,s,p)}}
+        for(i in 0 until 5){p.color=starYellow(a);drawStar(c,i*(s+g),0f,s,p,i>=rating)}}
     companion object{
         fun starYellow(a:MainActivity)=if(a.light)0xfff5a524.toInt() else 0xffffc53d.toInt()
-        fun starEmpty(a:MainActivity)=if(a.light)0x24000000 else 0x2effffff
-        /** A rounded five-point star filling the [size] square at x, y. */
-        fun drawStar(c:Canvas,x:Float,y:Float,size:Float,p:Paint){val path=Path();val cx=x+size/2;val cy=y+size*.53f;val R=size*.5f;val r=R*.48f
+        /** A rounded five-point star filling the [size] square at x, y ([outline]: only its edge). */
+        fun drawStar(c:Canvas,x:Float,y:Float,size:Float,p:Paint,outline:Boolean=false){val path=Path();val cx=x+size/2;val cy=y+size*.53f;val R=size*.5f;val r=R*.48f
             for(i in 0 until 10){val rr=if(i%2==0)R else r;val t=Math.toRadians(-90.0+36*i);val px=(cx+rr*cos(t)).toFloat();val py=(cy+rr*sin(t)).toFloat();if(i==0)path.moveTo(px,py) else path.lineTo(px,py)};path.close()
-            p.style=Paint.Style.FILL;p.pathEffect=CornerPathEffect(size*.08f);c.drawPath(path,p);p.pathEffect=null}}
+            if(outline){val w=size*.07f;p.style=Paint.Style.STROKE;p.strokeWidth=w;p.strokeJoin=Paint.Join.ROUND
+                // the edge stays inside the square
+                val k=(size-w)/size;c.save();c.scale(k,k,cx,y+size/2)}else p.style=Paint.Style.FILL
+            p.pathEffect=CornerPathEffect(size*.08f);c.drawPath(path,p);p.pathEffect=null;if(outline){c.restore();p.style=Paint.Style.FILL}}}
 }
 
 // ───────────────────────── the share picture ─────────────────────────
