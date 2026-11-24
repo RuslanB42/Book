@@ -23,7 +23,9 @@ import kotlin.math.roundToInt
 internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
     companion object{
         const val MIN=80;const val MAX=900;const val STEP=5
-        private const val ASK_AFTER=10*60_000L;private const val ASK_FOR=20_000L
+        private const val ASK_FOR=20_000L
+        /** How long without a touch before «Ещё читаете?» (minutes; 0 never asks), chosen in the control. */
+        private val ASK_CHOICES=listOf(10,20,30,45,60,0)
         private const val PICTURE_MS=3000L
         private fun perMs(wpm:Int)=wpm*ReadingTracker.CHARS_PER_WORD/60000.0
     }
@@ -73,7 +75,8 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
     private fun keep(on:Boolean){if(on)a.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else a.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)}
 
     private fun step(){
-        if(running&&!asking&&now-lastTouch>ASK_AFTER){ask();return}
+        val askAfter=a.prefs.optInt("autoAsk",10)*60_000L
+        if(running&&!asking&&askAfter>0&&now-lastTouch>askAfter){ask();return}
         if(!running||asking)return
         if(r.paged())turnStep() else scrollStep()}
     private fun turnStep(){if(key.isEmpty())pageShown();line.invalidate()
@@ -167,8 +170,25 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
         box.addView(Dial(),LinearLayout.LayoutParams(-1,a.d(56)).apply{topMargin=a.d(14)})
         box.addView(View(a).apply{setBackgroundColor((ink and 0xffffff) or (0x12 shl 24))},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);leftMargin=a.d(16);rightMargin=a.d(16)})
         box.addView(LayoutToggle(a,"Подстраиваться под меня",adapt){on->adapt=on;a.prefs.put("autoAdapt",on);a.savePreferences()},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(12);leftMargin=a.d(12);rightMargin=a.d(12)})
+        box.addView(AskRow(),LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(8);leftMargin=a.d(12);rightMargin=a.d(12)})
         r.view.addView(box,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{leftMargin=a.d(14);rightMargin=a.d(14);bottomMargin=a.d(26)})
         return box}
+
+    private fun askLabel(m:Int)=if(m==0)"не спрашивать" else "через $m мин"
+    /** «Ещё читаете?» and when: a capsule like the switch above it, its choice on the right; a tap lists the choices. */
+    private inner class AskRow:View(a){
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG)
+        init{isClickable=true;a.press(this);contentDescription="Спрашивать «Ещё читаете?»";setOnClickListener{choose()}}
+        private fun choose(){val now=a.prefs.optInt("autoAsk",10)
+            a.dialog().setTitle("Спрашивать «Ещё читаете?»").setItemIcons(*ASK_CHOICES.map{if(it==now)"check" else ""}.toTypedArray())
+                .setItems(ASK_CHOICES.map{askLabel(it).replaceFirstChar{c->c.uppercase()}}.toTypedArray()){_,i->a.prefs.put("autoAsk",ASK_CHOICES[i]);a.savePreferences();lastTouch=SystemClock.uptimeMillis();invalidate()}.show()}
+        override fun onDraw(c:Canvas){val h=height.toFloat();val w=width.toFloat();val d=a.resources.displayMetrics.density
+            p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,h/2,h/2,p)
+            t.typeface=PolkaFonts.sans(400);t.textSize=13f*a.resources.displayMetrics.scaledDensity;val mid=h/2f-(t.ascent()+t.descent())/2f
+            t.color=if(a.light)0xff3a3a3e.toInt() else 0xffcfcfd4.toInt();t.textAlign=Paint.Align.LEFT;c.drawText("«Ещё читаете?»",14*d,mid,t)
+            t.color=if(a.light)0xff8a8a8e.toInt() else 0xff8e8e93.toInt();t.textAlign=Paint.Align.RIGHT;c.drawText(askLabel(a.prefs.optInt("autoAsk",10)),w-30*d,mid,t)
+            c.save();c.translate(w-26*d,(h-16*d)/2);c.scale(16*d/24f,16*d/24f);IosIcons.draw(c,"next",t.color);c.restore()}
+    }
 
     /** The speed on a ruler: dragged or flung under the mark, it stops on a step of five words with a soft tick. */
     private inner class Dial:View(a){
