@@ -198,9 +198,11 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
     private inner class PageCard(shot:Bitmap,from:RectF?,private val face:Bitmap?):FrameLayout(a){
         private val facePaint=Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG);private val faceSrc=Rect()
         init{setWillNotDraw(false)}
+        /** How far along the flight is in time (its place, [t], is eased; the cover's coming is spread over the time). */
+        var time=0f;set(v){field=v;invalidate()}
         /** The cover comes up through the page all along the flight (it is the page turning into it, not a swap at
-         *  the end): from a fifth of the way to near its end, eased at both ends. */
-        private fun faceAlpha():Float{val x=((t-.18f)/.62f).coerceIn(0f,1f);return x*x*(3-2*x)}
+         *  the end): from 15 % to 75 % of its time, eased at both ends. */
+        private fun faceAlpha():Float{val x=((time-.15f)/.6f).coerceIn(0f,1f);return x*x*(3-2*x)}
         override fun dispatchDraw(c:Canvas){super.dispatchDraw(c)
             val f=face?:return;val k=faceAlpha();if(k<=0f||now.isEmpty)return
             // the cover fills the window as the real one fills its place: cut evenly to its shape
@@ -255,7 +257,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             card.target.set((at[0]-o[0]).toFloat(),(at[1]-o[1]).toFloat(),(at[0]-o[0]+cover.width).toFloat(),(at[1]-o[1]+cover.height).toFloat())
             // the page flies and turns into the cover on the way; the real cover only takes over once the card has
             // become it (same picture, same place), so nothing changes there
-            clock(820,0,glide,{card.t=it}){cover.alpha=1f;card.visibility=View.GONE}
+            clock(820,0,android.view.animation.LinearInterpolator(),{f->card.time=f;card.t=glide.getInterpolation(f)}){cover.alpha=1f;card.visibility=View.GONE}
             // a book with no cover picture (a drawn one): that one comes up over the card in the second half instead
             if(a.cover(book)==null)cover.animate().alpha(1f).setStartDelay(380).setDuration(380).setInterpolator(MotionSpec.move).withLayer().start()
             backdrop?.animate()?.alpha(0f)?.setDuration(520)?.setInterpolator(MotionSpec.move)?.start()}
@@ -287,12 +289,12 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         if(!closeBook&&pc!=null&&c!=null&&c.width>0){
             // back to the page: the cover becomes the page again and opens out to the whole screen, which is the
             // reader as it was under this window
-            pc.visibility=View.VISIBLE;pc.t=1f
+            pc.visibility=View.VISIBLE;pc.time=1f;pc.t=1f
             backdrop?.animate()?.alpha(1f)?.setStartDelay(120)?.setDuration(340)?.setInterpolator(MotionSpec.move)?.start()
             c.animate().cancel();c.alpha=0f
             glow?.animate()?.alpha(0f)?.setStartDelay(0)?.setDuration(300)?.setInterpolator(MotionSpec.exit)?.start()
             scrim?.animate()?.alpha(0f)?.setStartDelay(0)?.setDuration(300)?.start()
-            clock(560,0,glide,{pc.t=1f-it}){dialog.dismiss();done(false)}
+            clock(560,0,android.view.animation.LinearInterpolator(),{f->pc.time=1f-f;pc.t=1f-glide.getInterpolation(f)}){dialog.dismiss();done(false)}
             return}
         // leaving the book: the reader closes under this window at once, so it fades straight onto the library
         done(closeBook)
