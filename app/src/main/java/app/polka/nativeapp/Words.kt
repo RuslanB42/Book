@@ -337,7 +337,8 @@ internal class WordLesson(private val a:MainActivity){
         // the lesson rises over the app like a sheet (see MotionSpec)
         if(!reduced){root.translationY=a.resources.displayMetrics.heightPixels.toFloat();root.animate().translationY(0f).setDuration(MotionSpec.SHEET_IN).setInterpolator(MotionSpec.enter).start()}
         val langs=queue.map{it.str("lang")}.toSet()
-        Thread{langs.forEach{l->pools[l]=try{Dictionary.sample(a,l,900)}catch(_:Exception){emptyList()}};root.post{if(dialog!=null)ask(true)}}.start()
+        // the first exercise always comes, even when the sample fails
+        Thread{langs.forEach{l->pools[l]=try{Dictionary.sample(a,l,900)}catch(_:Throwable){emptyList()}};root.post{if(dialog!=null)ask(true)}}.start()
     }
     private fun close(){val d=dialog?:return;dialog=null;handler.removeCallbacksAndMessages(null);hideKeyboard()
         val end={d.dismiss();if(a.tab=="words")a.renderLibraryResults()}

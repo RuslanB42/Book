@@ -74,14 +74,20 @@ internal object Dictionary{
     /** A random sample of [lang] (word, meaning, part of speech), from which an exercise picks its wrong choices:
      *  plain lowercase words with a short meaning of their own (no «действие по значению…», no references). */
     fun sample(c:Context,lang:String,n:Int):List<Triple<String,String,String>>{val d=open(c)?:return emptyList();val out=ArrayList<Triple<String,String,String>>()
-        val top=d.rawQuery("SELECT MAX(rowid) FROM e",null).use{if(it.moveToFirst())it.getLong(0) else 0L};if(top<=0)return out
-        val rnd=java.util.Random();val seen=HashSet<String>();var tries=0
-        while(out.size<n&&tries<n*3){tries++
-            d.rawQuery("SELECT data FROM e WHERE rowid>=? AND lang=? LIMIT 1",arrayOf((1+(rnd.nextDouble()*top).toLong()).toString(),lang)).use{cur->if(cur.moveToFirst()){val e=try{JSONObject(cur.getString(0))}catch(_:Exception){null}
+        // each language lies in its own run of rows: a random row is picked inside that run, so every query finds its
+        // row at once (picked from the whole table, a row past the run scanned the rest of it — a lesson waited minutes)
+        val (low,high)=span(d,lang)?:return out
+        val rnd=java.util.Random();val seen=HashSet<String>();var tries=0;val until=android.os.SystemClock.uptimeMillis()+1500
+        while(out.size<n&&tries<n*3&&android.os.SystemClock.uptimeMillis()<until){tries++
+            d.rawQuery("SELECT data FROM e WHERE rowid>=? AND lang=? LIMIT 1",arrayOf((low+(rnd.nextDouble()*(high-low+1)).toLong()).toString(),lang)).use{cur->if(cur.moveToFirst()){val e=try{JSONObject(cur.getString(0))}catch(_:Exception){null}
                 val w=e?.optString("w")?.replace("́","").orEmpty();val tr=e?.optJSONArray("t")
                 val m=Words.plain(if(tr!=null&&tr.length()>0)(0 until minOf(tr.length(),3)).joinToString(", "){tr.getString(it)} else e?.optJSONArray("s")?.optJSONArray(0)?.optString(0).orEmpty())
                 if(e!=null&&w.length in 3..20&&w.all{it.isLetter()||it=='-'}&&w.none{it.isUpperCase()}&&m.length in 6..120&&!Words.vague(m)&&seen.add(w))out+=Triple(w,m,e.optString("p"))}}}
         return out}
+    private val spans=HashMap<String,Pair<Long,Long>>()
+    /** The first and last row of [lang] (found once). */
+    private fun span(d:SQLiteDatabase,lang:String):Pair<Long,Long>?=synchronized(spans){spans[lang]?:d.rawQuery("SELECT MIN(rowid),MAX(rowid) FROM e WHERE lang=?",arrayOf(lang)).use{
+        if(it.moveToFirst()&&!it.isNull(0))(it.getLong(0) to it.getLong(1)).also{p->spans[lang]=p} else null}}
 }
 
 /**
