@@ -119,17 +119,21 @@ internal class CardMorph(private val a:MainActivity,private val frame:FrameLayou
 
     /** Out of the card, started on the first drawn frame so no step is skipped. */
     fun open(){full();capture();pose(0f);content.setLayerType(View.LAYER_TYPE_HARDWARE,null)
+        // it starts once the frames that build the page and its layer are drawn (they hold the card's own look), so
+        // none of its steps is lost to them
         frame.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{frame.viewTreeObserver.removeOnPreDrawListener(this)
-            full();run(0f,1f,520,MotionSpec.enter,{pose(it)}){still()};return true}})}
+            full();pose(0f);val ch=Choreographer.getInstance();val g=++gen;ch.postFrameCallback{ch.postFrameCallback{if(g==gen&&frame.isAttachedToWindow)run(0f,1f,520,MotionSpec.enter,{pose(it)}){still()}}};return true}})}
     /** Back into the card (as it is now, so it is brought up to date first), from wherever the page is. */
-    fun close(done:()->Unit){val held=!bounds.isEmpty&&swiping;swiping=false
+    /** Which motion is current: an opening still waiting to start is dropped when the page closes first. */
+    private var gen=0
+    fun close(done:()->Unit){gen++;val held=!bounds.isEmpty&&swiping;swiping=false
         frame.post{val r=radius;if(held)home.set(bounds) else full();capture();content.setLayerType(View.LAYER_TYPE_HARDWARE,null);pose(if(held)1f else k,if(held)r else 0f)
             run(k,0f,if(held)380 else 420,PathInterpolator(.3f,0f,.1f,1f),{pose(it,if(held)r else 0f)}){done()}}}
 
     // ── the swipe back ──
     private var swiping=false
     /** The page under the finger, [dx] to the right of where the swipe started. */
-    fun hold(dx:Float){if(!swiping){stop();swiping=true;from=null;content.setLayerType(View.LAYER_TYPE_HARDWARE,null)}
+    fun hold(dx:Float){if(!swiping){gen++;stop();swiping=true;from=null;content.setLayerType(View.LAYER_TYPE_HARDWARE,null)}
         val q=(dx/W).coerceIn(0f,1f);val s=1f-.14f*q
         val w=W*s;val h=H*s;val left=(W-w)/2f+dx*.5f;val top=(H-h)/2f
         home.set(left,top,left+w,top+h);pose(1f,a.d(corner)*(q*5f).coerceAtMost(1f))}

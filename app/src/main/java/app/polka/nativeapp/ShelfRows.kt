@@ -229,37 +229,45 @@ internal class ShelfMorph(private val a:MainActivity,val trip:Trip,private val t
     private val cardColor=if(a.light)Color.WHITE else 0xff202022.toInt()
     private var page:View?=null
     private val bounds=RectF();private val home=RectF();private var radius=0f
-    private var under:ImageView?=null;private var patched:Bitmap?=null
+    private var under:ImageView?=null
     private var snapView:ImageView?=null;private var lay:FrameLayout?=null
     private var legs=emptyList<Leg>()
     private var anim:android.animation.ValueAnimator?=null
     private var holding=false
-    private val pageFill=android.graphics.drawable.ColorDrawable(cardColor)
+    /** The card's empty place on the list's picture (its name and covers are on the way), and the page's ground
+     *  under its content: plain rounded rectangles, so a frame redraws only them, never the page's content. */
+    private val hole=Plate(false);private val ground=Plate(true)
+    private var fill=cardColor
+    private inner class Plate(private val moving:Boolean):View(a){
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+        init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
+        override fun onDraw(c:Canvas){if(moving){if(bounds.isEmpty)return;p.color=fill;c.drawRoundRect(bounds,radius,radius,p)}
+            else{p.color=cardColor;val r=a.d(26).toFloat();c.drawRoundRect(trip.card,r,r,p)}}}
     private val outline=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){
         if(bounds.isEmpty){o.setRect(0,0,v.width,v.height);return}
         val s=bounds.width()/W;o.setRoundRect(0,0,v.width,Math.round(bounds.height()/s),radius/s)}}
 
     /** The list's picture under the page; [empty]: its card without its name and covers (they are on the way). */
     private fun underlay(empty:Boolean){val b=a.backdrop?:return
-        val pic=if(!empty)b else patched?:b.copy(Bitmap.Config.ARGB_8888,true).also{c->patched=c;val r=a.d(26).toFloat()
-            Canvas(c).drawRoundRect(trip.card,r,r,Paint(Paint.ANTI_ALIAS_FLAG).apply{color=cardColor})}
-        val u=under?:ImageView(a).apply{scaleType=ImageView.ScaleType.MATRIX;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
-            .also{under=it;a.root.addView(it,0,FrameLayout.LayoutParams(b.width,b.height))}
-        u.setImageBitmap(pic)}
+        if(under==null){under=ImageView(a).apply{setImageBitmap(b);scaleType=ImageView.ScaleType.MATRIX;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
+            .also{a.root.addView(it,0,FrameLayout.LayoutParams(b.width,b.height))}
+            a.root.addView(hole,1,FrameLayout.LayoutParams(-1,-1))}
+        hole.visibility=if(empty)View.VISIBLE else View.INVISIBLE}
     private fun attach(empty:Boolean){val p=a.scroll;page=p
         underlay(empty)
-        p.outlineProvider=outline;p.clipToOutline=true;p.background=pageFill;p.pivotX=0f;p.pivotY=0f
+        // the page is drawn once into a layer and then only moved, scaled, clipped and faded (no redraw per frame)
+        if(ground.parent==null)a.root.addView(ground,a.root.indexOfChild(p),FrameLayout.LayoutParams(-1,-1))
+        p.outlineProvider=outline;p.clipToOutline=true;p.background=null;p.pivotX=0f;p.pivotY=0f;p.setLayerType(View.LAYER_TYPE_HARDWARE,null)
         if(snapView==null)trip.snap?.let{s->snapView=ImageView(a).apply{setImageBitmap(s);scaleType=ImageView.ScaleType.FIT_XY;pivotX=0f;pivotY=0f;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
             .also{a.root.addView(it,a.root.indexOfChild(p)+1,FrameLayout.LayoutParams(s.width,s.height))}}
         if(lay==null)lay=FrameLayout(a).apply{clipChildren=false;isClickable=true;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS;translationZ=a.d(40).toFloat()}
             .also{a.root.addView(it,FrameLayout.LayoutParams(-1,-1))}}
     /** Everything back as it was: the page whole and still, the helpers gone. */
     private fun detach(){val p=page
-        if(p!=null){p.scaleX=1f;p.scaleY=1f;p.translationX=0f;p.translationY=0f;p.clipToOutline=false;p.outlineProvider=ViewOutlineProvider.BACKGROUND;p.background=null
-            (p as? ViewGroup)?.getChildAt(0)?.alpha=1f}
+        if(p!=null){p.scaleX=1f;p.scaleY=1f;p.translationX=0f;p.translationY=0f;p.alpha=1f;p.clipToOutline=false;p.outlineProvider=ViewOutlineProvider.BACKGROUND;p.setLayerType(View.LAYER_TYPE_NONE,null)}
         legs.forEach{it.real?.alpha=1f};legs=emptyList()
-        listOfNotNull(under,snapView,lay).forEach{a.root.removeView(it)};under=null;snapView=null;lay=null
-        patched?.recycle();patched=null;bounds.setEmpty();page=null}
+        listOfNotNull(under,hole,ground,snapView,lay).forEach{a.root.removeView(it)};under=null;snapView=null;lay=null
+        bounds.setEmpty();page=null}
 
     /** The covers' flights: from the fan to the page's cells ([cells]: by book, in the page's own, unscaled
      *  coordinates); in the fan's order, the outer ones first so the middle ones lie on top. */
@@ -285,8 +293,8 @@ internal class ShelfMorph(private val a:MainActivity,val trip:Trip,private val t
         bounds.set(c.left+(home.left-c.left)*k,c.top+(home.top-c.top)*k,c.right+(home.right-c.right)*k,c.bottom+(home.bottom-c.bottom)*k)
         radius=a.d(26)*(1-k)+round*k
         val s=bounds.width()/W;p.scaleX=s;p.scaleY=s;p.translationX=bounds.left;p.translationY=bounds.top;p.invalidateOutline()
-        pageFill.color=androidx.core.graphics.ColorUtils.blendARGB(cardColor,a.bg,k)
-        (p as? ViewGroup)?.getChildAt(0)?.alpha=((k-.12f)/.42f).coerceIn(0f,1f)
+        fill=androidx.core.graphics.ColorUtils.blendARGB(cardColor,a.bg,k);ground.invalidate()
+        p.alpha=((k-.12f)/.42f).coerceIn(0f,1f)
         snapView?.let{v->val ss=bounds.width()/v.layoutParams.width;v.scaleX=ss;v.scaleY=ss;v.translationX=bounds.left;v.translationY=bounds.top;v.alpha=(1f-k/.32f).coerceIn(0f,1f)}
         legs.forEach{l->val v=l.copy;val w=v.layoutParams.width.toFloat();val h=v.layoutParams.height.toFloat();val from=l.spot.r;val to=l.to
             val r=if(to==null)from else {val tx=to.left*s+bounds.left;val ty=to.top*s+bounds.top
@@ -303,10 +311,13 @@ internal class ShelfMorph(private val a:MainActivity,val trip:Trip,private val t
     fun open(){busy=true;attach(true)
         a.root.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{a.root.viewTreeObserver.removeOnPreDrawListener(this)
             full();legs=legs(cells());pose(0f)
-            run(0f,1f,OPEN,MotionSpec.enter,{pose(it)}){detach();busy=false};return false}})}
+            later{run(0f,1f,OPEN,MotionSpec.enter,{pose(it)}){detach();busy=false}};return false}})}
+    /** The motion starts once the frames that build the page and its layer are drawn, so none of its steps is lost
+     *  to them (they hold the first pose, which looks exactly like what was there). */
+    private fun later(f:()->Unit){val ch=android.view.Choreographer.getInstance();ch.postFrameCallback{ch.postFrameCallback{if(page!=null)f()}}}
     /** Back into the card (the back button or the system back). */
     fun close(){busy=true;attach(true);full();legs=legs(cells());pose(1f)
-        run(1f,0f,CLOSE,close,{pose(it)}){busy=false;toList();patched?.recycle();patched=null}}
+        later{run(1f,0f,CLOSE,close,{pose(it)}){busy=false;toList()}}}
 
     // ── the swipe back ──
     override val swipeView:View get()=a.scroll
@@ -316,7 +327,7 @@ internal class ShelfMorph(private val a:MainActivity,val trip:Trip,private val t
         home.set(left,top,left+w,top+h);pose(1f,a.d(26)*(q*5f).coerceAtMost(1f))}
     override fun swipeEnd(go:Boolean){if(!holding)return;holding=false
         if(go){busy=true;underlay(true);val r=radius;legs=legs(cells());pose(1f,r)
-            run(1f,0f,CLOSE,close,{pose(it,r)}){busy=false;toList();patched?.recycle();patched=null};return}
+            run(1f,0f,CLOSE,close,{pose(it,r)}){busy=false;toList()};return}
         val h0=RectF(home);val r0=radius
         run(0f,1f,MotionSpec.SETTLE,MotionSpec.move,{t->home.set(h0.left*(1-t),h0.top*(1-t),h0.right+(W-h0.right)*t,h0.bottom+(H-h0.bottom)*t);pose(1f,r0*(1-t))}){detach()}}
 }
