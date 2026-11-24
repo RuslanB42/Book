@@ -57,7 +57,7 @@ internal class EmptyArt(private val a:MainActivity,private val kind:String,priva
     private fun back(light:Boolean,r:Float):Bitmap=cache.getOrPut("$kind:$width:$light"){val cx=width/2f;val cy=height/2f;val out=cx
         fun fall(dist:Float,from:Float,to:Float):Float{val t=((dist-from)/(to-from)).coerceIn(0f,1f);val k=1-t;return k*k*(3-2*k)*k}
         val glow=SoftShade.bake(width,height,accent,if(light).03f else .05f){x,y->fall(kotlin.math.hypot(x-cx,y-cy),r*.5f,out)}
-        val sy=cy+a.d(6);val shade=SoftShade.bake(width,height,0,if(light).07f else .16f){x,y->fall(kotlin.math.hypot(x-cx,y-sy),r*.78f,r+a.d(20))}
+        val sy=cy+a.d(6);val shade=SoftShade.bake(width,height,0,if(light).06f else 0f){x,y->fall(kotlin.math.hypot(x-cx,y-sy),r*.78f,r+a.d(20))}
         Canvas(glow).drawBitmap(shade,0f,0f,null);glow}
     private companion object{val cache=HashMap<String,Bitmap>()}
 }

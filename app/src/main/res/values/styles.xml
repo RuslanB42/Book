@@ -14,20 +14,20 @@
         <!-- Soft shadows everywhere: no ambient ring round raised things (it read as a dark halo and an edge) and only a
              faint key-light shadow, so no edge or dark patch shows under plaques and sheets. -->
         <item name="android:ambientShadowAlpha">0</item>
-        <item name="android:spotShadowAlpha">0.08</item>
+        <item name="android:spotShadowAlpha">0.04</item>
     </style>
     <!-- Full-screen windows (the reader, the finish screen, photos) cast the same soft shadows as the app. -->
     <style name="PolkaBlack" parent="@android:style/Theme.Black.NoTitleBar">
         <!-- Soft shadows everywhere: no ambient ring round raised things (it read as a dark halo and an edge) and only a
              faint key-light shadow, so no edge or dark patch shows under plaques and sheets. -->
         <item name="android:ambientShadowAlpha">0</item>
-        <item name="android:spotShadowAlpha">0.08</item>
+        <item name="android:spotShadowAlpha">0.04</item>
     </style>
     <style name="PolkaBlackFull" parent="@android:style/Theme.Black.NoTitleBar.Fullscreen">
         <!-- Soft shadows everywhere: no ambient ring round raised things (it read as a dark halo and an edge) and only a
              faint key-light shadow, so no edge or dark patch shows under plaques and sheets. -->
         <item name="android:ambientShadowAlpha">0</item>
-        <item name="android:spotShadowAlpha">0.08</item>
+        <item name="android:spotShadowAlpha">0.04</item>
     </style>
     <style name="PolkaScroll" parent="android:Widget.Material.ScrollView"><item name="android:scrollbars">none</item></style>
     <style name="PolkaHScroll" parent="android:Widget.Material.HorizontalScrollView"><item name="android:scrollbars">none</item></style>

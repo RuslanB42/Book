@@ -55,7 +55,7 @@ class SlidingSegment(val a:MainActivity,selected:Int,val count:Int,private val t
     private val shadow=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c:android.graphics.Canvas) { super.onDraw(c); val pad=a.d(2).toFloat(); val cell=(width-pad*2)/count;
         // Soft shadow under the selected thumb so the active tab lifts off the track.
-        shadow.color=thumbColor?:(if(a.light)android.graphics.Color.WHITE else 0xff4a4a4e.toInt());shadow.setShadowLayer(a.d(6).toFloat(),0f,a.d(2).toFloat(),if(a.light)0x24000000 else 0x52000000)
+        shadow.color=thumbColor?:(if(a.light)android.graphics.Color.WHITE else 0xff4a4a4e.toInt());if(a.light)shadow.setShadowLayer(a.d(6).toFloat(),0f,a.d(2).toFloat(),0x1a000000) else shadow.clearShadowLayer()
         val r=if(thumbColor!=null)a.d(pillRadius-2).toFloat() else a.d(9).toFloat();c.drawRoundRect(pad+cell*index+a.d(1),pad+a.d(1),pad+cell*(index+1)-a.d(1),height-pad-a.d(1),r,r,shadow)
 if(thumbColor!=null){ink.color=thumbColor;c.drawRoundRect(pad+cell*index,pad,pad+cell*(index+1),height-pad,a.d(pillRadius-2).toFloat(),a.d(pillRadius-2).toFloat(),ink)}else{c.save();c.translate(pad+cell*index,pad);segmentThumb.setBounds(0,0,cell.toInt(),(height-pad*2).toInt());segmentThumb.draw(c);c.restore()} }
     override fun onDetachedFromWindow() { spring.stop(); super.onDetachedFromWindow() }
@@ -322,8 +322,9 @@ internal class LiftedPill(private val a:MainActivity,private val fill:Int):andro
     private val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply{color=fill}
     override fun draw(c:android.graphics.Canvas){val b=android.graphics.RectF(bounds);val r=b.height()/2f
         // the active tab floats too: its shade all round, hardly offset (not dropped below it)
-        shadow.maskFilter=android.graphics.BlurMaskFilter(a.d(11).toFloat(),android.graphics.BlurMaskFilter.Blur.NORMAL);shadow.color=if(a.light)0x24000000 else 0x66000000
-        c.drawRoundRect(b.left,b.top+a.d(2),b.right,b.bottom+a.d(2),r,r,shadow)
+        shadow.maskFilter=android.graphics.BlurMaskFilter(a.d(14).toFloat(),android.graphics.BlurMaskFilter.Blur.NORMAL);shadow.color=0x18000000
+        // none on the dark bar: there it only showed as a dark rim
+        if(a.light)c.drawRoundRect(b.left,b.top+a.d(2),b.right,b.bottom+a.d(2),r,r,shadow)
         c.drawRoundRect(b,r,r,paint)}
     override fun setAlpha(alpha:Int){paint.alpha=alpha}
     override fun setColorFilter(f:android.graphics.ColorFilter?){paint.colorFilter=f}

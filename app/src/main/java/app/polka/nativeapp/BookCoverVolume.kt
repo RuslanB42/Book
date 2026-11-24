@@ -38,8 +38,8 @@ internal object BookCoverVolume {
         }
         if(soft){
             // Floating recommendation cards: a broad feathered penumbra, no hard contact ring.
-            p.setShadowLayer(36f,2f,18f,if(dark)0x2c000000 else 0x18000000);c.drawRoundRect(r,3f,3f,p)
-            p.setShadowLayer(16f,1f,7f,if(dark)0x1a000000 else 0x10000000);c.drawRoundRect(r,3f,3f,p)
+            p.setShadowLayer(36f,2f,18f,if(dark)0x2c000000 else 0x12000000);c.drawRoundRect(r,3f,3f,p)
+            p.setShadowLayer(16f,1f,7f,if(dark)0x1a000000 else 0x0a000000);c.drawRoundRect(r,3f,3f,p)
             shadows[index]=b;return b
         }
         // A hardcover lying on a table, lit from above-left (approved Т2+): a short cast to the lower right and a soft
@@ -51,13 +51,14 @@ internal object BookCoverVolume {
             tp.maskFilter=if(sigma<.6f)null else BlurMaskFilter(((sigma-.5f)/.57735f).coerceAtLeast(.5f),BlurMaskFilter.Blur.NORMAL)
             tp.alpha=(255*(if(dark)darkA else light)).toInt();val g=spread*k
             tc.drawRoundRect(m+dx*k-g,m+dy*k-g,m+240f+dx*k+g,m+360f+dy*k+g,4f,4f,tp)}
-        layer(5f,10f,22f,-4f,.16f,.42f)
-        layer(2f,5f,10f,-1f,.14f,.30f)
-        layer(1f,2f,5f,0f,.12f,.22f)
+        layer(5f,10f,24f,-4f,.10f,.42f)
+        layer(2f,5f,12f,-1f,.07f,.30f)
+        layer(1f,2f,6f,0f,.05f,.22f)
         shadows[index]=t;return t
     }
     @Synchronized fun shadow(c:Canvas,r:RectF,dark:Boolean,soft:Boolean=false,stack:Boolean=false,fade:Float=1f) {
-        if(r.width()<=0||r.height()<=0||fade<=0f)return
+        // the dark theme casts no shade: on a dark page it only shows as a dark rim round the cover
+        if(dark||r.width()<=0||r.height()<=0||fade<=0f)return
         val w=r.width();val h=r.height();ink.shader=null;ink.color=Color.WHITE;ink.alpha=(255*fade.coerceAtMost(1f)).toInt()
         if(!soft&&!stack){val mx=THICK_MARGIN*w/240f;val my=THICK_MARGIN*h/360f
             c.drawBitmap(shadow(dark,false,false),null,RectF(r.left-mx,r.top-my,r.right+mx,r.bottom+my),ink);return}

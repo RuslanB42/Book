@@ -67,16 +67,18 @@ internal object FloatShade{
   val pad=pad(a);val W=(w+2*pad).toInt();val H=(h+2*pad).toInt()
   // Only wide, faint gaussians: one broad fall a little below the card and a soft near one. No tight contact layer —
   // that was the line you could see round every plaque, and on a dark page the dark shades read as black patches.
-  val wide=Glow.blurred(W,H,4,a.d(20).toFloat()){c,pp->pp.color=if(light)0x16000000 else 0x40000000;shape(c,pp,pad)}?:return null
-  val near=Glow.blurred(W,H,4,a.d(7).toFloat()){c,pp->pp.color=if(light)0x0c000000 else 0x1c000000;shape(c,pp,pad)}
+  val wide=Glow.blurred(W,H,4,a.d(22).toFloat()){c,pp->pp.color=0x12000000;shape(c,pp,pad)}?:return null
+  val near=Glow.blurred(W,H,4,a.d(9).toFloat()){c,pp->pp.color=0x08000000;shape(c,pp,pad)}
   val out=Bitmap.createBitmap(wide.width,wide.height,Bitmap.Config.ARGB_8888);val c=Canvas(out);val fp=Paint(Paint.FILTER_BITMAP_FLAG)
   // the shades are baked at a quarter of the size, so their drops are in quarters too (light from above)
   c.drawBitmap(wide,0f,a.d(6)/4f,fp);near?.let{c.drawBitmap(it,0f,a.d(2)/4f,fp);it.recycle()};wide.recycle()
   cache.put(key,out);return out}
  private fun put(c:Canvas,a:MainActivity,b:Bitmap,r:RectF,opacity:Int){val pad=pad(a);dst.set(r.left-pad,r.top-pad,r.right+pad,r.bottom+pad);p.alpha=opacity;c.drawBitmap(b,null,dst,p)}
- fun draw(c:Canvas,a:MainActivity,r:RectF,radius:Float,light:Boolean,opacity:Int=255){val w=r.width().toInt();val h=r.height().toInt();if(w<2||h<2)return
+ /** On a dark page any shade darker than the page shows as a dark rim round the card, however soft: the dark
+  *  theme casts none (the lighter fill alone lifts the card). */
+ fun draw(c:Canvas,a:MainActivity,r:RectF,radius:Float,light:Boolean,opacity:Int=255){if(!light)return;val w=r.width().toInt();val h=r.height().toInt();if(w<2||h<2)return
   val rad=radius;bake(a,w,h,light,Shape.round(rad))?.let{put(c,a,it,r,opacity)}}
- fun drawPath(c:Canvas,a:MainActivity,path:Path,light:Boolean,opacity:Int=255){val r=RectF();path.computeBounds(r,true);val w=r.width().toInt();val h=r.height().toInt();if(w<2||h<2)return
+ fun drawPath(c:Canvas,a:MainActivity,path:Path,light:Boolean,opacity:Int=255){if(!light)return;val r=RectF();path.computeBounds(r,true);val w=r.width().toInt();val h=r.height().toInt();if(w<2||h<2)return
   bake(a,w,h,light,Shape.path(path,r))?.let{put(c,a,it,r,opacity)}}
  /** Shapes with a stable identity per form, so each size and form is baked once. */
  private object Shape{

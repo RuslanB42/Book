@@ -67,8 +67,8 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         val near=IntArray(2);val tight=Bitmap.createBitmap(px,card.width,card.height,Bitmap.Config.ARGB_8888).extractAlpha(Paint().apply{maskFilter=BlurMaskFilter(a.d(8).toFloat(),BlurMaskFilter.Blur.NORMAL)},near)
         val out=Bitmap.createBitmap(card.width,card.height,Bitmap.Config.ARGB_8888);val c=Canvas(out);val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         // one broad fall and a faint near one: no ring that could show as an edge
-        p.color=if(a.light)0x2e000000 else 0x3d000000;c.drawBitmap(soft,offset[0].toFloat(),offset[1].toFloat()+a.d(10),p)
-        p.color=if(a.light)0x12000000 else 0x1a000000;c.drawBitmap(tight,near[0].toFloat(),near[1].toFloat()+a.d(3),p)
+        p.color=if(a.light)0x24000000 else 0;c.drawBitmap(soft,offset[0].toFloat(),offset[1].toFloat()+a.d(10),p)
+        p.color=if(a.light)0x0c000000 else 0;c.drawBitmap(tight,near[0].toFloat(),near[1].toFloat()+a.d(3),p)
         soft.recycle();tight.recycle();return card to out
     }
     private fun position(){if(hypot(px-sx,py-sy)>a.d(12))moved=true;val at=IntArray(2);a.root.getLocationOnScreen(at);val x=px-gx-at[0];val y=py-gy-at[1];for(g in listOfNotNull(ghost,shade)){g.translationX=x;g.translationY=y}}
