@@ -189,7 +189,7 @@ class MainActivity : Activity() {
     /** Into a shelf (yours or a status one). From its card on «Полки» ([from], its fan) the fanned covers fly into
      *  the shelf's first places while its page fades in (see [ShelfFlight]); otherwise see [Depth]: the shelf's page
      *  comes in from the right over the list (a picture of it, the navigation in it), which moves left and darkens. */
-    fun enterShelf(from:ShelfFan?=null,change:()->Unit){val before=if(::scroll.isInitialized)scroll else null
+    internal fun enterShelf(from:ShelfFan?=null,change:()->Unit){val before=if(::scroll.isInitialized)scroll else null
         val spots=from?.let{f->f.books.indices.mapNotNull{i->f.spot(i)?.let{(r,t)->ShelfFlight.Spot(f.books[i],r,t)}}}.orEmpty()
         val fanAt=from?.takeIf{spots.isNotEmpty()}?.let{f->val at=IntArray(2);f.getLocationOnScreen(at);android.graphics.RectF(at[0].toFloat(),at[1].toFloat(),(at[0]+f.width).toFloat(),(at[1]+f.height).toFloat())}
         change();render(false,false)
