@@ -98,7 +98,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         // the cover's place (the cover then shows through it)
         // a comic's backdrop round its page: the reader's colour, giving way to the light as the page flies
         val backdrop=if(shot!=null&&from!=null)View(a).apply{setBackgroundColor(fromBg)}.also{root.addView(it,FrameLayout.LayoutParams(-1,-1))} else null
-        val card=shot?.let{PageCard(it,from).also{v->root.addView(v,FrameLayout.LayoutParams(-1,-1))}}
+        val card=shot?.let{PageCard(it,from,a.cover(book)).also{v->root.addView(v,FrameLayout.LayoutParams(-1,-1))}}
         val scroll=ScrollView(a).apply{isFillViewport=true;overScrollMode=View.OVER_SCROLL_NEVER;isVerticalScrollBarEnabled=false}
         val page=a.col().apply{clipChildren=false;clipToPadding=false}
         scroll.addView(page,FrameLayout.LayoutParams(-1,-2))
@@ -195,7 +195,18 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
      * card's shadow grows as it becomes a book and its face darkens a little. Everything is moved by the view's own
      * properties (the picture is drawn once), so each frame is cheap.
      */
-    private inner class PageCard(shot:Bitmap,from:RectF?):FrameLayout(a){
+    private inner class PageCard(shot:Bitmap,from:RectF?,private val face:Bitmap?):FrameLayout(a){
+        private val facePaint=Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG);private val faceSrc=Rect()
+        init{setWillNotDraw(false)}
+        /** The cover comes up through the page all along the flight (it is the page turning into it, not a swap at
+         *  the end): from a fifth of the way to near its end, eased at both ends. */
+        private fun faceAlpha():Float{val x=((t-.18f)/.62f).coerceIn(0f,1f);return x*x*(3-2*x)}
+        override fun dispatchDraw(c:Canvas){super.dispatchDraw(c)
+            val f=face?:return;val k=faceAlpha();if(k<=0f||now.isEmpty)return
+            // the cover fills the window as the real one fills its place: cut evenly to its shape
+            val ra=now.width()/now.height();val ba=f.width.toFloat()/f.height
+            if(ba>ra){val w=(f.height*ra).toInt();faceSrc.set((f.width-w)/2,0,(f.width+w)/2,f.height)}else{val h=(f.width/ra).toInt();faceSrc.set(0,(f.height-h)/2,f.width,(f.height+h)/2)}
+            facePaint.alpha=(255*k).toInt();c.drawBitmap(f,faceSrc,now,facePaint)}
         /** The part of the picture that is the page (all of it, for a book). */
         private val src=from?:RectF(0f,0f,shot.width.toFloat(),shot.height.toFloat())
         private val shotW=shot.width.toFloat();private val shotH=shot.height.toFloat()
@@ -214,7 +225,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             now.set(from.left+(target.left-from.left)*k,from.top+(target.top-from.top)*k,from.right+(target.right-from.right)*k,from.bottom+(target.bottom-from.bottom)*k)
             val s=maxOf(now.width()/from.width(),now.height()/from.height())
             pic.scaleX=s;pic.scaleY=s;pic.translationX=now.centerX()-from.centerX()*s;pic.translationY=now.centerY()-from.centerY()*s
-            shade.alpha=.22f*k.coerceIn(0f,1f);elevation=a.d(18)*k.coerceIn(0f,1f);invalidateOutline()}
+            shade.alpha=.22f*k.coerceIn(0f,1f);elevation=a.d(18)*k.coerceIn(0f,1f);invalidateOutline();invalidate()}
         fun release(){pic.setImageDrawable(null);bmp?.recycle();bmp=null}
     }
     private var card:PageCard?=null;private var backdrop:View?=null;private var glow:View?=null;private var scrim:View?=null;private var close:View?=null
@@ -225,8 +236,9 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=ms;startDelay=delay;interpolator=curve
             addUpdateListener{step(it.animatedValue as Float)}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){end()}});start()}
-    /** The page's own glide: quick to leave, long to settle — like setting a book down. */
-    private val glide=android.view.animation.PathInterpolator(.32f,.72f,0f,1f)
+    /** The page's own glide: it lifts off gently (no jolt in its first frames) and settles long — like setting a
+     *  book down. */
+    private val glide=android.view.animation.PathInterpolator(.42f,0f,.12f,1f)
 
     /**
      * The end of the book as one movement (approved «Страница в обложку», worked through for smoothness):
@@ -241,10 +253,12 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         val p=root?:return
         if(card!=null){val at=IntArray(2);cover.getLocationInWindow(at);val o=IntArray(2);card.getLocationInWindow(o)
             card.target.set((at[0]-o[0]).toFloat(),(at[1]-o[1]).toFloat(),(at[0]-o[0]+cover.width).toFloat(),(at[1]-o[1]+cover.height).toFloat())
-            clock(600,0,glide,{card.t=it})
-            backdrop?.animate()?.alpha(0f)?.setDuration(420)?.setInterpolator(MotionSpec.move)?.start()
-            cover.animate().alpha(1f).setStartDelay(360).setDuration(220).setInterpolator(MotionSpec.move).withLayer()
-                .withEndAction{card.visibility=View.GONE}.start()}
+            // the page flies and turns into the cover on the way; the real cover only takes over once the card has
+            // become it (same picture, same place), so nothing changes there
+            clock(820,0,glide,{card.t=it}){cover.alpha=1f;card.visibility=View.GONE}
+            // a book with no cover picture (a drawn one): that one comes up over the card in the second half instead
+            if(a.cover(book)==null)cover.animate().alpha(1f).setStartDelay(380).setDuration(380).setInterpolator(MotionSpec.move).withLayer().start()
+            backdrop?.animate()?.alpha(0f)?.setDuration(520)?.setInterpolator(MotionSpec.move)?.start()}
         else{p.animate().alpha(1f).setDuration(MotionSpec.DARK_OUT).setInterpolator(MotionSpec.enter).start()
             cover.scaleX=.9f;cover.scaleY=.9f;cover.translationY=a.d(24).toFloat()
             cover.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setStartDelay(80).setDuration(680).setInterpolator(rise).withLayer().start()}
@@ -253,10 +267,10 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         glow.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(1100).setInterpolator(rise).start()
         // the panel slides in whole from beyond the edge (no fading glass), its lines then come in turn
         panel.translationY=(panel.height+a.d(40)).toFloat();panel.visibility=View.VISIBLE
-        panel.animate().translationY(0f).setStartDelay(240).setDuration(600).setInterpolator(rise).start()
+        panel.animate().translationY(0f).setStartDelay(320).setDuration(640).setInterpolator(rise).start()
         for(i in 0 until panel.childCount){val c=panel.getChildAt(i);c.translationY=a.d(12).toFloat()
-            c.animate().alpha(1f).translationY(0f).setStartDelay(340L+i*45).setDuration(400).setInterpolator(MotionSpec.enter).withLayer().start()}
-        close.animate().alpha(1f).setStartDelay(640).setDuration(300).setInterpolator(MotionSpec.enter).start()
+            c.animate().alpha(1f).translationY(0f).setStartDelay(440L+i*45).setDuration(400).setInterpolator(MotionSpec.enter).withLayer().start()}
+        close.animate().alpha(1f).setStartDelay(780).setDuration(300).setInterpolator(MotionSpec.enter).start()
     }
 
     private fun finish(keep:Boolean,closeBook:Boolean){
@@ -275,10 +289,10 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             // reader as it was under this window
             pc.visibility=View.VISIBLE;pc.t=1f
             backdrop?.animate()?.alpha(1f)?.setStartDelay(120)?.setDuration(340)?.setInterpolator(MotionSpec.move)?.start()
-            c.animate().alpha(0f).setStartDelay(0).setDuration(180).setInterpolator(MotionSpec.move).withLayer().start()
+            c.animate().cancel();c.alpha=0f
             glow?.animate()?.alpha(0f)?.setStartDelay(0)?.setDuration(300)?.setInterpolator(MotionSpec.exit)?.start()
             scrim?.animate()?.alpha(0f)?.setStartDelay(0)?.setDuration(300)?.start()
-            clock(460,60,MotionSpec.move,{pc.t=1f-it}){dialog.dismiss();done(false)}
+            clock(560,0,glide,{pc.t=1f-it}){dialog.dismiss();done(false)}
             return}
         // leaving the book: the reader closes under this window at once, so it fades straight onto the library
         done(closeBook)
