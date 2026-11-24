@@ -44,7 +44,7 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     section("Серия")
     val serie=card();val row=line().apply{gravity=Gravity.TOP};field(row,"series","Серия","Название серии",lp=LinearLayout.LayoutParams(0,-2,1f));row.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(1,-1).apply{setMargins(d(12),d(10),d(12),d(10))});field(row,"seriesNo","Номер","—",lp=LinearLayout.LayoutParams(d(72),-2));serie.addView(row);box.addView(serie)
     section("Подробности")
-    val more=card();field(more,"shelf","Полка","Без полки");divider(more);
+    val more=card();
     // the genres as tags: every genre there is (and the library's own), the book's are lit; a tap adds or takes one off
     val raw=book.optJSONArray("genres")?.strings().orEmpty()
     val had=raw.mapNotNull{Genres.name(it)}.distinct()
@@ -72,13 +72,13 @@ fun MainActivity.metadataEditor(book:JSONObject) {
 }
 fun MainActivity.bookActions(book:JSONObject,fromDetail:Boolean=false) {
     // from the book card itself: no «О книге» (it is open), and the shelf and rating are set right on the card
-    val all=mutableListOf("О книге" to "information","Изменить данные" to "pen","Переместить на полку" to "move","Оценить" to "star","Прикрепить файл" to "paperclip","Статус" to "check")
+    val all=mutableListOf("О книге" to "information","Изменить данные" to "pen","Оценить" to "star","Прикрепить файл" to "paperclip","Статус и полки" to "check")
     if(PageDocs.isDoc(book)) all.add("Скачать файл" to "download") else if(!book.optBoolean("noFile")) all.addAll(listOf("Скачать FB2" to "download","Скачать EPUB" to "download")); all.add("Удалить книгу" to "trash")
-    if(fromDetail) all.removeAll{it.first in setOf("О книге","Переместить на полку","Оценить","Статус")}
+    if(fromDetail) all.removeAll{it.first in setOf("О книге","Оценить","Статус и полки")}
     val actions=all.map{it.first}
     dialog().setTitle(book.str("title")).setItemIcons(*all.map{it.second}.toTypedArray()).setDestructiveItems(actions.lastIndex).setItems(actions.toTypedArray()) { _,i -> when(actions[i]) {
-        "О книге"->detail(book); "Изменить данные"->metadataEditor(book); "Переместить на полку"->moveBook(book); "Оценить"->dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().also{c->Rating.put(c,it)}) {} }).show()
-        "Прикрепить файл" -> { attachId=book.str("id"); pickBooks(14) }; "Статус" -> statusSheet(book)
+        "О книге"->detail(book); "Изменить данные"->metadataEditor(book); "Оценить"->dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().also{c->Rating.put(c,it)}) {} }).show()
+        "Прикрепить файл" -> { attachId=book.str("id"); pickBooks(14) }; "Статус и полки" -> statusSheet(book)
         "Скачать FB2"->exportBook(book,"fb2"); "Скачать файл"->exportBook(book,"doc"); "Скачать EPUB"->exportBook(book,"epub")
         "Удалить книгу" -> confirm("Удалить книгу?","Текст, цитаты и заметки этой книги будут удалены из библиотеки.") { deleteBook(book) }
     } }.show()

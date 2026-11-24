@@ -12,9 +12,9 @@ import org.json.JSONObject
  * A tap opens the shelf (the fanned covers fly into its first places); in edit mode the card folds into its title
  * card with the grip, as before.
  */
-internal class ShelfRow(private val a:MainActivity,var key:String,private var title:String,private val list:List<JSONObject>,private val open:()->Unit,private val actions:(()->Unit)?,private val rename:((String)->Unit)?,private val remove:(()->Unit)?=null):LinearLayout(a){
+internal class ShelfRow(private val a:MainActivity,var key:String,private var title:String,private val list:List<JSONObject>,private val open:()->Unit,private val actions:(()->Unit)?,private val rename:((String)->Unit)?,private val remove:(()->Unit)?=null,private val compact:Boolean=false):LinearLayout(a){
     /** The fan: the shelf's first books in its own order (so they fly into its first places when it opens). */
-    internal val fan=ShelfFan(a,list.take(4))
+    internal val fan=ShelfFan(a,list.take(if(compact)3 else 4),compact)
     /** The card around the name and the fan; it fades as the shelf folds into its edit card. */
     private val face=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)Color.WHITE else 0xff202022.toInt());cornerRadius=a.d(26).toFloat()}
     // ── edit mode: the header becomes a card with a drag handle, the covers fold away ──
@@ -44,19 +44,21 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         head.addView(name,LayoutParams(-2,-2))
         head.addView(pen,LayoutParams(a.d(16),a.d(16)).apply{leftMargin=a.d(6)})
         head.addView(View(a),LayoutParams(0,1,1f))
-        name.textSize=20f;name.typeface=PolkaFonts.serif(a,true)
+        name.textSize=if(compact)17f else 20f;name.typeface=PolkaFonts.serif(a,true)
+        if(compact)head.minimumHeight=0
         val end=FrameLayout(a);end.addView(handle,FrameLayout.LayoutParams(a.d(44),a.d(44),Gravity.CENTER_VERTICAL or Gravity.END))
         // the bin sits right before the grip, at the same place on every card
         remove?.let{f->trash.setOnClickListener{if(editing){commitRename();askDelete()}};a.press(trash);end.addView(trash,FrameLayout.LayoutParams(a.d(40),a.d(44),Gravity.CENTER_VERTICAL or Gravity.END).apply{rightMargin=a.d(38)})
             pill.setOnClickListener{if(ask<.5f)return@setOnClickListener;a.touchWatchers.remove(outside);pill.isClickable=false
                 pill.animate().scaleX(.94f).scaleY(.94f).setDuration(90).withEndAction{pill.animate().scaleX(1f).scaleY(1f).setDuration(140).start()}.start();f()}
             end.addView(pill,FrameLayout.LayoutParams(a.d(40),a.d(32),Gravity.CENTER_VERTICAL or Gravity.END).apply{rightMargin=a.d(40)})}
-        head.addView(end,LayoutParams(-2,a.d(44)))
+        // a status (a small shelf of the block above) is never edited: no grip, no bin
+        if(!compact)head.addView(end,LayoutParams(-2,a.d(44)))
         addView(head,LayoutParams(-1,-2))
         stage.addView(fan,FrameLayout.LayoutParams(-1,fan.full))
         // a tap anywhere on the card opens the shelf itself (not the book under the finger)
         stage.isClickable=true;stage.contentDescription="Открыть полку $title";stage.setOnClickListener{if(!editing)open()}
-        addView(stage,LayoutParams(-1,stageFull).apply{topMargin=a.d(12)})
+        addView(stage,LayoutParams(-1,stageFull).apply{topMargin=a.d(if(compact)6 else 12)})
         background=face
         // the whole card opens the shelf, its margins around the name and the fan too
         isClickable=true;setOnClickListener{if(!editing)open()}
@@ -102,12 +104,12 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         stage.clipBounds=if(e>0f)android.graphics.Rect(-a.d(40),-a.d(80),a.d(2000),lp.height) else null
         stage.alpha=(1-e*1.6f).coerceIn(0f,1f);stage.scaleY=1f-.08f*e;stage.pivotY=0f
         card.alpha=(e*255).toInt();val pad=(a.d(14)*e).toInt();head.setPadding(pad,(a.d(6)*e).toInt(),(a.d(4)*e).toInt(),(a.d(6)*e).toInt())
-        face.alpha=((1-e)*255).toInt();setPadding(0,(a.d(18)*(1-e)).toInt(),0,(a.d(12)*(1-e)).toInt());centerName()
+        face.alpha=((1-e)*255).toInt();setPadding(0,(a.d(if(compact)17 else 18)*(1-e)).toInt(),0,(a.d(if(compact)10 else 12)*(1-e)).toInt());centerName()
         handle.alpha=((e-.35f)/.65f).coerceIn(0f,1f);handle.translationX=a.d(14)*(1-e);handle.visibility=if(e>0f)View.VISIBLE else View.INVISIBLE
         pen.alpha=if(rename==null||field!=null)0f else ((e-.4f)/.6f).coerceIn(0f,1f)*.8f
         if(remove!=null){trash.alpha=((e-.4f)/.6f).coerceIn(0f,1f)*(1-ask);trash.translationX=a.d(14)*(1-e);trash.visibility=if(e>0f)View.VISIBLE else View.INVISIBLE;trash.scaleX=1-.3f*ask;trash.scaleY=1-.3f*ask}
         head.elevation=a.d(if(a.light)3 else 4)*e
-        (layoutParams as? MarginLayoutParams)?.let{m->val idx=(parent as? ViewGroup)?.indexOfChild(this)?:0;val want=if(idx<=0)0 else (a.d(12)+(a.d(10)-a.d(12))*e).toInt();if(m.topMargin!=want){m.topMargin=want;layoutParams=m}}}
+        if(!compact)(layoutParams as? MarginLayoutParams)?.let{m->val idx=(parent as? ViewGroup)?.indexOfChild(this)?:0;val want=if(idx<=0)0 else (a.d(12)+(a.d(10)-a.d(12))*e).toInt();if(m.topMargin!=want){m.topMargin=want;layoutParams=m}}}
     private fun askDelete(){if(ask>0f||!editing)return;pill.visibility=View.VISIBLE;pill.isClickable=true;a.touchWatchers.add(outside);a.root.post{if(pill.visibility==View.VISIBLE&&!a.touchWatchers.contains(outside))a.touchWatchers.add(outside)};runAsk(1f)}
     fun cancelAsk(){a.touchWatchers.remove(outside);if(ask<=0f&&askAnim==null)return;runAsk(0f)}
     private fun runAsk(to:Float){askAnim?.cancel();val from=ask;val reduced=a.prefs.str("motion")=="reduced"
@@ -173,10 +175,10 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
 
 /** A shelf's first books fanned (approved «веер»): up to four covers overlapping, the middle ones higher and on top,
  *  the outer ones turned out; an empty shelf shows a dashed place with «+». */
-internal class ShelfFan(private val a:MainActivity,val books:List<JSONObject>):FrameLayout(a){
-    private val cw=a.d(70);private val ch=a.d(105)
+internal class ShelfFan(private val a:MainActivity,val books:List<JSONObject>,private val small:Boolean=false):FrameLayout(a){
+    private val cw=a.d(if(small)52 else 70);private val ch=a.d(if(small)78 else 105)
     /** The fan's full height (the covers and the lift of the outer ones). */
-    val full=ch+a.d(34)
+    val full=ch+a.d(if(small)24 else 34)
     /** The covers, left to right. */
     val covers=books.map{b->CoverView(a,b,a.cover(b)).apply{softShadow=true}}
     private val turns=mapOf(1 to floatArrayOf(0f),2 to floatArrayOf(-5f,5f),3 to floatArrayOf(-8f,0f,8f),4 to floatArrayOf(-10f,-3.5f,3.5f,10f))
@@ -188,7 +190,7 @@ internal class ShelfFan(private val a:MainActivity,val books:List<JSONObject>):F
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){val n=covers.size
         if(n==0){super.onLayout(changed,l,t,r,b);return}
         val step=cw*.62f;val total=step*(n-1)+cw;val x0=(width-total)/2f
-        covers.forEachIndexed{i,c->val mid=kotlin.math.abs(i-(n-1)/2f);val dy=a.d(10)+mid*mid*a.d(5)
+        covers.forEachIndexed{i,c->val mid=kotlin.math.abs(i-(n-1)/2f);val dy=a.d(if(small)7 else 10)+mid*mid*a.d(if(small)4 else 5)
             val x=(x0+i*step).toInt();val y=dy.toInt();c.layout(x,y,x+cw,y+ch)}}
     /** Where cover [i] is on the screen (its unturned box) and how it is turned. */
     fun spot(i:Int):Pair<RectF,Float>?{val c=covers.getOrNull(i)?:return null;if(!c.isAttachedToWindow||c.width==0)return null
@@ -198,8 +200,8 @@ internal class ShelfFan(private val a:MainActivity,val books:List<JSONObject>):F
         private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=a.d(1)*1.5f;color=if(a.light)0x33000000 else 0x29ffffff
             pathEffect=DashPathEffect(floatArrayOf(a.d(5).toFloat(),a.d(4).toFloat()),0f);strokeCap=Paint.Cap.ROUND}
         private val plus=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=a.d(1)*1.75f;color=a.muted;strokeCap=Paint.Cap.ROUND}
-        override fun onDraw(c:Canvas){val h=p.strokeWidth;c.drawRoundRect(h,h,width-h,height-h,a.d(6).toFloat(),a.d(6).toFloat(),p)
-            val cx=width/2f;val cy=height/2f;val k=a.d(9).toFloat();c.drawLine(cx-k,cy,cx+k,cy,plus);c.drawLine(cx,cy-k,cx,cy+k,plus)}
+        override fun onDraw(c:Canvas){val h=p.strokeWidth;val rr=a.d(if(small)5 else 6).toFloat();c.drawRoundRect(h,h,width-h,height-h,rr,rr,p)
+            val cx=width/2f;val cy=height/2f;val k=a.d(if(small)7 else 9).toFloat();c.drawLine(cx-k,cy,cx+k,cy,plus);c.drawLine(cx,cy-k,cx,cy+k,plus)}
     }
 }
 
@@ -404,11 +406,14 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
         val sp=Spring.of(.1,460.0);marginAnim=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=delay;interpolator=sp.interpolator;addUpdateListener{val k=it.animatedValue as Float;lp.topMargin=(m0+(to-m0)*k).toInt();layoutParams=lp;reveal((s0+(s1-s0)*k).coerceIn(0f,1f))};start()}}
 }
 
-/** «Полки»: every shelf as a card with its first books fanned, in the saved order, then the place for a new shelf.
+/** «Полки» (approved «Б: полки, статусы сверху»): the four statuses as small shelves in a block of two by two, always
+ *  there and never edited; then every shelf of your own as a card with its first books fanned, in the saved order,
+ *  then the place for a new shelf.
  *  «Изменить» turns the rows into cards that can be dragged into a new order, renamed in place, and removed —
  *  all in place: nothing on the page is rebuilt. */
 internal fun MainActivity.shelfRows(){
-    val byShelf=books.groupBy{it.str("shelf")};val names=(prefs.optJSONArray("shelves")?.strings().orEmpty()+byShelf.keys.filter{it.isNotBlank()}).distinct()
+    val byShelf=HashMap<String,MutableList<JSONObject>>();books.forEach{b->BookShelves.of(b).forEach{n->byShelf.getOrPut(n){mutableListOf()}.add(b)}}
+    val names=(prefs.optJSONArray("shelves")?.strings().orEmpty()+byShelf.keys).filter{it.isNotBlank()}.distinct()
     val manual=names.sortedWith(compareByDescending<String>{byShelf[it]?.size ?: 0}.thenBy{it})
     lateinit var editor:ShelfEditor
     /** One of your shelves. Its name can change while the page stays up, so everything asks for the current one. */
@@ -416,13 +421,19 @@ internal fun MainActivity.shelfRows(){
         row=ShelfRow(this,"s:$name0",name0,sortBooks(list),{enterShelf(row){shelf=cur}},{shelfActions(cur)},
             {next:String->val old=cur;cur=next;renameShelf(old,next,quiet=true)},{val gone=cur;editor.delete(row){removeShelfQuietly(gone)}})
         return row}
-    val autos=(listOf("reading","want","done")+listOf("paused").filter{k->books.any{Library.status(it)==k}}).map{key->lateinit var row:ShelfRow
-        row=ShelfRow(this,"a:$key",MainActivity.autoTitle(key),sortBooks(books.groupBy{Library.status(it)}[key].orEmpty()),{enterShelf(row){auto=key}},{autoShelfActions(key)},null);row}
+    val byStatus=books.groupBy{Library.status(it)}
+    val statuses=column().apply{clipChildren=false;clipToPadding=false}
+    listOf("reading","want","done","paused").chunked(2).forEachIndexed{ri,pair->val two=line().apply{gravity=Gravity.TOP;clipChildren=false;clipToPadding=false}
+        pair.forEachIndexed{ci,key->lateinit var row:ShelfRow
+            row=ShelfRow(this,"a:$key",MainActivity.autoTitle(key),sortBooks(byStatus[key].orEmpty()),{enterShelf(row){auto=key}},{autoShelfActions(key)},null,compact=true)
+            two.addView(row,LinearLayout.LayoutParams(0,-2,1f).apply{if(ci>0)marginStart=d(10)})}
+        statuses.addView(two,LinearLayout.LayoutParams(-1,-2).apply{if(ri>0)topMargin=d(10)})}
+    page.addView(statuses,LinearLayout.LayoutParams(-1,-2))
     val saved=prefs.optJSONArray("shelfOrder")?.strings().orEmpty()
-    val rows=(manual.map{own(it,byShelf[it].orEmpty())}+autos).sortedBy{saved.indexOf(it.key).let{i->if(i<0)Int.MAX_VALUE else i}}
-    rows.forEachIndexed{i,r->page.addView(r,LinearLayout.LayoutParams(-1,-2).apply{if(i>0)topMargin=d(26)})}
+    val rows=manual.map{own(it,byShelf[it].orEmpty())}.sortedBy{saved.indexOf(it.key).let{i->if(i<0)Int.MAX_VALUE else i}}
+    rows.forEach{r->page.addView(r,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(26)})}
     val slot=ShelfSlot(this){name->
-        val taken=(prefs.optJSONArray("shelves")?.strings().orEmpty()+books.map{it.str("shelf")}).any{it.equals(name,true)}
+        val taken=(prefs.optJSONArray("shelves")?.strings().orEmpty()+books.flatMap{BookShelves.of(it)}).any{it.equals(name,true)}
         if(taken){Notice.short(this,Notice.Kind.SHELF,"Полка «$name» уже есть");false}
         else{prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct()));savePreferences();editor.grow(own(name,emptyList()));true}}
     page.addView(slot,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(if(rows.isEmpty()||!shelvesEditing)0 else 10)});if(!shelvesEditing)slot.visibility=View.GONE
@@ -466,8 +477,9 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
         // it melts away where it stands, then its place closes
         r.animate().alpha(0f).setStartDelay(40).setDuration(360).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,.6f,1f)).start()
         val lp=r.layoutParams as LinearLayout.LayoutParams;val h=r.height;val m=lp.topMargin
-        // the first card leaves: the one after it gives up its gap at the same pace, so nothing jumps at the end
-        val next=if(i==0)rows.getOrNull(1) else null;val nlp=next?.layoutParams as? LinearLayout.LayoutParams;val nm=nlp?.topMargin?:0
+        // the first card of the page leaves: the one after it gives up its gap at the same pace, so nothing jumps at
+        // the end (below the statuses every card keeps its gap)
+        val next=if(i==0&&page.indexOfChild(r)==0)rows.getOrNull(1) else null;val nlp=next?.layoutParams as? LinearLayout.LayoutParams;val nm=nlp?.topMargin?:0
         android.animation.ValueAnimator.ofFloat(0f,1f).apply{startDelay=300;duration=460;interpolator=android.view.animation.PathInterpolator(.42f,0f,.18f,1f)
             addUpdateListener{val k=it.animatedValue as Float;lp.height=(h*(1-k)).toInt();lp.topMargin=(m*(1-k)).toInt();r.layoutParams=lp;if(next!=null&&nlp!=null){nlp.topMargin=(nm*(1-k)).toInt();next.layoutParams=nlp}}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){finish()}});start()}}
@@ -495,7 +507,7 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
         if(v!=0f){val before=a.scroll.scrollY;a.scroll.scrollBy(0,v.toInt().let{if(it==0)(if(v>0)1 else -1) else it});if(a.scroll.scrollY!=before)follow()}
         a.scroll.postOnAnimation(this)}}
     /** Put the card where it landed, with no visible jump, and save the order. */
-    private fun drop(h:ShelfRow){if(target!=from){rows.removeAt(from);rows.add(target,h);page.removeView(h);page.addView(h,target)}
+    private fun drop(h:ShelfRow){if(target!=from){val base=rows.minOf{page.indexOfChild(it)};rows.removeAt(from);rows.add(target,h);page.removeView(h);page.addView(h,base+target)}
         rows.forEach{it.animate().cancel();it.translationY=0f;it.settleMargin()}
         saveOrder()}
 }

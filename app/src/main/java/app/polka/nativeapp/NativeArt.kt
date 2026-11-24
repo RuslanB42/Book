@@ -41,7 +41,17 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
         if(f<1f){blank(canvas,bounds);val l=canvas.saveLayerAlpha(bounds,(f*255).toInt());drawCover(canvas,bounds,book,bitmap);canvas.restoreToCount(l);postInvalidateOnAnimation();return}
         fadeFrom=0L
         drawCover(canvas,bounds,book,bitmap)
+        if(readMark&&activity!=null)mark(canvas,activity)
     }
+    /** On the «Прочитано» shelf every cover carries a round check in its lower right corner (approved «Б: статус открыт»). */
+    internal var readMark=false
+    private val markPaint=Paint(Paint.ANTI_ALIAS_FLAG)
+    private fun mark(c:Canvas,a:MainActivity){val w=width.toFloat();val s=w*.176f;val m=w*.059f;val cx=w-m-s/2f;val cy=height-m-s/2f
+        markPaint.color=a.fg;c.drawCircle(cx,cy,s/2f,markPaint)
+        val k=s*.58f/24f;val ox=cx-12f*k;val oy=cy-12f*k
+        markPaint.color=a.bg;markPaint.style=Paint.Style.STROKE;markPaint.strokeWidth=2.6f*k;markPaint.strokeCap=Paint.Cap.ROUND;markPaint.strokeJoin=Paint.Join.ROUND
+        markPath.rewind();markPath.moveTo(ox+5f*k,oy+12.5f*k);markPath.lineTo(ox+9.5f*k,oy+17f*k);markPath.lineTo(ox+19f*k,oy+7.5f*k);c.drawPath(markPath,markPaint);markPaint.style=Paint.Style.FILL}
+    private val markPath=Path()
     internal var artworkChanged:(()->Unit)?=null
     private var missing=false;private var fadeFrom=0L
     /** True while the cover's picture is still on its way (the view shows a blank cover). */

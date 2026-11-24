@@ -39,7 +39,7 @@ object BookParser {
         val encoding = Regex("encoding\\s*=\\s*['\"]([^'\"]+)", RegexOption.IGNORE_CASE).find(head)?.groupValues?.get(1) ?: "UTF-8"
         return String(bytes, try { Charset.forName(encoding) } catch (_: Exception) { Charsets.UTF_8 })
     }
-    private fun newBook(name: String, format: String) = JSONObject().put("id", uid()).put("title", name.substringBeforeLast('.')).put("authors", JSONArray()).put("genres", JSONArray()).put("format", format).put("fileName", name).put("addedAt", System.currentTimeMillis()).put("openedAt", 0).put("progress", JSONObject().put("ch", 0).put("block", 0).put("off", 0).put("pct", 0)).put("shelf", "").put("quotes", JSONArray()).put("bookmarks", JSONArray()).put("notes", JSONArray())
+    private fun newBook(name: String, format: String) = JSONObject().put("id", uid()).put("title", name.substringBeforeLast('.')).put("authors", JSONArray()).put("genres", JSONArray()).put("format", format).put("fileName", name).put("addedAt", System.currentTimeMillis()).put("openedAt", 0).put("progress", JSONObject().put("ch", 0).put("block", 0).put("off", 0).put("pct", 0)).put("shelves", JSONArray()).put("quotes", JSONArray()).put("bookmarks", JSONArray()).put("notes", JSONArray())
     private fun Element.local(): String = tagName().substringAfter(':').lowercase()
     private fun Element.child(tag: String): Element? = children().firstOrNull { it.local() == tag.lowercase() }
     private fun Element.all(tag: String): List<Element> = getAllElements().toList().filter { it.local() == tag.lowercase() }

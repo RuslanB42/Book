@@ -260,7 +260,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         go(i,false);if(!reduced){stage.animate().cancel();stage.alpha=.25f;stage.animate().alpha(1f).setDuration(220).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}
     private fun toggleMark(){val m=marks();if(page in m)m.remove(page) else m.add(page);book.put("pageMarks",org.json.JSONArray(m.sorted()));paint();save(false)}
     private fun menu(){
-        val items=arrayOf("Статус","Изменить данные","Скачать файл")
+        val items=arrayOf("Статус и полки","Изменить данные","Скачать файл")
         a.dialog().setTitle(book.str("title")).setItemIcons("check","pen","download").setItems(items){_,i->when(i){0->a.statusSheet(book);1->a.metadataEditor(book);else->a.exportBook(book,"doc")}}.show()
     }
     /** «Страницы»: every page as a card in a grid (current ringed, bookmarked ones marked); «Закладки» shows only those. */

@@ -293,7 +293,7 @@ class MainActivity : Activity() {
     fun homeBooks()=books.toList()
     fun currentBooks():List<JSONObject> {
         if(query.isNotBlank())return searchBooks()
-        var list=when { shelf!=null -> books.filter { it.str("shelf")==shelf }; auto!=null -> books.filter { Library.status(it)==auto }; else -> homeBooks() }
+        var list=when { shelf!=null -> books.filter { BookShelves.on(it,shelf!!) }; auto!=null -> books.filter { Library.status(it)==auto }; else -> homeBooks() }
         if(query.isNotBlank()) list=list.filter { (it.str("title")+" "+authors(it)).contains(query,true) }
         return sortBooks(list)
     }
@@ -342,7 +342,7 @@ class MainActivity : Activity() {
         renderLibraryResults()
         navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; words?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; tierList?.reattach(); if(preservePosition) scroll.post { scroll.scrollTo(0,oldY) }; gridSnap?.let { playGrid(it,if(preservePosition) oldY else null) }; if(gridSnap==null&&animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),MotionSpec.PAGE_IN)
     }
-    internal fun searchBooks():List<JSONObject> {val q=query.trim();return (if(tab=="home")homeBooks()else books).filter{(it.str("title")+" "+authors(it)+" "+it.str("series")+" "+it.str("shelf")).contains(q,true)}.sortedByDescending{maxOf(it.optLong("openedAt"),it.optLong("addedAt"))}}
+    internal fun searchBooks():List<JSONObject> {val q=query.trim();return (if(tab=="home")homeBooks()else books).filter{(it.str("title")+" "+authors(it)+" "+it.str("series")+" "+BookShelves.of(it).joinToString(" ")).contains(q,true)}.sortedByDescending{maxOf(it.optLong("openedAt"),it.optLong("addedAt"))}}
     internal fun renderLibraryResults(){
         if(reader!=null || !::page.isInitialized)return
         screenMotion.stop();page.removeAllViews()
@@ -407,7 +407,7 @@ class MainActivity : Activity() {
         val width=(resources.configuration.screenWidthDp-40-(columns()-1)*24)/columns()
         fun cell(index:Int):View { val book=list[index];return col().apply {
             clipChildren=false;clipToPadding=false
-            addView(CoverView(this@MainActivity,book,cover(book)),LinearLayout.LayoutParams(-1,-2))
+            addView(CoverView(this@MainActivity,book,cover(book)).apply{readMark=auto=="done"},LinearLayout.LayoutParams(-1,-2))
             space(this,16); addView(text(book.str("title"),15f).apply { maxLines=2; ellipsize=android.text.TextUtils.TruncateAt.END }); space(this,4); addView(text(authors(book),14f,muted).apply { maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END }); if((book.optJSONObject("progress")?.optDouble("pct") ?: 0.0)>0) { space(this,12); progressRow(this,book,true) }
             setOnClickListener { detail(book,this) }; contentDescription="${book.str("title")}, ${authors(book)}"; tag="grid:"+book.str("id")
         } }
@@ -462,7 +462,7 @@ class MainActivity : Activity() {
         if(away)goTab("shelves")
         root.postDelayed({
             inputDialog("Новая полка",hint="Например, «Отпуск» или «Классика»",helper="Полку потом можно переименовать и переставить") { raw -> val name=raw.trim(); if(name.isBlank())return@inputDialog
-                val taken=(prefs.optJSONArray("shelves")?.strings().orEmpty()+books.map{it.str("shelf")}).any{it.equals(name,true)}
+                val taken=(prefs.optJSONArray("shelves")?.strings().orEmpty()+books.flatMap{BookShelves.of(it)}).any{it.equals(name,true)}
                 if(taken){Notice.short(this,Notice.Kind.SHELF,"Полка «$name» уже есть");return@inputDialog}
                 prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct())); savePreferences()
                 val grow=addShelfRow
@@ -475,13 +475,13 @@ class MainActivity : Activity() {
     /** [quiet]: the page has already shown the new name in place — update the data without rebuilding it. */
     fun renameShelf(name:String,next:String,quiet:Boolean=false) { if(next.isBlank() || next==name) return
         prefs.optJSONArray("shelfOrder")?.strings()?.let { order -> prefs.put("shelfOrder",JSONArray(order.map { if(it=="s:$name") "s:$next" else it })) }
-        work({ library.db.runInTransaction { books.filter { it.str("shelf")==name }.forEach { library.save(it.copyJson().put("shelf",next)) }; prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty().filterNot { it==name }+next).distinct())); library.savePrefs(prefs) } }) { if(shelf==name) shelf=next; if(quiet) books.filter { it.str("shelf")==name }.forEach { it.put("shelf",next) } else reload() } }
+        work({ library.db.runInTransaction { books.filter { BookShelves.on(it,name) }.forEach { library.save(BookShelves.put(it.copyJson(),BookShelves.of(it).map { s -> if(s==name) next else s })) }; prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty().filterNot { it==name }+next).distinct())); library.savePrefs(prefs) } }) { if(shelf==name) shelf=next; if(quiet) books.filter { BookShelves.on(it,name) }.forEach { BookShelves.put(it,BookShelves.of(it).map { s -> if(s==name) next else s }) } else reload() } }
     /** Remove a shelf the page has already animated away: the books stay in the library, nothing is rebuilt. */
-    fun removeShelfQuietly(name:String) { work({ library.db.runInTransaction { books.filter { it.str("shelf")==name }.forEach { library.save(it.copyJson().put("shelf","")) }; prefs.put("shelves",JSONArray(prefs.optJSONArray("shelves")?.strings().orEmpty().filterNot { it==name })); library.savePrefs(prefs) } }) { books.filter { it.str("shelf")==name }.forEach { it.put("shelf","") }; if(shelf==name) shelf=null } }
-    fun deleteShelf(name:String) { confirm("Удалить полку?","Книги останутся в библиотеке.") { if(tab=="shelves"&&shelf==null&&auto==null&&removeShelfRow!=null&&shelfEditor!=null){val gone=removeShelfRow;root.postDelayed({if(gone?.invoke(name)!=true)removeShelfQuietly(name).also{render()}},260);return@confirm}; work({ library.db.runInTransaction { books.filter { it.str("shelf")==name }.forEach { library.save(it.copyJson().put("shelf","")) }; prefs.put("shelves",JSONArray(prefs.optJSONArray("shelves")?.strings().orEmpty().filterNot { it==name })); library.savePrefs(prefs) } }) { shelf=null; reload() } } }
+    fun removeShelfQuietly(name:String) { work({ library.db.runInTransaction { books.filter { BookShelves.on(it,name) }.forEach { library.save(BookShelves.put(it.copyJson(),BookShelves.of(it)-name)) }; prefs.put("shelves",JSONArray(prefs.optJSONArray("shelves")?.strings().orEmpty().filterNot { it==name })); library.savePrefs(prefs) } }) { books.filter { BookShelves.on(it,name) }.forEach { BookShelves.put(it,BookShelves.of(it)-name) }; if(shelf==name) shelf=null } }
+    fun deleteShelf(name:String) { confirm("Удалить полку?","Книги останутся в библиотеке.") { if(tab=="shelves"&&shelf==null&&auto==null&&removeShelfRow!=null&&shelfEditor!=null){val gone=removeShelfRow;root.postDelayed({if(gone?.invoke(name)!=true)removeShelfQuietly(name).also{render()}},260);return@confirm}; work({ library.db.runInTransaction { books.filter { BookShelves.on(it,name) }.forEach { library.save(BookShelves.put(it.copyJson(),BookShelves.of(it)-name)) }; prefs.put("shelves",JSONArray(prefs.optJSONArray("shelves")?.strings().orEmpty().filterNot { it==name })); library.savePrefs(prefs) } }) { shelf=null; reload() } } }
     fun shelfActions(name:String) { dialog().setTitle(name).setItemIcons("pen","plus","trash").setDestructiveItems(2).setItems(arrayOf("Переименовать","Добавить книги на полку","Удалить полку")) { _,i -> when(i) {
         0 -> inputDialog("Название полки",name,hint="Название полки",action="Сохранить") { next -> renameShelf(name,next) }
-        1 -> { val checked=BooleanArray(books.size) { books[it].str("shelf")==name }; dialog().setTitle("Книги на полке").setMultiChoiceItems(books.map { it.str("title") }.toTypedArray(),checked) { _,which,on -> checked[which]=on }.setPositiveButton("Сохранить") { _,_ -> work({ library.db.runInTransaction { books.forEachIndexed { j,b -> if(checked[j]) library.save(b.copyJson().put("shelf",name)); else if(b.str("shelf")==name) library.save(b.copyJson().put("shelf","")) } } }) { reload() } }.setNegativeButton("Отмена",null).show() }
+        1 -> { val checked=BooleanArray(books.size) { BookShelves.on(books[it],name) }; dialog().setTitle("Книги на полке").setMultiChoiceItems(books.map { it.str("title") }.toTypedArray(),checked) { _,which,on -> checked[which]=on }.setPositiveButton("Сохранить") { _,_ -> work({ library.db.runInTransaction { books.forEachIndexed { j,b -> val on=BookShelves.on(b,name); if(checked[j]&&!on) library.save(BookShelves.put(b.copyJson(),BookShelves.of(b)+name)) else if(!checked[j]&&on) library.save(BookShelves.put(b.copyJson(),BookShelves.of(b)-name)) } } }) { reload() } }.setNegativeButton("Отмена",null).show() }
         2 -> deleteShelf(name)
     } }.show() }
     /** The quick menu of a status shelf («Хочу прочитать», «Читаю»…): open it, or put more books on it (they get that status). */
@@ -495,7 +495,6 @@ class MainActivity : Activity() {
                     .setPositiveButton("Сохранить"){_,_->others.filterIndexed{j,_->checked[j]}.forEach{setBookStatus(it,key)}}.setNegativeButton("Отмена",null).show() }
         } }.show() }
     fun confirm(title:String,message:String,action:()->Unit) { dialog().setTitle(title).setMessage(message).setNegativeButton("Отмена",null).setPositiveButton("Продолжить") { _,_ -> action() }.show() }
-    fun moveBook(book:JSONObject) { val names=(listOf("Без полки")+prefs.optJSONArray("shelves")?.strings().orEmpty()+books.map { it.str("shelf") }.filter { it.isNotBlank() }).distinct(); dialog().setTitle("Переместить на полку").setItemIcons(*names.map{"shelves"}.toTypedArray()).setItems(names.toTypedArray()) { _,i -> saveBook(book.copyJson().put("shelf",if(i==0) "" else names[i])) }.show() }
     private var loadingReader=false
     /** Book whose card the reader was opened from; closing the book returns to that card. */
     var returnDetailId:String?=null
@@ -631,10 +630,10 @@ class MainActivity : Activity() {
                         val old=if(target!=null) existing.firstOrNull { it.str("id")==target } else existing.firstOrNull { it.optBoolean("noFile") && it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) }
                         if(old!=null) {
                             if(target!=null && (!old.str("title").equals(item.book.str("title"),true) || !authors(old).equals(authors(item.book),true))) mismatch="В файле: «${item.book.str("title")}», ${authors(item.book)}.\n\nПрикрепить его к «${old.str("title")}»?"
-                            val merged=item.book.copyJson().put("id",old.getString("id")).put("shelf",old.str("shelf"))
+                            val merged=item.book.copyJson().put("id",old.getString("id")).let{ BookShelves.put(it,BookShelves.of(old)) }
                             listOf("quotes","notes","bookmarks","rating","review","reviewTags","reviewAt","rec","origin","addedAt","progress","openedAt","completedAt","state","startedAt","pos","coverChanged","title","authors","series","seriesNo","annotation","genres","lang").forEach { key -> if(old.has(key)) merged.put(key,old.get(key)) }
                             item=Imported(merged,item.content.copyJson().put("id",old.getString("id")),item.assets)
-                        } else if(shelf!=null) item.book.put("shelf",shelf)
+                        } else if(shelf!=null) BookShelves.put(item.book,listOf(shelf!!))
                         val same=if(old==null) (existing+parsed.map { it.book }).firstOrNull { it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) && !it.optBoolean("noFile") } else null
                         if(same!=null) known.add(same) else parsed.add(item)
                     } catch(e:Exception) { failures.add("${fileName(uri)}: ${e.message ?: "не удалось прочитать файл"}") } }

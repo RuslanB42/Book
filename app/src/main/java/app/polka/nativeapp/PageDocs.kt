@@ -54,7 +54,7 @@ internal object PageDocs {
         }catch(e:Throwable){dir.deleteRecursively();throw if(e is SecurityException)IllegalArgumentException("PDF защищён паролем") else e}
     }
     private fun newBook(id:String,name:String,format:String)=JSONObject().put("id",uid()).put("title",name.substringBeforeLast('.').replace('_',' ').trim()).put("authors",JSONArray()).put("genres",JSONArray()).put("format",format).put("fileName",name)
-        .put("addedAt",System.currentTimeMillis()).put("openedAt",0).put("progress",JSONObject().put("ch",0).put("page",0).put("pct",0)).put("shelf","").put("quotes",JSONArray()).put("bookmarks",JSONArray()).put("notes",JSONArray())
+        .put("addedAt",System.currentTimeMillis()).put("openedAt",0).put("progress",JSONObject().put("ch",0).put("page",0).put("pct",0)).put("shelves",JSONArray()).put("quotes",JSONArray()).put("bookmarks",JSONArray()).put("notes",JSONArray())
     private fun coverAsset(bmp:Bitmap):AssetRow{val o=java.io.ByteArrayOutputStream();bmp.compress(Bitmap.CompressFormat.JPEG,88,o);return AssetRow(uid(),"image/jpeg",o.toByteArray())}
     private fun content(book:JSONObject)=JSONObject().put("id",book.getString("id")).put("chapters",JSONArray()).put("images",JSONObject()).put("toc",JSONArray())
 

@@ -27,7 +27,7 @@ internal object TextFormats {
 
     // ── shared ──
     private fun newBook(name:String,format:String)=JSONObject().put("id",uid()).put("title",name.substringBeforeLast('.').replace('_',' ').trim()).put("authors",JSONArray()).put("genres",JSONArray()).put("format",format).put("fileName",name)
-        .put("addedAt",System.currentTimeMillis()).put("openedAt",0).put("progress",JSONObject().put("ch",0).put("block",0).put("off",0).put("pct",0)).put("shelf","").put("quotes",JSONArray()).put("bookmarks",JSONArray()).put("notes",JSONArray())
+        .put("addedAt",System.currentTimeMillis()).put("openedAt",0).put("progress",JSONObject().put("ch",0).put("block",0).put("off",0).put("pct",0)).put("shelves",JSONArray()).put("quotes",JSONArray()).put("bookmarks",JSONArray()).put("notes",JSONArray())
     private fun esc(s:String)=s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
     private fun chapter(title:String,html:String)=JSONObject().put("title",title.ifBlank{"Начало"}).put("html",html).put("len",Jsoup.parse(html).text().length).put("depth",0)
     private class Draft(val title:String,val html:StringBuilder=StringBuilder())

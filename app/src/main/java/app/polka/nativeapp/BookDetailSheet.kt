@@ -45,12 +45,12 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val title=a.text("",25f,bold=true,serif=true).apply{gravity=Gravity.CENTER;cssLeading(1.15f)};live(title){book.str("title")};main.addView(title)
   a.space(main,8);val author=a.text("",14f,a.muted).apply{gravity=Gravity.CENTER};live(author){MainActivity.authors(book).ifBlank{"Автор не указан"}};main.addView(author)
   val series=a.text("",12f,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(7),0,0)};main.addView(series);updates.add{series.text=book.str("series");series.visibility=if(series.text.isBlank())View.GONE else View.VISIBLE}
-  // approved: the shelf is a quiet tag under the author, tapped to move the book
-  val shelfTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true;contentDescription="Полка, сменить"
-   background=a.shape(if(a.light)0x0d000000 else 0x12ffffff,16);setOnClickListener{a.moveBook(book)};a.press(this)}
+  // approved: the book's shelves are a quiet tag under the author; it opens the same sheet as the status
+  val shelfTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true;contentDescription="Полки, сменить"
+   background=a.shape(if(a.light)0x0d000000 else 0x12ffffff,16);setOnClickListener{a.statusSheet(book)};a.press(this)}
   shelfTag.addView(IconView(a,"shelves",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
-  val shelf=a.text("",13f).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)};live(shelf){book.str("shelf").ifBlank{"Без полки"}}
-  // when the two tags don't fit side by side, the shelf's name gives way (with «…»), never the arrow after it
+  val shelf=a.text("",13f).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)};live(shelf){BookShelves.of(book).joinToString(", ").ifBlank{"Без полки"}}
+  // when the two tags don't fit side by side, the shelves' names give way (with «…»), never the arrow after it
   shelfTag.addView(shelf,LinearLayout.LayoutParams(-2,-2,1f))
   shelfTag.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
   // approved: the reading status is a second tag of the same kind, beside the shelf
@@ -80,7 +80,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val go=a.button("Читать",true){if(book.optBoolean("noFile")){a.attachId=book.str("id");a.pickBooks(14)}else{a.returnDetailId=book.str("id");a.openBook(book,heroCover)}};reading.addView(go,LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
   val nofile=a.text("Добавьте файл FB2 или EPUB, чтобы читать книгу и сохранять цитаты.",13f,a.muted).apply{cssLeading(1.5f);setPadding(0,a.d(10),0,0)};reading.addView(nofile)
   var chapterTitle=""
-  updates.add{val p=pct();val missing=book.optBoolean("noFile");status.text=when{missing->"В вашей библиотеке";p>=1->"Книга прочитана";Library.status(book)=="reading"->"Сейчас читаете";Library.status(book)=="paused"->"Чтение отложено";else->"Начните новую историю"};percent.text=if(missing||p<=0)"" else "${(p*100).toInt()}%";chapter.text=chapterTitle;chapter.visibility=if(chapterTitle.isBlank()||missing||p>=1)View.GONE else View.VISIBLE;track.visibility=if(missing||p>=1)View.GONE else View.VISIBLE;bar.scaleX=if(p<.01f)0f else p;go.text=when{missing->"Добавить файл книги";p>=1->"Читать снова";Library.status(book)=="reading"->"Продолжить чтение";else->"Читать"};nofile.visibility=if(missing)View.VISIBLE else View.GONE
+  updates.add{val p=pct();val missing=book.optBoolean("noFile");go.text=if(!missing&&Library.status(book)=="done")"Читать снова" else "Читать";status.text=when{missing->"В вашей библиотеке";p>=1->"Книга прочитана";Library.status(book)=="reading"->"Сейчас читаете";Library.status(book)=="paused"->"Чтение отложено";else->"Начните новую историю"};percent.text=if(missing||p<=0)"" else "${(p*100).toInt()}%";chapter.text=chapterTitle;chapter.visibility=if(chapterTitle.isBlank()||missing||p>=1)View.GONE else View.VISIBLE;track.visibility=if(missing||p>=1)View.GONE else View.VISIBLE;bar.scaleX=if(p<.01f)0f else p;go.text=when{missing->"Добавить файл книги";p>=1->"Читать снова";Library.status(book)=="reading"->"Продолжить чтение";else->"Читать"};nofile.visibility=if(missing)View.VISIBLE else View.GONE
    val chars=book.optInt("chars",book.optInt("recPages")*1800);volume.text=if(chars>0)"${maxOf(1,kotlin.math.round(chars/1800.0).toInt())} стр." else "Объём уточняется";time.text=""
    spentRow.removeAllViews();val j=journey;val done=p>=1
    if(j!=null&&!missing){if(j.ms>=60_000L)fact(duration(j.ms),"за чтением")
