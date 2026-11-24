@@ -165,6 +165,11 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         dialog.window?.let{w->w.setLayout(-1,-1);w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)) // the page's own colour fades with it
             w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
             WindowCompat.setDecorFitsSystemWindows(w,false)
+            // the light runs under the status bar and the navigation bar (and the camera cutout): the window itself
+            // reaches the screen's edges, the page keeps clear of the bars by its padding
+            w.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN)
+            w.attributes=w.attributes.apply{if(android.os.Build.VERSION.SDK_INT>=28)layoutInDisplayCutoutMode=WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                if(android.os.Build.VERSION.SDK_INT>=30){setFitInsetsTypes(0);setFitInsetsSides(0)}}
             w.statusBarColor=Color.TRANSPARENT;w.navigationBarColor=Color.TRANSPARENT
             WindowCompat.getInsetsController(w,w.decorView).apply{isAppearanceLightStatusBars=a.light;isAppearanceLightNavigationBars=a.light}}
         // the page keeps clear of the bars and of the keyboard; the line being typed stays above it
