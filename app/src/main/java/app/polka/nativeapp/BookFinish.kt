@@ -98,7 +98,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         // the cover's place (the cover then shows through it)
         // a comic's backdrop round its page: the reader's colour, giving way to the light as the page flies
         val backdrop=if(shot!=null&&from!=null)View(a).apply{setBackgroundColor(fromBg)}.also{root.addView(it,FrameLayout.LayoutParams(-1,-1))} else null
-        val card=shot?.let{PageCard(it,from,a.cover(book)).also{v->root.addView(v,FrameLayout.LayoutParams(-1,-1))}}
+        val card=shot?.let{PageCard(it,from).also{v->root.addView(v,FrameLayout.LayoutParams(-1,-1))}}
         val scroll=ScrollView(a).apply{isFillViewport=true;overScrollMode=View.OVER_SCROLL_NEVER;isVerticalScrollBarEnabled=false}
         val page=a.col().apply{clipChildren=false;clipToPadding=false}
         scroll.addView(page,FrameLayout.LayoutParams(-1,-2))
@@ -109,14 +109,21 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
 
         // the cover, as large as the room above the panel allows
         val cover=CoverView(a,book,a.cover(book)).apply{softShadow=true}
-        val coverBox=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
-        coverBox.addView(cover,FrameLayout.LayoutParams(a.d(200),a.d(300),Gravity.CENTER_HORIZONTAL))
-        page.addView(coverBox,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(52)})
+        // its place takes all the room the panel leaves; the cover's size comes from that room in the same layout
+        // pass, so as the panel grows or shrinks (a rating, the marks, the keyboard) the cover follows it frame by
+        // frame, on the panel's own curve — never a move of its own after it
+        val coverBox=object:FrameLayout(a){
+            override fun onMeasure(ws:Int,hs:Int){val room=MeasureSpec.getSize(hs);val h=room.coerceIn(a.d(150),a.d(300));val w=(h/1.5f).toInt()
+                cover.measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))
+                setMeasuredDimension(MeasureSpec.getSize(ws),if(MeasureSpec.getMode(hs)==MeasureSpec.UNSPECIFIED)h else maxOf(room,a.d(150)))}
+            override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){val x=(width-cover.measuredWidth)/2;cover.layout(x,0,x+cover.measuredWidth,cover.measuredHeight)}
+        }.apply{clipChildren=false;clipToPadding=false;minimumHeight=a.d(150)}
+        coverBox.addView(cover)
+        page.addView(coverBox,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=a.d(52)})
         // the light never comes at once: when the cover's colours are ready late, they fade in too
         cover.prepareArtwork{val late=entered
             glow.setImageDrawable(BitmapDrawable(a.resources,blurred(cover.glowArtwork())).apply{isFilterBitmap=true})
             if(motion&&late&&!closed){glow.alpha=0f;glow.animate().alpha(1f).setDuration(700).setInterpolator(MotionSpec.enter).start()}}
-        page.addView(View(a),LinearLayout.LayoutParams(1,0,1f))
 
         // the glass panel: how long it took, the title, the rating and the review, the two ways out
         val panel=a.col().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(a.d(20),a.d(22),a.d(20),a.d(8))
@@ -135,19 +142,10 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         panel.addView(a.text("Без оценки",15f,a.muted).apply{gravity=Gravity.CENTER;isClickable=true;isFocusable=true;setOnClickListener{finish(false,true)}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(2)})
         page.addView(panel,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(24)})
 
-        // the cover takes the room left above the panel (300 dp at most, 150 at least) and glides to a new size
-        var sizing:android.animation.ValueAnimator?=null
-        fun fit(animate:Boolean){val lp=cover.layoutParams as FrameLayout.LayoutParams
-            val free=scroll.height-page.paddingTop-page.paddingBottom-a.d(52)-a.d(24)-panel.height
-            val to=free.coerceIn(a.d(150),a.d(300));if(scroll.height==0||kotlin.math.abs(to-lp.height)<3)return
-            sizing?.cancel()
-            fun set(h:Int){lp.height=h;lp.width=(h/1.5f).toInt();cover.layoutParams=lp}
-            if(!animate||a.prefs.str("motion")=="reduced"){set(to);return}
-            sizing=android.animation.ValueAnimator.ofInt(lp.height,to).apply{duration=MotionSpec.SETTLE;interpolator=MotionSpec.move;addUpdateListener{set(it.animatedValue as Int)};start()}}
-        var seen=-1;var first=true
-        page.addOnLayoutChangeListener{_,_,_,_,_,_,_,_,_->val key=panel.height*31+scroll.height+page.paddingBottom
-            if(key!=seen){seen=key;val anim=!first;first=false
-                page.post{fit(anim);if(!anim&&motion)startOnceLaidOut(root){afterFirstFrames{entrance(card,glow,scrim,cover,panel,close)}}}}}
+        // the move starts once the page is laid out at its final size
+        var first=true
+        page.addOnLayoutChangeListener{_,_,_,_,_,_,_,_,_->if(first&&scroll.height>0){first=false
+                if(motion)startOnceLaidOut(root){afterFirstFrames{entrance(card,glow,scrim,cover,panel,close)}}}}
 
         // the facts: how many days (from — to) and how long it was read
         var journey:BookJourney?=null
@@ -195,20 +193,16 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
      * card's shadow grows as it becomes a book and its face darkens a little. Everything is moved by the view's own
      * properties (the picture is drawn once), so each frame is cheap.
      */
-    private inner class PageCard(shot:Bitmap,from:RectF?,private val face:Bitmap?):FrameLayout(a){
-        private val facePaint=Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG);private val faceSrc=Rect()
-        init{setWillNotDraw(false)}
+    private inner class PageCard(shot:Bitmap,from:RectF?):FrameLayout(a){
+        /** The cover as the real one draws it (volume, gloss): what the page becomes. Laid out at the cover's size. */
+        private val face=CoverView(a,book,a.cover(book)).apply{softShadow=false;pivotX=0f;pivotY=0f;alpha=0f}
         /** How far along the flight is in time (its place, [t], is eased; the cover's coming is spread over the time). */
-        var time=0f;set(v){field=v;invalidate()}
+        var time=0f
         /** The cover comes up through the page all along the flight (it is the page turning into it, not a swap at
          *  the end): from 15 % to 75 % of its time, eased at both ends. */
         private fun faceAlpha():Float{val x=((time-.15f)/.6f).coerceIn(0f,1f);return x*x*(3-2*x)}
-        override fun dispatchDraw(c:Canvas){super.dispatchDraw(c)
-            val f=face?:return;val k=faceAlpha();if(k<=0f||now.isEmpty)return
-            // the cover fills the window as the real one fills its place: cut evenly to its shape
-            val ra=now.width()/now.height();val ba=f.width.toFloat()/f.height
-            if(ba>ra){val w=(f.height*ra).toInt();faceSrc.set((f.width-w)/2,0,(f.width+w)/2,f.height)}else{val h=(f.width/ra).toInt();faceSrc.set(0,(f.height-h)/2,f.width,(f.height+h)/2)}
-            facePaint.alpha=(255*k).toInt();c.drawBitmap(f,faceSrc,now,facePaint)}
+        /** The cover's size, once known (the real cover's place). */
+        fun aim(r:RectF){target.set(r);face.layoutParams=LayoutParams(r.width().toInt(),r.height().toInt());pose()}
         /** The part of the picture that is the page (all of it, for a book). */
         private val src=from?:RectF(0f,0f,shot.width.toFloat(),shot.height.toFloat())
         private val shotW=shot.width.toFloat();private val shotH=shot.height.toFloat()
@@ -216,9 +210,10 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         private val pic=ImageView(a).apply{setImageBitmap(shot);scaleType=ImageView.ScaleType.FIT_XY;pivotX=0f;pivotY=0f}
         private val shade=object:View(a){override fun hasOverlappingRendering()=false}.apply{setBackgroundColor(Color.BLACK);alpha=0f}
         val target=RectF();private val now=RectF()
-        init{addView(pic,LayoutParams(-1,-1));addView(shade,LayoutParams(-1,-1))
+        init{addView(pic,LayoutParams(-1,-1));addView(shade,LayoutParams(-1,-1));addView(face,LayoutParams(0,0))
+            // rounded to the cover's own corners by the end of the way
             clipToOutline=true;outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){
-                o.setRoundRect(now.left.toInt(),now.top.toInt(),now.right.toInt(),now.bottom.toInt(),a.d(5)*t.coerceIn(0f,1f));o.alpha=1f}}}
+                o.setRoundRect(now.left.toInt(),now.top.toInt(),now.right.toInt(),now.bottom.toInt(),BookCoverVolume.radius(target.width())*t.coerceIn(0f,1f));o.alpha=1f}}}
         var t=0f;set(v){field=v;pose()}
         override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){super.onSizeChanged(w,h,ow,oh);pose()}
         fun pose(){val w=width.toFloat();val h=height.toFloat();if(w<=0f||h<=0f)return;val k=t
@@ -227,7 +222,10 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             now.set(from.left+(target.left-from.left)*k,from.top+(target.top-from.top)*k,from.right+(target.right-from.right)*k,from.bottom+(target.bottom-from.bottom)*k)
             val s=maxOf(now.width()/from.width(),now.height()/from.height())
             pic.scaleX=s;pic.scaleY=s;pic.translationX=now.centerX()-from.centerX()*s;pic.translationY=now.centerY()-from.centerY()*s
-            shade.alpha=.22f*k.coerceIn(0f,1f);elevation=a.d(18)*k.coerceIn(0f,1f);invalidateOutline();invalidate()}
+            shade.alpha=.22f*k.coerceIn(0f,1f);elevation=a.d(18)*k.coerceIn(0f,1f);invalidateOutline()
+            // the cover fills the window as the real one fills its place (cut evenly), coming up over the page
+            val fw=target.width();val fh=target.height()
+            if(fw>0f&&fh>0f){val fs=maxOf(now.width()/fw,now.height()/fh);face.scaleX=fs;face.scaleY=fs;face.translationX=now.centerX()-fw*fs/2;face.translationY=now.centerY()-fh*fs/2;face.alpha=faceAlpha()}}
         fun release(){pic.setImageDrawable(null);bmp?.recycle();bmp=null}
     }
     private var card:PageCard?=null;private var backdrop:View?=null;private var glow:View?=null;private var scrim:View?=null;private var close:View?=null
@@ -254,12 +252,11 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
     private fun entrance(card:PageCard?,glow:View,scrim:View,cover:View,panel:LinearLayout,close:View){entered=true
         val p=root?:return
         if(card!=null){val at=IntArray(2);cover.getLocationInWindow(at);val o=IntArray(2);card.getLocationInWindow(o)
-            card.target.set((at[0]-o[0]).toFloat(),(at[1]-o[1]).toFloat(),(at[0]-o[0]+cover.width).toFloat(),(at[1]-o[1]+cover.height).toFloat())
+            card.aim(RectF((at[0]-o[0]).toFloat(),(at[1]-o[1]).toFloat(),(at[0]-o[0]+cover.width).toFloat(),(at[1]-o[1]+cover.height).toFloat()))
             // the page flies and turns into the cover on the way; the real cover only takes over once the card has
             // become it (same picture, same place), so nothing changes there
-            clock(820,0,android.view.animation.LinearInterpolator(),{f->card.time=f;card.t=glide.getInterpolation(f)}){cover.alpha=1f;card.visibility=View.GONE}
-            // a book with no cover picture (a drawn one): that one comes up over the card in the second half instead
-            if(a.cover(book)==null)cover.animate().alpha(1f).setStartDelay(380).setDuration(380).setInterpolator(MotionSpec.move).withLayer().start()
+            clock(820,0,android.view.animation.LinearInterpolator(),{f->card.time=f;card.t=glide.getInterpolation(f)
+                cover.alpha=((f-.8f)/.2f).coerceIn(0f,1f)}){cover.alpha=1f;card.visibility=View.GONE}
             backdrop?.animate()?.alpha(0f)?.setDuration(520)?.setInterpolator(MotionSpec.move)?.start()}
         else{p.animate().alpha(1f).setDuration(MotionSpec.DARK_OUT).setInterpolator(MotionSpec.enter).start()
             cover.scaleX=.9f;cover.scaleY=.9f;cover.translationY=a.d(24).toFloat()
