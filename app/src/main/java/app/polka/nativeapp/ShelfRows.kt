@@ -58,6 +58,8 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         stage.isClickable=true;stage.contentDescription="Открыть полку $title";stage.setOnClickListener{if(!editing)open()}
         addView(stage,LayoutParams(-1,stageFull).apply{topMargin=a.d(12)})
         background=face
+        // the whole card opens the shelf, its margins around the name and the fan too
+        isClickable=true;setOnClickListener{if(!editing)open()}
         apply(0f)
     }
     /** The fanned covers' shadows reach past the card: a fading card drawn through a layer would cut them off. */
@@ -83,7 +85,11 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{removeCallbacks(pressed);if(pressFired){pressFired=false;return true}}
             MotionEvent.ACTION_POINTER_DOWN->removeCallbacks(pressed)}
         if(pressFired)return true
-        return super.dispatchTouchEvent(e)}
+        val taken=super.dispatchTouchEvent(e)
+        // nothing here took the touch: the rest of it goes to the page (a scroll) and never comes back here, so the
+        // press is let go now instead of firing later under a scrolling finger
+        if(!taken&&e.actionMasked==MotionEvent.ACTION_DOWN)removeCallbacks(pressed)
+        return taken}
     /** Morph between the shelf and its edit card; [delay] staggers the rows. */
     fun setEditing(on:Boolean,animate:Boolean,delay:Long=0){editing=on;if(!on){commitRename();cancelAsk()}
         anim?.cancel();val to=if(on)1f else 0f
@@ -156,7 +162,10 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
             for(i in 0..1)for(j in -1..1)c.drawCircle(width/2f+(i-.5f)*gx,height/2f+j*gy,r,p)}
     }
 
-    override fun onDetachedFromWindow(){a.touchWatchers.remove(outside);super.onDetachedFromWindow()}
+    /** Where this card is on the screen, for the shelf to open out of it. */
+    internal fun trip():ShelfFlight.Trip=ShelfFlight.Trip(key,ShelfFlight.box(this),ShelfFlight.box(name),name.textSize,
+        fan.books.indices.mapNotNull{i->fan.spot(i)?.let{(r,t)->ShelfFlight.Spot(fan.books[i],r,t)}})
+    override fun onDetachedFromWindow(){a.touchWatchers.remove(outside);removeCallbacks(pressed);super.onDetachedFromWindow()}
 }
 
 /** A shelf's first books fanned (approved «веер»): up to four covers overlapping, the middle ones higher and on top,
@@ -192,66 +201,119 @@ internal class ShelfFan(private val a:MainActivity,val books:List<JSONObject>):F
 }
 
 /**
- * A shelf opening and closing (approved «Полка: как открывается»): its fanned covers fly out of the card, straighten
- * and grow into the shelf's first places while its page fades in over the list; on the way back they fly home into
- * the fan as the page fades away. Copies of the covers fly on a layer over everything; the real ones show on landing.
+ * A shelf opening and closing, one motion like the reference: the card is the way in. The list behind it pushes
+ * forward a little and fades, the card's name grows into the page's title, the fanned covers straighten and fly into
+ * the first places, the rest of the books rise from below and the buttons fade in. Back is the same motion reversed
+ * over the list's picture; only at its end the real list is put in place. Copies of the covers and of the name fly on
+ * a layer over everything (the real ones show where they land), so nothing is ever drawn twice.
  */
 internal object ShelfFlight{
     class Spot(val book:JSONObject,val r:RectF,val turn:Float)
-    private class Leg(val book:JSONObject,val from:RectF,val fromTurn:Float,val to:RectF,val toTurn:Float,val real:View)
-    private const val TIME=560L;private const val STAGGER=35L
-    private val curve=android.view.animation.PathInterpolator(.3f,0f,0f,1f)
+    /** Where a shelf was opened from: its card, its name and its fan, on the screen. */
+    class Trip(val key:String,val card:RectF,val name:RectF,val nameSize:Float,val spots:List<Spot>)
+    /** What the open shelf is made of: its title, the buttons and lines around it, its books (or its empty note). */
+    class Parts(val title:TextView,val chrome:MutableList<View> = mutableListOf(),var body:View?=null)
+    private class Leg(val book:JSONObject,val from:RectF?,val fromTurn:Float,val to:RectF?,val toTurn:Float,val real:View?)
+    private const val OPEN=460L;private const val BACK=420L;private const val STAGGER=22L
+    private val curve=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+    private val away=android.view.animation.PathInterpolator(.4f,0f,1f,1f)
+    /** A flight is on: the page takes no touches and no second back. */
+    var busy=false;private set
 
-    /** The covers of the grid now on screen, by book. */
-    fun cells(a:MainActivity):Map<String,View>{val out=HashMap<String,View>()
-        fun walk(v:View){val t=v.tag;if(t is String&&t.startsWith("grid:")&&v.isShown&&v is ViewGroup){(v.getChildAt(0) as? CoverView)?.let{out[t.removePrefix("grid:")]=it};return}
+    fun box(v:View):RectF{val at=IntArray(2);v.getLocationOnScreen(at);return RectF(at[0].toFloat(),at[1].toFloat(),(at[0]+v.width).toFloat(),(at[1]+v.height).toFloat())}
+    /** The grid's cells now laid out, by book. */
+    private fun cells(root:View):Map<String,ViewGroup>{val out=LinkedHashMap<String,ViewGroup>()
+        fun walk(v:View){val t=v.tag;if(t is String&&t.startsWith("grid:")&&v is ViewGroup){out[t.removePrefix("grid:")]=v;return}
             if(v is ViewGroup)for(i in 0 until v.childCount)walk(v.getChildAt(i))}
-        walk(a.root);return out}
-    private fun box(v:View):RectF{val at=IntArray(2);v.getLocationOnScreen(at);return RectF(at[0].toFloat(),at[1].toFloat(),(at[0]+v.width).toFloat(),(at[1]+v.height).toFloat())}
-    private fun row(v:View,key:String?):ShelfRow?{if(key==null)return null;if(v is ShelfRow&&v.key==key)return v
-        if(v is ViewGroup)for(i in 0 until v.childCount)row(v.getChildAt(i),key)?.let{return it};return null}
-    private fun laid(a:MainActivity,f:()->Unit){a.root.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{a.root.viewTreeObserver.removeOnPreDrawListener(this);f();return true}})}
+        walk(root);return out}
+    /** The list's picture without the shelf's card content (its covers and name leave it): the card is drawn empty. */
+    private fun under(a:MainActivity,pic:Bitmap,t:Trip):ImageView{val o=IntArray(2);a.root.getLocationOnScreen(o)
+        val b=pic.copy(Bitmap.Config.ARGB_8888,true);val c=Canvas(b);val r=RectF(t.card);r.offset(-o[0].toFloat(),-o[1].toFloat())
+        val rad=a.d(26).toFloat();c.drawRoundRect(r,rad,rad,Paint(Paint.ANTI_ALIAS_FLAG).apply{color=if(a.light)Color.WHITE else 0xff202022.toInt()})
+        return ImageView(a).apply{setImageBitmap(b);scaleType=ImageView.ScaleType.MATRIX;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            pivotX=t.card.centerX()-o[0];pivotY=t.card.centerY()-o[1]}}
+    private fun layer(a:MainActivity)=FrameLayout(a).apply{clipChildren=false;isClickable=true;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS;translationZ=a.d(40).toFloat()}
+    /** Runs [f] when the page has been laid out, before it is drawn; that frame is skipped so the first one drawn
+     *  already has everything in its place. */
+    private fun laid(a:MainActivity,f:()->Unit){a.root.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{a.root.viewTreeObserver.removeOnPreDrawListener(this);f();return false}})}
+    private fun part(t:Float,from:Float,to:Float)=((t-from)/(to-from)).coerceIn(0f,1f)
+    private fun mix(x:Float,y:Float,k:Float)=x+(y-x)*k
 
-    /** Into the shelf: [page] (the new one) fades in over [under] (the list's picture), where the card's fan at [fan]
-     *  is emptied at once; the covers fly from [spots] into the grid. */
-    fun open(a:MainActivity,page:View,under:View,fan:RectF,spots:List<Spot>,done:()->Unit){page.alpha=0f
-        // the list's picture still has the covers in the card: they have just left it
-        val o=IntArray(2);a.root.getLocationOnScreen(o)
-        val patch=View(a).apply{setBackgroundColor(if(a.light)Color.WHITE else 0xff202022.toInt());importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
-        a.root.addView(patch,a.root.indexOfChild(under)+1,FrameLayout.LayoutParams((fan.width()-a.d(52)).toInt(),fan.height().toInt()).apply{leftMargin=(fan.left+a.d(26)-o[0]).toInt();topMargin=(fan.top-o[1]).toInt()})
-        laid(a){val cells=cells(a)
-            val legs=spots.mapNotNull{s->val v=cells[s.book.str("id")]?:return@mapNotNull null;Leg(s.book,s.r,s.turn,box(v),0f,v)}
-            fly(a,legs,{k->page.alpha=(k/.55f).coerceIn(0f,1f)}){page.alpha=1f;a.root.removeView(patch);done()}}}
+    /** Into the shelf; the shelf's page is already built (its [Parts] in [MainActivity.shelfParts]). */
+    fun open(a:MainActivity,pic:Bitmap,t:Trip){val parts=a.shelfParts?:return;val page=a.scroll
+        busy=true
+        val under=under(a,pic,t);a.root.addView(under,0,FrameLayout.LayoutParams(pic.width,pic.height))
+        laid(a){val o=IntArray(2);a.root.getLocationOnScreen(o);val H=a.root.height.toFloat()
+            val cells=cells(page);val title=parts.title;val titleAt=box(title)
+            val legs=t.spots.map{s->val cell=cells[s.book.str("id")];val cover=cell?.getChildAt(0)
+                Leg(s.book,s.r,s.turn,cover?.let{box(it)},0f,cover)}
+            val landing=legs.mapNotNull{l->cells[l.book.str("id")]}.toSet()
+            val rising=cells.values.filter{it !in landing}+listOfNotNull(parts.body?.takeIf{it.tag==null&&cells.isEmpty()})
+            val lay=layer(a);a.root.addView(lay,FrameLayout.LayoutParams(-1,-1))
+            val copies=legs.map{l->CoverView(a,l.book,a.cover(l.book)).apply{softShadow=true}.also{v->val r=l.to?:l.from!!;lay.addView(v,FrameLayout.LayoutParams(r.width().toInt(),r.height().toInt()))}}
+            val name=a.text(title.text.toString(),26f,a.fg,true,serif=true).apply{maxLines=1}
+            lay.addView(name,FrameLayout.LayoutParams(-2,-2));name.measure(View.MeasureSpec.UNSPECIFIED,View.MeasureSpec.UNSPECIFIED)
+            title.alpha=0f;legs.forEach{it.real?.alpha=0f}
+            fun frame(ms:Long,k:Float){
+                under.alpha=1f-curve.getInterpolation(part(k,0f,.55f));val z=1f+.06f*curve.getInterpolation(k);under.scaleX=z;under.scaleY=z
+                fly(copies,legs,ms,OPEN,o,false)
+                val e=curve.getInterpolation(k);val s=mix(t.nameSize/name.textSize,1f,e)
+                name.scaleX=s;name.scaleY=s;name.translationX=mix(t.name.centerX(),titleAt.centerX(),e)-o[0]-name.measuredWidth/2f;name.translationY=mix(t.name.centerY(),titleAt.centerY(),e)-o[1]-name.measuredHeight/2f
+                val c=curve.getInterpolation(part(k,.3f,1f));parts.chrome.forEach{it.alpha=c;it.translationY=a.d(10)*(1-c)}
+                rising.forEachIndexed{i,v->val r=curve.getInterpolation(part(k,.12f+.04f*(i/2).coerceAtMost(4),1f));v.alpha=r;v.translationY=H*.22f*(1-r)}
+                val lab=part(k,.55f,1f);landing.forEach{cell->for(j in 1 until cell.childCount)cell.getChildAt(j).alpha=lab}}
+            frame(0,0f)
+            val total=OPEN+STAGGER*(legs.size-1).coerceAtLeast(0)
+            run(total,{ms,k->frame(ms,k)}){title.alpha=1f;legs.forEach{it.real?.alpha=1f};parts.chrome.forEach{it.alpha=1f;it.translationY=0f}
+                rising.forEach{it.alpha=1f;it.translationY=0f};landing.forEach{cell->for(j in 0 until cell.childCount)cell.getChildAt(j).alpha=1f}
+                a.root.removeView(lay);a.root.removeView(under);(under.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.recycle();busy=false}}}
 
-    /** Back to the list: [img] (the shelf's picture, [pic]) fades away and the covers that were at [cells] fly home
-     *  into the fan of the shelf [key]. When that shelf is not on the screen, [otherwise] runs instead. */
-    fun back(a:MainActivity,key:String?,cells:Map<String,View>,img:ImageView,pic:Bitmap,done:()->Unit,otherwise:()->Unit){
-        val from=cells.mapValues{box(it.value)}
-        laid(a){val r=row(a.root,key);val screen=RectF(0f,0f,a.root.width.toFloat(),a.root.height.toFloat())
-            val legs=r?.fan?.let{f->f.books.indices.mapNotNull{i->val s=f.spot(i)?:return@mapNotNull null;val at=from[f.books[i].str("id")]?:return@mapNotNull null
-                if(!RectF.intersects(s.first,screen))return@mapNotNull null;Leg(f.books[i],at,0f,s.first,s.second,f.covers[i])}}.orEmpty()
-            if(legs.isEmpty()){otherwise();return@laid}
-            // the covers leave the shelf's picture as their copies lift off it
-            val o=IntArray(2);a.root.getLocationOnScreen(o);val c=Canvas(pic);val p=Paint().apply{color=a.bg};val m=a.d(10).toFloat()
-            legs.forEach{l->c.drawRect(l.from.left-o[0]-m,l.from.top-o[1]-m,l.from.right-o[0]+m,l.from.bottom-o[1]+m,p)};img.invalidate()
-            fly(a,legs,{k->img.alpha=1f-(k/.5f).coerceIn(0f,1f)},done)}}
+    /** Back out of the shelf into its card on the list's picture [pic]; [done] puts the real list in place. */
+    fun back(a:MainActivity,pic:Bitmap,t:Trip,done:()->Unit){val parts=a.shelfParts;val page=a.scroll
+        if(parts==null){done();return}
+        busy=true
+        val o=IntArray(2);a.root.getLocationOnScreen(o);val H=a.root.height.toFloat()
+        val screen=RectF(0f,0f,a.root.width.toFloat(),H)
+        val cells=cells(page);val title=parts.title;val titleAt=box(title)
+        val legs=t.spots.map{s->val cover=cells[s.book.str("id")]?.getChildAt(0);val at=cover?.let{box(it)}?.takeIf{RectF.intersects(it,screen)}
+            Leg(s.book,at,0f,s.r,s.turn,cover.takeIf{at!=null})}
+        val leaving=legs.mapNotNull{l->l.real?.let{cells[l.book.str("id")]}}.toSet()
+        val sinking=cells.values.filter{it !in leaving}+listOfNotNull(parts.body?.takeIf{cells.isEmpty()})
+        val under=under(a,pic,t);under.alpha=0f;a.root.addView(under,0,FrameLayout.LayoutParams(pic.width,pic.height))
+        page.background=null
+        val lay=layer(a);a.root.addView(lay,FrameLayout.LayoutParams(-1,-1))
+        val copies=legs.map{l->CoverView(a,l.book,a.cover(l.book)).apply{softShadow=true}.also{v->lay.addView(v,FrameLayout.LayoutParams(l.to!!.width().toInt(),l.to.height().toInt()))}}
+        val name=a.text(title.text.toString(),26f,a.fg,true,serif=true).apply{maxLines=1}
+        lay.addView(name,FrameLayout.LayoutParams(-2,-2));name.measure(View.MeasureSpec.UNSPECIFIED,View.MeasureSpec.UNSPECIFIED)
+        fun frame(ms:Long,k:Float){
+            val u=curve.getInterpolation(part(k,.05f,.75f));under.alpha=u;val z=1.06f-.06f*curve.getInterpolation(k);under.scaleX=z;under.scaleY=z
+            fly(copies,legs,ms,BACK,o,true)
+            val e=curve.getInterpolation(k);val s=mix(1f,t.nameSize/name.textSize,e)
+            name.scaleX=s;name.scaleY=s;name.translationX=mix(titleAt.centerX(),t.name.centerX(),e)-o[0]-name.measuredWidth/2f;name.translationY=mix(titleAt.centerY(),t.name.centerY(),e)-o[1]-name.measuredHeight/2f
+            val c=1f-part(k,0f,.3f);parts.chrome.forEach{it.alpha=c}
+            sinking.forEach{v->val r=away.getInterpolation(part(k,0f,.6f));v.alpha=1f-r;v.translationY=H*.18f*r}
+            val lab=1f-part(k,0f,.25f);leaving.forEach{cell->for(j in 1 until cell.childCount)cell.getChildAt(j).alpha=lab}}
+        title.alpha=0f;legs.forEach{it.real?.alpha=0f}
+        frame(0,0f)
+        val total=BACK+STAGGER*(legs.size-1).coerceAtLeast(0)
+        run(total,{ms,k->frame(ms,k)}){busy=false;done();(under.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.recycle()}}
 
-    private fun fly(a:MainActivity,legs:List<Leg>,fade:(Float)->Unit,done:()->Unit){
-        val o=IntArray(2);a.root.getLocationOnScreen(o)
-        val layer=FrameLayout(a).apply{clipChildren=false;isClickable=true;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS;translationZ=a.d(40).toFloat()}
-        a.root.addView(layer,FrameLayout.LayoutParams(-1,-1))
-        val copies=legs.map{l->l.real.alpha=0f;CoverView(a,l.book,a.cover(l.book)).apply{softShadow=true}.also{layer.addView(it,FrameLayout.LayoutParams(l.to.width().toInt(),l.to.height().toInt()))}}
-        fun frame(t:Long){legs.forEachIndexed{i,l->val k=curve.getInterpolation(((t-i*STAGGER).toFloat()/TIME).coerceIn(0f,1f));val v=copies[i]
-            fun mix(x:Float,y:Float)=x+(y-x)*k
-            val w=l.to.width();val h=l.to.height()
-            v.pivotX=w/2f;v.pivotY=h/2f;v.scaleX=mix(l.from.width()/w,1f);v.scaleY=mix(l.from.height()/h,1f)
-            v.translationX=mix(l.from.centerX(),l.to.centerX())-o[0]-w/2f;v.translationY=mix(l.from.centerY(),l.to.centerY())-o[1]-h/2f
-            v.rotation=mix(l.fromTurn,l.toTurn)}}
-        val total=TIME+STAGGER*(legs.size-1).coerceAtLeast(0)
-        frame(0)
+    /** The covers between their two places at [ms]; one without a place to start from shows where it lands (or one
+     *  without a place to land fades where it starts). */
+    private fun fly(copies:List<View>,legs:List<Leg>,ms:Long,time:Long,o:IntArray,back:Boolean){
+        legs.forEachIndexed{i,l->val v=copies[i];val k=curve.getInterpolation(((ms-i*STAGGER).toFloat()/time).coerceIn(0f,1f))
+            val from=l.from;val to=l.to
+            val size=to?:from!!;val w=size.width();val h=size.height();v.pivotX=w/2f;v.pivotY=h/2f
+            if(from==null||to==null){val at=from?:to!!;v.translationX=at.centerX()-o[0]-w/2f;v.translationY=at.centerY()-o[1]-h/2f;v.rotation=if(from==null)l.toTurn else l.fromTurn
+                v.alpha=if(from==null)k else 1f-k;v.scaleX=at.width()/w;v.scaleY=v.scaleX;return@forEachIndexed}
+            v.alpha=1f
+            v.scaleX=mix(from.width()/w,1f,k);v.scaleY=mix(from.height()/h,1f,k)
+            v.translationX=mix(from.centerX(),to.centerX(),k)-o[0]-w/2f;v.translationY=mix(from.centerY(),to.centerY(),k)-o[1]-h/2f
+            v.rotation=mix(l.fromTurn,l.toTurn,k)}}
+    private fun run(total:Long,step:(Long,Float)->Unit,end:()->Unit){
         android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=total;interpolator=android.view.animation.LinearInterpolator()
-            addUpdateListener{val k=it.animatedValue as Float;frame((k*total).toLong());fade(curve.getInterpolation(k))}
-            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){legs.forEach{it.real.alpha=1f};a.root.removeView(layer);done()}})
+            addUpdateListener{val k=it.animatedValue as Float;step((k*total).toLong(),k)}
+            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){end()}})
             start()}}
 }
 
@@ -336,11 +398,11 @@ internal fun MainActivity.shelfRows(){
     lateinit var editor:ShelfEditor
     /** One of your shelves. Its name can change while the page stays up, so everything asks for the current one. */
     fun own(name0:String,list:List<JSONObject>):ShelfRow{var cur=name0;lateinit var row:ShelfRow
-        row=ShelfRow(this,"s:$name0",name0,sortBooks(list),{enterShelf(row.fan){shelf=cur}},{shelfActions(cur)},
+        row=ShelfRow(this,"s:$name0",name0,sortBooks(list),{enterShelf(row){shelf=cur}},{shelfActions(cur)},
             {next:String->val old=cur;cur=next;renameShelf(old,next,quiet=true)},{val gone=cur;editor.delete(row){removeShelfQuietly(gone)}})
         return row}
     val autos=(listOf("reading","want","done")+listOf("paused").filter{k->books.any{Library.status(it)==k}}).map{key->lateinit var row:ShelfRow
-        row=ShelfRow(this,"a:$key",MainActivity.autoTitle(key),sortBooks(books.groupBy{Library.status(it)}[key].orEmpty()),{enterShelf(row.fan){auto=key}},{autoShelfActions(key)},null);row}
+        row=ShelfRow(this,"a:$key",MainActivity.autoTitle(key),sortBooks(books.groupBy{Library.status(it)}[key].orEmpty()),{enterShelf(row){auto=key}},{autoShelfActions(key)},null);row}
     val saved=prefs.optJSONArray("shelfOrder")?.strings().orEmpty()
     val rows=(manual.map{own(it,byShelf[it].orEmpty())}+autos).sortedBy{saved.indexOf(it.key).let{i->if(i<0)Int.MAX_VALUE else i}}
     rows.forEachIndexed{i,r->page.addView(r,LinearLayout.LayoutParams(-1,-2).apply{if(i>0)topMargin=d(26)})}

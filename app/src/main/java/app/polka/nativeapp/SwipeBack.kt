@@ -40,6 +40,7 @@ internal class SwipeBack(private val a:MainActivity){
     fun handle(e:MotionEvent,cancelChildren:()->Unit):Boolean{
         when(e.actionMasked){
             MotionEvent.ACTION_DOWN->{tracking=false;active=false
+                if(ShelfFlight.busy)return false
                 val edge=a.d(28)
                 // the tier list and the year in books fold into their cards under the finger
                 val own:SwipeClosable?=if(a.reader!=null||a.addMenu!=null)null else (a.goalRoad?:a.tierList)
