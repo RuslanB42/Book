@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 
-/** A page that a swipe back closes its own way (the tier list and the year in books fold into their cards). */
+/** A page that a swipe back closes its own way (the tier list, the year in books and a shelf fold into their cards). */
 internal interface SwipeClosable{
     val swipeView:View
     fun swipeReady():Boolean
@@ -40,10 +40,10 @@ internal class SwipeBack(private val a:MainActivity){
     fun handle(e:MotionEvent,cancelChildren:()->Unit):Boolean{
         when(e.actionMasked){
             MotionEvent.ACTION_DOWN->{tracking=false;active=false
-                if(ShelfFlight.busy)return false
+                if(ShelfMorph.busy)return false
                 val edge=a.d(28)
                 // the tier list and the year in books fold into their cards under the finger
-                val own:SwipeClosable?=if(a.reader!=null||a.addMenu!=null)null else (a.goalRoad?:a.tierList)
+                val own:SwipeClosable?=if(a.reader!=null||a.addMenu!=null)null else (a.goalRoad?:a.tierList?:a.shelfMorph?.takeIf{a.shelf!=null||a.auto!=null})
                 if(own!=null){closable=null;if(depth==null&&own.swipeReady()&&e.rawX>edge&&!sideways(own.swipeView,e.rawX.toInt(),e.rawY.toInt())){closable=own;view=own.swipeView;gone=null;tracking=true;x0=e.rawX;y0=e.rawY;velocity?.recycle();velocity=VelocityTracker.obtain();velocity?.addMovement(e)}
                     return false}
                 closable=null
