@@ -15,14 +15,15 @@ import kotlin.math.roundToInt
 /**
  * Автолистание (approved, speed «А: шкала в паузе», a hairline to the next turn). Pages turn by themselves after the
  * time their own letters take at the reader's speed (pictures add a little); in the scroll the text glides up at that
- * speed. The speed starts from the reader's own (the statistics), is kept for each book, and follows the reader: a
+ * speed. In comics and PDF ([AutoHost.pictures]) the speed is seconds a page (a screen, in the strip). The speed starts from the reader's own (the statistics), is kept for each book, and follows the reader: a
  * page turned early by hand makes it faster, a page turned back makes it slower, a little at a time. A tap pauses and
  * shows the control (the speed on a dial, «Подстраиваться под меня»); another tap goes on. After long without a touch
  * it asks «Ещё читаете?»; with no answer it stops and offers the way back to the last page touched.
  */
-internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
+internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
+    /** The speed's range and its steps on the dial, its labels every [major], its unit and where a book keeps it. */
+    private class Scale(val min:Int,val max:Int,val step:Int,val major:Int,val unit:String,val key:String)
     companion object{
-        const val MIN=80;const val MAX=900;const val STEP=5
         private const val ASK_FOR=20_000L
         /** How long without a touch before «Ещё читаете?» (minutes; 0 never asks), chosen in the control. */
         private val ASK_CHOICES=listOf(10,20,30,45,60,0)
@@ -33,10 +34,13 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
     private var running=false
     private var asking=false
     private var adapt=a.prefs.optBoolean("autoAdapt",true)
-    private var wpm=(r.book.optInt("autoWpm").takeIf{it>0}?:r.readerWpm()).let{(it/STEP.toFloat()).roundToInt()*STEP}.coerceIn(MIN,MAX)
+    private val pics=r.pictures
+    private val sc=if(pics)Scale(3,90,1,5,"сек на страницу","autoSecs") else Scale(80,900,5,20,"слов в минуту","autoWpm")
+    /** Words a minute (a book) or seconds a page (pictures). */
+    private var speed=(r.book.optInt(sc.key).takeIf{it>0}?:if(pics)12 else r.readerWpm()).let{(it/sc.step.toFloat()).roundToInt()*sc.step}.coerceIn(sc.min,sc.max)
     private val now get()=SystemClock.uptimeMillis()
-    private val ink get()=r.inkColor()
-    private val page get()=r.backgroundColor
+    private val ink get()=r.autoInk()
+    private val page get()=r.autoBg()
     private val surface get()=androidx.core.graphics.ColorUtils.blendARGB(page,ink,.08f)
     private val muted get()=(ink and 0xffffff) or (0x8c shl 24)
 
@@ -45,7 +49,7 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
     private var spent=0L;private var from=0L;private var due=1L
     private var selfTurn=false;private var turnSince=0L
     private fun spentNow()=spent+(if(running&&!asking)now-from else 0L)
-    private fun dueFor(chars:Int,pictures:Int)=((chars/perMs(wpm)).toLong()+pictures*PICTURE_MS).coerceAtLeast(if(chars>0)1200L else PICTURE_MS)
+    private fun dueFor(chars:Int,pictures:Int)=if(pics)speed*1000L else ((chars/perMs(speed)).toLong()+pictures*PICTURE_MS).coerceAtLeast(if(chars>0)1200L else PICTURE_MS)
 
     // ── the scroll ──
     private var vel=0f;private var acc=0f;private var lastFrame=0L;private var measured=0L;private var target=0f;private var holdUntil=0L;private var endSince=0L
@@ -59,12 +63,12 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
 
     fun start(){if(on)return;on=true
         r.calmForAuto();line.visibility=if(r.paged())View.VISIBLE else View.GONE
-        r.view.addView(line,FrameLayout.LayoutParams(-1,a.d(3),Gravity.BOTTOM))
+        r.autoView.addView(line,FrameLayout.LayoutParams(-1,a.d(3),Gravity.BOTTOM))
         lastTouch=now;touchPoint=r.herePointNow();key="";lastPos=-1;furthest=-1
         resume();Choreographer.getInstance().postFrameCallback(tick)}
     fun stop(){if(!on)return;on=false;running=false;asking=false;keep(false)
         Choreographer.getInstance().removeFrameCallback(tick)
-        listOfNotNull(line,panel,card).forEach{r.view.removeView(it)};panel=null;card=null;countdown?.cancel();countdown=null
+        listOfNotNull(line,panel,card).forEach{r.autoView.removeView(it)};panel=null;card=null;countdown?.cancel();countdown=null
         r.autoEnded()}
     private fun resume(){if(!on||running)return;hidePanel();running=true;from=now;vel=0f;acc=0f;lastFrame=0L;measured=0L;holdUntil=0L;keep(true)}
     private fun pause(show:Boolean=true){if(!running)return;spent=spentNow();running=false;keep(false);if(show)showPanel();line.invalidate()}
@@ -72,7 +76,7 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
     fun appPaused(){pause()}
     /** A long press (to quote): the page holds still, quietly; a tap after the quote goes on. */
     fun held(){pause(false)}
-    private fun keep(on:Boolean){if(on)a.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else a.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)}
+    private fun keep(on:Boolean){val w=r.autoWindow()?:return;if(on)w.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else w.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)}
 
     private fun step(){
         val askAfter=a.prefs.optInt("autoAsk",10)*60_000L
@@ -87,12 +91,14 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
         selfTurn=true;turnSince=now;r.turn(1)}
     private fun scrollStep(){val t=now;val dt=(if(lastFrame==0L)16L else t-lastFrame).coerceIn(0L,50L);lastFrame=t
         if(finger||t<holdUntil||r.autoBusy()){acc=0f;vel=0f;return}
-        if(t-measured>500){measured=t;val h=r.scroll.height.coerceAtLeast(1);val cpp=r.scrollCharsPerPx()
-            // never faster than a screen in six seconds (pictures, empty lines)
-            target=min(if(cpp>0f)(perMs(wpm)/cpp).toFloat() else Float.MAX_VALUE,h/6000f)}
+        val sv=r.autoScroll?:return
+        if(t-measured>500){measured=t;val h=sv.height.coerceAtLeast(1)
+            // pictures: a screen in the chosen seconds; text: by the letters on the screen, never faster than a screen
+            // in six seconds (pictures, empty lines)
+            target=if(pics)h/(speed*1000f) else{val cpp=r.scrollCharsPerPx();min(if(cpp>0f)(perMs(speed)/cpp).toFloat() else Float.MAX_VALUE,h/6000f)}}
         vel+=(target-vel)*min(1f,dt/400f);acc+=vel*dt
         val n=acc.toInt();if(n<=0)return;acc-=n
-        if(r.scroll.canScrollVertically(1)){r.scroll.scrollBy(0,n);endSince=0L;return}
+        if(sv.canScrollVertically(1)){sv.scrollBy(0,n);endSince=0L;return}
         // the end of the chapter: a moment on its last lines, then the next one (or the end of the book)
         if(endSince==0L)endSince=t else if(t-endSince>1500){endSince=0L;if(r.atEnd()){stop();r.turn(1)}else r.nextChapterAuto()}}
 
@@ -103,18 +109,22 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
         furthest=max(furthest,pos);selfTurn=false
         lastPos=pos;lastChars=r.pageCharsNow();due=dueFor(lastChars,r.pageImagesNow());spent=0L;from=now;line.invalidate()}
     /** Turned early by hand after really reading the page (not a skip, not a slip): a step towards that speed. */
-    private fun learnForward(t:Long){if(!adapt||lastChars<200)return
+    private fun learnForward(t:Long){if(!adapt||(!pics&&lastChars<200))return
         if(t<1500||t<due/4||t>due*92/100)return
+        if(pics){val seen=t/1000f;setSpeed(max(speed+(seen-speed)*.35f,speed*.85f).roundToInt());return}
         val seen=(lastChars/ReadingTracker.CHARS_PER_WORD/(t/60000.0)).toFloat()
-        setWpm(min(wpm+(seen-wpm)*.35f,wpm*1.15f).roundToInt())}
-    private fun learnBack(){if(adapt)setWpm((wpm*.93f).roundToInt())}
+        setSpeed(min(speed+(seen-speed)*.35f,speed*1.15f).roundToInt())}
+    private fun learnBack(){if(adapt)slower(.07f)}
     /** The scroll pulled by hand: back is slower, a short step on is faster; a long jump is a skip. */
-    private fun learnScroll(dy:Float){if(!adapt)return;val h=r.scroll.height
-        if(dy>slop*2)setWpm((wpm*.93f).roundToInt()) else if(dy< -slop*2&&-dy<h*.6f)setWpm((wpm*1.04f).roundToInt())}
-    private fun setWpm(v:Int){val next=v.coerceIn(MIN,MAX);if(next==wpm)return
+    private fun learnScroll(dy:Float){if(!adapt)return;val h=r.autoScroll?.height?:return
+        if(dy>slop*2)slower(.07f) else if(dy< -slop*2&&-dy<h*.6f)faster(.04f)}
+    /** Slower or faster by a part: fewer words a minute, or more seconds a page (at least one step). */
+    private fun slower(k:Float){setSpeed(if(pics)max(speed+1,(speed*(1+k)).roundToInt()) else (speed*(1-k)).roundToInt())}
+    private fun faster(k:Float){setSpeed(if(pics)min(speed-1,(speed*(1-k)).roundToInt()) else (speed*(1+k)).roundToInt())}
+    private fun setSpeed(v:Int){val next=v.coerceIn(sc.min,sc.max);if(next==speed)return
         // the part of the page already read stays read
-        if(r.paged()&&due>0){val part=spentNow().toDouble()/due;wpm=next;due=dueFor(lastChars,r.pageImagesNow());spent=(part*due).toLong();from=now}else wpm=next
-        measured=0L;r.book.put("autoWpm",wpm);value?.let{showValue(it)}}
+        if(r.paged()&&due>0){val part=spentNow().toDouble()/due;speed=next;due=dueFor(lastChars,r.pageImagesNow());spent=(part*due).toLong();from=now}else speed=next
+        measured=0L;r.book.put(sc.key,speed);value?.let{showValue(it)}}
 
     /** Every touch on the reader comes here first. A tap pauses or goes on (and nothing under it is tapped); the rest
      *  goes on to the page — a swipe still turns it (and teaches the speed). */
@@ -146,8 +156,8 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
 
     // ── the control (paused) ──
     private var panel:LinearLayout?=null;private var value:TextView?=null
-    private fun showValue(t:TextView){val s=android.text.SpannableStringBuilder("$wpm  слов в минуту")
-        val n="$wpm".length;s.setSpan(android.text.style.AbsoluteSizeSpan(26,true),0,n,0);s.setSpan(android.text.style.StyleSpan(Typeface.BOLD),0,n,0)
+    private fun showValue(t:TextView){val s=android.text.SpannableStringBuilder("$speed  ${sc.unit}")
+        val n="$speed".length;s.setSpan(android.text.style.AbsoluteSizeSpan(26,true),0,n,0);s.setSpan(android.text.style.StyleSpan(Typeface.BOLD),0,n,0)
         s.setSpan(android.text.style.ForegroundColorSpan(muted),n,s.length,0);s.setSpan(android.text.style.AbsoluteSizeSpan(13,true),n,s.length,0);t.text=s}
     private fun showPanel(){val p=panel?:build().also{panel=it}
         p.animate().cancel();p.visibility=View.VISIBLE
@@ -171,7 +181,7 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
         box.addView(View(a).apply{setBackgroundColor((ink and 0xffffff) or (0x12 shl 24))},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);leftMargin=a.d(16);rightMargin=a.d(16)})
         box.addView(LayoutToggle(a,"Подстраиваться под меня",adapt){on->adapt=on;a.prefs.put("autoAdapt",on);a.savePreferences()},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(12);leftMargin=a.d(12);rightMargin=a.d(12)})
         box.addView(AskRow(),LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(8);leftMargin=a.d(12);rightMargin=a.d(12)})
-        r.view.addView(box,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{leftMargin=a.d(14);rightMargin=a.d(14);bottomMargin=a.d(26)})
+        r.autoView.addView(box,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{leftMargin=a.d(14);rightMargin=a.d(14);bottomMargin=a.d(26)+r.autoInset()})
         return box}
 
     private fun askLabel(m:Int)=if(m==0)"не спрашивать" else "через $m мин"
@@ -190,22 +200,22 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
             c.save();c.translate(w-26*d,(h-16*d)/2);c.scale(16*d/24f,16*d/24f);IosIcons.draw(c,"next",t.color);c.restore()}
     }
 
-    /** The speed on a ruler: dragged or flung under the mark, it stops on a step of five words with a soft tick. */
+    /** The speed on a ruler: dragged or flung under the mark, it stops on a step (five words, a second) with a soft tick. */
     private inner class Dial:View(a){
         private val gap=a.d(12).toFloat()
-        private var at=wpm.toFloat()
-        private var mark=wpm/STEP
+        private var at=speed.toFloat()
+        private var mark=speed/sc.step
         private val fling=OverScroller(a,android.view.animation.DecelerateInterpolator(1.6f))
         private var vt:VelocityTracker?=null;private var lastX=0f
         private var settle:ValueAnimator?=null
         private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeCap=Paint.Cap.ROUND}
         private val t=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER;textSize=11f*a.resources.displayMetrics.scaledDensity;typeface=PolkaFonts.sans(400)}
-        private val far get()=(MAX-MIN)/STEP*gap
+        private val far get()=(sc.max-sc.min)/sc.step*gap
         init{contentDescription="Скорость"}
-        private fun px()=(at-MIN)/STEP*gap
-        private fun moveTo(x:Float){at=(MIN+x.coerceIn(0f,far)/gap*STEP);val m=(at/STEP).roundToInt()
-            if(m!=mark){mark=m;if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);setWpm(m*STEP)};invalidate()}
-        private fun snap(){val to=(at/STEP).roundToInt()*STEP.toFloat();settle?.cancel()
+        private fun px()=(at-sc.min)/sc.step*gap
+        private fun moveTo(x:Float){at=(sc.min+x.coerceIn(0f,far)/gap*sc.step);val m=(at/sc.step).roundToInt()
+            if(m!=mark){mark=m;if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);setSpeed(m*sc.step)};invalidate()}
+        private fun snap(){val to=(at/sc.step).roundToInt()*sc.step.toFloat();settle?.cancel()
             settle=ValueAnimator.ofFloat(at,to).apply{duration=180;interpolator=MotionSpec.enter;addUpdateListener{at=it.animatedValue as Float;invalidate()};start()}}
         override fun onTouchEvent(e:MotionEvent):Boolean{
             when(e.actionMasked){
@@ -217,7 +227,7 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
         override fun computeScroll(){if(fling.computeScrollOffset()){moveTo(fling.currX.toFloat());postInvalidateOnAnimation();if(fling.isFinished)snap()}}
         override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val cx=w/2f;val base=h;val p0=px()
             val first=((p0-cx)/gap).toInt()-1;val last=((p0+cx)/gap).toInt()+1
-            for(k in max(0,first)..min((MAX-MIN)/STEP,last)){val x=cx+k*gap-p0;val v=MIN+k*STEP;val major=v%20==0
+            for(k in max(0,first)..min((sc.max-sc.min)/sc.step,last)){val x=cx+k*gap-p0;val v=sc.min+k*sc.step;val major=v%sc.major==0
                 val fade=(1f-((x-cx)/cx).let{it*it}).coerceIn(0f,1f)
                 p.strokeWidth=a.d(2).toFloat();p.color=(ink and 0xffffff) or ((255*(if(major).55f else .22f)*fade).toInt() shl 24)
                 c.drawLine(x,base-a.d(if(major)22 else 12),x,base-a.d(1),p)
@@ -244,7 +254,7 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
         box.addView(TextView(a).apply{text="Читаю";textSize=15f;typeface=PolkaFonts.sans(600);setTextColor(page);gravity=Gravity.CENTER;isClickable=true
             background=GradientDrawable().apply{setColor(ink);cornerRadius=a.d(24).toFloat()};setOnClickListener{answer()};a.press(this)},LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(18)})
         scrim.addView(box,FrameLayout.LayoutParams(-1,-2,Gravity.CENTER).apply{leftMargin=a.d(22);rightMargin=a.d(22)})
-        r.view.addView(scrim,FrameLayout.LayoutParams(-1,-1));card=scrim
+        r.autoView.addView(scrim,FrameLayout.LayoutParams(-1,-1));card=scrim
         if(a.prefs.str("motion")!="reduced"){scrim.alpha=0f;scrim.animate().alpha(1f).setDuration(MotionSpec.ASK_IN).setInterpolator(MotionSpec.enter).start()}
         val back=touchPoint
         countdown=ValueAnimator.ofFloat(1f,0f).apply{duration=ASK_FOR;interpolator=android.view.animation.LinearInterpolator()
@@ -257,19 +267,52 @@ internal class AutoRead(private val a:MainActivity,private val r:NativeReader){
             start()}}
     private fun answer(){if(!asking)return;asking=false;countdown?.cancel();countdown=null;lastTouch=now;from=now;touchPoint=r.herePointNow()
         val c=card?:return;card=null
-        if(a.prefs.str("motion")=="reduced"){r.view.removeView(c);return}
-        c.animate().alpha(0f).setDuration(MotionSpec.ASK_OUT).setInterpolator(MotionSpec.exit).withEndAction{r.view.removeView(c)}.start()}
+        if(a.prefs.str("motion")=="reduced"){r.autoView.removeView(c);return}
+        c.animate().alpha(0f).setDuration(MotionSpec.ASK_OUT).setInterpolator(MotionSpec.exit).withEndAction{r.autoView.removeView(c)}.start()}
 
     // ── «Вернуться к стр. …» ──
     private var chip:LinearLayout?=null
     private fun offerBack(point:JSONObject){val label=r.pageLabel(point)?:return
-        if(point.optInt("ch")==r.herePointNow().optInt("ch")&&point.optInt("off")==r.herePointNow().optInt("off"))return
+        if(point.toString()==r.herePointNow().toString())return
         val c=LinearLayout(a).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),0,a.d(16),0);isClickable=true;elevation=a.d(10).toFloat();contentDescription="Вернуться к $label"
             background=GradientDrawable().apply{setColor(surface);cornerRadius=a.d(20).toFloat()}
             setOnClickListener{hideChip();r.autoReturn(point)};a.press(this)}
         c.addView(IconView(a,"back",ink),LinearLayout.LayoutParams(a.d(18),a.d(18)))
         c.addView(TextView(a).apply{text="Вернуться к $label";textSize=14f;typeface=PolkaFonts.sans(500);setTextColor(ink);setPadding(a.d(8),0,0,0)})
-        r.view.addView(c,FrameLayout.LayoutParams(-2,a.d(40),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply{bottomMargin=a.d(44)});chip=c
+        r.autoView.addView(c,FrameLayout.LayoutParams(-2,a.d(40),Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply{bottomMargin=a.d(44)+r.autoInset()});chip=c
         c.postDelayed({hideChip()},10_000)}
     private fun hideChip(){val c=chip?:return;chip=null;c.animate().alpha(0f).setDuration(MotionSpec.ASK_OUT).withEndAction{(c.parent as? ViewGroup)?.removeView(c)}.start()}
+}
+
+/** A reader the automatic reading runs in: the book reader, or the one for comics and PDF. */
+interface AutoHost{
+    val book:JSONObject
+    /** Where its line, control and questions are shown. */
+    val autoView:FrameLayout
+    /** What scrolls, in the scroll (or the strip of pictures); null when pages turn. */
+    val autoScroll:View?
+    /** Pages are pictures (comics, PDF): their time is seconds, not letters. */
+    val pictures:Boolean
+    fun paged():Boolean
+    fun autoBg():Int
+    fun autoInk():Int
+    fun autoWindow():android.view.Window?
+    /** Room to leave at the bottom (the system's bar), when [autoView] does not leave it itself. */
+    fun autoInset():Int
+    fun readerWpm():Int
+    fun calmForAuto()
+    fun pageKey():String
+    fun position():Int
+    fun pageCharsNow():Int
+    fun pageImagesNow():Int
+    fun autoBusy():Boolean
+    fun atEnd():Boolean
+    fun turn(direction:Int)
+    fun scrollCharsPerPx():Float
+    fun nextChapterAuto()
+    fun herePointNow():JSONObject
+    fun pageLabel(p:JSONObject):String?
+    fun autoReturn(p:JSONObject)
+    fun quoteActive():Boolean
+    fun autoEnded()
 }

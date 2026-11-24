@@ -11,7 +11,7 @@ import org.jsoup.Jsoup
 import kotlin.math.abs
 
 @android.annotation.SuppressLint("WrongConstant")
-class NativeReader(private val a:MainActivity, val book:JSONObject, private val content:JSONObject, private val images:Map<String,ByteArray>) {
+class NativeReader(private val a:MainActivity, override val book:JSONObject, private val content:JSONObject, private val images:Map<String,ByteArray>):AutoHost {
     val view=object:FrameLayout(a){
         // the automatic reading sees every touch first: a tap is its pause (see [AutoRead])
         override fun dispatchTouchEvent(e:MotionEvent):Boolean{val au=auto
@@ -282,7 +282,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
      * The last page of the last chapter IS the end of the book. Paged progress is measured from the START of the
      * current page, so on the final page it used to stop at ~99% and the book could never become "read".
      */
-    internal fun atEnd():Boolean {
+    override fun atEnd():Boolean {
         if(disposed||preparing||restoring||opening||chapters.length()==0||chapter!=chapters.length()-1||chapterRich.isEmpty()||scroll.width<=0||scroll.height<=0)return false
         return if(paged())pageStarts.isNotEmpty()&&pageIndex>=pageStarts.lastIndex else body.height<=scroll.height||scroll.scrollY>=body.height-scroll.height-a.d(4)
     }
@@ -444,7 +444,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         if(next !in 0 until chapters.length())return
         quoteSelection.clear();save();stopPageMotion();chapter=next;pendingOffset=offset;pendingFraction=null;pendingAnchor=anchor.takeIf{it.isNotBlank()};paintChapter()
     }
-    fun paged()=a.prefs.str("mode","paged")=="paged"
+    override fun paged()=a.prefs.str("mode","paged")=="paged"
     // «Назад» after a jump (approved): the place being read is kept until three pages are read at the new place
     private var backPoint:JSONObject?=null
     private var backForward=false
@@ -477,7 +477,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         backChip.contentDescription=(if(backForward)"Вперёд: " else "Назад: ")+backLabel.text
         remaining.visibility=View.GONE;backChip.visibility=View.VISIBLE}
     fun pageHeight()=maxOf(1,scroll.height-a.d(18))
-    fun position():Int { val before=(0 until chapter).sumOf { chapters.getJSONObject(it).optInt("len") }; val offset=if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0; return before+offset }
+    override fun position():Int { val before=(0 until chapter).sumOf { chapters.getJSONObject(it).optInt("len") }; val offset=if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0; return before+offset }
     fun paginate(offset:Int=pageBase()) {pendingOffset=offset;paintChapter()}
     private fun pageText(rich:CharSequence,starts:List<Int>,index:Int):CharSequence {
         val start=starts.getOrElse(index){0};val end=starts.getOrElse(index+1){rich.length};val page=android.text.SpannableStringBuilder(rich,start,end)
@@ -651,7 +651,7 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
         selectionTurnDone=done
         if(!beginCurl(direction,false,scroll.height*.9f)){selectionTurnDone=null;done(false)}
     }
-    fun turn(direction:Int) {
+    override fun turn(direction:Int) {
         tracker.touch();if(preparing||disposed||editorOpen||isTurning())return
         if(!paged()){if(direction>0&&atEnd())pastEnd() else scroll.smoothScrollBy(0,direction*pageHeight());return}
         quoteSelection.clear()
@@ -677,25 +677,31 @@ class NativeReader(private val a:MainActivity, val book:JSONObject, private val 
     // ── Автолистание (see [AutoRead]) ──
     internal var auto:AutoRead?=null;private set
     private fun autoRead(){if(auto!=null||preparing||editorOpen)return;auto=AutoRead(a,this).also{it.start()}}
-    internal fun autoEnded(){auto=null}
-    internal fun autoBusy()=preparing||disposed||editorOpen||opening||finishing||restoring||isTurning()
-    internal fun calmForAuto(){if(!calm)setCalm(true,true)}
+    override val autoView:FrameLayout get()=view
+    override val autoScroll:View get()=scroll
+    override val pictures=false
+    override fun autoBg()=readerBackground
+    override fun autoInk()=body.currentTextColor
+    override fun autoWindow():android.view.Window?=a.window
+    override fun autoInset()=0
+    override fun autoEnded(){auto=null}
+    override fun autoBusy()=preparing||disposed||editorOpen||opening||finishing||restoring||isTurning()
+    override fun calmForAuto(){if(!calm)setCalm(true,true)}
     /** The page on the screen, told apart from any other (its chapter, its start and the chapter's layout). */
-    internal fun pageKey()="$chapter:${pageBase()}:${pageStarts.size}"
-    internal fun pageCharsNow()=(pageLimit()-pageBase()).coerceAtLeast(0)
-    internal fun pageImagesNow()=(chapterRich as? android.text.Spanned)?.getSpans(pageBase(),pageLimit(),android.text.style.ImageSpan::class.java)?.size?:0
+    override fun pageKey()="$chapter:${pageBase()}:${pageStarts.size}"
+    override fun pageCharsNow()=(pageLimit()-pageBase()).coerceAtLeast(0)
+    override fun pageImagesNow()=(chapterRich as? android.text.Spanned)?.getSpans(pageBase(),pageLimit(),android.text.style.ImageSpan::class.java)?.size?:0
     /** Letters a pixel on the screen of the scroll now. */
-    internal fun scrollCharsPerPx():Float{val l=body.layout?:return 0f;val h=scroll.height;if(h<=0)return 0f
+    override fun scrollCharsPerPx():Float{val l=body.layout?:return 0f;val h=scroll.height;if(h<=0)return 0f
         val top=(scroll.scrollY-body.paddingTop).coerceAtLeast(0);val first=l.getLineForVertical(top);val last=l.getLineForVertical(top+h)
         return (l.getLineEnd(last)-l.getLineStart(first)).coerceAtLeast(0).toFloat()/h}
-    internal fun inkColor()=body.currentTextColor
-    internal fun quoteActive()=quoteSelection.active
+    override fun quoteActive()=quoteSelection.active
     /** The reader's own speed (words a minute), from the statistics. */
-    internal fun readerWpm()=(tracker.pace*60000/ReadingTracker.CHARS_PER_WORD).toInt()
-    internal fun herePointNow()=herePoint()
-    internal fun pageLabel(p:JSONObject):String?=if(p.optInt("ch")==chapter)pageOf(chapter,p.optInt("off"))?.let{"стр. $it"} else "«${chapterName(p.optInt("ch"))}»"
-    internal fun autoReturn(p:JSONObject){markJump();goPoint(p)}
-    internal fun nextChapterAuto(){changeChapter(chapter+1)}
+    override fun readerWpm()=(tracker.pace*60000/ReadingTracker.CHARS_PER_WORD).toInt()
+    override fun herePointNow()=herePoint()
+    override fun pageLabel(p:JSONObject):String?=if(p.optInt("ch")==chapter)pageOf(chapter,p.optInt("off"))?.let{"стр. $it"} else "«${chapterName(p.optInt("ch"))}»"
+    override fun autoReturn(p:JSONObject){markJump();goPoint(p)}
+    override fun nextChapterAuto(){changeChapter(chapter+1)}
     private fun setCalm(value:Boolean,animate:Boolean){calm=value;chromeSprings.values.forEach{it.stop()};val reduced=!animate||a.prefs.str("motion")=="reduced";listOf(topBar to -1,bottom to 1).forEach{(v,sign)->v.animate().cancel();if(reduced){v.alpha=if(value)0f else 1f;v.translationY=if(value)sign*v.height.toFloat() else 0f;v.visibility=if(value)View.INVISIBLE else View.VISIBLE;if(value)v.post{if(calm&&v.visibility==View.INVISIBLE)v.translationY=sign*v.height.toFloat()}}else{v.visibility=View.VISIBLE
             // the same spring as the sheets that rise from below: the bars glide in and out instead of fading on a curve
             val h=v.height.toFloat().coerceAtLeast(1f);val off=sign*h;val start=(v.translationY/off).coerceIn(0f,1f)

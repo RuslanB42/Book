@@ -44,8 +44,10 @@ internal class PdfSource(file:File):PageSource(){
  * pinch or double-tap to zoom, tap the middle for the panels. Top: the title and «стр. N из M»; bottom: a strip of
  * page thumbnails and the mode — pages, a continuous strip (webtoons) or right to left (manga).
  */
-internal class PageReader(private val a:MainActivity,private val book:JSONObject){
+internal class PageReader(private val a:MainActivity,override val book:JSONObject):AutoHost{
     private val doc=book.optJSONObject("doc")!!
+    /** A comic (not a PDF): no bookmarks — its pages are found by their pictures. */
+    private val comic=doc.str("type")!="pdf"
     private val source:PageSource=if(doc.str("type")=="pdf")PdfSource(File(PageDocs.dir(a,book),"doc.pdf")) else ImageSource(PageDocs.dir(a,book))
     private val n=source.count
     private val io=Executors.newFixedThreadPool(2)
@@ -59,7 +61,10 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     private var page=(book.optJSONObject("progress")?.optInt("page",0)?:0).coerceIn(0,maxOf(0,n-1))
     private val dialog=android.app.Dialog(a,android.R.style.Theme_Black_NoTitleBar_Fullscreen)
     /** Every touch is the reader being with the page. */
-    private val root=object:FrameLayout(a){override fun dispatchTouchEvent(e:MotionEvent):Boolean{tracker.touch();return super.dispatchTouchEvent(e)}}
+    private val root=object:FrameLayout(a){override fun dispatchTouchEvent(e:MotionEvent):Boolean{tracker.touch()
+        // the automatic reading sees every touch first: a tap is its pause (see [AutoRead])
+        val au=auto;if(au!=null&&au.intercept(e){val c=MotionEvent.obtain(e).apply{action=MotionEvent.ACTION_CANCEL};super.dispatchTouchEvent(c);c.recycle()})return true
+        return super.dispatchTouchEvent(e)}}
     /** Time, pages and sittings, counted as in the text reader (see [ReadingTracker]). */
     private val tracker=ReadingTracker(false,doc.str("type")=="pdf").also{a.seedTracker(it,book.str("id"))}
     private var paused=false
@@ -68,7 +73,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     private lateinit var top:LinearLayout;private lateinit var bottom:LinearLayout
     private lateinit var strip:LinearLayout;private lateinit var stripScroll:HorizontalScrollView
     private lateinit var titleView:TextView;private lateinit var authorView:TextView;private lateinit var pageLabel:TextView;private lateinit var leftLabel:TextView
-    private lateinit var markIcon:IconView;private lateinit var soundButton:SoundButton;private lateinit var soundChip:SoundChip
+    private var markIcon:IconView?=null;private lateinit var soundButton:SoundButton;private lateinit var soundChip:SoundChip
     private val icons=ArrayList<IconView>()
     private var chrome=true
     private var paged:PagedView?=null;private var ribbon:RibbonView?=null
@@ -80,7 +85,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     private fun ink()=if(lightBg)0xff1e1d1b.toInt() else 0xfff3f2ef.toInt()
     private fun mutedInk()=if(lightBg)0xff76767b.toInt() else 0xff8b8b91.toInt()
     private val widthFit get()=a.prefs.str("comicFit")=="width"
-    private fun marks():MutableList<Int>{val arr=book.optJSONArray("pageMarks")?:return mutableListOf();return (0 until arr.length()).map{arr.optInt(it)}.filter{it in 0 until n}.distinct().toMutableList()}
+    private fun marks():MutableList<Int>{if(comic)return mutableListOf();val arr=book.optJSONArray("pageMarks")?:return mutableListOf();return (0 until arr.length()).map{arr.optInt(it)}.filter{it in 0 until n}.distinct().toMutableList()}
 
     fun show(){
         book.put("openedAt",System.currentTimeMillis());a.immersiveSheets=true;a.pageReading=this
@@ -106,7 +111,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         root.postDelayed({setChrome(false)},1400)
     }
     private fun close(){root.animate().alpha(0f).setDuration(if(reduced)0 else MotionSpec.DARK_IN).setInterpolator(MotionSpec.exit).withEndAction{dialog.dismiss()}.start()}
-    private fun finish(){root.removeCallbacks(heartbeat);val finished=finishOnClose();credit(finished);paused=true;if(a.pageReading===this)a.pageReading=null;a.immersiveSheets=false;Ambience.stop(a);save(true);io.shutdownNow();source.close()
+    private fun finish(){auto?.stop();root.removeCallbacks(heartbeat);val finished=finishOnClose();credit(finished);paused=true;if(a.pageReading===this)a.pageReading=null;a.immersiveSheets=false;Ambience.stop(a);save(true);io.shutdownNow();source.close()
         if(finished)a.root.postDelayed({if(!a.isFinishing&&!a.isDestroyed)BookFinish(a,book){}.show()},300)}
     /** The end of the book is being shown (the window «Книга прочитана» or the question before it). */
     private var finishing=false
@@ -135,7 +140,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         if(page>0&&(st=="want"||st=="paused")){book.put("state","reading");if(book.optLong("startedAt")==0L)book.put("startedAt",System.currentTimeMillis())}
         val copy=book.copyJson();a.work({a.library.save(copy)}){if(done)a.reload()}}
 
-    fun pause(){credit();paused=true}
+    fun pause(){auto?.appPaused();credit();paused=true}
     fun resume(){paused=false;tracker.skipTime();tracker.touch()}
     /** The time and pages since the last tick, into the statistics. */
     /** [end] — the book was just finished: its last page counts as read. */
@@ -153,9 +158,9 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
     /** The page at [width] px, from the cache or loaded in the background ([ready] runs on the main thread). */
     fun bitmap(i:Int,width:Int,ready:()->Unit):Bitmap?{val k=key(i,width);cache.get(k)?.let{return it}
         if(loading.add(k))io.execute{val b=try{source.render(i,width)}catch(_:Throwable){null};root.post{loading.remove(k);if(b!=null){cache.put(k,b);ready()}}};return null}
-    private fun go(i:Int,animate:Boolean=true){val t=i.coerceIn(0,n-1);if(t==page&&paged?.settled!=false)return;page=t;paged?.show(t,animate);ribbon?.scrollTo(t);paint();save(false)}
+    private fun go(i:Int,animate:Boolean=true){val t=i.coerceIn(0,n-1);if(t==page&&paged?.settled!=false)return;page=t;paged?.show(t,animate);ribbon?.scrollTo(t);paint();save(false);auto?.pageShown()}
     private fun paint(){pageLabel.text="Страница ${page+1}";val left=n-1-page;leftLabel.text=if(left>0)"ещё $left стр" else "последняя"
-        markIcon.isSelected=page in marks();markIcon.invalidate()
+        markIcon?.let{it.isSelected=page in marks();it.invalidate()}
         for(i in 0 until strip.childCount)(strip.getChildAt(i) as? Thumb)?.place(page)
         strip.getChildAt(page)?.let{t->val target=t.left+t.width/2-stripScroll.width/2;if(reduced)stripScroll.scrollTo(target,0) else stripScroll.smoothScrollTo(target,0)}}
     private fun setMode(m:String,animate:Boolean){mode=m;book.put("pageMode",m);stage.removeAllViews();paged=null;ribbon=null
@@ -166,6 +171,34 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         strip.layoutDirection=if(rtl&&m!="ribbon")View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
         root.post{paint()}}
     fun toggleChrome()=setChrome(!chrome)
+
+    // ── Автолистание (see [AutoRead]): a page's time is seconds; in the strip, a screen's ──
+    private var auto:AutoRead?=null
+    private fun autoRead(){if(auto!=null||n==0)return;auto=AutoRead(a,this).also{it.start()}}
+    override val autoView:FrameLayout get()=root
+    override val autoScroll:View? get()=ribbon
+    override val pictures=true
+    override fun paged()=ribbon==null
+    override fun autoBg()=bgColor()
+    override fun autoInk()=ink()
+    override fun autoWindow()=dialog.window
+    override fun autoInset()=androidx.core.view.ViewCompat.getRootWindowInsets(root)?.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())?.bottom?:0
+    override fun readerWpm()=0
+    override fun calmForAuto(){if(chrome)setChrome(false)}
+    override fun pageKey()="$page"
+    override fun position()=page
+    override fun pageCharsNow()=0
+    override fun pageImagesNow()=1
+    override fun autoBusy()=finishing||paged?.busy==true
+    override fun atEnd()=if(ribbon!=null)ribbon?.canScrollVertically(1)==false else page>=n-1
+    override fun turn(direction:Int){tracker.touch();val pv=paged;if(pv!=null)pv.turn(direction) else if(direction>0&&atEnd())pastEnd()}
+    override fun scrollCharsPerPx()=0f
+    override fun nextChapterAuto(){}
+    override fun herePointNow()=JSONObject().put("page",page)
+    override fun pageLabel(p:JSONObject)="стр. ${p.optInt("page")+1}"
+    override fun autoReturn(p:JSONObject){jump(p.optInt("page"))}
+    override fun quoteActive()=false
+    override fun autoEnded(){auto=null}
     private fun setChrome(on:Boolean){chrome=on;listOf(top to -1,bottom to 1).forEach{(v,s)->v.animate().cancel()
         chromeSprings[v]?.stop()
         if(reduced){v.alpha=if(on)1f else 0f;v.translationY=if(on)0f else s*v.height.toFloat();v.visibility=if(on)View.VISIBLE else View.INVISIBLE;return@forEach}
@@ -201,7 +234,8 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         bottom.addView(stripScroll,LinearLayout.LayoutParams(-1,a.d(88)).apply{leftMargin=-a.d(18);rightMargin=-a.d(18)})
         val tools=a.line().apply{gravity=Gravity.CENTER;setPadding(0,a.d(4),0,0)}
         tools.addView(icon("contents","Страницы"){pagesSheet()},LinearLayout.LayoutParams(0,a.d(48),1f))
-        markIcon=icon("bm","Закладка на этой странице"){toggleMark()};tools.addView(markIcon,LinearLayout.LayoutParams(0,a.d(48),1f))
+        if(!comic)markIcon=icon("bm","Закладка на этой странице"){toggleMark()}.also{tools.addView(it,LinearLayout.LayoutParams(0,a.d(48),1f))}
+        tools.addView(icon("play","Автолистание"){autoRead()},LinearLayout.LayoutParams(0,a.d(48),1f))
         tools.addView(icon("aa","Оформление"){settingsPanel()},LinearLayout.LayoutParams(0,a.d(48),1f))
         soundButton=SoundButton(a,ink()).apply{isClickable=true;setOnClickListener{AmbienceSheet(a,bgColor()).show()};a.press(this)}
         tools.addView(soundButton,LinearLayout.LayoutParams(0,a.d(48),1f))
@@ -357,6 +391,8 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         private fun maxPan(i:Int)=if(widthFit)(fit(i).height()-height).coerceAtLeast(0f) else 0f
         fun refit(){pan=0f;scale=1f;px=0f;py=0f;invalidate()}
         private var anim:ValueAnimator?=null;var settled=true
+        /** A page is still moving (a turn or a slide settling). */
+        val busy get()=!settled||turnClock!=null||turning!=null
         private val scaler=ScaleGestureDetector(a,object:ScaleGestureDetector.SimpleOnScaleGestureListener(){
             override fun onScale(d:ScaleGestureDetector):Boolean{val ns=(scale*d.scaleFactor).coerceIn(1f,5f);val f=ns/scale;px=d.focusX-(d.focusX-px)*f;py=d.focusY-(d.focusY-py)*f;scale=ns;clamp();invalidate();return true}})
         private val gestures=GestureDetector(a,object:GestureDetector.SimpleOnGestureListener(){
@@ -455,7 +491,7 @@ internal class PageReader(private val a:MainActivity,private val book:JSONObject
         private val column=a.column()
         init{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(column)
             for(i in 0 until n)column.addView(Slot(i),LinearLayout.LayoutParams(-1,-2))
-            setOnScrollChangeListener{_,_,y,_,_->val mid=y+height/2;for(i in 0 until column.childCount){val v=column.getChildAt(i);if(mid>=v.top&&mid<v.bottom){if(i!=page){page=i;paint();save(false)};break}}}}
+            setOnScrollChangeListener{_,_,y,_,_->tracker.touch();val mid=y+height/2;for(i in 0 until column.childCount){val v=column.getChildAt(i);if(mid>=v.top&&mid<v.bottom){if(i!=page){page=i;paint();save(false)};break}}}}
         fun scrollTo(i:Int){column.getChildAt(i)?.let{v->if(v.height==0)post{scrollTo(0,v.top)} else scrollTo(0,v.top)}}
         private var taps=GestureDetector(a,object:GestureDetector.SimpleOnGestureListener(){override fun onSingleTapConfirmed(e:MotionEvent):Boolean{toggleChrome();return true}})
         override fun dispatchTouchEvent(e:MotionEvent):Boolean{taps.onTouchEvent(e);return super.dispatchTouchEvent(e)}
