@@ -67,16 +67,23 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
     /** Opened on the last page ([fromPage]): a picture of the screen is taken first, so the page can turn into the
      *  cover — of the reader's own [window] (comics are read in a window of their own, over the book's page). Opened
      *  later (the book closed as read), the page comes out of the dark instead. */
-    fun show(fromPage:Boolean=false,window:Window?=null){
-        if(!motion||!fromPage){build(null);return}
+    /** [page]: where the page itself is in that window, when it does not fill it (a comic's page on its backdrop
+     *  [pageBg]): then only the page turns into the cover, and the backdrop gives way to the light. */
+    fun show(fromPage:Boolean=false,window:Window?=null,page:RectF?=null,pageBg:Int=0){
+        // the cover is ready before anything moves: it shows through the page at the end of the move, never late
+        var shot:Bitmap?=null;var waiting=2;var built=false
+        fun ready(){if(--waiting>0||built||a.isFinishing||a.isDestroyed)return;built=true;build(shot,page,pageBg)}
+        var coverDone=false;fun coverReady(){if(coverDone)return;coverDone=true;ready()}
+        if(a.cover(book)!=null||book.optJSONObject("cover")?.str("__polkaBlob").isNullOrBlank())coverReady()
+        else{a.requestCover(book){coverReady()};a.root.postDelayed({coverReady()},500)}
+        if(!motion||!fromPage){ready();return}
         val w=window?:a.window;val v=w.decorView
-        if(v.width<=0||v.height<=0){build(null);return}
-        val bmp=try{Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888)}catch(_:Throwable){build(null);return}
-        try{android.view.PixelCopy.request(w,bmp,{res->if(a.isFinishing||a.isDestroyed)return@request
-                if(res==android.view.PixelCopy.SUCCESS)build(bmp) else{bmp.recycle();build(null)}},android.os.Handler(android.os.Looper.getMainLooper()))}
-        catch(_:Throwable){bmp.recycle();build(null)}
+        if(v.width<=0||v.height<=0){ready();return}
+        val bmp=try{Bitmap.createBitmap(v.width,v.height,Bitmap.Config.ARGB_8888)}catch(_:Throwable){ready();return}
+        try{android.view.PixelCopy.request(w,bmp,{res->if(res==android.view.PixelCopy.SUCCESS)shot=bmp else bmp.recycle();ready()},android.os.Handler(android.os.Looper.getMainLooper()))}
+        catch(_:Throwable){bmp.recycle();ready()}
     }
-    private fun build(shot:Bitmap?){
+    private fun build(shot:Bitmap?,from:RectF?=null,fromBg:Int=0){
         val ground=if(a.light)0xffe9e7e3.toInt() else 0xff0e0e10.toInt()
         val root=FrameLayout(a).apply{setBackgroundColor(ground)}
         // the cover's colours over the whole screen: darkened (lightened in the light theme) more toward the foot.
@@ -89,7 +96,9 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         root.addView(scrim,FrameLayout.LayoutParams(-1,-1))
         // approved «Страница в обложку»: the last page as it was on the screen, a card over the light that closes in on
         // the cover's place (the cover then shows through it)
-        val card=shot?.let{PageCard(it).also{v->root.addView(v,FrameLayout.LayoutParams(-1,-1))}}
+        // a comic's backdrop round its page: the reader's colour, giving way to the light as the page flies
+        val backdrop=if(shot!=null&&from!=null)View(a).apply{setBackgroundColor(fromBg)}.also{root.addView(it,FrameLayout.LayoutParams(-1,-1))} else null
+        val card=shot?.let{PageCard(it,from).also{v->root.addView(v,FrameLayout.LayoutParams(-1,-1))}}
         val scroll=ScrollView(a).apply{isFillViewport=true;overScrollMode=View.OVER_SCROLL_NEVER;isVerticalScrollBarEnabled=false}
         val page=a.col().apply{clipChildren=false;clipToPadding=false}
         scroll.addView(page,FrameLayout.LayoutParams(-1,-2))
@@ -164,7 +173,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             (close.layoutParams as FrameLayout.LayoutParams).topMargin=bars.top+a.d(8);close.requestLayout();ins}
         ImeKeeper(scroll,a.d(20)){keyboard}.attach()
         dialog.window?.setWindowAnimations(0)
-        this.root=root;this.cover=cover;this.panel=panel;this.card=card;this.glow=glow;this.scrim=scrim;this.close=close
+        this.root=root;this.cover=cover;this.panel=panel;this.card=card;this.glow=glow;this.scrim=scrim;this.close=close;this.backdrop=backdrop
         // until the move starts only the page shows (or nothing, out of the dark), so opening the window changes nothing
         if(motion){if(card==null)root.alpha=0f;glow.alpha=0f;scrim.alpha=0f;cover.alpha=0f;close.alpha=0f
             panel.visibility=View.INVISIBLE;for(i in 0 until panel.childCount)panel.getChildAt(i).alpha=0f}
@@ -186,7 +195,10 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
      * card's shadow grows as it becomes a book and its face darkens a little. Everything is moved by the view's own
      * properties (the picture is drawn once), so each frame is cheap.
      */
-    private inner class PageCard(shot:Bitmap):FrameLayout(a){
+    private inner class PageCard(shot:Bitmap,from:RectF?):FrameLayout(a){
+        /** The part of the picture that is the page (all of it, for a book). */
+        private val src=from?:RectF(0f,0f,shot.width.toFloat(),shot.height.toFloat())
+        private val shotW=shot.width.toFloat();private val shotH=shot.height.toFloat()
         private var bmp:Bitmap?=shot
         private val pic=ImageView(a).apply{setImageBitmap(shot);scaleType=ImageView.ScaleType.FIT_XY;pivotX=0f;pivotY=0f}
         private val shade=object:View(a){override fun hasOverlappingRendering()=false}.apply{setBackgroundColor(Color.BLACK);alpha=0f}
@@ -197,13 +209,15 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         var t=0f;set(v){field=v;pose()}
         override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){super.onSizeChanged(w,h,ow,oh);pose()}
         fun pose(){val w=width.toFloat();val h=height.toFloat();if(w<=0f||h<=0f)return;val k=t
-            now.set(target.left*k,target.top*k,w+(target.right-w)*k,h+(target.bottom-h)*k)
-            val s=maxOf(now.width()/w,now.height()/h)
-            pic.scaleX=s;pic.scaleY=s;pic.translationX=now.centerX()-w*s/2;pic.translationY=now.centerY()-h*s/2
+            // the window narrows from the page's place to the cover's; the page fills it, cut evenly, never squeezed
+            val ux=w/shotW;val uy=h/shotH;val from=RectF(src.left*ux,src.top*uy,src.right*ux,src.bottom*uy)
+            now.set(from.left+(target.left-from.left)*k,from.top+(target.top-from.top)*k,from.right+(target.right-from.right)*k,from.bottom+(target.bottom-from.bottom)*k)
+            val s=maxOf(now.width()/from.width(),now.height()/from.height())
+            pic.scaleX=s;pic.scaleY=s;pic.translationX=now.centerX()-from.centerX()*s;pic.translationY=now.centerY()-from.centerY()*s
             shade.alpha=.22f*k.coerceIn(0f,1f);elevation=a.d(18)*k.coerceIn(0f,1f);invalidateOutline()}
         fun release(){pic.setImageDrawable(null);bmp?.recycle();bmp=null}
     }
-    private var card:PageCard?=null;private var glow:View?=null;private var scrim:View?=null;private var close:View?=null
+    private var card:PageCard?=null;private var backdrop:View?=null;private var glow:View?=null;private var scrim:View?=null;private var close:View?=null
     /** The move has started (the cover's light coming later fades in on its own). */
     private var entered=false
 
@@ -227,21 +241,22 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         val p=root?:return
         if(card!=null){val at=IntArray(2);cover.getLocationInWindow(at);val o=IntArray(2);card.getLocationInWindow(o)
             card.target.set((at[0]-o[0]).toFloat(),(at[1]-o[1]).toFloat(),(at[0]-o[0]+cover.width).toFloat(),(at[1]-o[1]+cover.height).toFloat())
-            clock(680,0,glide,{card.t=it})
-            cover.animate().alpha(1f).setStartDelay(430).setDuration(240).setInterpolator(MotionSpec.move).withLayer()
+            clock(600,0,glide,{card.t=it})
+            backdrop?.animate()?.alpha(0f)?.setDuration(420)?.setInterpolator(MotionSpec.move)?.start()
+            cover.animate().alpha(1f).setStartDelay(360).setDuration(220).setInterpolator(MotionSpec.move).withLayer()
                 .withEndAction{card.visibility=View.GONE}.start()}
         else{p.animate().alpha(1f).setDuration(MotionSpec.DARK_OUT).setInterpolator(MotionSpec.enter).start()
             cover.scaleX=.9f;cover.scaleY=.9f;cover.translationY=a.d(24).toFloat()
             cover.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setStartDelay(80).setDuration(680).setInterpolator(rise).withLayer().start()}
         scrim.animate().alpha(1f).setDuration(420).setInterpolator(MotionSpec.enter).start()
         glow.scaleX=1.15f;glow.scaleY=1.15f
-        glow.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(120).setDuration(1300).setInterpolator(rise).start()
+        glow.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(1100).setInterpolator(rise).start()
         // the panel slides in whole from beyond the edge (no fading glass), its lines then come in turn
         panel.translationY=(panel.height+a.d(40)).toFloat();panel.visibility=View.VISIBLE
-        panel.animate().translationY(0f).setStartDelay(300).setDuration(640).setInterpolator(rise).start()
+        panel.animate().translationY(0f).setStartDelay(240).setDuration(600).setInterpolator(rise).start()
         for(i in 0 until panel.childCount){val c=panel.getChildAt(i);c.translationY=a.d(12).toFloat()
-            c.animate().alpha(1f).translationY(0f).setStartDelay(430L+i*55).setDuration(440).setInterpolator(MotionSpec.enter).withLayer().start()}
-        close.animate().alpha(1f).setStartDelay(760).setDuration(320).setInterpolator(MotionSpec.enter).start()
+            c.animate().alpha(1f).translationY(0f).setStartDelay(340L+i*45).setDuration(400).setInterpolator(MotionSpec.enter).withLayer().start()}
+        close.animate().alpha(1f).setStartDelay(640).setDuration(300).setInterpolator(MotionSpec.enter).start()
     }
 
     private fun finish(keep:Boolean,closeBook:Boolean){
@@ -259,6 +274,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             // back to the page: the cover becomes the page again and opens out to the whole screen, which is the
             // reader as it was under this window
             pc.visibility=View.VISIBLE;pc.t=1f
+            backdrop?.animate()?.alpha(1f)?.setStartDelay(120)?.setDuration(340)?.setInterpolator(MotionSpec.move)?.start()
             c.animate().alpha(0f).setStartDelay(0).setDuration(180).setInterpolator(MotionSpec.move).withLayer().start()
             glow?.animate()?.alpha(0f)?.setStartDelay(0)?.setDuration(300)?.setInterpolator(MotionSpec.exit)?.start()
             scrim?.animate()?.alpha(0f)?.setStartDelay(0)?.setDuration(300)?.start()

@@ -300,8 +300,9 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
             Unit}
         if(!tracker.seeded||tracker.share()>=.5)go()
         else{var chosen=false
-            a.dialog().setTitle("Книга прочитана?").setMessage("Отметить книгу прочитанной?").setNegativeButton("Нет",null).setPositiveButton("Прочитана"){_,_->chosen=true;go()}.show()
-                .setOnDismissListener{if(!chosen){finishing=false;tracker.skipTime()}}}
+            // the end comes once the question has gone away (it no longer vanishes at once from under the page)
+            a.dialog().setTitle("Книга прочитана?").setMessage("Отметить книгу прочитанной?").setNegativeButton("Нет",null).setPositiveButton("Прочитана"){_,_->chosen=true}.show()
+                .setOnDismissListener{if(chosen)go() else{finishing=false;tracker.skipTime()}}}
     }
     /** In the scroll: a pull up of the end of the book, once it is in view, goes past it. */
     private var pullFrom=-1f

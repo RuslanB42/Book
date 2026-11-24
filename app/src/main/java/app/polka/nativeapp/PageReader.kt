@@ -119,11 +119,13 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     private fun pastEnd(){
         if(finishing||Library.status(book)=="done"||n<=0||page<n-1)return
         credit();finishing=true
-        val go:()->Unit={markDone();BookFinish(a,book){leave->finishing=false;tracker.skipTime();if(leave)close()}.show(fromPage=true,window=dialog.window)}
+        // the page itself turns into the cover (not the whole screen with the backdrop round it)
+        val go:()->Unit={markDone();BookFinish(a,book){leave->finishing=false;tracker.skipTime();if(leave)close()}.show(fromPage=true,window=dialog.window,page=paged?.shown(),pageBg=bgColor())}
         if(!tracker.seeded||tracker.share()>=.5)go()
         else{var chosen=false
-            a.dialog().setTitle("Книга прочитана?").setMessage("Отметить книгу прочитанной?").setNegativeButton("Нет",null).setPositiveButton("Прочитана"){_,_->chosen=true;go()}.show()
-                .setOnDismissListener{if(!chosen){finishing=false;tracker.skipTime()}}}
+            // the end comes once the question has gone away (it no longer vanishes at once from under the page)
+            a.dialog().setTitle("Книга прочитана?").setMessage("Отметить книгу прочитанной?").setNegativeButton("Нет",null).setPositiveButton("Прочитана"){_,_->chosen=true}.show()
+                .setOnDismissListener{if(chosen)go() else{finishing=false;tracker.skipTime()}}}
     }
     // newer than the library's copy, so saving does not take the old «Читаю» back from it
     private fun markDone(){credit(true);val now=System.currentTimeMillis();book.put("state","done").put("completedAt",now).put("modifiedAt",now);save(false)}
@@ -426,6 +428,9 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
                 // past the last page the page only gives a little: a short pull is enough there to finish the book
                 val edge=(shift<0f&&!has(1))||(shift>0f&&!has(-1));val lim=width*(if(edge).07f else .22f)
                 val dir=if(shift< -lim)1 else if(shift>lim)-1 else 0;if(dir!=0)step(if(rtl)-dir else dir) else settle(0f)};return true}
+        /** Where the open page is in the window, as much of it as is on the screen. */
+        fun shown():RectF?{if(width==0||scale>1.01f)return null;val r=fit(page);r.offset(shift,-pan);if(!r.intersect(0f,0f,width.toFloat(),height.toFloat()))return null
+            val at=IntArray(2);getLocationInWindow(at);r.offset(at[0].toFloat(),at[1].toFloat());return r}
         /** Is there a page on that side of the screen (-1 left, +1 right)? */
         private fun has(side:Int)=(page+(if(rtl)-side else side)) in 0 until n
         /** +1: the next page. The page carries on from exactly where the finger left it (no jump back), and a quick
