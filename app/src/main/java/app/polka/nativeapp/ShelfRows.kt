@@ -32,6 +32,8 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     private val outside:(MotionEvent)->Unit={e->val r=Rect();if(!pill.getGlobalVisibleRect(r)||!r.contains(e.rawX.toInt(),e.rawY.toInt()))cancelAsk()}
     private val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
     private val stageFull=fan.full
+    /** The grip (and on a shelf of your own the bin), at the end of the title row. */
+    private val end=FrameLayout(a)
     private var progress=0f
     private var anim:android.animation.ValueAnimator?=null
     private var field:EditText?=null
@@ -46,14 +48,14 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         head.addView(View(a),LayoutParams(0,1,1f))
         name.textSize=if(compact)17f else 20f;name.typeface=PolkaFonts.serif(a,true)
         if(compact)head.minimumHeight=0
-        val end=FrameLayout(a);end.addView(handle,FrameLayout.LayoutParams(a.d(44),a.d(44),Gravity.CENTER_VERTICAL or Gravity.END))
+        end.addView(handle,FrameLayout.LayoutParams(a.d(if(compact)30 else 44),a.d(44),Gravity.CENTER_VERTICAL or Gravity.END))
         // the bin sits right before the grip, at the same place on every card
         remove?.let{f->trash.setOnClickListener{if(editing){commitRename();askDelete()}};a.press(trash);end.addView(trash,FrameLayout.LayoutParams(a.d(40),a.d(44),Gravity.CENTER_VERTICAL or Gravity.END).apply{rightMargin=a.d(38)})
             pill.setOnClickListener{if(ask<.5f)return@setOnClickListener;a.touchWatchers.remove(outside);pill.isClickable=false
                 pill.animate().scaleX(.94f).scaleY(.94f).setDuration(90).withEndAction{pill.animate().scaleX(1f).scaleY(1f).setDuration(140).start()}.start();f()}
             end.addView(pill,FrameLayout.LayoutParams(a.d(40),a.d(32),Gravity.CENTER_VERTICAL or Gravity.END).apply{rightMargin=a.d(40)})}
-        // a status (a small shelf of the block above) is never edited: no grip, no bin
-        if(!compact)head.addView(end,LayoutParams(-2,a.d(44)))
+        // a status (a small shelf of the block above) is only moved: its grip shows in edit mode, no bin, no name field
+        head.addView(end,LayoutParams(-2,a.d(44)))
         addView(head,LayoutParams(-1,-2))
         stage.addView(fan,FrameLayout.LayoutParams(-1,fan.full))
         // a tap anywhere on the card opens the shelf itself (not the book under the finger)
@@ -99,17 +101,19 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         val from=progress
         val sp=Spring.of(.1,460.0);anim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=sp.duration;startDelay=delay;interpolator=sp.interpolator;addUpdateListener{apply(it.animatedValue as Float)};start()}}
     private fun apply(e:Float){progress=e
-        val lp=stage.layoutParams;lp.height=(stageFull*(1-e)).toInt();stage.layoutParams=lp
+        val lp=stage.layoutParams as MarginLayoutParams;lp.height=(stageFull*(1-e)).toInt();lp.topMargin=(a.d(if(compact)6 else 12)*(1-e)).toInt();stage.layoutParams=lp
         // while folding, the covers and the shelf are cut at the shrinking bottom instead of spilling over the next shelf
         stage.clipBounds=if(e>0f)android.graphics.Rect(-a.d(40),-a.d(80),a.d(2000),lp.height) else null
         stage.alpha=(1-e*1.6f).coerceIn(0f,1f);stage.scaleY=1f-.08f*e;stage.pivotY=0f
-        card.alpha=(e*255).toInt();val pad=(a.d(14)*e).toInt();head.setPadding(pad,(a.d(6)*e).toInt(),(a.d(4)*e).toInt(),(a.d(6)*e).toInt())
+        card.alpha=(e*255).toInt();val pad=(a.d(if(compact)12 else 14)*e).toInt();head.setPadding(pad,(a.d(6)*e).toInt(),(a.d(4)*e).toInt(),(a.d(6)*e).toInt())
         face.alpha=((1-e)*255).toInt();setPadding(0,(a.d(if(compact)17 else 18)*(1-e)).toInt(),0,(a.d(if(compact)10 else 12)*(1-e)).toInt());centerName()
         handle.alpha=((e-.35f)/.65f).coerceIn(0f,1f);handle.translationX=a.d(14)*(1-e);handle.visibility=if(e>0f)View.VISIBLE else View.INVISIBLE
+        // at rest a status's title row is only its name (the grip's row height would push the covers down)
+        if(compact){end.visibility=if(e>0f)View.VISIBLE else View.GONE;val el=end.layoutParams;if(el!=null){val eh=(a.d(44)*e).toInt();if(el.height!=eh){el.height=eh;end.layoutParams=el}}}
         pen.alpha=if(rename==null||field!=null)0f else ((e-.4f)/.6f).coerceIn(0f,1f)*.8f
         if(remove!=null){trash.alpha=((e-.4f)/.6f).coerceIn(0f,1f)*(1-ask);trash.translationX=a.d(14)*(1-e);trash.visibility=if(e>0f)View.VISIBLE else View.INVISIBLE;trash.scaleX=1-.3f*ask;trash.scaleY=1-.3f*ask}
         head.elevation=a.d(if(a.light)3 else 4)*e
-        if(!compact)(layoutParams as? MarginLayoutParams)?.let{m->val idx=(parent as? ViewGroup)?.indexOfChild(this)?:0;val want=if(idx<=0)0 else (a.d(12)+(a.d(10)-a.d(12))*e).toInt();if(m.topMargin!=want){m.topMargin=want;layoutParams=m}}}
+        if(!compact)(layoutParams as? MarginLayoutParams)?.let{m->val idx=(parent as? ViewGroup)?.indexOfChild(this)?:0;val want=if(idx<=0)0 else (a.d(26)+(a.d(10)-a.d(26))*e).toInt();if(m.topMargin!=want){m.topMargin=want;layoutParams=m}}}
     private fun askDelete(){if(ask>0f||!editing)return;pill.visibility=View.VISIBLE;pill.isClickable=true;a.touchWatchers.add(outside);a.root.post{if(pill.visibility==View.VISIBLE&&!a.touchWatchers.contains(outside))a.touchWatchers.add(outside)};runAsk(1f)}
     fun cancelAsk(){a.touchWatchers.remove(outside);if(ask<=0f&&askAnim==null)return;runAsk(0f)}
     private fun runAsk(to:Float){askAnim?.cancel();val from=ask;val reduced=a.prefs.str("motion")=="reduced"
@@ -407,7 +411,7 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
 }
 
 /** «Полки» (approved «Б: полки, статусы сверху»): the four statuses as small shelves in a block of two by two, always
- *  there and never edited; then every shelf of your own as a card with its first books fanned, in the saved order,
+ *  there (in edit mode they can be dragged into another order, never renamed or removed); then every shelf of your own as a card with its first books fanned, in the saved order,
  *  then the place for a new shelf.
  *  «Изменить» turns the rows into cards that can be dragged into a new order, renamed in place, and removed —
  *  all in place: nothing on the page is rebuilt. */
@@ -422,12 +426,10 @@ internal fun MainActivity.shelfRows(){
             {next:String->val old=cur;cur=next;renameShelf(old,next,quiet=true)},{val gone=cur;editor.delete(row){removeShelfQuietly(gone)}})
         return row}
     val byStatus=books.groupBy{Library.status(it)}
-    val statuses=column().apply{clipChildren=false;clipToPadding=false}
-    listOf("reading","want","done","paused").chunked(2).forEachIndexed{ri,pair->val two=line().apply{gravity=Gravity.TOP;clipChildren=false;clipToPadding=false}
-        pair.forEachIndexed{ci,key->lateinit var row:ShelfRow
-            row=ShelfRow(this,"a:$key",MainActivity.autoTitle(key),sortBooks(byStatus[key].orEmpty()),{enterShelf(row){auto=key}},{autoShelfActions(key)},null,compact=true)
-            two.addView(row,LinearLayout.LayoutParams(0,-2,1f).apply{if(ci>0)marginStart=d(10)})}
-        statuses.addView(two,LinearLayout.LayoutParams(-1,-2).apply{if(ri>0)topMargin=d(10)})}
+    val all=listOf("reading","want","done","paused")
+    val order=prefs.optJSONArray("statusOrder")?.strings().orEmpty().filter{it in all}.distinct().let{it+(all-it.toSet())}
+    val statuses=StatusGrid(this,order.associateWith{key->lateinit var row:ShelfRow
+        row=ShelfRow(this,"a:$key",MainActivity.autoTitle(key),sortBooks(byStatus[key].orEmpty()),{enterShelf(row){auto=key}},{autoShelfActions(key)},null,compact=true);row},order)
     page.addView(statuses,LinearLayout.LayoutParams(-1,-2))
     val saved=prefs.optJSONArray("shelfOrder")?.strings().orEmpty()
     val rows=manual.map{own(it,byShelf[it].orEmpty())}.sortedBy{saved.indexOf(it.key).let{i->if(i<0)Int.MAX_VALUE else i}}
@@ -437,18 +439,64 @@ internal fun MainActivity.shelfRows(){
         if(taken){Notice.short(this,Notice.Kind.SHELF,"Полка «$name» уже есть");false}
         else{prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+name).distinct()));savePreferences();editor.grow(own(name,emptyList()));true}}
     page.addView(slot,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(if(rows.isEmpty()||!shelvesEditing)0 else 10)});if(!shelvesEditing)slot.visibility=View.GONE
-    editor=ShelfEditor(this,page,rows.toMutableList(),slot);shelfEditor=editor;addShelfRow={name->editor.grow(own(name,emptyList()),true)};removeShelfRow={name->editor.deleteKey("s:$name"){removeShelfQuietly(name)}}
-    if(shelvesEditing){rows.forEach{it.setEditing(true,false)};slot.setEditing(true,false)}
+    editor=ShelfEditor(this,page,rows.toMutableList(),slot,statuses);shelfEditor=editor;addShelfRow={name->editor.grow(own(name,emptyList()),true)};removeShelfRow={name->editor.deleteKey("s:$name"){removeShelfQuietly(name)}}
+    if(shelvesEditing){rows.forEach{it.setEditing(true,false)};slot.setEditing(true,false);statuses.setEditing(true,false)}
+}
+
+/** The four statuses, two by two, 10dp apart. In edit mode they fold into small edit cards with the grip, as the
+ *  shelves below do, and one can be dragged anywhere in the block: it lifts and follows the finger, the others glide
+ *  into their new places, and the order is saved when it is let go. Outside edit mode a tap opens a status and a long
+ *  press its menu. */
+internal class StatusGrid(private val a:MainActivity,private val tiles:Map<String,ShelfRow>,order:List<String>):FrameLayout(a){
+    private val order=order.toMutableList()
+    private val gap=a.d(10)
+    private var editing=false
+    private var held:String?=null;private var downX=0f;private var downY=0f;private var cellW=0;private var cellH=0
+    private val glide=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+    init{clipChildren=false;clipToPadding=false;order.forEach{k->addView(tiles.getValue(k),LayoutParams(-1,-2))}}
+    override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws);cellW=(w-gap)/2
+        tiles.values.forEach{it.measure(MeasureSpec.makeMeasureSpec(cellW,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED))}
+        cellH=tiles.values.maxOf{it.measuredHeight}
+        tiles.values.forEach{it.measure(MeasureSpec.makeMeasureSpec(cellW,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(cellH,MeasureSpec.EXACTLY))}
+        setMeasuredDimension(w,cellH*2+gap)}
+    private fun slotX(i:Int)=(i%2)*(cellW+gap);private fun slotY(i:Int)=(i/2)*(cellH+gap)
+    override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){order.forEachIndexed{i,k->tiles.getValue(k).layout(slotX(i),slotY(i),slotX(i)+cellW,slotY(i)+cellH)}}
+    fun setEditing(on:Boolean,animate:Boolean){if(!on)drop();editing=on;tiles.values.forEach{it.setEditing(on,animate)}}
+    override fun onInterceptTouchEvent(e:MotionEvent)=editing
+    override fun onTouchEvent(e:MotionEvent):Boolean{if(!editing)return super.onTouchEvent(e)
+        when(e.actionMasked){
+            MotionEvent.ACTION_DOWN->{val k=order.indices.firstOrNull{i->e.x>=slotX(i)&&e.x<slotX(i)+cellW&&e.y>=slotY(i)&&e.y<slotY(i)+cellH}?.let{order[it]}?:return false
+                held=k;downX=e.x;downY=e.y;parent?.requestDisallowInterceptTouchEvent(true)
+                val v=tiles.getValue(k);v.bringToFront();v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                v.animate().scaleX(1.04f).scaleY(1.04f).translationZ(a.d(14).toFloat()).setDuration(180).setInterpolator(glide).start()}
+            MotionEvent.ACTION_MOVE->{val k=held?:return true;val v=tiles.getValue(k);val i=order.indexOf(k)
+                val dx=e.x-downX;val dy=e.y-downY;v.translationX=dx;v.translationY=dy
+                val cx=slotX(i)+cellW/2f+dx;val cy=slotY(i)+cellH/2f+dy
+                val t=order.indices.minByOrNull{j->val ex=slotX(j)+cellW/2f-cx;val ey=slotY(j)+cellH/2f-cy;ex*ex+ey*ey}?:i
+                if(t!=i)move(k,i,t)}
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{drop();parent?.requestDisallowInterceptTouchEvent(false)}}
+        return true}
+    /** [k] takes place [to]: the others glide from where they are to their new places, the held one stays under the finger. */
+    private fun move(k:String,from:Int,to:Int){val before=order.associateWith{key->val j=order.indexOf(key);slotX(j)+tiles.getValue(key).translationX to slotY(j)+tiles.getValue(key).translationY}
+        order.removeAt(from);order.add(to,k);performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        order.forEachIndexed{j,key->val v=tiles.getValue(key);val (bx,by)=before.getValue(key)
+            v.layout(slotX(j),slotY(j),slotX(j)+cellW,slotY(j)+cellH);v.translationX=bx-slotX(j);v.translationY=by-slotY(j)
+            if(key==k){downX+=slotX(j)-slotX(from);downY+=slotY(j)-slotY(from)}
+            else v.animate().translationX(0f).translationY(0f).setDuration(260).setInterpolator(glide).start()}}
+    /** Let go: the held status settles into its place and the order is saved. */
+    private fun drop(){val k=held?:return;held=null
+        tiles.getValue(k).animate().translationX(0f).translationY(0f).scaleX(1f).scaleY(1f).translationZ(0f).setDuration(240).setInterpolator(glide).start()
+        a.prefs.put("statusOrder",JSONArray(order));a.savePreferences()}
 }
 
 /** Drag-to-reorder for the shelf cards in edit mode: the held card lifts and follows the finger, the others slide
  *  aside with a short glide to show where it will land; on release it settles into the gap and the order is saved. */
-internal class ShelfEditor(private val a:MainActivity,private val page:LinearLayout,private val rows:MutableList<ShelfRow>,private val place:ShelfSlot?=null){
+internal class ShelfEditor(private val a:MainActivity,private val page:LinearLayout,private val rows:MutableList<ShelfRow>,private val place:ShelfSlot?=null,private val statuses:StatusGrid?=null){
     private var held:ShelfRow?=null;private var from=0;private var target=0;private var startY=0f;private var slot=1
     private var startScroll=0;private var lastY=0f
     private val glide=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
     init{rows.forEach{r->r.handle.setOnTouchListener{_,e->touch(r,e);true}}}
-    fun setEditing(on:Boolean){a.shelvesEditing=on;val delays=Stagger.delays(rows.size+1,30,ease=Ease.outQuad);rows.forEachIndexed{i,r->r.setEditing(on,true,delays[i])};place?.setEditing(on,true,delays.last())}
+    fun setEditing(on:Boolean){a.shelvesEditing=on;statuses?.setEditing(on,true);val delays=Stagger.delays(rows.size+1,30,ease=Ease.outQuad);rows.forEachIndexed{i,r->r.setEditing(on,true,delays[i])};place?.setEditing(on,true,delays.last())}
     private fun saveOrder(){a.prefs.put("shelfOrder",org.json.JSONArray(rows.map{it.key}));a.savePreferences()}
     private val reduced get()=a.prefs.str("motion")=="reduced"
     /** The shelf [key] leaves the page in place (the quick menu's «Удалить полку»); false if it is not here. */
