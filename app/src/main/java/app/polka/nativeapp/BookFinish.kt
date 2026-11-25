@@ -54,7 +54,13 @@ internal class BookJourney(val start:LocalDate?,val end:LocalDate,val ms:Long){
  * marks open up, the keyboard comes). «Готово» keeps what was given, «Без оценки» leaves the book without what was
  * put in here. The window is its own, over the reader or the library.
  */
-internal class BookFinish(private val a:MainActivity,private val book:JSONObject,private val done:(closeBook:Boolean)->Unit){
+internal class BookFinish(private val a:MainActivity,private val book:JSONObject,private val openNext:((JSONObject)->Unit)?=null,private val done:(closeBook:Boolean)->Unit){
+    /** A comic's next issue in the library (approved «Конец выпуска А»): it peeks out from behind the cover and
+     *  «Читать #08» under the title opens it. */
+    private val nextBook=nextIssue(a,book)
+    private var peek:CoverView?=null
+    /** The reader's backdrop, which the screen turns into on the way to the next issue. */
+    private var readerBg=Color.BLACK
     private val dialog=Dialog(a,R.style.PolkaBlack)
     private val before=listOf("rating","reviewTags","review","reviewAt").associateWith{book.opt(it)}
     private var closed=false
@@ -84,6 +90,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         catch(_:Throwable){bmp.recycle();ready()}
     }
     private fun build(shot:Bitmap?,from:RectF?=null,fromBg:Int=0){
+        if(fromBg!=0)readerBg=fromBg
         val ground=if(a.light)0xffe9e7e3.toInt() else 0xff0e0e10.toInt()
         val root=FrameLayout(a).apply{setBackgroundColor(ground)}
         // the cover's colours over the whole screen: darkened (lightened in the light theme) more toward the foot.
@@ -109,6 +116,9 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
 
         // the cover, as large as the room above the panel allows
         val cover=CoverView(a,book,a.cover(book)).apply{softShadow=true}
+        // the next issue waits behind it, to its right: smaller and quieter (it comes in once the cover has landed)
+        val peek=nextBook?.let{n->CoverView(a,n,a.cover(n)).apply{alpha=if(motion)0f else PEEK;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}}
+        this.peek=peek
         // its place takes all the room the panel leaves; the cover's size comes from that room in the same layout
         // pass, so as the panel grows or shrinks (a rating, the marks, the keyboard) the cover follows it frame by
         // frame, on the panel's own curve — never a move of its own after it
@@ -118,9 +128,12 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             override fun onMeasure(ws:Int,hs:Int){val free=MeasureSpec.getMode(hs)==MeasureSpec.UNSPECIFIED
                 val room=if(free)a.d(150) else MeasureSpec.getSize(hs);val h=room.coerceIn(a.d(150),a.d(300));val w=(h/1.5f).toInt()
                 cover.measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(h,MeasureSpec.EXACTLY))
+                peek?.measure(MeasureSpec.makeMeasureSpec((w*.75f).toInt(),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec((h*.75f).toInt(),MeasureSpec.EXACTLY))
                 setMeasuredDimension(MeasureSpec.getSize(ws),maxOf(room,a.d(150)))}
-            override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){val x=(width-cover.measuredWidth)/2;cover.layout(x,0,x+cover.measuredWidth,cover.measuredHeight)}
+            override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){val x=(width-cover.measuredWidth)/2;cover.layout(x,0,x+cover.measuredWidth,cover.measuredHeight)
+                peek?.let{p->val px=x+(cover.measuredWidth*.707f).toInt();val py=(cover.measuredWidth*.153f).toInt();p.layout(px,py,px+p.measuredWidth,py+p.measuredHeight)}}
         }.apply{clipChildren=false;clipToPadding=false;minimumHeight=a.d(150)}
+        peek?.let{coverBox.addView(it)}
         coverBox.addView(cover)
         page.addView(coverBox,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=a.d(52)})
         // the light never comes at once: when the cover's colours are ready late, they fade in too
@@ -138,6 +151,12 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         // its line is kept from the start (the facts come a moment later): the panel never grows under the move
         val facts=a.text(" ",13f,a.muted).apply{gravity=Gravity.CENTER;visibility=View.INVISIBLE;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
         panel.addView(facts,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(6)})
+        nextBook?.let{n->
+            val go=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),0,a.d(14),0);background=a.shape(if(a.light)0x14000000 else 0x1fffffff,19)
+                isClickable=true;isFocusable=true;contentDescription="Читать ${issueLabel(n)}";setOnClickListener{goNext(n)};a.press(this)}
+            go.addView(a.text("Читать ${issueLabel(n)}",15f,a.fg,true))
+            go.addView(IconView(a,"next",a.fg),LinearLayout.LayoutParams(a.d(17),a.d(17)).apply{marginStart=a.d(6)})
+            panel.addView(go,LinearLayout.LayoutParams(-2,a.d(38)).apply{topMargin=a.d(14);gravity=Gravity.CENTER_HORIZONTAL})}
         // the rating lies on the glass itself, no card of its own
         val review=ReviewBlock(a,book).apply{background=null;elevation=0f;clipToOutline=false;setPadding(0,a.d(6),0,0)}
         panel.addView(review,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(12)})
@@ -282,6 +301,45 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         for(i in 0 until panel.childCount){val c=panel.getChildAt(i);c.translationY=a.d(12).toFloat()
             c.animate().alpha(1f).translationY(0f).setStartDelay(440L+i*45).setDuration(400).setInterpolator(MotionSpec.enter).withLayer().start()}
         close.animate().alpha(1f).setStartDelay(780).setDuration(300).setInterpolator(MotionSpec.enter).start()
+        peek?.animate()?.alpha(PEEK)?.setStartDelay(760)?.setDuration(420)?.setInterpolator(MotionSpec.enter)?.start()
+    }
+
+    /**
+     * On to the next issue (approved «Переход А: выходит из-за обложки»): the rest gives way and the light goes out to
+     * the reader's backdrop, the read cover slips aside and fades, the next one comes out from behind onto its place;
+     * then it opens out to the size of a page — a comic's first page is its cover — and the reader of the next issue
+     * comes up over it.
+     */
+    private fun goNext(n:JSONObject){
+        if(closed)return;closed=true
+        a.currentFocus?.let{f->(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)}
+        dialog.setOnCancelListener(null)
+        val open=openNext?:{x:JSONObject->openIssue(a,x)}
+        val r=root as? FrameLayout;val c=cover;val pk=peek
+        if(r==null||c==null||pk==null||!motion||c.width<=0||pk.width<=0){open(n);r?.postDelayed({dialog.dismiss()},MotionSpec.DARK_OUT+120L)?:dialog.dismiss();return}
+        listOfNotNull(panel,cover,glow,scrim,close,pk).forEach{it.animate().cancel()}
+        panel?.animate()?.translationY(a.d(24).toFloat())?.alpha(0f)?.setStartDelay(0)?.setDuration(360)?.setInterpolator(MotionSpec.exit)?.start()
+        close?.animate()?.alpha(0f)?.setStartDelay(0)?.setDuration(150)?.start()
+        glow?.animate()?.alpha(0f)?.setStartDelay(0)?.setDuration(700)?.setInterpolator(MotionSpec.enter)?.start()
+        scrim?.animate()?.alpha(0f)?.setStartDelay(0)?.setDuration(700)?.setInterpolator(MotionSpec.enter)?.start()
+        val ground=backdrop?:View(a).apply{alpha=0f}.also{v->r.addView(v,minOf(2,r.childCount),FrameLayout.LayoutParams(-1,-1))}
+        ground.setBackgroundColor(readerBg);ground.animate().alpha(1f).setStartDelay(0).setDuration(700).setInterpolator(MotionSpec.enter).start()
+        // the read one slips aside
+        c.pivotX=0f;c.pivotY=0f
+        c.animate().translationX(-c.width*1.07f).translationY(c.height*.13f).scaleX(.8f).scaleY(.8f).alpha(0f).setStartDelay(0).setDuration(700).setInterpolator(MotionSpec.enter).start()
+        // the next one onto its place
+        pk.bringToFront();pk.pivotX=0f;pk.pivotY=0f
+        val k=c.width/pk.width.toFloat()
+        pk.animate().translationX((c.left-pk.left).toFloat()).translationY((c.top-pk.top).toFloat()).scaleX(k).scaleY(k).alpha(1f).setStartDelay(0).setDuration(700).setInterpolator(MotionSpec.enter)
+            .withEndAction{
+                // then it opens out to the page, centred on the screen as the reader shows a page
+                val box=pk.parent as View;val at=IntArray(2);box.getLocationInWindow(at);val o=IntArray(2);r.getLocationInWindow(o)
+                val W=r.width.toFloat();val H=r.height.toFloat();val w=minOf(W,H/1.5f);val h=w*1.5f
+                val x=(W-w)/2f;val y=(H-h)/2f
+                val baseX=(at[0]-o[0]+pk.left).toFloat();val baseY=(at[1]-o[1]+pk.top).toFloat()
+                val s=w/pk.width
+                pk.animate().translationX(x-baseX).translationY(y-baseY).scaleX(s).scaleY(s).setDuration(620).setInterpolator(MotionSpec.move)
+                    .withEndAction{open(n);r.postDelayed({dialog.dismiss()},MotionSpec.DARK_OUT+120L)}.start()}.start()
     }
 
     private fun finish(keep:Boolean,closeBook:Boolean){
@@ -320,3 +378,24 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         return out
     }
 }
+
+/** How a peeking next issue shows behind the read one. */
+private const val PEEK=.72f
+/** A comic's next issue in the library: the same series, the nearest larger number (or, without numbers, the next
+ *  title in order); null when there is none, or it has no file to read. */
+internal fun nextIssue(a:MainActivity,book:JSONObject):JSONObject?{
+    if(!isComic(book))return null
+    val key=book.str("series").trim().lowercase().takeIf{it.isNotBlank()}?:return null
+    fun natural(t:String)=t.lowercase().replace(Regex("\\d+")){it.value.padStart(8,'0')}
+    val list=a.books.filter{isComic(it)&&it.str("series").trim().lowercase()==key}
+        .sortedWith(compareBy<JSONObject>{it.optDouble("seriesNo",0.0).takeIf{n->n>0}?:Double.MAX_VALUE}.thenBy{natural(it.str("title"))})
+    val i=list.indexOfFirst{it.str("id")==book.str("id")};if(i<0)return null
+    return list.getOrNull(i+1)?.takeIf{!it.optBoolean("noFile")}
+}
+/** «#08»: as the issue's own title writes its number, or from its number in the series. */
+internal fun issueLabel(n:JSONObject):String=Regex("#\\s*\\d+").find(n.str("title"))?.value?.replace(" ","")
+    ?:n.optDouble("seriesNo",0.0).takeIf{it>0}?.let{"#"+(if(it%1.0==0.0)it.toInt().toString().padStart(2,'0') else it.toString())}?:"дальше"
+/** Opens a comic's issue straight in its reader, with the bars hidden (the cover it grew from is its first page). */
+internal fun openIssue(a:MainActivity,next:JSONObject){val fresh=a.books.firstOrNull{it.str("id")==next.str("id")}?:next
+    if(PageDocs.isDoc(fresh)&&PageDocs.dir(a,fresh).exists())try{PageReader(a,fresh.copyJson()).apply{quiet=true}.show();return}catch(_:Exception){}
+    a.openBook(fresh)}

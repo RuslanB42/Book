@@ -108,8 +108,11 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         setMode(mode,false)
         dialog.show()
         root.alpha=0f;root.animate().alpha(1f).setDuration(if(reduced)0 else MotionSpec.DARK_OUT).setInterpolator(MotionSpec.enter).start()
-        root.postDelayed({setChrome(false)},1400)
+        if(quiet){chrome=false;listOf(top,bottom).forEach{it.alpha=0f;it.visibility=View.INVISIBLE};root.post{top.translationY=-top.height.toFloat();bottom.translationY=bottom.height.toFloat()}}
+        else root.postDelayed({setChrome(false)},1400)
     }
+    /** Opened from the end of the previous issue: the bars stay hidden, the page alone comes up. */
+    var quiet=false
     private fun close(){root.animate().alpha(0f).setDuration(if(reduced)0 else MotionSpec.DARK_IN).setInterpolator(MotionSpec.exit).withEndAction{dialog.dismiss()}.start()}
     private fun finish(){auto?.stop();root.removeCallbacks(heartbeat);val finished=finishOnClose();credit(finished);paused=true;if(a.pageReading===this)a.pageReading=null;a.immersiveSheets=false;Ambience.stop(a);save(true);io.shutdownNow();source.close()
         if(finished)a.root.postDelayed({if(!a.isFinishing&&!a.isDestroyed)BookFinish(a,book){}.show()},300)}
@@ -120,13 +123,16 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         if(finishing||Library.status(book)=="done"||n<=0||page<n-1)return
         credit();finishing=true
         // the page itself turns into the cover (not the whole screen with the backdrop round it)
-        val go:()->Unit={markDone();BookFinish(a,book){leave->finishing=false;tracker.skipTime();if(leave)close()}.show(fromPage=true,window=dialog.window,page=paged?.shown(),pageBg=bgColor())}
+        val go:()->Unit={markDone();BookFinish(a,book,openNext={n->toIssue(n)}){leave->finishing=false;tracker.skipTime();if(leave)close()}.show(fromPage=true,window=dialog.window,page=paged?.shown(),pageBg=bgColor())}
         if(!tracker.seeded||tracker.share()>=.5)go()
         else{var chosen=false
             // the end comes once the question has gone away (it no longer vanishes at once from under the page)
             a.dialog().setTitle("Книга прочитана?").setMessage("Отметить книгу прочитанной?").setNegativeButton("Нет",null).setPositiveButton("Прочитана"){_,_->chosen=true}.show()
                 .setOnDismissListener{if(chosen)go() else{finishing=false;tracker.skipTime()}}}
     }
+    /** On to the next issue: this reader goes away under the finish window (its end, the save and the time all
+     *  done), and only then the next one opens, so the two never overlap. */
+    private fun toIssue(n:JSONObject){finishing=false;dialog.setOnDismissListener{finish();openIssue(a,n)};dialog.dismiss()}
     // newer than the library's copy, so saving does not take the old «Читаю» back from it
     private fun markDone(){credit(true);val now=System.currentTimeMillis();book.put("state","done").put("completedAt",now).put("modifiedAt",now);save(false)}
     /** Closed on the last page after a look at it, the book really read here: it is read, shown once closed. */
