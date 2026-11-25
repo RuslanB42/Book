@@ -19,6 +19,8 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  private var clock:ValueAnimator?=null;private var closing=false;private var ended=false;private var begun=false
  private var flight:CoverView?=null;private var from=RectF();private var to=RectF();private var base=1f
  private var journey:BookJourney?=null
+ /** The reading history has been looked up (until then a started book keeps the room of its two facts). */
+ private var journeyLoaded=false
  val isShowing get()=parent!=null&&!ended
  private fun reduced()=a.prefs.str("motion")=="reduced"
  init{a.controlSurface(panel,22f,sheet=true).apply{flushBottom=true;refresh()};clipChildren=false;clipToPadding=false;elevation=a.d(40).toFloat();isClickable=true;isFocusableInTouchMode=true;contentDescription="О книге: ${book.str("title")}";addView(scrim,LayoutParams(-1,-1));addView(panel,LayoutParams(-1,-1,Gravity.BOTTOM).apply{topMargin=a.d(48)})
@@ -85,6 +87,8 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
    spentRow.removeAllViews();val j=journey;val done=p>=1
    if(j!=null&&!missing){if(j.ms>=60_000L)fact(duration(j.ms),"за чтением")
     if(done)j.days?.let{n->fact("$n ${daysWordRu(n)}",j.range())} else j.start?.let{fact(dayMonth(it),"начата")}}
+   // still looking it up: two unseen facts hold the place, so the card does not grow and push everything down later
+   else if(!journeyLoaded&&!missing&&p>0f){fact("0","0");fact("0","0");for(i in 0 until spentRow.childCount)spentRow.getChildAt(i).visibility=View.INVISIBLE}
    spentRow.visibility=if(spentRow.childCount>0)View.VISIBLE else View.GONE;facts.visibility=if(spentRow.childCount>0)View.GONE else View.VISIBLE}
   fun section(top:Int):LinearLayout{val sec=a.column().apply{setPadding(0,a.d(top),0,0);clipChildren=false;clipToPadding=false};main.addView(sec);return sec}
   // block headings, like the sections on the home screen
@@ -182,7 +186,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
     val end=book.optLong("completedAt").takeIf{it>0&&Library.status(book)=="done"}?.let{java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate()}?:java.time.LocalDate.now()
     if(Library.status(book)!="want")found=BookJourney.of(stats,book,end)
     val chapters=a.chapterIndex(book);length=chapters?.objects()?.sumOf{it.optInt("len")}?:0;chTitle=ChapterTitles.pretty(chapters?.optJSONObject(chIndex)?.str("title").orEmpty(),book.str("lang").startsWith("en"))}){
-    if(isShowing){journey=found;if(length>0)book.put("chars",length);chapterTitle=chTitle;updates.forEach{it()}}}
+    if(isShowing){journey=found;journeyLoaded=true;if(length>0)book.put("chars",length);chapterTitle=chTitle;updates.forEach{it()}}}
  }
  // Draw the shared cover explicitly in the root overlay coordinate space.
  // A transformed child inside a bounded saveLayer can be cropped by RenderNode
@@ -231,7 +235,15 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  internal fun landingLight(q:Float):Float {val arrival=((q-.60f)/.40f).coerceIn(0f,1f);val t=arrival*arrival;return t*t*(3-2*t)}
  private fun wFor(q:Float)=from.width()+(to.width()-from.width())*q
  private var presentation=0f
+ /** The tile's cover where it is NOW: the grid under the sheet can move or be rebuilt while the cover is in the air,
+  *  and a landing aimed at where it was a moment ago ended beside the tile and then jumped into it. */
+ private fun follow(){if(flight==null)return
+  val live=originCover?.takeIf{it.isAttachedToWindow&&it.width>0}?:findCover(a.root)?.also{n->originCover?.visibility=View.VISIBLE;originCover=n;n.visibility=View.INVISIBLE}
+  live?.let{from=rect(it)}}
+ private fun findCover(v:View):CoverView?{if(v===this)return null;if(v is CoverView&&v.bookId==bookId&&v.isAttachedToWindow&&v.width>0)return v
+  if(v is ViewGroup)for(i in 0 until v.childCount)findCover(v.getChildAt(i))?.let{return it};return null}
  private fun pose(q0:Float){val q=q0.coerceIn(0f,1f);presentation=q;panel.alpha=1f;panel.translationY=panel.height*(1-q);scrim.alpha=q;heroGlow.alpha=landingLight(q)
+  follow()
   flight?.let{v->v.translationX=from.left+(to.left-from.left)*q;v.translationY=from.top+(to.top-from.top)*q;v.scaleX=(from.width()+(to.width()-from.width())*q)/base;v.scaleY=v.scaleX
    val heroRect=rect(heroCover);heroGlow.pivotX=heroCover.left-heroGlow.left+heroCover.width*.5f;heroGlow.pivotY=heroCover.top-heroGlow.top+heroCover.height*.5f;heroGlow.scaleX=wFor(q)/heroCover.width;heroGlow.scaleY=heroGlow.scaleX;heroGlow.translationX=v.translationX+wFor(q)*.5f-heroRect.centerX();heroGlow.translationY=v.translationY+wFor(q)*.75f-heroRect.centerY()
   }
