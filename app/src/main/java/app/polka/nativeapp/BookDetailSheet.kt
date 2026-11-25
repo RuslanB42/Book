@@ -254,7 +254,10 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  fun freezeMotion(){clock?.removeAllListeners();clock?.cancel();clock=null}
  private fun animate(back:Boolean){pose(if(back)1f else 0f);animateTo(if(back)0f else 1f)}
  private fun animateTo(target:Float){freezeMotion();val initial=presentation;// up it comes in like any sheet; back down the cover lands in its place in the grid (a move, not a fall)
-  val up=target>initial;clock=ValueAnimator.ofFloat(initial,target).apply{duration=((if(up)MotionSpec.SHEET_IN else MotionSpec.DEEP_BACK)*maxOf(.35f,kotlin.math.abs(target-initial))).toLong();interpolator=if(up)MotionSpec.enter else MotionSpec.move;addUpdateListener{pose(it.animatedValue as Float)};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){if(target==0f)finish()else clearFlight()}});start()}}
+  // Down it goes on a decelerating curve: it leaves at the finger's pace and the last stretch is slow, so the dark panel
+  // and the dim never drop away in a frame or two (that read as the whole screen blinking), and the cover settles softly.
+  val up=target>initial;val span=kotlin.math.abs(target-initial)
+  clock=ValueAnimator.ofFloat(initial,target).apply{duration=if(up)(MotionSpec.SHEET_IN*maxOf(.35f,span)).toLong() else (MotionSpec.SHEET_IN*maxOf(.7f,span)).toLong();interpolator=MotionSpec.enter;addUpdateListener{pose(it.animatedValue as Float)};addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){if(target==0f)finish()else clearFlight()}});start()}}
  internal fun beginDrag(){if(ended||closing||!begun)return;freezeMotion();if(flight==null)setupFlight()}
  internal fun dragTo(offset:Float){if(!ended&&!closing&&begun)pose(1-offset.coerceAtLeast(0f)/maxOf(1,panel.height))}
  internal fun endDrag(commit:Boolean){if(ended||closing)return;if(commit)dismiss()else if(reduced()){pose(1f);clearFlight()}else animateTo(1f)}
