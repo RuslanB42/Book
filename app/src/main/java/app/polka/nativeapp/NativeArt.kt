@@ -43,7 +43,7 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
         drawCover(canvas,bounds,book,bitmap)
         if(readMark&&activity!=null)mark(canvas,activity)
     }
-    /** On the «Прочитано» shelf every cover carries a round check in its lower right corner (approved «Б: статус открыт»). */
+    /** A read book's cover in a grid carries a round check in its lower right corner (approved «Б: статус открыт»). */
     internal var readMark=false
     private val markPaint=Paint(Paint.ANTI_ALIAS_FLAG)
     private fun mark(c:Canvas,a:MainActivity){val w=width.toFloat();val s=w*.176f;val m=w*.059f;val cx=w-m-s/2f;val cy=height-m-s/2f

@@ -405,15 +405,18 @@ class MainActivity : Activity() {
     fun bookGrid(source:List<JSONObject>,into:LinearLayout=page,reorder:Boolean=true) {
         val list=source.toMutableList()
         val width=(resources.configuration.screenWidthDp-40-(columns()-1)*24)/columns()
+        // a read book: the round check on its cover wherever it stands in a grid, and no progress bar (it is finished)
+        fun read(b:JSONObject)=Library.status(b)=="done"
+        fun bar(b:JSONObject)=!read(b)&&(b.optJSONObject("progress")?.optDouble("pct") ?: 0.0)>0
         fun cell(index:Int):View { val book=list[index];return col().apply {
             clipChildren=false;clipToPadding=false
-            addView(CoverView(this@MainActivity,book,cover(book)).apply{readMark=auto=="done"},LinearLayout.LayoutParams(-1,-2))
-            space(this,16); addView(text(book.str("title"),15f).apply { maxLines=2; ellipsize=android.text.TextUtils.TruncateAt.END }); space(this,4); addView(text(authors(book),14f,muted).apply { maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END }); if((book.optJSONObject("progress")?.optDouble("pct") ?: 0.0)>0) { space(this,12); progressRow(this,book,true) }
+            addView(CoverView(this@MainActivity,book,cover(book)).apply{readMark=read(book)},LinearLayout.LayoutParams(-1,-2))
+            space(this,16); addView(text(book.str("title"),15f).apply { maxLines=2; ellipsize=android.text.TextUtils.TruncateAt.END }); space(this,4); addView(text(authors(book),14f,muted).apply { maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END }); if(bar(book)) { space(this,12); progressRow(this,book,true) }
             setOnClickListener { detail(book,this) }; contentDescription="${book.str("title")}, ${authors(book)}"; tag="grid:"+book.str("id")
         } }
         val cols=columns();val gap=d(24);val paint=android.text.TextPaint().apply { textSize=15*resources.displayMetrics.scaledDensity;typeface=PolkaFonts.sans(400) }
         val virtual=VirtualGrid(this,list.size,cols,gap,d(30),{ row,w -> val batch=list.subList(row*cols,minOf(list.size,(row+1)*cols)); val lines=batch.maxOfOrNull { if(paint.measureText(it.str("title"))>w)2 else 1 } ?: 1
-            (w*1.5f).toInt()+d(16)+(18*resources.displayMetrics.scaledDensity*lines).toInt()+d(4)+(17*resources.displayMetrics.scaledDensity).toInt()+if(batch.any{(it.optJSONObject("progress")?.optDouble("pct") ?: 0.0)>0})d(38)else 0
+            (w*1.5f).toInt()+d(16)+(18*resources.displayMetrics.scaledDensity*lines).toInt()+d(4)+(17*resources.displayMetrics.scaledDensity).toInt()+if(batch.any{bar(it)})d(38)else 0
         },::cell);if(reorder)virtual.reorder=ShelfReorder(this,virtual,list) { saveGridOrder(it) };into.addView(col().apply{clipChildren=false;clipToPadding=false;setPadding(d(2),d(6),d(5),0);addView(virtual,LinearLayout.LayoutParams(-1,-2))},LinearLayout.LayoutParams(-1,-2))
     }
     fun navigation() {
