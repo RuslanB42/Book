@@ -280,16 +280,18 @@ internal class ShelfMorph(private val a:MainActivity,val trip:Trip,private val t
     private fun legs(cells:Map<String,Pair<View,RectF>>):List<Leg>{val l=lay?:return emptyList();val n=trip.spots.size
         return trip.spots.indices.sortedByDescending{kotlin.math.abs(it-(n-1)/2f)}.map{i->val s=trip.spots[i];val c=cells[s.book.str("id")]
             val size=c?.second?:s.r
-            val copy=CoverView(a,s.book,a.cover(s.book)).apply{softShadow=true;pivotX=size.width()/2f;pivotY=size.height()/2f}
+            // landing in a cell, it brings the cell's check (it shows on the way, as the cover straightens)
+            val copy=CoverView(a,s.book,a.cover(s.book)).apply{softShadow=true;pivotX=size.width()/2f;pivotY=size.height()/2f;readMark=c!=null&&(c.first as? CoverView)?.readMark==true;markAlpha=0f}
             l.addView(copy,FrameLayout.LayoutParams(size.width().toInt(),size.height().toInt()))
             c?.first?.alpha=0f;Leg(s,c?.second,c?.first,copy)}}
-    /** The covers of the page's cells, where they are on the page itself (as if it were not scaled), those on screen. */
-    private fun cells():Map<String,Pair<View,RectF>>{val p=page?:return emptyMap();val out=HashMap<String,Pair<View,RectF>>()
+    /** The covers of the page's cells, where they are on the page itself (as if it were not scaled), those on screen
+     *  ([whole]: only those wholly on it). */
+    private fun cells(whole:Boolean=false):Map<String,Pair<View,RectF>>{val p=page?:return emptyMap();val out=HashMap<String,Pair<View,RectF>>()
         val o=IntArray(2);a.root.getLocationOnScreen(o);val s=if(bounds.isEmpty)1f else bounds.width()/W;val l=if(bounds.isEmpty)0f else bounds.left;val t=if(bounds.isEmpty)0f else bounds.top
         val ids=trip.spots.map{it.book.str("id")}.toSet()
         fun walk(v:View){val tag=v.tag;if(tag is String&&tag.startsWith("grid:")&&v is ViewGroup){val id=tag.removePrefix("grid:");val cover=v.getChildAt(0)
                 if(id in ids&&cover!=null){val b=box(cover);b.offset(-o[0].toFloat(),-o[1].toFloat())
-                    if(b.bottom>0&&b.top<H)out[id]=cover to RectF((b.left-l)/s,(b.top-t)/s,(b.right-l)/s,(b.bottom-t)/s)}
+                    if(if(whole)b.top>=0&&b.bottom<=H else b.bottom>0&&b.top<H)out[id]=cover to RectF((b.left-l)/s,(b.top-t)/s,(b.right-l)/s,(b.bottom-t)/s)}
                 return}
             if(v is ViewGroup)for(i in 0 until v.childCount)walk(v.getChildAt(i))}
         walk(p);return out}
@@ -301,11 +303,16 @@ internal class ShelfMorph(private val a:MainActivity,val trip:Trip,private val t
         val s=bounds.width()/W;p.scaleX=s;p.scaleY=s;p.translationX=bounds.left;p.translationY=bounds.top;p.invalidateOutline()
         fill=androidx.core.graphics.ColorUtils.blendARGB(cardColor,a.bg,k);ground.invalidate()
         p.alpha=((k-.12f)/.42f).coerceIn(0f,1f)
-        snapView?.let{v->val ss=bounds.width()/v.layoutParams.width;v.scaleX=ss;v.scaleY=ss;v.translationX=bounds.left;v.translationY=bounds.top;v.alpha=(1f-k/.32f).coerceIn(0f,1f)}
+        val face=(1f-k/.32f).coerceIn(0f,1f)
+        snapView?.let{v->val ss=bounds.width()/v.layoutParams.width;v.scaleX=ss;v.scaleY=ss;v.translationX=bounds.left;v.translationY=bounds.top;v.alpha=face}
         legs.forEach{l->val v=l.copy;val w=v.layoutParams.width.toFloat();val h=v.layoutParams.height.toFloat();val from=l.spot.r;val to=l.to
-            val r=if(to==null)from else {val tx=to.left*s+bounds.left;val ty=to.top*s+bounds.top
+            // with no cell to land in (the page scrolled away from its first books) the cover stays in the fan and goes
+            // with the card's picture: grown and moved with the bounds, fading as it does
+            val r=if(to==null){val g=bounds.width()/c.width();RectF(bounds.left+(from.left-c.left)*g,bounds.top+(from.top-c.top)*g,bounds.left+(from.right-c.left)*g,bounds.top+(from.bottom-c.top)*g)}
+                else {val tx=to.left*s+bounds.left;val ty=to.top*s+bounds.top
                 RectF(from.left+(tx-from.left)*k,from.top+(ty-from.top)*k,from.right+(tx+to.width()*s-from.right)*k,from.bottom+(ty+to.height()*s-from.bottom)*k)}
-            v.alpha=if(to==null)1f-k else 1f
+            v.alpha=if(to==null)face else 1f
+            (v as? CoverView)?.markAlpha=if(to==null)0f else ((k-.4f)/.5f).coerceIn(0f,1f)
             v.scaleX=r.width()/w;v.scaleY=r.height()/h;v.translationX=r.centerX()-w/2f;v.translationY=r.centerY()-h/2f
             v.rotation=if(to==null)l.spot.turn else l.spot.turn*(1-k)}}
     private fun run(from:Float,to:Float,ms:Long,curve:android.animation.TimeInterpolator,step:(Float)->Unit,end:()->Unit){anim?.removeAllListeners();anim?.cancel()
@@ -322,8 +329,11 @@ internal class ShelfMorph(private val a:MainActivity,val trip:Trip,private val t
      *  to them (they hold the first pose, which looks exactly like what was there). */
     private fun later(f:()->Unit){val ch=android.view.Choreographer.getInstance();ch.postFrameCallback{ch.postFrameCallback{if(page!=null)f()}}}
     /** Back into the card (the back button or the system back). */
-    fun close(){busy=true;attach(true);full();legs=legs(cells());pose(1f)
+    fun close(){busy=true;attach(true);full();legs=legs(landing());pose(1f)
         later{run(1f,0f,CLOSE,close,{pose(it)}){busy=false;toList()}}}
+    /** Where the covers fly back from: their cells, when the page shows all of them whole (as it opened); scrolled
+     *  away, none (the fan comes back with the card's picture, not some from the cells and some out of nowhere). */
+    private fun landing():Map<String,Pair<View,RectF>>{val c=cells(true);return if(trip.spots.all{it.book.str("id") in c})c else emptyMap()}
 
     // ── the swipe back ──
     override val swipeView:View get()=a.scroll
@@ -332,8 +342,8 @@ internal class ShelfMorph(private val a:MainActivity,val trip:Trip,private val t
         val q=(dx/W).coerceIn(0f,1f);val s=1f-.14f*q;val w=W*s;val h=H*s;val left=(W-w)/2f+dx*.5f;val top=(H-h)/2f
         home.set(left,top,left+w,top+h);pose(1f,a.d(26)*(q*5f).coerceAtMost(1f))}
     override fun swipeEnd(go:Boolean){if(!holding)return;holding=false
-        if(go){busy=true;underlay(true);val r=radius;legs=legs(cells());pose(1f,r)
-            run(1f,0f,CLOSE,close,{pose(it,r)}){busy=false;toList()};return}
+        if(go){busy=true;underlay(true);val r=radius;legs=legs(landing());pose(1f,r)
+            later{run(1f,0f,CLOSE,close,{pose(it,r)}){busy=false;toList()}};return}
         val h0=RectF(home);val r0=radius
         run(0f,1f,MotionSpec.SETTLE,MotionSpec.move,{t->home.set(h0.left*(1-t),h0.top*(1-t),h0.right+(W-h0.right)*t,h0.bottom+(H-h0.bottom)*t);pose(1f,r0*(1-t))}){detach()}}
 }

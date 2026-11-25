@@ -35,21 +35,26 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
         if(book.optBoolean("comic"))ComicCover.shadow(canvas,bounds,activity?.light==false) else BookCoverVolume.shadow(canvas,bounds,activity?.light==false,softShadow,stackShadow,shadowFade)
         // A book with a picture whose bitmap is still decoding: a quiet blank cover, never the typeset placeholder
         // (that flashed a different cover for a moment); the picture then fades in.
-        if(bitmap==null&&book.optJSONObject("cover")!=null&&!missing){waiting=true;blank(canvas,bounds);return}
+        // the check is there from the first frame, over the blank cover too, not after the picture has come
+        if(bitmap==null&&book.optJSONObject("cover")!=null&&!missing){waiting=true;blank(canvas,bounds);mark(canvas,activity);return}
         if(waiting){waiting=false;fadeFrom=android.os.SystemClock.uptimeMillis()}
         val f=if(fadeFrom>0L)((android.os.SystemClock.uptimeMillis()-fadeFrom)/180f).coerceIn(0f,1f) else 1f
-        if(f<1f){blank(canvas,bounds);val l=canvas.saveLayerAlpha(bounds,(f*255).toInt());drawCover(canvas,bounds,book,bitmap);canvas.restoreToCount(l);postInvalidateOnAnimation();return}
+        if(f<1f){blank(canvas,bounds);val l=canvas.saveLayerAlpha(bounds,(f*255).toInt());drawCover(canvas,bounds,book,bitmap);canvas.restoreToCount(l);mark(canvas,activity);postInvalidateOnAnimation();return}
         fadeFrom=0L
         drawCover(canvas,bounds,book,bitmap)
-        if(readMark&&activity!=null)mark(canvas,activity)
+        mark(canvas,activity)
     }
     /** A read book's cover in a grid carries a round check in its lower right corner (approved «Б: статус открыт»). */
     internal var readMark=false
+    /** How much of the check shows (a cover flying from a shelf's fan into its place gets it on the way). */
+    internal var markAlpha=1f
+        set(v){val n=v.coerceIn(0f,1f);if(n!=field){field=n;if(readMark)invalidate()}}
     private val markPaint=Paint(Paint.ANTI_ALIAS_FLAG)
-    private fun mark(c:Canvas,a:MainActivity){val w=width.toFloat();val s=w*.176f;val m=w*.059f;val cx=w-m-s/2f;val cy=height-m-s/2f
-        markPaint.color=a.fg;c.drawCircle(cx,cy,s/2f,markPaint)
+    private fun mark(c:Canvas,a:MainActivity?){if(!readMark||a==null||markAlpha<=0f)return
+        val w=width.toFloat();val s=w*.176f;val m=w*.059f;val cx=w-m-s/2f;val cy=height-m-s/2f;val al=(markAlpha*255).toInt()
+        markPaint.color=a.fg;markPaint.alpha=al;c.drawCircle(cx,cy,s/2f,markPaint)
         val k=s*.58f/24f;val ox=cx-12f*k;val oy=cy-12f*k
-        markPaint.color=a.bg;markPaint.style=Paint.Style.STROKE;markPaint.strokeWidth=2.6f*k;markPaint.strokeCap=Paint.Cap.ROUND;markPaint.strokeJoin=Paint.Join.ROUND
+        markPaint.color=a.bg;markPaint.alpha=al;markPaint.style=Paint.Style.STROKE;markPaint.strokeWidth=2.6f*k;markPaint.strokeCap=Paint.Cap.ROUND;markPaint.strokeJoin=Paint.Join.ROUND
         markPath.rewind();markPath.moveTo(ox+5f*k,oy+12.5f*k);markPath.lineTo(ox+9.5f*k,oy+17f*k);markPath.lineTo(ox+19f*k,oy+7.5f*k);c.drawPath(markPath,markPaint);markPaint.style=Paint.Style.FILL}
     private val markPath=Path()
     internal var artworkChanged:(()->Unit)?=null
