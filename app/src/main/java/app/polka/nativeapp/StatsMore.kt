@@ -33,8 +33,18 @@ internal class StatsMore(private val data:JSONObject,private val books:List<JSON
      *  Null while none was counted then (sittings are counted so since the honest count began). */
     fun averageSession(from:LocalDate,to:LocalDate):Long?{var n=0;var ms=0L;var d=from;while(!d.isAfter(to)){val (sn,sms)=model.sittings(d);n+=sn;ms+=sms;d=d.plusDays(1)}
         return if(n>0)ms/n else null}
-    fun longestSession():Pair<Long,LocalDate?>?{val r=data.optJSONObject("records")?:return null;val ms=r.optLong("longest");if(ms<60000)return null
-        val at=r.optLong("longestAt").takeIf{it>0}?.let{Instant.ofEpochMilli(it).atZone(model.zone).toLocalDate()};return ms to at}
+    fun longestSession():Pair<Long,LocalDate?>?{val r=data.optJSONObject("records")?:return null
+        fun day(ms:Long)=ms.takeIf{it>0}?.let{Instant.ofEpochMilli(it).atZone(model.zone).toLocalDate()}
+        var ms=r.optLong("longest");var at=day(r.optLong("longestAt"))
+        if(model.kind!=ReadingStatistics.ALL){
+            // the longest of our kind since the split; the one from before it is ours when our reading led that day
+            val k=if(model.kind==ReadingStatistics.COMICS)"longestC" else "longestB"
+            if(at==null||model.share(at)<.5){ms=0L;at=null}
+            if(r.optLong(k)>ms){ms=r.optLong(k);at=day(r.optLong(k+"At"))}}
+        if(ms<60000)return null;return ms to at}
+    /** The day the most issues were finished (comics' record), with their number. */
+    fun bestIssueDay():Pair<Int,LocalDate>?{val by=model.finished.mapNotNull{it.date}.groupingBy{it}.eachCount()
+        val best=by.entries.maxWithOrNull(compareBy<Map.Entry<LocalDate,Int>>{it.value}.thenBy{it.key})?:return null;return best.value to best.key}
     /** The day with the most of the reader's own pages. */
     fun bestDay():Pair<Int,LocalDate>?{val best=model.entries.maxByOrNull{model.pages(it.first)}?:return null;val pages=model.pages(best.first).roundToInt();return if(pages>0)pages to best.first else null}
     /**
@@ -55,6 +65,38 @@ internal class StatsMore(private val data:JSONObject,private val books:List<JSON
             var acc=0L;var start=end;for((d,ms) in stretch){acc+=ms;start=d;if(acc>=total*.9)break}
             Triple(f.book,(ChronoUnit.DAYS.between(start,end)+1).toInt(),total)}
             .minWithOrNull(compareBy<Triple<JSONObject,Int,Long>>{it.second}.thenBy{it.third})}
+    // ───────────── comics ─────────────
+    class Series(val name:String,val issues:List<JSONObject>,val done:Int,val ms:Long,val last:Long)
+    private fun seriesKey(b:JSONObject)=b.str("series").trim().lowercase()
+    private val issueOrder=compareBy<JSONObject>{it.optDouble("seriesNo",0.0).takeIf{n->n>0}?:Double.MAX_VALUE}.thenBy{it.str("title").lowercase().replace(Regex("\\d+")){m->m.value.padStart(8,'0')}}
+    /** Every comic series in the library (an issue without a series is not one), with how far it has been read. */
+    val series:List<Series> by lazy{books.distinctBy{it.str("id")}.filter{isComic(it)&&seriesKey(it).isNotBlank()}.groupBy{seriesKey(it)}.values.map{list->
+        val issues=list.sortedWith(issueOrder)
+        Series(issues.first().str("series").trim(),issues,issues.count{Library.status(it)=="done"},issues.sumOf{readMs(it)},
+            issues.maxOf{maxOf(data.optJSONObject("books")?.optJSONObject(it.str("id"))?.optLong("last")?:0L,it.optLong("openedAt"))})}}
+    /** The series being read: the ones begun, the latest read first. */
+    fun seriesInProgress()=series.filter{it.ms>0||it.done>0}.sortedByDescending{it.last}
+    /** The series read the most (by time). */
+    fun favouriteSeries():Series?=series.filter{it.ms>=10*60000L}.maxByOrNull{it.ms}
+    /** Comics and manga (a manga reads from right to left), each's share of the time, when both are read. */
+    fun mangaShare():Pair<Int,Int>?{val read=books.filter{isComic(it)&&readMs(it)>0};val manga=read.filter{it.str("pageMode")=="rtl"}.sumOf{readMs(it)};val all=read.sumOf{readMs(it)}
+        if(all<=0||manga<=0||manga>=all)return null;val m=(manga*100.0/all).roundToInt().coerceIn(1,99);return (100-m) to m}
+    /** How long an issue takes on average (the finished ones read here), and a page. */
+    fun issuePace():Long?{val done=model.finished.map{it.book}.map{readMs(it)}.filter{it>=60000L};return if(done.isEmpty())null else done.sum()/done.size}
+    fun pagePace():Int?{var ms=0L;var pg=0.0;books.filter{isComic(it)}.forEach{b->val r=data.optJSONObject("books")?.optJSONObject(b.str("id"))?:return@forEach;ms+=r.optLong("ms");pg+=r.optDouble("pages",0.0)}
+        return if(pg<10||ms<60000)null else (ms/1000.0/pg).roundToInt().coerceAtLeast(1)}
+    /** The series finished the fastest: every issue in the library read, from the first day any was read to the day the
+     *  last was finished. */
+    fun fastestSeries():Triple<Series,Int,Long>?{
+        val first=HashMap<String,LocalDate>()
+        for((d,o) in model.entries){val b=o.optJSONObject("books")?:continue;val it=b.keys();while(it.hasNext()){val k=it.next();if(b.optLong(k)>0&&k !in first)first[k]=d}}
+        val ends=model.finished.associate{it.book.str("id") to it.date}
+        return series.filter{it.issues.size>=2&&it.done==it.issues.size}.mapNotNull{s->
+            val end=s.issues.mapNotNull{ends[it.str("id")]}.maxOrNull()?:return@mapNotNull null
+            val start=s.issues.mapNotNull{first[it.str("id")]}.minOrNull()?:return@mapNotNull null
+            if(s.ms<10*60000L)return@mapNotNull null
+            Triple(s,(ChronoUnit.DAYS.between(start,end)+1).toInt().coerceAtLeast(1),s.ms)}
+            .minWithOrNull(compareBy<Triple<Series,Int,Long>>{it.second}.thenBy{it.third})}
     private fun readMs(b:JSONObject)=data.optJSONObject("books")?.optJSONObject(b.str("id"))?.optLong("ms")?:0L
     /** Books that count for the taste: finished ones and the ones actually read for a while; comics are not books. */
     private val tasted get()=books.distinctBy{it.str("id")}.filter{!isComic(it)&&(Library.status(it)=="done"||readMs(it)>=10*60000L)}

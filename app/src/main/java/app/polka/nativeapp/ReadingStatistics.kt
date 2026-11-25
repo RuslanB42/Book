@@ -6,32 +6,60 @@ import java.time.temporal.ChronoUnit
 import kotlin.math.*
 
 /** Date-based aggregates. Unknown completion dates are never invented from import/open timestamps. */
-class ReadingStatistics(val source:JSONObject,books:List<JSONObject>,val today:LocalDate=LocalDate.now(),val zone:ZoneId=ZoneId.systemDefault()) {
+class ReadingStatistics(val source:JSONObject,books:List<JSONObject>,val today:LocalDate=LocalDate.now(),val zone:ZoneId=ZoneId.systemDefault(),val kind:Int=ALL) {
+    companion object{
+        /** Everything together (the streak: a habit of reading at all). */
+        const val ALL=0
+        /** Books only (comics are left out). */
+        const val BOOKS=1
+        /** Comics only. */
+        const val COMICS=2}
+    /** Which reading of a day is ours: per book the day keeps its time, so it splits exactly; a book no longer in the
+     *  library counts as a book (comics came later). */
+    private val comicIds=books.filter{isComic(it)}.map{it.str("id")}.toHashSet()
+    private fun mine(id:String)=when(kind){COMICS->id in comicIds;BOOKS->id !in comicIds;else->true}
+    /** Our share of a day's reading (1 for everything; a day before per-book time was kept is a book day). */
+    fun share(day:LocalDate):Double{if(kind==ALL)return 1.0;val d=days.optJSONObject(day.toString())?:return 0.0
+        val all=max(0L,d.optLong("ms"));val b=d.optJSONObject("books")?:return if(kind==BOOKS)1.0 else 0.0
+        if(all<=0)return if(kind==BOOKS)1.0 else 0.0
+        var m=0L;val it=b.keys();while(it.hasNext()){val k=it.next();if(mine(k))m+=max(0L,b.optLong(k))};return (m.toDouble()/all).coerceIn(0.0,1.0)}
     data class Finished(val book:JSONObject,val date:LocalDate?)
-    /** Everything finished, comics too (the tier list, which has its own place for comics). */
-    val finishedAll=books.distinctBy { it.str("id") }.filter { Library.status(it)=="done" }.map { b ->
+    /** Everything finished of our kind (the tier list): books, comics, or both together. */
+    val finishedAll=books.distinctBy { it.str("id") }.filter { Library.status(it)=="done" && (kind==ALL || isComic(it)==(kind==COMICS)) }.map { b ->
         val date=runCatching { val n=b.optLong("completedAt"); if(n>0) Instant.ofEpochMilli(n).atZone(zone).toLocalDate().takeIf { it.year>=1900 && it<=today } else null }.getOrNull()
         Finished(b,date)
     }
-    /** Finished books: comics are comics, not books — they count for no goal, no year in books, no taste. */
-    val finished=finishedAll.filter { !isComic(it.book) }
+    /** Finished books: comics are comics, not books — they count for no goal, no year in books, no taste (on the comics'
+     *  page, the finished issues). */
+    val finished=if(kind==COMICS) finishedAll else finishedAll.filter { !isComic(it.book) }
     val days=source.optJSONObject("days") ?: JSONObject()
     val entries=days.keys().asSequence().mapNotNull { key -> runCatching { LocalDate.parse(key).takeIf { it<=today && it.year>=1900 }?.let { it to days.getJSONObject(key) } }.getOrNull() }.sortedBy { it.first }.toList()
-    fun ms(day:LocalDate)=if(day>today) 0L else max(0L,days.optJSONObject(day.toString())?.optLong("ms") ?: 0L)
+    fun ms(day:LocalDate):Long{if(day>today)return 0L;val d=days.optJSONObject(day.toString())?:return 0L;val all=max(0L,d.optLong("ms"))
+        if(kind==ALL)return all;val b=d.optJSONObject("books")?:return if(kind==BOOKS)all else 0L
+        var m=0L;val it=b.keys();while(it.hasNext()){val k=it.next();if(mine(k))m+=max(0L,b.optLong(k))};return m}
     fun chars(day:LocalDate)=if(day>today) 0L else max(0L,days.optJSONObject(day.toString())?.optLong("chars") ?: 0L)
     /** The time the text counted as read took (days before the honest count: all their time). */
     fun textMs(day:LocalDate):Long{if(day>today)return 0L;val d=days.optJSONObject(day.toString())?:return 0L;return max(0L,if(d.has("tms"))d.optLong("tms") else d.optLong("ms"))}
     /** Characters on one of the reader's pages, as last laid out (a standard 1 800 until known). */
     val pageChars=source.optInt("pageChars",PAGE_CHARS.toInt()).coerceAtLeast(200)
     /** Pages read on the day, the reader's own (days before the honest count: their characters in pages). */
-    fun pages(day:LocalDate):Double{if(day>today)return 0.0;val d=days.optJSONObject(day.toString())?:return 0.0;return max(0.0,if(d.has("pg"))d.optDouble("pg",0.0) else d.optLong("chars")/pageChars.toDouble())}
+    fun pages(day:LocalDate):Double{if(day>today)return 0.0;val d=days.optJSONObject(day.toString())?:return 0.0;val all=max(0.0,if(d.has("pg"))d.optDouble("pg",0.0) else d.optLong("chars")/pageChars.toDouble())
+        if(kind==ALL)return all
+        // pages are kept per book since the split; what the day had before that is shared out by time
+        val bp=d.optJSONObject("bp");var mineP=0.0;var kept=0.0
+        if(bp!=null){val it=bp.keys();while(it.hasNext()){val k=it.next();val v=max(0.0,bp.optDouble(k,0.0));kept+=v;if(mine(k))mineP+=v}}
+        return mineP+max(0.0,all-kept)*share(day)}
     /** Sittings that began on the day and their time. */
-    fun sittings(day:LocalDate):Pair<Int,Long>{val d=days.optJSONObject(day.toString())?:return 0 to 0L;return d.optInt("sn") to d.optLong("sms")}
+    fun sittings(day:LocalDate):Pair<Int,Long>{val d=days.optJSONObject(day.toString())?:return 0 to 0L;val n=d.optInt("sn");val ms=d.optLong("sms")
+        if(kind==ALL)return n to ms
+        // since the split a day keeps its comics' sittings apart; before it, they are shared out by time
+        if(d.has("snc")){val cn=d.optInt("snc");val cms=d.optLong("smsc");return if(kind==COMICS)cn to cms else max(0,n-cn) to max(0L,ms-cms)}
+        val k=share(day);return (n*k).roundToInt() to (ms*k).toLong()}
     /** Words a minute between two days (inclusive). */
     fun speedBetween(from:LocalDate,to:LocalDate):Int{var c=0L;var t=0L;var d=from;while(!d.isAfter(to)){c+=chars(d);t+=textMs(d);d=d.plusDays(1)};return readingSpeed(c,t)}
     val first=entries.firstOrNull { ms(it.first)>0 }?.first
     fun start(period:Int)=when(period) { 0->today.withDayOfMonth(1); 1->today.withDayOfYear(1); else->first ?: today }
-    fun total(period:Int)=entries.filter { it.first>=start(period) }.sumOf { max(0L,it.second.optLong("ms")) }
+    fun total(period:Int)=entries.filter { it.first>=start(period) }.sumOf { ms(it.first) }
     fun average(period:Int)=total(period)/max(1L,ChronoUnit.DAYS.between(start(period),today)+1)
     fun on(day:LocalDate)=finished.filter { it.date==day }.map { it.book }
     fun target(year:Int)=source.optJSONObject("annualGoals")?.optInt(year.toString(),0)?.coerceIn(0,9999) ?: 0
@@ -96,5 +124,7 @@ internal fun creditReading(data:JSONObject,id:String,end:Long,elapsed:Long,chars
         at=until
     }
     if(chars>0||pages>0){val day=dayOf(end);legacy(day)
-        day.put("chars",max(0,day.optLong("chars"))+max(0,chars)).put("tms",day.optLong("tms")+max(0,textMs)).put("pg",day.optDouble("pg",0.0)+max(0.0,pages))}
+        day.put("chars",max(0,day.optLong("chars"))+max(0,chars)).put("tms",day.optLong("tms")+max(0,textMs)).put("pg",day.optDouble("pg",0.0)+max(0.0,pages))
+        // the pages per book too, so books and comics have their own pages
+        if(pages>0){val bp=day.optJSONObject("bp")?:JSONObject().also{day.put("bp",it)};bp.put(id,bp.optDouble(id,0.0)+pages)}}
 }

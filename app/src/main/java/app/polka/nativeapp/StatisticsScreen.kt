@@ -25,9 +25,14 @@ private val ru=Locale("ru")
  * a big numeral with a grey caption, a thin scale underneath, and a soft shadow that lets the card float.
  */
 internal class StatisticsScreen(private val a:MainActivity,private val data:JSONObject,range:Int,private val animate:Boolean) {
-    private val model=ReadingStatistics(data,a.books)
-    private val more=StatsMore(data,a.books,model)
-    private val today=model.today
+    /** Everything read, together: the streak (a habit of reading at all). */
+    private val all=ReadingStatistics(data,a.books)
+    /** Approved «Статистика: книги / комиксы»: one switch under the greeting; below it, books' or comics' own figures. */
+    private var kind=if(a.prefs.optInt("statsKind",ReadingStatistics.BOOKS)==ReadingStatistics.COMICS)ReadingStatistics.COMICS else ReadingStatistics.BOOKS
+    private var model=ReadingStatistics(data,a.books,kind=kind)
+    private var more=StatsMore(data,a.books,model)
+    private val comics get()=kind==ReadingStatistics.COMICS
+    private val today=all.today
     private val content=a.column().apply{clipChildren=false;clipToPadding=false}
     private val scroll=ScrollView(a)
     private var period=range.coerceIn(0,2)
@@ -40,6 +45,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private val mint get()=if(light)0xff1f9d73.toInt() else 0xff4fd6a2.toInt()
     private val violet get()=if(light)0xff7a56d8.toInt() else 0xffa98bf7.toInt()
     private val rose get()=if(light)0xffd0457f.toInt() else 0xfff28bb5.toInt()
+    private val orange get()=if(light)0xffe07a10.toInt() else 0xffff9a3c.toInt()
     private fun label(s:String,size:Float=14f,color:Int=captionInk,bold:Boolean=false)=a.text(s,size,color,bold)
     private fun space(box:LinearLayout,n:Int=12)=a.space(box,n)
     private fun pill(color:Int,radius:Int)=GradientDrawable().apply{setColor(color);cornerRadius=a.d(radius).toFloat()}
@@ -61,7 +67,9 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
      *  without its entrance (after a theme or goal change in the settings); only the entrance follows [animate]. */
     private val live get()=a.prefs.str("motion")!="reduced"
     private val entrance=mutableListOf<View>()
-    private fun add(card:View){entrance.add(card);content.addView(card,LinearLayout.LayoutParams(-1,-2));space(content,12)}
+    /** Where the cards go: the part under the switch. */
+    private val section=a.column().apply{clipChildren=false;clipToPadding=false}
+    private fun add(card:View){entrance.add(card);section.addView(card,LinearLayout.LayoutParams(-1,-2));space(section,12)}
     /** Small caps label at the top of a widget («СЕРИЯ», «СКОРОСТЬ»…). */
     private fun kicker(s:String)=label(s.uppercase(),11.5f,if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt(),true).apply{letterSpacing=.06f}
     /** «Добрый вечер» and today's date between Back and Settings. */
@@ -76,7 +84,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
         space(content,8)
-        streak();speed();readingTime();books();taste();records();tiers()
+        content.addView(PeriodPills(a,listOf("Книги","Комиксы"),if(comics)1 else 0,stretch=true){i->switchTo(if(i==1)ReadingStatistics.COMICS else ReadingStatistics.BOOKS)},LinearLayout.LayoutParams(-1,-2))
+        space(content,12)
+        content.addView(section,LinearLayout.LayoutParams(-1,-2))
+        cards()
         if(!motionOn)return
         // one level in (see Depth): the page comes in from the right over the one it was opened from; it starts after
         // the page's first (heavier) frame has been drawn off screen, so no part of the move is skipped
@@ -84,6 +95,18 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val ch=android.view.Choreographer.getInstance()
         ch.postFrameCallback{ch.postFrameCallback{if(scroll.isAttachedToWindow)depth.enter()}}
     }
+    /** The cards of the chosen kind; the streak is the same on both. */
+    private fun cards(){section.removeAllViews();entrance.clear()
+        streak()
+        if(comics){readingTime();series();comicTaste();comicRecords();tiers()}
+        else{speed();readingTime();books();taste();records();tiers()}}
+    /** Books ⇄ comics: the cards go out, the other kind's come in (within the switch's own time); remembered. */
+    private fun switchTo(k:Int){if(k==kind)return;kind=k;a.prefs.put("statsKind",k);a.savePreferences()
+        model=ReadingStatistics(data,a.books,kind=k);more=StatsMore(data,a.books,model)
+        if(!live){cards();return}
+        section.animate().cancel()
+        section.animate().alpha(0f).translationY(a.d(8).toFloat()).setDuration(MotionSpec.SWITCH/3).setInterpolator(MotionSpec.exit).withEndAction{cards();section.translationY=a.d(8).toFloat()
+            section.animate().alpha(1f).translationY(0f).setDuration(MotionSpec.SWITCH*2/3).setInterpolator(MotionSpec.enter).start()}.start()}
     // ───────────────────────── glass cards ─────────────────────────
     /** A big light numeral (counts up once when it appears); trailing words are set smaller and grey. */
     /** A count starts while its own card rises, not before (cards rise one after another). */
@@ -112,7 +135,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun chip(s:String,click:()->Unit)=label(s,12f,if(light)0xff3a3a3d.toInt() else 0xffdddddd.toInt()).apply{
         background=GradientDrawable().apply{setColor(if(light)0x0a000000 else 0x12ffffff);cornerRadius=a.d(12).toFloat();setStroke(a.d(1),if(light)0x14000000 else 0x1affffff)}
         setPadding(a.d(10),a.d(5),a.d(10),a.d(5));isClickable=true;setOnClickListener{click()};a.press(this)}
-    private fun bestStreak():Int=max(model.ledger.best,model.streak)
+    private fun bestStreak():Int=max(all.ledger.best,all.streak)
 
     private fun minutesAcc(n:Int)=if(n%100 in 11..14)"минут" else when(n%10){1->"минуту";2,3,4->"минуты";else->"минут"}
 
@@ -120,7 +143,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
      *  segments (today's fills up); one plain line at the foot, with «Читать» while today still matters. */
     private fun streak(){
         val box=surface(0xfff9601f.toInt(),.14f,.62f,.75f).apply{clipToOutline=true}
-        val ledger=model.ledger;val n=ledger.count;val best=bestStreak();val met=model.met(today);val goal=model.dailyGoal
+        val ledger=all.ledger;val n=ledger.count;val best=bestStreak();val met=all.met(today);val goal=all.dailyGoal
         val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
         top.addView(StreakFlameView(a,n>0,live),LinearLayout.LayoutParams(a.d(76),a.d(96)).apply{leftMargin=-a.d(6);topMargin=-a.d(6);bottomMargin=-a.d(6);rightMargin=a.d(10)})
         val col=a.column()
@@ -134,12 +157,12 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         box.addView(top);space(box,16)
         // approved «неделя полосой»: seven segments, today's fills up with the minutes read
         val dates=(6 downTo 0).map{today.minusDays(it.toLong())}
-        val todayFraction=(model.ms(today).toFloat()/(goal*60000L)).coerceIn(0f,1f)
-        val marks=IntArray(7){i->val d=dates[i];if(d==today)(if(met)1 else 4) else when(ledger.mark(d)){ReadingStatistics.Mark.MET,ReadingStatistics.Mark.REPAIRED->1;ReadingStatistics.Mark.FROZEN->2;else->if(model.met(d))1 else 3}}
+        val todayFraction=(all.ms(today).toFloat()/(goal*60000L)).coerceIn(0f,1f)
+        val marks=IntArray(7){i->val d=dates[i];if(d==today)(if(met)1 else 4) else when(ledger.mark(d)){ReadingStatistics.Mark.MET,ReadingStatistics.Mark.REPAIRED->1;ReadingStatistics.Mark.FROZEN->2;else->if(all.met(d))1 else 3}}
         box.addView(WeekStrip(a,dates.map{weekNames[it.dayOfWeek.value-1].lowercase()},marks,todayFraction,live),LinearLayout.LayoutParams(-1,a.d(34)))
         space(box,14)
         // one line at the foot, plain text, with «Читать» whenever reading today still matters
-        val minutes=(model.ms(today)/60000L).toInt();val left=ceil(max(0L,goal*60000L-model.ms(today))/60000.0).toInt()
+        val minutes=(all.ms(today)/60000L).toInt();val left=ceil(max(0L,goal*60000L-all.ms(today))/60000.0).toInt()
         val evening=java.time.LocalTime.now().hour>=18
         val (title,sub)=when{
             ledger.lost>0->{val want=goal*2;val got=min(want,(ledger.repairMs/60000L).toInt());"Вернуть серию ${ledger.lost} ${daysWord(ledger.lost).substringAfter(' ')}" to "сегодня двойная норма, $got из $want мин"}
@@ -153,7 +176,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val reading=a.books.filter{Library.status(it)=="reading"&&!it.optBoolean("noFile")}.maxByOrNull{it.optLong("openedAt")}
         if(!met&&reading!=null)foot.addView(a.text("Читать",13.5f,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(16),0,a.d(16),0);background=a.shape(a.fg,18);isClickable=true;setOnClickListener{a.openBook(reading)};a.press(this)},LinearLayout.LayoutParams(-2,a.d(36)).apply{marginStart=a.d(10)})
         box.addView(foot,LinearLayout.LayoutParams(-1,-2))
-        val month=StreakMonth(a,model,today,live)
+        val month=StreakMonth(a,all,today,live)
         box.addView(month,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18);leftMargin=-a.d(6);rightMargin=-a.d(6);bottomMargin=-a.d(6)})
         box.contentDescription="Серия чтения: $n ${daysWord(n)}, рекорд $best, заморозок ${ledger.freezes}"
         box.isClickable=true;box.setOnClickListener{month.toggle()};a.press(box)
@@ -196,7 +219,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         headRow(box,"Время чтения",PeriodPills(a,names,period){i->period=i;a.profileRange=i;bind(false)})
         space(box,10)
         val left=a.column();box.addView(left)
-        val chart=EdgeLine(a,violet,live)
+        val chart=EdgeLine(a,if(comics)orange else violet,live)
         fun minutes(ms:Long)=(ms/60000.0).toFloat()
         bind={first->
             val pts:List<EdgeLine.Point>;val labels:List<Pair<Int,String>>;val strong:Int;val total:Long;val avg:Float;val perPages:Int;val per:String;val session:Long?
@@ -265,6 +288,83 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         add(box)
     }
 
+    // ───────────────────────── comics ─────────────────────────
+    private fun issuesWord(n:Int)=if(n%100 in 11..14)"выпусков" else when(n%10){1->"выпуск";2,3,4->"выпуска";else->"выпусков"}
+    /** A series as a small stack of its issues' covers (up to three), each a little to the right of the one behind. */
+    private fun stack(s:StatsMore.Series,w:Int,h:Int,step:Int):View=FrameLayout(a).apply{clipChildren=false
+        val shown=s.issues.take(3)
+        shown.forEachIndexed{i,b->addView(CoverView(a,b,a.cover(b)),FrameLayout.LayoutParams(a.d(w),a.d(h)).apply{leftMargin=a.d(step*(shown.size-1-i));topMargin=a.d(i*2)})}
+        importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS}
+    /** «Серии» (approved): every series begun, the latest read first: its stack, its name, how many of the issues in the
+     *  library are read, as a line (a finished series in green with «дочитана»). */
+    private fun series(){
+        val list=more.seriesInProgress().take(5);if(list.isEmpty())return
+        val box=surface();box.addView(kicker("Серии"))
+        list.forEachIndexed{i,s->space(box,if(i==0)14 else 16)
+            val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+            row.addView(stack(s,36,54,9),LinearLayout.LayoutParams(a.d(54),a.d(58)).apply{marginEnd=a.d(14)})
+            val col=a.column();val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+            top.addView(a.text(s.name,17f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
+            val full=s.done>=s.issues.size
+            top.addView(if(full)a.line().apply{gravity=Gravity.CENTER_VERTICAL;addView(StatusIcon(a,"check",mint),LinearLayout.LayoutParams(a.d(13),a.d(13)).apply{marginEnd=a.d(4)});addView(label("дочитана",12.5f,mint))}
+                else label("${s.done} из ${s.issues.size}",12.5f),LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)})
+            col.addView(top)
+            val bar=object:View(a){val p=Paint(Paint.ANTI_ALIAS_FLAG);override fun onDraw(c:Canvas){val r=height/2f;p.color=quiet;c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),r,r,p)
+                p.color=if(full)mint else strong;c.drawRoundRect(0f,0f,width*s.done/max(1f,s.issues.size.toFloat()),height.toFloat(),r,r,p)}}
+            col.addView(bar,LinearLayout.LayoutParams(-1,a.d(4)).apply{topMargin=a.d(8)})
+            row.addView(col,LinearLayout.LayoutParams(0,-2,1f))
+            row.contentDescription="${s.name}: прочитано ${s.done} из ${s.issues.size}"
+            box.addView(row)}
+        add(box)
+    }
+    /** «Вкус» of comics (approved): the favourite series, comics or manga, the pace. */
+    private fun comicTaste(){
+        val fav=more.favouriteSeries();val manga=more.mangaShare();val issue=more.issuePace();val page=more.pagePace()
+        if(fav==null&&manga==null&&issue==null&&page==null)return
+        val box=surface();box.addView(kicker("Вкус"))
+        fav?.let{s->space(box,16);val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+            row.addView(stack(s,40,60,10),LinearLayout.LayoutParams(a.d(64),a.d(66)).apply{marginEnd=a.d(16)})
+            val t=a.column();t.addView(label("Любимая серия",12.5f));t.addView(a.text(s.name,20f,a.fg,true,serif=true).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)})
+            val n=s.issues.count{Library.status(it)=="done"||it.optJSONObject("progress")?.optDouble("pct")?.let{p->p>0}==true}
+            t.addView(label("$n ${issuesWord(n)}"+if(s.ms>=3_600_000L)", ${s.ms/3_600_000L} ч чтения" else if(s.ms>=60000L)", ${s.ms/60000L} мин чтения" else "",12.5f).apply{setPadding(0,a.d(3),0,0)})
+            row.addView(t,LinearLayout.LayoutParams(0,-2,1f));box.addView(row)}
+        fun tag(row:FlowRow,name:String,figure:String,c:Int,warm:Boolean){
+            val p=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(7),a.d(12),a.d(7));background=pill((c and 0xffffff) or ((if(warm)0x26 else 0x12) shl 24),14)}
+            p.addView(View(a).apply{background=pill(if(warm)c else captionInk,4)},LinearLayout.LayoutParams(a.d(8),a.d(8)).apply{marginEnd=a.d(8)})
+            p.addView(a.text(name,13f,if(warm)a.fg else (if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt())).apply{maxLines=1},LinearLayout.LayoutParams(-2,-2,1f))
+            p.addView(a.text(figure,13f,if(light)0x99000000.toInt() else 0x80ffffff.toInt()).apply{maxLines=1;setPadding(a.d(12),0,0,0)})
+            row.addView(p)}
+        manga?.let{(c,m)->space(box,if(box.childCount>1)22 else 14);box.addView(label("Что читаешь",12.5f));space(box,10)
+            val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
+            val first=c>=m;tag(row,"Комиксы","$c%",orange,first);tag(row,"Манга","$m%",violet,!first)
+            box.addView(row,LinearLayout.LayoutParams(-1,-2))}
+        if(issue!=null||page!=null){space(box,if(box.childCount>1)22 else 14);box.addView(label("Темп",12.5f));space(box,10)
+            val tiles=a.line()
+            fun tile(value:String,what:String){val t=a.column().apply{background=pill(quiet,14);setPadding(a.d(12),a.d(10),a.d(10),a.d(10))}
+                t.addView(a.text(value,18f,a.fg,true,serif=true).apply{maxLines=1});t.addView(label(what,11.5f).apply{maxLines=1;setPadding(0,a.d(3),0,0)})
+                tiles.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{if(tiles.childCount>0)marginStart=a.d(8)})}
+            issue?.let{tile(duration(it),"на выпуск")};page?.let{tile(pageTime(it),"на страницу")}
+            box.addView(tiles,LinearLayout.LayoutParams(-1,-2))}
+        box.contentDescription="Вкус"+(fav?.let{": любимая серия ${it.name}"}?:"")
+        add(box)
+    }
+    /** «Рекорды» of comics: the series finished the fastest, the longest sitting, the most issues in a day. */
+    private fun comicRecords(){
+        val fast=more.fastestSeries();val sitting=more.longestSession();val day=more.bestIssueDay()
+        if(fast==null&&sitting==null&&day==null)return
+        val box=surface();box.addView(kicker("Рекорды"))
+        fun row(lead:View,title:String,value:String,side:String){space(box,16)
+            val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL};r.addView(lead,LinearLayout.LayoutParams(a.d(44),a.d(44)).apply{marginEnd=a.d(14)})
+            val t=a.column();t.addView(label(title,12.5f));t.addView(a.text(value,19f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)});r.addView(t,LinearLayout.LayoutParams(0,-2,1f))
+            if(side.isNotBlank())r.addView(label(side,12.5f).apply{gravity=Gravity.END},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)});box.addView(r)}
+        fun tileOf(kind:String,c:Int)=FrameLayout(a).apply{background=pill((c and 0xffffff) or ((if(light)0x22 else 0x26) shl 24),22);addView(RecordIcon(a,kind,c),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER))}
+        fast?.let{(s,days,ms)->row(tileOf("bolt",orange),"Быстрее всего дочитана серия","«${s.name}» за $days ${daysWordRu(days)}",if(ms>=3_600_000L)"${ms/3_600_000L} ч\nчтения" else "${ms/60000} мин\nчтения")}
+        sitting?.let{(ms,at)->row(tileOf("hour",violet),"Самая долгая сессия",duration(ms),at?.let{dayMonth(it)}?:"")}
+        day?.let{(n,at)->row(tileOf("pages",mint),"Больше всего за день","$n ${issuesWord(n)}",dayMonth(at))}
+        box.contentDescription="Рекорды комиксов"
+        add(box)
+    }
+
     /** «Рекорды»: the fastest book, the longest sitting, the most pages in a day; one look for all three rows. */
     private fun records(){
         val fast=more.fastestBook();val sitting=more.longestSession();val day=more.bestDay()
@@ -275,7 +375,6 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             val t=a.column();t.addView(label(title,12.5f));t.addView(a.text(value,19f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)});r.addView(t,LinearLayout.LayoutParams(0,-2,1f))
             if(side.isNotBlank())r.addView(label(side,12.5f).apply{gravity=Gravity.END},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)});box.addView(r)}
         fun tileOf(kind:String,c:Int)=FrameLayout(a).apply{background=pill((c and 0xffffff) or ((if(light)0x22 else 0x26) shl 24),22);addView(RecordIcon(a,kind,c),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER))}
-        val orange=if(light)0xffe07a10.toInt() else 0xffff9a3c.toInt()
         fast?.let{(b,days,ms)->row(tileOf("bolt",orange),"Быстрее всего прочитана","«${b.str("title")}» за $days ${daysWordRu(days)}",if(ms>=3_600_000L)"${ms/3_600_000L} ч\nчтения" else if(ms>=60000)"${ms/60000} мин\nчтения" else "")}
         sitting?.let{(ms,at)->row(tileOf("hour",violet),"Самая долгая сессия",duration(ms),at?.let{dayMonth(it)}?:"")}
         day?.let{(pages,at)->row(tileOf("pages",mint),"Больше всего за день","$pages ${pagesWord(pages)}",dayMonth(at))}

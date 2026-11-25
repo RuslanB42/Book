@@ -109,16 +109,21 @@ internal object Coverage{
 }
 
 /** Writes one tick into the statistics (inside the caller's transaction). */
-internal fun recordReading(data:JSONObject,id:String,title:String,total:Int,c:ReadingTracker.Credit,now:Long,pageChars:Int,zone:ZoneId=ZoneId.systemDefault()){
+internal fun recordReading(data:JSONObject,id:String,title:String,total:Int,c:ReadingTracker.Credit,now:Long,pageChars:Int,zone:ZoneId=ZoneId.systemDefault(),comic:Boolean=false){
     if(pageChars>0)data.put("pageChars",pageChars)
     creditReading(data,id,now,c.elapsed,c.chars,zone,c.textMs,c.pages)
     // sittings, on the day they began to count
     if(c.sittingAdd>0&&c.sittingDay!=null){val days=data.optJSONObject("days")?:JSONObject().also{data.put("days",it)}
         val key=c.sittingDay.toString();val day=days.optJSONObject(key)?:JSONObject().also{days.put(key,it)}
         if(c.sittingNew)day.put("sn",day.optInt("sn")+1)
-        day.put("sms",day.optLong("sms")+c.sittingAdd)}
+        day.put("sms",day.optLong("sms")+c.sittingAdd)
+        // a comic's sitting is also kept apart (books' are the rest), so each has its own «за один заход»
+        if(!day.has("snc"))day.put("snc",0).put("smsc",0L)
+        if(comic){if(c.sittingNew)day.put("snc",day.optInt("snc")+1);day.put("smsc",day.optLong("smsc")+c.sittingAdd)}}
     if(c.sittingMs>0){val rec=data.optJSONObject("records")?:JSONObject().also{data.put("records",it)}
-        if(c.sittingMs>rec.optLong("longest"))rec.put("longest",c.sittingMs).put("longestAt",now)}
+        if(c.sittingMs>rec.optLong("longest"))rec.put("longest",c.sittingMs).put("longestAt",now)
+        // and the longest of books and of comics, each its own
+        val k=if(comic)"longestC" else "longestB";if(c.sittingMs>rec.optLong(k))rec.put(k,c.sittingMs).put(k+"At",now)}
     val books=data.optJSONObject("books")?:JSONObject().also{data.put("books",it)}
     val b=books.optJSONObject(id)?:JSONObject().put("first",now).also{books.put(id,it)}
     b.put("ms",b.optLong("ms")+c.elapsed).put("chars",b.optLong("chars")+c.chars).put("pages",b.optDouble("pages",0.0)+c.pages).put("last",now).put("title",title)

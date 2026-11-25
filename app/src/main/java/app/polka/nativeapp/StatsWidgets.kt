@@ -37,17 +37,18 @@ internal class WidgetCardDrawable(private val a:MainActivity,private val radius:
 }
 
 /** Three-way pill switch (Неделя / Месяц / Год): the chosen one is a light pill with dark text. */
-internal class PeriodPills(private val a:MainActivity,labels:List<String>,selected:Int,private val onSelect:(Int)->Unit):FrameLayout(a){
+internal class PeriodPills(private val a:MainActivity,labels:List<String>,selected:Int,stretch:Boolean=false,private val onSelect:(Int)->Unit):FrameLayout(a){
     /** Capsule segmented control: a light capsule glides under the chosen period and the labels change colour with it. */
     private val row=LinearLayout(a).apply{orientation=LinearLayout.HORIZONTAL}
-    private val items=labels.map{s->a.text(s,13f,a.muted).apply{gravity=Gravity.CENTER;setPadding(a.d(14),a.d(7),a.d(14),a.d(7));isClickable=true}}
+    // stretched (books / comics across the page), the halves share the width and stand a little taller
+    private val items=labels.map{s->a.text(s,if(stretch)14f else 13f,a.muted).apply{gravity=Gravity.CENTER;setPadding(a.d(14),a.d(if(stretch)10 else 7),a.d(14),a.d(if(stretch)10 else 7));isClickable=true}}
     private val thumb=View(a).apply{background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)Color.WHITE else 0xff48484c.toInt());cornerRadius=a.d(21).toFloat()}}
     private var current=selected;private var slide:ValueAnimator?=null
     private val on get()=a.fg
     init{setPadding(a.d(3),a.d(3),a.d(3),a.d(3))
         background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)0xffeeeeec.toInt() else 0xff2f2f31.toInt());cornerRadius=a.d(24).toFloat()}
-        addView(thumb,LayoutParams(0,0));addView(row,LayoutParams(-2,-2))
-        items.forEachIndexed{i,t->row.addView(t);t.setOnClickListener{if(i!=current)select(i)}}
+        addView(thumb,LayoutParams(0,0));addView(row,LayoutParams(if(stretch)-1 else -2,-2))
+        items.forEachIndexed{i,t->row.addView(t,if(stretch)LinearLayout.LayoutParams(0,-2,1f) else LinearLayout.LayoutParams(-2,-2));t.setOnClickListener{if(i!=current)select(i)}}
         items.forEachIndexed{i,t->t.setTextColor(if(i==current)on else a.muted);t.typeface=PolkaFonts.sans(400)}}
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){super.onLayout(changed,l,t,r,b);if(slide?.isRunning!=true)place(items[current].left.toFloat(),items[current].width.toFloat())}
     private fun place(x:Float,w:Float){val lp=thumb.layoutParams;val h=items[0].height;if(lp.width!=w.toInt()||lp.height!=h){lp.width=w.toInt();lp.height=h;thumb.layoutParams=lp}

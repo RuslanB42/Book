@@ -43,6 +43,32 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     val main=card();field(main,"title","Название","Как называется книга");divider(main);field(main,"authors","Авторы","Через запятую");box.addView(main)
     section("Серия")
     val serie=card();val row=line().apply{gravity=Gravity.TOP};field(row,"series","Серия","Название серии",lp=LinearLayout.LayoutParams(0,-2,1f));row.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(1,-1).apply{setMargins(d(12),d(10),d(12),d(10))});field(row,"seriesNo","Номер","—",lp=LinearLayout.LayoutParams(d(72),-2));serie.addView(row);box.addView(serie)
+    // the series as tags under the fields: the one read from the title first (for an issue that has none yet), then the
+    // library's series (of comics first for a comic), narrowed down as the name is typed; a tap puts it in, with its
+    // number from the title or the next after the series' last
+    run{val seriesIn=fields.getValue("series");val noIn=fields.getValue("seriesNo")
+        val guess=SeriesGuess.of(book.str("title"))?.let{(n,no)->SeriesGuess.canonical(n,books) to no}
+        val known=books.filter{it.str("id")!=book.str("id")&&it.str("series").isNotBlank()}
+            .sortedWith(compareByDescending<JSONObject>{isComic(it)==isComic(book)}.thenByDescending{maxOf(it.optLong("openedAt"),it.optLong("addedAt"))})
+            .map{it.str("series").trim()}.distinctBy{it.lowercase()}
+        val tags=FlowRow(this,d(8),d(8)){false}
+        val cell=column().apply{setPadding(0,0,0,d(12))};cell.addView(tags,LinearLayout.LayoutParams(-1,-2));serie.addView(cell)
+        fun next(name:String)=books.filter{it.str("series").trim().equals(name,true)&&it.str("id")!=book.str("id")}.maxOfOrNull{it.optDouble("seriesNo",0.0)}?.takeIf{it>0}?.let{it+1}
+        fun fill(){tags.removeAllViews()
+            val typed=seriesIn.text.toString().trim()
+            val names=(listOfNotNull(guess?.first)+known).distinctBy{it.lowercase()}
+                .filter{!it.equals(typed,true)&&(typed.isBlank()||it.contains(typed,true))}.take(8)
+            names.forEach{n->val isGuess=guess?.first.equals(n,true)
+                val no=if(isGuess)guess?.second else next(n)
+                val label=n+(if(isGuess&&no!=null)" #"+(if(no%1==0.0)no.toInt().toString() else no.toString()) else "")
+                tags.addView(text(label,13f,fg).apply{gravity=Gravity.CENTER_VERTICAL;minHeight=d(32);setPadding(d(12),0,d(12),0)
+                    background=shape(if(isGuess)(if(light)0x1a1f9d73 else 0x264fd6a2) else (if(light)0xffefefec.toInt() else 0xff2c2c2f.toInt()),16)
+                    contentDescription="Серия $label";press(this)
+                    setOnClickListener{seriesIn.setText(n);seriesIn.setSelection(n.length)
+                        if(noIn.text.isBlank())no?.let{v->noIn.setText(if(v%1==0.0)v.toInt().toString() else v.toString())}}})}
+            cell.visibility=if(tags.childCount>0)View.VISIBLE else View.GONE}
+        seriesIn.addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun afterTextChanged(s:android.text.Editable?){fill()}})
+        fill()}
     section("Подробности")
     val more=card();
     // the genres as tags: every genre there is (and the library's own), the book's are lit; a tap adds or takes one off

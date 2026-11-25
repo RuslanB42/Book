@@ -159,7 +159,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         val id=book.str("id");val title=book.str("title")
         a.work({a.library.db.runInTransaction{val raw=a.library.dao.meta("stats")?:return@runInTransaction
             val meta=JSONObject(raw.json);val data=meta.optJSONObject("data")?:return@runInTransaction
-            recordReading(data,id,title,n,c,now,0);a.library.dao.putMeta(MetaRow("stats",meta.toString()))}})
+            recordReading(data,id,title,n,c,now,0,comic=isComic(book));a.library.dao.putMeta(MetaRow("stats",meta.toString()))}})
     }
 
     // ── pages ──
