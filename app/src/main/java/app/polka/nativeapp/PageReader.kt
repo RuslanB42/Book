@@ -483,11 +483,16 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         private fun clamp(){if(scale<=1f){px=0f;py=0f;return};val r=fit(page);val w=r.width()*scale;val h=r.height()*scale
             val minX=minOf(0f,width-(r.left*scale+w));val maxX=maxOf(0f,-r.left*scale);px=px.coerceIn(minOf(minX,maxX),maxOf(minX,maxX))
             val minY=minOf(0f,height-(r.top*scale+h));val maxY=maxOf(0f,-r.top*scale);py=py.coerceIn(minOf(minY,maxY),maxOf(minY,maxY))}
+        /** The pictures last drawn for the pages around the current one (only these, so memory stays bounded). */
+        private val held=HashMap<Int,Bitmap>()
         override fun onDraw(c:Canvas){if(n==0)return;val target=(width*(if(scale>1f)scale.coerceAtMost(2.5f) else 1f)).toInt().coerceAtMost(2400)
+            held.keys.retainAll{kotlin.math.abs(it-page)<=2}
             for(d in -1..1){val i=page+(if(rtl)-d else d);if(i<0||i>=n)continue;val x=shift+d*width
                 if(x<=-width||x>=width)continue
                 val r=fit(i);c.save();c.translate(x,0f);if(d==0&&scale>1f){c.translate(px,py);c.scale(scale,scale)}else if(d==0)c.translate(0f,-pan)
-                val b=bitmap(i,target){invalidate()}?:bitmap(i,width){invalidate()}
+                // a page already on screen keeps its picture while a sharper or evicted copy is (re)loaded: it never
+                // drops to the blank tile for a frame (that flickered while turning)
+                val b=(bitmap(i,target){invalidate()}?:bitmap(i,width){invalidate()})?.also{held[i]=it}?:held[i]
                 if(b!=null)c.drawBitmap(b,null,r,p) else{p.color=if(lightBg)0xffdcdcd8.toInt() else 0xff1c1c1e.toInt();c.drawRect(r,p)}
                 c.restore()}
             // keep the neighbours warm, two ahead and one behind, so a quick run of swipes never shows an empty page
@@ -506,8 +511,14 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         private inner class Slot(val i:Int):View(a){
             private val p=Paint(Paint.FILTER_BITMAP_FLAG)
             override fun onMeasure(w:Int,h:Int){val width=MeasureSpec.getSize(w);val (pw,ph)=source.size(i);setMeasuredDimension(width,(width*ph/pw.toFloat()).toInt())}
-            override fun onDraw(c:Canvas){val sy=this@RibbonView.scrollY;val near=bottom>sy-height*2&&top<sy+this@RibbonView.height+height*2
-                val b=if(near)bitmap(i,width){invalidate()} else null
+            /** The picture this page last showed: kept while it is near, so a page that was evicted from the cache and is
+             *  being loaded again stays on screen instead of blinking to the blank tile (that flickered while scrolling). */
+            private var held:Bitmap?=null
+            override fun onDraw(c:Canvas){val sy=this@RibbonView.scrollY;val screen=this@RibbonView.height
+                // near = within a screen above or below: a narrower ring than before, so the cache holds all of it
+                val near=bottom>sy-screen&&top<sy+screen*2
+                if(!near)held=null
+                val b=if(near)(bitmap(i,width){invalidate()}?.also{held=it}?:held) else null
                 if(b!=null)c.drawBitmap(b,null,Rect(0,0,width,height),p) else{p.color=if(lightBg)0xffdcdcd8.toInt() else 0xff1c1c1e.toInt();c.drawRect(0f,0f,width.toFloat(),height.toFloat(),p)}}
         }
         override fun onScrollChanged(l:Int,t:Int,ol:Int,ot:Int){super.onScrollChanged(l,t,ol,ot);for(i in 0 until column.childCount)column.getChildAt(i).invalidate()}
