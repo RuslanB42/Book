@@ -286,12 +286,13 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             // landed, the card is the cover (same picture, same place, no shadow): the real one takes its place, and
             // its shadow comes up under it slowly
             (cover as? CoverView)?.shadowFade=0f
-            // the next issue comes in with it: it rises at its place beside the landing page from the start, cut at
-            // the cover's edge (the flying page is drawn under it, so it must not cover the page) until the cover is there
+            // the next issue comes in exactly with it: it shows at the same pace as the page turns into the read
+            // cover (one curve for both), cut at the cover's edge until the cover is there (the flying page is drawn
+            // under it, so it must not cover the page)
             peek?.let{pk->val cut=(cover.right-pk.left).coerceIn(0,pk.width);pk.clipBounds=Rect(cut,0,pk.width,pk.height)
-                pk.pivotX=0f;pk.pivotY=pk.height/2f;pk.scaleX=.94f;pk.scaleY=.94f;pk.alpha=0f
-                pk.animate().alpha(PEEK).scaleX(1f).scaleY(1f).setStartDelay(120).setDuration(700).setInterpolator(rise).start()}
-            clock(820,0,android.view.animation.LinearInterpolator(),{f->card.time=f;card.t=glide.getInterpolation(f)}){cover.alpha=1f;card.visibility=View.GONE;peek?.clipBounds=null
+                pk.pivotX=0f;pk.pivotY=pk.height/2f;pk.scaleX=.94f;pk.scaleY=.94f;pk.alpha=0f}
+            clock(820,0,android.view.animation.LinearInterpolator(),{f->card.time=f;card.t=glide.getInterpolation(f)
+                peek?.let{pk->val x=((f-.15f)/.6f).coerceIn(0f,1f);val e=x*x*(3-2*x);pk.alpha=PEEK*e;val sc=.94f+.06f*e;pk.scaleX=sc;pk.scaleY=sc}}){cover.alpha=1f;card.visibility=View.GONE;peek?.clipBounds=null
                 (cover as? CoverView)?.let{cv->clock(700,0,MotionSpec.enter,{cv.shadowFade=it})}}
             backdrop?.animate()?.alpha(0f)?.setDuration(520)?.setInterpolator(MotionSpec.move)?.start()}
         else{p.animate().alpha(1f).setDuration(MotionSpec.DARK_OUT).setInterpolator(MotionSpec.enter).start()
@@ -310,37 +311,19 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
     }
 
     /**
-     * On to the next issue (approved «Переход А: выходит из-за обложки»): the rest gives way and the light goes out to
-     * the reader's backdrop, the read cover slips aside and fades, and the next one comes out from behind and opens
-     * out to the size of a page in one move — a comic's first page is its cover — and the reader of the next issue
-     * comes up over it.
+     * On to the next issue: a plain fade (asked for instead of the cover growing into the page, which blinked where the
+     * drawn cover gave way to the real page). The screen fades to the reader's backdrop, then the next issue's reader
+     * opens on that same colour and its first page fades in.
      */
     private fun goNext(n:JSONObject){
         if(closed)return;closed=true
         a.currentFocus?.let{f->(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(f.windowToken,0)}
         dialog.setOnCancelListener(null)
         val open=openNext?:{x:JSONObject->openIssue(a,x)}
-        val r=root as? FrameLayout;val c=cover;val pk=peek
-        if(r==null||c==null||pk==null||!motion||c.width<=0||pk.width<=0){open(n);r?.postDelayed({dialog.dismiss()},MotionSpec.DARK_OUT+120L)?:dialog.dismiss();return}
-        listOfNotNull(panel,cover,glow,scrim,close,pk).forEach{it.animate().cancel()}
-        panel?.animate()?.translationY(a.d(24).toFloat())?.alpha(0f)?.setStartDelay(0)?.setDuration(360)?.setInterpolator(MotionSpec.exit)?.start()
-        close?.animate()?.alpha(0f)?.setStartDelay(0)?.setDuration(150)?.start()
-        glow?.animate()?.alpha(0f)?.setStartDelay(0)?.setDuration(700)?.setInterpolator(MotionSpec.enter)?.start()
-        scrim?.animate()?.alpha(0f)?.setStartDelay(0)?.setDuration(700)?.setInterpolator(MotionSpec.enter)?.start()
-        val ground=backdrop?:View(a).apply{alpha=0f}.also{v->r.addView(v,minOf(2,r.childCount),FrameLayout.LayoutParams(-1,-1))}
-        ground.setBackgroundColor(readerBg);ground.animate().alpha(1f).setStartDelay(0).setDuration(700).setInterpolator(MotionSpec.enter).start()
-        // the read one slips aside
-        c.pivotX=0f;c.pivotY=0f
-        c.animate().translationX(-c.width*1.07f).translationY(c.height*.13f).scaleX(.8f).scaleY(.8f).alpha(0f).setStartDelay(0).setDuration(700).setInterpolator(MotionSpec.enter).start()
-        // the next one goes in one unbroken move from where it waits to the size of a page (passing the read one's
-        // place on its way): no stop between two moves, which read as a pause
-        pk.clipBounds=null;pk.bringToFront();pk.pivotX=0f;pk.pivotY=0f
-        val box=pk.parent as View;val at=IntArray(2);box.getLocationInWindow(at);val o=IntArray(2);r.getLocationInWindow(o)
-        val W=r.width.toFloat();val H=r.height.toFloat();val w=minOf(W,H/1.5f);val h=w*1.5f
-        val x=(W-w)/2f;val y=(H-h)/2f
-        val baseX=(at[0]-o[0]+pk.left).toFloat();val baseY=(at[1]-o[1]+pk.top).toFloat()
-        val s=w/pk.width
-        pk.animate().translationX(x-baseX).translationY(y-baseY).scaleX(s).scaleY(s).alpha(1f).setStartDelay(0).setDuration(820).setInterpolator(android.view.animation.PathInterpolator(.3f,.05f,.1f,1f))
+        val r=root as? FrameLayout
+        if(r==null||!motion){open(n);r?.postDelayed({dialog.dismiss()},MotionSpec.DARK_OUT+120L)?:dialog.dismiss();return}
+        val veil=View(a).apply{setBackgroundColor(readerBg);alpha=0f};r.addView(veil,FrameLayout.LayoutParams(-1,-1))
+        veil.animate().alpha(1f).setDuration(MotionSpec.DARK_IN).setInterpolator(MotionSpec.move)
             .withEndAction{open(n);r.postDelayed({dialog.dismiss()},MotionSpec.DARK_OUT+120L)}.start()
     }
 
