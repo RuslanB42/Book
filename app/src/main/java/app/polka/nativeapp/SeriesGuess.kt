@@ -9,8 +9,9 @@ import org.json.JSONObject
 internal object SeriesGuess {
     private val marked=Regex("""^(.*?)\s*(?:#\s*|№\s*|[\s._\-–—:,]+(?:no\.?|vol(?:ume)?\.?|v\.|issue|ch(?:apter)?\.?|том|выпуск|глава|часть)\s*)(\d+(?:[.,]\d+)?)(?!\d)""",RegexOption.IGNORE_CASE)
     private val trailing=Regex("""^(.*\D)\s+(\d{1,4})$""")
-    fun of(title:String):Pair<String,Double>?{
-        val t=title.replace(Regex("""\[[^\]]*]|\([^)]*\)|\{[^}]*}"""),"").replace('_',' ').trim()
+    fun of(title:String):Pair<String,Double>?=try{guess(title)}catch(_:Exception){null}
+    private fun guess(title:String):Pair<String,Double>?{
+        val t=title.replace(Regex("""\[[^\]]*\]|\([^)]*\)|\{[^}]*\}"""),"").replace('_',' ').trim()
         val m=marked.find(t)?.takeIf{it.groupValues[1].isNotBlank()}?:trailing.find(t)?.takeIf{m->m.groupValues[2].let{n->!(n.length==4&&n.toInt() in 1900..2100)}}?:return null
         val name=m.groupValues[1].trim().trimEnd('-','–','—',':',',','.').trim()
         val no=m.groupValues[2].replace(',','.').toDoubleOrNull()?:return null

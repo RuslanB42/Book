@@ -262,7 +262,8 @@ class MainActivity : Activity() {
     fun loadData() {
         prefs=library.prefs(); if(!prefs.has("size")) prefs.put("size",prefs.optInt("fontSize",19)); if(!prefs.has("ui")) prefs.put("ui",prefs.str("theme","dark")); books=library.allBooks().filterNot { it.str("id") in pendingDeletes }.onEach { if(QuoteNotes.fold(it)) library.save(it) }.also { AuthorPhotos.prefetch(this,it) }; sort=prefs.str("sort","manual")
         // once: the comics that came without a series get theirs from their titles
-        if(!prefs.optBoolean("seriesGuessed")){books.forEach{b->if(SeriesGuess.fill(b,books))library.save(b)};prefs.put("seriesGuessed",true);library.savePrefs(prefs)}
+        // (it never stands in the way of the library: whatever goes wrong there, the library opens as it is)
+        if(!prefs.optBoolean("seriesGuessed"))try{books.forEach{b->if(SeriesGuess.fill(b,books))library.save(b)};prefs.put("seriesGuessed",true);library.savePrefs(prefs)}catch(_:Exception){}
     }
     fun requestCover(book:JSONObject,done:(Bitmap?)->Unit) {
         val id=book.optJSONObject("cover")?.str("__polkaBlob")?.takeIf { it.isNotBlank() } ?: return
