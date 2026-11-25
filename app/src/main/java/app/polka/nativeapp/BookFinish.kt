@@ -286,12 +286,18 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             // landed, the card is the cover (same picture, same place, no shadow): the real one takes its place, and
             // its shadow comes up under it slowly
             (cover as? CoverView)?.shadowFade=0f
-            clock(820,0,android.view.animation.LinearInterpolator(),{f->card.time=f;card.t=glide.getInterpolation(f)}){cover.alpha=1f;card.visibility=View.GONE
+            // the next issue comes in with it: it rises at its place beside the landing page from the start, cut at
+            // the cover's edge (the flying page is drawn under it, so it must not cover the page) until the cover is there
+            peek?.let{pk->val cut=(cover.right-pk.left).coerceIn(0,pk.width);pk.clipBounds=Rect(cut,0,pk.width,pk.height)
+                pk.pivotX=0f;pk.pivotY=pk.height/2f;pk.scaleX=.94f;pk.scaleY=.94f;pk.alpha=0f
+                pk.animate().alpha(PEEK).scaleX(1f).scaleY(1f).setStartDelay(120).setDuration(700).setInterpolator(rise).start()}
+            clock(820,0,android.view.animation.LinearInterpolator(),{f->card.time=f;card.t=glide.getInterpolation(f)}){cover.alpha=1f;card.visibility=View.GONE;peek?.clipBounds=null
                 (cover as? CoverView)?.let{cv->clock(700,0,MotionSpec.enter,{cv.shadowFade=it})}}
             backdrop?.animate()?.alpha(0f)?.setDuration(520)?.setInterpolator(MotionSpec.move)?.start()}
         else{p.animate().alpha(1f).setDuration(MotionSpec.DARK_OUT).setInterpolator(MotionSpec.enter).start()
             cover.scaleX=.9f;cover.scaleY=.9f;cover.translationY=a.d(24).toFloat()
-            cover.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setStartDelay(80).setDuration(680).setInterpolator(rise).withLayer().start()}
+            cover.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setStartDelay(80).setDuration(680).setInterpolator(rise).withLayer().start()
+            peek?.let{pk->pk.translationY=a.d(24).toFloat();pk.animate().alpha(PEEK).translationY(0f).setStartDelay(80).setDuration(680).setInterpolator(rise).start()}}
         scrim.animate().alpha(1f).setDuration(420).setInterpolator(MotionSpec.enter).start()
         glow.scaleX=1.15f;glow.scaleY=1.15f
         glow.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(1100).setInterpolator(rise).start()
@@ -301,13 +307,12 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         for(i in 0 until panel.childCount){val c=panel.getChildAt(i);c.translationY=a.d(12).toFloat()
             c.animate().alpha(1f).translationY(0f).setStartDelay(440L+i*45).setDuration(400).setInterpolator(MotionSpec.enter).withLayer().start()}
         close.animate().alpha(1f).setStartDelay(780).setDuration(300).setInterpolator(MotionSpec.enter).start()
-        peek?.animate()?.alpha(PEEK)?.setStartDelay(760)?.setDuration(420)?.setInterpolator(MotionSpec.enter)?.start()
     }
 
     /**
      * On to the next issue (approved «Переход А: выходит из-за обложки»): the rest gives way and the light goes out to
-     * the reader's backdrop, the read cover slips aside and fades, the next one comes out from behind onto its place;
-     * then it opens out to the size of a page — a comic's first page is its cover — and the reader of the next issue
+     * the reader's backdrop, the read cover slips aside and fades, and the next one comes out from behind and opens
+     * out to the size of a page in one move — a comic's first page is its cover — and the reader of the next issue
      * comes up over it.
      */
     private fun goNext(n:JSONObject){
@@ -327,19 +332,16 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         // the read one slips aside
         c.pivotX=0f;c.pivotY=0f
         c.animate().translationX(-c.width*1.07f).translationY(c.height*.13f).scaleX(.8f).scaleY(.8f).alpha(0f).setStartDelay(0).setDuration(700).setInterpolator(MotionSpec.enter).start()
-        // the next one onto its place
-        pk.bringToFront();pk.pivotX=0f;pk.pivotY=0f
-        val k=c.width/pk.width.toFloat()
-        pk.animate().translationX((c.left-pk.left).toFloat()).translationY((c.top-pk.top).toFloat()).scaleX(k).scaleY(k).alpha(1f).setStartDelay(0).setDuration(700).setInterpolator(MotionSpec.enter)
-            .withEndAction{
-                // then it opens out to the page, centred on the screen as the reader shows a page
-                val box=pk.parent as View;val at=IntArray(2);box.getLocationInWindow(at);val o=IntArray(2);r.getLocationInWindow(o)
-                val W=r.width.toFloat();val H=r.height.toFloat();val w=minOf(W,H/1.5f);val h=w*1.5f
-                val x=(W-w)/2f;val y=(H-h)/2f
-                val baseX=(at[0]-o[0]+pk.left).toFloat();val baseY=(at[1]-o[1]+pk.top).toFloat()
-                val s=w/pk.width
-                pk.animate().translationX(x-baseX).translationY(y-baseY).scaleX(s).scaleY(s).setDuration(620).setInterpolator(MotionSpec.move)
-                    .withEndAction{open(n);r.postDelayed({dialog.dismiss()},MotionSpec.DARK_OUT+120L)}.start()}.start()
+        // the next one goes in one unbroken move from where it waits to the size of a page (passing the read one's
+        // place on its way): no stop between two moves, which read as a pause
+        pk.clipBounds=null;pk.bringToFront();pk.pivotX=0f;pk.pivotY=0f
+        val box=pk.parent as View;val at=IntArray(2);box.getLocationInWindow(at);val o=IntArray(2);r.getLocationInWindow(o)
+        val W=r.width.toFloat();val H=r.height.toFloat();val w=minOf(W,H/1.5f);val h=w*1.5f
+        val x=(W-w)/2f;val y=(H-h)/2f
+        val baseX=(at[0]-o[0]+pk.left).toFloat();val baseY=(at[1]-o[1]+pk.top).toFloat()
+        val s=w/pk.width
+        pk.animate().translationX(x-baseX).translationY(y-baseY).scaleX(s).scaleY(s).alpha(1f).setStartDelay(0).setDuration(820).setInterpolator(android.view.animation.PathInterpolator(.3f,.05f,.1f,1f))
+            .withEndAction{open(n);r.postDelayed({dialog.dismiss()},MotionSpec.DARK_OUT+120L)}.start()
     }
 
     private fun finish(keep:Boolean,closeBook:Boolean){
