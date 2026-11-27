@@ -10,7 +10,7 @@ import kotlin.math.*
 
 /**
  * The marks of a choice in a row (after the reference the user sent): they answer the finger while it is down (the
- * box goes soft and wobbles, the ring stretches) and change with a small motion of their own, not a blink. They
+ * box goes soft, the ring stretches) and change with a small motion of their own, not a blink. They
  * follow their row's press (the row is what is tapped), so they never take the touch themselves.
  */
 internal abstract class ChoiceMark(protected val a:MainActivity,on:Boolean):View(a){
@@ -18,9 +18,9 @@ internal abstract class ChoiceMark(protected val a:MainActivity,on:Boolean):View
     protected var v=if(on)1f else 0f
     /** Going off (the way out differs from the way in), not on. */
     protected var leaving=false
-    /** How much the finger is on it (0..1) and a running phase for the wobble while it is. */
-    protected var press=0f;protected var phase=0f
-    private var anim:ValueAnimator?=null;private var pressAnim:ValueAnimator?=null;private var wobble:ValueAnimator?=null
+    /** How much the finger is on it (0..1). */
+    protected var press=0f
+    private var anim:ValueAnimator?=null;private var pressAnim:ValueAnimator?=null
     protected val reduced get()=a.prefs.str("motion")=="reduced"
     var on=on;set(x){if(x==field)return;field=x;go(x)}
     protected abstract val inMs:Long;protected abstract val outMs:Long
@@ -35,11 +35,9 @@ internal abstract class ChoiceMark(protected val a:MainActivity,on:Boolean):View
     override fun drawableStateChanged(){super.drawableStateChanged();val p=isPressed;if(reduced)return
         val target=if(p)1f else 0f;if((pressAnim?.isRunning==true&&pressTarget==target)||press==target)return;pressTarget=target
         pressAnim?.cancel();pressAnim=ValueAnimator.ofFloat(press,target).apply{duration=if(p)140 else 260;interpolator=PathInterpolator(.2f,0f,0f,1f)
-            addUpdateListener{press=it.animatedValue as Float;invalidate()};start()}
-        if(p&&wobble?.isRunning!=true)wobble=ValueAnimator.ofFloat(0f,1f).apply{duration=1000;repeatCount=ValueAnimator.INFINITE;interpolator=LinearInterpolator()
-            addUpdateListener{phase+=.16f;if(press<=0f&&!isPressed)cancel();invalidate()};start()}}
+            addUpdateListener{press=it.animatedValue as Float;invalidate()};start()}}
     private var pressTarget=-1f
-    override fun onDetachedFromWindow(){anim?.cancel();pressAnim?.cancel();wobble?.cancel();super.onDetachedFromWindow()}
+    override fun onDetachedFromWindow(){anim?.cancel();pressAnim?.cancel();super.onDetachedFromWindow()}
     protected fun ease(t:Float):Float{val x=t.coerceIn(0f,1f);return 1f-(1f-x)*(1f-x)*(1f-x)}
     /** 0 → 1 → 0 with its top at [at]: the little swell as a mark settles. */
     protected fun bump(t:Float,at:Float=.6f):Float{val x=t.coerceIn(0f,1f);return if(x<at)sin(x/at*PI.toFloat()/2f) else cos((x-at)/(1f-at)*PI.toFloat()/2f)}
@@ -47,23 +45,18 @@ internal abstract class ChoiceMark(protected val a:MainActivity,on:Boolean):View
 }
 
 /** A square box to tick (several may be ticked): an outline when empty; ticked, it fills from its middle and the check
- *  draws itself in; unticked, the check runs back out and the fill fades. Under the finger it goes soft and wobbles. */
+ *  draws itself in; unticked, the check runs back out and the fill fades. Under the finger it sinks a little and its
+ *  corners round off, all of it one smooth outline. */
 internal class TickBox(a:MainActivity,on:Boolean):ChoiceMark(a,on){
     override val inMs=340L;override val outMs=280L
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val path=Path();private val check=Path();private val part=Path();private val measure=PathMeasure()
-    private fun box(l:Float,t:Float,r:Float,b:Float,rad:Float,wob:Float){val cx=(l+r)/2;val cy=(t+b)/2;path.rewind()
-        // each side bows in or out by turns while pressed, a quarter turn apart: the soft box of the reference
-        val o=FloatArray(4){i->wob*sin(phase+i*PI.toFloat()/2f)}
-        path.moveTo(l+rad,t);path.quadTo(cx,t-o[0],r-rad,t);path.quadTo(r,t,r,t+rad)
-        path.quadTo(r+o[1],cy,r,b-rad);path.quadTo(r,b,r-rad,b)
-        path.quadTo(cx,b+o[2],l+rad,b);path.quadTo(l,b,l,b-rad)
-        path.quadTo(l-o[3],cy,l,t+rad);path.quadTo(l,t,l+rad,t);path.close()}
+    private fun box(l:Float,t:Float,r:Float,b:Float,rad:Float){path.rewind();path.addRoundRect(l,t,r,b,rad,rad,Path.Direction.CW)}
     override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val k=a.d(1)*1.75f
         val fill=if(leaving)ease((v-.35f)/.65f) else ease(v/.5f)
         val tick=if(leaving)ease(v/.45f) else ease((v-.42f)/.58f)
         val swell=if(leaving)0f else .07f*bump(v)
         c.save();val s=1f-.06f*press+swell;c.scale(s,s,w/2f,h/2f)
-        box(k/2,k/2,w-k/2,h-k/2,a.d(7).toFloat(),a.d(1)*1.7f*press)
+        box(k/2,k/2,w-k/2,h-k/2,a.d(7)+a.d(2)*press)
         // the outline fades as the fill comes; the fill comes in pale first, then whole
         if(fill<1f){p.style=Paint.Style.STROKE;p.strokeWidth=k;p.color=outline;p.alpha=(Color.alpha(outline)*(1f-fill)).toInt();c.drawPath(path,p)}
         if(fill>0f){p.style=Paint.Style.FILL;p.color=a.fg;p.alpha=(255*(.22f+.78f*fill)*min(1f,fill*4f)).toInt()
