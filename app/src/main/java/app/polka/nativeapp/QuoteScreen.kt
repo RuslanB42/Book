@@ -27,10 +27,11 @@ internal fun MainActivity.floatCard(v:View,radiusDp:Int=24,color:Int=if(light)Co
     v.forceHasOverlappingRendering(false)
 }
 /**
- * A quote card's face (approved «тон и кромка»): in a pile a card is lighter the higher it lies ([depth] 0 is the
- * card on top, 1 and 2 the sheets under it; between them while a sheet rises), and on the dark page every card has a
- * fine edge lit from above, so cards lying on each other read as separate sheets. Under it the floating shade, drawn
- * to the card's [visible] height (a deck shows its cards shorter than they are laid out).
+ * A quote card's face (approved «тон и кромка», without the edge): in a pile a card is lighter the higher it lies
+ * ([depth] 0 is the card on top, 1 and 2 the sheets under it; between them while a sheet rises), so cards lying on
+ * each other read as separate sheets. Under it the floating shade at a little over half its strength (a quote card is
+ * big, its full shade was heavy), drawn to the card's [visible] height (a deck shows its cards shorter than they are
+ * laid out).
  */
 internal class QuoteSurface(private val a:MainActivity,private val strength:Float=1f):android.graphics.drawable.Drawable(){
     private val radius=a.d(24).toFloat()
@@ -38,19 +39,12 @@ internal class QuoteSurface(private val a:MainActivity,private val strength:Floa
         set(v){val n=v.coerceIn(0f,2f);if(n!=field){field=n;invalidateSelf()}}
     var visible:(()->Int?)?=null
     private val fill=Paint(Paint.ANTI_ALIAS_FLAG)
-    private val edge=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=a.d(1).toFloat();color=0x09ffffff}
-    private val lit=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=a.d(1).toFloat()}
     private val r=RectF()
     private fun tone():Int{val tones=if(a.light)intArrayOf(Color.WHITE,0xfff7f7f5.toInt(),0xffefefec.toInt()) else intArrayOf(0xff28282a.toInt(),0xff1d1d1f.toInt(),0xff19191b.toInt())
         val i=depth.toInt().coerceAtMost(1);return androidx.core.graphics.ColorUtils.blendARGB(tones[i],tones[i+1],depth-i)}
     private fun box(){val b=bounds;val h=(visible?.invoke()?:b.height()).coerceIn(1,maxOf(1,b.height()));r.set(b.left.toFloat(),b.top.toFloat(),b.right.toFloat(),(b.top+h).toFloat())}
-    override fun draw(c:Canvas){box();FloatShade.draw(c,a,r,radius,a.light,(255*strength*(opacity/255f)).toInt(),true)
-        fill.color=tone();fill.alpha=opacity;c.drawRoundRect(r,radius,radius,fill)
-        if(a.light)return
-        val i=edge.strokeWidth/2f;r.inset(i,i);val rr=radius-i
-        edge.alpha=(0x09*opacity/255);c.drawRoundRect(r,rr,rr,edge)
-        // the light from above: a hairline along the top edge, gone by the end of the corners
-        lit.shader=LinearGradient(0f,r.top,0f,r.top+radius,(((0x13*opacity/255)) shl 24) or 0xffffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRoundRect(r,rr,rr,lit)}
+    override fun draw(c:Canvas){box();FloatShade.draw(c,a,r,radius,a.light,(255*.55f*strength*(opacity/255f)).toInt(),true)
+        fill.color=tone();fill.alpha=opacity;c.drawRoundRect(r,radius,radius,fill)}
     override fun getOutline(o:Outline){box();o.setRoundRect(r.left.toInt(),r.top.toInt(),r.right.toInt(),r.bottom.toInt(),radius)}
     private var opacity=255
     override fun setAlpha(v:Int){opacity=v;invalidateSelf()}
