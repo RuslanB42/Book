@@ -42,12 +42,12 @@ internal class ReaderPanel(private val a:MainActivity,private val surface:Linear
     private fun holder(page:Page):LinearLayout{
         val box=a.column().apply{clipChildren=false;clipToPadding=false}
         val ink=a.fg
-        if(page.title!=null){val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+        if(page.title!=null){val head=FrameLayout(a)
+            // the title is centred on the whole panel, whatever stands at its sides
+            head.addView(a.text(page.title,16f,ink,true).apply{gravity=Gravity.CENTER;maxLines=1;setPadding(a.d(96),0,a.d(96),0)},FrameLayout.LayoutParams(-1,-1))
             head.addView(FrameLayout(a).apply{background=a.shape(if(a.light)0x0f000000 else 0x11ffffff,18);isClickable=true;isFocusable=true;contentDescription="Назад";a.press(this);setOnClickListener{back()}
-                addView(Chevron(a,true),FrameLayout.LayoutParams(a.d(12),a.d(18),Gravity.CENTER))},LinearLayout.LayoutParams(a.d(36),a.d(36)))
-            head.addView(a.text(page.title,16f,ink,true).apply{gravity=Gravity.CENTER;maxLines=1},LinearLayout.LayoutParams(0,-2,1f))
-            // the title stays in the middle: a place as wide as the back button on the right, or the page's own action
-            head.addView(page.right?:View(a),LinearLayout.LayoutParams(if(page.right!=null)-2 else a.d(36),-2).apply{gravity=Gravity.CENTER_VERTICAL})
+                addView(Chevron(a,true),FrameLayout.LayoutParams(a.d(12),a.d(18),Gravity.CENTER))},FrameLayout.LayoutParams(a.d(36),a.d(36),Gravity.START or Gravity.CENTER_VERTICAL))
+            page.right?.let{head.addView(it,FrameLayout.LayoutParams(-2,-2,Gravity.END or Gravity.CENTER_VERTICAL))}
             box.addView(head,LinearLayout.LayoutParams(-1,a.d(44)).apply{bottomMargin=a.d(12)})}
         (page.content.parent as? ViewGroup)?.removeView(page.content)
         box.addView(page.content,LinearLayout.LayoutParams(-1,-2))
