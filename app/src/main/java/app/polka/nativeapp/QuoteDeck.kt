@@ -1,6 +1,7 @@
 package app.polka.nativeapp
 
 import android.graphics.Outline
+import android.graphics.RectF
 
 import android.view.ViewOutlineProvider
 
@@ -133,10 +134,22 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             (v.background as? QuoteSurface)?.let{it.depth=slot+1-p;it.narrow=n(slot)+(n(to)-n(slot))*p}}
         /** [p] (0..1, may overshoot a little) moves every sheet one place forward. The sheets keep the card's height and
          *  stay blank, so nothing shows from under the card or below the deck while it is dragged. */
+        /** The pile casts one shade (see [QuoteSurface]): the lowest card for the whole pile, each card above only onto
+         *  the card right under it. The order is the cards' height above the page (a thrown card is under the pile
+         *  before it is moved to the end of the list). */
+        private fun shades(){val order=cards.sortedByDescending{it.z};val top=order.first()
+            fun s(v:View)=v.background as? QuoteSurface
+            if(order.size<2){s(top)?.let{it.pile=null;it.under=null};top.invalidate();return}
+            order.forEachIndexed{k,v->val sv=s(v)?:return@forEachIndexed
+                if(k==order.lastIndex){val n=sv.narrow-(s(top)?.narrow?:0f);sv.pile=RectF(n,(v.translationY-top.translationY).coerceAtLeast(0f),n,0f);sv.under=null}
+                else{val nx=order[k+1];val nn=s(nx)?.narrow?:0f;val dy=nx.translationY-v.translationY;val h=((nx.tag as? Int)?:nx.height).toFloat()
+                    sv.pile=null;sv.under=RectF(nn,dy,v.width-nn,dy+h)}
+                v.invalidate()}}
         private fun pose(p:Float){lift=p;val h=(front.tag as? Int)?:front.height;for(k in 1 until cards.size){val v=cards[k]
             if(v.tag!=h){v.tag=h;fit(v);v.invalidateOutline()}
             content(v,if(k==1)reveal else 0f)
-            place(v,k-1,p)}}
+            place(v,k-1,p)}
+            shades()}
         /** The sheets under the card are blank: only the card on top shows its words and buttons. */
         private fun content(v:View,al:Float){(v as? ViewGroup)?.let{g->for(i in 0 until g.childCount)g.getChildAt(i).alpha=al}}
         /** Puts quote [want] onto the card at place [k] if it holds another one (only ever done to a blank sheet). */

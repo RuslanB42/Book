@@ -29,7 +29,9 @@ internal fun MainActivity.floatCard(v:View,radiusDp:Int=24,color:Int=if(light)Co
  * ([depth] 0 is the card on top, 1 and 2 the sheets under it; between them while a sheet rises), so cards lying on
  * each other read as separate sheets. Under it the floating shade at a little over half its strength (a quote card is
  * big, its full shade was heavy), drawn to the card's [visible] height (a deck shows its cards shorter than they are
- * laid out).
+ * laid out). In a pile the pile casts ONE shade, as one thing lying on the page: the lowest card draws it for the
+ * whole pile ([pile]), and each card above only a short contact shade onto the card right under it ([under]), with no
+ * grain (three full shades, each with its own grain and fall, overlapped into an uneven, noisy patch).
  */
 internal class QuoteSurface(private val a:MainActivity,private val strength:Float=1f):android.graphics.drawable.Drawable(){
     private val radius=a.d(24).toFloat()
@@ -39,12 +41,23 @@ internal class QuoteSurface(private val a:MainActivity,private val strength:Floa
     /** How much narrower than its view the card is on each side (px): a sheet lying lower in a pile. */
     var narrow=0f
         set(v){if(v!=field){field=v;invalidateSelf()}}
+    /** The lowest card of a pile: how far the pile reaches past this card's face on each side (px; left, top, right,
+     *  bottom), for the one shade of the whole pile. */
+    var pile:RectF?=null
+    /** A card lying on another: where the card under it shows (in this card's own coordinates), the only place its
+     *  short contact shade goes. */
+    var under:RectF?=null
     private val fill=Paint(Paint.ANTI_ALIAS_FLAG)
     private val r=RectF()
     private fun tone():Int{val tones=if(a.light)intArrayOf(Color.WHITE,0xfff7f7f5.toInt(),0xffefefec.toInt()) else intArrayOf(0xff28282a.toInt(),0xff1d1d1f.toInt(),0xff19191b.toInt())
         val i=depth.toInt().coerceAtMost(1);return androidx.core.graphics.ColorUtils.blendARGB(tones[i],tones[i+1],depth-i)}
     private fun box(){val b=bounds;val h=(visible?.invoke()?:b.height()).coerceIn(1,maxOf(1,b.height()));r.set(b.left+narrow,b.top.toFloat(),b.right-narrow,(b.top+h).toFloat())}
-    override fun draw(c:Canvas){box();FloatShade.draw(c,a,r,radius,a.light,(255*.55f*strength*(opacity/255f)).toInt(),true)
+    private val shadeR=RectF()
+    override fun draw(c:Canvas){box();val o=opacity/255f;val p=pile;val u=under
+        when{
+            p!=null->{shadeR.set(r.left-p.left,r.top-p.top,r.right+p.right,r.bottom+p.bottom);FloatShade.draw(c,a,shadeR,radius,a.light,(255*.55f*o).toInt(),true)}
+            u!=null->{c.save();c.clipRect(u);FloatShade.draw(c,a,r,radius,a.light,(255*.9f*o).toInt(),lift=Lift.TOUCH);c.restore()}
+            else->FloatShade.draw(c,a,r,radius,a.light,(255*.55f*strength*o).toInt(),true)}
         fill.color=tone();fill.alpha=opacity;c.drawRoundRect(r,radius,radius,fill)}
     override fun getOutline(o:Outline){box();o.setRoundRect(r.left.toInt(),r.top.toInt(),r.right.toInt(),r.bottom.toInt(),radius)}
     private var opacity=255
@@ -55,7 +68,7 @@ internal class QuoteSurface(private val a:MainActivity,private val strength:Floa
 /** [v] as a quote card (see [QuoteSurface]). */
 internal fun MainActivity.quoteSurface(v:View,depth:Float=0f,lift:Int=if(light)8 else 10):QuoteSurface{floatCard(v,24,lift=lift)
     return QuoteSurface(this,lift/(if(light)8f else 10f)).also{it.depth=depth;v.background=it}}
-/** A real pile: one or two narrower sheets peek out under the front card, each with its own shadow. */
+/** A real pile: one or two narrower sheets peek out under the front card; the pile casts one shade (see [QuoteSurface]). */
 internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){
     private val layers=(count-1).coerceIn(0,2)
     private val sheets=List(layers){i->View(a).apply{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;a.quoteSurface(this,i+1f,if(a.light)5-i*2 else 7-i*2)}}
@@ -70,6 +83,12 @@ internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){
         val w=r-l;val f=front();val fh=f?.measuredHeight?:0;f?.layout(0,0,w,fh)
         sheets.forEachIndexed{i,v->val inset=a.d(12)*(i+1);val off=step*(i+1);v.layout(inset,off,w-inset,off+fh)}
+        // the pile's one shade from its lowest sheet; each card above shades only the sheet right under it
+        val cards=listOfNotNull(f)+sheets;if(cards.size<2)return
+        cards.forEachIndexed{k,v->val s=v.background as? QuoteSurface?:return@forEachIndexed
+            if(k==cards.lastIndex){val inset=(v.left).toFloat();s.pile=RectF(inset,v.top.toFloat(),inset,0f);s.under=null}
+            else{val n=cards[k+1];s.pile=null;s.under=RectF((n.left-v.left).toFloat(),(n.top-v.top).toFloat(),(n.right-v.left).toFloat(),(n.bottom-v.top).toFloat())}
+            v.invalidate()}
     }
 }
 private fun MainActivity.quoteMark()=text("\u201c",38f,accent,true,true).apply{includeFontPadding=false;gravity=Gravity.TOP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
