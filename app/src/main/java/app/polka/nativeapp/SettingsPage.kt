@@ -26,9 +26,9 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     // head: back, and the large serif title centred on the page (an empty place the back button's size on the right
     // keeps it in the middle), as the greeting on the statistics
     val head=line().apply{gravity=Gravity.CENTER_VERTICAL}
-    head.addView(icon("back","Назад"){closeSettings()},LinearLayout.LayoutParams(d(44),d(44)))
+    head.addView(icon("back","Назад"){closeSettings()},LinearLayout.LayoutParams(d(46),d(46)))
     head.addView(text("Настройки",26f,fg,true,serif=true).apply{gravity=Gravity.CENTER;maxLines=1},LinearLayout.LayoutParams(0,-2,1f))
-    head.addView(View(this),LinearLayout.LayoutParams(d(44),d(44)))
+    head.addView(View(this),LinearLayout.LayoutParams(d(46),d(46)))
     content.addView(head,LinearLayout.LayoutParams(-1,-2))
     // appearance
     group("Оформление",20)

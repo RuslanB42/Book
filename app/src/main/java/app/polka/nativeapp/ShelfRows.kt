@@ -559,7 +559,7 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
                 if(o.translationY!=shift)o.animate().translationY(shift).setDuration(240).setInterpolator(glide).start()}}}
     /** Auto-scroll: holding the card near the top or bottom edge scrolls the page, faster the closer to the edge. */
     private val edge=object:Runnable{override fun run(){if(held==null)return
-        val loc=IntArray(2);a.scroll.getLocationOnScreen(loc);val top=loc[1]+a.appInsets.top+a.d(8);val bottom=loc[1]+a.scroll.height-a.navigationBottom()-a.d(72)
+        val loc=IntArray(2);a.scroll.getLocationOnScreen(loc);val top=loc[1]+a.appInsets.top+a.d(8);val bottom=loc[1]+a.scroll.height-a.floatingBottom()-a.d(64)
         val zone=a.d(88).toFloat();val max=a.d(16).toFloat()
         val v=when{lastY<top+zone->-max*((top+zone-lastY)/zone).coerceIn(0f,1f);lastY>bottom-zone->max*((lastY-(bottom-zone))/zone).coerceIn(0f,1f);else->0f}
         if(v!=0f){val before=a.scroll.scrollY;a.scroll.scrollBy(0,v.toInt().let{if(it==0)(if(v>0)1 else -1) else it});if(a.scroll.scrollY!=before)follow()}

@@ -39,7 +39,10 @@ class MainActivity : Activity() {
     internal var searchOpen=false
     internal var librarySearch:LibrarySearchBar?=null
     internal var appInsets=androidx.core.graphics.Insets.NONE
-    internal fun navigationBottom(safe:androidx.core.graphics.Insets=appInsets)=maxOf(d(4),safe.bottom)
+    /** The system's own bottom bar (the gesture line or the three buttons), without the wider swipe zone. */
+    internal var barsBottom=0
+    /** Where the floating bottom bar and the «＋» stand: 8dp above the system's bar, as in Telegram. */
+    internal fun floatingBottom()=barsBottom+d(8)
     private val insetConsumers=linkedMapOf<View,(androidx.core.graphics.Insets)->Unit>()
     internal fun followInsets(view:View,consume:(androidx.core.graphics.Insets)->Unit) {
         insetConsumers[view]=consume;consume(appInsets)
@@ -163,7 +166,7 @@ class MainActivity : Activity() {
     fun col()=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
     fun row()=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
     fun space(parent: LinearLayout, height: Int) { parent.addView(View(this),LinearLayout.LayoutParams(1,d(height))) }
-    fun addIcon(parent: LinearLayout, kind:String,label:String,action:()->Unit) { parent.addView(icon(kind,label,action=action),LinearLayout.LayoutParams(d(44),d(44)).apply { marginStart=if(parent.childCount==0) -d(4) else d(8) }) }
+    fun addIcon(parent: LinearLayout, kind:String,label:String,action:()->Unit) { parent.addView(icon(kind,label,action=action),LinearLayout.LayoutParams(d(46),d(46)).apply { marginStart=if(parent.childCount==0) -d(4) else d(8) }) }
     /** Called with every finger-down anywhere in the window — lets a popover close on a tap outside of it. */
     /** Taps inside these do not take focus away from the text field being typed in. */
     internal val focusKeepers=java.util.Collections.newSetFromMap(java.util.WeakHashMap<View,Boolean>())
@@ -339,7 +342,7 @@ class MainActivity : Activity() {
         if(!preparingBookReturn&&Build.VERSION.SDK_INT>=30) window.insetsController?.setSystemBarsAppearance(if(light) WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS else 0,WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS)
         scroll=ScrollView(this).apply { isFillViewport=true; clipToPadding=false; clipChildren=false }
         val wrapper=col().apply { clipChildren=false; clipToPadding=false; setPadding(d(20),d(8),d(20),d(112)) };page=wrapper
-        followInsets(wrapper){i->wrapper.setPadding(d(20)+i.left,d(8)+i.top,d(20)+i.right,d(88)+navigationBottom(i))}
+        followInsets(wrapper){i->wrapper.setPadding(d(20)+i.left,d(8)+i.top,d(20)+i.right,d(80)+floatingBottom())}
         scroll.addView(wrapper); root.addView(scroll,FrameLayout.LayoutParams(-1,-1))
         // The top bar depends on the screen: search, profile and filters only where they mean something.
         val inShelf=shelf!=null||auto!=null
@@ -384,10 +387,10 @@ class MainActivity : Activity() {
     /** An open shelf's head (approved «Полка открыта»): back and filters in the corners, the shelf's name in the middle,
      *  how many books are on it, and a search through this shelf only. */
     private fun shelfHead(list:List<JSONObject>) { val head=FrameLayout(this)
-        head.addView(icon("back","Назад к полкам") { leaveShelf() },FrameLayout.LayoutParams(d(44),d(44),Gravity.START or Gravity.CENTER_VERTICAL).apply{marginStart=-d(4)})
+        head.addView(icon("back","Назад к полкам") { leaveShelf() },FrameLayout.LayoutParams(d(46),d(46),Gravity.START or Gravity.CENTER_VERTICAL).apply{marginStart=-d(4)})
         head.addView(text(title(),26f,fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;gravity=Gravity.CENTER},FrameLayout.LayoutParams(-1,-2,Gravity.CENTER).apply{leftMargin=d(52);rightMargin=d(52)})
-        head.addView(icon("sort","Сортировка",action={ sortSheet() }),FrameLayout.LayoutParams(d(44),d(44),Gravity.END or Gravity.CENTER_VERTICAL))
-        page.addView(head,LinearLayout.LayoutParams(-1,d(44)))
+        head.addView(icon("sort","Сортировка",action={ sortSheet() }),FrameLayout.LayoutParams(d(46),d(46),Gravity.END or Gravity.CENTER_VERTICAL))
+        page.addView(head,LinearLayout.LayoutParams(-1,d(46)))
         if(list.isEmpty()){space(page,18);return}
         page.addView(text(countBooks(list.size),13.5f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
         shelfSearch=null
@@ -441,13 +444,13 @@ class MainActivity : Activity() {
     fun navigation() {
         val nav=nativeNavigation ?: PolkaNavigation(this).also { nativeNavigation=it }
         nav.bind(tab) { key -> goTab(key) }
-        // 64dp, as the system bars are; the bar runs along the row up to the «＋» (narrower edges on a narrow phone)
+        // 56dp tall, 8dp over the system bar (Telegram's measures); the bar runs along the row up to the «＋»
         val narrow=resources.configuration.screenWidthDp<380;val side=d(if(narrow)12 else 16);val gap=d(if(narrow)8 else 10)
-        root.addView(nav,FrameLayout.LayoutParams(-1,d(64),Gravity.BOTTOM or Gravity.START))
-        followInsets(nav){i->nav.layoutParams=(nav.layoutParams as FrameLayout.LayoutParams).apply{leftMargin=side+i.left;rightMargin=side+i.right+d(64)+gap;bottomMargin=navigationBottom(baseInsets)}}
-        val add=icon("plus","Добавить",true) { if(addMenu!=null) addMenu?.close() else AddMenu(this).open() }; addButton=add;add.background=shape(fg,32);add.elevation=0f
-        root.addView(add,FrameLayout.LayoutParams(d(64),d(64),Gravity.BOTTOM or Gravity.END))
-        followInsets(add){i->add.layoutParams=(add.layoutParams as FrameLayout.LayoutParams).apply{rightMargin=side+i.right;bottomMargin=navigationBottom(baseInsets)}}
+        root.addView(nav,FrameLayout.LayoutParams(-1,d(56),Gravity.BOTTOM or Gravity.START))
+        followInsets(nav){i->nav.layoutParams=(nav.layoutParams as FrameLayout.LayoutParams).apply{leftMargin=side+i.left;rightMargin=side+i.right+d(56)+gap;bottomMargin=floatingBottom()}}
+        val add=icon("plus","Добавить",true) { if(addMenu!=null) addMenu?.close() else AddMenu(this).open() }; addButton=add;add.background=shape(fg,28);add.elevation=0f
+        root.addView(add,FrameLayout.LayoutParams(d(56),d(56),Gravity.BOTTOM or Gravity.END))
+        followInsets(add){i->add.layoutParams=(add.layoutParams as FrameLayout.LayoutParams).apply{rightMargin=side+i.right;bottomMargin=floatingBottom()}}
         // Inside a shelf there is no navigation, as in the profile: it goes into the shelf with the list it belongs to
         // (in its picture, see enterShelf) and comes back with it.
         val inside=shelf!=null||auto!=null;val was=navAway;navAway=inside

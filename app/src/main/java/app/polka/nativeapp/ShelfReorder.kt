@@ -17,7 +17,7 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
     private val lift=Runnable {begin()}
     private val frame=object:Runnable{override fun run(){if(!active)return;val now=SystemClock.uptimeMillis();val dt=if(lastFrame==0L)16 else (now-lastFrame).coerceIn(1,32);lastFrame=now
         val scroll=generateSequence(grid.parent){it.parent}.filterIsInstance<ScrollView>().firstOrNull()
-        if(scroll!=null){val r=Rect();scroll.getGlobalVisibleRect(r);val rootAt=IntArray(2);a.root.getLocationOnScreen(rootAt);r.top=maxOf(r.top,rootAt[1]+a.appInsets.top);r.bottom=minOf(r.bottom,rootAt[1]+a.root.height-a.navigationBottom()-a.d(72));val edge=minOf(a.d(90),r.height()/3).coerceAtLeast(1);val velocity=when{py<r.top+edge->-((r.top+edge-py)/edge).coerceIn(0f,1f);py>r.bottom-edge->((py-(r.bottom-edge))/edge).coerceIn(0f,1f);else->0f};if(velocity!=0f)scroll.scrollBy(0,(velocity*a.d(720)*dt/1000f).roundToInt())}
+        if(scroll!=null){val r=Rect();scroll.getGlobalVisibleRect(r);val rootAt=IntArray(2);a.root.getLocationOnScreen(rootAt);r.top=maxOf(r.top,rootAt[1]+a.appInsets.top);r.bottom=minOf(r.bottom,rootAt[1]+a.root.height-a.floatingBottom()-a.d(64));val edge=minOf(a.d(90),r.height()/3).coerceAtLeast(1);val velocity=when{py<r.top+edge->-((r.top+edge-py)/edge).coerceIn(0f,1f);py>r.bottom-edge->((py-(r.bottom-edge))/edge).coerceIn(0f,1f);else->0f};if(velocity!=0f)scroll.scrollBy(0,(velocity*a.d(720)*dt/1000f).roundToInt())}
         position();hit();grid.postOnAnimation(this)}}
     fun intercept(e:MotionEvent):Boolean {
         if(active)return true

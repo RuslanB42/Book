@@ -41,6 +41,7 @@ internal object ReaderWindow {
   }else {
    val compat=androidx.core.view.WindowInsetsCompat.toWindowInsetsCompat(insets,a.root)
    a.baseInsets=SafeArea.content(compat,false)
+   a.barsBottom=compat.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars()).bottom
    val ime=compat.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom
    // while the keyboard slides, its height comes frame by frame from the animation callback
    // a keyboard followed by a transform (shelf rename) never re-pads the page

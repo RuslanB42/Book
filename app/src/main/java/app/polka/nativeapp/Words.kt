@@ -270,9 +270,9 @@ internal fun MainActivity.openWord(w:JSONObject){wordPage?.let{return}
     followInsets(content){i->content.setPadding(d(20)+i.left,i.top+d(8),d(20)+i.right,d(32)+i.bottom)}
     root.addView(scroll,FrameLayout.LayoutParams(-1,-1));wordPage=scroll
     val head=line()
-    head.addView(roundButton("back","Назад"){closeWord()},LinearLayout.LayoutParams(d(40),d(40)))
+    head.addView(roundButton("back","Назад",46){closeWord()},LinearLayout.LayoutParams(d(46),d(46)))
     head.addView(View(this),LinearLayout.LayoutParams(0,1,1f))
-    head.addView(roundButton("speaker","Произнести"){Words.speak(this,w.str("w"),w.str("lang"))},LinearLayout.LayoutParams(d(40),d(40)))
+    head.addView(roundButton("speaker","Произнести",46){Words.speak(this,w.str("w"),w.str("lang"))},LinearLayout.LayoutParams(d(46),d(46)))
     content.addView(head,LinearLayout.LayoutParams(-1,d(52)))
     content.addView(TextView(this).apply{text=w.str("w");textSize=38f;setTextColor(fg);typeface=PolkaFonts.literata(this@openWord,true)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(18)})
     Words.meaning(w).takeIf{it.isNotBlank()}?.let{content.addView(TextView(this).apply{text=it;textSize=18f;setTextColor(fg);typeface=PolkaFonts.literata(this@openWord);cssLeading(1.5f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(8)})}

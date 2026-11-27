@@ -56,12 +56,12 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),a.d(8),a.d(16),0)}
         fun round(kind:String,desc:String,click:()->Unit)=FrameLayout(a).apply{isClickable=true;contentDescription=desc;setOnClickListener{click()}
             background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x14ffffff)}
-            addView(Glyph(a,kind,a.fg),FrameLayout.LayoutParams(a.d(17),a.d(17),Gravity.CENTER));a.press(this)}
-        bar.addView(round("back","Назад"){close()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+            addView(Glyph(a,kind,a.fg),FrameLayout.LayoutParams(a.d(19),a.d(19),Gravity.CENTER));a.press(this)}
+        bar.addView(round("back","Назад"){close()},LinearLayout.LayoutParams(a.d(46),a.d(46)))
         // approved «Мой год в книгах»: the years small in the middle of the bar (this one bright), the page below
         tabs=a.line().apply{gravity=Gravity.CENTER}
         bar.addView(HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(tabs)},LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(10);marginEnd=a.d(10)})
-        bar.addView(round("share","Поделиться годом в книгах"){openShare()},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+        bar.addView(round("share","Поделиться годом в книгах"){openShare()},LinearLayout.LayoutParams(a.d(46),a.d(46)))
         col.addView(bar)
         val page=a.column();this.page=page
         progress=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),0,a.d(18),0)}

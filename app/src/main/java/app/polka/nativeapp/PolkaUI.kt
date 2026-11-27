@@ -332,8 +332,8 @@ fun replaceJson(target:org.json.JSONObject,source:org.json.JSONObject) { if(targ
 
 /**
  * The bottom bar (approved «Б»): flat, no shade. The chosen tab is a tonal pill with its icon and name; the others
- * are icons sharing what is left of the row up to the «＋». 64dp tall, as the system bars are (Material 3's bar,
- * iOS 26's tab bar): the pill is 52 with an even 6 round it, every tab at least 48 wide. Switching, the pill glides
+ * are icons sharing what is left of the row up to the «＋». 56dp tall, as Telegram's bar (the user's reference):
+ * the pill is 48 with an even 4 round it, every tab at least 48 wide. Switching, the pill glides
  * to the new tab while the tabs trade widths and the name fades in; the pill can be dragged along the bar.
  */
 class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
@@ -352,7 +352,7 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
     private val pill=RectF();private val pill0=RectF();private val pill1=RectF()
     private var f=1f
     private val spring=LiquidSpring{v,_->blend(v)}
-    private val pad=a.d(6)
+    private val pad=a.d(4)
     private val narrow get()=a.resources.configuration.screenWidthDp<380
     private val label=android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG)
     private val fill=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
@@ -425,7 +425,7 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
 
     fun bind(tab:String,onSelect:(String)->Unit) {
         choose=onSelect
-        if(theme!=a.light){theme=a.light;background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(32).toFloat();setColor(barColor);if(a.light)setStroke(a.d(1),0x12000000)};invalidate()}
+        if(theme!=a.light){theme=a.light;background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(28).toFloat();setColor(barColor);if(a.light)setStroke(a.d(1),0x12000000)};invalidate()}
         val index=keys.indexOf(tab).coerceAtLeast(0)
         val first=selected<0;selected=index
         items.forEachIndexed{i,v->v.isSelected=i==index;v.setOnClickListener{onSelect(keys[i])}}
