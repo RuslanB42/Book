@@ -230,7 +230,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         authorView=a.text(MainActivity.authors(book),13f,mutedInk()).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;visibility=if(text.isBlank())View.GONE else View.VISIBLE};texts.addView(authorView)
         top.addView(texts,LinearLayout.LayoutParams(0,a.d(48),1f));texts.gravity=Gravity.CENTER_VERTICAL
         soundChip=SoundChip(a){AmbienceSheet(a,bgColor()).show()};top.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
-        top.addView(icon("more","Меню книги"){menu()},LinearLayout.LayoutParams(a.d(48),a.d(48)))
+        val more=icon("more","Меню книги"){};more.setOnClickListener{menu(more)};top.addView(more,LinearLayout.LayoutParams(a.d(48),a.d(48)))
         top.forceHasOverlappingRendering(false)
         root.addView(top,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
         bottom=a.column().apply{setPadding(a.d(18),a.d(8),a.d(18),a.d(4));clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)}
@@ -268,9 +268,9 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         if(pv!=null&&kotlin.math.abs(i-page)==1){pv.turn(i-page);return}
         go(i,false);if(!reduced){stage.animate().cancel();stage.alpha=.25f;stage.animate().alpha(1f).setDuration(220).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}
     private fun toggleMark(){val m=marks();if(page in m)m.remove(page) else m.add(page);book.put("pageMarks",org.json.JSONArray(m.sorted()));paint();save(false)}
-    private fun menu(){
-        val items=arrayOf("Статус и полки","Изменить данные","Скачать файл")
-        a.dialog().setTitle(book.str("title")).setItemIcons("check","pen","download").setItems(items){_,i->when(i){0->a.statusSheet(book);1->a.metadataEditor(book);else->a.exportBook(book,"doc")}}.show()
+    private fun menu(anchor:View){
+        ButtonMenu(a,anchor,listOf(ButtonMenu.Item("check","Статус и полки"){a.statusSheet(book)},ButtonMenu.Item("pen","Изменить данные"){a.metadataEditor(book)},
+            ButtonMenu.Item("download","Скачать файл"){a.exportBook(book,"doc")})).open()
     }
     /** «Страницы»: every page as a card in a grid (current ringed, bookmarked ones marked); «Закладки» shows only those. */
     private fun pagesSheet(){

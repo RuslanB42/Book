@@ -140,7 +140,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     init {
         chapter=chapter.coerceIn(0,chapters.length()-1)
         val bar=LinearLayout(a).apply { gravity=Gravity.CENTER_VERTICAL; setPadding(a.d(8),a.d(4),a.d(8),a.d(4)) }
-        fun action(label:String,kind:String,fn:()->Unit) { bar.addView(IconView(a,kind,a.fg).apply { chromeIcons.add(this);a.press(this);contentDescription=label; setOnClickListener { fn() } },LinearLayout.LayoutParams(a.d(48),a.d(48))) }
+        fun action(label:String,kind:String,fn:(View)->Unit) { bar.addView(IconView(a,kind,a.fg).apply { chromeIcons.add(this);a.press(this);contentDescription=label; setOnClickListener { fn(this) } },LinearLayout.LayoutParams(a.d(48),a.d(48))) }
         topBar=bar
         // fading the bars must not render them into a layer clipped to their bounds: their soft shade lies outside
         // them, so it popped in only once the fade had ended
@@ -148,7 +148,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         action("Закрыть книгу","chevdown") { a.closeReader() }
         val metadata=a.column();metadata.addView(a.text(book.str("title"),15f,bold=true).also{titleText=it}.apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});metadata.addView(a.text(MainActivity.authors(book),13f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});bar.addView(metadata,LinearLayout.LayoutParams(0,-2,1f))
          bar.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
-         action("Меню книги","more") { readerMenu() }; view.addView(bar,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
+         action("Меню книги","more") { readerMenu(it) }; view.addView(bar,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
         body.setTextColor(a.fg); body.setTextSize(a.prefs.optDouble("size",a.prefs.optDouble("fontSize",19.0)).toFloat()); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; body.setPadding(margin(),a.d(22),margin(),a.d(42)); body.breakStrategy=android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY; applySpacing(); body.setTextIsSelectable(true); body.defaultFocusHighlightEnabled=false; body.background=null; body.foreground=null; body.linksClickable=true; body.movementMethod=android.text.method.LinkMovementMethod.getInstance();body.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){v.viewTreeObserver.addOnPreDrawListener(stretchWatch)};override fun onViewDetachedFromWindow(v:View){v.viewTreeObserver.removeOnPreDrawListener(stretchWatch)}})
         body.customSelectionActionModeCallback=object:ActionMode.Callback {
             override fun onCreateActionMode(mode:ActionMode,menu:Menu):Boolean { menu.add(0,700,0,"Цитата").setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS); menu.add(0,701,1,"Заметка"); return true }
@@ -742,7 +742,9 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     internal fun bookLocale():java.util.Locale{val lang=book.str("lang").trim().lowercase().take(2);return if(lang.isNotBlank())java.util.Locale(lang) else if((book.str("title")+chapters.optJSONObject(0)?.str("title").orEmpty()).any{it in '\u0400'..'\u04ff'})java.util.Locale("ru") else java.util.Locale.getDefault()}
     internal fun applySpacing(){body.textLocale=bookLocale();body.letterSpacing=a.prefs.optDouble("ls",0.0).toFloat();if(android.os.Build.VERSION.SDK_INT>=29)body.paint.wordSpacing=0f;body.textScaleX=1f;body.hyphenationFrequency=hyphenFreq()}
     internal fun applyBrightness(){val v=a.prefs.optDouble("bright",-1.0).toFloat();val target=if(v<0f)android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE else v.coerceIn(.01f,1f);if(a.window.attributes.screenBrightness!=target)a.window.attributes=a.window.attributes.apply{screenBrightness=target}}
-    fun readerMenu() { a.dialog().setTitle(book.str("title")).setItemIcons("search","notebook","pen","download").setItems(arrayOf("Поиск по книге","Блокнот: цитаты и мысли","Данные книги","Скачать файл")) { _,i -> when(i) { 0->navigation(2); 1->notebook(); 2->a.metadataEditor(book); 3->a.dialog().setTitle("Скачать файл").setItemIcons("download","download").setItems(arrayOf("FB2","EPUB")){_,type->a.exportBook(book,if(type==0)"fb2" else "epub")}.show() } }.show() }
+    fun readerMenu(anchor:View) { ButtonMenu(a,anchor,listOf(ButtonMenu.Item("search","Поиск по книге"){navigation(2)},ButtonMenu.Item("notebook","Блокнот: цитаты и мысли"){notebook()},
+        ButtonMenu.Item("pen","Данные книги"){a.metadataEditor(book)},
+        ButtonMenu.Item("download","Скачать файл"){a.dialog().setTitle("Скачать файл").setItemIcons("download","download").setItems(arrayOf("FB2","EPUB")){_,type->a.exportBook(book,if(type==0)"fb2" else "epub")}.show()})).open() }
     fun notebook()=navigation(1)
     fun searchEntries(term:String,done:(List<Triple<Int,Int,String>>)->Unit){
         val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(a.d(100));val height=(scroll.height-body.paddingTop-body.paddingBottom-body.textSize*3f).toInt().coerceAtLeast(a.d(80));val fontSize=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val trim=trimEmpty()

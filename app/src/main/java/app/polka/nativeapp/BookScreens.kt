@@ -96,19 +96,23 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     },LinearLayout.LayoutParams(-1,d(52)))
     sheet=dialog().setTitle("Данные книги").setView(box).setTall(true).show()
 }
-fun MainActivity.bookActions(book:JSONObject,fromDetail:Boolean=false) {
-    // from the book card itself: no «О книге» (it is open), and the shelf and rating are set right on the card
-    val all=mutableListOf("О книге" to "information","Изменить данные" to "pen","Оценить" to "star","Прикрепить файл" to "paperclip","Статус и полки" to "check")
-    if(PageDocs.isDoc(book)) all.add("Скачать файл" to "download") else if(!book.optBoolean("noFile")) all.addAll(listOf("Скачать FB2" to "download","Скачать EPUB" to "download")); all.add("Удалить книгу" to "trash")
-    if(fromDetail) all.removeAll{it.first in setOf("О книге","Оценить","Статус и полки")}
-    val actions=all.map{it.first}
-    dialog().setTitle(book.str("title")).setItemIcons(*all.map{it.second}.toTypedArray()).setDestructiveItems(actions.lastIndex).setItems(actions.toTypedArray()) { _,i -> when(actions[i]) {
-        "О книге"->detail(book); "Изменить данные"->metadataEditor(book); "Оценить"->dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().also{c->Rating.put(c,it)}) {} }).show()
-        "Прикрепить файл" -> { attachId=book.str("id"); pickBooks(14) }; "Статус и полки" -> statusSheet(book)
-        "Скачать FB2"->exportBook(book,"fb2"); "Скачать файл"->exportBook(book,"doc"); "Скачать EPUB"->exportBook(book,"epub")
-        "Удалить книгу" -> confirm("Удалить книгу?","Текст, цитаты и заметки этой книги будут удалены из библиотеки.") { deleteBook(book) }
-    } }.show()
+/** What can be done with a book: as a sheet (from the library), or as the «⋯» menu of its card (without «О книге»,
+ *  and without the shelf and rating, which are set right on the card). */
+private fun MainActivity.bookActionItems(book:JSONObject,fromDetail:Boolean):List<ButtonMenu.Item>{
+    val all=mutableListOf(ButtonMenu.Item("information","О книге"){detail(book)},ButtonMenu.Item("pen","Изменить данные"){metadataEditor(book)},
+        ButtonMenu.Item("star","Оценить"){dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().also{c->Rating.put(c,it)}) {} }).show()},
+        ButtonMenu.Item("paperclip","Прикрепить файл"){attachId=book.str("id"); pickBooks(14)},ButtonMenu.Item("check","Статус и полки"){statusSheet(book)})
+    if(PageDocs.isDoc(book)) all.add(ButtonMenu.Item("download","Скачать файл"){exportBook(book,"doc")})
+    else if(!book.optBoolean("noFile")) all.addAll(listOf(ButtonMenu.Item("download","Скачать FB2"){exportBook(book,"fb2")},ButtonMenu.Item("download","Скачать EPUB"){exportBook(book,"epub")}))
+    all.add(ButtonMenu.Item("trash","Удалить книгу",destructive=true){confirm("Удалить книгу?","Текст, цитаты и заметки этой книги будут удалены из библиотеки.") { deleteBook(book) }})
+    if(fromDetail) all.removeAll{it.label in setOf("О книге","Оценить","Статус и полки")}
+    return all
 }
+fun MainActivity.bookActions(book:JSONObject) {
+    val all=bookActionItems(book,false)
+    dialog().setTitle(book.str("title")).setItemIcons(*all.map{it.icon}.toTypedArray()).setDestructiveItems(*all.indices.filter{all[it].destructive}.toIntArray()).setItems(all.map{it.label}.toTypedArray()) { _,i -> all[i].act() }.show()
+}
+internal fun MainActivity.bookMenu(book:JSONObject,anchor:View)=ButtonMenu(this,anchor,bookActionItems(book,true)).open()
 /** «Настройки»: grouped rows on floating cards — appearance, reading, behaviour, backups. */
 /** Small page mock for the appearance choice; «Системное» is split light/dark. */
 internal class ThemePreview(private val a:MainActivity,private val kind:String,private val selected:Boolean):View(a){
