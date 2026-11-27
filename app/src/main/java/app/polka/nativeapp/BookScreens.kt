@@ -157,7 +157,7 @@ internal fun MainActivity.deleteBook(book:JSONObject) {
     val closeGap={ gridMotion=true; render(true,false) }
     val vanish={ val v=gridCell(id)
         if(v==null||!v.isShown||prefs.str("motion")=="reduced") closeGap()
-        else { v.pivotX=v.width/2f; v.pivotY=v.height*.4f; v.animate().cancel(); v.animate().alpha(0f).scaleX(.86f).scaleY(.86f).setDuration(220).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,1f,1f)).withEndAction{ closeGap() }.start() } }
+        else { v.pivotX=v.width/2f; v.pivotY=v.height*.4f; v.animate().cancel(); v.animate().alpha(0f).scaleX(.86f).scaleY(.86f).setDuration(Motion.STANDARD).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,1f,1f)).withEndAction{ closeGap() }.start() } }
     if(sheet!=null){ sheet.afterClose={ vanish() }; sheet.discard() } else vanish()
     // the book is only hidden while its notice is up: «Вернуть» brings it back, otherwise it is removed when the notice goes.
     // Several deletions in a row share one notice (it updates in place) instead of notices chasing each other off the screen.

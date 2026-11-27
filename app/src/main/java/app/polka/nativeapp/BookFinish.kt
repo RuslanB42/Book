@@ -187,19 +187,19 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
      */
     private fun entrance(cover:View,light:View,burst:Burst,chip:View,peek:View?,rest:List<View>,close:View){
         val r=root?:return
-        r.animate().alpha(1f).setDuration(300).setInterpolator(MotionSpec.enter).start()
+        r.animate().alpha(1f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start()
         cover.scaleX=.6f;cover.scaleY=.6f
         // its size on the pop's curve, its showing quick and plain (one animator each: a view has one property animator)
-        android.animation.ValueAnimator.ofFloat(0f,1f).apply{startDelay=280;duration=160;interpolator=MotionSpec.enter;addUpdateListener{cover.alpha=it.animatedValue as Float};start()}
-        cover.animate().scaleX(1f).scaleY(1f).setStartDelay(280).setDuration(480).setInterpolator(pop).withLayer().start()
-        light.animate().alpha(1f).setStartDelay(330).setDuration(620).setInterpolator(MotionSpec.enter).start()
+        android.animation.ValueAnimator.ofFloat(0f,1f).apply{startDelay=280;duration=Motion.FAST;interpolator=MotionSpec.enter;addUpdateListener{cover.alpha=it.animatedValue as Float};start()}
+        cover.animate().scaleX(1f).scaleY(1f).setStartDelay(280).setDuration(Motion.EMPHASIS).setInterpolator(pop).withLayer().start()
+        light.animate().alpha(1f).setStartDelay(330).setDuration(Motion.LONG).setInterpolator(MotionSpec.enter).start()
         r.postDelayed({if(!closed){burst.go();tick()}},560)
         chip.scaleX=.7f;chip.scaleY=.7f
-        chip.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(800).setDuration(320).setInterpolator(pop).start()
+        chip.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(800).setDuration(Motion.STANDARD).setInterpolator(pop).start()
         peek?.let{pk->pk.translationX=-a.d(46).toFloat();pk.scaleX=.94f;pk.scaleY=.94f
-            pk.animate().alpha(PEEK).translationX(0f).scaleX(1f).scaleY(1f).setStartDelay(800).setDuration(460).setInterpolator(MotionSpec.enter).start()}
-        rest.forEachIndexed{i,v->v.translationY=a.d(14).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(950L+i*80).setDuration(400).setInterpolator(MotionSpec.enter).withLayer().start()}
-        close.animate().alpha(1f).setStartDelay(1100).setDuration(300).setInterpolator(MotionSpec.enter).start()
+            pk.animate().alpha(PEEK).translationX(0f).scaleX(1f).scaleY(1f).setStartDelay(800).setDuration(Motion.EMPHASIS).setInterpolator(MotionSpec.enter).start()}
+        rest.forEachIndexed{i,v->v.translationY=a.d(14).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(950L+i*80).setDuration(Motion.EMPHASIS).setInterpolator(MotionSpec.enter).withLayer().start()}
+        close.animate().alpha(1f).setStartDelay(1100).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start()
     }
     /** The finish's one vibration: a firm, short «done». */
     private fun tick(){root?.haptic(a,Haptic.CONFIRM)}

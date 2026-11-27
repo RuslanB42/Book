@@ -72,15 +72,15 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    val cover=CoverView(a,book,a.cover(book));card.addView(cover,FrameLayout.LayoutParams(a.d(92),a.d(138),Gravity.BOTTOM or Gravity.START).apply{marginStart=a.d(16);bottomMargin=a.d(14)})
    card.cover=cover;covers.add(cover)
    val words=a.column().apply{gravity=Gravity.BOTTOM;setPadding(a.d(124),a.d(16),a.d(18),a.d(16));clipChildren=false;clipToPadding=false}
-   words.addView(a.text(book.str("title"),Type.TEXT,a.fg,true).apply{maxLines=1;isSingleLine=true;ellipsize=TextUtils.TruncateAt.END})
+   words.addView(a.text(book.str("title"),Type.BODY,a.fg,true).apply{maxLines=1;isSingleLine=true;ellipsize=TextUtils.TruncateAt.END})
    a.space(words,3);words.addView(a.text(MainActivity.authors(book),Type.SECONDARY,a.muted).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END})
    a.space(words,12)
    val pct=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
    val meter=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
    val bar=HeroProgress(a,pct);bars.add(bar)
    meter.addView(bar,LayoutParams(0,a.d(8),1f))
-   meter.addView(a.text("${(pct*100).roundToInt()}%",Type.CAPTION,a.muted),LayoutParams(-2,-2).apply{marginStart=a.d(8)})
-   words.addView(meter,LayoutParams(-1,-2));a.space(words,12)
+   meter.addView(a.text("${(pct*100).roundToInt()}%",Type.SECONDARY,a.muted),LayoutParams(-2,-2).apply{marginStart=a.d(8)})
+   words.addView(meter,LayoutParams(-1,-2));a.space(words,6)
    val buttons=a.line()
    buttons.addView(pill("Читать",true,"Читать: ${book.str("title")}"){a.openBook(book,cover)},LayoutParams(0,-2,1f))
    buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,cover)},LayoutParams(0,-2,1f).apply{marginStart=a.d(8)})
@@ -128,14 +128,15 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   val hsv=FloatArray(3);Color.colorToHSV(base,hsv);val sat=(hsv[1]*.9f).coerceIn(.12f,.62f)
   fun at(v:Float,s:Float)=Color.HSVToColor(floatArrayOf(hsv[0],s,v))
   return if(light)intArrayOf(at(.62f,sat),at(.52f,sat*.9f),at(.38f,sat*.7f)) else intArrayOf(at(.52f,sat),at(.40f,sat*.85f),at(.21f,sat*.5f))}
- private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,Type.SECONDARY,if(primary)a.bg else a.fg,true).apply{
-  gravity=Gravity.CENTER;minHeight=a.d(32);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(6),0,a.d(6),0);contentDescription=description;isClickable=true;isFocusable=true
-  background=if(primary)GradientDrawable().apply{setColor(a.fg);cornerRadius=a.d(16).toFloat()} else GradientDrawable().apply{setColor((a.fg and 0xffffff) or ((if(light)0x10 else 0x1c) shl 24));cornerRadius=a.d(16).toFloat()}
+ private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,Type.TEXT,if(primary)a.bg else a.fg,true).apply{
+  // 40 dp seen, the whole 48 to tap
+  gravity=Gravity.CENTER;minHeight=a.d(Size.TOUCH);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(6),0,a.d(6),0);contentDescription=description;isClickable=true;isFocusable=true
+  background=android.graphics.drawable.InsetDrawable(if(primary)GradientDrawable().apply{setColor(a.fg);cornerRadius=a.d(20).toFloat()} else GradientDrawable().apply{setColor(Ui.press(light));cornerRadius=a.d(20).toFloat()},0,a.d(4),0,a.d(4))
   setOnClickListener{click()};pressy(this)}
  /** The buttons sink clearly under the finger and spring back when released. */
  private fun pressy(v:View){v.setOnTouchListener{view,e->view.background?.setHotspot(e.x,e.y);if(reduced)return@setOnTouchListener false
    when(e.actionMasked){
-    MotionEvent.ACTION_DOWN->view.animate().scaleX(.9f).scaleY(.9f).alpha(.82f).setDuration(110).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()
+    MotionEvent.ACTION_DOWN->view.animate().scaleX(.9f).scaleY(.9f).alpha(.82f).setDuration(Motion.FAST).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()
     MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val sp=Spring.of(.5,460.0);view.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}
    false}}
  private fun resize(viewport:Int){if(viewport<=0||viewport==lastViewport)return;lastViewport=viewport;val content=(viewport-a.d(40)).coerceAtLeast(1)
@@ -227,7 +228,7 @@ internal class RisingCoverCard(private val a:MainActivity):FrameLayout(a){
 internal class HeroProgress(private val a:MainActivity,private val fraction:Float,animated:Boolean=false):View(a){
  private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var shown=if(animated)0f else 1f;private var revealed=!animated
  /** Fill the bar the first time its card comes into focus. */
- fun reveal(){if(revealed)return;revealed=true;ValueAnimator.ofFloat(0f,1f).apply{startDelay=120;duration=600;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
+ fun reveal(){if(revealed)return;revealed=true;ValueAnimator.ofFloat(0f,1f).apply{startDelay=120;duration=Motion.LONG;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
  fun grow(delay:Long){shown=0f;ValueAnimator.ofFloat(0f,1f).apply{startDelay=delay;duration=900;interpolator=Ease.outExpo;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
  override fun onDraw(c:Canvas){val h=a.d(4).toFloat();val cy=height/2f;val w=width.toFloat();val r=h/2

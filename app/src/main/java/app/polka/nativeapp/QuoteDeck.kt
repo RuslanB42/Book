@@ -52,7 +52,7 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
         private val p=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
         private var at=index.toFloat();private var anim:ValueAnimator?=null
         private val rest=if(a.light)0xffc9c9cd.toInt() else 0xff5a5a5f.toInt()
-        fun go(i:Int){if(width==0||reduced()){at=i.toFloat();invalidate();return};anim?.cancel();anim=ValueAnimator.ofFloat(at,i.toFloat()).apply{duration=320;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{at=it.animatedValue as Float;invalidate()};start()}}
+        fun go(i:Int){if(width==0||reduced()){at=i.toFloat();invalidate();return};anim?.cancel();anim=ValueAnimator.ofFloat(at,i.toFloat()).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{at=it.animatedValue as Float;invalidate()};start()}}
         override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
         override fun onDraw(c:android.graphics.Canvas){val n=list.size;if(n<2)return
             val dot=a.d(6).toFloat();val gap=a.d(6).toFloat();val wide=a.d(18).toFloat();val h=dot;val y=(height-h)/2f
@@ -189,8 +189,8 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
                     val go=e.actionMasked==MotionEvent.ACTION_UP&&(abs(dx)>width*.3f||abs(vx)>a.d(700)&&sign(vx)==sign(dx))
                     if(go)fling(if(dx<0)-1 else 1) else settleBack()}
             };return true}
-        private fun settleBack(){front.animate().translationX(0f).translationY(0f).rotation(0f).setDuration(380).setInterpolator(PathInterpolator(.2f,1.25f,.4f,1f)).start()
-            val from=lift;ValueAnimator.ofFloat(from,0f).apply{duration=320;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{pose(it.animatedValue as Float)};start()}}
+        private fun settleBack(){front.animate().translationX(0f).translationY(0f).rotation(0f).setDuration(Motion.EMPHASIS).setInterpolator(PathInterpolator(.2f,1.25f,.4f,1f)).start()
+            val from=lift;ValueAnimator.ofFloat(from,0f).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{pose(it.animatedValue as Float)};start()}}
         private fun fling(dir:Int){
             busy=true;val old=front;val oldH=(old.tag as? Int)?:old.height
             haptic(a,Haptic.SELECT)
@@ -218,7 +218,7 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             val newH=run{next.measure(exactW,free);next.measuredHeight};val tall=maxOf(oldH,newH)
             for(c in cards){c.measure(exactW,free);if(c.measuredHeight<tall)c.measure(exactW,MeasureSpec.makeMeasureSpec(tall,MeasureSpec.EXACTLY));c.layout(0,0,width,c.measuredHeight);c.tag=oldH;fit(c);c.invalidateOutline()}
             heldH=oldH;resizing=true;pose(lift)
-            ValueAnimator.ofFloat(0f,1f).apply{duration=230;interpolator=glide
+            ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.STANDARD;interpolator=glide
                 addUpdateListener{val t=it.animatedValue as Float;old.translationX=sx+(outX-sx)*t;old.translationY=sy+(outY-sy)*t;old.rotation=sr+(outR-sr)*t
                     content(old,1f-(t/.35f).coerceIn(0f,1f))
                     heldH=(oldH+(newH-oldH)*glide.getInterpolation(((t-.2f)/.8f).coerceIn(0f,1f))).toInt();requestLayout()
@@ -228,7 +228,7 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
                     // risen one shows its words
                     heldH=newH;requestLayout();old.elevation=a.d(3).toFloat();old.translationZ=-a.d(4).toFloat()
                     val lp=lift
-                    ValueAnimator.ofFloat(0f,1f).apply{duration=520;interpolator=swing
+                    ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.LONG;interpolator=swing
                         addUpdateListener{val t=it.animatedValue as Float
                             old.pivotX=old.width/2f;old.pivotY=((old.tag as? Int)?:old.height)/2f
                             old.translationX=outX*(1f-t);old.translationY=outY+(fanY[back]-outY)*t;old.rotation=outR*(1f-t)

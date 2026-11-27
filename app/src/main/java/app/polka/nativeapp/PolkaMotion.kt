@@ -18,19 +18,19 @@ object MotionSpec {
     val exit=PathInterpolator(.4f,0f,1f,1f)
     /** Back, and changes in place. */
     val move=PathInterpolator(.4f,0f,.2f,1f)
-    const val TAB_OUT=120L;const val TAB_IN=260L;const val TAB_IN_DELAY=60L;const val TAB_SHIFT=30
-    const val DEEP_IN=340L;const val DEEP_BACK=280L;
+    const val TAB_OUT=Motion.FAST;const val TAB_IN=Motion.STANDARD;const val TAB_IN_DELAY=60L;const val TAB_SHIFT=30
+    const val DEEP_IN=Motion.EMPHASIS;const val DEEP_BACK=Motion.STANDARD;
     /** Let go too early (a swipe back, a sheet pulled down): back in place. */
-    const val SETTLE=280L
+    const val SETTLE=Motion.STANDARD
    const val DEEP_SHIFT=.3f;const val DEEP_DIM=.35f
-    const val SHEET_IN=380L;const val SHEET_OUT=240L
+    const val SHEET_IN=Motion.EMPHASIS;const val SHEET_OUT=Motion.STANDARD
     /** A question or a picture shown over the page, in place. */
-    const val ASK_IN=220L;const val ASK_OUT=150L
-    const val DARK_IN=240L;const val DARK_OUT=320L
+    const val ASK_IN=Motion.STANDARD;const val ASK_OUT=Motion.FAST
+    const val DARK_IN=Motion.STANDARD;const val DARK_OUT=Motion.EMPHASIS
     /** A switch in place (week, month, year): the pill, the figures and the chart arrive together. */
-    const val SWITCH=420L
+    const val SWITCH=Motion.EMPHASIS
     /** A page built anew in place. */
-    const val PAGE_IN=340L
+    const val PAGE_IN=Motion.EMPHASIS
 }
 data class MotionPose(val alpha:Float=1f,val x:Float=0f,val y:Float=0f,val scale:Float=1f)
 class NativeMotion(val view:View,val from:MotionPose,val to:MotionPose=MotionPose(),val duration:Long,val delay:Long=0,val curve:TimeInterpolator=MotionSpec.enter,val complete:()->Unit={}) {

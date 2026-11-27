@@ -116,7 +116,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
         card.addOnLayoutChangeListener(object:View.OnLayoutChangeListener{override fun onLayoutChange(v:View,l:Int,t:Int,r:Int,b:Int,ol:Int,ot:Int,or:Int,ob:Int){
             if(r-l<=0||b-t<=0)return;v.removeOnLayoutChangeListener(this);if(leaving)return
             val from=offscreen();frame.translationY=from
-            motion=ValueAnimator.ofFloat(from,0f).apply{duration=620;interpolator=Spring(.86f);addUpdateListener{frame.translationY=it.animatedValue as Float};start()}}})
+            motion=ValueAnimator.ofFloat(from,0f).apply{duration=Motion.LONG;interpolator=Spring(.86f);addUpdateListener{frame.translationY=it.animatedValue as Float};start()}}})
         schedule()
     }
 
@@ -136,12 +136,12 @@ internal class Notice private constructor(internal val a:MainActivity,private va
         put(s,false)
         row.measure(View.MeasureSpec.makeMeasureSpec(card.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
         val h1=row.measuredHeight
-        listOf<View>(texts,button).forEachIndexed{i,v->v.animate().cancel();v.alpha=0f;v.translationY=a.d(5).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(90L+i*40L).setDuration(300).setInterpolator(smooth).start()}
-        ValueAnimator.ofFloat(0f,1f).apply{duration=170;interpolator=smooth
+        listOf<View>(texts,button).forEachIndexed{i,v->v.animate().cancel();v.alpha=0f;v.translationY=a.d(5).toFloat();v.animate().alpha(1f).translationY(0f).setStartDelay(90L+i*40L).setDuration(Motion.STANDARD).setInterpolator(smooth).start()}
+        ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.FAST;interpolator=smooth
             addUpdateListener{val t=it.animatedValue as Float;ghosts.forEachIndexed{k,g->g.alpha=((1f-t)*255).roundToInt();val b=g.bounds;val top=tops[k]-(a.d(5)*t).roundToInt();g.setBounds(b.left,top,b.right,top+b.height())}}
             addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){ghosts.forEach{card.overlay.remove(it);(it as android.graphics.drawable.BitmapDrawable).bitmap.recycle()}}});start()}
         if(h1!=h0&&h0>0){card.layoutParams=card.layoutParams.apply{height=h0}
-            ValueAnimator.ofFloat(0f,1f).apply{duration=340;interpolator=PathInterpolator(.3f,0f,.1f,1f)
+            ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;interpolator=PathInterpolator(.3f,0f,.1f,1f)
                 addUpdateListener{val t=it.animatedValue as Float;card.layoutParams=card.layoutParams.apply{height=(h0+(h1-h0)*t).roundToInt()};card.invalidateOutline()}
                 addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){card.layoutParams=card.layoutParams.apply{height=FrameLayout.LayoutParams.WRAP_CONTENT}}});start()}}
         if(s.kind==Kind.ERROR||s.kind==Kind.PARTIAL)card.postDelayed({shake()},260)
@@ -155,7 +155,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
 
     /** One short «no» of the head. */
     private fun shake(){if(reduced)return
-        ValueAnimator.ofFloat(0f,1f).apply{duration=420;addUpdateListener{val t=it.animatedFraction;card.translationX=a.d(6)*sin(t*PI.toFloat()*4f)*(1f-t)};start()}}
+        ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;addUpdateListener{val t=it.animatedFraction;card.translationX=a.d(6)*sin(t*PI.toFloat()*4f)*(1f-t)};start()}}
 
     /** Gone at once, no motion (its screen is closing); its pending action (an undoable delete) still completes. */
     fun dismissNow(){if(leaving)return;leaving=true;card.removeCallbacks(hide);if(Notice.current===this)Notice.current=null
@@ -185,7 +185,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
                 if(dragging)frame.translationY=base+if(dy<0)dy else dy*.18f;dragging}
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val dy=e.rawY-y0;val fast=dy<0&&abs(dy)/max(1L,e.eventTime-t0)>.5f
                 if(dragging&&(dy< -a.d(28)||fast))dismiss(true)
-                else{if(dragging||frame.translationY!=0f)frame.animate().translationY(0f).setDuration(300).setInterpolator(smooth).start();schedule()}
+                else{if(dragging||frame.translationY!=0f)frame.animate().translationY(0f).setDuration(Motion.STANDARD).setInterpolator(smooth).start();schedule()}
                 dragging}
             else->false}}
     }
@@ -224,7 +224,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
                         if(s.faded)setLayerType(View.LAYER_TYPE_HARDWARE,Paint().apply{colorFilter=ColorMatrixColorFilter(ColorMatrix().apply{setSaturation(0f)})})}
                     // the cover fills the circle (cropped to its middle)
                     covers.addView(v,LayoutParams(a.d(44),a.d(66),Gravity.CENTER))
-                    if(animate){covers.alpha=0f;covers.animate().alpha(if(s.faded).6f else 1f).setDuration(300).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()} else covers.alpha=if(s.faded).6f else 1f}}
+                    if(animate){covers.alpha=0f;covers.animate().alpha(if(s.faded).6f else 1f).setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()} else covers.alpha=if(s.faded).6f else 1f}}
             else if(book!=null)covers.alpha=if(s.faded).6f else 1f
             val hasBook=book!=null
             // with a book: the sign sits on the edge; without one: the sign alone, large, on a tinted disc
@@ -254,8 +254,8 @@ internal class Notice private constructor(internal val a:MainActivity,private va
             path.reset();glyph(k.glyph,path)
             if(!animate||(was==null&&bare)){pop=1f;ink=1f;invalidate();if(!animate)return}
             pop=if(bare)1f else 0f;ink=0f
-            if(!bare)ValueAnimator.ofFloat(0f,1f).apply{duration=420;interpolator=OvershootInterpolator(2.4f);addUpdateListener{pop=it.animatedValue as Float;invalidate()};start()}
-            ValueAnimator.ofFloat(0f,1f).apply{duration=320;startDelay=if(bare)60 else 150;interpolator=DecelerateInterpolator(1.4f);addUpdateListener{ink=it.animatedValue as Float;invalidate()};start()}}
+            if(!bare)ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;interpolator=OvershootInterpolator(2.4f);addUpdateListener{pop=it.animatedValue as Float;invalidate()};start()}
+            ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.STANDARD;startDelay=if(bare)60 else 150;interpolator=DecelerateInterpolator(1.4f);addUpdateListener{ink=it.animatedValue as Float;invalidate()};start()}}
         private fun startSpin(){if(spinner!=null)return;if(a.prefs.str("motion")=="reduced"){invalidate();return}
             spinner=ValueAnimator.ofFloat(0f,360f).apply{duration=900;repeatCount=ValueAnimator.INFINITE;interpolator=LinearInterpolator();addUpdateListener{spin=it.animatedValue as Float;invalidate()};start()}}
         override fun onDetachedFromWindow(){spinner?.cancel();spinner=null;super.onDetachedFromWindow()}
@@ -289,7 +289,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
         private val p=Paint(Paint.ANTI_ALIAS_FLAG)
         fun to(v:Float?,animate:Boolean){val target=v?:-1f;if(target==value)return;val from=if(value<0f)0f else value;value=target
             anim?.cancel();if(!animate||target<0f){shown=maxOf(0f,target);invalidate();return}
-            anim=ValueAnimator.ofFloat(from,target).apply{duration=320;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
+            anim=ValueAnimator.ofFloat(from,target).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
         override fun onDraw(c:Canvas){if(value<0f)return;val w=width.toFloat();val h=height.toFloat()
             p.color=Ui.fill(a.light);c.drawRoundRect(0f,0f,w,h,h/2,h/2,p);p.color=a.fg;if(shown>0f)c.drawRoundRect(0f,0f,maxOf(h,w*shown),h,h/2,h/2,p)}
     }

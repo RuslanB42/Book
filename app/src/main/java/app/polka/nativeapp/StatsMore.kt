@@ -150,7 +150,7 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
     private val fill=Paint(Paint.ANTI_ALIAS_FLAG)
     private val hair=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeWidth=max(1f,dp*.8f)}
     private val dot=Paint(Paint.ANTI_ALIAS_FLAG)
-    private val text=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=10.5f*dp;typeface=PolkaFonts.sans(400)}
+    private val text=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=Type.CAPTION*a.resources.displayMetrics.scaledDensity;typeface=PolkaFonts.sans(400)}
     private val tipTitle=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=14f*dp;typeface=PolkaFonts.sans(600)}
     private val tipSub=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=12f*dp;typeface=PolkaFonts.sans(400)}
     private val tipBg=Paint(Paint.ANTI_ALIAS_FLAG)
@@ -258,7 +258,7 @@ internal class RecordIcon(private val a:MainActivity,private val kind:String,pri
 
 /** The streak's week as one strip of seven segments (approved): lit, kept by a freeze, missed; today's fills up. */
 internal class WeekStrip(private val a:MainActivity,private val names:List<String>,private val marks:IntArray,private val today:Float,private val live:Boolean):View(a){
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=11.5f*a.resources.displayMetrics.density;textAlign=Paint.Align.CENTER}
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=Type.CAPTION*a.resources.displayMetrics.scaledDensity;textAlign=Paint.Align.CENTER}
     private val dp=a.resources.displayMetrics.density;private val r=RectF()
     private val grow=1f
     init{contentDescription="Неделя: "+names.indices.joinToString(", "){names[it]+" "+when(marks[it]){1->"цель выполнена";2->"спасён заморозкой";4->"сегодня";else->"пропуск"}}}

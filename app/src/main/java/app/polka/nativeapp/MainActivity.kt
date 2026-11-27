@@ -162,12 +162,14 @@ class MainActivity : Activity() {
     val muted get() = readerTint?.ink2 ?: Ui.ink2(light)
     /** No coloured accent: highlights use the interface's own ink (near-black / near-white). */
     val accent get() = fg
+    /** Sheets and panels: in a reader, its panel's colour. */
+    val sheetColor get() = readerTint?.panel ?: Ui.sheet(light)
     fun d(value: Int): Int = (value * resources.displayMetrics.density + .5f).toInt()
     fun shape(color: Int, radius: Int = 16): GradientDrawable = GradientDrawable().apply { setColor(color); cornerRadius=d(radius).toFloat() }
     @android.annotation.SuppressLint("WrongConstant")
     fun text(value: String, size: Float=16f, color: Int=fg, bold: Boolean=false, serif: Boolean=false): TextView = TextView(this).apply { text=value; textSize=size; setTextColor(color); typeface=if(serif) PolkaFonts.serif(this@MainActivity,bold) else PolkaFonts.sans(if(bold)600 else 400); includeFontPadding=false; cssLeading(1.2f); if(serif) breakStrategy=android.text.Layout.BREAK_STRATEGY_BALANCED }
     fun button(value: String, primary: Boolean=false, onClick: () -> Unit): TextView = text(value,Type.BODY, if(primary) bg else fg,true).apply { gravity=Gravity.CENTER; minHeight=d(48); setPadding(d(16),d(12),d(16),d(12)); background=if(primary)shape(fg,28)else this@MainActivity.controlSurface(this,28f); setOnClickListener { onClick() }; press(this) }
-    fun icon(kind:String, label:String, selected:Boolean=false, action:()->Unit): View = IconView(this,kind,if(selected) bg else fg).apply { contentDescription=label; isClickable=true; isFocusable=true; background=if(selected)shape(fg,28)else this@MainActivity.controlSurface(this,28f); setOnClickListener { action() };press(this) }
+    fun icon(kind:String, label:String, selected:Boolean=false, action:()->Unit): View = IconView(this,kind,if(selected) bg else fg).apply { contentDescription=label; isClickable=true; isFocusable=true; background=if(selected)shape(fg,28)else this@MainActivity.controlSurface(this,28f).apply{seen=Size.ROUND.toFloat()}; setOnClickListener { action() };press(this) }
     fun col()=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
     fun row()=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
     fun space(parent: LinearLayout, height: Int) { parent.addView(View(this),LinearLayout.LayoutParams(1,d(height))) }
@@ -367,7 +369,7 @@ class MainActivity : Activity() {
         when{
             tab=="home"&&!inShelf->{val top=LibrarySearchBar(this).apply{elevation=d(12).toFloat()};librarySearch=top;page.addView(top,LinearLayout.LayoutParams(-1,d(48)))
                 // the filters under the search, edge to edge (they scroll sideways)
-                LibraryFilters.row(this)?.let{r->space(page,12);(r as ViewGroup).apply{setPadding(d(20),0,d(20),0);clipToPadding=false};page.addView(r,LinearLayout.LayoutParams(-1,d(36)).apply{leftMargin=-d(20);rightMargin=-d(20)})};space(page,20)}
+                LibraryFilters.row(this)?.let{r->space(page,6);(r as ViewGroup).apply{setPadding(d(20),0,d(20),0);clipToPadding=false};page.addView(r,LinearLayout.LayoutParams(-1,d(Size.TOUCH)).apply{leftMargin=-d(20);rightMargin=-d(20)})};space(page,14)}
             tab=="quotes"->{val head=row();head.addView(text("Цитаты",Type.H1,fg,true,serif=true).apply{setPadding(d(2),0,d(14),0)},LinearLayout.LayoutParams(-2,-2))
                 val top=LibrarySearchBar(this,compact=true).apply{elevation=d(12).toFloat()};librarySearch=top;head.addView(top,LinearLayout.LayoutParams(0,d(48),1f));page.addView(head,LinearLayout.LayoutParams(-1,d(48)));space(page,20)}
             tab=="shelves"&&!inShelf->{query="";searchOpen=false;page.addView(shelvesTopBar(),LinearLayout.LayoutParams(-1,d(48)));space(page,12)}
@@ -403,9 +405,9 @@ class MainActivity : Activity() {
     /** An open shelf's head (approved «Полка открыта»): back and filters in the corners, the shelf's name in the middle,
      *  how many books are on it, and a search through this shelf only. */
     private fun shelfHead(list:List<JSONObject>) { val head=FrameLayout(this)
-        head.addView(icon("back","Назад к полкам") { leaveShelf() },FrameLayout.LayoutParams(d(46),d(46),Gravity.START or Gravity.CENTER_VERTICAL).apply{marginStart=-d(4)})
+        head.addView(icon("back","Назад к полкам") { leaveShelf() },FrameLayout.LayoutParams(d(Size.TOUCH),d(Size.TOUCH),Gravity.START or Gravity.CENTER_VERTICAL).apply{marginStart=-d(4)})
         head.addView(text(title(),Type.H1,fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;gravity=Gravity.CENTER},FrameLayout.LayoutParams(-1,-2,Gravity.CENTER).apply{leftMargin=d(52);rightMargin=d(52)})
-        head.addView(icon("sort","Сортировка",action={ sortSheet() }),FrameLayout.LayoutParams(d(46),d(46),Gravity.END or Gravity.CENTER_VERTICAL))
+        head.addView(icon("sort","Сортировка",action={ sortSheet() }),FrameLayout.LayoutParams(d(Size.TOUCH),d(Size.TOUCH),Gravity.END or Gravity.CENTER_VERTICAL))
         page.addView(head,LinearLayout.LayoutParams(-1,d(46)))
         if(list.isEmpty()){space(page,18);return}
         page.addView(text(countBooks(list.size),Type.SECONDARY,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})

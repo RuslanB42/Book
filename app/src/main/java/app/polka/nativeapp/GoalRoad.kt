@@ -92,8 +92,8 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         val old=roadHost.getChildAt(0);val nw=a.goalYearPage(model,list,goal,year,today,motion)
         roadHost.addView(nw,FrameLayout.LayoutParams(-1,-2))
         scroll.scrollTo(0,0);nw.post{(nw.tag as? YearRails)?.stick(scroll)}
-        if(old!=null){if(animated&&motion){old.animate().alpha(0f).setDuration(180).withEndAction{roadHost.removeView(old)}.start()
-            nw.alpha=0f;nw.animate().alpha(1f).setStartDelay(120).setDuration(380).setInterpolator(Ease.outCubic).start()} else roadHost.removeView(old)}
+        if(old!=null){if(animated&&motion){old.animate().alpha(0f).setDuration(Motion.FAST).withEndAction{roadHost.removeView(old)}.start()
+            nw.alpha=0f;nw.animate().alpha(1f).setStartDelay(120).setDuration(Motion.EMPHASIS).setInterpolator(Ease.outCubic).start()} else roadHost.removeView(old)}
     }
     fun back(){if(share!=null)closeShare() else close()}
     fun close(){if(closing)return;closing=true

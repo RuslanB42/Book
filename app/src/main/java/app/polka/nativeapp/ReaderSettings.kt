@@ -22,7 +22,7 @@ import kotlin.math.sin
 internal class ReaderSettings(private val a:MainActivity,private val r:NativeReader) {
     private val themes=listOf("night" to "Ночь","black" to "Чёрная","sepia" to "Сепия","paper" to "Бумага")
     private val fonts=listOf("literata" to "Literata","ptserif" to "PT Serif","sans" to "Без засечек")
-    private val sheetColor get()=Ui.sheet(a.light)
+    private val sheetColor get()=a.sheetColor
     private val muted2 get()=kit.muted
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private val refreshers=mutableListOf<()->Unit>()
@@ -119,7 +119,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         val reduced=this.reduced
         if(on){hidden.clear();faded.forEach{it.second.cancel()};faded.clear()
             var child=row;var parent=child.parent as? ViewGroup
-            while(parent!=null){for(i in 0 until parent.childCount){val v=parent.getChildAt(i);if(v!==child){hidden.add(v to v.alpha);if(reduced)v.alpha=0f else v.animate().alpha(0f).setStartDelay(0).setDuration(160).setInterpolator(PathInterpolator(.4f,0f,.2f,1f)).start()}}
+            while(parent!=null){for(i in 0 until parent.childCount){val v=parent.getChildAt(i);if(v!==child){hidden.add(v to v.alpha);if(reduced)v.alpha=0f else v.animate().alpha(0f).setStartDelay(0).setDuration(Motion.FAST).setInterpolator(PathInterpolator(.4f,0f,.2f,1f)).start()}}
                 parent.background?.let{bg->val an=ValueAnimator.ofInt(255,0).apply{duration=if(reduced)0 else 180;addUpdateListener{bg.alpha=it.animatedValue as Int};start()};faded.add(bg to an)}
                 if(parent===r.panel.view)break;child=parent;parent=parent.parent as? ViewGroup}
             // the scroll view's fading edges would still draw over the background; switch them off while focused
@@ -136,7 +136,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
                 addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt()}
                 addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(row.background===card){val pad=intArrayOf(row.paddingLeft,row.paddingTop,row.paddingRight,row.paddingBottom);row.background=null;row.setPadding(pad[0],pad[1],pad[2],pad[3]);row.elevation=0f}}});start()}}
             r.fadeChrome(false)
-            hidden.forEach{(v,alpha)->if(reduced)v.alpha=alpha else v.animate().alpha(alpha).setStartDelay(60).setDuration(240).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()};hidden.clear()
+            hidden.forEach{(v,alpha)->if(reduced)v.alpha=alpha else v.animate().alpha(alpha).setStartDelay(60).setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()};hidden.clear()
             faded.forEach{(bg,an)->an.cancel();ValueAnimator.ofInt(bg.alpha,255).apply{duration=if(reduced)0 else 240;startDelay=if(reduced)0 else 40;addUpdateListener{bg.alpha=it.animatedValue as Int};start()}};faded.clear()
             var g:ViewParent?=row.parent;while(g!=null&&g!==r.panel.view){(g as? SheetScroll)?.fadeEnabled=true;g=g.parent}
             val restore=unclip.toList();unclip.clear();row.postDelayed({restore.forEach{(v,c)->v.clipChildren=c.first;v.clipToPadding=c.second;v.invalidate()}},if(reduced)0L else 320L)
@@ -183,7 +183,7 @@ internal class ThemeCard(private val a:MainActivity,private val bg:Int,private v
     private var k=0f;private var anim:ValueAnimator?=null;private var first=true
     var on=false;set(v){if(field==v&&!first)return;field=v;val target=if(v)1f else 0f
         if(first||!isAttachedToWindow||a.prefs.str("motion")=="reduced"){first=false;k=target;invalidate();return}
-        anim?.cancel();anim=ValueAnimator.ofFloat(k,target).apply{duration=300;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
+        anim?.cancel();anim=ValueAnimator.ofFloat(k,target).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
     override fun onDraw(c:Canvas){val d=a.resources.displayMetrics.density;val sd=a.resources.displayMetrics.scaledDensity;val w=width.toFloat();val h=height.toFloat();val rad=16*d
@@ -204,7 +204,7 @@ internal class RingCard(private val a:MainActivity,private val fill:Int):android
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var k=0f;private var anim:ValueAnimator?=null;private var first=true
     var on=false;set(v){if(field==v&&!first)return;field=v;val target=if(v)1f else 0f
         if(first||a.prefs.str("motion")=="reduced"){first=false;k=target;invalidateSelf();return}
-        anim?.cancel();anim=ValueAnimator.ofFloat(k,target).apply{duration=300;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidateSelf()};start()}}
+        anim?.cancel();anim=ValueAnimator.ofFloat(k,target).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidateSelf()};start()}}
     override fun draw(c:Canvas){val d=a.resources.displayMetrics.density;val b=RectF(bounds);val rad=18*d
         p.style=Paint.Style.FILL;p.color=fill;c.drawRoundRect(b,rad,rad,p)
         if(k>0f){p.style=Paint.Style.STROKE;p.strokeWidth=2*d;p.color=a.fg;p.alpha=(255*k).toInt();b.inset(d,d);c.drawRoundRect(b,rad-d,rad-d,p);p.alpha=255}}
@@ -245,7 +245,7 @@ internal class SizeStepper(private val a:MainActivity,start:Int,private val chan
         s.setSpan(android.text.style.AbsoluteSizeSpan(13,true),s.length-tail.length,s.length,0);s.setSpan(android.text.style.StyleSpan(Typeface.NORMAL),s.length-tail.length,s.length,0)
         number.text=s;number.contentDescription="Размер текста $value"
         less.alpha=if(value>from)1f else .35f;more.alpha=if(value<to)1f else .35f}
-    private fun pulse(){if(a.prefs.str("motion")=="reduced")return;number.animate().cancel();number.scaleX=1.12f;number.scaleY=1.12f;number.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
+    private fun pulse(){if(a.prefs.str("motion")=="reduced")return;number.animate().cancel();number.scaleX=1.12f;number.scaleY=1.12f;number.animate().scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
     override fun onDetachedFromWindow(){repeat.removeCallbacksAndMessages(null);super.onDetachedFromWindow()}
 }
 
@@ -274,7 +274,7 @@ internal class ThinSlider(private val a:MainActivity,private val from:Float,priv
         default?.let{dv->if(abs(f-frac(dv))<.025f)f=frac(dv)}
         val n=snap(from+f*(to-from));dim=false
         // a tick on each step; a smooth one ticks only at its two ends
-        if(n!=value){val edge=step<=0f&&(n<=from||n>=to)&&value>from&&value<to;if(step>0f||edge)tick(a);value=n}
+        if(n!=value){val edge=step<=0f&&(n<=from||n>=to)&&value>from&&value<to;if(step>0f||edge)haptic(a,if(edge)Haptic.REJECT else Haptic.STEP);value=n}
         invalidate();change(value,done)}
     override fun onDetachedFromWindow(){pressAnim?.cancel();super.onDetachedFromWindow()}
     override fun onDraw(c:Canvas){val h=height.toFloat();val w=width.toFloat();val cy=h/2
@@ -310,7 +310,7 @@ internal class LayoutToggle(private val a:MainActivity,private val title:String,
         val to=if(on)1f else 0f
         if(reduced){lead=to;trail=to;invalidate()}
         else{val l0=lead;val t0=trail;val reach=PathInterpolator(.3f,0f,.1f,1f);val follow=android.view.animation.OvershootInterpolator(1.7f)
-            anim=ValueAnimator.ofFloat(0f,1f).apply{duration=420;interpolator=android.view.animation.LinearInterpolator()
+            anim=ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;interpolator=android.view.animation.LinearInterpolator()
                 addUpdateListener{val x=it.animatedValue as Float;lead=l0+(to-l0)*reach.getInterpolation((x/.55f).coerceIn(0f,1f))
                     trail=t0+(to-t0)*follow.getInterpolation(((x-.22f)/.78f).coerceIn(0f,1f));invalidate()};start()}}
         // let the knob start moving before the page is rebuilt

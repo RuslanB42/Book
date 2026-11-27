@@ -53,7 +53,7 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         if(android.os.Build.VERSION.SDK_INT>=28)runCatching{val pic=Picture();val c=pic.beginRecording(w+pad*2,h+pad*2);c.translate(pad.toFloat(),pad.toFloat());val a0=view.alpha;view.alpha=1f;view.draw(c);view.alpha=a0;pic.endRecording();ghost!!.setImageDrawable(android.graphics.drawable.PictureDrawable(pic))}
         a.root.overlay.add(shade!!);a.root.overlay.add(ghost!!);position()
         view.alpha=0f;grid.parent.requestDisallowInterceptTouchEvent(true);view.isPressed=false;view.cancelLongPress();view.haptic(a,Haptic.LONG)
-        if(!reduced()){shade!!.alpha=0f;ghost!!.animate().scaleX(1.05f).scaleY(1.05f).setDuration(200).setInterpolator(MotionSpec.enter).start();shade!!.animate().alpha(1f).scaleX(1.05f).scaleY(1.05f).setDuration(200).setInterpolator(MotionSpec.enter).start()}
+        if(!reduced()){shade!!.alpha=0f;ghost!!.animate().scaleX(1.05f).scaleY(1.05f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start();shade!!.animate().alpha(1f).scaleX(1.05f).scaleY(1.05f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start()}
         a.shelfReorder=this;position();lastFrame=0;grid.postOnAnimation(frame)
     }
     /** The card drawn once (first), and its shade cut from its own opaque silhouette (second), so it hugs the real
@@ -83,8 +83,8 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         if(save&&changed)commit(items.toList())
         val done={cleanup();grid.sync();a.flushDeferredRender();tapped?.let{t->onHold?.invoke(t)};Unit}
         val tx=(loc[0]-rootAt[0]-pad).toFloat();val ty=(loc[1]-rootAt[1]-pad).toFloat()
-        if(floating==null||reduced()||!grid.isAttachedToWindow)done()else{shade?.animate()?.translationX(tx)?.translationY(ty)?.scaleX(1f)?.scaleY(1f)?.alpha(0f)?.setDuration(300)?.setInterpolator(MotionSpec.enter)?.start()
-            floating.animate().translationX(tx).translationY(ty).scaleX(1f).scaleY(1f).setDuration(300).setInterpolator(MotionSpec.enter).withEndAction{done()}.start()}
+        if(floating==null||reduced()||!grid.isAttachedToWindow)done()else{shade?.animate()?.translationX(tx)?.translationY(ty)?.scaleX(1f)?.scaleY(1f)?.alpha(0f)?.setDuration(Motion.STANDARD)?.setInterpolator(MotionSpec.enter)?.start()
+            floating.animate().translationX(tx).translationY(ty).scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).withEndAction{done()}.start()}
     }
     private fun cleanup(){grabbed?.alpha=1f;for(g in listOfNotNull(ghost,shade)){g.animate().cancel();a.root.overlay.remove(g);g.setImageDrawable(null)};ghost=null;shade=null;image?.recycle();image=null;shadeImage?.recycle();shadeImage=null;grabbed=null;pad=0;grid.pinned=null;landing=false;if(a.shelfReorder===this)a.shelfReorder=null}
     fun cancel(){clearPending();if(active)finish(false);if(landing)cleanup()}

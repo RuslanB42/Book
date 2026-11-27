@@ -72,7 +72,7 @@ internal class SeriesFan(a:MainActivity,issues:List<JSONObject>,small:Boolean):F
             if(i>0){cv.pivotX=w/2f;cv.pivotY=h.toFloat();cv.rotation=if(i==1)4.5f else 9f
                 val g=if(i==1)191 else 140;cv.setLayerType(View.LAYER_TYPE_HARDWARE,Paint().apply{colorFilter=LightingColorFilter(Color.rgb(g,g,g),0)})}
             addView(cv,LayoutParams(w,h).apply{leftMargin=if(i==0)dp(2f) else dp(6f);topMargin=dp(3f)})}
-        addView(TextView(a).apply{text="${issues.size} вып.";textSize=10.5f*k;typeface=PolkaFonts.sans(600);setTextColor(0xfff3f2ef.toInt());gravity=Gravity.CENTER
+        addView(TextView(a).apply{text="${issues.size} вып.";textSize=maxOf(Type.CAPTION,10.5f*k);typeface=PolkaFonts.sans(600);setTextColor(0xfff3f2ef.toInt());gravity=Gravity.CENTER
             includeFontPadding=false;setPadding(dp(7f),0,dp(7f),0)
             background=GradientDrawable().apply{cornerRadius=dp(10f).toFloat();setColor(0xe0121214.toInt());setStroke(1,0x24ffffff)};elevation=a.d(3).toFloat()},
             LayoutParams(-2,dp(20f),Gravity.BOTTOM or Gravity.START).apply{leftMargin=dp(2f)})
@@ -283,8 +283,8 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         renderPills()
         shown.clear();list.forEach{shown[it.str("id")]=tierOf(it)}
         fun build(){fill(rowsBox,list)}
-        if(animated&&motion){rowsBox.animate().cancel();rowsBox.animate().alpha(0f).setDuration(140).withEndAction{build();rowsBox.translationY=a.d(8).toFloat()
-            rowsBox.animate().alpha(1f).translationY(0f).setDuration(340).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}.start()} else build()
+        if(animated&&motion){rowsBox.animate().cancel();rowsBox.animate().alpha(0f).setDuration(Motion.FAST).withEndAction{build();rowsBox.translationY=a.d(8).toFloat()
+            rowsBox.animate().alpha(1f).translationY(0f).setDuration(Motion.EMPHASIS).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}.start()} else build()
     }
     /** Lays five rows (and the tray) into [box]. */
     private fun fill(box:LinearLayout,list:List<JSONObject>){box.removeAllViews();rows.clear()
@@ -318,7 +318,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         val fl=(if(Tiers.isSeries(b))SeriesFan(a,Tiers.members[b.str("id")].orEmpty(),row.k==5) else CoverView(a,b,a.cover(b))).apply{elevation=a.d(16).toFloat();pivotX=r.width()/2;pivotY=r.height()/2}
         frame.addView(fl,FrameLayout.LayoutParams(r.width().toInt(),r.height().toInt()));fl.translationX=r.left;fl.translationY=r.top
         val sc=if(row.k==5)1.45f else 1.2f
-        if(motion)fl.animate().scaleX(sc).scaleY(sc).rotation(-4f).setDuration(180).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start() else {fl.scaleX=sc;fl.scaleY=sc}
+        if(motion)fl.animate().scaleX(sc).scaleY(sc).rotation(-4f).setDuration(Motion.FAST).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start() else {fl.scaleX=sc;fl.scaleY=sc}
         frame.haptic(a,Haptic.LONG)
         drag=Drag(b,fl,hole,frame.lastX-r.left,frame.lastY-r.top,row,row.k)
         if(row.k<5)row.light(true,motion)
@@ -335,7 +335,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         for(i in 0 until flow.childCount){val ch=flow.getChildAt(i);if(ch===d.hole)continue;val r=where(ch)
             if(y>r.bottom+a.d(4)||(y>=r.top-a.d(4)&&x>r.centerX()))idx++}
         if(target!==d.row){d.row.light(false,motion);d.row=target;if(target.k<5)target.light(true,motion);frame.haptic(a,Haptic.SELECT)
-            val small=target.k==5;d.float.animate().scaleX(if(small)1.45f else 1.2f).scaleY(if(small)1.45f else 1.2f).setDuration(160).start()}
+            val small=target.k==5;d.float.animate().scaleX(if(small)1.45f else 1.2f).scaleY(if(small)1.45f else 1.2f).setDuration(Motion.FAST).start()}
         val cur=d.hole.parent as? FlowRow
         if(cur!==flow||cur.indexOfChild(d.hole)!=idx){cur?.removeView(d.hole);val (w,h)=sizeOf(d.book,target.k==5)
             flow.addView(d.hole,idx.coerceAtMost(flow.childCount),ViewGroup.LayoutParams(w,h))}}
@@ -358,7 +358,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         val small=target.k==5;val w=d.float.width.coerceAtLeast(1).toFloat();val hgt=d.float.height.coerceAtLeast(1).toFloat();val sw=r.width()/w
         // the scale pivots on the middle, so aim the middle of the cover at the middle of its place
         d.float.animate().translationX(r.left-(w-r.width())/2).translationY(r.top-(hgt-r.height())/2).scaleX(sw).scaleY(sw).rotation(0f).alpha(if(small).6f else 1f)
-            .setDuration(240).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withEndAction{settle()}.start()
+            .setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withEndAction{settle()}.start()
     }
     /** Saves the new rating and the order inside the row the book landed in. */
     private fun commit(book:JSONObject,row:TierRow,flow:FlowRow){

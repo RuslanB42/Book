@@ -157,7 +157,7 @@ internal object Translation{
  *  translation. Pulled down or tapped outside, it leaves. */
 internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,private val selected:String,private val source:WordSource?=null,private val toNote:(String)->Unit){
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    private val sheetColor get()=Ui.sheet(a.light)
+    private val sheetColor get()=a.sheetColor
     private val quiet get()=Ui.fill(a.light)
     private var dialog:android.app.Dialog?=null
     private lateinit var holder:LinearLayout;private lateinit var body:LinearLayout
@@ -197,7 +197,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
     /** Replaces the content; the card eases to its new height. */
     private fun content(build:LinearLayout.()->Unit){
         val h0=holder.height;body.removeAllViews();body.build()
-        if(h0>0&&!reduced){holder.post{val h1=holder.height;if(h1!=h0){holder.translationY=(h1-h0).toFloat();holder.animate().translationY(0f).setDuration(280).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
+        if(h0>0&&!reduced){holder.post{val h1=holder.height;if(h1!=h0){holder.translationY=(h1-h0).toFloat();holder.animate().translationY(0f).setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
         body.alpha=0f;body.animate().alpha(1f).setDuration(if(reduced)0 else 180).start()}
     private fun loading()=content{addView(ProgressBar(a).apply{isIndeterminate=true;indeterminateTintList=android.content.res.ColorStateList.valueOf(a.muted)},LinearLayout.LayoutParams(a.d(28),a.d(28)).apply{gravity=Gravity.CENTER_HORIZONTAL;topMargin=a.d(18);bottomMargin=a.d(26)})}
     private fun hairline(p:LinearLayout)=p.addView(View(a).apply{setBackgroundColor(Ui.line(a.light))},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})

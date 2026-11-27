@@ -35,13 +35,13 @@ internal fun MainActivity.inputDialog(title:String,value:String="",hint:String="
     // the hairline glides to a brighter tone while the field is active
     var stroke:ValueAnimator?=null
     input.setOnFocusChangeListener{_,has->stroke?.cancel();val bg=frame.background as GradientDrawable
-        stroke=ValueAnimator.ofArgb(if(has)rest else focus,if(has)focus else rest).apply{duration=180;addUpdateListener{bg.setStroke(d(1),it.animatedValue as Int)};start()}}
+        stroke=ValueAnimator.ofArgb(if(has)rest else focus,if(has)focus else rest).apply{duration=Motion.FAST;addUpdateListener{bg.setStroke(d(1),it.animatedValue as Int)};start()}}
     space(box,16)
     var sheet:android.app.AlertDialog?=null
     fun ready()=input.text.toString().trim().let{it.isNotEmpty()&&it!=value.trim()}
     // (the sheet itself lets the keyboard go first and leaves after it, see PolkaSheetBuilder.dismiss)
     val go=button(action,true){if(ready()){val v=input.text.toString().trim();sheet?.dismiss();done(v)}}
-    fun paint(){val on=ready();go.isEnabled=on;go.animate().alpha(if(on)1f else .38f).setDuration(140).start()}
+    fun paint(){val on=ready();go.isEnabled=on;go.animate().alpha(if(on)1f else .38f).setDuration(Motion.FAST).start()}
     go.alpha=if(ready())1f else .38f;go.isEnabled=ready()
     box.addView(go,LinearLayout.LayoutParams(-1,d(52)))
     input.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){}

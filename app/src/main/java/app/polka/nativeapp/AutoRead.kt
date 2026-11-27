@@ -216,7 +216,7 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
         private fun moveTo(x:Float){at=(sc.min+x.coerceIn(0f,far)/gap*sc.step);val m=(at/sc.step).roundToInt()
             if(m!=mark){mark=m;haptic(a,Haptic.SELECT);setSpeed(m*sc.step)};invalidate()}
         private fun snap(){val to=(at/sc.step).roundToInt()*sc.step.toFloat();settle?.cancel()
-            settle=ValueAnimator.ofFloat(at,to).apply{duration=180;interpolator=MotionSpec.enter;addUpdateListener{at=it.animatedValue as Float;invalidate()};start()}}
+            settle=ValueAnimator.ofFloat(at,to).apply{duration=Motion.FAST;interpolator=MotionSpec.enter;addUpdateListener{at=it.animatedValue as Float;invalidate()};start()}}
         override fun onTouchEvent(e:MotionEvent):Boolean{
             when(e.actionMasked){
                 MotionEvent.ACTION_DOWN->{fling.forceFinished(true);settle?.cancel();parent?.requestDisallowInterceptTouchEvent(true);lastX=e.x;vt?.recycle();vt=VelocityTracker.obtain();vt?.addMovement(e)}

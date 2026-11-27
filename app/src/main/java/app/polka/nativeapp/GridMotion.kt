@@ -59,16 +59,16 @@ internal fun MainActivity.playGrid(snap:GridSnapshot,restoreY:Int?){
                 val delay=if(snap.ghosts.isEmpty())0L else 150L
                 // a book that moves to another row does not fly across its neighbours: it fades in at its new place
                 if(kotlin.math.abs(dy)>v.height*.5f){v.alpha=0f;v.scaleX=.92f;v.scaleY=.92f;v.pivotX=v.width/2f;v.pivotY=v.height*.4f
-                    v.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(delay+120L).setDuration(360).setInterpolator(settle).start();return@forEach}
-                v.translationX=dx;v.translationY=dy;v.animate().translationX(0f).translationY(0f).setStartDelay(delay).setDuration(480).setInterpolator(settle).start()}
+                    v.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(delay+120L).setDuration(Motion.EMPHASIS).setInterpolator(settle).start();return@forEach}
+                v.translationX=dx;v.translationY=dy;v.animate().translationX(0f).translationY(0f).setStartDelay(delay).setDuration(Motion.EMPHASIS).setInterpolator(settle).start()}
             else if(freshBookIds.remove(id)&&!reduced){val k=fresh++;v.alpha=0f;v.scaleX=.86f;v.scaleY=.86f;v.pivotY=v.height*.4f
-                v.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(220L+k*70L).setDuration(520).setInterpolator(PathInterpolator(.2f,1.2f,.36f,1f)).start()}
+                v.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(220L+k*70L).setDuration(Motion.LONG).setInterpolator(PathInterpolator(.2f,1.2f,.36f,1f)).start()}
         }
         snap.ghosts.forEach{(r,b)->val g=ImageView(this@playGrid).apply{setImageBitmap(b);elevation=d(2).toFloat()}
             root.addView(g,FrameLayout.LayoutParams(r.width().toInt(),r.height().toInt()).apply{leftMargin=r.left.toInt();topMargin=r.top.toInt()})
             if(reduced){root.removeView(g);b.recycle();return@forEach}
             g.pivotX=r.width()/2;g.pivotY=r.height()*.4f
-            g.animate().alpha(0f).scaleX(.86f).scaleY(.86f).setDuration(200).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{root.removeView(g);b.recycle()}.start()}
+            g.animate().alpha(0f).scaleX(.86f).scaleY(.86f).setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).withEndAction{root.removeView(g);b.recycle()}.start()}
         return true
     }})
 }

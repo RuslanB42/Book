@@ -10,7 +10,7 @@ import org.json.*
 /** Source book-sheet v3, in the activity window: no duplicate dialog/header or window handoff. */
 class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,private val source:View?):FrameLayout(a){
  private val scrim=View(a).apply{setBackgroundColor(0x80000000.toInt());setOnClickListener{dismiss()}}
- private val panel=DetailPanel().apply{background=a.shape(Ui.sheet(a.light),22).apply{val r=a.d(22).toFloat();cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)};clipToOutline=true}
+ private val panel=DetailPanel().apply{background=a.shape(a.sheetColor,22).apply{val r=a.d(22).toFloat();cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)};clipToOutline=true}
  private val scroller=ScrollView(a).apply{isFillViewport=false;clipChildren=false}
  private val content=a.column().apply{clipChildren=false;clipToPadding=false;setPadding(0,0,0,a.d(28))}
  private lateinit var heroCover:CoverView
@@ -33,9 +33,9 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   // Floating controls, not an opaque full-width toolbar. The panel outline is the
   // only clipping boundary; content and halo continue behind controls to its real top edge.
   val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(18),a.d(12),0)}
-  top.addView(a.icon("chevdown","Закрыть"){dismiss()}.apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(Ui.fill(a.light))}},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+  top.addView(a.icon("chevdown","Закрыть"){dismiss()}.apply{background=android.graphics.drawable.InsetDrawable(android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(Ui.fill(a.light))},a.d(4))},LinearLayout.LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH)))
   top.addView(View(a),LinearLayout.LayoutParams(0,-1,1f))
-  top.addView(a.icon("more","Ещё"){}.apply{val more=this;setOnClickListener{a.bookMenu(book,more)};background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(Ui.fill(a.light))}},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+  top.addView(a.icon("more","Ещё"){}.apply{val more=this;setOnClickListener{a.bookMenu(book,more)};background=android.graphics.drawable.InsetDrawable(android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(Ui.fill(a.light))},a.d(4))},LinearLayout.LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH)))
   panel.addView(top,LayoutParams(-1,a.d(68),Gravity.TOP))
   a.space(content,78)
   val hero=FrameLayout(a).apply{clipChildren=false;clipToPadding=false};heroCover=CoverView(a,book,a.cover(book)).apply{hiRes=true}
@@ -49,7 +49,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val series=a.text("",Type.CAPTION,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(7),0,0)};main.addView(series);updates.add{series.text=book.str("series");series.visibility=if(series.text.isBlank())View.GONE else View.VISIBLE}
   // approved: the book's shelves are a quiet tag under the author; it opens the same sheet as the status
   val shelfTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true;contentDescription="Полки, сменить"
-   background=a.shape(Ui.fill(a.light),16);setOnClickListener{a.statusSheet(book)};a.press(this)}
+   background=android.graphics.drawable.InsetDrawable(a.shape(Ui.fill(a.light),18),0,a.d(6),0,a.d(6));setOnClickListener{a.statusSheet(book)};a.press(this)}
   shelfTag.addView(IconView(a,"shelves",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
   val shelf=a.text("",Type.SECONDARY).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)};live(shelf){BookShelves.of(book).joinToString(", ").ifBlank{"Без полки"}}
   // when the two tags don't fit side by side, the shelves' names give way (with «…»), never the arrow after it
@@ -57,15 +57,15 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   shelfTag.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
   // approved: the reading status is a second tag of the same kind, beside the shelf
   val statusTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true
-   background=a.shape(Ui.fill(a.light),16);setOnClickListener{a.statusSheet(book)};a.press(this)}
+   background=android.graphics.drawable.InsetDrawable(a.shape(Ui.fill(a.light),18),0,a.d(6),0,a.d(6));setOnClickListener{a.statusSheet(book)};a.press(this)}
   val statusIcon=StatusIcon(a,BookStatus.icon(Library.status(book)),a.muted);statusTag.addView(statusIcon,LinearLayout.LayoutParams(a.d(16),a.d(16)))
   val statusName=a.text("",Type.SECONDARY).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1};live(statusName){BookStatus.name(Library.status(book))};statusTag.addView(statusName)
   statusTag.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
   updates.add{val s=Library.status(book);statusIcon.kind=BookStatus.icon(s);statusTag.contentDescription="Статус: ${BookStatus.name(s)}, сменить"}
   statusTag.contentDescription="Статус: ${BookStatus.name(Library.status(book))}, сменить"
   val tags=a.line().apply{gravity=Gravity.CENTER}
-  tags.addView(statusTag,LinearLayout.LayoutParams(-2,a.d(32)));tags.addView(shelfTag,LinearLayout.LayoutParams(-2,a.d(32)).apply{marginStart=a.d(8)})
-  main.addView(tags,LinearLayout.LayoutParams(-1,a.d(32)).apply{topMargin=a.d(14)})
+  tags.addView(statusTag,LinearLayout.LayoutParams(-2,a.d(Size.TOUCH)));tags.addView(shelfTag,LinearLayout.LayoutParams(-2,a.d(Size.TOUCH)).apply{marginStart=a.d(8)})
+  main.addView(tags,LinearLayout.LayoutParams(-1,a.d(Size.TOUCH)).apply{topMargin=a.d(8)})
   a.space(main,24)
   fun insetCard()=a.column().apply{a.floatCard(this,24);setPadding(a.d(16),a.d(16),a.d(16),a.d(16))}
   fun divider(parent:LinearLayout){parent.addView(View(a).apply{setBackgroundColor(hair())},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})}
@@ -176,9 +176,9 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
    // Sections that appear, disappear or change height move smoothly instead of snapping.
    val quiet=setOf("rating","review","reviewTags","reviewAt","updatedAt","ratedAt")
    val onlyReview=(book.keys().asSequence()+fresh.keys().asSequence()).toSet().all{k->k in quiet||book.opt(k)?.toString()==fresh.opt(k)?.toString()}
-   if(!onlyReview&&!reduced()&&isShowing&&!closing)android.transition.TransitionManager.beginDelayedTransition(content,android.transition.AutoTransition().apply{duration=360;interpolator=PathInterpolator(.2f,0f,0f,1f);ordering=android.transition.TransitionSet.ORDERING_TOGETHER})
+   if(!onlyReview&&!reduced()&&isShowing&&!closing)android.transition.TransitionManager.beginDelayedTransition(content,android.transition.AutoTransition().apply{duration=Motion.EMPHASIS;interpolator=PathInterpolator(.2f,0f,0f,1f);ordering=android.transition.TransitionSet.ORDERING_TOGETHER})
    replaceJson(book,fresh);updates.forEach{it()}
-   if(coverChanged&&!reduced()&&isShowing){heroCover.animate().cancel();heroCover.animate().alpha(.25f).scaleX(.96f).scaleY(.96f).setDuration(140).withEndAction{heroCover.invalidate();heroGlow.refresh();heroCover.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(380).setInterpolator(android.view.animation.OvershootInterpolator(1.4f)).start()}.start()}
+   if(coverChanged&&!reduced()&&isShowing){heroCover.animate().cancel();heroCover.animate().alpha(.25f).scaleX(.96f).scaleY(.96f).setDuration(Motion.FAST).withEndAction{heroCover.invalidate();heroGlow.refresh();heroCover.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(Motion.EMPHASIS).setInterpolator(android.view.animation.OvershootInterpolator(1.4f)).start()}.start()}
    else{heroCover.invalidate();heroGlow.refresh()}}
   val id=book.str("id");val chIndex=book.optJSONObject("progress")?.optInt("ch")?:0;var found:BookJourney?=null;var length=0;var chTitle=""
   a.work({val stats=a.library.dao.meta("stats")?.let{JSONObject(it.json).optJSONObject("data")}
@@ -192,7 +192,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  // clipping/reordering on hardware even when clipChildren=false. No alpha layer,
  // no panel clip and no DST/SRC compositing layer is needed for this overlay.
  private val flightFadeMatrix=Matrix()
- private val flightFadePaint by lazy{Paint(Paint.ANTI_ALIAS_FLAG).apply{shader=DetailTopFade.shader(a.d(DetailTopFade.DEPTH_DP).toFloat(),Ui.sheet(a.light))}}
+ private val flightFadePaint by lazy{Paint(Paint.ANTI_ALIAS_FLAG).apply{shader=DetailTopFade.shader(a.d(DetailTopFade.DEPTH_DP).toFloat(),a.sheetColor)}}
  override fun drawChild(c:Canvas,child:View,drawingTime:Long):Boolean = if(child===flight)true else super.drawChild(c,child,drawingTime)
  override fun dispatchDraw(c:Canvas){
   super.dispatchDraw(c)

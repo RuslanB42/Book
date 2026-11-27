@@ -72,7 +72,7 @@ internal class QuoteDot(private val a:MainActivity,val key:String):View(a){
     private var ring=0f;private var ringAnim:android.animation.ValueAnimator?=null
     var on=false;set(v){if(field==v){return};field=v;ringAnim?.cancel()
         if(!isAttachedToWindow||a.prefs.str("motion")=="reduced"){ring=if(v)1f else 0f;invalidate();return}
-        ringAnim=android.animation.ValueAnimator.ofFloat(ring,if(v)1f else 0f).apply{duration=240;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{ring=it.animatedValue as Float;invalidate()};start()}}
+        ringAnim=android.animation.ValueAnimator.ofFloat(ring,if(v)1f else 0f).apply{duration=Motion.STANDARD;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{ring=it.animatedValue as Float;invalidate()};start()}}
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c:Canvas){val cx=width/2f;val cy=height/2f;val r=a.d(13).toFloat()
         if(ring>0f){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat();p.color=a.fg;p.alpha=(255*ring).toInt();c.drawCircle(cx,cy,r+a.d(2)+a.d(2)*ring,p);p.alpha=255}
@@ -156,11 +156,11 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     /** A tap on a saved quote selects it. */
     fun select(r:IntRange){range.set(r.first,r.last+1);start(false)}
     private fun start(haptic:Boolean){finishSettle();active=true;visibility=VISIBLE;dragging=false;grabDx=0f;grabDy=0f;contentDescription="Выделено: ${range.text(reader.selectionFullText())}"
-        appear=if(reduced)1f else 0f;if(!reduced)android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=200;interpolator=android.view.animation.DecelerateInterpolator();addUpdateListener{appear=it.animatedValue as Float;invalidate()};start()}
+        appear=if(reduced)1f else 0f;if(!reduced)android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.STANDARD;interpolator=android.view.animation.DecelerateInterpolator();addUpdateListener{appear=it.animatedValue as Float;invalidate()};start()}
         menu.visibility=INVISIBLE;invalidate();post{showMenu()};if(haptic)this.haptic(a,Haptic.LONG)}
     fun clear(fadeOut:Boolean=true){val was=active;active=false;dragging=false;edgeLocked=false;timer.removeCallbacksAndMessages(null);edge=0
         if(was&&!reduced){if(!fadeOut){popOut(menu){menu.visibility=INVISIBLE;menu.alpha=1f;menu.scaleX=1f;menu.scaleY=1f};if(!settling&&!stripOpen)post{if(!active&&!settling&&!stripOpen&&fade<=0f)visibility=GONE};invalidate();return}
-            fadeStart=range.start;fadeEnd=range.end;fadeAnim?.cancel();fadeAnim=android.animation.ValueAnimator.ofFloat(appear,0f).apply{duration=180;addUpdateListener{fade=it.animatedValue as Float;invalidate()}
+            fadeStart=range.start;fadeEnd=range.end;fadeAnim?.cancel();fadeAnim=android.animation.ValueAnimator.ofFloat(appear,0f).apply{duration=Motion.FAST;addUpdateListener{fade=it.animatedValue as Float;invalidate()}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){fade=0f;if(!active&&!settling&&!stripOpen)visibility=GONE;invalidate()}});start()}
             popOut(menu){menu.visibility=INVISIBLE;menu.alpha=1f;menu.scaleX=1f;menu.scaleY=1f};invalidate();return}
         menu.visibility=INVISIBLE;if(!settling&&!stripOpen)visibility=GONE;invalidate()}
@@ -169,12 +169,12 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private fun showStrip(s:Int,e:Int,color:String){stripQuote=s to e;stripOpen=true;visibility=VISIBLE
         rebuildDots();dots.forEach{it.on=it.key==color};strip.translationY=menu.translationY;strip.visibility=VISIBLE
         if(!reduced){popIn(strip);(0 until dotRow.childCount).map{dotRow.getChildAt(it)}.forEachIndexed{i,d->d.scaleX=.4f;d.scaleY=.4f;d.alpha=0f
-            d.animate().scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(60L+minOf(i,8)*35L).setDuration(300).setInterpolator(android.view.animation.OvershootInterpolator(1.8f)).start()}}
+            d.animate().scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(60L+minOf(i,8)*35L).setDuration(Motion.STANDARD).setInterpolator(android.view.animation.OvershootInterpolator(1.8f)).start()}}
         removeCallbacks(stripTimer);if(pend==null&&!customOpen)postDelayed(stripTimer,3500)}
     /** A new quote waits for «Готово»: until then it is only a preview in the chosen colour, nothing is saved. */
     private var pend:Triple<Int,Int,String>?=null;private var pendColor=0;private var pendAnim:android.animation.ValueAnimator?=null
     private fun tintPending(to:Int,end:()->Unit={}){pendAnim?.cancel();if(reduced){pendColor=to;invalidate();end();return}
-        pendAnim=android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(),pendColor,to).apply{duration=260;interpolator=glide
+        pendAnim=android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(),pendColor,to).apply{duration=Motion.STANDARD;interpolator=glide
             addUpdateListener{pendColor=it.animatedValue as Int;invalidate()}
             addListener(object:android.animation.AnimatorListenerAdapter(){var cancelled=false;override fun onAnimationCancel(x:android.animation.Animator){cancelled=true};override fun onAnimationEnd(x:android.animation.Animator){if(!cancelled)end()}});start()}}
     /** «Готово»: a waiting quote is saved now, in the chosen colour; a saved one just closes the strip. */
@@ -187,12 +187,12 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private fun recolor(key:String){
         // The choice is remembered first, even if the quote is still being saved (its colour is read when it lands).
         if(QuoteColors.last(a)!=key){a.prefs.put("quoteColor",key);a.savePreferences()};dots.forEach{it.on=it.key==key}
-        if(pend!=null){tintPending(QuoteColors.ink(key));if(!reduced)dots.firstOrNull{it.key==key}?.let{d->d.scaleX=.7f;d.scaleY=.7f;d.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(320).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()};return}
+        if(pend!=null){tintPending(QuoteColors.ink(key));if(!reduced)dots.firstOrNull{it.key==key}?.let{d->d.scaleX=.7f;d.scaleY=.7f;d.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(Motion.STANDARD).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()};return}
         val (s,e)=stripQuote?:return;val q=reader.quoteOverlapping(s,e)?:run{removeCallbacks(stripTimer);postDelayed(stripTimer,2500);return};val old=q.first.optString("color")
         if(old==key){removeCallbacks(stripTimer);postDelayed(stripTimer,2500);return}
         reader.recolorQuote(q.first,q.second,key,!reduced,QuoteColors.ink(old.ifBlank{"amber"}))
         if(!reduced){
-            dots.firstOrNull{it.key==key}?.let{d->d.scaleX=.7f;d.scaleY=.7f;d.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(320).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()}}
+            dots.firstOrNull{it.key==key}?.let{d->d.scaleX=.7f;d.scaleY=.7f;d.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(Motion.STANDARD).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()}}
         removeCallbacks(stripTimer);postDelayed(stripTimer,2500)}
     /** «Заметка»: a new selection becomes a quote and its note opens; a saved quote opens its note. */
     private fun noteAction(){val s=range.start;val e=range.end;val text=range.text(reader.selectionFullText());clear(false);reader.noteOn(s,e,text)}
@@ -228,17 +228,17 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     /** Menus come out of the selection: a short fade with a small rise and growth, settling softly. */
     private fun popIn(v:View){v.animate().cancel();v.pivotX=v.width/2f;v.pivotY=if(v.translationY<startHandle.y)v.height.toFloat() else 0f
         v.alpha=0f;v.scaleX=.9f;v.scaleY=.9f;v.translationX=0f
-        v.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(280).setInterpolator(glide).start()}
+        v.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(glide).start()}
     private fun popOut(v:View,end:()->Unit){if(reduced||v.visibility!=VISIBLE){end();return};v.animate().cancel()
-        v.animate().alpha(0f).scaleX(.94f).scaleY(.94f).setDuration(150).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,1f,1f)).withEndAction{end()}.start()}
+        v.animate().alpha(0f).scaleX(.94f).scaleY(.94f).setDuration(Motion.FAST).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,1f,1f)).withEndAction{end()}.start()}
     /** Buttons sink a little under the finger and come back when released. */
     /** Selection fill and handles take the last chosen quote colour, so the selection already looks like the quote it will become. */
     private fun selFill()=(0x65 shl 24) or QuoteColors.rgb(QuoteColors.last(a))
     private fun selHandle():Int{val c=QuoteColors.rgb(QuoteColors.last(a));if(Color.luminance(reader.backgroundColor)<=.4)return 0xff000000.toInt() or c
         val k=.62f;return Color.rgb((Color.red(c)*k).toInt(),(Color.green(c)*k).toInt(),(Color.blue(c)*k).toInt())}
     private fun pressable(v:View){v.setOnTouchListener{view,e->if(reduced)return@setOnTouchListener false
-        when(e.actionMasked){MotionEvent.ACTION_DOWN->view.animate().scaleX(.9f).scaleY(.9f).alpha(.7f).setDuration(90).start()
-            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->view.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(220).setInterpolator(android.view.animation.OvershootInterpolator(1.6f)).start()};false}}
+        when(e.actionMasked){MotionEvent.ACTION_DOWN->view.animate().scaleX(.9f).scaleY(.9f).alpha(.7f).setDuration(Motion.FAST).start()
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->view.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(Motion.STANDARD).setInterpolator(android.view.animation.OvershootInterpolator(1.6f)).start()};false}}
     override fun onDetachedFromWindow(){timer.removeCallbacksAndMessages(null);removeCallbacks(stripTimer);super.onDetachedFromWindow()}
     private fun point(offset:Int,end:Boolean,p:PointF):Boolean {
         val layout=reader.body.layout?:return false;val base=reader.pageBase();val limit=reader.pageLimit()

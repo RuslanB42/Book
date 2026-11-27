@@ -154,7 +154,7 @@ internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->
     foot.addView(where,LinearLayout.LayoutParams(0,-2,1f).apply{rightMargin=d(8)})
     fun round(kind:String,desc:String,act:()->Unit)=FrameLayout(this).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(quiet)}
         isClickable=true;contentDescription=desc;addView(QuoteActionIcon(this@quoteCardNative,kind,fg),FrameLayout.LayoutParams(d(22),d(22),Gravity.CENTER))
-        setOnTouchListener{v,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->v.animate().scaleX(.88f).scaleY(.88f).setDuration(90).start();MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->v.animate().scaleX(1f).scaleY(1f).setDuration(240).setInterpolator(android.view.animation.OvershootInterpolator(2f)).start()};false}
+        setOnTouchListener{v,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->v.animate().scaleX(.88f).scaleY(.88f).setDuration(Motion.FAST).start();MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->v.animate().scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(android.view.animation.OvershootInterpolator(2f)).start()};false}
         setOnClickListener{act()}}
     foot.addView(round("pen",if(q.str("note").isBlank()&&NotePhotos.of(q).isEmpty())"Добавить заметку" else "Изменить заметку"){editQuoteNote(b,q)},LinearLayout.LayoutParams(d(38),d(38)).apply{rightMargin=d(8)})
     foot.addView(round("copy","Копировать цитату"){(getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Цитата","«${q.str("text")}»\n— ${MainActivity.authors(b)}, «${b.str("title")}»"+q.str("note").trim().let{if(it.isBlank())"" else "\n\n$it"}));Notice.short(this,Notice.Kind.COPIED,"Цитата скопирована")},LinearLayout.LayoutParams(d(38),d(38)))
@@ -239,12 +239,12 @@ internal fun MainActivity.noteSheet(fragment:String,ink:Int,value:String,saved:S
             strip.addView(add,LinearLayout.LayoutParams(size,size))}}
     var stroke:android.animation.ValueAnimator?=null
     input.setOnFocusChangeListener{_,has->stroke?.cancel();val bg=frame.background as android.graphics.drawable.GradientDrawable
-        stroke=android.animation.ValueAnimator.ofArgb(if(has)rest else focus,if(has)focus else rest).apply{duration=180;addUpdateListener{bg.setStroke(d(1),it.animatedValue as Int)};start()}}
+        stroke=android.animation.ValueAnimator.ofArgb(if(has)rest else focus,if(has)focus else rest).apply{duration=Motion.FAST;addUpdateListener{bg.setStroke(d(1),it.animatedValue as Int)};start()}}
     space(box,16)
     var sheet:android.app.AlertDialog?=null
     fun ready()=input.text.toString().trim()!=saved.trim()||photos.any{it.id==null}||photos.mapNotNull{it.id}!=savedPhotos
     val go=button("Готово",true){if(ready()){val v=input.text.toString().trim();sheet?.dismiss();done(v,photos.toList())}}
-    fun paint(){val on=ready();go.isEnabled=on;go.animate().alpha(if(on)1f else .38f).setDuration(140).start()}
+    fun paint(){val on=ready();go.isEnabled=on;go.animate().alpha(if(on)1f else .38f).setDuration(Motion.FAST).start()}
     paintReady={paint()};fillStrip()
     go.alpha=if(ready())1f else .38f;go.isEnabled=ready()
     box.addView(go,LinearLayout.LayoutParams(-1,d(52)))

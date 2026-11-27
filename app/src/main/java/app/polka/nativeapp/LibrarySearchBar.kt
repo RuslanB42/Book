@@ -13,7 +13,7 @@ internal class LibrarySearchBar(private val a:MainActivity,private val compact:B
  internal val input=a.edit(a.query,"Поиск").apply {
   contentDescription="Поиск по библиотеке";setSingleLine(true);imeOptions=EditorInfo.IME_ACTION_SEARCH
   inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-  setPadding(a.d(12),0,a.d(36),0);a.controlSurface(this,22f)
+  setPadding(a.d(12),0,a.d(36),0);a.controlSurface(this,24f)
  }
  private val field=FrameLayout(a)
  private val center=FrameLayout(a)
@@ -27,21 +27,21 @@ internal class LibrarySearchBar(private val a:MainActivity,private val compact:B
  private val persistent=a.tab in setOf("home","shelves","quotes")&&a.shelf==null&&a.auto==null
  init {
   orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false
-  if(!compact)addView(a.icon("user","Профиль"){a.profile()},LayoutParams(a.d(46),a.d(46)))
-  addView(center,LayoutParams(0,a.d(46),1f).apply{leftMargin=if(compact)0 else a.d(12);rightMargin=if(compact)0 else a.d(12)})
-  field.addView(input,FrameLayout.LayoutParams(-1,-1));field.addView(clear,FrameLayout.LayoutParams(a.d(36),a.d(44),Gravity.END));center.addView(field,FrameLayout.LayoutParams(-1,-1,Gravity.END))
-  val controls=a.line();addView(controls,LayoutParams(-2,a.d(44)))
+  if(!compact)addView(a.icon("user","Профиль"){a.profile()},LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH)))
+  addView(center,LayoutParams(0,a.d(Size.TOUCH),1f).apply{leftMargin=if(compact)0 else a.d(12);rightMargin=if(compact)0 else a.d(12)})
+  field.addView(input,FrameLayout.LayoutParams(-1,-1));field.addView(clear,FrameLayout.LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH),Gravity.END));center.addView(field,FrameLayout.LayoutParams(-1,-1,Gravity.END))
+  val controls=a.line();addView(controls,LayoutParams(-2,a.d(Size.TOUCH)))
   fun paintToggle(){toggleButton?.let{controls.removeView(it)};val open=a.searchOpen||a.query.isNotEmpty();val v=a.icon(if(open)"x" else "search",if(open)"Закрыть поиск" else "Поиск",open){toggle()};toggleButton=v;controls.addView(v,0,LayoutParams(a.d(46),a.d(46)))}
   if(persistent){
-   input.background=OpaqueSurface(a,22f);input.setPadding(a.d(42),0,a.d(36),0);input.hint="Поиск"
-   field.addView(IconView(a,"search",a.muted).apply{importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false;elevation=input.elevation+1f},FrameLayout.LayoutParams(a.d(40),a.d(44),Gravity.START))
+   input.background=OpaqueSurface(a,24f);input.setPadding(a.d(42),0,a.d(Size.TOUCH),0);input.hint="Поиск"
+   field.addView(IconView(a,"search",a.muted).apply{importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;isClickable=false;elevation=input.elevation+1f},FrameLayout.LayoutParams(a.d(40),a.d(Size.TOUCH),Gravity.START))
    // The field never takes focus by itself (Android hands focus to the first text field — a blinking caret and a
    // keyboard popping up on other screens). It becomes focusable only when tapped, and lets go again when left empty.
    if(a.query.isEmpty()){input.isFocusable=false;input.isFocusableInTouchMode=false}
    input.setOnTouchListener{_,e->if(e.actionMasked==MotionEvent.ACTION_UP&&!input.isFocusableInTouchMode){input.isFocusable=true;input.isFocusableInTouchMode=true;input.requestFocus();showKeyboard()};false}
    input.setOnFocusChangeListener{_,has->if(has&&!a.searchOpen){a.searchOpen=true}else if(!has&&input.text.isEmpty()){a.searchOpen=false;input.isFocusable=false;input.isFocusableInTouchMode=false}}
-   if(!compact)controls.addView(a.icon("sort","Сортировка"){a.sortSheet()},LayoutParams(a.d(46),a.d(46)))
-  }else{paintToggle();controls.addView(View(a),LayoutParams(a.d(8),1));controls.addView(a.icon("sort","Сортировка"){a.sortSheet()},LayoutParams(a.d(46),a.d(46)))}
+   if(!compact)controls.addView(a.icon("sort","Сортировка"){a.sortSheet()},LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH)))
+  }else{paintToggle();controls.addView(View(a),LayoutParams(a.d(8),1));controls.addView(a.icon("sort","Сортировка"){a.sortSheet()},LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH)))}
   a.searchOpen=a.searchOpen||a.query.isNotEmpty();field.visibility=if(a.searchOpen||persistent)View.VISIBLE else View.INVISIBLE;clear.visibility=if(a.query.isEmpty())View.GONE else View.VISIBLE
   input.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){clear.visibility=if(s.isNullOrEmpty())View.GONE else View.VISIBLE;pending?.let{removeCallbacks(it)};pending=Runnable{if(a.librarySearch===this@LibrarySearchBar&&a.searchOpen){a.query=input.text.toString();a.renderLibraryResults();a.scroll.scrollTo(0,0)}}.also{postDelayed(it,120)}};override fun afterTextChanged(e:Editable?) {}})
   input.setOnEditorActionListener{_,action,_->if(action==EditorInfo.IME_ACTION_SEARCH){pending?.let{removeCallbacks(it)};a.query=input.text.toString();a.renderLibraryResults();hideKeyboard();true}else false}

@@ -22,7 +22,7 @@ private const val S_DONE=2
 internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:Int,start:String,private val pick:(String,Boolean)->Unit){
     var onClose:(()->Unit)?=null
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    private val sheetColor get()=Ui.sheet(a.light)
+    private val sheetColor get()=a.sheetColor
     private var dialog:android.app.Dialog?=null
     private lateinit var holder:View
     private val hsv=FloatArray(3).also{Color.colorToHSV((0xff shl 24) or QuoteColors.rgb(start),it)}
@@ -100,7 +100,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         sectLabel?.text="МОИ ЦВЕТА"
         if(!editing)row.addView(AddDot(),LinearLayout.LayoutParams(a.d(52),a.d(52)))
         saved.forEach{h->val s=Swatch(h);row.addView(s,LinearLayout.LayoutParams(a.d(52),a.d(52)))
-            if(h==fresh&&!reduced){s.scaleX=.3f;s.scaleY=.3f;s.alpha=0f;s.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(380).setInterpolator(OvershootInterpolator(2f)).start()}}
+            if(h==fresh&&!reduced){s.scaleX=.3f;s.scaleY=.3f;s.alpha=0f;s.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(Motion.EMPHASIS).setInterpolator(OvershootInterpolator(2f)).start()}}
         if(saved.isEmpty()&&editing)setEditing(false)
         for(i in 0 until row.childCount)(row.getChildAt(i) as? Swatch)?.let{it.on=!editing&&it.hex==hex}}
 
@@ -119,7 +119,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         init{isClickable=true;a.press(this)}
         fun set(s:Int){if(s==state)return;from=state;state=s;anim?.cancel();contentDescription=when(s){S_SAVE->"Сохранить цвет";S_SAVED->"Цвет сохранён";else->"Готово"}
             if(from<0||reduced||!isAttachedToWindow){k=1f;invalidate();return}
-            k=0f;anim=ValueAnimator.ofFloat(0f,1f).apply{duration=440;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
+            k=0f;anim=ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
         private fun fill(s:Int)=if(s==S_SAVE)a.fg else quiet
         private fun ink(s:Int)=when(s){S_SAVE->a.bg;S_SAVED->0xff4fb06a.toInt();else->a.fg}
         private val check=Path();private val part=Path();private val pm=PathMeasure()
@@ -151,12 +151,12 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
     private inner class Swatch(val hex:String):View(a){
         private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var ring=0f;private var ringAnim:ValueAnimator?=null
         var on=false;set(v){if(field==v)return;field=v;ringAnim?.cancel();if(reduced||!isAttachedToWindow){ring=if(v)1f else 0f;invalidate();return}
-            ringAnim=ValueAnimator.ofFloat(ring,if(v)1f else 0f).apply{duration=220;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{ring=it.animatedValue as Float;invalidate()};start()}}
+            ringAnim=ValueAnimator.ofFloat(ring,if(v)1f else 0f).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{ring=it.animatedValue as Float;invalidate()};start()}}
         init{isClickable=true;contentDescription="Цвет $hex";a.press(this)
             setOnClickListener{if(editing)remove() else{Color.colorToHSV((0xff shl 24) or QuoteColors.rgb(hex),hsv);changed(true)}}
             setOnLongClickListener{if(!editing){haptic(a,Haptic.LONG);setEditing(true)};true}}
         private fun remove(){QuoteColors.setSaved(a,QuoteColors.saved(a).filter{it!=hex})
-            if(reduced){buildRow(null);return};animate().scaleX(.2f).scaleY(.2f).alpha(0f).setDuration(180).withEndAction{buildRow(null)}.start()}
+            if(reduced){buildRow(null);return};animate().scaleX(.2f).scaleY(.2f).alpha(0f).setDuration(Motion.FAST).withEndAction{buildRow(null)}.start()}
         override fun onDraw(c:Canvas){val cx=width/2f;val cy=height/2f;val r=a.d(17).toFloat()
             if(ring>0f){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2f);p.color=a.fg;p.alpha=(255*ring).toInt();c.drawCircle(cx,cy,r+a.d(4f),p);p.alpha=255}
             p.style=Paint.Style.FILL;p.color=(0xff shl 24) or QuoteColors.rgb(hex);c.drawCircle(cx,cy,r,p)

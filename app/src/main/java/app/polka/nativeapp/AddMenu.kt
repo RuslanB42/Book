@@ -49,7 +49,7 @@ internal class AddMenu(private val a:MainActivity){
         then?.let{go->a.root.postDelayed({go()},170)}
         // from wherever the opening had got to
         val t0=v.t;val dim0=v.dim;val rows0=v.rowsShown.copyOf();val bar0=v.barGone;val cross0=v.cross
-        clock=ValueAnimator.ofFloat(0f,400f).apply{duration=400;interpolator=LinearInterpolator()
+        clock=ValueAnimator.ofFloat(0f,400f).apply{duration=Motion.EMPHASIS;interpolator=LinearInterpolator()
             addUpdateListener{val ms=it.animatedValue as Float
                 val out=MotionSpec.exit.getInterpolation((ms/140f).coerceIn(0f,1f))
                 val back=MotionSpec.move.getInterpolation(((ms-40f)/340f).coerceIn(0f,1f))

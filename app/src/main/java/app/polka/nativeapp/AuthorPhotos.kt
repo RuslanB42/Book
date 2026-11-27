@@ -155,7 +155,7 @@ internal class AuthorPortrait(private val a:MainActivity,private val name:String
     private var photo:Bitmap?=AuthorPhotos.bitmap(a,name);private var fade=1f
     private val clip=Path();private val dst=RectF()
     init{contentDescription="Портрет: $name";isClickable=true;isLongClickable=true
-        if(photo==null)AuthorPhotos.ensure(a,name,title){b->photo=b;if(isAttachedToWindow){fade=0f;android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=420;addUpdateListener{fade=it.animatedValue as Float;invalidate()};start()}} else invalidate()}
+        if(photo==null)AuthorPhotos.ensure(a,name,title){b->photo=b;if(isAttachedToWindow){fade=0f;android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;addUpdateListener{fade=it.animatedValue as Float;invalidate()};start()}} else invalidate()}
         setOnClickListener{AuthorPhotos.credit(a,name)?.let{Notice.short(a,Notice.Kind.OK,it)}}
         setOnLongClickListener{menu();true}}
     private fun menu(){val own=AuthorPhotos.info(a,name)?.let{it.optBoolean("manual")||it.optBoolean("removed")}==true

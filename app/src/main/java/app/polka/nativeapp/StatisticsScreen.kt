@@ -83,7 +83,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val extra=max(0,(a.resources.configuration.screenWidthDp-640)/2)
         scroll.clipToPadding=false;a.followInsets(content) { i->scroll.setPadding(0,i.top,0,0);content.setPadding(a.d(20+extra)+i.left,a.d(8),a.d(20+extra)+i.right,a.d(40)+i.bottom) }
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
-        val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(46),a.d(46)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(46),a.d(46)));content.addView(head)
+        val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH)));content.addView(head)
         space(content,16)
         content.addView(PeriodPills(a,listOf("Книги","Комиксы"),if(comics)1 else 0,stretch=true){i->switchTo(if(i==1)ReadingStatistics.COMICS else ReadingStatistics.BOOKS)},LinearLayout.LayoutParams(-1,-2))
         space(content,16)

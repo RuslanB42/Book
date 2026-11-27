@@ -177,7 +177,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     private fun setMode(m:String,animate:Boolean){mode=m;stage.removeAllViews();paged=null;ribbon=null
         if(m=="ribbon")ribbon=RibbonView().also{stage.addView(it,FrameLayout.LayoutParams(-1,-1));it.post{it.scrollTo(page)}}
         else paged=PagedView().also{stage.addView(it,FrameLayout.LayoutParams(-1,-1));it.post{it.show(page,false)}}
-        if(animate&&!reduced){stage.alpha=0f;stage.animate().alpha(1f).setDuration(220).start()}
+        if(animate&&!reduced){stage.alpha=0f;stage.animate().alpha(1f).setDuration(Motion.STANDARD).start()}
         // the strip runs the way the pages turn
         strip.layoutDirection=if(rtl&&m!="ribbon")View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
         root.post{paint()}}
@@ -230,7 +230,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         titleView=a.text(book.str("title"),Type.TEXT,ink(),true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END};texts.addView(titleView)
         authorView=a.text(MainActivity.authors(book),Type.SECONDARY,mutedInk()).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;visibility=if(text.isBlank())View.GONE else View.VISIBLE};texts.addView(authorView)
         top.addView(texts,LinearLayout.LayoutParams(0,a.d(48),1f));texts.gravity=Gravity.CENTER_VERTICAL
-        soundChip=SoundChip(a){sounds()};top.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
+        soundChip=SoundChip(a){sounds()};top.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(Size.TOUCH)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
         val more=icon("more","Меню книги"){};more.setOnClickListener{menu(more)};top.addView(more,LinearLayout.LayoutParams(a.d(48),a.d(48)))
         top.forceHasOverlappingRendering(false)
         root.addView(top,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
@@ -269,7 +269,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     /** Opens a page picked in the strip or the grid: the next or previous one slides in, a far one fades in. */
     private fun jump(i:Int){if(i==page)return;val pv=paged
         if(pv!=null&&kotlin.math.abs(i-page)==1){pv.turn(i-page);return}
-        go(i,false);if(!reduced){stage.animate().cancel();stage.alpha=.25f;stage.animate().alpha(1f).setDuration(220).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}
+        go(i,false);if(!reduced){stage.animate().cancel();stage.alpha=.25f;stage.animate().alpha(1f).setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}
     private fun toggleMark(){val m=marks();if(page in m)m.remove(page) else m.add(page);book.put("pageMarks",org.json.JSONArray(m.sorted()));paint();save(false)}
     private fun menu(anchor:View){
         ButtonMenu(a,anchor,listOf(ButtonMenu.Item("check","Статус и полки"){a.statusSheet(book)},ButtonMenu.Item("pen","Изменить данные"){a.metadataEditor(book)},
@@ -350,7 +350,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
             val side=if(i==cur)0 else if(i<cur)-1 else 1;val tx=side*(if(rtl&&mode!="ribbon")-1 else 1)*(a.d(44)*.09f+a.d(3))
             if(scaleX==s&&translationX==tx&&was==on)return
             animate().cancel()
-            if(reduced||!isAttachedToWindow){scaleX=s;scaleY=s;translationX=tx} else animate().scaleX(s).scaleY(s).translationX(tx).setDuration(260).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start();invalidate()}
+            if(reduced||!isAttachedToWindow){scaleX=s;scaleY=s;translationX=tx} else animate().scaleX(s).scaleY(s).translationX(tx).setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start();invalidate()}
         override fun onDraw(c:Canvas){val r=a.d(5).toFloat();val w=width.toFloat();val h=height.toFloat()
             // in view along the strip (the bar itself may still be sliding in from off the screen)
             val x=left-stripScroll.scrollX;val shown=x+width>0&&x<stripScroll.width
@@ -392,7 +392,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
                     // past the first or the last page the page only gives a little, there is nothing to pull in
                     val edge=(shift-dx>0&&!has(-1))||(shift-dx<0&&!has(1));shift-=if(edge)dx*.3f else dx;invalidate()};return true}
             override fun onFling(e1:MotionEvent?,e2:MotionEvent,vx:Float,vy:Float):Boolean{
-                if(axis==2){val to=(pan-vy*.28f).coerceIn(0f,maxPan(page));panAnim?.cancel();if(reduced){pan=to;invalidate()}else panAnim=ValueAnimator.ofFloat(pan,to).apply{duration=420;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{pan=it.animatedValue as Float;invalidate()};start()};return true}
+                if(axis==2){val to=(pan-vy*.28f).coerceIn(0f,maxPan(page));panAnim?.cancel();if(reduced){pan=to;invalidate()}else panAnim=ValueAnimator.ofFloat(pan,to).apply{duration=Motion.EMPHASIS;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{pan=it.animatedValue as Float;invalidate()};start()};return true}
                 if(turning!=null){flingX=vx;return true}
                 if(scale<=1.01f&&kotlin.math.abs(vx)>a.d(500)&&kotlin.math.abs(vx)>kotlin.math.abs(vy)){flung=true;step(if((vx<0)!=rtl)1 else -1,kotlin.math.abs(vx))};return true}})
         private var flung=false
@@ -450,7 +450,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         private fun zoomTo(s:Float,fx:Float,fy:Float){val from=scale;val fpx=px;val fpy=py
             val tpx=if(s<=1f)0f else fx-(fx-px)*(s/scale);val tpy=if(s<=1f)0f else fy-(fy-py)*(s/scale)
             if(reduced){scale=s;px=tpx;py=tpy;clamp();invalidate();return}
-            ValueAnimator.ofFloat(0f,1f).apply{duration=260;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{val t=it.animatedValue as Float;scale=from+(s-from)*t;px=fpx+(tpx-fpx)*t;py=fpy+(tpy-fpy)*t;clamp();invalidate()};start()}}
+            ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{val t=it.animatedValue as Float;scale=from+(s-from)*t;px=fpx+(tpx-fpx)*t;py=fpy+(tpy-fpy)*t;clamp();invalidate()};start()}}
         private fun fit(i:Int):RectF{val (w,h)=source.size(i)
             if(widthFit){val dh=h*width/w.toFloat();val t=if(dh<=height)(height-dh)/2 else 0f;return RectF(0f,t,width.toFloat(),t+dh)}
             val s=minOf(width/w.toFloat(),height/h.toFloat());val dw=w*s;val dh=h*s;return RectF((width-dw)/2,(height-dh)/2,(width+dw)/2,(height+dh)/2)}

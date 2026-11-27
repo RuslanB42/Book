@@ -68,20 +68,20 @@ internal object LibraryFilters {
     fun row(a:MainActivity):View?{
         val books=a.homeBooks();val shown=groups.filter{offered(a,it,books)};if(shown.isEmpty())return null
         val strip=a.line().apply{setPadding(a.d(2),0,a.d(2),0)}
-        shown.forEach{g->strip.addView(chip(a,g),LinearLayout.LayoutParams(-2,a.d(36)).apply{marginEnd=a.d(8)})}
+        shown.forEach{g->strip.addView(chip(a,g),LinearLayout.LayoutParams(-2,a.d(Size.TOUCH)).apply{marginEnd=a.d(8)})}
         if(active(a))strip.addView(a.text("Сбросить",Type.TEXT,a.muted).apply{typeface=PolkaFonts.sans(500);gravity=Gravity.CENTER;setPadding(a.d(6),0,a.d(6),0);isClickable=true
-            setOnClickListener{clear(a);a.render()}},LinearLayout.LayoutParams(-2,a.d(36)))
+            setOnClickListener{clear(a);a.render()}},LinearLayout.LayoutParams(-2,a.d(Size.TOUCH)))
         return HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(strip)}}
 
     private fun chip(a:MainActivity,g:String):View{
         val on=selected(a,g);val c=a.line().apply{isClickable=true;isFocusable=true}
         if(on.isEmpty()){
-            c.setPadding(a.d(15),0,a.d(10),0);a.controlSurface(c,18f)
+            c.setPadding(a.d(15),0,a.d(10),0);a.controlSurface(c,18f).seenHeight=36f
             c.addView(a.text(title(g),Type.TEXT,a.fg).apply{typeface=PolkaFonts.sans(500)})
             c.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{marginStart=a.d(4)})
             c.contentDescription=title(g)
         }else{
-            c.setPadding(a.d(15),0,0,0);c.background=a.shape(a.fg,18)
+            c.setPadding(a.d(15),0,0,0);c.background=android.graphics.drawable.InsetDrawable(a.shape(a.fg,18),0,a.d(6),0,a.d(6))
             val words=on.map{short(g,it)}.sortedBy{it.lowercase()}.joinToString(", ")
             c.addView(a.text(words,Type.TEXT,a.bg).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(190)})
             // the cross takes its own touch: it lets the chip go; the rest of the chip opens its list

@@ -56,7 +56,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   val toc=r.contents()
   var here:View?=null
   // the chapters scroll on their own, under the tabs: opening at the current chapter never hides «Оглавление / Блокнот / Поиск»
-  val list=a.column();val holder=SheetScroll(a,Ui.sheet(a.light),30,18).apply{isVerticalScrollBarEnabled=false;addView(list)}
+  val list=a.column();val holder=SheetScroll(a,a.sheetColor,30,18).apply{isVerticalScrollBarEnabled=false;addView(list)}
   pane.addView(holder,LinearLayout.LayoutParams(-1,(a.resources.displayMetrics.heightPixels*.6f).toInt()))
   // the list runs down to the bottom edge of the screen (under the gesture bar), like every other list in the app
   holder.clipToPadding=false;holder.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
@@ -100,7 +100,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
    chipAnimators.remove(chip)?.cancel()
    if(!animate||reduced()){shape.setColor(bg);chip.setTextColor(ink);return@forEachIndexed}
    val fromBg=(shape.color?.defaultColor)?:bg;val fromInk=chip.currentTextColor
-   chipAnimators[chip]=(android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=200;addUpdateListener{val t=it.animatedFraction;shape.setColor(android.animation.ArgbEvaluator().evaluate(t,fromBg,bg) as Int);chip.setTextColor(android.animation.ArgbEvaluator().evaluate(t,fromInk,ink) as Int)};start()})
+   chipAnimators[chip]=(android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.STANDARD;addUpdateListener{val t=it.animatedFraction;shape.setColor(android.animation.ArgbEvaluator().evaluate(t,fromBg,bg) as Int);chip.setTextColor(android.animation.ArgbEvaluator().evaluate(t,fromInk,ink) as Int)};start()})
   }
  }
  private fun drawNotebook(animate:Boolean=false){
@@ -146,7 +146,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   notebookResults.animate().cancel()
   if(!animate||reduced()){notebookResults.alpha=1f;notebookResults.translationY=0f;return}
   notebookResults.alpha=0f;notebookResults.translationY=a.d(8).toFloat()
-  notebookResults.animate().alpha(1f).translationY(0f).setDuration(240).setStartDelay(40).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()
+  notebookResults.animate().alpha(1f).translationY(0f).setDuration(Motion.STANDARD).setStartDelay(40).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()
  }
  private fun search(){
   val input=a.edit("","Поиск").apply{contentDescription="Поиск по книге";imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH};val results=a.column();pane.addView(searchField(input));a.space(pane,14);pane.addView(results)

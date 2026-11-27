@@ -18,7 +18,7 @@ internal fun MainActivity.yearTiles(list:List<YearBook>,goal:Int,big:Boolean):Li
     fun value(main:String,tail:String,lead:String="")=android.text.SpannableStringBuilder().apply{
         if(lead.isNotEmpty()){append(lead);setSpan(RoundStarSpan(StarRow.starYellow(this@yearTiles),.72f),0,length,0);append(" ")}
         append(main);if(tail.isNotEmpty()){val st=length;append(" $tail");setSpan(android.text.style.ForegroundColorSpan(Ui.icon(light)),st,length,0);setSpan(android.text.style.AbsoluteSizeSpan(unit.toInt(),true),st,length,0)}}
-    fun caption(t:String)=text(t,if(big)12f else 11.5f,muted).apply{setPadding(0,d(6),0,0)}
+    fun caption(t:String)=text(t,Type.CAPTION,muted).apply{setPadding(0,d(6),0,0)}
     val done=list.size
     tile{t->t.addView(text("",num,fg,true,serif=true).apply{text=value("$done",if(goal>0)"/$goal" else "");maxLines=1})
         t.addView(caption(booksWord(done)))}

@@ -150,7 +150,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         topBar.forceHasOverlappingRendering(false);bottom.forceHasOverlappingRendering(false)
         action("Закрыть книгу","chevdown") { a.closeReader() }
         val metadata=a.column();metadata.addView(a.text(book.str("title"),Type.TEXT,bold=true).also{titleText=it}.apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});metadata.addView(a.text(MainActivity.authors(book),Type.SECONDARY,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});bar.addView(metadata,LinearLayout.LayoutParams(0,-2,1f))
-         bar.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
+         bar.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(Size.TOUCH)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
          action("Меню книги","more") { readerMenu(it) }; view.addView(bar,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
         body.setTextColor(a.fg); body.setTextSize(a.prefs.optDouble("size",a.prefs.optDouble("fontSize",19.0)).toFloat()); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; body.setPadding(margin(),a.d(22),margin(),a.d(42)); body.breakStrategy=android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY; applySpacing(); body.setTextIsSelectable(true); body.defaultFocusHighlightEnabled=false; body.background=null; body.foreground=null; body.linksClickable=true; body.movementMethod=android.text.method.LinkMovementMethod.getInstance();body.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){v.viewTreeObserver.addOnPreDrawListener(stretchWatch)};override fun onViewDetachedFromWindow(v:View){v.viewTreeObserver.removeOnPreDrawListener(stretchWatch)}})
         body.customSelectionActionModeCallback=object:ActionMode.Callback {
@@ -384,7 +384,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
             body.invalidate() }
         recolorAnim?.cancel()
         if(!animate||fromInk==to){ paint(to); repaintMarks() }
-        else recolorAnim=android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(),fromInk,to).apply { duration=320; interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+        else recolorAnim=android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(),fromInk,to).apply { duration=Motion.STANDARD; interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
             addUpdateListener { paint(it.animatedValue as Int) }
             addListener(object:android.animation.AnimatorListenerAdapter(){ override fun onAnimationEnd(x:android.animation.Animator){ paint(to); recolorAnim=null; repaintMarks() } }); start() }
         if(save) persist() }
@@ -741,7 +741,8 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     internal fun applyBrightness(){val v=a.prefs.optDouble("bright",-1.0).toFloat();val target=if(v<0f)android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE else v.coerceIn(.01f,1f);if(a.window.attributes.screenBrightness!=target)a.window.attributes=a.window.attributes.apply{screenBrightness=target}}
     fun readerMenu(anchor:View) { ButtonMenu(a,anchor,listOf(ButtonMenu.Item("search","Поиск по книге"){navigation(2)},ButtonMenu.Item("notebook","Блокнот: цитаты и мысли"){notebook()},
         ButtonMenu.Item("pen","Данные книги"){a.metadataEditor(book)},
-        ButtonMenu.Item("download","Скачать файл"){a.dialog().setTitle("Скачать файл").setItemIcons("download","download").setItems(arrayOf("FB2","EPUB")){_,type->a.exportBook(book,if(type==0)"fb2" else "epub")}.show()})).open() }
+        // the two formats are two rows, as in the book's own menu (a menu does not open a second window)
+        ButtonMenu.Item("download","Скачать FB2"){a.exportBook(book,"fb2")},ButtonMenu.Item("download","Скачать EPUB"){a.exportBook(book,"epub")})).open() }
     fun notebook()=navigation(1)
     fun searchEntries(term:String,done:(List<Triple<Int,Int,String>>)->Unit){
         val width=(scroll.width-body.paddingLeft-body.paddingRight).coerceAtLeast(a.d(100));val height=(scroll.height-body.paddingTop-body.paddingBottom-body.textSize*3f).toInt().coerceAtLeast(a.d(80));val fontSize=body.textSize;val ink=body.currentTextColor;val leading=lineHeight();val trim=trimEmpty()
@@ -804,12 +805,12 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         val c=android.graphics.Canvas(bmp);c.drawColor(readerBackground);c.translate(-scroll.scrollX.toFloat(),-scroll.scrollY.toFloat());scroll.draw(c)
         val ghost=android.widget.ImageView(a).apply{setImageBitmap(bmp);isClickable=false;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
         view.addView(ghost,view.indexOfChild(scroll)+1,FrameLayout.LayoutParams(scroll.width,scroll.height).apply{leftMargin=scroll.left-view.paddingLeft;topMargin=scroll.top-view.paddingTop})
-        ghost.animate().alpha(0f).setStartDelay(40).setDuration(300).setInterpolator(android.view.animation.DecelerateInterpolator()).withEndAction{view.removeView(ghost);bmp.recycle()}.start()
+        ghost.animate().alpha(0f).setStartDelay(40).setDuration(Motion.STANDARD).setInterpolator(android.view.animation.DecelerateInterpolator()).withEndAction{view.removeView(ghost);bmp.recycle()}.start()
     }
     private val editorInset=View.OnLayoutChangeListener{_,_,_,_,_,_,_,_,_->if(!editorOpen)return@OnLayoutChangeListener;val lp=scroll.layoutParams as FrameLayout.LayoutParams;val inset=(bottom.height-view.paddingBottom+a.d(12)).coerceAtLeast(0);if(lp.bottomMargin!=inset){lp.bottomMargin=inset;scroll.layoutParams=lp}}
     internal fun mountEditor(editor:EditText,toolbar:View){
         val reduced=a.prefs.str("motion")=="reduced"
-        listOf(topBar,folio).forEach{v->v.animate().cancel();if(v.visibility!=View.VISIBLE||reduced){v.visibility=View.INVISIBLE}else v.animate().alpha(0f).setDuration(180).withEndAction{v.visibility=View.INVISIBLE;v.alpha=1f}.start()}
+        listOf(topBar,folio).forEach{v->v.animate().cancel();if(v.visibility!=View.VISIBLE||reduced){v.visibility=View.INVISIBLE}else v.animate().alpha(0f).setDuration(Motion.FAST).withEndAction{v.visibility=View.INVISIBLE;v.alpha=1f}.start()}
         // the bottom panel stays (brought back if the bars were away) and turns into the editor's buttons
         chromeSprings[bottom]?.stop();bottom.animate().cancel();bottom.visibility=View.VISIBLE;bottom.alpha=1f;bottom.translationY=0f
         ribbon.visibility=View.INVISIBLE

@@ -12,7 +12,7 @@ internal class DetailTopFade(private val a:MainActivity):View(a){
  }
  private val paint=Paint(Paint.ANTI_ALIAS_FLAG)
  init{isClickable=false;isFocusable=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;contentDescription=null}
- override fun onSizeChanged(w:Int,h:Int,oldw:Int,oldh:Int){paint.shader=shader(h.toFloat(),Ui.sheet(a.light))}
+ override fun onSizeChanged(w:Int,h:Int,oldw:Int,oldh:Int){paint.shader=shader(h.toFloat(),a.sheetColor)}
  override fun onDraw(c:Canvas){c.drawRect(0f,0f,width.toFloat(),height.toFloat(),paint)}
 }
 

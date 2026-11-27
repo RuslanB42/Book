@@ -17,7 +17,7 @@ internal fun MainActivity.revealFromBoot(logo:View?){
     var i=0
     for(k in 0 until root.childCount){val v=root.getChildAt(k);if(v.visibility!=View.VISIBLE||v.alpha<1f)continue
         v.alpha=0f
-        if(reduced){v.animate().alpha(1f).setDuration(200).start();continue}
+        if(reduced){v.animate().alpha(1f).setDuration(Motion.STANDARD).start();continue}
         v.translationY=d(14).toFloat()
-        v.animate().alpha(1f).translationY(0f).setStartDelay(40L*i).setDuration(520).setInterpolator(ease).start();i++}
+        v.animate().alpha(1f).translationY(0f).setStartDelay(40L*i).setDuration(Motion.LONG).setInterpolator(ease).start();i++}
 }

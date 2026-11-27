@@ -55,7 +55,7 @@ internal class ReaderPanel(private val a:MainActivity,private val surface:Linear
         box.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
         val cap=((surface.parent as? View)?.height?:a.root.height)*58/100
         if(box.measuredHeight>cap){val headH=box.measuredHeight-page.content.measuredHeight;box.removeView(page.content)
-            val color=a.readerTint?.panel?:Ui.sheet(a.light)
+            val color=a.readerTint?.panel?:a.sheetColor
             // it cuts what scrolls past its top and foot, but reaches out to the panel's sides, where rings round chosen tiles sit
             val side=a.d(18)
             val scroll=SheetScroll(a,color,30,18).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;setPadding(side,0,side,0);addView(page.content)}

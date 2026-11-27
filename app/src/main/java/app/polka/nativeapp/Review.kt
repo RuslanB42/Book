@@ -58,14 +58,14 @@ internal class FlowRow(c:Context,private val hGap:Int,private val vGap:Int,priva
         val h=place(maxW){_,_,_->}
         if(shownH<0||!smooth()||!isLaidOut){hAnim?.cancel();shownH=h;targetH=h}
         else if(h!=targetH){targetH=h;val from=shownH;hAnim?.cancel()
-            hAnim=ValueAnimator.ofInt(from,h).apply{duration=320;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shownH=it.animatedValue as Int;requestLayout()};start()}}
+            hAnim=ValueAnimator.ofInt(from,h).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shownH=it.animatedValue as Int;requestLayout()};start()}}
         setMeasuredDimension(maxW,shownH)}
     override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){val glide=smooth()&&isLaidOut
         place(r-l){ch,x,y->val old=spots[ch]
             ch.layout(x,y,x+ch.measuredWidth,y+ch.measuredHeight)
             if(glide&&old!=null&&(old.y!=y||(glideAll&&old.x!=x))){ // moved to another row: start from where it was
                 ch.animate().cancel();ch.translationX+=(old.x-x).toFloat();ch.translationY+=(old.y-y).toFloat()
-                ch.animate().translationX(0f).translationY(0f).setStartDelay(0).setDuration(340).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
+                ch.animate().translationX(0f).translationY(0f).setStartDelay(0).setDuration(Motion.EMPHASIS).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
             spots[ch]=Point(x,y)}}
     override fun onViewRemoved(child:View){super.onViewRemoved(child);spots.remove(child)}
     fun reset(){hAnim?.cancel();shownH=-1;targetH=-1;spots.clear()}
@@ -93,7 +93,7 @@ internal class ReviewChip(private val a:MainActivity,val label:String,selected:B
         sendAccessibilityEvent(android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED)
         val to=if(selectedNow)1f else 0f;anim?.cancel()
         if(reduced||!isAttachedToWindow){p=to;invalidate();return}
-        anim=ValueAnimator.ofFloat(p,to).apply{duration=200;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{p=it.animatedValue as Float;invalidate()};start()}}
+        anim=ValueAnimator.ofFloat(p,to).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{p=it.animatedValue as Float;invalidate()};start()}}
     override fun onDraw(c:Canvas){val h=height.toFloat();val r=h/2
         rect.set(0f,0f,width.toFloat(),h)
         fill.color=mix(restFill,a.fg,p);c.drawRoundRect(rect,r,r,fill)
@@ -194,12 +194,12 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
     private fun swapChips(n:Int){if(reduced||!isAttachedToWindow){fillChips(n,false);return}
         val old=(0 until chips.childCount).map{chips.getChildAt(it)}
         if(old.isEmpty()){fillChips(n,true);return}
-        old.forEach{it.animate().cancel();it.animate().alpha(0f).setStartDelay(0).setDuration(120).start()}
+        old.forEach{it.animate().cancel();it.animate().alpha(0f).setStartDelay(0).setDuration(Motion.FAST).start()}
         chips.postDelayed({if(!isAttachedToWindow)return@postDelayed
             morph(!reduced){fillChips(shownRating,false)}
-            for(i in 0 until chips.childCount){val c=chips.getChildAt(i);c.alpha=0f;c.animate().alpha(1f).setStartDelay(40L+i*30).setDuration(220).start()}},130)}
+            for(i in 0 until chips.childCount){val c=chips.getChildAt(i);c.alpha=0f;c.animate().alpha(1f).setStartDelay(40L+i*30).setDuration(Motion.STANDARD).start()}},130)}
     private fun enter(v:View,delay:Long){if(reduced)return;v.alpha=0f;v.translationY=a.d(8).toFloat()
-        v.animate().alpha(1f).translationY(0f).setStartDelay(delay).setDuration(360).setInterpolator(PathInterpolator(.2f,.9f,.3f,1f)).start()}
+        v.animate().alpha(1f).translationY(0f).setStartDelay(delay).setDuration(Motion.EMPHASIS).setInterpolator(PathInterpolator(.2f,.9f,.3f,1f)).start()}
 
     private fun onChip(chip:ReviewChip){val set=tags().toMutableList()
         if(chip.selectedNow){if(chip.label !in set)set.add(chip.label)}else set.remove(chip.label)
@@ -238,10 +238,10 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
         val after=listOf(editor,note).filter{it.visibility==VISIBLE}
         measure(MeasureSpec.makeMeasureSpec(width,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED));val h1=measuredHeight
         val leaving=before-after.toSet();val coming=after-before.toSet()
-        leaving.forEach{v->v.visibility=VISIBLE;v.animate().cancel();v.animate().alpha(0f).setStartDelay(0).setDuration(140).withEndAction{v.visibility=GONE;v.alpha=1f}.start()}
-        coming.forEach{v->v.animate().cancel();v.alpha=0f;v.animate().alpha(1f).setStartDelay(if(leaving.isEmpty())60 else 150).setDuration(240).start()}
+        leaving.forEach{v->v.visibility=VISIBLE;v.animate().cancel();v.animate().alpha(0f).setStartDelay(0).setDuration(Motion.FAST).withEndAction{v.visibility=GONE;v.alpha=1f}.start()}
+        coming.forEach{v->v.animate().cancel();v.alpha=0f;v.animate().alpha(1f).setStartDelay(if(leaving.isEmpty())60 else 150).setDuration(Motion.STANDARD).start()}
         val lp=layoutParams;lp.height=h0;layoutParams=lp
-        hAnim=ValueAnimator.ofInt(h0,h1).apply{duration=360;interpolator=PathInterpolator(.2f,0f,0f,1f)
+        hAnim=ValueAnimator.ofInt(h0,h1).apply{duration=Motion.EMPHASIS;interpolator=PathInterpolator(.2f,0f,0f,1f)
             addUpdateListener{val l=layoutParams;l.height=it.animatedValue as Int;layoutParams=l}
             addListener(object:AnimatorListenerAdapter(){var cancelled=false
                 override fun onAnimationCancel(x:Animator){cancelled=true}

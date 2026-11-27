@@ -63,8 +63,8 @@ fun MainActivity.press(v:View) {
     v.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(view:View){};override fun onViewDetachedFromWindow(view:View){v.animate().cancel();v.scaleX=1f;v.scaleY=1f}})
     v.setOnTouchListener { view,e -> view.background?.setHotspot(e.x,e.y);if(prefs.str("motion")=="reduced")return@setOnTouchListener false
         // a gentle eased dip under the finger and a soft settle on release (no snap, no bounce)
-        when(e.actionMasked){MotionEvent.ACTION_DOWN->{v.animate().cancel();v.animate().scaleX(.955f).scaleY(.955f).setDuration(160).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}
-            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{v.animate().cancel();v.animate().scaleX(1f).scaleY(1f).setDuration(280).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}};false }
+        when(e.actionMasked){MotionEvent.ACTION_DOWN->{v.animate().cancel();v.animate().scaleX(.955f).scaleY(.955f).setDuration(Motion.FAST).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{v.animate().cancel();v.animate().scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}};false }
 }
 private fun MainActivity.wideSheet()=resources.configuration.let { it.screenWidthDp>=720 && it.screenHeightDp>=600 }
 
@@ -171,7 +171,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 super.onCreate(b)
                 val owner:DialogInterface=this
                 val wide=a.wideSheet();widePanel=wide
-                val box=a.column().apply { background=a.shape(Ui.sheet(a.light),22); clipToOutline=true }
+                val box=a.column().apply { background=a.shape(a.sheetColor,22); clipToOutline=true }
                 if(!wide){val r=a.d(22).toFloat();(box.background as android.graphics.drawable.GradientDrawable).cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)}
                 a.controlSurface(box,22f,sheet=true).apply{flushBottom=!wide;refresh()};panel=box
                 val animated=a.prefs.str("motion")!="reduced";if(animated)box.alpha=0f
@@ -202,7 +202,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 }
                 positive?.let { (s,fn) -> a.space(content,12); content.addView(a.button(s,true) { dismiss(); fn?.invoke(this,-1) }) }
                 negative?.let { (s,fn) -> a.space(content,8); content.addView(a.button(s) { dismiss(); fn?.invoke(this,-2) }) }
-                val scroller=SheetScroll(a,Ui.sheet(a.light)).apply { isFillViewport=false; addView(content) }
+                val scroller=SheetScroll(a,a.sheetColor).apply { isFillViewport=false; addView(content) }
                 box.addView(scroller,if(tall)LinearLayout.LayoutParams(-1,0,1f)else LinearLayout.LayoutParams(-1,-2))
                 footer?.let { f -> (f.parent as? ViewGroup)?.removeView(f); f.tag="sheet-footer"; box.addView(f,LinearLayout.LayoutParams(-1,-2)) }
                 val frame=PolkaSheetFrame(a,box,tall,wide).apply {

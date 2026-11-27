@@ -43,7 +43,7 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     // head: back, and the large serif title centred on the page (an empty place the back button's size on the right
     // keeps it in the middle), as the greeting on the statistics
     val head=line().apply{gravity=Gravity.CENTER_VERTICAL}
-    head.addView(icon("back","Назад"){closeSettings()},LinearLayout.LayoutParams(d(46),d(46)))
+    head.addView(icon("back","Назад"){closeSettings()},LinearLayout.LayoutParams(d(Size.TOUCH),d(Size.TOUCH)))
     head.addView(text("Настройки",Type.H1,fg,true,serif=true).apply{gravity=Gravity.CENTER;maxLines=1},LinearLayout.LayoutParams(0,-2,1f))
     head.addView(View(this),LinearLayout.LayoutParams(d(46),d(46)))
     content.addView(head,LinearLayout.LayoutParams(-1,-2))
@@ -129,7 +129,7 @@ internal fun MainActivity.numberSheet(title:String,initial:Int,range:IntRange,pr
         override fun afterTextChanged(s:android.text.Editable?){caption.text=unit(s.toString().toIntOrNull()?:0);paint()}})
     paint()
     lateinit var sheet:android.app.AlertDialog
-    fun done(){val n=field.text.toString().toIntOrNull();if(n==null||n !in range){field.animate().translationX(d(8).toFloat()).setDuration(60).withEndAction{field.animate().translationX(0f).setDuration(160).setInterpolator(android.view.animation.OvershootInterpolator(3f)).start()}.start();return}
+    fun done(){val n=field.text.toString().toIntOrNull();if(n==null||n !in range){field.animate().translationX(d(8).toFloat()).setDuration(60).withEndAction{field.animate().translationX(0f).setDuration(Motion.FAST).setInterpolator(android.view.animation.OvershootInterpolator(3f)).start()}.start();return}
         saved(n);sheet.dismiss()}
     field.setOnEditorActionListener{_,act,_->if(act==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){done();true}else false}
     box.addView(text("Готово",Type.BODY,bg,true).apply{gravity=Gravity.CENTER;background=shape(fg,26);isClickable=true;isFocusable=true;press(this);setOnClickListener{done()}},LinearLayout.LayoutParams(-1,d(52)).apply{topMargin=d(18)})

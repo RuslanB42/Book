@@ -255,7 +255,7 @@ private class ScanLine(private val a:MainActivity):View(a){
     private val run=ValueAnimator.ofFloat(0f,1f).apply{duration=1100;repeatCount=ValueAnimator.INFINITE;interpolator=LinearInterpolator();addUpdateListener{x=it.animatedValue as Float;invalidate()}}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(a.prefs.str("motion")!="reduced")run.start()}
     override fun onDetachedFromWindow(){run.cancel();super.onDetachedFromWindow()}
-    fun finish(){animate().alpha(0f).setDuration(220).withEndAction{run.cancel();visibility=GONE}.start()}
+    fun finish(){animate().alpha(0f).setDuration(Motion.STANDARD).withEndAction{run.cancel();visibility=GONE}.start()}
     override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val r=h/2
         p.color=Ui.press(a.light);c.drawRoundRect(0f,0f,w,h,r,r,p)
         val len=w*.38f;val e=MotionSpec.move.getInterpolation(x);val left=-len+(w+len)*e
