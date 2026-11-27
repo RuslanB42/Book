@@ -251,7 +251,7 @@ class MainActivity : Activity() {
         setContentView(root)
         root.requestApplyInsets()
         root.addView(bootLogo(),FrameLayout.LayoutParams(-1,-1))
-        work({ library.initialize(); File(filesDir,"recs.json").delete(); loadData() }) { initialized=true; bootFinished=true; savedInstanceState?.getString("calendarImage")?.let{pendingCalendarImage=File(File(cacheDir,"calendar-share"),it)}; savedInstanceState?.getString("exportId")?.let { id -> books.firstOrNull { it.str("id")==id }?.let { pendingExport=it to (savedInstanceState.getString("exportFormat") ?: "fb2") } }; tab=savedInstanceState?.getString("tab") ?: "home"; shelf=savedInstanceState?.getString("shelf"); auto=savedInstanceState?.getString("auto"); query=savedInstanceState?.getString("query").orEmpty();searchOpen=savedInstanceState?.getBoolean("searchOpen",query.isNotEmpty()) ?: false; val bootView=root.findViewWithTag<View>("polka-boot-logo"); render(); revealFromBoot(bootView); savedInstanceState?.getString("readerId")?.let { id -> books.firstOrNull { it.str("id")==id }?.let { openBook(it) } }; pendingActivityResult?.let { pendingActivityResult=null; onActivityResult(it.first,it.second,it.third) } }
+        work({ library.initialize(); File(filesDir,"recs.json").delete(); loadData() }) { initialized=true; bootFinished=true; savedInstanceState?.getString("calendarImage")?.let{pendingCalendarImage=File(File(cacheDir,"calendar-share"),it)}; savedInstanceState?.getString("exportId")?.let { id -> books.firstOrNull { it.str("id")==id }?.let { pendingExport=it to (savedInstanceState.getString("exportFormat") ?: "fb2") } }; tab=savedInstanceState?.getString("tab") ?: "home"; shelf=savedInstanceState?.getString("shelf"); auto=savedInstanceState?.getString("auto"); query=savedInstanceState?.getString("query").orEmpty();searchOpen=savedInstanceState?.getBoolean("searchOpen",query.isNotEmpty()) ?: false; val bootView=root.findViewWithTag<View>("polka-boot-logo"); render(); revealFromBoot(bootView); savedInstanceState?.getString("readerId")?.let { id -> books.firstOrNull { it.str("id")==id }?.let { openBook(it) } }; pendingActivityResult?.let { pendingActivityResult=null; onActivityResult(it.first,it.second,it.third) }; root.postDelayed({ PhoneBooks.checkNew(this) },2500) }
         if(savedInstanceState==null)openIncoming(intent)
     }
     override fun onNewIntent(intent:Intent) { super.onNewIntent(intent); setIntent(intent); openIncoming(intent) }
@@ -611,8 +611,54 @@ class MainActivity : Activity() {
     fun pickAuthorPhoto(done:(ByteArray)->Unit) { authorPhotoPicked=done; startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="image/*"; addCategory(Intent.CATEGORY_OPENABLE) },20) }
     fun pickBackup() { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="*/*"; addCategory(Intent.CATEGORY_OPENABLE) },11) }
     fun exportBackup() { startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { type="application/octet-stream"; putExtra(Intent.EXTRA_TITLE,"polka-${java.time.LocalDate.now()}.polka"); addCategory(Intent.CATEGORY_OPENABLE) },12) }
-    fun fileName(uri:Uri):String { contentResolver.query(uri,arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),null,null,null)?.use { if(it.moveToFirst()) return it.getString(0) }; return "book.fb2" }
+    fun fileName(uri:Uri):String { if(uri.scheme=="file") uri.lastPathSegment?.let { return it }; contentResolver.query(uri,arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),null,null,null)?.use { if(it.moveToFirst()) return it.getString(0) }; return "book.fb2" }
     fun readLimited(uri:Uri):ByteArray { val input=contentResolver.openInputStream(uri) ?: error("Файл недоступен"); return input.use { val out=ByteArrayOutputStream(); val buf=ByteArray(32768); while(true) { val n=it.read(buf); if(n<0) break; require(out.size()+n<=128*1024*1024) { "Файл больше 128 МБ" }; out.write(buf,0,n) }; out.toByteArray() } }
+    /** Adds the books in [uris] (or, [attaching], the one file to the book waiting for it); [after] gets the files that
+     *  were read: added, or found already in the library. */
+    internal fun importUris(uris:List<Uri>,attaching:Boolean,after:((List<Uri>)->Unit)?=null) {
+        importDialog=Notice.card(this,Notice.State(Notice.Kind.LOADING,if(attaching) "Прикрепляю файл…" else if(uris.size==1) "Добавляю книгу…" else "Добавляю книги",if(uris.size==1) fileName(uris[0]) else "1 из ${uris.size}",blank=true,progress=if(uris.size>1) 0f else null))
+        val target=if(attaching) attachId else null
+        work({
+            val parsed=mutableListOf<Imported>(); val read=mutableListOf<Uri>(); val failures=mutableListOf<String>(); val known=mutableListOf<JSONObject>(); val existing=library.allBooks(); var mismatch=""
+            uris.forEachIndexed { i,uri -> try {
+                val name=fileName(uri)
+                runOnUiThread { if(uris.size>1) importDialog?.setProgress("Добавляю книги","${i+1} из ${uris.size} · $name",i/uris.size.toFloat()) }
+                var item=if(PageDocs.isPagesName(name)) PageDocs.import(this,uri,null,name) else { val bytes=readLimited(uri); val kind=TextFormats.kind(name,bytes.copyOf(minOf(bytes.size,128)))
+                    fun magic(m:String)=bytes.size>=m.length&&m.indices.all{bytes[it]==m[it].code.toByte()}
+                    if(magic("%PDF")||magic("Rar!")||magic("7z\u00bc\u00af")||(magic("PK")&&PageDocs.zipIsComic(bytes))) PageDocs.import(this,null,bytes,name) else if(kind!=null) TextFormats.parse(kind,bytes,name) else BookParser.parse(bytes,name) }
+                val old=if(target!=null) existing.firstOrNull { it.str("id")==target } else existing.firstOrNull { it.optBoolean("noFile") && it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) }
+                if(old!=null) {
+                    if(target!=null && (!old.str("title").equals(item.book.str("title"),true) || !authors(old).equals(authors(item.book),true))) mismatch="В файле: «${item.book.str("title")}», ${authors(item.book)}.\n\nПрикрепить его к «${old.str("title")}»?"
+                    val merged=item.book.copyJson().put("id",old.getString("id")).let{ BookShelves.put(it,BookShelves.of(old)) }
+                    listOf("quotes","notes","bookmarks","rating","review","reviewTags","reviewAt","rec","origin","addedAt","progress","openedAt","completedAt","state","startedAt","pos","coverChanged","title","authors","series","seriesNo","annotation","genres","lang").forEach { key -> if(old.has(key)) merged.put(key,old.get(key)) }
+                    item=Imported(merged,item.content.copyJson().put("id",old.getString("id")),item.assets)
+                } else if(shelf!=null) BookShelves.put(item.book,listOf(shelf!!))
+                val same=if(old==null) (existing+parsed.map { it.book }).firstOrNull { it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) && !it.optBoolean("noFile") } else null
+                if(same!=null) known.add(same) else parsed.add(item); read.add(uri)
+            } catch(e:Exception) { failures.add("${fileName(uri)}: ${e.message ?: "не удалось прочитать файл"}") } }
+            runOnUiThread {
+                val loader=importDialog; importDialog=null
+                fun commit(loader:Notice?) { work({ if(target!=null && parsed.isNotEmpty()) ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); if(parsed.isNotEmpty()) library.importBooks(parsed); loadData() },{ e -> val n=loader ?: Notice.card(this,Notice.State(Notice.Kind.LOADING,"",blank=true)); n.update(Notice.State(Notice.Kind.ERROR,if(uris.size==1) "Книга не добавлена" else "Книги не добавлены","Не удалось сохранить в библиотеку",blank=true)) }) {
+                    if(target==null) freshBookIds.addAll(parsed.map { it.book.str("id") })
+                    reader=null; gridMotion=true; refreshBookViews(target) { render(true,false) }; root.postDelayed({ freshBookIds.clear() },1500); checkpointSoon()
+                    val ids=parsed.map { it.book.str("id") }; val added=ids.mapNotNull { id -> books.firstOrNull { it.str("id")==id } }
+                    val details:()->Unit={ val lines=failures+known.map { "«${it.str("title")}»: уже в библиотеке" }; dialog().setTitle("Не добавлено").setMessage(lines.joinToString("\n\n")).setPositiveButton("Закрыть",null).show() }
+                    val reasons=listOfNotNull(failures.size.takeIf { it>0 }?.let { n -> if(n==1) "1 файл не удалось прочитать" else "$n ${fileWord(n)} не удалось прочитать" },known.size.takeIf { it>0 }?.let { n -> if(n==1) "1 уже в библиотеке" else "$n уже в библиотеке" }).joinToString(" · ")
+                    val state=when {
+                        target!=null && added.isNotEmpty() -> Notice.State(Notice.Kind.ATTACHED,"Файл прикреплён",added[0].str("title"),added)
+                        added.isEmpty() && failures.isEmpty() && known.size==1 -> known[0].let { k -> Notice.State(Notice.Kind.KNOWN,"Уже в библиотеке",k.str("title"),listOf(k),action="Открыть",onAction={ books.firstOrNull { it.str("id")==k.str("id") }?.let { detail(it) } }) }
+                        added.isEmpty() && failures.isEmpty() -> Notice.State(Notice.Kind.KNOWN,"Уже в библиотеке","Все ${countBooks(known.size)}",known)
+                        added.isEmpty() -> Notice.State(Notice.Kind.ERROR,if(uris.size==1) (if(attaching) "Файл не прикреплён" else "Книга не добавлена") else "Книги не добавлены",if(uris.size==1) "Не удалось прочитать файл" else reasons,blank=true,action="Подробнее",onAction=details)
+                        failures.isEmpty() && known.isEmpty() -> Notice.State(Notice.Kind.OK,if(added.size==1) "Книга добавлена" else "Добавлено ${countBooks(added.size)}",added.joinToString(", ") { it.str("title") },added)
+                        else -> Notice.State(Notice.Kind.PARTIAL,"Добавлено ${added.size} из ${uris.size}",reasons,added,action="Подробнее",onAction=details)
+                    }
+                    if(loader!=null) loader.update(state) else Notice.card(this,state)
+                    after?.invoke(read)
+                } }
+                if(mismatch.isNotBlank()) { loader?.dismiss(); confirm("Данные книги отличаются",mismatch) { commit(Notice.card(this,Notice.State(Notice.Kind.LOADING,"Прикрепляю файл…",blank=true))) } } else commit(loader)
+            }
+        })
+    }
     @Deprecated("Android activity result API") override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?) {
         super.onActivityResult(requestCode,resultCode,data)
         // the camera gives no data back: the photo is in the file it was given
@@ -634,51 +680,7 @@ class MainActivity : Activity() {
             17 -> data.data?.let { uri -> val file=pendingCalendarImage ?: return;work({contentResolver.openOutputStream(uri,"wt")!!.use{out->file.inputStream().use{it.copyTo(out)}}}) }
             15 -> data.data?.let { uri -> val id=coverTarget ?: return; work({ val bytes=readLimited(uri); require(BitmapFactory.decodeByteArray(bytes,0,bytes.size)!=null) { "Неверный формат изображения" }; val asset=uid(); library.db.runInTransaction { library.dao.putAsset(AssetRow(asset,contentResolver.getType(uri) ?: "image/jpeg",bytes)); val b=JSONObject(library.dao.book(id)!!.json).put("cover",JSONObject().put("__polkaBlob",asset)).put("coverChanged",true); library.save(b) }; loadData() }) { refreshBookViews(id) { render() } } }
             16 -> data.data?.let { uri -> val spec=pendingExport ?: return; work({ val bytes=if(spec.second=="doc") PageDocs.export(this,spec.first).second else BookExport.build(library,spec.first,spec.second); contentResolver.openOutputStream(uri,"wt")!!.use { it.write(bytes) } }) }
-            10,14 -> {
-                val uris=if(data.clipData!=null) (0 until data.clipData!!.itemCount).map { data.clipData!!.getItemAt(it).uri } else listOfNotNull(data.data)
-                val attaching=requestCode==14
-                importDialog=Notice.card(this,Notice.State(Notice.Kind.LOADING,if(attaching) "Прикрепляю файл…" else if(uris.size==1) "Добавляю книгу…" else "Добавляю книги",if(uris.size==1) fileName(uris[0]) else "1 из ${uris.size}",blank=true,progress=if(uris.size>1) 0f else null))
-                val target=if(attaching) attachId else null
-                work({
-                    val parsed=mutableListOf<Imported>(); val failures=mutableListOf<String>(); val known=mutableListOf<JSONObject>(); val existing=library.allBooks(); var mismatch=""
-                    uris.forEachIndexed { i,uri -> try {
-                        val name=fileName(uri)
-                        runOnUiThread { if(uris.size>1) importDialog?.setProgress("Добавляю книги","${i+1} из ${uris.size} · $name",i/uris.size.toFloat()) }
-                        var item=if(PageDocs.isPagesName(name)) PageDocs.import(this,uri,null,name) else { val bytes=readLimited(uri); val kind=TextFormats.kind(name,bytes.copyOf(minOf(bytes.size,128)))
-                            fun magic(m:String)=bytes.size>=m.length&&m.indices.all{bytes[it]==m[it].code.toByte()}
-                            if(magic("%PDF")||magic("Rar!")||magic("7z\u00bc\u00af")||(magic("PK")&&PageDocs.zipIsComic(bytes))) PageDocs.import(this,null,bytes,name) else if(kind!=null) TextFormats.parse(kind,bytes,name) else BookParser.parse(bytes,name) }
-                        val old=if(target!=null) existing.firstOrNull { it.str("id")==target } else existing.firstOrNull { it.optBoolean("noFile") && it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) }
-                        if(old!=null) {
-                            if(target!=null && (!old.str("title").equals(item.book.str("title"),true) || !authors(old).equals(authors(item.book),true))) mismatch="В файле: «${item.book.str("title")}», ${authors(item.book)}.\n\nПрикрепить его к «${old.str("title")}»?"
-                            val merged=item.book.copyJson().put("id",old.getString("id")).let{ BookShelves.put(it,BookShelves.of(old)) }
-                            listOf("quotes","notes","bookmarks","rating","review","reviewTags","reviewAt","rec","origin","addedAt","progress","openedAt","completedAt","state","startedAt","pos","coverChanged","title","authors","series","seriesNo","annotation","genres","lang").forEach { key -> if(old.has(key)) merged.put(key,old.get(key)) }
-                            item=Imported(merged,item.content.copyJson().put("id",old.getString("id")),item.assets)
-                        } else if(shelf!=null) BookShelves.put(item.book,listOf(shelf!!))
-                        val same=if(old==null) (existing+parsed.map { it.book }).firstOrNull { it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) && !it.optBoolean("noFile") } else null
-                        if(same!=null) known.add(same) else parsed.add(item)
-                    } catch(e:Exception) { failures.add("${fileName(uri)}: ${e.message ?: "не удалось прочитать файл"}") } }
-                    runOnUiThread {
-                        val loader=importDialog; importDialog=null
-                        fun commit(loader:Notice?) { work({ if(target!=null && parsed.isNotEmpty()) ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); if(parsed.isNotEmpty()) library.importBooks(parsed); loadData() },{ e -> val n=loader ?: Notice.card(this,Notice.State(Notice.Kind.LOADING,"",blank=true)); n.update(Notice.State(Notice.Kind.ERROR,if(uris.size==1) "Книга не добавлена" else "Книги не добавлены","Не удалось сохранить в библиотеку",blank=true)) }) {
-                            if(target==null) freshBookIds.addAll(parsed.map { it.book.str("id") })
-                            reader=null; gridMotion=true; refreshBookViews(target) { render(true,false) }; root.postDelayed({ freshBookIds.clear() },1500); checkpointSoon()
-                            val ids=parsed.map { it.book.str("id") }; val added=ids.mapNotNull { id -> books.firstOrNull { it.str("id")==id } }
-                            val details:()->Unit={ val lines=failures+known.map { "«${it.str("title")}»: уже в библиотеке" }; dialog().setTitle("Не добавлено").setMessage(lines.joinToString("\n\n")).setPositiveButton("Закрыть",null).show() }
-                            val reasons=listOfNotNull(failures.size.takeIf { it>0 }?.let { n -> if(n==1) "1 файл не удалось прочитать" else "$n ${fileWord(n)} не удалось прочитать" },known.size.takeIf { it>0 }?.let { n -> if(n==1) "1 уже в библиотеке" else "$n уже в библиотеке" }).joinToString(" · ")
-                            val state=when {
-                                target!=null && added.isNotEmpty() -> Notice.State(Notice.Kind.ATTACHED,"Файл прикреплён",added[0].str("title"),added)
-                                added.isEmpty() && failures.isEmpty() && known.size==1 -> known[0].let { k -> Notice.State(Notice.Kind.KNOWN,"Уже в библиотеке",k.str("title"),listOf(k),action="Открыть",onAction={ books.firstOrNull { it.str("id")==k.str("id") }?.let { detail(it) } }) }
-                                added.isEmpty() && failures.isEmpty() -> Notice.State(Notice.Kind.KNOWN,"Уже в библиотеке","Все ${countBooks(known.size)}",known)
-                                added.isEmpty() -> Notice.State(Notice.Kind.ERROR,if(uris.size==1) (if(attaching) "Файл не прикреплён" else "Книга не добавлена") else "Книги не добавлены",if(uris.size==1) "Не удалось прочитать файл" else reasons,blank=true,action="Подробнее",onAction=details)
-                                failures.isEmpty() && known.isEmpty() -> Notice.State(Notice.Kind.OK,if(added.size==1) "Книга добавлена" else "Добавлено ${countBooks(added.size)}",added.joinToString(", ") { it.str("title") },added)
-                                else -> Notice.State(Notice.Kind.PARTIAL,"Добавлено ${added.size} из ${uris.size}",reasons,added,action="Подробнее",onAction=details)
-                            }
-                            if(loader!=null) loader.update(state) else Notice.card(this,state)
-                        } }
-                        if(mismatch.isNotBlank()) { loader?.dismiss(); confirm("Данные книги отличаются",mismatch) { commit(Notice.card(this,Notice.State(Notice.Kind.LOADING,"Прикрепляю файл…",blank=true))) } } else commit(loader)
-                    }
-                })
-            }
+            10,14 -> importUris(if(data.clipData!=null) (0 until data.clipData!!.itemCount).map { data.clipData!!.getItemAt(it).uri } else listOfNotNull(data.data),requestCode==14)
             11 -> data.data?.let { uri -> confirm("Восстановить библиотеку?","Текущая библиотека будет заменена. Перед заменой сохранится локальная точка восстановления.") { work({ val temp=File(cacheDir,"restore-input.polka"); try { contentResolver.openInputStream(uri)!!.use { input -> temp.outputStream().use { input.copyTo(it) } }; ArchiveIO.restore(applicationContext,library,temp) { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety") }; loadData() } finally { temp.delete() } }) { initialized=true; reader=null; shelf=null; auto=null; render(); checkpointSoon() } } }
             12 -> data.data?.let { uri -> work({
                 val temp=File(cacheDir,"export.polka"); try { ArchiveIO.write(library,temp,File(filesDir,"docs")); contentResolver.openOutputStream(uri,"wt")!!.use { out -> FileInputStream(temp).use { it.copyTo(out) } }; getSharedPreferences("health",0).edit().putLong("exportedAt",System.currentTimeMillis()).apply() } finally { temp.delete() }
@@ -693,7 +695,7 @@ class MainActivity : Activity() {
     @Deprecated("Back dispatcher") override fun onBackPressed() { when { bookClosing -> Unit; goalRoad!=null -> goalRoad?.back(); tierList!=null && bookDetailSheet?.isShowing!=true -> tierList?.back(); addMenu!=null -> addMenu?.close(); shelvesEditing && reader==null -> { shelvesTopBarLabel?.performClick() }; bookCalendar?.isShowing==true -> bookCalendar?.dismiss(); shelfReorder!=null -> { shelfReorder?.cancel();flushDeferredRender() };bookDetailSheet?.isShowing==true -> bookDetailSheet?.dismiss();wordPage!=null -> closeWord(); settingsPage!=null -> closeSettings(); profileOverlay!=null -> dismissProfile(); reader!=null -> closeReader(); searchOpen || query.isNotBlank() -> librarySearch?.close(); shelf!=null || auto!=null -> leaveShelf(); query.isNotBlank() -> { query=""; render() }; tab!="home" -> { tab="home"; render() }; else -> super.onBackPressed() } }
     override fun onSaveInstanceState(out:Bundle) { reader?.save(); out.putString("calendarImage",pendingCalendarImage?.name); out.putString("attachId",attachId); out.putString("coverTarget",coverTarget); pendingExport?.let { out.putString("exportId",it.first.str("id")); out.putString("exportFormat",it.second) }; out.putString("tab",tab); out.putString("shelf",shelf); out.putString("auto",auto); out.putString("query",query); out.putBoolean("searchOpen",searchOpen); reader?.let { out.putString("readerId",it.book.str("id")) }; super.onSaveInstanceState(out) }
     override fun onPause() { shelfReorder?.cancel();screenMotion.stop();root.childrenOpening()?.finish();reader?.pause();pageReading?.pause(); super.onPause() }
-    override fun onResume() { super.onResume(); pageReading?.resume(); if(reader!=null)reader?.resume() else if(::root.isInitialized){ReaderWindow.configure(window,false,bg);root.requestApplyInsets()} }
+    override fun onResume() { super.onResume(); pageReading?.resume(); if(reader!=null)reader?.resume() else if(::root.isInitialized){ReaderWindow.configure(window,false,bg);root.requestApplyInsets()}; if(bootFinished)phoneScanResumed() }
     /** The extra keyboard trigger: when the app's window gets the focus back (a sheet or dialog over it has closed) and
      *  a text field of the page still holds the view focus — for one, a search field keeps it invisibly after its
      *  search closed — Android shows the keyboard for that field by itself (adjustResize + a focused text editor), and

@@ -84,6 +84,9 @@ class PolkaSheetBuilder(private val a:MainActivity) {
     fun setTitle(s:CharSequence)=apply { title=s.toString() }
     fun setMessage(s:CharSequence)=apply { message=s.toString() }
     fun setView(v:View)=apply { view=v }
+    /** Stays at the foot of the sheet while the content scrolls above it (a button for a long list). */
+    private var footer:View?=null
+    fun setFooter(v:View)=apply { footer=v }
     fun setCancelable(c:Boolean)=apply { cancel=c }
     fun setItems(v:Array<out CharSequence>,callback:(DialogInterface,Int)->Unit)=apply { items=v; onItem=callback }
     fun setMultiChoiceItems(v:Array<out CharSequence>,checks:BooleanArray,callback:(DialogInterface,Int,Boolean)->Unit)=apply { items=v; checked=checks; onCheck=callback }
@@ -170,7 +173,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 motion=SheetMotion{value->moveSheet(value)}
                 val handle=FrameLayout(a).apply { addView(View(a).apply { background=a.shape(if(a.light) 0xffcccccc.toInt() else 0xff424244.toInt(),4) },FrameLayout.LayoutParams(a.d(38),a.d(5),Gravity.CENTER)) }
                 box.addView(handle,LinearLayout.LayoutParams(-1,a.d(18)))
-                val head=FrameLayout(a); head.addView(a.text(title,17f,bold=true).apply { gravity=Gravity.CENTER },FrameLayout.LayoutParams(-1,a.d(48)))
+                val head=FrameLayout(a); head.addView(a.text(title,17f,bold=true).apply { gravity=Gravity.CENTER;tag="sheet-title" },FrameLayout.LayoutParams(-1,a.d(48)))
                 if(cancel) head.addView(IconView(a,"x",a.muted).apply { a.controlSurface(this,24f);a.press(this);contentDescription="Закрыть"; setOnClickListener { dismiss() } },FrameLayout.LayoutParams(a.d(32),a.d(32),Gravity.END or Gravity.CENTER_VERTICAL).apply { rightMargin=a.d(12) })
                 if(!bare) box.addView(head)
                 val content=a.column().apply { setPadding(a.d(20),a.d(6),a.d(20),a.d(24)) }
@@ -196,6 +199,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 negative?.let { (s,fn) -> a.space(content,8); content.addView(a.button(s) { dismiss(); fn?.invoke(this,-2) }) }
                 val scroller=SheetScroll(a,if(a.light) 0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()).apply { isFillViewport=false; addView(content) }
                 box.addView(scroller,if(tall)LinearLayout.LayoutParams(-1,0,1f)else LinearLayout.LayoutParams(-1,-2))
+                footer?.let { f -> (f.parent as? ViewGroup)?.removeView(f); f.tag="sheet-footer"; box.addView(f,LinearLayout.LayoutParams(-1,-2)) }
                 val frame=PolkaSheetFrame(a,box,tall,wide).apply {
                     isClickable=true
                     setOnClickListener { if(cancel)dismiss() }
@@ -291,7 +295,10 @@ internal class PolkaSheetFrame(private val a:MainActivity,internal val panel:Lin
         // the bar is a padding inside the list, not an empty band under the sheet)
         val runDown=tall&&!wide
         panel.setPadding(if(wide)0 else value.left,0,if(wide)0 else value.right,if(wide||runDown)0 else value.bottom)
-        if(runDown)for(i in 0 until panel.childCount)(panel.getChildAt(i) as? SheetScroll)?.let{it.clipToPadding=false;it.setPadding(it.paddingLeft,it.paddingTop,it.paddingRight,value.bottom)}
+        // a button kept at the foot takes the room for the gesture bar instead of the list
+        val footer=(0 until panel.childCount).map{panel.getChildAt(it)}.firstOrNull{it.tag=="sheet-footer"}
+        if(runDown)for(i in 0 until panel.childCount)(panel.getChildAt(i) as? SheetScroll)?.let{it.clipToPadding=false;it.setPadding(it.paddingLeft,it.paddingTop,it.paddingRight,if(footer!=null)0 else value.bottom)}
+        if(runDown&&footer!=null)footer.setPadding(footer.paddingLeft,footer.paddingTop,footer.paddingRight,a.d(16)+value.bottom)
         requestLayout()
     }
     override fun onMeasure(widthSpec:Int,heightSpec:Int) {

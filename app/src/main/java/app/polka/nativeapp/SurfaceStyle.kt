@@ -138,7 +138,9 @@ internal object FloatShade{
  /** Sizes in steps (8dp, 2dp for small things), so a thing that grows is not baked again every frame; the picture is
   *  stretched the few pixels to it, which no soft shade shows. */
  private fun step(a:MainActivity,v:Float):Int{val q=a.d(if(v<a.d(64))2 else 8);return max(q,((v/q).roundToInt())*q)}
- fun draw(c:Canvas,a:MainActivity,r:RectF,radius:Float,light:Boolean,opacity:Int=255,dither:Boolean=false,lift:Lift=Lift.REST){if(r.width()<2||r.height()<2||opacity<=0)return;val w=step(a,r.width());val h=step(a,r.height())
+ /** [bakeAs]: the size the shade is made for, when it differs from [r] (a surface changing shape crossfades the shades
+  *  of its two ends, each stretched to it, instead of making a new one every frame). */
+ fun draw(c:Canvas,a:MainActivity,r:RectF,radius:Float,light:Boolean,opacity:Int=255,dither:Boolean=false,lift:Lift=Lift.REST,bakeAs:RectF?=null){if(r.width()<2||r.height()<2||opacity<=0)return;val src=bakeAs?:r;val w=step(a,src.width());val h=step(a,src.height())
   bake(a,w,h,light,dither,lift,"r${(radius*10).toInt()}"){cc,pp,to->val tuck=(w-to.width())/2f;val rr=(radius-tuck).coerceIn(0f,min(to.width(),to.height())/2f);cc.drawRoundRect(to,rr,rr,pp)}?.let{put(c,it,r,opacity)}}
  /** [key]: what the shape is (a path made anew with the same shape keeps its baked shade); [dither] as in [draw]. */
  fun drawPath(c:Canvas,a:MainActivity,path:Path,light:Boolean,opacity:Int=255,up:Boolean=false,lift:Lift=Lift.FLOAT,dither:Boolean=false,key:String?=null){val r=RectF();path.computeBounds(r,true);if(r.width()<2||r.height()<2||opacity<=0)return;val w=step(a,r.width());val h=step(a,r.height())

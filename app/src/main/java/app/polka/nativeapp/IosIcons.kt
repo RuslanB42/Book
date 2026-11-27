@@ -44,6 +44,7 @@ internal object IosIcons {
     "sliders" to listOf(Op(false,false,1.75f,true,"M10 5 H3 M12 19 H3 M14 3 v4 M16 17 v4 M21 12 h-9 M21 19 h-5 M21 5 h-7 M8 10 v4 M8 12 H3",null)),
     "share" to listOf(Op(false,false,1.75f,true,"M12 2 v13 M16 6 l-4 -4 -4 4 M4 12 v8 a2 2 0 0 0 2 2 h12 a2 2 0 0 0 2 -2 v-8",null)),
     "download" to listOf(Op(false,false,1.75f,true,"M12 15 V3 M21 15 v4 a2 2 0 0 1 -2 2 H5 a2 2 0 0 1 -2 -2 v-4 M7 10 l5 5 5 -5",null)),
+    "fsearch" to listOf(Op(false,false,1.75f,true,"M10.7 20 H4 a2 2 0 0 1 -2 -2 V5 a2 2 0 0 1 2 -2 h3.9 a2 2 0 0 1 1.69 .9 l.81 1.2 a2 2 0 0 0 1.67 .9 H20 a2 2 0 0 1 2 2 v4.1 M14 17 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0 M21 21 l-1.9 -1.9",null)),
     "expand" to listOf(Op(false,false,1.75f,true,"M15 3 h6 v6 M21 3 l-7 7 M3 21 l7 -7 M9 21 H3 v-6",null)),
     "camera" to listOf(Op(false,false,1.75f,true,"M14.5 4 h-5 L7 7 H4 a2 2 0 0 0 -2 2 v9 a2 2 0 0 0 2 2 h16 a2 2 0 0 0 2 -2 V9 a2 2 0 0 0 -2 -2 h-3 z M9 13 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0",null)),
     "image" to listOf(Op(false,false,1.75f,true,"M5 3 h14 a2 2 0 0 1 2 2 v14 a2 2 0 0 1 -2 2 H5 a2 2 0 0 1 -2 -2 V5 a2 2 0 0 1 2 -2 z M7 9 a2 2 0 1 0 4 0 a2 2 0 1 0 -4 0 M21 15 l-3.086 -3.086 a2 2 0 0 0 -2.828 0 L6 21",null)),

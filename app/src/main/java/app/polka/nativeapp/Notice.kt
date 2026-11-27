@@ -24,7 +24,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
     enum class Kind(val color:Int,val glyph:String){
         LOADING(0xfff0a742.toInt(),""),OK(0xff34b866.toInt(),"check"),PARTIAL(0xfff0a742.toInt(),"bang"),ERROR(0xffef5b4c.toInt(),"x"),
         KNOWN(0xff6e6e74.toInt(),"book"),ATTACHED(0xff4cb0e5.toInt(),"clip"),DELETED(0xffef5b4c.toInt(),"trash"),
-        COPIED(0xfff0a742.toInt(),"copy"),INFO(0xff8e8e94.toInt(),"info"),SHELF(0xff8e8e94.toInt(),"shelf")}
+        COPIED(0xfff0a742.toInt(),"copy"),INFO(0xff8e8e94.toInt(),"info"),SHELF(0xff8e8e94.toInt(),"shelf"),FOUND(0xff5b8def.toInt(),"folder")}
     class State(val kind:Kind,val title:String,val sub:String="",val books:List<JSONObject> =emptyList(),val blank:Boolean=false,
                 val action:String?=null,val onAction:(()->Unit)?=null,val progress:Float?=null,val faded:Boolean=false)
 
@@ -150,7 +150,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
     fun setProgress(text:String,subtitle:String,fraction:Float?){val s=state?:return
         if(s.title!=text)update(State(s.kind,text,subtitle,s.books,s.blank,s.action,s.onAction,fraction)) else{state=State(s.kind,text,subtitle,s.books,s.blank,s.action,s.onAction,fraction);bar.to(fraction,!reduced)}}
 
-    private fun stay(k:Kind)=when(k){Kind.LOADING->0L;Kind.ERROR,Kind.PARTIAL,Kind.KNOWN->4500L;Kind.DELETED->5000L;else->if(compact)1900L else 2600L}
+    private fun stay(k:Kind)=when(k){Kind.LOADING->0L;Kind.ERROR,Kind.PARTIAL,Kind.KNOWN->4500L;Kind.DELETED->5000L;Kind.FOUND->7000L;else->if(compact)1900L else 2600L}
     private fun schedule(){card.removeCallbacks(hide);val ms=stay(state?.kind?:return);if(ms>0)card.postDelayed(hide,ms)}
 
     /** One short «no» of the head. */
@@ -280,6 +280,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
             "trash"->{p.moveTo(5f,7f);p.lineTo(19f,7f);p.moveTo(10f,7f);p.lineTo(10f,5.5f);p.lineTo(14f,5.5f);p.lineTo(14f,7f);p.moveTo(7f,7f);p.lineTo(7.8f,19f);p.lineTo(16.2f,19f);p.lineTo(17f,7f)}
             "copy"->{p.addRoundRect(9f,9f,19f,20f,2.4f,2.4f,Path.Direction.CW);p.moveTo(15f,9f);p.lineTo(15f,6.5f);p.quadTo(15f,4.5f,13f,4.5f);p.lineTo(6.5f,4.5f);p.quadTo(4.5f,4.5f,4.5f,6.5f);p.lineTo(4.5f,14f);p.quadTo(4.5f,16f,6.5f,16f);p.lineTo(9f,16f)}
             "info"->{p.moveTo(12f,11f);p.lineTo(12f,17f);p.moveTo(12f,7.2f);p.lineTo(12f,7.3f)}
+            "folder"->{p.moveTo(5f,16.8f);p.lineTo(5f,7.6f);p.quadTo(5f,6.2f,6.4f,6.2f);p.lineTo(9.6f,6.2f);p.lineTo(11.2f,8f);p.lineTo(17.6f,8f);p.quadTo(19f,8f,19f,9.4f);p.lineTo(19f,16.8f);p.quadTo(19f,18.2f,17.6f,18.2f);p.lineTo(6.4f,18.2f);p.quadTo(5f,18.2f,5f,16.8f)}
             "shelf"->{p.moveTo(4f,19f);p.lineTo(20f,19f);p.moveTo(7f,19f);p.lineTo(7f,8f);p.moveTo(11f,19f);p.lineTo(11f,5f);p.moveTo(15.5f,19f);p.lineTo(13f,8f);p.lineTo(16f,7.3f);p.lineTo(18.5f,18.3f)}}}
     }
     /** A thin progress line along the card's foot, clipped by its rounded corners. */
