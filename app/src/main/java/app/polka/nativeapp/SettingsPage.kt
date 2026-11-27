@@ -23,11 +23,12 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     val muted2=if(light)0xff6e6e73.toInt() else 0xffa4a4a4.toInt()
     val pill=if(light)0x0e000000 else 0x12ffffff
     fun group(title:String,top:Int=26){content.addView(text(title,13f,muted2).apply{setPadding(d(4),0,0,0)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(top);bottomMargin=d(10)})}
-    // head: back, then a large serif title
-    // head: the title stands right beside the back button, on one line
+    // head: back, and the large serif title centred on the page (an empty place the back button's size on the right
+    // keeps it in the middle), as the greeting on the statistics
     val head=line().apply{gravity=Gravity.CENTER_VERTICAL}
     head.addView(icon("back","Назад"){closeSettings()},LinearLayout.LayoutParams(d(44),d(44)))
-    head.addView(text("Настройки",26f,fg,true,serif=true).apply{setPadding(d(6),0,0,0)},LinearLayout.LayoutParams(0,-2,1f))
+    head.addView(text("Настройки",26f,fg,true,serif=true).apply{gravity=Gravity.CENTER;maxLines=1},LinearLayout.LayoutParams(0,-2,1f))
+    head.addView(View(this),LinearLayout.LayoutParams(d(44),d(44)))
     content.addView(head,LinearLayout.LayoutParams(-1,-2))
     // appearance
     group("Оформление",20)

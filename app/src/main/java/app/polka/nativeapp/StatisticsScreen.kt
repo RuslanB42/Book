@@ -69,23 +69,24 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private val entrance=mutableListOf<View>()
     /** Where the cards go: the part under the switch. */
     private val section=a.column().apply{clipChildren=false;clipToPadding=false}
-    private fun add(card:View){entrance.add(card);section.addView(card,LinearLayout.LayoutParams(-1,-2));space(section,12)}
+    private fun add(card:View){entrance.add(card);section.addView(card,LinearLayout.LayoutParams(-1,-2));space(section,16)}
     /** Small caps label at the top of a widget («СЕРИЯ», «СКОРОСТЬ»…). */
     private fun kicker(s:String)=label(s.uppercase(),11.5f,if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt(),true).apply{letterSpacing=.06f}
-    /** «Добрый вечер» and today's date between Back and Settings. */
+    /** «Добрый вечер» and today's date, centred between Back and Settings. */
     private fun greeting():View{val h=java.time.LocalTime.now().hour
         val hello=when(h){in 5..11->"Доброе утро";in 12..16->"Добрый день";in 17..22->"Добрый вечер";else->"Доброй ночи"}
         val date=today.format(DateTimeFormatter.ofPattern("d MMMM, EEEE",ru))
-        return a.column().apply{setPadding(a.d(12),0,a.d(8),0);addView(label(date,12.5f));addView(a.text(hello,26f,a.fg,true,serif=true).apply{maxLines=1})}}
+        return a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(a.d(8),0,a.d(8),0)
+            addView(label(date,12.5f).apply{gravity=Gravity.CENTER});addView(a.text(hello,26f,a.fg,true,serif=true).apply{maxLines=1;gravity=Gravity.CENTER})}}
     private fun daysWord(n:Int)=if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
     fun show() {
         val extra=max(0,(a.resources.configuration.screenWidthDp-640)/2)
-        scroll.clipToPadding=false;a.followInsets(content) { i->scroll.setPadding(0,i.top,0,0);content.setPadding(a.d(16+extra)+i.left,a.d(8),a.d(16+extra)+i.right,a.d(40)+i.bottom) }
+        scroll.clipToPadding=false;a.followInsets(content) { i->scroll.setPadding(0,i.top,0,0);content.setPadding(a.d(20+extra)+i.left,a.d(8),a.d(20+extra)+i.right,a.d(40)+i.bottom) }
         scroll.setBackgroundColor(a.bg);scroll.elevation=a.d(20).toFloat();scroll.clipChildren=false;scroll.addView(content);a.root.addView(scroll,FrameLayout.LayoutParams(-1,-1));a.profileOverlay=scroll
         val head=a.line();head.addView(a.icon("back","Назад"){a.dismissProfile()},LinearLayout.LayoutParams(a.d(44),a.d(44)));head.addView(greeting(),LinearLayout.LayoutParams(0,-2,1f));head.addView(a.icon("settings","Настройки"){a.settings()},LinearLayout.LayoutParams(a.d(44),a.d(44)));content.addView(head)
-        space(content,8)
+        space(content,16)
         content.addView(PeriodPills(a,listOf("Книги","Комиксы"),if(comics)1 else 0,stretch=true){i->switchTo(if(i==1)ReadingStatistics.COMICS else ReadingStatistics.BOOKS)},LinearLayout.LayoutParams(-1,-2))
-        space(content,12)
+        space(content,16)
         content.addView(section,LinearLayout.LayoutParams(-1,-2))
         cards()
         if(!motionOn)return
@@ -195,7 +196,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val box=surface()
         val trend=more.trend()?.takeIf{abs(it)>=1}
         headRow(box,"Скорость",trend?.let{t->label("${if(t>0)"+" else "−"}${abs(t)}% за месяц",11.5f,if(t>0)mint else rose,true)})
-        space(box,10)
+        space(box,14)
         box.addView(if(model.speed>0)bigCount(model.speed," слов в минуту",40f,.4f) else big("—",40f))
         space(box,4)
         box.addView(label(more.pageSeconds()?.let{"страница в среднем за ${pageTime(it)}"}?:"появится после пары минут чтения",12.5f))
@@ -217,7 +218,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val names=listOf("Неделя","Месяц","Год")
         lateinit var bind:(Boolean)->Unit
         headRow(box,"Время чтения",PeriodPills(a,names,period){i->period=i;a.profileRange=i;bind(false)})
-        space(box,10)
+        space(box,14)
         val left=a.column();box.addView(left)
         val chart=EdgeLine(a,if(comics)orange else violet,live)
         fun minutes(ms:Long)=(ms/60000.0).toFloat()
@@ -276,11 +277,11 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             p.addView(a.text(name,13f,if(warm)a.fg else (if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt())).apply{maxLines=1},LinearLayout.LayoutParams(-2,-2,1f))
             p.addView(a.text(figure,13f,if(light)0x99000000.toInt() else 0x80ffffff.toInt()).apply{maxLines=1;setPadding(a.d(12),0,0,0)})
             row.addView(p)}
-        if(genres.isNotEmpty()){space(box,if(author!=null)22 else 14);box.addView(label("Жанры",12.5f));space(box,10)
+        if(genres.isNotEmpty()){space(box,if(author!=null)22 else 16);box.addView(label("Жанры",12.5f));space(box,10)
             val colors=listOf(violet,blue,mint);val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
             genres.take(3).forEachIndexed{i,(name,pct)->chip(row,name,"$pct%",colors[i])}
             box.addView(row,LinearLayout.LayoutParams(-1,-2))}
-        if(decades.isNotEmpty()){space(box,if(author!=null||genres.isNotEmpty())22 else 14);box.addView(label("Время написания",12.5f));space(box,10)
+        if(decades.isNotEmpty()){space(box,if(author!=null||genres.isNotEmpty())22 else 16);box.addView(label("Время написания",12.5f));space(box,10)
             val warm=if(light)0xffc87600.toInt() else 0xfff0a83a.toInt();val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
             decades.take(4).forEachIndexed{i,(d,n)->chip(row,"$d-е","$n ${booksWord(n)}",if(i==0)warm else (if(light)0xff000000.toInt() else 0xffffffff.toInt()),i==0)}
             box.addView(row,LinearLayout.LayoutParams(-1,-2))}
@@ -300,7 +301,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun series(){
         val list=more.seriesInProgress().take(5);if(list.isEmpty())return
         val box=surface();box.addView(kicker("Серии"))
-        list.forEachIndexed{i,s->space(box,if(i==0)14 else 16)
+        list.forEachIndexed{i,s->space(box,16)
             val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
             row.addView(stack(s,36,54,9),LinearLayout.LayoutParams(a.d(54),a.d(58)).apply{marginEnd=a.d(14)})
             val col=a.column();val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
@@ -334,11 +335,11 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             p.addView(a.text(name,13f,if(warm)a.fg else (if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt())).apply{maxLines=1},LinearLayout.LayoutParams(-2,-2,1f))
             p.addView(a.text(figure,13f,if(light)0x99000000.toInt() else 0x80ffffff.toInt()).apply{maxLines=1;setPadding(a.d(12),0,0,0)})
             row.addView(p)}
-        manga?.let{(c,m)->space(box,if(box.childCount>1)22 else 14);box.addView(label("Что читаешь",12.5f));space(box,10)
+        manga?.let{(c,m)->space(box,if(box.childCount>1)22 else 16);box.addView(label("Что читаешь",12.5f));space(box,10)
             val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
             val first=c>=m;tag(row,"Комиксы","$c%",orange,first);tag(row,"Манга","$m%",violet,!first)
             box.addView(row,LinearLayout.LayoutParams(-1,-2))}
-        if(issue!=null||page!=null){space(box,if(box.childCount>1)22 else 14);box.addView(label("Темп",12.5f));space(box,10)
+        if(issue!=null||page!=null){space(box,if(box.childCount>1)22 else 16);box.addView(label("Темп",12.5f));space(box,10)
             val tiles=a.line()
             fun tile(value:String,what:String){val t=a.column().apply{background=pill(quiet,14);setPadding(a.d(12),a.d(10),a.d(10),a.d(10))}
                 t.addView(a.text(value,18f,a.fg,true,serif=true).apply{maxLines=1});t.addView(label(what,11.5f).apply{maxLines=1;setPadding(0,a.d(3),0,0)})
@@ -370,7 +371,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val fast=more.fastestBook();val sitting=more.longestSession();val day=more.bestDay()
         if(fast==null&&sitting==null&&day==null)return
         val box=surface();box.addView(kicker("Рекорды"))
-        fun row(lead:View,title:String,value:String,side:String){space(box,if(box.childCount==1)16 else 16)
+        fun row(lead:View,title:String,value:String,side:String){space(box,16)
             val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL};r.addView(lead,LinearLayout.LayoutParams(a.d(44),a.d(44)).apply{marginEnd=a.d(14)})
             val t=a.column();t.addView(label(title,12.5f));t.addView(a.text(value,19f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)});r.addView(t,LinearLayout.LayoutParams(0,-2,1f))
             if(side.isNotBlank())r.addView(label(side,12.5f).apply{gravity=Gravity.END},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)});box.addView(r)}
@@ -402,7 +403,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             if(list.isEmpty()&&target<=0){space(box,16);box.addView(a.emptyGoal(today.year),LinearLayout.LayoutParams(-1,-2));return}
             space(box,16);box.addView(a.yearTiles(list,target,false),LinearLayout.LayoutParams(-1,-2))
             // the latest books in one row, newest first
-            if(list.isNotEmpty()){val gap=9;val w=((a.resources.configuration.screenWidthDp-32-36-gap*4)/5).coerceAtMost(72)
+            if(list.isNotEmpty()){val gap=9;val w=((a.resources.configuration.screenWidthDp-40-36-gap*4)/5).coerceAtMost(72)
                 // the covers stay on one line even when a cell has more under it
                 val row=a.line().apply{clipChildren=false;clipToPadding=false;gravity=Gravity.TOP}
                 list.sortedByDescending{it.end}.take(5).forEach{yb->row.addView(a.yearBookCell(yb,a.d(w)),LinearLayout.LayoutParams(-2,-2).apply{if(row.childCount>0)marginStart=a.d(gap)})}
@@ -426,7 +427,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 addView(Glyph(a,"expand",a.fg),FrameLayout.LayoutParams(a.d(15),a.d(15),Gravity.CENTER));a.press(this)},LinearLayout.LayoutParams(a.d(34),a.d(34)))
             box.addView(top);space(box,8)
             val list=Tiers.books(model,y)
-            val fit=((a.resources.configuration.screenWidthDp-32-36-24-16)/48).coerceIn(3,8)
+            val fit=((a.resources.configuration.screenWidthDp-40-36-24-16)/48).coerceIn(3,8)
             // approved: only the tiers that have books (all five while nothing is rated yet)
             val any=list.any{Tiers.of(it) in 0..4}
             for(k in 0..4){val inTier=Tiers.sorted(list.filter{Tiers.of(it)==k});if(any&&inTier.isEmpty())continue
