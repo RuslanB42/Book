@@ -72,7 +72,9 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
     private fun card(i:Int):View=a.quoteCardNative(book,list[i],onOpen?.let{f->{f(list[i])}}).apply{
         val r=a.d(24).toFloat()
         outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){val h=((view.tag as? Int)?:view.height).coerceAtMost(view.height);o.setRoundRect(0,0,view.width,maxOf(h,1),r)}}
-        clipToOutline=true}.also{quoteOf[it]=i}
+        // the face and its shade end at the shown height (the words are kept above it by [fit]); a clip to the outline
+        // would cut the shade off
+        val v=this;(background as? QuoteSurface)?.visible={v.tag as? Int}}.also{quoteOf[it]=i}
 
     /**
      * The fan (approved «карточка уходит под веер»). The sheets under the card are real quote cards — the next quotes —
@@ -111,7 +113,7 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
         override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){for(i in 0 until childCount){val c=getChildAt(i);c.layout(0,0,r-l,c.measuredHeight);fit(c);c.invalidateOutline()};pose(lift)}
         /** The footer (the rule and the row with the buttons) always sits at the bottom edge of the shown height, whole;
          *  when the card shows less than its full height, the quote's text slides under the rule instead. */
-        private fun fit(v:View){val g=v as? ViewGroup?:return;if(g.childCount<3)return
+        private fun fit(v:View){v.invalidate();val g=v as? ViewGroup?:return;if(g.childCount<3)return
             val shown=(g.tag as? Int)?:g.height;val foot=g.getChildAt(g.childCount-1);val rule=g.getChildAt(g.childCount-2)
             val shift=(shown-(foot.bottom+g.paddingBottom)).toFloat();foot.translationY=shift;rule.translationY=shift
             val limit=rule.top+shift.toInt()-a.d(6)
@@ -125,7 +127,9 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             fun e(s:Int):Float{return a.d(if(s<0)(if(a.light)8 else 10) else if(s==0)(if(a.light)4 else 6) else 3).toFloat()}
             val to=slot-1;v.pivotX=v.width/2f;v.pivotY=((v.tag as? Int)?:v.height)/2f
             v.rotation=r(slot)+(r(to)-r(slot))*p;v.translationX=x(slot)+(x(to)-x(slot))*p;v.translationY=y(slot)+(y(to)-y(slot))*p
-            v.elevation=e(slot)+(e(to)-e(slot))*p.coerceIn(0f,1f);v.translationZ=-a.d(1)*(slot+1-p)}
+            v.elevation=e(slot)+(e(to)-e(slot))*p.coerceIn(0f,1f);v.translationZ=-a.d(1)*(slot+1-p)
+            // lighter as it rises toward the top
+            (v.background as? QuoteSurface)?.depth=slot+1-p}
         /** [p] (0..1, may overshoot a little) moves every sheet one place forward. The sheets keep the card's height and
          *  stay blank, so nothing shows from under the card or below the deck while it is dragged. */
         private fun pose(p:Float){lift=p;val h=(front.tag as? Int)?:front.height;for(k in 1 until cards.size){val v=cards[k]
@@ -199,7 +203,7 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
                         addUpdateListener{val t=it.animatedValue as Float
                             old.pivotX=old.width/2f;old.pivotY=((old.tag as? Int)?:old.height)/2f
                             old.translationX=outX+(fanX[back]-outX)*t;old.translationY=outY+(fanY[back]-outY)*t;old.rotation=outR+(fanRot[back]-outR)*t
-                            reveal=(t/.3f).coerceIn(0f,1f)
+                            reveal=(t/.3f).coerceIn(0f,1f);(old.background as? QuoteSurface)?.depth=(back+1)*t
                             pose(lp+(1f-lp)*settle.getInterpolation(t))}
                         addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){finish()}});start()}}});start()}
         }

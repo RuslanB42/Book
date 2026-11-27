@@ -26,10 +26,44 @@ internal fun MainActivity.floatCard(v:View,radiusDp:Int=24,color:Int=if(light)Co
     // faded without an offscreen layer: a layer is cut to the card, and so would be its shade
     v.forceHasOverlappingRendering(false)
 }
+/**
+ * A quote card's face (approved «тон и кромка»): in a pile a card is lighter the higher it lies ([depth] 0 is the
+ * card on top, 1 and 2 the sheets under it; between them while a sheet rises), and on the dark page every card has a
+ * fine edge lit from above, so cards lying on each other read as separate sheets. Under it the floating shade, drawn
+ * to the card's [visible] height (a deck shows its cards shorter than they are laid out).
+ */
+internal class QuoteSurface(private val a:MainActivity,private val strength:Float=1f):android.graphics.drawable.Drawable(){
+    private val radius=a.d(24).toFloat()
+    var depth=0f
+        set(v){val n=v.coerceIn(0f,2f);if(n!=field){field=n;invalidateSelf()}}
+    var visible:(()->Int?)?=null
+    private val fill=Paint(Paint.ANTI_ALIAS_FLAG)
+    private val edge=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=a.d(1).toFloat();color=0x09ffffff}
+    private val lit=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=a.d(1).toFloat()}
+    private val r=RectF()
+    private fun tone():Int{val tones=if(a.light)intArrayOf(Color.WHITE,0xfff7f7f5.toInt(),0xffefefec.toInt()) else intArrayOf(0xff28282a.toInt(),0xff1d1d1f.toInt(),0xff19191b.toInt())
+        val i=depth.toInt().coerceAtMost(1);return androidx.core.graphics.ColorUtils.blendARGB(tones[i],tones[i+1],depth-i)}
+    private fun box(){val b=bounds;val h=(visible?.invoke()?:b.height()).coerceIn(1,maxOf(1,b.height()));r.set(b.left.toFloat(),b.top.toFloat(),b.right.toFloat(),(b.top+h).toFloat())}
+    override fun draw(c:Canvas){box();FloatShade.draw(c,a,r,radius,a.light,(255*strength*(opacity/255f)).toInt(),true)
+        fill.color=tone();fill.alpha=opacity;c.drawRoundRect(r,radius,radius,fill)
+        if(a.light)return
+        val i=edge.strokeWidth/2f;r.inset(i,i);val rr=radius-i
+        edge.alpha=(0x09*opacity/255);c.drawRoundRect(r,rr,rr,edge)
+        // the light from above: a hairline along the top edge, gone by the end of the corners
+        lit.shader=LinearGradient(0f,r.top,0f,r.top+radius,(((0x13*opacity/255)) shl 24) or 0xffffff,0x00ffffff,Shader.TileMode.CLAMP);c.drawRoundRect(r,rr,rr,lit)}
+    override fun getOutline(o:Outline){box();o.setRoundRect(r.left.toInt(),r.top.toInt(),r.right.toInt(),r.bottom.toInt(),radius)}
+    private var opacity=255
+    override fun setAlpha(v:Int){opacity=v;invalidateSelf()}
+    override fun setColorFilter(f:ColorFilter?){}
+    @Deprecated("Deprecated in Java") override fun getOpacity()=PixelFormat.TRANSLUCENT
+}
+/** [v] as a quote card (see [QuoteSurface]). */
+internal fun MainActivity.quoteSurface(v:View,depth:Float=0f,lift:Int=if(light)8 else 10):QuoteSurface{floatCard(v,24,lift=lift)
+    return QuoteSurface(this,lift/(if(light)8f else 10f)).also{it.depth=depth;v.background=it}}
 /** A real pile: one or two narrower sheets peek out under the front card, each with its own shadow. */
 internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){
     private val layers=(count-1).coerceIn(0,2)
-    private val sheets=List(layers){i->View(a).apply{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;a.floatCard(this,24,if(a.light)(if(i==0)0xfff7f7f5.toInt() else 0xffefefec.toInt()) else (if(i==0)0xff202022.toInt() else 0xff1c1c1e.toInt()),if(a.light)5-i*2 else 7-i*2)}}
+    private val sheets=List(layers){i->View(a).apply{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;a.quoteSurface(this,i+1f,if(a.light)5-i*2 else 7-i*2)}}
     private val step get()=a.d(9)
     init{clipChildren=false;clipToPadding=false;sheets.asReversed().forEach{addView(it)}}
     private fun front():View?=if(childCount>layers)getChildAt(childCount-1) else null
@@ -45,7 +79,7 @@ internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){
 }
 private fun MainActivity.quoteMark()=text("\u201c",38f,accent,true,true).apply{includeFontPadding=false;gravity=Gravity.TOP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
 internal fun MainActivity.quoteStack(b:JSONObject,qs:List<JSONObject>,onOpen:(()->Unit)?=null):View {
-    val stack=QuoteStackLayer(this,qs.size);val card=column().apply{floatCard(this,24);setPadding(d(16),d(16),d(16),d(18))}
+    val stack=QuoteStackLayer(this,qs.size);val card=column().apply{quoteSurface(this);setPadding(d(16),d(16),d(16),d(18))}
     stack.addView(card,FrameLayout.LayoutParams(-1,-2));stack.contentDescription="${b.str("title")}: ${qs.size} ${quoteWord(qs.size)}";stack.isFocusable=true;stack.setOnClickListener{onOpen?.invoke()};press(stack)
     val top=line();top.addView(CoverView(this,b),LinearLayout.LayoutParams(d(36),d(54)))
     val meta=column().apply{setPadding(d(12),0,d(12),0)};meta.addView(text(b.str("title"),15f,bold=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});space(meta,2);meta.addView(text(MainActivity.authors(b).ifBlank{"Автор не указан"},12.5f,muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});top.addView(meta,LinearLayout.LayoutParams(0,-2,1f))
@@ -67,7 +101,7 @@ internal class QuoteActionIcon(c:Context,private val kind:String,private val ink
 internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->Unit)?=null,onDelete:(()->Unit)?=null):View {
     // approved «кавычка над чертой»: a grey card like everywhere else; the quote's colour is only its mark and the line in the margin
     val col=quoteInk(q);val quiet=if(light)0x0d000000 else 0x12ffffff
-    val card=column().apply{floatCard(this,24);setPadding(d(18),d(14),d(14),d(10))}
+    val card=column().apply{quoteSurface(this);setPadding(d(18),d(14),d(14),d(10))}
     val open={if(onOpen!=null)onOpen()else openBookAt(b,q.optInt("ch"),q.optInt("start"))}
     // the quote mark above, in the quote's colour; the text with a line of the same colour in its margin
     card.addView(text("\u201c",40f,col,true,true).apply{includeFontPadding=false;gravity=Gravity.TOP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(d(30),d(26)).apply{topMargin=d(4)})
