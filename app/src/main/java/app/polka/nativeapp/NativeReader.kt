@@ -296,7 +296,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         save();finishing=true
         val go:()->Unit={
             if(disposed)finishing=false
-            else{markFinished();BookFinish(a,book){leave->finishing=false;tracker.skipTime();if(leave&&!disposed)a.closeReader()}.show(fromPage=true)}
+            else{markFinished();BookFinish(a,book){leave->finishing=false;tracker.skipTime();if(leave&&!disposed)a.closeReader()}.show()}
             Unit}
         if(!tracker.seeded||tracker.share()>=.5)go()
         else{var chosen=false
