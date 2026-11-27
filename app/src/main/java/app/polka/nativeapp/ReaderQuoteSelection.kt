@@ -106,7 +106,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private var settling=false;private var settleColor=0;private var settleStart=0;private var settleEnd=0;private var settle:android.animation.ValueAnimator?=null
     private lateinit var primary:LineIcon
     private lateinit var trash:LineIcon
-    private val strip=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(6),a.d(2),a.d(6),a.d(2));elevation=a.d(8).toFloat();a.controlSurface(this,26f,sheet=true);isClickable=true}
+    private val strip=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(6),a.d(2),a.d(6),a.d(2));elevation=a.d(8).toFloat();a.controlSurface(this,26f,sheet=true).apply{float=true;lift=Lift.OVER};noNativeShadow(this);isClickable=true}
     private val dots=mutableListOf<QuoteDot>()
     private val dotRow=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(4),0,a.d(4),0)}
     private val dotScroll=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;isHorizontalFadingEdgeEnabled=true;setFadingEdgeLength(a.d(18));addView(dotRow)}
@@ -131,7 +131,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     private var stripQuote:Pair<Int,Int>?=null;private var stripOpen=false
     private val stripTimer=Runnable{hideStrip()}
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    private val menu=a.line().apply{gravity=Gravity.CENTER;setPadding(a.d(4),a.d(2),a.d(4),a.d(2));elevation=a.d(8).toFloat();a.controlSurface(this,22f,sheet=true)}
+    private val menu=a.line().apply{gravity=Gravity.CENTER;setPadding(a.d(4),a.d(2),a.d(4),a.d(2));elevation=a.d(8).toFloat();a.controlSurface(this,22f,sheet=true).apply{float=true;lift=Lift.OVER};noNativeShadow(this)}
     private val pageTimer=Runnable { val dir=edge;edge=0;if(active&&dragging&&!edgeLocked&&dir!=0){edgeLocked=true;menu.visibility=INVISIBLE;reader.turnWithSelection(dir){ok->edgeLocked=false;if(ok){val full=reader.selectionFullText();var boundary=if(dir>0)reader.pageBase() else (reader.pageLimit()-1).coerceAtLeast(0);if(dir<0)while(boundary>reader.pageBase()&&full[boundary].isWhitespace())boundary--;atStart=range.move(full,boundary,atStart)}else{Notice.short(a,Notice.Kind.INFO,"Выделение ограничено главой")};invalidate();showMenu();if(dragging){x=if(dir>0)reader.body.paddingLeft+a.d(8).toFloat()else width-reader.body.paddingRight-a.d(8).toFloat();y=if(dir>0)reader.body.paddingTop+a.d(12).toFloat()else min(height-a.d(60).toFloat(),reader.body.height.toFloat());}}} }
     init {
         setWillNotDraw(false);clipChildren=false;visibility=GONE;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES

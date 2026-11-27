@@ -2,10 +2,9 @@ package app.polka.nativeapp
 
 import android.graphics.*
 
-/** One light source, above-left. Shadows are cached alpha atlases, never hardware blur or layers. */
+/** One light source, above-left (the cover's cast shade is the app's own, see [FloatShade] and [Lift.COVER]). */
 internal object BookCoverVolume {
     private val ink=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val shadows=arrayOfNulls<Bitmap>(6)
     private val bindings=java.util.WeakHashMap<Bitmap,Int>()
     @Synchronized fun binding(bitmap:Bitmap?,fallback:Int):Int {
         if(bitmap==null||bitmap.isRecycled||bitmap.config==Bitmap.Config.HARDWARE)return fallback
@@ -24,45 +23,6 @@ internal object BookCoverVolume {
         }
         val bin=weights.indices.maxByOrNull{weights[it]}?:0;val weight=weights[bin]
         return (if(weight==0)fallback else Color.rgb((reds[bin]/weight).toInt(),(greens[bin]/weight).toInt(),(blues[bin]/weight).toInt())).also{bindings[bitmap]=it}
-    }
-    private const val THICK_MARGIN=190
-    @Synchronized private fun shadow(dark:Boolean,soft:Boolean,stack:Boolean=false):Bitmap {
-        val index=(if(dark)1 else 0)+(if(stack)4 else if(soft)2 else 0);shadows[index]?.let{return it}
-        val b=Bitmap.createBitmap(if(stack)720 else if(soft)480 else 360,if(stack)840 else if(soft)600 else 480,Bitmap.Config.ARGB_8888);val c=Canvas(b);val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.BLACK}
-        val r=if(stack)RectF(240f,216f,480f,576f)else if(soft)RectF(120f,96f,360f,456f)else RectF(60f,48f,300f,408f)
-        if(stack){
-            // Only broad low-opacity lobes: stacked books must not accumulate contact rings.
-            p.setShadowLayer(48f,0f,20f,if(dark)0x20000000 else 0x16000000);c.drawRoundRect(r,3f,3f,p)
-            p.setShadowLayer(30f,0f,12f,if(dark)0x16000000 else 0x10000000);c.drawRoundRect(r,3f,3f,p)
-            shadows[index]=b;return b
-        }
-        if(soft){
-            // Floating recommendation cards: a broad feathered penumbra, no hard contact ring.
-            p.setShadowLayer(36f,2f,18f,if(dark)0x2c000000 else 0x12000000);c.drawRoundRect(r,3f,3f,p)
-            p.setShadowLayer(16f,1f,7f,if(dark)0x1a000000 else 0x0a000000);c.drawRoundRect(r,3f,3f,p)
-            shadows[index]=b;return b
-        }
-        // A hardcover lying on a table, lit from above-left (approved Т2+): a short cast to the lower right and a soft
-        // penumbra beyond it, built from CSS-like layers at reference 240×360. Only blurred, faint layers: the tight
-        // contact ones drew a crisp dark outline round every cover, and on a dark page the shade read as a black patch.
-        val m=THICK_MARGIN;val t=Bitmap.createBitmap(240+2*m,360+2*m,Bitmap.Config.ARGB_8888);val tc=Canvas(t);val tp=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.BLACK}
-        val k=240f/170f
-        fun layer(dx:Float,dy:Float,blur:Float,spread:Float,light:Float,darkA:Float){val sigma=blur/2f*k
-            tp.maskFilter=if(sigma<.6f)null else BlurMaskFilter(((sigma-.5f)/.57735f).coerceAtLeast(.5f),BlurMaskFilter.Blur.NORMAL)
-            tp.alpha=(255*(if(dark)darkA else light)).toInt();val g=spread*k
-            tc.drawRoundRect(m+dx*k-g,m+dy*k-g,m+240f+dx*k+g,m+360f+dy*k+g,4f,4f,tp)}
-        layer(5f,10f,24f,-4f,.10f,.42f)
-        layer(2f,5f,12f,-1f,.07f,.30f)
-        layer(1f,2f,6f,0f,.05f,.22f)
-        shadows[index]=t;return t
-    }
-    @Synchronized fun shadow(c:Canvas,r:RectF,dark:Boolean,soft:Boolean=false,stack:Boolean=false,fade:Float=1f) {
-        // the dark theme casts no shade: on a dark page it only shows as a dark rim round the cover
-        if(dark||r.width()<=0||r.height()<=0||fade<=0f)return
-        val w=r.width();val h=r.height();ink.shader=null;ink.color=Color.WHITE;ink.alpha=(255*fade.coerceAtMost(1f)).toInt()
-        if(!soft&&!stack){val mx=THICK_MARGIN*w/240f;val my=THICK_MARGIN*h/360f
-            c.drawBitmap(shadow(dark,false,false),null,RectF(r.left-mx,r.top-my,r.right+mx,r.bottom+my),ink);return}
-        c.drawBitmap(shadow(dark,soft,stack),null,if(stack)RectF(r.left-w,r.top-h*.6f,r.right+w,r.bottom+h*(264f/360f))else RectF(r.left-w*.5f,r.top-h*(96f/360f),r.right+w*.5f,r.bottom+h*.4f),ink)
     }
     /** Apple Books style: a flat cover, no board thickness or page block — the face is the whole bounds. */
     @Synchronized fun boards(c:Canvas,r:RectF,color:Int):RectF = RectF(r)

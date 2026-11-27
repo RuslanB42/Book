@@ -168,7 +168,7 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
         p.animate().cancel();p.animate().alpha(0f).translationY(a.d(16).toFloat()).setDuration(MotionSpec.SHEET_OUT).setInterpolator(MotionSpec.exit).withEndAction{if(!running)return@withEndAction;p.visibility=View.GONE}.start()}
     private fun build():LinearLayout{
         val box=LinearLayout(a).apply{orientation=LinearLayout.VERTICAL;setPadding(0,a.d(16),0,a.d(14));isClickable=true;elevation=a.d(16).toFloat()
-            background=GradientDrawable().apply{setColor(surface);cornerRadius=a.d(28).toFloat()}}
+            a.overSurface(this,surface,28)}
         val top=LinearLayout(a).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),0,a.d(8),0)}
         val play=FrameLayout(a).apply{background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(ink)};isClickable=true;contentDescription="Продолжить";setOnClickListener{resume()};a.press(this)
             addView(IconView(a,"play",page),FrameLayout.LayoutParams(a.d(24),a.d(24),Gravity.CENTER))}
@@ -241,7 +241,7 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
     private fun ask(){spent=spentNow();asking=true;line.invalidate()
         val scrim=FrameLayout(a).apply{setBackgroundColor(0x73000000);isClickable=true;setOnClickListener{answer()}}
         val box=LinearLayout(a).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_HORIZONTAL;setPadding(a.d(22),a.d(24),a.d(22),a.d(18));isClickable=true;elevation=a.d(16).toFloat()
-            background=GradientDrawable().apply{setColor(surface);cornerRadius=a.d(26).toFloat()}}
+            a.overSurface(this,surface,26)}
         val ring=object:View(a){var k=1f;var secs=20
             private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND}
             private val t=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER;textSize=17f*a.resources.displayMetrics.scaledDensity;typeface=PolkaFonts.sans(600)}
@@ -275,7 +275,7 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
     private fun offerBack(point:JSONObject){val label=r.pageLabel(point)?:return
         if(point.toString()==r.herePointNow().toString())return
         val c=LinearLayout(a).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),0,a.d(16),0);isClickable=true;elevation=a.d(10).toFloat();contentDescription="Вернуться к $label"
-            background=GradientDrawable().apply{setColor(surface);cornerRadius=a.d(20).toFloat()}
+            a.overSurface(this,surface,20)
             setOnClickListener{hideChip();r.autoReturn(point)};a.press(this)}
         c.addView(IconView(a,"back",ink),LinearLayout.LayoutParams(a.d(18),a.d(18)))
         c.addView(TextView(a).apply{text="Вернуться к $label";textSize=14f;typeface=PolkaFonts.sans(500);setTextColor(ink);setPadding(a.d(8),0,0,0)})

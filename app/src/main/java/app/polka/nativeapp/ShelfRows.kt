@@ -184,7 +184,7 @@ internal class ShelfFan(private val a:MainActivity,val books:List<JSONObject>,pr
     /** The fan's full height (the covers and the lift of the outer ones). */
     val full=ch+a.d(if(small)24 else 34)
     /** The covers, left to right. */
-    val covers=books.map{b->CoverView(a,b,a.cover(b)).apply{softShadow=true}}
+    val covers=books.map{b->CoverView(a,b,a.cover(b))}
     private val turns=mapOf(1 to floatArrayOf(0f),2 to floatArrayOf(-5f,5f),3 to floatArrayOf(-8f,0f,8f),4 to floatArrayOf(-10f,-3.5f,3.5f,10f))
     init{clipChildren=false;clipToPadding=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
         val n=covers.size
@@ -281,7 +281,7 @@ internal class ShelfMorph(private val a:MainActivity,val trip:Trip,private val t
         return trip.spots.indices.sortedByDescending{kotlin.math.abs(it-(n-1)/2f)}.map{i->val s=trip.spots[i];val c=cells[s.book.str("id")]
             val size=c?.second?:s.r
             // landing in a cell, it brings the cell's check (it shows on the way, as the cover straightens)
-            val copy=CoverView(a,s.book,a.cover(s.book)).apply{softShadow=true;pivotX=size.width()/2f;pivotY=size.height()/2f;readMark=c!=null&&(c.first as? CoverView)?.readMark==true;markAlpha=0f}
+            val copy=CoverView(a,s.book,a.cover(s.book)).apply{pivotX=size.width()/2f;pivotY=size.height()/2f;readMark=c!=null&&(c.first as? CoverView)?.readMark==true;markAlpha=0f}
             l.addView(copy,FrameLayout.LayoutParams(size.width().toInt(),size.height().toInt()))
             c?.first?.alpha=0f;Leg(s,c?.second,c?.first,copy)}}
     /** The covers of the page's cells, where they are on the page itself (as if it were not scaled), those on screen

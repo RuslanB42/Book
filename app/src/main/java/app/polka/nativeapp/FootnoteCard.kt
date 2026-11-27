@@ -20,7 +20,7 @@ internal class FootnoteCard(private val a:MainActivity,private val host:FrameLay
         val surface=blend(page,ink,.075f)
         val cardW=host.width-a.d(32)
         val card=a.column().apply{setPadding(a.d(18),a.d(14),a.d(18),a.d(6))
-            background=GradientDrawable().apply{setColor(surface);cornerRadius=a.d(20).toFloat()};elevation=a.d(16).toFloat();isClickable=true}
+            a.overSurface(this,surface,20);elevation=a.d(16).toFloat();isClickable=true}
         if(label.isNotBlank())card.addView(TextView(a).apply{this.text=label;textSize=11.5f;letterSpacing=.12f;typeface=PolkaFonts.sans(600);setTextColor(fade(ink,.5f))},LinearLayout.LayoutParams(-2,-2).apply{bottomMargin=a.d(6)})
         val words=TextView(a).apply{this.text=this@FootnoteCard.text;setTextColor(ink);typeface=face;setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,sizePx);setLineSpacing(0f,1.08f)
             movementMethod=android.text.method.LinkMovementMethod.getInstance();setTextIsSelectable(false)}
@@ -37,10 +37,11 @@ internal class FootnoteCard(private val a:MainActivity,private val host:FrameLay
         val l=FrameLayout(a).apply{isClickable=true;setOnClickListener{close(true)}}
         val top=if(below)p[2]+a.d(12) else p[1]-a.d(12)-h
         val tailX=p[0].coerceIn(a.d(36).toFloat(),host.width-a.d(36).toFloat())
-        val tail=View(a).apply{background=GradientDrawable().apply{setColor(surface);cornerRadius=a.d(3).toFloat()};rotation=45f;elevation=a.d(16).toFloat()}
+        // the tail lies over the card's shade (added after it), so the shade never darkens it
+        val tail=View(a).apply{background=GradientDrawable().apply{setColor(surface);cornerRadius=a.d(3).toFloat()};rotation=45f;elevation=a.d(16).toFloat();noNativeShadow(this)}
         val t=a.d(16)
-        l.addView(tail,FrameLayout.LayoutParams(t,t).apply{leftMargin=(tailX-t/2f).toInt();topMargin=(if(below)top-t/2f else top+h-t/2f).toInt()})
         l.addView(card,FrameLayout.LayoutParams(cardW,h).apply{leftMargin=a.d(16);topMargin=top.toInt()})
+        l.addView(tail,FrameLayout.LayoutParams(t,t).apply{leftMargin=(tailX-t/2f).toInt();topMargin=(if(below)top-t/2f else top+h-t/2f).toInt()})
         host.addView(l,FrameLayout.LayoutParams(-1,-1));layer=l
         // it grows out of the mark (see MotionSpec, asks)
         if(motion)listOf(card,tail).forEach{v->v.alpha=0f;v.scaleX=.96f;v.scaleY=.96f

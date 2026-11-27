@@ -433,7 +433,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(72);clipChildren=false;clipToPadding=false}
                 row.addView(TierLetter(a,k,24f,false),LinearLayout.LayoutParams(a.d(24),-2))
                 // the covers as on the full-screen tier list: sharp and with a soft shadow
-                inTier.take(fit).forEach{b->row.addView(CoverView(a,b,a.cover(b)).apply{softShadow=true},LinearLayout.LayoutParams(a.d(40),a.d(60)).apply{marginStart=a.d(if(row.childCount==1)16 else 8)})}
+                inTier.take(fit).forEach{b->row.addView(CoverView(a,b,a.cover(b)),LinearLayout.LayoutParams(a.d(40),a.d(60)).apply{marginStart=a.d(if(row.childCount==1)16 else 8)})}
                 box.addView(row,LinearLayout.LayoutParams(-1,a.d(72)))}
             box.contentDescription="Тир-лист за $y"}
         a.tierCard=box

@@ -9,8 +9,6 @@ import org.json.JSONObject
 @android.annotation.SuppressLint("WrongConstant")
 class CoverView(context: Context, private val book: JSONObject, private val image: Bitmap? = null) : View(context) {
     val bookId get()=book.str("id")
-    var softShadow=true
-    var stackShadow=false
     /** Large views (book card, cover editor, recommendation): swap to the original-resolution cover once loaded. */
     var hiRes=false
     private var full:Bitmap?=null
@@ -32,7 +30,8 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
         val bitmap=currentArtwork()
         if(bitmap==null && activity!=null && book.optJSONObject("cover")!=null && requestedId!=book.optJSONObject("cover")?.str("__polkaBlob")) { requestedId=book.optJSONObject("cover")?.str("__polkaBlob"); val expected=book.optJSONObject("cover")?.toString().orEmpty();activity.requestCover(book) { loaded -> if(loaded==null){missing=true;invalidate()} else if(expected==book.optJSONObject("cover")?.toString().orEmpty()) {retainedArtwork=loaded;retainedKey=expected;invalidate();artworkChanged?.invoke()} } }
         val bounds=RectF(0f,0f,width.toFloat(),height.toFloat())
-        if(book.optBoolean("comic"))ComicCover.shadow(canvas,bounds,activity?.light==false) else BookCoverVolume.shadow(canvas,bounds,activity?.light==false,softShadow,stackShadow,shadowFade)
+        // a cover lies on the page: the app's shade at the cover's height (see [Lift]), dithered as it lies on the page
+        if(activity!=null)FloatShade.draw(canvas,activity,bounds,if(book.optBoolean("comic"))width*.03f else BookCoverVolume.radius(width.toFloat()),activity.light,(255*shadowFade).toInt(),true,Lift.COVER)
         // A book with a picture whose bitmap is still decoding: a quiet blank cover, never the typeset placeholder
         // (that flashed a different cover for a moment); the picture then fades in.
         // the check is there from the first frame, over the blank cover too, not after the picture has come

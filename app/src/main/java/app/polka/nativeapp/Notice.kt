@@ -220,7 +220,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
             if(loading&&book==null)spinner.set(Kind.LOADING,a.fg,animate)
             val id=book?.str("id")
             if(id!=bookId){bookId=id;covers.removeAllViews()
-                if(book!=null){val v=CoverView(a,book,a.cover(book)).apply{softShadow=false;shadowFade=0f
+                if(book!=null){val v=CoverView(a,book,a.cover(book)).apply{shadowFade=0f
                         if(s.faded)setLayerType(View.LAYER_TYPE_HARDWARE,Paint().apply{colorFilter=ColorMatrixColorFilter(ColorMatrix().apply{setSaturation(0f)})})}
                     // the cover fills the circle (cropped to its middle)
                     covers.addView(v,LayoutParams(a.d(44),a.d(66),Gravity.CENTER))

@@ -38,7 +38,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   top.addView(a.icon("more","Ещё"){a.bookActions(book,true)}.apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x14ffffff)}},LinearLayout.LayoutParams(a.d(40),a.d(40)))
   panel.addView(top,LayoutParams(-1,a.d(68),Gravity.TOP))
   a.space(content,78)
-  val hero=FrameLayout(a).apply{clipChildren=false;clipToPadding=false};heroCover=CoverView(a,book,a.cover(book)).apply{softShadow=true;hiRes=true}
+  val hero=FrameLayout(a).apply{clipChildren=false;clipToPadding=false};heroCover=CoverView(a,book,a.cover(book)).apply{hiRes=true}
   heroGlow=BookGlowView(a,heroCover).apply{alpha=0f};hero.addView(heroGlow,heroGlow.haloLayout(a.d(132),a.d(198),a.d(8)))
   hero.addView(heroCover,LayoutParams(a.d(132),a.d(198),Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{topMargin=a.d(8)})
   content.addView(hero,LinearLayout.LayoutParams(-1,a.d(234)))
@@ -227,7 +227,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  private fun rect(v:View):RectF{val at=IntArray(2);val root=IntArray(2);v.getLocationOnScreen(at);getLocationOnScreen(root);return RectF((at[0]-root[0]).toFloat(),(at[1]-root[1]).toFloat(),(at[0]-root[0]+v.width).toFloat(),(at[1]-root[1]+v.height).toFloat())}
  private fun cover(v:View?):CoverView?{if(v is CoverView)return v;if(v is ViewGroup)for(i in 0 until v.childCount)cover(v.getChildAt(i))?.let{return it};return null}
  private var originCover:CoverView?=null
- private fun setupFlight(){val src=cover(source);originCover=src;if(reduced()||src==null||!src.isAttachedToWindow||src.width<=0)return;from=rect(src);to=rect(heroCover).apply{offset(0f,-panel.translationY)};if(from.bottom<0||from.top>height||closing&&(to.bottom<0||to.top>height))return;base=maxOf(from.width(),to.width());val v=CoverView(a,book,a.cover(book)).apply{softShadow=src.softShadow;stackShadow=src.stackShadow};flight=v;addView(v,LayoutParams(base.toInt(),(base*1.5f).toInt()));v.measure(MeasureSpec.makeMeasureSpec(base.toInt(),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec((base*1.5f).toInt(),MeasureSpec.EXACTLY));v.layout(0,0,v.measuredWidth,v.measuredHeight);v.pivotX=0f;v.pivotY=0f;src.visibility=View.INVISIBLE;heroCover.visibility=View.INVISIBLE}
+ private fun setupFlight(){val src=cover(source);originCover=src;if(reduced()||src==null||!src.isAttachedToWindow||src.width<=0)return;from=rect(src);to=rect(heroCover).apply{offset(0f,-panel.translationY)};if(from.bottom<0||from.top>height||closing&&(to.bottom<0||to.top>height))return;base=maxOf(from.width(),to.width());val v=CoverView(a,book,a.cover(book));flight=v;addView(v,LayoutParams(base.toInt(),(base*1.5f).toInt()));v.measure(MeasureSpec.makeMeasureSpec(base.toInt(),MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec((base*1.5f).toInt(),MeasureSpec.EXACTLY));v.layout(0,0,v.measuredWidth,v.measuredHeight);v.pivotX=0f;v.pivotY=0f;src.visibility=View.INVISIBLE;heroCover.visibility=View.INVISIBLE}
  // Exactly the same positional progress drives the cover and its attached light.
  // Broader landing window + cubic easing avoids concentrating brightness into a few frames.
  // No second timer: pausing/reversing the gesture preserves the identical light state.

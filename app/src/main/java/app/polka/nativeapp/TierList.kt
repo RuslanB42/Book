@@ -68,7 +68,7 @@ internal class SeriesFan(a:MainActivity,issues:List<JSONObject>,small:Boolean):F
     init{clipChildren=false;clipToPadding=false
         val k=if(small)40f/48f else 1f;fun dp(v:Float)=(a.d(1)*v*k).toInt()
         val w=dp(48f);val h=dp(72f);val show=issues.take(3)
-        for(i in show.indices.reversed()){val b=show[i];val cv=CoverView(a,b,a.cover(b)).apply{softShadow=true}
+        for(i in show.indices.reversed()){val b=show[i];val cv=CoverView(a,b,a.cover(b))
             if(i>0){cv.pivotX=w/2f;cv.pivotY=h.toFloat();cv.rotation=if(i==1)4.5f else 9f
                 val g=if(i==1)191 else 140;cv.setLayerType(View.LAYER_TYPE_HARDWARE,Paint().apply{colorFilter=LightingColorFilter(Color.rgb(g,g,g),0)})}
             addView(cv,LayoutParams(w,h).apply{leftMargin=if(i==0)dp(2f) else dp(6f);topMargin=dp(3f)})}
@@ -194,7 +194,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         if(Tiers.isSeries(b)){val issues=Tiers.members[b.str("id")].orEmpty()
             return SeriesFan(a,issues,small).apply{tag=b;contentDescription="${b.str("title")}, ${issues.size} вып.";isClickable=true;isLongClickable=true;if(small)alpha=.6f
                 setOnClickListener{openSeries(b)};setOnLongClickListener{startDrag(this,b);true};a.press(this)}}
-        val cv=CoverView(a,b,a.cover(b)).apply{softShadow=true;tag=b;contentDescription=b.str("title");isClickable=true;isLongClickable=true;if(small)alpha=.6f}
+        val cv=CoverView(a,b,a.cover(b)).apply{tag=b;contentDescription=b.str("title");isClickable=true;isLongClickable=true;if(small)alpha=.6f}
         cv.setOnClickListener{a.detail(b,cv)}
         cv.setOnLongClickListener{startDrag(cv,b);true}
         a.press(cv)
@@ -216,7 +216,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         issues.chunked(4).forEach{chunk->val rowL=a.line().apply{gravity=Gravity.TOP}
             chunk.forEach{b->val c=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
                 val cover=FrameLayout(a)
-                cover.addView(CoverView(a,b,a.cover(b)).apply{softShadow=true;isClickable=true;contentDescription=b.str("title");setOnClickListener{dialog?.dismiss();a.detail(b,this)};a.press(this)},FrameLayout.LayoutParams(-1,-1))
+                cover.addView(CoverView(a,b,a.cover(b)).apply{isClickable=true;contentDescription=b.str("title");setOnClickListener{dialog?.dismiss();a.detail(b,this)};a.press(this)},FrameLayout.LayoutParams(-1,-1))
                 b.optDouble("seriesNo").takeIf{!it.isNaN()}?.let{n->cover.addView(a.text("#"+(if(n%1.0==0.0)n.toLong().toString() else n.toString()),10.5f,0xfff3f2ef.toInt(),true).apply{setPadding(a.d(6),a.d(1),a.d(6),a.d(1))
                     background=GradientDrawable().apply{cornerRadius=a.d(9).toFloat();setColor(0x99000000.toInt())};elevation=a.d(2).toFloat()},FrameLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(5);topMargin=a.d(5)})}
                 c.addView(cover,LinearLayout.LayoutParams(a.d(68),a.d(102)))
@@ -315,7 +315,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         val (w,h)=sizeOf(b,row.k==5)
         val hole=View(a)
         flow.removeView(cv);flow.addView(hole,idx,ViewGroup.LayoutParams(w,h))
-        val fl=(if(Tiers.isSeries(b))SeriesFan(a,Tiers.members[b.str("id")].orEmpty(),row.k==5) else CoverView(a,b,a.cover(b)).apply{softShadow=true}).apply{elevation=a.d(16).toFloat();pivotX=r.width()/2;pivotY=r.height()/2}
+        val fl=(if(Tiers.isSeries(b))SeriesFan(a,Tiers.members[b.str("id")].orEmpty(),row.k==5) else CoverView(a,b,a.cover(b))).apply{elevation=a.d(16).toFloat();pivotX=r.width()/2;pivotY=r.height()/2}
         frame.addView(fl,FrameLayout.LayoutParams(r.width().toInt(),r.height().toInt()));fl.translationX=r.left;fl.translationY=r.top
         val sc=if(row.k==5)1.45f else 1.2f
         if(motion)fl.animate().scaleX(sc).scaleY(sc).rotation(-4f).setDuration(180).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start() else {fl.scaleX=sc;fl.scaleY=sc}
@@ -461,7 +461,7 @@ internal object TierPoster{
                 // a series: its next two issues fanned behind the first, quieter, as in the list
                 val fan=Tiers.members[b.str("id")]?.take(3)?:listOf(b)
                 for(fi in fan.indices.reversed()){val ib=fan[fi]
-                    val cv=CoverView(a,ib,a.cover(ib)).apply{softShadow=true};cv.measure(View.MeasureSpec.makeMeasureSpec(cw.toInt(),View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(ch.toInt(),View.MeasureSpec.EXACTLY))
+                    val cv=CoverView(a,ib,a.cover(ib));cv.measure(View.MeasureSpec.makeMeasureSpec(cw.toInt(),View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(ch.toInt(),View.MeasureSpec.EXACTLY))
                     cv.layout(0,0,cw.toInt(),ch.toInt());c.save();c.translate(x+(if(fi>0)10f else 0f),cy)
                     if(fi>0){c.rotate(if(fi==1)4.5f else 9f,cw/2,ch);val g=if(fi==1)191 else 140;c.saveLayer(-40f,-40f,cw+40f,ch+40f,Paint().apply{colorFilter=LightingColorFilter(Color.rgb(g,g,g),0)})}
                     cv.draw(c);if(fi>0)c.restore();c.restore()}}

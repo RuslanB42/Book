@@ -33,7 +33,7 @@ internal fun MainActivity.yearTiles(list:List<YearBook>,goal:Int,big:Boolean):Li
 /** A book of the year: its cover clean, and under it the stars it got and the hours it took. */
 internal fun MainActivity.yearBookCell(yb:YearBook,w:Int):LinearLayout{
     val cell=column().apply{clipChildren=false;clipToPadding=false}
-    val cv=CoverView(this,yb.book,cover(yb.book)).apply{softShadow=true;isClickable=true;contentDescription=yb.book.str("title");setOnClickListener{detail(yb.book,this)}}
+    val cv=CoverView(this,yb.book,cover(yb.book)).apply{isClickable=true;contentDescription=yb.book.str("title");setOnClickListener{detail(yb.book,this)}}
     cell.addView(cv,LinearLayout.LayoutParams(w,(w*1.5f).toInt()))
     val r=Rating.halves(yb.book)
     val stars=text("",11.5f,StarRow.starYellow(this),true).apply{maxLines=1;text=if(r>0)android.text.SpannableStringBuilder("★ ${Rating.text(r)}").apply{setSpan(RoundStarSpan(StarRow.starYellow(this@yearBookCell),.95f),0,1,0)} else ""}

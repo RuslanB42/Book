@@ -22,9 +22,7 @@ internal fun MainActivity.floatCard(v:View,radiusDp:Int=24,color:Int=if(light)Co
     // keeps the order of a pile; Android's own shadow is off, it would add a second, harder one.
     val r=d(radiusDp).toFloat();v.background=Floating(this,android.graphics.drawable.GradientDrawable().apply{setColor(color);cornerRadius=r},r,lift/(if(light)8f else 10f));v.elevation=d(lift).toFloat()
     v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,r)}}
-    if(android.os.Build.VERSION.SDK_INT>=28){v.outlineSpotShadowColor=Color.TRANSPARENT;v.outlineAmbientShadowColor=Color.TRANSPARENT}
-    // faded without an offscreen layer: a layer is cut to the card, and so would be its shade
-    v.forceHasOverlappingRendering(false)
+    noNativeShadow(v)
 }
 /**
  * A quote card's face (approved «тон и кромка», without the edge): in a pile a card is lighter the higher it lies

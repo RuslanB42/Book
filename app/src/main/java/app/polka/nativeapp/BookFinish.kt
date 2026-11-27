@@ -115,7 +115,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         root.addView(close,FrameLayout.LayoutParams(a.d(40),a.d(40),Gravity.TOP or Gravity.END).apply{rightMargin=a.d(18)})
 
         // the cover, as large as the room above the panel allows
-        val cover=CoverView(a,book,a.cover(book)).apply{softShadow=true}
+        val cover=CoverView(a,book,a.cover(book))
         // the next issue waits behind it, to its right: smaller and quieter (it comes in once the cover has landed)
         val peek=nextBook?.let{n->CoverView(a,n,a.cover(n)).apply{alpha=if(motion)0f else PEEK;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}}
         this.peek=peek
@@ -222,7 +222,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
      */
     private inner class PageCard(shot:Bitmap,from:RectF?):FrameLayout(a){
         /** The cover as the real one draws it (volume, gloss): what the page becomes. Laid out at the cover's size. */
-        private val face=CoverView(a,book,a.cover(book)).apply{softShadow=false;pivotX=0f;pivotY=0f;alpha=0f}
+        private val face=CoverView(a,book,a.cover(book)).apply{pivotX=0f;pivotY=0f;alpha=0f}
         /** How far along the flight is in time (its place, [t], is eased; the cover's coming is spread over the time). */
         var time=0f
         /** The cover comes up through the page all along the flight (it is the page turning into it, not a swap at

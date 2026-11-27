@@ -52,11 +52,12 @@ class SlidingSegment(val a:MainActivity,selected:Int,val count:Int,private val t
     private val spring=LiquidSpring{value,_->index=value;invalidate()}
     init { orientation=HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; setPadding(a.d(2),a.d(2),a.d(2),a.d(2)); background=if(trackColor!=null)a.shape(trackColor,pillRadius)else a.controlSurface(this,12f); setWillNotDraw(false);spring.snap(index) }
     fun choose(value:Int) { val target=value.coerceIn(0,(count-1).coerceAtLeast(0)).toFloat();if(a.prefs.str("motion")=="reduced")spring.snap(target)else spring.to(target) }
-    private val shadow=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c:android.graphics.Canvas) { super.onDraw(c); val pad=a.d(2).toFloat(); val cell=(width-pad*2)/count;
-        // Soft shadow under the selected thumb so the active tab lifts off the track.
-        shadow.color=thumbColor?:(if(a.light)android.graphics.Color.WHITE else 0xff4a4a4e.toInt());if(a.light)shadow.setShadowLayer(a.d(6).toFloat(),0f,a.d(2).toFloat(),0x1a000000) else shadow.clearShadowLayer()
-        val r=if(thumbColor!=null)a.d(pillRadius-2).toFloat() else a.d(9).toFloat();c.drawRoundRect(pad+cell*index+a.d(1),pad+a.d(1),pad+cell*(index+1)-a.d(1),height-pad-a.d(1),r,r,shadow)
+        // the selected thumb stands a little above the track: the app's shade at a touch's height, in both themes
+        // (kept inside the track: the thumb shades the track, not the page round it)
+        val r=if(thumbColor!=null)a.d(pillRadius-2).toFloat() else a.d(9).toFloat();val tr=if(trackColor!=null)a.d(pillRadius).toFloat() else a.d(12).toFloat()
+        c.save();c.clipPath(android.graphics.Path().apply{addRoundRect(0f,0f,width.toFloat(),height.toFloat(),tr,tr,android.graphics.Path.Direction.CW)})
+        FloatShade.draw(c,a,android.graphics.RectF(pad+cell*index,pad,pad+cell*(index+1),height-pad),r,a.light,lift=Lift.TOUCH);c.restore()
 if(thumbColor!=null){ink.color=thumbColor;c.drawRoundRect(pad+cell*index,pad,pad+cell*(index+1),height-pad,a.d(pillRadius-2).toFloat(),a.d(pillRadius-2).toFloat(),ink)}else{c.save();c.translate(pad+cell*index,pad);segmentThumb.setBounds(0,0,cell.toInt(),(height-pad*2).toInt());segmentThumb.draw(c);c.restore()} }
     override fun onDetachedFromWindow() { spring.stop(); super.onDetachedFromWindow() }
 }
@@ -321,16 +322,12 @@ internal class PolkaSheetFrame(private val a:MainActivity,internal val panel:Lin
 fun replaceJson(target:org.json.JSONObject,source:org.json.JSONObject) { if(target===source) return; val copy=source.copyJson(); target.keys().asSequence().toList().forEach { target.remove(it) }; copy.keys().forEach { target.put(it,copy.get(it)) } }
 
 /** Persistent native indicator; content updates do not restart its transition. */
-/** The active tab's pill with a soft shadow beneath it (drawn, so it shows on a dark bar too) — wide and faint, so it
- *  never reads as a dark halo round the pill. */
+/** The active tab's pill, standing a little above its bar: the app's shade at a touch's height (see [Lift.TOUCH]),
+ *  in both themes. */
 internal class LiftedPill(private val a:MainActivity,private val fill:Int):android.graphics.drawable.Drawable(){
-    private val shadow=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
     private val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply{color=fill}
     override fun draw(c:android.graphics.Canvas){val b=android.graphics.RectF(bounds);val r=b.height()/2f
-        // the active tab floats too: its shade all round, hardly offset (not dropped below it)
-        shadow.maskFilter=android.graphics.BlurMaskFilter(a.d(14).toFloat(),android.graphics.BlurMaskFilter.Blur.NORMAL);shadow.color=0x18000000
-        // none on the dark bar: there it only showed as a dark rim
-        if(a.light)c.drawRoundRect(b.left,b.top+a.d(2),b.right,b.bottom+a.d(2),r,r,shadow)
+        FloatShade.draw(c,a,b,r,a.light,paint.alpha,lift=Lift.TOUCH)
         c.drawRoundRect(b,r,r,paint)}
     override fun setAlpha(alpha:Int){paint.alpha=alpha}
     override fun setColorFilter(f:android.graphics.ColorFilter?){paint.colorFilter=f}

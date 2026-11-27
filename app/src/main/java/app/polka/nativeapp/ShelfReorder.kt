@@ -37,7 +37,8 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
     private fun begin(){val at=pending;val view=grid.viewAt(at)?:return;clearPending();if(!grid.isAttachedToWindow||view.width<=0||view.height<=0)return
         grid.cancelChildTouch()
         index=at;original=items.toList();grabbed=view;grid.pinned=view
-        moved=false;pad=a.d(56) // room for the lift shadow's whole soft fall: a smaller margin cuts it into a visible box
+        // room for the carried shade's whole soft fall: a smaller margin cuts it into a visible box
+        moved=false;pad=run{val e=FloatShade.reach(a,Lift.CARRY,view.width,view.height);(e*(1f+FloatShade.SLANT)+2.5f*(.6f*e+a.d(1)*.4f)).toInt()+a.d(4)}
         val loc=IntArray(2);view.getLocationOnScreen(loc);gx=px-loc[0]+pad;gy=py-loc[1]+pad
         // The whole card (art AND caption) floats as one picture, so text can never lag behind or stay in the slot.
         val cover=(view as? ViewGroup)?.getChildAt(0)
@@ -55,7 +56,9 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         if(!reduced()){shade!!.alpha=0f;ghost!!.animate().scaleX(1.05f).scaleY(1.05f).setDuration(200).setInterpolator(MotionSpec.enter).start();shade!!.animate().alpha(1f).scaleX(1.05f).scaleY(1.05f).setDuration(200).setInterpolator(MotionSpec.enter).start()}
         a.shelfReorder=this;position();lastFrame=0;grid.postOnAnimation(frame)
     }
-    /** The card drawn once (first), and a soft shadow cut from its own opaque silhouette (second), so the shadow hugs the real edges. */
+    /** The card drawn once (first), and its shade cut from its own opaque silhouette (second), so it hugs the real
+     *  edges: the app's shade at a carried thing's height (see [Lift.CARRY]), its five layers made at a quarter of the
+     *  size (the picture is stretched back, which no soft shade shows). */
     private fun liftedPicture(view:View,w:Int,h:Int):Pair<Bitmap,Bitmap> {
         val card=Bitmap.createBitmap(w+pad*2,h+pad*2,Bitmap.Config.ARGB_8888)
         Canvas(card).apply{translate(pad.toFloat(),pad.toFloat());val a0=view.alpha;view.alpha=1f;view.draw(this);view.alpha=a0}
@@ -63,13 +66,13 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         // Keep only the solid body: the view's own soft shadows must not widen the silhouette.
         for(k in 0 until n)px[k]=if((px[k] ushr 24)>=235)0xff000000.toInt() else 0
         val mask=Bitmap.createBitmap(px,card.width,card.height,Bitmap.Config.ARGB_8888)
-        val offset=IntArray(2);val soft=mask.extractAlpha(Paint().apply{maskFilter=BlurMaskFilter(a.d(22).toFloat(),BlurMaskFilter.Blur.NORMAL)},offset);mask.recycle()
-        val near=IntArray(2);val tight=Bitmap.createBitmap(px,card.width,card.height,Bitmap.Config.ARGB_8888).extractAlpha(Paint().apply{maskFilter=BlurMaskFilter(a.d(8).toFloat(),BlurMaskFilter.Blur.NORMAL)},near)
-        val out=Bitmap.createBitmap(card.width,card.height,Bitmap.Config.ARGB_8888);val c=Canvas(out);val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        // one broad fall and a faint near one: no ring that could show as an edge
-        p.color=if(a.light)0x24000000 else 0;c.drawBitmap(soft,offset[0].toFloat(),offset[1].toFloat()+a.d(10),p)
-        p.color=if(a.light)0x0c000000 else 0;c.drawBitmap(tight,near[0].toFloat(),near[1].toFloat()+a.d(3),p)
-        soft.recycle();tight.recycle();return card to out
+        val small=Bitmap.createScaledBitmap(mask,maxOf(1,mask.width/4),maxOf(1,mask.height/4),true);mask.recycle()
+        val out=Bitmap.createBitmap(small.width,small.height,Bitmap.Config.ARGB_8888);val c=Canvas(out);val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        val dp=a.resources.displayMetrics.density;val e=FloatShade.reach(a,Lift.CARRY,w,h);val each=((if(a.light)Lift.CARRY.light else Lift.CARRY.dark)*255).toInt()
+        for(i in 0 until 5){val dy=e/(1 shl (4-i));val sigma=(.6f*dy+.4f*dp)/4f;val off=IntArray(2)
+            val b=small.extractAlpha(Paint().apply{maskFilter=BlurMaskFilter(maxOf(.5f,sigma/.57735f),BlurMaskFilter.Blur.NORMAL)},off)
+            p.color=(each shl 24) or FloatShade.tint(a.light);c.drawBitmap(b,off[0]+FloatShade.SLANT*dy/4f,off[1]+dy/4f,p);b.recycle()}
+        small.recycle();return card to out
     }
     private fun position(){if(hypot(px-sx,py-sy)>a.d(12))moved=true;val at=IntArray(2);a.root.getLocationOnScreen(at);val x=px-gx-at[0];val y=py-gy-at[1];for(g in listOfNotNull(ghost,shade)){g.translationX=x;g.translationY=y}}
     private fun hit(){if(!active)return;val at=IntArray(2);grid.getLocationOnScreen(at);val r=grid.slot(index);val target=grid.nearest(px-gx+pad-at[0]+r.width()/2f,py-gy+pad-at[1]+r.width()*.75f,index);if(target!=index){val from=index;index=target;grid.move(from,target,{items.add(target,items.removeAt(from))},!reduced())}}

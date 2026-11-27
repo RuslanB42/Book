@@ -25,7 +25,7 @@ internal class AddMenu(private val a:MainActivity){
         // nearest to the button last in the column, so it rises first
         listOf(Triple("shelves","Новая полка"){a.createShelf()},Triple("download","Добавить книгу"){a.pickBooks()}).forEach{(icon,label,act)->
             val pill=a.row().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),0,a.d(20),0);isClickable=true;isFocusable=true;contentDescription=label
-                background=a.controlSurface(this,26f);elevation=a.d(12).toFloat()
+                background=a.controlSurface(this,26f).apply{float=true;lift=Lift.OVER};elevation=a.d(12).toFloat();noNativeShadow(this);clipChildren=false
                 addView(IconView(a,icon,a.fg),LinearLayout.LayoutParams(a.d(24),a.d(24)))
                 addView(a.text(label,16f,a.fg,true),LinearLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(10)})
                 setOnClickListener{if(!closing){close();postDelayed({act()},170)}}}

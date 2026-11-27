@@ -112,13 +112,10 @@ internal object PageDocs {
 
 /** A comic's cover drawn as a thin laminated issue (approved «Б2»): the cover rolls round the spine fold (a light on
  *  the very edge, shade and a faint crease just inside), the sheet bows with its free edge darker and catching a
- *  hair of light, one broad soft sheen of the laminate plus a diagonal reflection, and a short close shadow. */
+ *  hair of light, one broad soft sheen of the laminate plus a diagonal reflection (its shade is the app's own). */
 internal object ComicCover {
     private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val m=Matrix()
-    fun shadow(c:Canvas,r:RectF,dark:Boolean){if(dark)return;val left=r.width()*.045f;val right=r.width()*.012f
-        p.shader=null;p.color=0;p.setShadowLayer(r.width()*.05f,r.width()*.006f,r.width()*.03f,0x18000000)
-        c.drawPath(outline(r,left,right),p);p.clearShadowLayer()}
     private fun outline(r:RectF,left:Float,right:Float)=Path().apply{addRoundRect(r,floatArrayOf(left,left,right,right,right,right,left,left),Path.Direction.CW)}
     fun draw(c:Canvas,r:RectF,bitmap:Bitmap?,fallback:Int){
         val w=r.width();val h=r.height();val path=outline(r,maxOf(w*.045f,3f),maxOf(w*.012f,1.5f))
