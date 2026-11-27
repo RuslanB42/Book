@@ -39,7 +39,18 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
         // A book with a picture whose bitmap is still decoding: a quiet blank cover, never the typeset placeholder
         // (that flashed a different cover for a moment); the picture then fades in.
         // the check is there from the first frame, over the blank cover too, not after the picture has come
-        if(bitmap==null&&book.optJSONObject("cover")!=null&&!missing){waiting=true;blank(canvas,bounds);mark(canvas,activity);return}
+        // a new picture still on its way: the old cover stays until it comes, and then they swap
+        if(bitmap==null&&book.optJSONObject("cover")!=null&&!missing){
+            if(shownKey!=null&&shownKey!=coverKey()&&!waiting){drawCover(canvas,bounds,book,shownArt);mark(canvas,activity);return}
+            waiting=true;blank(canvas,bounds);mark(canvas,activity);return}
+        // the cover changed under a cover already shown (approved «Смена обложки Б»): the old one blurs and sinks away,
+        // the new one rises out of a blur
+        val key=coverKey()
+        if(shownKey!=null&&key!=shownKey&&!waiting&&isShown&&activity?.prefs?.str("motion")!="reduced"){swapFrom=shownArt;swapAt=android.os.SystemClock.uptimeMillis();fadeFrom=0L}
+        shownKey=key;shownArt=bitmap
+        if(swapAt>0L){val t=(android.os.SystemClock.uptimeMillis()-swapAt)/1000f
+            if(t<SWAP){swap(canvas,bounds,t,bitmap);mark(canvas,activity);postInvalidateOnAnimation();return}
+            swapAt=0L;swapFrom=null}
         if(waiting){waiting=false;fadeFrom=android.os.SystemClock.uptimeMillis()}
         val f=if(fadeFrom>0L)((android.os.SystemClock.uptimeMillis()-fadeFrom)/180f).coerceIn(0f,1f) else 1f
         if(f<1f){blank(canvas,bounds);val l=canvas.saveLayerAlpha(bounds,(f*255).toInt());drawCover(canvas,bounds,book,bitmap);canvas.restoreToCount(l);mark(canvas,activity);postInvalidateOnAnimation();return}
@@ -62,6 +73,24 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
     private val markPath=Path()
     internal var artworkChanged:(()->Unit)?=null
     private var missing=false;private var fadeFrom=0L
+    // the cover last drawn and, while a new one comes in, the one going away
+    private var shownKey:String?=null;private var shownArt:Bitmap?=null;private var swapFrom:Bitmap?=null;private var swapAt=0L
+    private var swapLayers:Any?=null
+    /** The old cover over 0..0.28 s (fading, to 94 %, into a blur), the new one over 0.12..0.52 s (the same, backwards). */
+    private fun swap(c:Canvas,bounds:RectF,t:Float,art:Bitmap?){
+        val blur=width*.26f
+        val u=SWAP_OUT.getInterpolation((t/.28f).coerceIn(0f,1f))
+        val v=SWAP_IN.getInterpolation(((t-.12f)/.4f).coerceIn(0f,1f))
+        if(u<1f)layer(c,0,1f-u,1f-.06f*u,blur*u){drawCover(it,bounds,book,swapFrom)}
+        if(v>0f)layer(c,1,v,.94f+.06f*v,blur*(1f-v)){drawCover(it,bounds,book,art)}
+    }
+    private fun layer(c:Canvas,i:Int,alpha:Float,scale:Float,blur:Float,draw:(Canvas)->Unit){
+        if(android.os.Build.VERSION.SDK_INT>=31&&c.isHardwareAccelerated){
+            val layers=(swapLayers as? BlurLayers)?:BlurLayers().also{swapLayers=it}
+            layers.draw(c,i,width,height,alpha,scale,blur,draw);return}
+        // without a blur (Android 11 and older): the same fade and scale
+        val l=c.saveLayerAlpha(0f,0f,width.toFloat(),height.toFloat(),(alpha*255).toInt());c.scale(scale,scale,width/2f,height/2f);draw(c);c.restoreToCount(l)
+    }
     /** True while the cover's picture is still on its way (the view shows a blank cover). */
     internal var waiting=false;private set
     private val blankPaint=Paint(Paint.ANTI_ALIAS_FLAG)
@@ -116,4 +145,18 @@ open class IconView(context: Context, private val kind: String, var ink: Int) : 
 
 class ThinProgress(context:Context,val fraction:Double,val foreground:Int,val track:Int):View(context) {
     override fun onDraw(c:Canvas) { val p=Paint(Paint.ANTI_ALIAS_FLAG); val radius=height/2f; p.color=track; c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),radius,radius,p); if(fraction<.01) return; p.color=foreground; c.drawRoundRect(0f,0f,(width*fraction).toFloat(),height.toFloat(),radius,radius,p) }
+}
+
+private const val SWAP=.52f
+private val SWAP_OUT=android.view.animation.PathInterpolator(.3f,0f,1f,1f)
+private val SWAP_IN=android.view.animation.PathInterpolator(0f,0f,.2f,1f)
+/** Two drawings, each with its own fade, scale and blur, for a cover changing into another. */
+@androidx.annotation.RequiresApi(31)
+private class BlurLayers{
+    private val nodes=arrayOf(RenderNode("coverOut"),RenderNode("coverIn"))
+    fun draw(c:Canvas,i:Int,w:Int,h:Int,alpha:Float,scale:Float,blur:Float,content:(Canvas)->Unit){
+        val n=nodes[i];n.setPosition(0,0,w,h);n.setClipToBounds(false);n.setAlpha(alpha);n.setPivotX(w/2f);n.setPivotY(h/2f);n.setScaleX(scale);n.setScaleY(scale)
+        n.setRenderEffect(if(blur>.5f)RenderEffect.createBlurEffect(blur,blur,Shader.TileMode.DECAL) else null)
+        val rc=n.beginRecording(w,h);try{content(rc)}finally{n.endRecording()};c.drawRenderNode(n)
+    }
 }
