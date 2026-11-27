@@ -17,12 +17,12 @@ import android.widget.*
  */
 internal fun MainActivity.inputDialog(title:String,value:String="",hint:String="",helper:String?=null,action:String="Готово",done:(String)->Unit){
     val box=column()
-    helper?.let{box.addView(text(it,14f,muted).apply{gravity=Gravity.CENTER;setPadding(d(8),0,d(8),0)});space(box,14)}
-    val fieldBg=if(light)0xffffffff.toInt() else 0xff2a2a2d.toInt()
-    val rest=if(light)0x1f000000 else 0x1fffffff;val focus=(fg and 0xffffff) or 0x66000000
+    helper?.let{box.addView(text(it,Type.TEXT,muted).apply{gravity=Gravity.CENTER;setPadding(d(8),0,d(8),0)});space(box,14)}
+    val fieldBg=Ui.card(light)
+    val rest=Ui.press(light);val focus=(fg and 0xffffff) or 0x66000000
     val frame=FrameLayout(this).apply{background=GradientDrawable().apply{setColor(fieldBg);cornerRadius=d(16).toFloat();setStroke(d(1),rest)}}
     val input=EditText(this).apply{
-        typeface=PolkaFonts.sans(400);setText(value);setHint(hint);setTextColor(fg);setHintTextColor(muted);textSize=17f;background=null;isSingleLine=true
+        typeface=PolkaFonts.sans(400);setText(value);setHint(hint);setTextColor(fg);setHintTextColor(muted);textSize=Type.TITLE;background=null;isSingleLine=true
         imeOptions=EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_EXTRACT_UI
         inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
         setPadding(d(16),0,d(44),0);gravity=Gravity.CENTER_VERTICAL

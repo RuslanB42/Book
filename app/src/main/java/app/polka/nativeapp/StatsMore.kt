@@ -155,8 +155,8 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
     private val tipSub=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=12f*dp;typeface=PolkaFonts.sans(400)}
     private val tipBg=Paint(Paint.ANTI_ALIAS_FLAG)
     private val path=Path();private val area=Path();private val tip=RectF()
-    private val muted get()=if(a.light)0xff86868b.toInt() else 0xff8a8a8e.toInt()
-    private val card get()=if(a.light)Color.WHITE else 0xff242426.toInt()
+    private val muted get()=Ui.ink2(a.light)
+    private val card get()=Ui.card(a.light)
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES}
     /** New data; with the same number of points the line glides from the old values to the new ones. With [spans] a
      *  label stands for the points from it to the next one (a month over its weeks) and sits in their middle. */
@@ -222,7 +222,7 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
         // held: the guide, the point, and its bubble above it
         val hx=x(hold);val hy=y(shown[hold]);hair.color=(a.fg and 0xffffff) or 0x59000000;c.drawLine(hx,0f,hx,h,hair)
         dot.color=card;c.drawCircle(hx,hy,9f*dp,dot);dot.color=ink;c.drawCircle(hx,hy,6f*dp,dot)
-        val p=points[hold];tipTitle.color=a.fg;tipSub.color=if(a.light)0xff6e6e73.toInt() else 0xffb4b4b8.toInt()
+        val p=points[hold];tipTitle.color=a.fg;tipSub.color=Ui.ink2(a.light)
         val tw=max(tipTitle.measureText(p.title),tipSub.measureText(p.sub))+22f*dp;val th=48f*dp
         val tx=(hx-tw/2).coerceIn(10f*dp,w-10f*dp-tw);val ty=hy-14f*dp-th
         tip.set(tx,ty,tx+tw,ty+th);tipBg.color=if(a.light)0xfff0f0f2.toInt() else 0xff3a3a3d.toInt();FloatShade.draw(c,a,tip,12f*dp,a.light,lift=Lift.OVER);c.drawRoundRect(tip,12f*dp,12f*dp,tipBg)
@@ -240,7 +240,7 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
     private var downX=0f;private var downY=0f
     private val slop=ViewConfiguration.get(a).scaledTouchSlop
     private val start=Runnable{if(points.isEmpty())return@Runnable;parent?.requestDisallowInterceptTouchEvent(true);pick(downX,true)}
-    private fun pick(px:Float,first:Boolean=false){val i=points.indices.minByOrNull{abs(x(it)-px)}?:return;if(i!=hold){hold=i;performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);announceForAccessibility("${points[i].title}, ${points[i].sub}");invalidate()}}
+    private fun pick(px:Float,first:Boolean=false){val i=points.indices.minByOrNull{abs(x(it)-px)}?:return;if(i!=hold){hold=i;haptic(a,Haptic.SELECT);announceForAccessibility("${points[i].title}, ${points[i].sub}");invalidate()}}
     override fun onTouchEvent(e:MotionEvent):Boolean{
         when(e.actionMasked){
             MotionEvent.ACTION_DOWN->{downX=e.x;downY=e.y;removeCallbacks(start);postDelayed(start,220);return true}
@@ -263,12 +263,12 @@ internal class WeekStrip(private val a:MainActivity,private val names:List<Strin
     private val grow=1f
     init{contentDescription="Неделя: "+names.indices.joinToString(", "){names[it]+" "+when(marks[it]){1->"цель выполнена";2->"спасён заморозкой";4->"сегодня";else->"пропуск"}}}
     override fun onDraw(c:Canvas){val gap=5f*dp;val n=names.size;val w=(width-gap*(n-1))/n;val h=10f*dp
-        val orange=if(a.light)0xfff07c12.toInt() else 0xffff8a1e.toInt();val ice=if(a.light)0xff5aaee6.toInt() else 0xff8fd0fa.toInt();val empty=if(a.light)0xffe6e6ea.toInt() else 0xff3a3a3d.toInt()
+        val orange=if(a.light)0xfff07c12.toInt() else 0xffff8a1e.toInt();val ice=if(a.light)0xff5aaee6.toInt() else 0xff8fd0fa.toInt();val empty=Ui.press(a.light)
         for(i in 0 until n){val x=i*(w+gap);r.set(x,0f,x+w,h)
             p.color=empty;c.drawRoundRect(r,h/2,h/2,p)
             val f=when(marks[i]){1,2->1f;4->today;else->0f}*grow
             if(f>0f){p.color=if(marks[i]==2)ice else orange;c.save();c.clipRect(x,0f,x+w*f,h);c.drawRoundRect(r,h/2,h/2,p);c.restore()}
-            val on=i==n-1;t.color=if(on)a.fg else if(a.light)0xff86868b.toInt() else 0xff8a8a8e.toInt();t.typeface=PolkaFonts.sans(if(on)600 else 400)
+            val on=i==n-1;t.color=if(on)a.fg else Ui.ink2(a.light);t.typeface=PolkaFonts.sans(if(on)600 else 400)
             c.drawText(names[i],x+w/2,height-4f*dp,t)}}
 }
 

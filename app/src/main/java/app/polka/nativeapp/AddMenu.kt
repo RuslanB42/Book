@@ -65,8 +65,8 @@ internal class AddMenu(private val a:MainActivity){
         private val to:RectF
         private val r0=from.height()/2f;private val r1=a.d(26).toFloat()
         private val light=a.light
-        private val barColor=if(light)Color.WHITE else 0xff2a2a2c.toInt()
-        private val menuColor=if(light)Color.WHITE else 0xff303033.toInt()
+        private val barColor=Ui.card(light)
+        private val menuColor=Ui.menu(light)
         private val fabFill=a.fg;private val fabInk=a.bg
         private val fill=Paint(Paint.ANTI_ALIAS_FLAG);private val path=Path();private val now=RectF()
         val rows=ArrayList<View>()
@@ -76,7 +76,7 @@ internal class AddMenu(private val a:MainActivity){
 
         init{
             setWillNotDraw(false);clipChildren=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
-            val w=min(a.d(300).toFloat(),from.width());val h=a.d(6)*2f+a.d(54)*3f+a.d(13)
+            val w=min(a.d(300).toFloat(),from.width());val h=a.d(6)*2f+Size.row(a,54)*3f+a.d(13)
             to=RectF(from.left,from.bottom-h,from.left+w,from.bottom)
             // the bar's own icons, as they are now, to blur away inside the growing card
             runCatching{Bitmap.createBitmap(nav.width,nav.height,Bitmap.Config.ARGB_8888)}.getOrNull()?.let{bmp->val c=Canvas(bmp)
@@ -96,14 +96,14 @@ internal class AddMenu(private val a:MainActivity){
             val bg=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(18).toFloat();setColor(Color.TRANSPARENT)}
             val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),0,a.d(16),0);isClickable=true;isFocusable=true;contentDescription=label;background=bg}
             r.addView(IconView(a,icon,a.fg),LinearLayout.LayoutParams(a.d(24),a.d(24)))
-            r.addView(a.text(label,16f,a.fg).apply{typeface=PolkaFonts.sans(500);maxLines=1},LinearLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(14)})
+            r.addView(a.text(label,Type.BODY,a.fg).apply{typeface=PolkaFonts.sans(500);maxLines=1},LinearLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(14)})
             // under the finger the row lights up and swells a little (the reference's tile), and settles back after
             var lit=0f;var anim:ValueAnimator?=null
             fun glow(on:Boolean){anim?.cancel();anim=ValueAnimator.ofFloat(lit,if(on)1f else 0f).apply{duration=if(on)140 else 320;interpolator=MotionSpec.enter
                 addUpdateListener{lit=it.animatedValue as Float;bg.setColor(ColorUtils.setAlphaComponent(a.fg,((if(light)20 else 38)*lit).roundToInt()));val s=1f+.025f*lit;r.scaleX=s;r.scaleY=s};start()}}
             r.setOnTouchListener{_,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->glow(true);MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->glow(false)};false}
             r.setOnClickListener{if(!closing)close(act)}
-            rows.add(r);column.addView(r,LinearLayout.LayoutParams(-1,a.d(54)))
+            rows.add(r);column.addView(r,LinearLayout.LayoutParams(-1,Size.row(a,54)))
         }
 
         /** [morph]: bar 0 → menu 1 (a spring passes 1 a little); [shade]: the page dims; [shown]: each row out of its blur;

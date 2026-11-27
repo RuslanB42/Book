@@ -28,7 +28,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private fun roundTabs(labels:List<String>):LinearLayout{
   val box=SlidingSegment(a,selected,labels.size,quiet(),if(a.light)android.graphics.Color.WHITE else 0xff48484c.toInt(),24)
   fun tint(index:Int){for(i in 0 until box.childCount)(box.getChildAt(i) as TextView).apply{isSelected=i==index;setTextColor(if(isSelected)a.fg else a.muted)}}
-  labels.forEachIndexed{i,s->box.addView(a.text(s,14f).apply{gravity=Gravity.CENTER;minHeight=a.d(38);a.press(this);setOnClickListener{if(i!=selected){box.choose(i);tint(i);switchTo(i)}}},LinearLayout.LayoutParams(0,-2,1f))}
+  labels.forEachIndexed{i,s->box.addView(a.text(s,Type.TEXT).apply{gravity=Gravity.CENTER;minHeight=a.d(38);a.press(this);setOnClickListener{if(i!=selected){box.choose(i);tint(i);switchTo(i)}}},LinearLayout.LayoutParams(0,-2,1f))}
   tint(selected);return box
  }
  private fun close(){r.refreshBookmark();panel?.dismiss()}
@@ -56,7 +56,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   val toc=r.contents()
   var here:View?=null
   // the chapters scroll on their own, under the tabs: opening at the current chapter never hides «Оглавление / Блокнот / Поиск»
-  val list=a.column();val holder=SheetScroll(a,if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt(),30,18).apply{isVerticalScrollBarEnabled=false;addView(list)}
+  val list=a.column();val holder=SheetScroll(a,Ui.sheet(a.light),30,18).apply{isVerticalScrollBarEnabled=false;addView(list)}
   pane.addView(holder,LinearLayout.LayoutParams(-1,(a.resources.displayMetrics.heightPixels*.6f).toInt()))
   // the list runs down to the bottom edge of the screen (under the gesture bar), like every other list in the app
   holder.clipToPadding=false;holder.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
@@ -66,7 +66,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
    val want=(s[1]+sv.height-at[1]-below).coerceAtLeast(a.d(200))
    holder.setPadding(0,0,0,sv.paddingBottom+a.d(16))
    val lp=holder.layoutParams;if(lp.height!=want){lp.height=want;holder.layoutParams=lp;return false};return true}})
-  toc.forEach{item->val current=item.optInt("ch")==r.chapter;list.addView(a.text(r.prettyTitle(item.str("title")),16f,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),14);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
+  toc.forEach{item->val current=item.optInt("ch")==r.chapter;list.addView(a.text(r.prettyTitle(item.str("title")),Type.BODY,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),14);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
   // the list opens at the chapter being read (a little of the one before it still showing above)
   here?.let{row->holder.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
    if(row.height==0)return true;holder.viewTreeObserver.removeOnPreDrawListener(this)
@@ -76,12 +76,12 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private val chipViews=mutableListOf<TextView>()
  private val chipAnimators=mutableMapOf<TextView,android.animation.ValueAnimator>()
  private val chipLabels=listOf("Все","Цитаты","Закладки")
- private fun quiet()=if(a.light)0xffeeeeec.toInt() else 0xff2f2f31.toInt()
+ private fun quiet()=Ui.press(a.light)
  private fun notebook(){
   // Filter chips are built once; selecting one only recolours them (no rebuild), and the list below fades in.
   chipViews.clear();val chips=a.line()
   chipLabels.forEachIndexed{index,_->
-   val chip=a.text("",14f,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);maxLines=1;setPadding(a.d(16),0,a.d(16),0);tag=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(19).toFloat()};background=tag as android.graphics.drawable.Drawable;isClickable=true;isFocusable=true;setOnClickListener{selectFilter(index)};a.press(this)}
+   val chip=a.text("",Type.TEXT,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);maxLines=1;setPadding(a.d(16),0,a.d(16),0);tag=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(19).toFloat()};background=tag as android.graphics.drawable.Drawable;isClickable=true;isFocusable=true;setOnClickListener{selectFilter(index)};a.press(this)}
    chipViews.add(chip);chips.addView(chip,LinearLayout.LayoutParams(-2,a.d(38)).apply{if(index>0)leftMargin=a.d(8)})
   }
   val strip=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(chips);setPadding(0,a.d(2),0,a.d(4))};pane.addView(strip)
@@ -132,10 +132,10 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
    setPadding(a.d(14),a.d(10),a.d(10),a.d(10));isClickable=true;setOnClickListener{go()};a.press(this);contentDescription="Закладка: ${r.chapterName(item.optInt("ch"))}"}
   card.addView(IconView(a,"bookmark",a.muted),LinearLayout.LayoutParams(a.d(20),a.d(20)).apply{rightMargin=a.d(12)})
   val texts=a.column()
-  texts.addView(a.text(r.chapterName(item.optInt("ch")),15.5f,a.fg,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+  texts.addView(a.text(r.chapterName(item.optInt("ch")),Type.BODY,a.fg,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
   val page=r.pageOf(item.optInt("ch"),item.optInt("nativeOffset",0),item.optInt("page"))
   val date=java.text.SimpleDateFormat("d MMMM",java.util.Locale.forLanguageTag("ru")).format(java.util.Date(item.optLong("at",System.currentTimeMillis())))
-  texts.addView(a.text(listOfNotNull(page?.let{"стр. $it"},date).joinToString("   "),12.5f,a.muted).apply{setPadding(0,a.d(2),0,0)})
+  texts.addView(a.text(listOfNotNull(page?.let{"стр. $it"},date).joinToString("   "),Type.SECONDARY,a.muted).apply{setPadding(0,a.d(2),0,0)})
   card.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
   card.addView(FrameLayout(a).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor((0x14 shl 24) or tone)};isClickable=true;contentDescription="Удалить закладку"
    addView(QuoteActionIcon(a,"trash",a.fg),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER));a.press(this)
@@ -150,7 +150,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  }
  private fun search(){
   val input=a.edit("","Поиск").apply{contentDescription="Поиск по книге";imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH};val results=a.column();pane.addView(searchField(input));a.space(pane,14);pane.addView(results)
-  fun run(){val generation=++searchGeneration;val q=input.text.toString().trim();results.removeAllViews();if(q.length<2)return;results.addView(a.text("Поиск…",15f,a.muted));r.searchEntries(q){rows->if(generation==searchGeneration&&selected==2&&box.isAttachedToWindow){results.removeAllViews();if(rows.isEmpty()){results.addView(a.emptyView("search","Ничего не нашлось","Этого слова нет в книге.",100).apply{setPadding(0,a.d(52),0,a.d(24))},LinearLayout.LayoutParams(-1,-2));return@searchEntries};results.addView(a.text("Найдено: ${rows.size}",13f,a.muted));rows.forEach{row->results.addView(a.text(row.third,15f).apply{setPadding(0,a.d(12),0,a.d(12));setOnClickListener{close();r.goToLocation(row.first,row.second)}})}}}}
+  fun run(){val generation=++searchGeneration;val q=input.text.toString().trim();results.removeAllViews();if(q.length<2)return;results.addView(a.text("Поиск…",Type.TEXT,a.muted));r.searchEntries(q){rows->if(generation==searchGeneration&&selected==2&&box.isAttachedToWindow){results.removeAllViews();if(rows.isEmpty()){results.addView(a.emptyView("search","Ничего не нашлось","Этого слова нет в книге.",100).apply{setPadding(0,a.d(52),0,a.d(24))},LinearLayout.LayoutParams(-1,-2));return@searchEntries};results.addView(a.text("Найдено: ${rows.size}",Type.SECONDARY,a.muted));rows.forEach{row->results.addView(a.text(row.third,Type.TEXT).apply{setPadding(0,a.d(12),0,a.d(12));setOnClickListener{close();r.goToLocation(row.first,row.second)}})}}}}
   input.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){input.removeCallbacks(searchTask);searchTask=Runnable{run()};input.postDelayed(searchTask,250)};override fun afterTextChanged(s:Editable?){} });run()
  }
  private fun searchField(input:EditText):View{

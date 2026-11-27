@@ -62,7 +62,7 @@ internal class ButtonMenu(private val a:MainActivity,private val anchor:View,pri
         private val to:RectF
         private val r0:Float;private val r1=a.d(26).toFloat()
         private val light=a.light
-        private val menuColor=if(light)Color.WHITE else 0xff303033.toInt()
+        private val menuColor=Ui.menu(light)
         private val fill=Paint(Paint.ANTI_ALIAS_FLAG);private val path=Path();private val now=RectF()
         val rows=ArrayList<View>()
         private val snapshot=ImageView(a)
@@ -82,7 +82,7 @@ internal class ButtonMenu(private val a:MainActivity,private val anchor:View,pri
             items.forEachIndexed{i,it->if(it.destructive&&i>0&&!items[i-1].destructive)divider();row(it)}
             rowsShown=FloatArray(rows.size)
             val w=min(a.d(262).toFloat(),a.root.width-a.d(24).toFloat())
-            val h=a.d(6)*2f+a.d(52)*rows.size+lines.size*a.d(13)
+            val h=a.d(6)*2f+Size.row(a,52)*rows.size+lines.size*a.d(13)
             right=from.centerX()>a.root.width/2f;down=from.centerY()<a.root.height/2f
             val x0=if(right)from.right-w else from.left;val y0=if(down)from.top else from.bottom-h
             to=RectF(x0,y0,x0+w,y0+h)
@@ -97,18 +97,18 @@ internal class ButtonMenu(private val a:MainActivity,private val anchor:View,pri
             lines.add(v to rows.size);column.addView(v,LinearLayout.LayoutParams(-1,a.d(1)).apply{setMargins(a.d(16),a.d(6),a.d(16),a.d(6))})}
 
         private fun row(item:Item){
-            val ink=if(item.destructive)0xffd9504e.toInt() else a.fg
+            val ink=if(item.destructive)Ui.danger(a.light) else a.fg
             val bg=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(18).toFloat();setColor(Color.TRANSPARENT)}
             val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),0,a.d(16),0);isClickable=true;isFocusable=true;contentDescription=item.label;background=bg}
             r.addView(IconView(a,item.icon,ink),LinearLayout.LayoutParams(a.d(24),a.d(24)))
-            r.addView(a.text(item.label,16f,ink).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=a.d(14)})
+            r.addView(a.text(item.label,Type.BODY,ink).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=a.d(14)})
             // under the finger the row lights up and swells a little, as in the «＋» menu
             var lit=0f;var anim:ValueAnimator?=null
             fun glow(on:Boolean){anim?.cancel();anim=ValueAnimator.ofFloat(lit,if(on)1f else 0f).apply{duration=if(on)140 else 320;interpolator=MotionSpec.enter
                 addUpdateListener{lit=it.animatedValue as Float;bg.setColor(ColorUtils.setAlphaComponent(ink,((if(light)20 else 38)*lit).roundToInt()));val s=1f+.025f*lit;r.scaleX=s;r.scaleY=s};start()}}
             r.setOnTouchListener{_,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->glow(true);MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->glow(false)};false}
             r.setOnClickListener{if(!closing)close(item.act)}
-            rows.add(r);column.addView(r,LinearLayout.LayoutParams(-1,a.d(52)).apply{setMargins(a.d(6),0,a.d(6),0)})
+            rows.add(r);column.addView(r,LinearLayout.LayoutParams(-1,Size.row(a,52)).apply{setMargins(a.d(6),0,a.d(6),0)})
         }
 
         /** [morph]: button 0 → menu 1 (a spring passes 1 a little); [shade]: the page dims; [shown]: each row out of its

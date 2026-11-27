@@ -39,7 +39,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     private val remaining=TextView(a)
     // approved: the way back lives in the chapter row of the bottom bar, in place of «ещё N стр»
     private val backArrow by lazy{BackGlyph("back")}
-    private val backLabel by lazy{TextView(a).apply{textSize=13f;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(170);includeFontPadding=false;typeface=PolkaFonts.sans(500)}}
+    private val backLabel by lazy{TextView(a).apply{textSize=Type.SECONDARY;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(170);includeFontPadding=false;typeface=PolkaFonts.sans(500)}}
     private val backChip by lazy{LinearLayout(a).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;visibility=View.GONE;isClickable=true;setPadding(a.d(9),0,a.d(12),0)
         addView(backArrow,LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{marginEnd=a.d(6)});addView(backLabel);setOnClickListener{tapBack()};a.press(this)}}
     private val chromeIcons=mutableListOf<IconView>()
@@ -50,7 +50,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     private fun paintSoundChip(){soundChip.repaint()}
     private val bottom=LinearLayout(a).apply { orientation=LinearLayout.VERTICAL; setPadding(a.d(18),a.d(8),a.d(18),a.d(4)) }
     /** Text settings, sounds and page editing open inside the bottom panel (see [ReaderPanel]). */
-    internal val panel=ReaderPanel(a,bottom){readerLightTheme}
+    internal val panel=ReaderPanel(a,bottom)
     private var readerLightTheme=false
     private val slider=ReaderRange(a)
     private val percent=TextView(a)
@@ -149,7 +149,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         // them, so it popped in only once the fade had ended
         topBar.forceHasOverlappingRendering(false);bottom.forceHasOverlappingRendering(false)
         action("Закрыть книгу","chevdown") { a.closeReader() }
-        val metadata=a.column();metadata.addView(a.text(book.str("title"),15f,bold=true).also{titleText=it}.apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});metadata.addView(a.text(MainActivity.authors(book),13f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});bar.addView(metadata,LinearLayout.LayoutParams(0,-2,1f))
+        val metadata=a.column();metadata.addView(a.text(book.str("title"),Type.TEXT,bold=true).also{titleText=it}.apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});metadata.addView(a.text(MainActivity.authors(book),Type.SECONDARY,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});bar.addView(metadata,LinearLayout.LayoutParams(0,-2,1f))
          bar.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
          action("Меню книги","more") { readerMenu(it) }; view.addView(bar,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
         body.setTextColor(a.fg); body.setTextSize(a.prefs.optDouble("size",a.prefs.optDouble("fontSize",19.0)).toFloat()); body.typeface=PolkaFonts.reader(a,a.prefs.str("font","literata")); body.setLineSpacing(0f,1f); body.includeFontPadding=false; body.setPadding(margin(),a.d(22),margin(),a.d(42)); body.breakStrategy=android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY; applySpacing(); body.setTextIsSelectable(true); body.defaultFocusHighlightEnabled=false; body.background=null; body.foreground=null; body.linksClickable=true; body.movementMethod=android.text.method.LinkMovementMethod.getInstance();body.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){v.viewTreeObserver.addOnPreDrawListener(stretchWatch)};override fun onViewDetachedFromWindow(v:View){v.viewTreeObserver.removeOnPreDrawListener(stretchWatch)}})
@@ -302,10 +302,8 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
             else{markFinished();BookFinish(a,book){leave->finishing=false;tracker.skipTime();if(leave&&!disposed)a.closeReader()}.show()}
             Unit}
         if(!tracker.seeded||tracker.share()>=.5)go()
-        else{var chosen=false
-            // the end comes once the question has gone away (it no longer vanishes at once from under the page)
-            a.dialog().setTitle("Книга прочитана?").setMessage("Отметить книгу прочитанной?").setNegativeButton("Нет",null).setPositiveButton("Прочитана"){_,_->chosen=true}.show()
-                .setOnDismissListener{if(chosen)go() else{finishing=false;tracker.skipTime()}}}
+        // the end comes once the question has gone away (it no longer vanishes at once from under the page)
+        else{Alert(a,"Книга прочитана?","Отметить книгу прочитанной?","Прочитана",cancel="Нет",onClose={chosen->if(chosen)go() else{finishing=false;tracker.skipTime()}}).show()}
     }
     /** In the scroll: a pull up of the end of the book, once it is in view, goes past it. */
     private var pullFrom=-1f
@@ -408,7 +406,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         val raw=(dy*.7f).coerceAtLeast(0f);val extra=if(raw<=span)raw else span+(raw-span)*.12f
         ribbon.set(base+extra,ribbon.restX())
         val reached=dy>=a.d(BookmarkRibbon.THRESHOLD_DP)
-        if(reached!=pullReached){pullReached=reached;if(a.prefs.optBoolean("haptics",true))view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)}
+        if(reached!=pullReached){pullReached=reached;view.haptic(a,Haptic.SELECT)}
     }
     private fun endPull(commit:Boolean){
         pulling=false;val reached=pullReached;pullReached=false
@@ -428,7 +426,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         ribbon.visibility=if(paged()&&!editorOpen&&curl==null)View.VISIBLE else View.INVISIBLE
         if(!pulling)ribbon.settle(if(on)ribbon.rest else 0f,on,animate)
     }
-    fun addBookmark() { val list=book.optJSONArray("bookmarks")?.objects().orEmpty().toMutableList(); val offset=if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0; val existing=currentBookmarks().map{it.str("id")}.toSet(); if(existing.isNotEmpty()) list.removeAll{it.str("id") in existing} else list.add(JSONObject().put("id",uid()).put("ch",chapter).put("block",0).put("nativeOffset",offset).put("text",chapters.getJSONObject(chapter).str("title")).put("nativeFraction",fraction()).put("page",if(paged())pageIndex+1 else 0).put("at",System.currentTimeMillis())); book.put("bookmarks",JSONArray(list)); persist(); syncBookmark(true); if(a.prefs.optBoolean("haptics",true)) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP) }
+    fun addBookmark() { val list=book.optJSONArray("bookmarks")?.objects().orEmpty().toMutableList(); val offset=if(paged()) pageBase() else body.layout?.let { it.getLineStart(it.getLineForVertical(scroll.scrollY)) } ?: 0; val existing=currentBookmarks().map{it.str("id")}.toSet(); if(existing.isNotEmpty()) list.removeAll{it.str("id") in existing} else list.add(JSONObject().put("id",uid()).put("ch",chapter).put("block",0).put("nativeOffset",offset).put("text",chapters.getJSONObject(chapter).str("title")).put("nativeFraction",fraction()).put("page",if(paged())pageIndex+1 else 0).put("at",System.currentTimeMillis())); book.put("bookmarks",JSONArray(list)); persist(); syncBookmark(true); view.haptic(a,Haptic.SELECT) }
     fun jumpProgress(pct:Double) { markJump(); val total=chapters.objects().sumOf { it.optInt("len") }.coerceAtLeast(1); var at=(pct*total).toInt(); var next=0; while(next<chapters.length()-1 && at>=chapters.getJSONObject(next).optInt("len")) { at-=chapters.getJSONObject(next).optInt("len"); next++ }; changeChapter(next); val offset=at; body.post { jumpOffset(offset); save() } }
     fun navigation(tab:Int=0){ReaderNavigation(a,this,tab).show()}
     fun contents()=content.optJSONArray("toc")?.objects().orEmpty().ifEmpty{chapters.objects().mapIndexed{index,ch->ch.copyJson().put("ch",index)}}
@@ -666,14 +664,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         beginCurl(direction,false,scroll.height*.9f)
     }
     /** Change how the page looks under a soft crossfade from the old picture, so nothing jumps. */
-    internal fun crossfade(change:()->Unit){
-        if(a.prefs.str("motion")=="reduced"||view.width<=0||view.height<=0){change();return}
-        val pic=runCatching{Bitmap.createBitmap(view.width,view.height,Bitmap.Config.ARGB_8888).also{view.draw(Canvas(it))}}.getOrNull()
-        if(pic==null){change();return}
-        val cover=ImageView(a).apply{setImageBitmap(pic);scaleType=ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
-        view.addView(cover,FrameLayout.LayoutParams(view.width,view.height).apply{leftMargin=-view.paddingLeft;topMargin=-view.paddingTop;rightMargin=-view.paddingRight;bottomMargin=-view.paddingBottom})
-        change()
-        cover.animate().alpha(0f).setStartDelay(40).setDuration(420).setInterpolator(MotionSpec.enter).withEndAction{view.removeView(cover);cover.setImageDrawable(null);pic.recycle()}.start()}
+    internal fun crossfade(change:()->Unit)=view.crossfadeColours(a,change)
     /** While a setting is being dragged the reader's bars fade away (only their opacity: the calm state is not touched). */
     internal fun fadeChrome(hide:Boolean){if(calm)return;val reduced=a.prefs.str("motion")=="reduced";(if(panel.depth>0)listOf(topBar) else listOf(topBar,bottom)).forEach{v->v.animate().cancel();v.translationY=0f;if(reduced)v.alpha=if(hide)0f else 1f else v.animate().alpha(if(hide)0f else 1f).setDuration(if(hide)160 else 240).setInterpolator(MotionSpec.enter).start()}}
     /** A tap on the page: with a page open in the panel it goes back to the reader's own rows, else the bars come and go. */
@@ -721,8 +712,9 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     }
     /** The reader's own colours (theme): background, bars, icons, text ink. */
     private fun applyColors(){
-        val pair=when(a.prefs.str("rt")) { "black"->0xff000000.toInt() to 0xffc9c7c1.toInt(); "sepia"->0xfff3ead8.toInt() to 0xff3a2e22.toInt(); "paper"->0xfffbfaf7.toInt() to 0xff1e1d1b.toInt(); "night"->0xff18181a.toInt() to 0xffdedcd6.toInt(); else->a.bg to a.fg }
-        readerBackground=pair.first;readerLightTheme=android.graphics.Color.red(pair.first)>128;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{float=true;themeLight=if(bar===bottom&&panel.depth>0)themeLight else readerLightTheme;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};soundButton?.ink=pair.second;paintSoundChip();footer.setTextColor(pair.second);body.setTextColor(pair.second);titleText?.setTextColor(pair.second);
+        // the page's own colours are the app's while the book is open: its panel, pages and sheets take them too
+        val tint=ReaderTint.book(a.prefs.str("rt"),a.appLight);a.readerTint=tint;val pair=tint.page to tint.ink
+        readerBackground=pair.first;readerLightTheme=tint.light;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{float=true;themeLight=readerLightTheme;this.tint=tint.panel;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};soundButton?.ink=pair.second;paintSoundChip();footer.setTextColor(pair.second);body.setTextColor(pair.second);titleText?.setTextColor(pair.second);
     }
     /** A theme change only recolours the page: no reflow (the layout is the same), so the crossfade over it is clean.
      *  Tables keep their ink inside their own layouts, so a chapter with tables is reflowed once the fade is over. */
@@ -825,7 +817,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         val y=scroll.scrollY
         scroll.removeView(body);scroll.addView(editor,FrameLayout.LayoutParams(-1,-2));scroll.scrollTo(0,if(paged())0 else editShift)
         if(!paged())editor.post{scroll.scrollTo(0,editShift)}
-        panel.push(ReaderPanel.Page(null,toolbar,light=readerLightTheme))
+        panel.push(ReaderPanel.Page(null,toolbar))
         // Reserve the panel's height so the caret is never hidden under it; the width never changes, so lines never re-break.
         bottom.addOnLayoutChangeListener(editorInset)
         if(y<0)scroll.scrollTo(0,0)

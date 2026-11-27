@@ -151,18 +151,22 @@ class MainActivity : Activity() {
     /** The comic/PDF reader on screen, for pausing its count with the app. */
     internal var pageReading:PageReader?=null
     internal var bookClosing=false
-    val light get() = when(prefs.str("ui",prefs.str("theme","dark"))) { "light" -> true; "system" -> resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK != android.content.res.Configuration.UI_MODE_NIGHT_YES; else -> false }
-    val bg get() = if(light) 0xfff2f2f0.toInt() else 0xff161617.toInt()
-    val surface get() = if(light) 0xffffffff.toInt() else 0xff1f1f21.toInt()
-    val fg get() = if(light) 0xff1a1a1c.toInt() else 0xfff3f2ef.toInt()
-    val muted get() = if(light) 0xff686868.toInt() else 0xffa4a4a4.toInt()
+    /** The app's own theme, whatever is open. */
+    val appLight get() = when(prefs.str("ui",prefs.str("theme","dark"))) { "light" -> true; "system" -> resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK != android.content.res.Configuration.UI_MODE_NIGHT_YES; else -> false }
+    /** While a book or a comic is open, the colours are its page's: its panel, pages, sheets and questions match it. */
+    internal var readerTint:ReaderTint?=null
+    val light get() = readerTint?.light ?: appLight
+    val bg get() = readerTint?.page ?: Ui.bg(light)
+    val surface get() = readerTint?.card ?: Ui.card(light)
+    val fg get() = readerTint?.ink ?: Ui.ink(light)
+    val muted get() = readerTint?.ink2 ?: Ui.ink2(light)
     /** No coloured accent: highlights use the interface's own ink (near-black / near-white). */
-    val accent get() = if(light) 0xff1a1a1c.toInt() else 0xfff3f2ef.toInt()
+    val accent get() = fg
     fun d(value: Int): Int = (value * resources.displayMetrics.density + .5f).toInt()
     fun shape(color: Int, radius: Int = 16): GradientDrawable = GradientDrawable().apply { setColor(color); cornerRadius=d(radius).toFloat() }
     @android.annotation.SuppressLint("WrongConstant")
     fun text(value: String, size: Float=16f, color: Int=fg, bold: Boolean=false, serif: Boolean=false): TextView = TextView(this).apply { text=value; textSize=size; setTextColor(color); typeface=if(serif) PolkaFonts.serif(this@MainActivity,bold) else PolkaFonts.sans(if(bold)600 else 400); includeFontPadding=false; cssLeading(1.2f); if(serif) breakStrategy=android.text.Layout.BREAK_STRATEGY_BALANCED }
-    fun button(value: String, primary: Boolean=false, onClick: () -> Unit): TextView = text(value,16f, if(primary) bg else fg,true).apply { gravity=Gravity.CENTER; minHeight=d(48); setPadding(d(16),d(12),d(16),d(12)); background=if(primary)shape(fg,28)else this@MainActivity.controlSurface(this,28f); setOnClickListener { onClick() }; press(this) }
+    fun button(value: String, primary: Boolean=false, onClick: () -> Unit): TextView = text(value,Type.BODY, if(primary) bg else fg,true).apply { gravity=Gravity.CENTER; minHeight=d(48); setPadding(d(16),d(12),d(16),d(12)); background=if(primary)shape(fg,28)else this@MainActivity.controlSurface(this,28f); setOnClickListener { onClick() }; press(this) }
     fun icon(kind:String, label:String, selected:Boolean=false, action:()->Unit): View = IconView(this,kind,if(selected) bg else fg).apply { contentDescription=label; isClickable=true; isFocusable=true; background=if(selected)shape(fg,28)else this@MainActivity.controlSurface(this,28f); setOnClickListener { action() };press(this) }
     fun col()=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
     fun row()=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
@@ -306,7 +310,8 @@ class MainActivity : Activity() {
     fun <T> compute(action:()->T,failed:((Exception)->Unit)?=null,done:(T)->Unit):java.util.concurrent.Future<*> = cpu.submit { try { val result=action();runOnUiThread { if(!isFinishing && !isDestroyed)done(result) } }catch(e:Exception){if(e !is InterruptedException && !Thread.currentThread().isInterrupted)runOnUiThread { if(!isFinishing && !isDestroyed){failed?.invoke(e);errorDialog(e)} }} }
     fun work(action:()->Unit, failed:((Exception)->Unit)?=null, done:()->Unit={}) { if(io.isShutdown) return; io.execute { try { action(); runOnUiThread { if(!isFinishing && !isDestroyed) done() } } catch(e:Exception) { runOnUiThread { importDialog?.dismiss(); importDialog=null; if(!isFinishing && !isDestroyed) { failed?.invoke(e); if(!initialized) { bootFinished=true; recoveryScreen(e) } else errorDialog(e) } } } } }
     fun dialog() = PolkaSheetBuilder(this)
-    fun errorDialog(e:Throwable) { dialog().setTitle("Не удалось выполнить действие").setMessage(e.message ?: e.javaClass.simpleName).setPositiveButton("Закрыть",null).show() }
+    /** A failure said in plain words (see [ErrorText]); the system's own text stays under «Подробности». */
+    fun errorDialog(e:Throwable) { val t=ErrorText.of(e); Alert(this,t.title,t.text,"Закрыть",cancel=null,details="${e.javaClass.simpleName}: ${e.message.orEmpty()}").show() }
     fun reload() { work({loadData()}) { initialized=true; books.forEach { fresh -> bookObservers.values.toList().filter { it.first==fresh.str("id") }.forEach { it.second(fresh.copyJson()) } }; render(true,false); if(profileOverlay!=null) refreshProfile(); checkpointSoon() } }
     fun checkpointSoon() { checkpointTask?.cancel(false); checkpointTask=io.schedule({ try { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints")); getSharedPreferences("health",0).edit().remove("checkpointError").apply() } catch(e:Exception) { getSharedPreferences("health",0).edit().putString("checkpointError",e.message).apply() } }, 3, TimeUnit.SECONDS) }
     fun saveBook(book:JSONObject, done:()->Unit={}) { val copy=book.copyJson().put("modifiedAt",System.currentTimeMillis()); reader?.book?.takeIf { it.str("id")==copy.str("id") && it!==book }?.let { replaceJson(it,copy) }; work({library.save(copy)}) { publishBook(copy); if(reader==null) { render(true,false); if(profileOverlay!=null) refreshProfile() }; checkpointSoon(); done() } }
@@ -363,10 +368,10 @@ class MainActivity : Activity() {
             tab=="home"&&!inShelf->{val top=LibrarySearchBar(this).apply{elevation=d(12).toFloat()};librarySearch=top;page.addView(top,LinearLayout.LayoutParams(-1,d(48)))
                 // the filters under the search, edge to edge (they scroll sideways)
                 LibraryFilters.row(this)?.let{r->space(page,12);(r as ViewGroup).apply{setPadding(d(20),0,d(20),0);clipToPadding=false};page.addView(r,LinearLayout.LayoutParams(-1,d(36)).apply{leftMargin=-d(20);rightMargin=-d(20)})};space(page,20)}
-            tab=="quotes"->{val head=row();head.addView(text("Цитаты",26f,fg,true,serif=true).apply{setPadding(d(2),0,d(14),0)},LinearLayout.LayoutParams(-2,-2))
+            tab=="quotes"->{val head=row();head.addView(text("Цитаты",Type.H1,fg,true,serif=true).apply{setPadding(d(2),0,d(14),0)},LinearLayout.LayoutParams(-2,-2))
                 val top=LibrarySearchBar(this,compact=true).apply{elevation=d(12).toFloat()};librarySearch=top;head.addView(top,LinearLayout.LayoutParams(0,d(48),1f));page.addView(head,LinearLayout.LayoutParams(-1,d(48)));space(page,20)}
             tab=="shelves"&&!inShelf->{query="";searchOpen=false;page.addView(shelvesTopBar(),LinearLayout.LayoutParams(-1,d(48)));space(page,12)}
-            tab=="words"->{query="";searchOpen=false;page.addView(text("Слова",26f,fg,true,serif=true).apply{setPadding(d(2),0,0,0);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(-1,d(48)));space(page,14)}
+            tab=="words"->{query="";searchOpen=false;page.addView(text("Слова",Type.H1,fg,true,serif=true).apply{setPadding(d(2),0,0,0);gravity=Gravity.CENTER_VERTICAL},LinearLayout.LayoutParams(-1,d(48)));space(page,14)}
             else->{query="";searchOpen=false;space(page,6)}
         }
         // The entry fade must not render the page into an offscreen layer: such a layer is clipped to the page,
@@ -383,7 +388,7 @@ class MainActivity : Activity() {
         when {
             tab=="words" -> wordsPage()
             tab=="quotes" -> quotes()
-            query.isNotBlank() -> {val found=searchBooks();if(found.isEmpty()){space(page,96);page.addView(emptyView("search","Ничего не нашлось","Попробуйте название, автора или серию."),LinearLayout.LayoutParams(-1,-2))}else{val row=line();row.addView(text("Найдено",17f,bold=true),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(countBooks(found.size),14f,muted));page.addView(row);space(page,14);bookGrid(found)}}
+            query.isNotBlank() -> {val found=searchBooks();if(found.isEmpty()){space(page,96);page.addView(emptyView("search","Ничего не нашлось","Попробуйте название, автора или серию."),LinearLayout.LayoutParams(-1,-2))}else{val row=line();row.addView(text("Найдено",Type.TITLE,bold=true),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(countBooks(found.size),Type.TEXT,muted));page.addView(row);space(page,14);bookGrid(found)}}
             shelf!=null || auto!=null -> { val list=currentBooks(); shelfHead(list); if(list.isEmpty()){space(page,96);page.addView(if(auto=="reading")emptyView("open","Ничего не читаете","Откройте любую книгу — она появится здесь.") else emptyView("shelf","Полка пустая","Добавьте книги через «О книге» или в режиме редактирования."),LinearLayout.LayoutParams(-1,-2))} else shelfGrid(list) }
             tab=="shelves" && query.isBlank() -> shelfRows()
             tab=="quotes" -> quotes()
@@ -399,15 +404,15 @@ class MainActivity : Activity() {
      *  how many books are on it, and a search through this shelf only. */
     private fun shelfHead(list:List<JSONObject>) { val head=FrameLayout(this)
         head.addView(icon("back","Назад к полкам") { leaveShelf() },FrameLayout.LayoutParams(d(46),d(46),Gravity.START or Gravity.CENTER_VERTICAL).apply{marginStart=-d(4)})
-        head.addView(text(title(),26f,fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;gravity=Gravity.CENTER},FrameLayout.LayoutParams(-1,-2,Gravity.CENTER).apply{leftMargin=d(52);rightMargin=d(52)})
+        head.addView(text(title(),Type.H1,fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;gravity=Gravity.CENTER},FrameLayout.LayoutParams(-1,-2,Gravity.CENTER).apply{leftMargin=d(52);rightMargin=d(52)})
         head.addView(icon("sort","Сортировка",action={ sortSheet() }),FrameLayout.LayoutParams(d(46),d(46),Gravity.END or Gravity.CENTER_VERTICAL))
         page.addView(head,LinearLayout.LayoutParams(-1,d(46)))
         if(list.isEmpty()){space(page,18);return}
-        page.addView(text(countBooks(list.size),13.5f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
+        page.addView(text(countBooks(list.size),Type.SECONDARY,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
         shelfSearch=null
-        val field=EditText(this).apply{hint="Найти на полке";setHintTextColor(muted);setTextColor(fg);textSize=15f;typeface=PolkaFonts.sans(400);background=null;setSingleLine(true);setPadding(0,0,0,0)
+        val field=EditText(this).apply{hint="Найти на полке";setHintTextColor(muted);setTextColor(fg);textSize=Type.TEXT;typeface=PolkaFonts.sans(400);background=null;setSingleLine(true);setPadding(0,0,0,0)
             imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH;setOnEditorActionListener{v,_,_->(getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(v.windowToken,0);true}}
-        val bar=row().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(16),0,d(16),0);background=shape(if(light)0x0f000000 else 0x12ffffff,22)}
+        val bar=row().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(16),0,d(16),0);background=shape(Ui.fill(light),22)}
         bar.addView(IconView(this,"search",muted),LinearLayout.LayoutParams(d(18),d(18)).apply{marginEnd=d(10)});bar.addView(field,LinearLayout.LayoutParams(0,-2,1f))
         page.addView(bar,LinearLayout.LayoutParams(-1,d(44)).apply{topMargin=d(16);bottomMargin=d(22)})
         shelfSearch=field }
@@ -415,7 +420,7 @@ class MainActivity : Activity() {
     /** The open shelf's books; its search narrows them in place (no dragging into a new order while it does). */
     private fun shelfGrid(list:List<JSONObject>) { val host=col().apply{clipChildren=false;clipToPadding=false};page.addView(host,LinearLayout.LayoutParams(-1,-2))
         fun show(q:String){host.removeAllViews();val found=if(q.isBlank())list else list.filter{(it.str("title")+" "+authors(it)+" "+it.str("series")).contains(q,true)}
-            if(found.isEmpty())host.addView(text("Ничего не нашлось",15f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(40)})
+            if(found.isEmpty())host.addView(text("Ничего не нашлось",Type.TEXT,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(40)})
             else bookGrid(found,host,reorder=q.isBlank())}
         show("");shelfSearch?.addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){}
             override fun afterTextChanged(s:android.text.Editable?){show(s?.toString()?.trim().orEmpty())}}) }
@@ -430,9 +435,9 @@ class MainActivity : Activity() {
 
     fun progressRow(parent:LinearLayout,book:JSONObject,stacked:Boolean=false) {
         val pct=(book.optJSONObject("progress")?.optDouble("pct",0.0) ?: 0.0).coerceIn(0.0,1.0)
-        val bar=ThinProgress(this,pct,fg,if(light) 0xffdddddd.toInt() else 0xff333335.toInt())
-        if(stacked) { parent.addView(bar,LinearLayout.LayoutParams(-1,d(3))); space(parent,6); parent.addView(text("${(pct*100).toInt()}%",12f,muted).apply { gravity=Gravity.END },LinearLayout.LayoutParams(-1,d(17))) }
-        else { val row=row(); row.addView(bar,LinearLayout.LayoutParams(0,d(3),1f)); row.addView(text("${(pct*100).toInt()}%",13f,muted).apply { setPadding(d(10),0,0,0) }); parent.addView(row) }
+        val bar=ThinProgress(this,pct,fg,Ui.press(light))
+        if(stacked) { parent.addView(bar,LinearLayout.LayoutParams(-1,d(3))); space(parent,6); parent.addView(text("${(pct*100).toInt()}%",Type.CAPTION,muted).apply { gravity=Gravity.END },LinearLayout.LayoutParams(-1,d(17))) }
+        else { val row=row(); row.addView(bar,LinearLayout.LayoutParams(0,d(3),1f)); row.addView(text("${(pct*100).toInt()}%",Type.SECONDARY,muted).apply { setPadding(d(10),0,0,0) }); parent.addView(row) }
     }
     fun columns():Int = when { resources.configuration.screenWidthDp>=980 ->4; resources.configuration.screenWidthDp>=680 ->3; else ->2 }
     fun bookGrid(source:List<JSONObject>,into:LinearLayout=page,reorder:Boolean=true) {
@@ -444,10 +449,10 @@ class MainActivity : Activity() {
         fun cell(index:Int):View { val book=list[index];return col().apply {
             clipChildren=false;clipToPadding=false
             addView(CoverView(this@MainActivity,book,cover(book)).apply{readMark=read(book)},LinearLayout.LayoutParams(-1,-2))
-            space(this,16); addView(text(book.str("title"),15f).apply { maxLines=2; ellipsize=android.text.TextUtils.TruncateAt.END }); space(this,4); addView(text(authors(book),14f,muted).apply { maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END }); if(bar(book)) { space(this,12); progressRow(this,book,true) }
+            space(this,16); addView(text(book.str("title"),Type.TEXT).apply { maxLines=2; ellipsize=android.text.TextUtils.TruncateAt.END }); space(this,4); addView(text(authors(book),Type.TEXT,muted).apply { maxLines=1; ellipsize=android.text.TextUtils.TruncateAt.END }); if(bar(book)) { space(this,12); progressRow(this,book,true) }
             setOnClickListener { detail(book,this) }; contentDescription="${book.str("title")}, ${authors(book)}"; tag="grid:"+book.str("id")
         } }
-        val cols=columns();val gap=d(24);val paint=android.text.TextPaint().apply { textSize=15*resources.displayMetrics.scaledDensity;typeface=PolkaFonts.sans(400) }
+        val cols=columns();val gap=d(24);val paint=android.text.TextPaint().apply { textSize=Type.TEXT*resources.displayMetrics.scaledDensity;typeface=PolkaFonts.sans(400) }
         val virtual=VirtualGrid(this,list.size,cols,gap,d(30),{ row,w -> val batch=list.subList(row*cols,minOf(list.size,(row+1)*cols)); val lines=batch.maxOfOrNull { if(paint.measureText(it.str("title"))>w)2 else 1 } ?: 1
             (w*1.5f).toInt()+d(16)+(18*resources.displayMetrics.scaledDensity*lines).toInt()+d(4)+(17*resources.displayMetrics.scaledDensity).toInt()+if(batch.any{bar(it)})d(38)else 0
         },::cell);if(reorder)virtual.reorder=ShelfReorder(this,virtual,list) { saveGridOrder(it) };into.addView(col().apply{clipChildren=false;clipToPadding=false;setPadding(d(2),d(6),d(5),0);addView(virtual,LinearLayout.LayoutParams(-1,-2))},LinearLayout.LayoutParams(-1,-2))
@@ -526,7 +531,11 @@ class MainActivity : Activity() {
                 dialog().setTitle(title).setMultiChoiceItems(others.map{it.str("title")}.toTypedArray(),checked){_,which,on->checked[which]=on}
                     .setPositiveButton("Сохранить"){_,_->others.filterIndexed{j,_->checked[j]}.forEach{setBookStatus(it,key)}}.setNegativeButton("Отмена",null).show() }
         } }.show() }
-    fun confirm(title:String,message:String,action:()->Unit) { dialog().setTitle(title).setMessage(message).setNegativeButton("Отмена",null).setPositiveButton("Продолжить") { _,_ -> action() }.show() }
+    /** A question before something that cannot be taken back (see [Alert]): the button names the action from the
+     *  title's verb («Удалить книгу?» → «Удалить»), red when it removes something. */
+    fun confirm(title:String,message:String,action:()->Unit) { val verb=title.substringBefore(' ').trimEnd('?')
+        val label=when(verb){"Удалить","Восстановить","Открыть","Снять","Отметить"->verb;"Отменить"->"Отменить правки";else->"Продолжить"}
+        Alert(this,title,message,label,destructive=verb in setOf("Удалить","Снять","Отменить"),cancel=if(verb=="Отменить")"Назад" else "Отмена",onAction=action).show() }
     private var loadingReader=false
     /** Book whose card the reader was opened from; closing the book returns to that card. */
     var returnDetailId:String?=null
@@ -602,7 +611,7 @@ class MainActivity : Activity() {
         val finished=r.finishOnClose()
         r.dispose() // Save the final position once, before any reverse-motion time is credited.
         val updated=r.book.copyJson();books=books.map{if(it.str("id")==updated.str("id"))updated else it}
-        reader=null
+        reader=null;readerTint=null
         if(prefs.str("motion")=="reduced" || r.view.width<=0 || isFinishing || isDestroyed){ReaderWindow.configure(window,false,bg);root.requestApplyInsets();render(true,false);if(finished&&!isFinishing&&!isDestroyed)BookFinish(this,updated){}.show();return}
         closeWithFade(r)
         if(finished)root.postDelayed({if(!isFinishing&&!isDestroyed)BookFinish(this,updated){}.show()},520)
@@ -647,12 +656,12 @@ class MainActivity : Activity() {
                 } else if(shelf!=null) BookShelves.put(item.book,listOf(shelf!!))
                 val same=if(old==null) (existing+parsed.map { it.book }).firstOrNull { it.str("title").equals(item.book.str("title"),true) && authors(it).equals(authors(item.book),true) && !it.optBoolean("noFile") } else null
                 if(same!=null) known.add(same) else parsed.add(item); read.add(uri)
-            } catch(e:Exception) { failures.add("${fileName(uri)}: ${e.message ?: "не удалось прочитать файл"}") } }
+            } catch(e:Exception) { failures.add("${fileName(uri)}: ${ErrorText.of(e).title.lowercase()}") } }
             runOnUiThread {
                 val loader=importDialog; importDialog=null
                 fun commit(loader:Notice?) { work({ if(target!=null && parsed.isNotEmpty()) ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety"); if(parsed.isNotEmpty()) library.importBooks(parsed); loadData() },{ e -> val n=loader ?: Notice.card(this,Notice.State(Notice.Kind.LOADING,"",blank=true)); n.update(Notice.State(Notice.Kind.ERROR,if(uris.size==1) "Книга не добавлена" else "Книги не добавлены","Не удалось сохранить в библиотеку",blank=true)) }) {
                     if(target==null) freshBookIds.addAll(parsed.map { it.book.str("id") })
-                    reader=null; gridMotion=true; refreshBookViews(target) { render(true,false) }; root.postDelayed({ freshBookIds.clear() },1500); checkpointSoon()
+                    reader=null; readerTint=null; gridMotion=true; refreshBookViews(target) { render(true,false) }; root.postDelayed({ freshBookIds.clear() },1500); checkpointSoon()
                     val ids=parsed.map { it.book.str("id") }; val added=ids.mapNotNull { id -> books.firstOrNull { it.str("id")==id } }
                     val details:()->Unit={ val lines=failures+known.map { "«${it.str("title")}»: уже в библиотеке" }; dialog().setTitle("Не добавлено").setMessage(lines.joinToString("\n\n")).setPositiveButton("Закрыть",null).show() }
                     val reasons=listOfNotNull(failures.size.takeIf { it>0 }?.let { n -> if(n==1) "1 файл не удалось прочитать" else "$n ${fileWord(n)} не удалось прочитать" },known.size.takeIf { it>0 }?.let { n -> if(n==1) "1 уже в библиотеке" else "$n уже в библиотеке" }).joinToString(" · ")

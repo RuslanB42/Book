@@ -157,8 +157,8 @@ internal object Translation{
  *  translation. Pulled down or tapped outside, it leaves. */
 internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,private val selected:String,private val source:WordSource?=null,private val toNote:(String)->Unit){
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()
-    private val quiet get()=if(a.light)0x0f000000 else 0x0fffffff
+    private val sheetColor get()=Ui.sheet(a.light)
+    private val quiet get()=Ui.fill(a.light)
     private var dialog:android.app.Dialog?=null
     private lateinit var holder:LinearLayout;private lateinit var body:LinearLayout
     private var copyText="";private var tts:TextToSpeech?=null
@@ -200,7 +200,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         if(h0>0&&!reduced){holder.post{val h1=holder.height;if(h1!=h0){holder.translationY=(h1-h0).toFloat();holder.animate().translationY(0f).setDuration(280).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
         body.alpha=0f;body.animate().alpha(1f).setDuration(if(reduced)0 else 180).start()}
     private fun loading()=content{addView(ProgressBar(a).apply{isIndeterminate=true;indeterminateTintList=android.content.res.ColorStateList.valueOf(a.muted)},LinearLayout.LayoutParams(a.d(28),a.d(28)).apply{gravity=Gravity.CENTER_HORIZONTAL;topMargin=a.d(18);bottomMargin=a.d(26)})}
-    private fun hairline(p:LinearLayout)=p.addView(View(a).apply{setBackgroundColor(if(a.light)0x14000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})
+    private fun hairline(p:LinearLayout)=p.addView(View(a).apply{setBackgroundColor(Ui.line(a.light))},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})
     private fun round(kind:String,desc:String,fn:()->Unit)=FrameLayout(a).apply{background=a.shape(quiet,20);isClickable=true;contentDescription=desc;a.press(this);setOnClickListener{fn()}
         addView(LineIcon(a,kind,a.fg).apply{size=20f},FrameLayout.LayoutParams(-1,-1))}
     private fun copy(){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Glyph",copyText));Notice.short(a,Notice.Kind.COPIED,"Скопировано");close()}
@@ -221,7 +221,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         row.addView(View(a),LinearLayout.LayoutParams(a.d(10),1))
         val lemma=learn.optString("w");val lang=learn.optString("lang","ru")
         fun saved()=Words.find(a,Dictionary.key(lemma),lang)
-        val icon=LineIcon(a,"learn",a.bg).apply{size=20f};val label=a.text("",16f,a.bg,true)
+        val icon=LineIcon(a,"learn",a.bg).apply{size=20f};val label=a.text("",Type.BODY,a.bg,true)
         val b=a.line().apply{gravity=Gravity.CENTER;isClickable=true;a.press(this);addView(icon,LinearLayout.LayoutParams(a.d(22),a.d(22)));addView(label,LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)})}
         fun paint(){val on=saved()!=null;b.background=a.shape(if(on)quiet else a.fg,26);icon.set(if(on)"check" else "learn",if(on)a.fg else a.bg);label.setTextColor(if(on)a.fg else a.bg)
             label.text=if(on)"Учу" else "Учить слово";b.contentDescription=if(on)"Убрать из изучения" else "Учить слово"}
@@ -236,26 +236,26 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         row.addView(b,LinearLayout.LayoutParams(0,a.d(52),1f))
         p.addView(row,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18)})}
     private fun message(title:String,sub:String?,action:String?=null,fn:(()->Unit)?=null)=content{
-        addView(a.text(title,16f,a.fg,true));if(sub!=null)addView(a.text(sub,13.5f,a.muted).apply{cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})
-        if(action!=null)addView(a.text(action,14f,a.fg,true).apply{gravity=Gravity.CENTER;background=a.shape(quiet,22);isClickable=true;a.press(this);setOnClickListener{fn?.invoke()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}
+        addView(a.text(title,Type.BODY,a.fg,true));if(sub!=null)addView(a.text(sub,Type.SECONDARY,a.muted).apply{cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})
+        if(action!=null)addView(a.text(action,Type.TEXT,a.fg,true).apply{gravity=Gravity.CENTER;background=a.shape(quiet,22);isClickable=true;a.press(this);setOnClickListener{fn?.invoke()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}
 
     // ── dictionary ──
     private fun offerDownload(){
         content{val head=a.line()
             head.addView(FrameLayout(a).apply{background=a.shape(quiet,16);addView(LineIcon(a,"dictionary",a.fg),FrameLayout.LayoutParams(-1,-1))},LinearLayout.LayoutParams(a.d(48),a.d(48)))
-            val t=a.column();t.addView(a.text("Словарь без интернета",16f,a.fg,true));t.addView(a.text("Русский и английский, из Викисловаря. Скачивается один раз, около 35 МБ",13f,a.muted).apply{cssLeading(1.35f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(2)})
+            val t=a.column();t.addView(a.text("Словарь без интернета",Type.BODY,a.fg,true));t.addView(a.text("Русский и английский, из Викисловаря. Скачивается один раз, около 35 МБ",Type.SECONDARY,a.muted).apply{cssLeading(1.35f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(2)})
             head.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(14)});addView(head)
-            addView(a.text("Скачать",14f,a.bg,true).apply{gravity=Gravity.CENTER;background=a.shape(a.fg,22);isClickable=true;a.press(this);setOnClickListener{download()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}}
+            addView(a.text("Скачать",Type.TEXT,a.bg,true).apply{gravity=Gravity.CENTER;background=a.shape(a.fg,22);isClickable=true;a.press(this);setOnClickListener{download()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}}
     private fun download(){
         lateinit var bar:ThinBar;lateinit var left:TextView;lateinit var right:TextView
         content{val head=a.line()
             head.addView(FrameLayout(a).apply{background=a.shape(quiet,16);addView(LineIcon(a,"dictionary",a.fg),FrameLayout.LayoutParams(-1,-1))},LinearLayout.LayoutParams(a.d(48),a.d(48)))
-            val t=a.column();t.addView(a.text("Словарь без интернета",16f,a.fg,true));t.addView(a.text("Русский и английский, из Викисловаря",13f,a.muted))
+            val t=a.column();t.addView(a.text("Словарь без интернета",Type.BODY,a.fg,true));t.addView(a.text("Русский и английский, из Викисловаря",Type.SECONDARY,a.muted))
             head.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(14)});addView(head)
             bar=ThinBar();addView(bar,LinearLayout.LayoutParams(-1,a.d(6)).apply{topMargin=a.d(20)})
-            val row=a.line();left=a.text("Подключаюсь…",12.5f,a.muted);right=a.text("",12.5f,a.muted)
+            val row=a.line();left=a.text("Подключаюсь…",Type.SECONDARY,a.muted);right=a.text("",Type.SECONDARY,a.muted)
             row.addView(left,LinearLayout.LayoutParams(0,-2,1f));row.addView(right);addView(row,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
-            addView(a.text("Отмена",14f,a.fg,true).apply{gravity=Gravity.CENTER;background=a.shape(quiet,22);isClickable=true;a.press(this);setOnClickListener{Dictionary.cancel=true;close()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}
+            addView(a.text("Отмена",Type.TEXT,a.fg,true).apply{gravity=Gravity.CENTER;background=a.shape(quiet,22);isClickable=true;a.press(this);setOnClickListener{Dictionary.cancel=true;close()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}
         io.execute{try{Dictionary.download(a){n,total->holder.post{if(total>0){bar.set(n.toFloat()/total);left.text="${n/1_000_000} из ${total/1_000_000} МБ";right.text="${n*100/total}%"}else left.text="${n/1_000_000} МБ"}}
                 holder.post{if(dialog!=null)lookupWord()}}
             catch(_:InterruptedException){}
@@ -276,14 +276,14 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         content{
             val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(44)}
             val t=a.column()
-            t.addView(TextView(a).apply{text=title;textSize=24f;setTextColor(a.fg);typeface=PolkaFonts.literata(a,true)})
-            e.optString("description").takeIf{it.isNotBlank()}?.let{t.addView(a.text(it,12.5f,a.muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(4)})}
+            t.addView(TextView(a).apply{text=title;textSize=Type.H1;setTextColor(a.fg);typeface=PolkaFonts.literata(a,true)})
+            e.optString("description").takeIf{it.isNotBlank()}?.let{t.addView(a.text(it,Type.SECONDARY,a.muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(4)})}
             head.addView(t,LinearLayout.LayoutParams(0,-2,1f))
             head.addView(round("speaker","Произнести"){speak(title,lang)},LinearLayout.LayoutParams(a.d(40),a.d(40)))
             addView(head);hairline(this)
             val extract=e.optString("extract").let{x->if(x.length<=520)x else x.take(520).substringBeforeLast(". ")+"."}
-            addView(TextView(a).apply{text=extract;textSize=15.5f;setTextColor(a.fg);typeface=serif;cssLeading(1.5f)})
-            addView(a.text("Википедия",12f,a.muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10)})
+            addView(TextView(a).apply{text=extract;textSize=Type.BODY;setTextColor(a.fg);typeface=serif;cssLeading(1.5f)})
+            addView(a.text("Википедия",Type.CAPTION,a.muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10)})
             copyText="$title — $extract"
             val learn=JSONObject().put("w",title).put("lang",lang).put("src","wiki").put("p","имя").put("s",JSONArray().put(JSONArray().put(Encyclopedia.meaning(e))))
             val surface=word.trim{!it.isLetter()&&it!='-'}
@@ -295,31 +295,31 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         content{
             val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(44)}
             val t=a.column()
-            val w=TextView(a).apply{text=first.optString("w");textSize=24f;setTextColor(a.fg);typeface=PolkaFonts.literata(a,true)}
+            val w=TextView(a).apply{text=first.optString("w");textSize=Type.H1;setTextColor(a.fg);typeface=PolkaFonts.literata(a,true)}
             val ipa=first.optString("i")
             if(ipa.isNotBlank()){val sp=android.text.SpannableStringBuilder(first.optString("w")).append("  ").append(ipa)
                 val st=first.optString("w").length+2;sp.setSpan(android.text.style.AbsoluteSizeSpan(15,true),st,sp.length,0);sp.setSpan(android.text.style.ForegroundColorSpan(a.muted),st,sp.length,0);sp.setSpan(android.text.style.TypefaceSpan(PolkaFonts.sans(400)),st,sp.length,0);w.text=sp}
-            t.addView(w);if(first.optString("p").isNotBlank())t.addView(a.text(first.optString("p"),12.5f,a.muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(4)})
+            t.addView(w);if(first.optString("p").isNotBlank())t.addView(a.text(first.optString("p"),Type.SECONDARY,a.muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(4)})
             head.addView(t,LinearLayout.LayoutParams(0,-2,1f))
             head.addView(round("speaker","Произнести"){speak(first.optString("w").replace("́",""),lang)},LinearLayout.LayoutParams(a.d(40),a.d(40)))
             addView(head);hairline(this)
             sb.append(first.optString("w").replace("́",""))
             first.optJSONArray("t")?.let{tr->val s=(0 until tr.length()).joinToString(", "){tr.getString(it)}
-                addView(TextView(a).apply{text=s;textSize=17f;setTextColor(a.fg);typeface=serif},LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(12)});sb.append(" — ").append(s)}
+                addView(TextView(a).apply{text=s;textSize=Type.TITLE;setTextColor(a.fg);typeface=serif},LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(12)});sb.append(" — ").append(s)}
             list.filter{it.optString("w")==first.optString("w")&&it.optString("lang")==lang}.take(3).forEachIndexed{ei,e->
-                if(ei>0){addView(a.text(e.optString("p"),12.5f,a.muted,true),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16);bottomMargin=a.d(8)})}
+                if(ei>0){addView(a.text(e.optString("p"),Type.SECONDARY,a.muted,true),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16);bottomMargin=a.d(8)})}
                 val senses=e.optJSONArray("s")?:JSONArray()
                 for(i in 0 until senses.length()){val s=senses.getJSONArray(i)
                     val row=a.line().apply{gravity=Gravity.TOP}
-                    row.addView(a.text("${i+1}",12f,a.muted,true).apply{setPadding(0,a.d(4),0,0)},LinearLayout.LayoutParams(a.d(22),-2))
+                    row.addView(a.text("${i+1}",Type.CAPTION,a.muted,true).apply{setPadding(0,a.d(4),0,0)},LinearLayout.LayoutParams(a.d(22),-2))
                     val col=a.column()
-                    col.addView(TextView(a).apply{text=s.optString(0);textSize=15.5f;setTextColor(a.fg);typeface=serif;cssLeading(1.5f)})
-                    if(s.optString(1).isNotBlank())col.addView(TextView(a).apply{text=s.optString(1);textSize=14.5f;setTextColor(a.muted);typeface=PolkaFonts.literata(a,false,true);cssLeading(1.45f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(3)})
+                    col.addView(TextView(a).apply{text=s.optString(0);textSize=Type.BODY;setTextColor(a.fg);typeface=serif;cssLeading(1.5f)})
+                    if(s.optString(1).isNotBlank())col.addView(TextView(a).apply{text=s.optString(1);textSize=Type.TEXT;setTextColor(a.muted);typeface=PolkaFonts.literata(a,false,true);cssLeading(1.45f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(3)})
                     row.addView(col,LinearLayout.LayoutParams(0,-2,1f));addView(row,LinearLayout.LayoutParams(-1,-2).apply{if(i>0)topMargin=a.d(12)})
                     sb.append("\n${i+1}. ").append(s.optString(0))}}
             first.optJSONArray("y")?.let{y->val s=(0 until y.length()).joinToString(", "){y.getString(it)}
-                addView(a.text("СИНОНИМЫ",11f,a.muted,true).apply{letterSpacing=.06f},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})
-                addView(TextView(a).apply{text=s;textSize=14.5f;setTextColor(a.fg);typeface=serif},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(3)})}
+                addView(a.text("СИНОНИМЫ",Type.CAPTION,a.muted,true).apply{letterSpacing=.06f},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})
+                addView(TextView(a).apply{text=s;textSize=Type.TEXT;setTextColor(a.fg);typeface=serif},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(3)})}
             copyText=sb.toString();learnActions(this,first)}}
     private fun speak(text:String,lang:String){
         val go={tts?.language=Locale(lang);tts?.speak(text,TextToSpeech.QUEUE_FLUSH,null,"w")}
@@ -336,20 +336,20 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         if(src!=null)run(src) else Translation.identify(text){l->holder.post{if(dialog!=null)run(l?:if(text.any{it in 'а'..'я'||it in 'А'..'Я'})"ru" else "en")}}}
     private fun showTranslation(result:String){copyText=result
         content{
-            val seg=a.line().apply{gravity=Gravity.CENTER_VERTICAL;background=a.shape(if(a.light)0x0c000000 else 0x0dffffff,20);setPadding(a.d(4),0,a.d(4),0)}
-            seg.addView(a.text(Translation.name(from?:"en"),13.5f,a.fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-1,1f))
+            val seg=a.line().apply{gravity=Gravity.CENTER_VERTICAL;background=a.shape(Ui.fill(a.light),20);setPadding(a.d(4),0,a.d(4),0)}
+            seg.addView(a.text(Translation.name(from?:"en"),Type.SECONDARY,a.fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-1,1f))
             seg.addView(FrameLayout(a).apply{isClickable=true;contentDescription="Поменять языки";a.press(this);setOnClickListener{val f=to;val t=from;if(f!=null&&t!=null)translateSwapped(f,t)}
                 addView(LineIcon(a,"swap",a.muted).apply{size=18f},FrameLayout.LayoutParams(-1,-1))},LinearLayout.LayoutParams(a.d(40),-1))
-            seg.addView(a.text(Translation.name(to?:"ru"),13.5f,a.fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-1,1f))
+            seg.addView(a.text(Translation.name(to?:"ru"),Type.SECONDARY,a.fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-1,1f))
             addView(seg,LinearLayout.LayoutParams(-1,a.d(40)));hairline(this)
-            addView(TextView(a).apply{text=result;textSize=17f;setTextColor(a.fg);typeface=serif;cssLeading(1.55f);setTextIsSelectable(true)})
+            addView(TextView(a).apply{text=result;textSize=Type.TITLE;setTextColor(a.fg);typeface=serif;cssLeading(1.55f);setTextIsSelectable(true)})
             actions(this)}}
     /** Swapping translates the same selection the other way round. */
     private fun translateSwapped(f:String,t:String)=translate(f,t)
 
     private inner class ThinBar:View(a){private var v=0f;private val p=Paint(Paint.ANTI_ALIAS_FLAG)
         fun set(x:Float){v=x.coerceIn(0f,1f);invalidate()}
-        override fun onDraw(c:Canvas){val r=height/2f;p.color=if(a.light)0x14000000 else 0x14ffffff;c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),r,r,p)
+        override fun onDraw(c:Canvas){val r=height/2f;p.color=Ui.fill(a.light);c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),r,r,p)
             if(v>0f){p.color=a.fg;c.drawRoundRect(0f,0f,maxOf(height.toFloat(),width*v),height.toFloat(),r,r,p)}}}
     private inner class DragRoot:FrameLayout(a){
         private var y0=0f;private var x0=0f;private var dragging=false;private var vt:VelocityTracker?=null

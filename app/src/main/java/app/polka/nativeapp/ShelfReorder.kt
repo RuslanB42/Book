@@ -52,7 +52,7 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         // Replay the cell's own drawing on the GPU (same renderer as the grid), so the lifted cover matches it exactly.
         if(android.os.Build.VERSION.SDK_INT>=28)runCatching{val pic=Picture();val c=pic.beginRecording(w+pad*2,h+pad*2);c.translate(pad.toFloat(),pad.toFloat());val a0=view.alpha;view.alpha=1f;view.draw(c);view.alpha=a0;pic.endRecording();ghost!!.setImageDrawable(android.graphics.drawable.PictureDrawable(pic))}
         a.root.overlay.add(shade!!);a.root.overlay.add(ghost!!);position()
-        view.alpha=0f;grid.parent.requestDisallowInterceptTouchEvent(true);view.isPressed=false;view.cancelLongPress();view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        view.alpha=0f;grid.parent.requestDisallowInterceptTouchEvent(true);view.isPressed=false;view.cancelLongPress();view.haptic(a,Haptic.LONG)
         if(!reduced()){shade!!.alpha=0f;ghost!!.animate().scaleX(1.05f).scaleY(1.05f).setDuration(200).setInterpolator(MotionSpec.enter).start();shade!!.animate().alpha(1f).scaleX(1.05f).scaleY(1.05f).setDuration(200).setInterpolator(MotionSpec.enter).start()}
         a.shelfReorder=this;position();lastFrame=0;grid.postOnAnimation(frame)
     }

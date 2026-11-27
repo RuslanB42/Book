@@ -55,7 +55,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         // header: collapse · caption · share, then the years as big serif tabs and the progress
         val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),a.d(8),a.d(16),0)}
         fun round(kind:String,desc:String,click:()->Unit)=FrameLayout(a).apply{isClickable=true;contentDescription=desc;setOnClickListener{click()}
-            background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x14ffffff)}
+            background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(Ui.fill(a.light))}
             addView(Glyph(a,kind,a.fg),FrameLayout.LayoutParams(a.d(19),a.d(19),Gravity.CENTER));a.press(this)}
         bar.addView(round("back","Назад"){close()},LinearLayout.LayoutParams(a.d(46),a.d(46)))
         // approved «Мой год в книгах»: the years small in the middle of the bar (this one bright), the page below
@@ -84,7 +84,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
     private fun bindYear(animated:Boolean){
         tabs.removeAllViews()
         years.forEach{y->val on=y==year
-            tabs.addView(a.text("$y",15f,if(on)a.fg else a.muted,on).apply{if(!on)typeface=PolkaFonts.sans(500);isClickable=true;contentDescription=if(on)"$y год, выбран" else "$y год";setPadding(a.d(8),a.d(8),a.d(8),a.d(8))
+            tabs.addView(a.text("$y",Type.TEXT,if(on)a.fg else a.muted,on).apply{if(!on)typeface=PolkaFonts.sans(500);isClickable=true;contentDescription=if(on)"$y год, выбран" else "$y год";setPadding(a.d(8),a.d(8),a.d(8),a.d(8))
                 setOnClickListener{if(y!=year){year=y;onYear(y);bindYear(true)}}},LinearLayout.LayoutParams(-2,-2))}
         val list=yearBooks(model,data,year);val goal=model.target(year)
         // approved «Кольцо»: the big ring, the words, the year's results and the books by month
@@ -117,8 +117,8 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         val sh=frame.height-insets.top-insets.bottom;val ph=min((sh*.68f).toInt(),a.d(560));val pw=ph*9/16
         box.addView(img,LinearLayout.LayoutParams(pw,ph))
         val acts=a.line().apply{gravity=Gravity.CENTER}
-        fun act(label:String,primary:Boolean,click:()->Unit)=a.text(label,16f,if(primary)a.bg else a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(22),0,a.d(22),0);isClickable=true
-            background=GradientDrawable().apply{setColor(if(primary)a.fg else if(a.light)0x14000000 else 0x1affffff);cornerRadius=a.d(24).toFloat()};setOnClickListener{click()};a.press(this)}
+        fun act(label:String,primary:Boolean,click:()->Unit)=a.text(label,Type.BODY,if(primary)a.bg else a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(22),0,a.d(22),0);isClickable=true
+            background=GradientDrawable().apply{setColor(if(primary)a.fg else Ui.press(a.light));cornerRadius=a.d(24).toFloat()};setOnClickListener{click()};a.press(this)}
         acts.addView(act("Закрыть",false){closeShare()},LinearLayout.LayoutParams(-2,a.d(48)))
         acts.addView(act("Отправить",true){send(y)},LinearLayout.LayoutParams(-2,a.d(48)).apply{marginStart=a.d(10)})
         box.addView(acts,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(18)})

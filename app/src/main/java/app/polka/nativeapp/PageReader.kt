@@ -84,10 +84,10 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     private val loading=HashSet<String>()
     // the look: the backdrop round the page and how the page is fitted
     private val bgKey get()=a.prefs.str("comicBg","black")
-    private fun bgColor()=when(bgKey){"graphite"->0xff1c1c1e.toInt();"white"->0xfff3f2ef.toInt();else->0xff000000.toInt()}
+    private fun bgColor()=ReaderTint.comic(bgKey).page
     private val lightBg get()=bgKey=="white"
-    private fun ink()=if(lightBg)0xff1e1d1b.toInt() else 0xfff3f2ef.toInt()
-    private fun mutedInk()=if(lightBg)0xff76767b.toInt() else 0xff8b8b91.toInt()
+    private fun ink()=ReaderTint.comic(bgKey).ink
+    private fun mutedInk()=ReaderTint.comic(bgKey).ink2
     private val widthFit get()=a.prefs.str("comicFit")=="width"
     private fun marks():MutableList<Int>{if(comic)return mutableListOf();val arr=book.optJSONArray("pageMarks")?:return mutableListOf();return (0 until arr.length()).map{arr.optInt(it)}.filter{it in 0 until n}.distinct().toMutableList()}
 
@@ -118,7 +118,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     /** Opened from the end of the previous issue: the bars stay hidden, the page alone comes up. */
     var quiet=false
     private fun close(){root.animate().alpha(0f).setDuration(if(reduced)0 else MotionSpec.DARK_IN).setInterpolator(MotionSpec.exit).withEndAction{dialog.dismiss()}.start()}
-    private fun finish(){auto?.stop();root.removeCallbacks(heartbeat);val finished=finishOnClose();credit(finished);paused=true;if(a.pageReading===this)a.pageReading=null;a.immersiveSheets=false;Ambience.stop(a);save(true);io.shutdownNow();source.close()
+    private fun finish(){auto?.stop();root.removeCallbacks(heartbeat);val finished=finishOnClose();credit(finished);paused=true;if(a.pageReading===this){a.pageReading=null;a.readerTint=null};a.immersiveSheets=false;Ambience.stop(a);save(true);io.shutdownNow();source.close()
         if(finished)a.root.postDelayed({if(!a.isFinishing&&!a.isDestroyed)BookFinish(a,book){}.show()},300)}
     /** The end of the book is being shown (the window «Книга прочитана» or the question before it). */
     private var finishing=false
@@ -129,10 +129,8 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         // the page itself turns into the cover (not the whole screen with the backdrop round it)
         val go:()->Unit={markDone();BookFinish(a,book,openNext={n->toIssue(n)}){leave->finishing=false;tracker.skipTime();if(leave)close()}.show(pageBg=bgColor())}
         if(!tracker.seeded||tracker.share()>=.5)go()
-        else{var chosen=false
-            // the end comes once the question has gone away (it no longer vanishes at once from under the page)
-            a.dialog().setTitle("Книга прочитана?").setMessage("Отметить книгу прочитанной?").setNegativeButton("Нет",null).setPositiveButton("Прочитана"){_,_->chosen=true}.show()
-                .setOnDismissListener{if(chosen)go() else{finishing=false;tracker.skipTime()}}}
+        // the end comes once the question has gone away (it no longer vanishes at once from under the page)
+        else Alert(a,"Книга прочитана?","Отметить книгу прочитанной?","Прочитана",cancel="Нет",onClose={chosen->if(chosen)go() else{finishing=false;tracker.skipTime()}}).show()
     }
     /** On to the next issue: this reader goes away under the finish window (its end, the save and the time all
      *  done), and only then the next one opens, so the two never overlap. */
@@ -229,8 +227,8 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         top=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(8),a.d(4),a.d(8),a.d(4))}
         top.addView(icon("chevdown","Закрыть книгу"){close()},LinearLayout.LayoutParams(a.d(48),a.d(48)))
         val texts=a.column()
-        titleView=a.text(book.str("title"),15f,ink(),true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END};texts.addView(titleView)
-        authorView=a.text(MainActivity.authors(book),13f,mutedInk()).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;visibility=if(text.isBlank())View.GONE else View.VISIBLE};texts.addView(authorView)
+        titleView=a.text(book.str("title"),Type.TEXT,ink(),true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END};texts.addView(titleView)
+        authorView=a.text(MainActivity.authors(book),Type.SECONDARY,mutedInk()).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;visibility=if(text.isBlank())View.GONE else View.VISIBLE};texts.addView(authorView)
         top.addView(texts,LinearLayout.LayoutParams(0,a.d(48),1f));texts.gravity=Gravity.CENTER_VERTICAL
         soundChip=SoundChip(a){sounds()};top.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
         val more=icon("more","Меню книги"){};more.setOnClickListener{menu(more)};top.addView(more,LinearLayout.LayoutParams(a.d(48),a.d(48)))
@@ -238,9 +236,9 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         root.addView(top,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
         bottom=a.column().apply{setPadding(a.d(18),a.d(8),a.d(18),a.d(4));clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)}
         // settings and sounds open inside this panel, as in the book reader (see [ReaderPanel])
-        panel=ReaderPanel(a,bottom){lightBg}
+        panel=ReaderPanel(a,bottom)
         val row=a.line()
-        pageLabel=a.text("",15f,ink()).apply{gravity=Gravity.CENTER_VERTICAL};leftLabel=a.text("",14f,mutedInk()).apply{gravity=Gravity.CENTER_VERTICAL}
+        pageLabel=a.text("",Type.TEXT,ink()).apply{gravity=Gravity.CENTER_VERTICAL};leftLabel=a.text("",Type.TEXT,mutedInk()).apply{gravity=Gravity.CENTER_VERTICAL}
         row.addView(pageLabel,LinearLayout.LayoutParams(0,a.d(40),1f));row.addView(leftLabel,LinearLayout.LayoutParams(-2,a.d(40)))
         panel.main.addView(row)
         // the pages as small cards: the current one is larger and ringed; a tap opens a page
@@ -260,9 +258,9 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         root.addView(bottom,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM))
     }
     /** Backdrop, bars and ink for the chosen background. */
-    private fun applyLook(){val c=bgColor();root.setBackgroundColor(c)
+    private fun applyLook(){val tint=ReaderTint.comic(bgKey);a.readerTint=tint;val c=bgColor();root.setBackgroundColor(c)
         dialog.window?.let{w->w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(c));ReaderWindow.configure(w,true,c)}
-        listOf(top to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{float=true;themeLight=if(bar===bottom&&panel.depth>0)themeLight else lightBg;flushTop=bar===top;flushBottom=bar===bottom;refresh()}}
+        listOf(top to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{float=true;themeLight=lightBg;this.tint=tint.panel;flushTop=bar===top;flushBottom=bar===bottom;refresh()}}
         val surface=(bottom.background as OpaqueSurface).fillColor;icons.forEach{it.ink=ink();it.cut=surface;it.invalidate()};soundButton.ink=ink();soundChip.repaint()
         titleView.setTextColor(ink());authorView.setTextColor(mutedInk());pageLabel.setTextColor(ink());leftLabel.setTextColor(mutedInk())
         paged?.invalidate();ribbon?.invalidate()}
@@ -286,13 +284,13 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
                     if(i==null){r.addView(View(a),lp);continue}
                     val cell=a.column().apply{clipChildren=false;clipToPadding=false;isClickable=true;contentDescription="Страница ${i+1}";setOnClickListener{sheet?.dismiss();jump(i)};a.press(this)}
                     cell.addView(GridThumb(i,i in marked))
-                    cell.addView(a.text("${i+1}",13f,if(i==page)a.fg else a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(6),0,0)},LinearLayout.LayoutParams(-1,-2))
+                    cell.addView(a.text("${i+1}",Type.SECONDARY,if(i==page)a.fg else a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(6),0,0)},LinearLayout.LayoutParams(-1,-2))
                     r.addView(cell,lp)}
                 grid.addView(r,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(14)})}}
         if(marks().isNotEmpty()){
-            val seg=SlidingSegment(a,0,2,if(a.light)0x0f000000 else 0x11ffffff,if(a.light)Color.WHITE else 0xfff2f2f2.toInt(),20)
+            val seg=SlidingSegment(a,0,2,Ui.fill(a.light),if(a.light)Color.WHITE else 0xfff2f2f2.toInt(),20)
             fun tint(k:Int){for(i in 0 until seg.childCount)(seg.getChildAt(i) as TextView).setTextColor(if(i==k)(if(a.light)a.fg else 0xff111111.toInt()) else a.muted)}
-            listOf("Все","Закладки").forEachIndexed{k,l->seg.addView(a.text(l,13.5f,bold=true).apply{gravity=Gravity.CENTER;a.press(this);setOnClickListener{seg.choose(k);tint(k);onlyMarks=k==1;fill()}},LinearLayout.LayoutParams(0,-1,1f))}
+            listOf("Все","Закладки").forEachIndexed{k,l->seg.addView(a.text(l,Type.SECONDARY,bold=true).apply{gravity=Gravity.CENTER;a.press(this);setOnClickListener{seg.choose(k);tint(k);onlyMarks=k==1;fill()}},LinearLayout.LayoutParams(0,-1,1f))}
             tint(0);box.addView(seg,LinearLayout.LayoutParams(-1,a.d(40)).apply{bottomMargin=a.d(16)})}
         box.addView(grid);fill()
         sheet=a.dialog().setTitle("Страницы").setView(box).setTall(true).show()
@@ -300,11 +298,12 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     /** «Оформление» for pictures: the reader's panel (brightness), the backdrop, how pages turn and how they fit. */
     /** «Оформление» in the bottom panel, built like the book reader's «Текст» (approved «Текст А»): the backdrop as
      *  cards, brightness, and «Листание» and «Масштаб» a level deeper. */
-    private fun settingsPanel(){
+    private fun settingsPanel()=panel.push(settingsPage())
+    private fun settingsPage():ReaderPanel.Page{
         val refreshers=mutableListOf<()->Unit>();val kit=PanelKit(a,refreshers)
         val box=a.column().apply{clipChildren=false;clipToPadding=false}
         val backdrops=listOf(Triple("black","Чёрный",0xff000000.toInt() to 0xfff3f2ef.toInt()),Triple("graphite","Графит",0xff1c1c1e.toInt() to 0xfff3f2ef.toInt()),Triple("white","Белый",0xfff3f2ef.toInt() to 0xff1e1d1b.toInt()))
-        box.addView(kit.colourCards(backdrops,false,{bgKey}){k->a.prefs.put("comicBg",k);a.savePreferences();applyLook();refreshers.forEach{it()}},LinearLayout.LayoutParams(-1,a.d(72)))
+        box.addView(kit.colourCards(backdrops,false,{bgKey}){k->root.crossfadeColours(a){a.prefs.put("comicBg",k);a.savePreferences();applyLook();panel.rebuild(settingsPage())}},LinearLayout.LayoutParams(-1,a.d(72)))
         box.addView(kit.brightness{applyBrightness(dialog.window)},LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
         val turns=listOf(Triple("curl","curl","Листание"),Triple("slide","slide","Сдвиг"),Triple("cover","cover","Наложение"),Triple("none","none","Без анимации"),Triple("ribbon","scroll","Лента"))
         fun currentTurn()=if(mode=="ribbon")"ribbon" else turnStyle
@@ -324,7 +323,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         refreshers.add{fitValue.text=if(widthFit)"По ширине" else "Страница целиком"}
         box.addView(kit.card(listOf(turnRow,fitRow)),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16)})
         refreshers.forEach{it()}
-        panel.push(ReaderPanel.Page("Оформление",box,onReturn={refreshers.forEach{it()}}))
+        return ReaderPanel.Page("Оформление",box,onReturn={refreshers.forEach{it()}})
     }
     /** A page in the «Страницы» grid: the picture as a card, ringed when it is the open page, a ribbon when bookmarked. */
     private inner class GridThumb(val i:Int,private val marked:Boolean):View(a){

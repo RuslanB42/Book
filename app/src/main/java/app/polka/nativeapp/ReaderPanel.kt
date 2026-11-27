@@ -17,10 +17,10 @@ import kotlin.math.max
  * rows blur away, it takes the new height on a little spring, and the new rows come out of a blur one after another;
  * «‹» (or Back, or a tap on the page) runs it back. Pages stack («Текст» → «Ещё»).
  */
-internal class ReaderPanel(private val a:MainActivity,private val surface:LinearLayout,private val readerLight:()->Boolean){
-    /** [light]: the surface's colours for this page (null: the app's, as the old sheets had). [onReturn]: the page is
-     *  on top again after the one over it went back. Without a [title] there is no head (the editor's own buttons lead out). */
-    class Page(val title:String?,val content:View,val right:View?=null,val light:Boolean?=null,val onReturn:(()->Unit)?=null)
+internal class ReaderPanel(private val a:MainActivity,private val surface:LinearLayout){
+    /** Every page keeps the page's colours ([MainActivity.readerTint]). [onReturn]: the page is on top again after the
+     *  one over it went back. Without a [title] there is no head (the editor's own buttons lead out). */
+    class Page(val title:String?,val content:View,val right:View?=null,val onReturn:(()->Unit)?=null)
     /** The reader's own rows (chapter, slider, tools). */
     val main=a.column()
     val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
@@ -34,6 +34,8 @@ internal class ReaderPanel(private val a:MainActivity,private val surface:Linear
     fun push(page:Page){val from=top();val holder=holder(page);stack.add(page to holder);switch(from,holder,false)}
     /** The top page changes for another in its place (the same move). */
     fun replace(page:Page){val old=stack.removeLastOrNull()?:return push(page);val holder=holder(page);stack.add(page to holder);switch(old.second,holder,true)}
+    /** The top page built anew in place, at once (a theme change: the reader's crossfade covers it). */
+    fun rebuild(page:Page){val old=stack.removeLastOrNull()?:return;stage.removeView(old.second);val holder=holder(page);stack.add(page to holder);holder.visibility=View.VISIBLE}
     fun back(){val old=stack.removeLastOrNull()?:return;switch(old.second,top(),true);stack.lastOrNull()?.first?.onReturn?.invoke()}
     /** Straight back to the reader's own rows, from however deep. */
     fun home(){if(stack.isEmpty())return;val old=stack.removeAt(stack.lastIndex);stack.forEach{(_,v)->stage.removeView(v)};stack.clear();switch(old.second,main,true)}
@@ -42,13 +44,9 @@ internal class ReaderPanel(private val a:MainActivity,private val surface:Linear
     private fun holder(page:Page):LinearLayout{
         val box=a.column().apply{clipChildren=false;clipToPadding=false}
         val ink=a.fg
-        if(page.title!=null){val head=FrameLayout(a)
-            // the title is centred on the whole panel, whatever stands at its sides
-            head.addView(a.text(page.title,16f,ink,true).apply{gravity=Gravity.CENTER;maxLines=1;setPadding(a.d(96),0,a.d(96),0)},FrameLayout.LayoutParams(-1,-1))
-            head.addView(FrameLayout(a).apply{background=a.shape(if(a.light)0x0f000000 else 0x11ffffff,18);isClickable=true;isFocusable=true;contentDescription="Назад";a.press(this);setOnClickListener{back()}
-                addView(Chevron(a,true),FrameLayout.LayoutParams(a.d(12),a.d(18),Gravity.CENTER))},FrameLayout.LayoutParams(a.d(36),a.d(36),Gravity.START or Gravity.CENTER_VERTICAL))
-            page.right?.let{head.addView(it,FrameLayout.LayoutParams(-2,-2,Gravity.END or Gravity.CENTER_VERTICAL))}
-            box.addView(head,LinearLayout.LayoutParams(-1,a.d(44)).apply{bottomMargin=a.d(12)})}
+        // the one window head, as on every sheet: «‹» on the left, the title centred on the whole panel
+        if(page.title!=null){(page.right?.parent as? ViewGroup)?.removeView(page.right)
+            box.addView(a.windowHead(page.title,false,ink,Ui.fill(a.light),{back()},page.right),LinearLayout.LayoutParams(-1,a.d(Size.HEADER)).apply{leftMargin=-a.d(4);rightMargin=-a.d(4);bottomMargin=a.d(12)})}
         (page.content.parent as? ViewGroup)?.removeView(page.content)
         box.addView(page.content,LinearLayout.LayoutParams(-1,-2))
         stage.addView(box,FrameLayout.LayoutParams(-1,-2,Gravity.TOP))
@@ -57,7 +55,7 @@ internal class ReaderPanel(private val a:MainActivity,private val surface:Linear
         box.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
         val cap=((surface.parent as? View)?.height?:a.root.height)*58/100
         if(box.measuredHeight>cap){val headH=box.measuredHeight-page.content.measuredHeight;box.removeView(page.content)
-            val color=if(page.light?:a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()
+            val color=a.readerTint?.panel?:Ui.sheet(a.light)
             // it cuts what scrolls past its top and foot, but reaches out to the panel's sides, where rings round chosen tiles sit
             val side=a.d(18)
             val scroll=SheetScroll(a,color,30,18).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;setPadding(side,0,side,0);addView(page.content)}
@@ -81,8 +79,6 @@ internal class ReaderPanel(private val a:MainActivity,private val surface:Linear
     private fun switch(from:View,to:View,drop:Boolean){
         clock?.cancel();settle?.invoke();settle=null
         // the surface takes the page's colours (or the reader's again)
-        val light=if(to===main)readerLight() else stack.lastOrNull{it.second===to}?.first?.light?:a.light
-        (surface.background as? OpaqueSurface)?.let{if(it.themeLight!=light){it.themeLight=light;it.refresh()}}
         to.visibility=View.VISIBLE
         val lp=stage.layoutParams
         val startH=stage.height

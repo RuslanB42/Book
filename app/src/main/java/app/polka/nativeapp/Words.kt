@@ -218,7 +218,7 @@ internal class TypefaceSpanCompat(private val face:Typeface):android.text.style.
     override fun updateMeasureState(tp:android.text.TextPaint){tp.typeface=face}
 }
 
-private fun MainActivity.quietFill()=if(light)0x0f000000 else 0x12ffffff
+private fun MainActivity.quietFill()=Ui.fill(light)
 private fun MainActivity.roundButton(kind:String,desc:String,size:Int=40,fn:()->Unit)=FrameLayout(this).apply{
     background=shape(quietFill(),size/2);isClickable=true;contentDescription=desc;press(this);setOnClickListener{fn()}
     addView(LineIcon(this@roundButton,kind,fg).apply{this.size=20f},FrameLayout.LayoutParams(-1,-1))}
@@ -242,7 +242,7 @@ fun MainActivity.wordsPage(){
     card.addView(TextView(this).apply{val sb=SpannableStringBuilder(if(today>0)"$today" else "Всё повторено")
         if(today>0){val st=sb.length;sb.append(" на сегодня");sb.setSpan(android.text.style.AbsoluteSizeSpan(15,true),st,sb.length,0);sb.setSpan(android.text.style.ForegroundColorSpan(muted),st,sb.length,0);sb.setSpan(TypefaceSpanCompat(PolkaFonts.sans(400)),st,sb.length,0)}
         text=sb;textSize=if(today>0)32f else 18f;setTextColor(fg);typeface=PolkaFonts.serif(this@wordsPage,true);includeFontPadding=false},LinearLayout.LayoutParams(0,-2,1f))
-    if(today>0)card.addView(text("Начать",15f,bg,true).apply{gravity=Gravity.CENTER;setPadding(d(24),0,d(24),0);background=shape(fg,24);isClickable=true;press(this);setOnClickListener{WordLesson(this@wordsPage).start()}},LinearLayout.LayoutParams(-2,d(48)))
+    if(today>0)card.addView(text("Начать",Type.TEXT,bg,true).apply{gravity=Gravity.CENTER;setPadding(d(24),0,d(24),0);background=shape(fg,24);isClickable=true;press(this);setOnClickListener{WordLesson(this@wordsPage).start()}},LinearLayout.LayoutParams(-2,d(48)))
     card.minimumHeight=d(76);page.addView(card,LinearLayout.LayoutParams(-1,-2));space(page,10)
     val learning=words.filterNot{Words.known(it)}.sortedByDescending{it.optLong("added")};val known=words.filter{Words.known(it)}.sortedByDescending{it.optLong("added")}
     val all=learning+known
@@ -252,13 +252,13 @@ fun MainActivity.wordsPage(){
 private fun MainActivity.wordRow(w:JSONObject,rule:Boolean):View{
     val row=column().apply{setPadding(d(4),d(13),d(4),d(13));isClickable=true;press(this);if(Words.known(w))alpha=.5f
         contentDescription=w.str("w")+", "+Words.meaning(w);setOnClickListener{openWord(w)}}
-    row.addView(TextView(this).apply{text=w.str("w");textSize=19f;setTextColor(fg);typeface=PolkaFonts.literata(this@wordRow,true)})
-    Words.meaning(w).takeIf{it.isNotBlank()}?.let{row.addView(TextView(this).apply{text=it;textSize=14f;setTextColor(muted);typeface=PolkaFonts.literata(this@wordRow);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(2)})}
+    row.addView(TextView(this).apply{text=w.str("w");textSize=Type.H2;setTextColor(fg);typeface=PolkaFonts.literata(this@wordRow,true)})
+    Words.meaning(w).takeIf{it.isNotBlank()}?.let{row.addView(TextView(this).apply{text=it;textSize=Type.TEXT;setTextColor(muted);typeface=PolkaFonts.literata(this@wordRow);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(2)})}
     // removing is a long press and asks first: one tap must never lose a word
-    row.isLongClickable=true;row.setOnLongClickListener{row.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-        dialog().setTitle("Удалить «${w.str("w")}»?").setMessage("Слово пропадёт из изучения вместе с историей повторений.").setPositiveButton("Удалить"){_,_->Words.remove(this,w.str("id"));renderLibraryResults()}.setNegativeButton("Отмена",null).show();true}
+    row.isLongClickable=true;row.setOnLongClickListener{row.haptic(this,Haptic.LONG)
+        confirm("Удалить «${w.str("w")}»?","Слово пропадёт из изучения вместе с историей повторений."){Words.remove(this,w.str("id"));renderLibraryResults()};true}
     val box=column();box.addView(row)
-    if(rule)box.addView(View(this).apply{setBackgroundColor(if(light)0x10000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1))
+    if(rule)box.addView(View(this).apply{setBackgroundColor(Ui.line(light))},LinearLayout.LayoutParams(-1,1))
     return box
 }
 
@@ -274,18 +274,18 @@ internal fun MainActivity.openWord(w:JSONObject){wordPage?.let{return}
     head.addView(View(this),LinearLayout.LayoutParams(0,1,1f))
     head.addView(roundButton("speaker","Произнести",46){Words.speak(this,w.str("w"),w.str("lang"))},LinearLayout.LayoutParams(d(46),d(46)))
     content.addView(head,LinearLayout.LayoutParams(-1,d(52)))
-    content.addView(TextView(this).apply{text=w.str("w");textSize=38f;setTextColor(fg);typeface=PolkaFonts.literata(this@openWord,true)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(18)})
-    Words.meaning(w).takeIf{it.isNotBlank()}?.let{content.addView(TextView(this).apply{text=it;textSize=18f;setTextColor(fg);typeface=PolkaFonts.literata(this@openWord);cssLeading(1.5f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(8)})}
+    content.addView(TextView(this).apply{text=w.str("w");textSize=Type.LARGE;setTextColor(fg);typeface=PolkaFonts.literata(this@openWord,true)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(18)})
+    Words.meaning(w).takeIf{it.isNotBlank()}?.let{content.addView(TextView(this).apply{text=it;textSize=Type.TITLE;setTextColor(fg);typeface=PolkaFonts.literata(this@openWord);cssLeading(1.5f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(8)})}
     val st=line();st.addView(StageDots(this,Words.stage(w)))
     val due=w.optLong("due");val days=((due-System.currentTimeMillis())/86_400_000L).toInt()
     val when_=when{w.optInt("reps")==0->"новое";days<=0->"повторение сегодня";days==1->"повторение завтра";else->"повторение через $days ${daysWordRu(days)}"}
-    st.addView(text(when_,13f,muted).apply{setPadding(d(10),0,0,0)})
+    st.addView(text(when_,Type.SECONDARY,muted).apply{setPadding(d(10),0,0,0)})
     content.addView(st,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(16)})
     val list=column();Words.meetings(w).forEach{(s,_,title)->
-        list.addView(View(this).apply{setBackgroundColor(if(light)0x10000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1))
+        list.addView(View(this).apply{setBackgroundColor(Ui.line(light))},LinearLayout.LayoutParams(-1,1))
         val c=column().apply{setPadding(0,d(14),0,d(14))}
         c.addView(Words.context(this,w,s,16f,if(light)0xff3a3a3c.toInt() else 0xffcfcfd4.toInt(),fg))
-        if(title.isNotBlank())c.addView(text(title,12.5f,muted),LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(6)})
+        if(title.isNotBlank())c.addView(text(title,Type.SECONDARY,muted),LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(6)})
         list.addView(c)}
     content.addView(list,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(30)})
     Depth(this,scroll).enter()
@@ -325,7 +325,7 @@ internal class WordLesson(private val a:MainActivity){
         bar=Progress();top.addView(bar,LinearLayout.LayoutParams(0,a.d(4),1f).apply{marginStart=a.d(6);marginEnd=a.d(6)})
         col.addView(top,LinearLayout.LayoutParams(-1,a.d(48)))
         stage=FrameLayout(a);col.addView(stage,LinearLayout.LayoutParams(-1,0,1f))
-        next=a.text("Дальше",16f,a.bg,true).apply{gravity=Gravity.CENTER;background=a.shape(a.fg,26);isClickable=true;a.press(this);visibility=View.GONE;setOnClickListener{advance()}}
+        next=a.text("Дальше",Type.BODY,a.bg,true).apply{gravity=Gravity.CENTER;background=a.shape(a.fg,26);isClickable=true;a.press(this);visibility=View.GONE;setOnClickListener{advance()}}
         col.addView(next,LinearLayout.LayoutParams(-1,a.d(52)).apply{topMargin=a.d(12)})
         root.addView(col,FrameLayout.LayoutParams(-1,-1));dlg.setContentView(root)
         dlg.window?.let{w->w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0));w.setLayout(-1,-1);w.setWindowAnimations(0);ReaderWindow.configure(w,false,a.bg)
@@ -364,14 +364,14 @@ internal class WordLesson(private val a:MainActivity){
     /** Pick the meaning of the word (or, a step on, the word for the meaning). */
     private fun choose(w:JSONObject,words:Boolean,others:List<String>):View{
         val c=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(0,a.d(36),0,0)}
-        if(!words){c.addView(TextView(a).apply{text=w.str("w");textSize=40f;setTextColor(a.fg);typeface=PolkaFonts.literata(a,true);gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2))
+        if(!words){c.addView(TextView(a).apply{text=w.str("w");textSize=Type.NUMBER;setTextColor(a.fg);typeface=PolkaFonts.literata(a,true);gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2))
             sentenceOf(w)?.let{s->c.addView(Words.context(a,w,s,16.5f,a.muted,a.fg).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14);leftMargin=a.d(6);rightMargin=a.d(6)})}}
-        else c.addView(TextView(a).apply{text=Words.plain(Words.meaning(w));textSize=22f;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{leftMargin=a.d(6);rightMargin=a.d(6)})
+        else c.addView(TextView(a).apply{text=Words.plain(Words.meaning(w));textSize=Type.H2;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{leftMargin=a.d(6);rightMargin=a.d(6)})
         val right=if(words)w.str("w") else Words.plain(Words.meaning(w))
         val options=(others+right).shuffled()
         val list=a.column();val rows=ArrayList<TextView>()
         options.forEach{o->val t=TextView(a).apply{text=o;tag=o;textSize=if(words)19f else 16f;setTextColor(a.fg);typeface=PolkaFonts.literata(a,words);maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END
-            setPadding(a.d(16),a.d(15),a.d(16),a.d(15));background=a.shape(if(a.light)Color.WHITE else 0xff242426.toInt(),18);isClickable=true;a.press(this)
+            setPadding(a.d(16),a.d(15),a.d(16),a.d(15));background=a.shape(Ui.card(a.light),18);isClickable=true;a.press(this)
             setOnClickListener{pick(w,o==right,this,rows.first{r->r.tag==right})}}
             rows+=t;list.addView(t,LinearLayout.LayoutParams(-1,-2).apply{if(list.childCount>0)topMargin=a.d(10)})}
         c.addView(list,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(36)})
@@ -389,14 +389,14 @@ internal class WordLesson(private val a:MainActivity){
         val s=sentenceOf(w);val r=s?.let{Words.spot(w,it)}
         if(s!=null&&r!=null){val sb=SpannableStringBuilder(s.substring(0,r.first)).append(" ".repeat((r.last-r.first+1).coerceIn(5,12))).append(s.substring(r.last+1))
             val st=r.first;val en=st+(r.last-r.first+1).coerceIn(5,12);sb.setSpan(android.text.style.UnderlineSpan(),st,en,0)
-            c.addView(TextView(a).apply{text=sb;textSize=19f;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;cssLeading(1.6f)},LinearLayout.LayoutParams(-1,-2))}
+            c.addView(TextView(a).apply{text=sb;textSize=Type.H2;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;cssLeading(1.6f)},LinearLayout.LayoutParams(-1,-2))}
         c.addView(TextView(a).apply{text=Words.meaning(w);textSize=if(s!=null&&r!=null)15f else 22f;setTextColor(if(s!=null&&r!=null)a.muted else a.fg);typeface=PolkaFonts.literata(a,false,s!=null&&r!=null);gravity=Gravity.CENTER;cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(12)})
-        val field=EditText(a).apply{textSize=22f;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;background=a.shape(if(a.light)Color.WHITE else 0xff242426.toInt(),18)
+        val field=EditText(a).apply{textSize=Type.H2;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;background=a.shape(Ui.card(a.light),18)
             setPadding(a.d(16),0,a.d(16),0);isSingleLine=true;imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE or android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
             inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
             setOnEditorActionListener{v,_,_->check(w,v as EditText,if(s!=null&&r!=null)s.substring(r.first,r.last+1) else w.str("w"));true}}
         c.addView(field,LinearLayout.LayoutParams(-1,a.d(56)).apply{topMargin=a.d(30)})
-        val answer=TextView(a).apply{textSize=17f;setTextColor(a.mint);typeface=PolkaFonts.literata(a,true);gravity=Gravity.CENTER;visibility=View.GONE;tag="answer"}
+        val answer=TextView(a).apply{textSize=Type.TITLE;setTextColor(a.mint);typeface=PolkaFonts.literata(a,true);gravity=Gravity.CENTER;visibility=View.GONE;tag="answer"}
         c.addView(answer,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})
         field.post{field.requestFocus();(a.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(field,0)}
         return ScrollView(a).apply{isVerticalScrollBarEnabled=false;addView(c)}
@@ -421,10 +421,10 @@ internal class WordLesson(private val a:MainActivity){
     private fun finish(){
         bar.set(1f);next.visibility=View.GONE;hideKeyboard()
         val box=a.column().apply{gravity=Gravity.CENTER}
-        box.addView(a.text("Готово",34f,a.fg,true,serif=true).apply{gravity=Gravity.CENTER})
+        box.addView(a.text("Готово",Type.LARGE,a.fg,true,serif=true).apply{gravity=Gravity.CENTER})
         val n=total;val unit=if(n%100 in 11..14)"слов" else when(n%10){1->"слово";2,3,4->"слова";else->"слов"}
         val k=learned.size
-        box.addView(a.text("$n $unit"+if(k>0)", $k из них теперь знаешь" else "",15.5f,a.muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10);gravity=Gravity.CENTER_HORIZONTAL})
+        box.addView(a.text("$n $unit"+if(k>0)", $k из них теперь знаешь" else "",Type.BODY,a.muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10);gravity=Gravity.CENTER_HORIZONTAL})
         stage.removeAllViews();stage.addView(box,FrameLayout.LayoutParams(-1,-1))
         next.text="Закрыть";next.setOnClickListener{close()};next.visibility=View.VISIBLE
     }

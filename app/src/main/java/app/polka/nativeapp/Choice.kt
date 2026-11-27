@@ -26,7 +26,7 @@ internal abstract class ChoiceMark(protected val a:MainActivity,on:Boolean):View
     protected abstract val inMs:Long;protected abstract val outMs:Long
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;isDuplicateParentStateEnabled=true}
     private fun go(x:Boolean){anim?.cancel();leaving=!x
-        if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        haptic(a,Haptic.SELECT)
         if(reduced){v=if(x)1f else 0f;invalidate();return}
         // a mark that changes before it has finished changing goes on from where it is
         val from=if(x)(if(v>=1f)0f else v) else (if(v<=0f)1f else v)

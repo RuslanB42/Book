@@ -10,7 +10,7 @@ import org.json.*
 /** Source book-sheet v3, in the activity window: no duplicate dialog/header or window handoff. */
 class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,private val source:View?):FrameLayout(a){
  private val scrim=View(a).apply{setBackgroundColor(0x80000000.toInt());setOnClickListener{dismiss()}}
- private val panel=DetailPanel().apply{background=a.shape(if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt(),22).apply{val r=a.d(22).toFloat();cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)};clipToOutline=true}
+ private val panel=DetailPanel().apply{background=a.shape(Ui.sheet(a.light),22).apply{val r=a.d(22).toFloat();cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)};clipToOutline=true}
  private val scroller=ScrollView(a).apply{isFillViewport=false;clipChildren=false}
  private val content=a.column().apply{clipChildren=false;clipToPadding=false;setPadding(0,0,0,a.d(28))}
  private lateinit var heroCover:CoverView
@@ -33,9 +33,9 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   // Floating controls, not an opaque full-width toolbar. The panel outline is the
   // only clipping boundary; content and halo continue behind controls to its real top edge.
   val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(18),a.d(12),0)}
-  top.addView(a.icon("chevdown","Закрыть"){dismiss()}.apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x14ffffff)}},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+  top.addView(a.icon("chevdown","Закрыть"){dismiss()}.apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(Ui.fill(a.light))}},LinearLayout.LayoutParams(a.d(40),a.d(40)))
   top.addView(View(a),LinearLayout.LayoutParams(0,-1,1f))
-  top.addView(a.icon("more","Ещё"){}.apply{val more=this;setOnClickListener{a.bookMenu(book,more)};background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x14ffffff)}},LinearLayout.LayoutParams(a.d(40),a.d(40)))
+  top.addView(a.icon("more","Ещё"){}.apply{val more=this;setOnClickListener{a.bookMenu(book,more)};background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(Ui.fill(a.light))}},LinearLayout.LayoutParams(a.d(40),a.d(40)))
   panel.addView(top,LayoutParams(-1,a.d(68),Gravity.TOP))
   a.space(content,78)
   val hero=FrameLayout(a).apply{clipChildren=false;clipToPadding=false};heroCover=CoverView(a,book,a.cover(book)).apply{hiRes=true}
@@ -43,23 +43,23 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   hero.addView(heroCover,LayoutParams(a.d(132),a.d(198),Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{topMargin=a.d(8)})
   content.addView(hero,LinearLayout.LayoutParams(-1,a.d(234)))
   val main=a.column().apply{setPadding(a.d(20),0,a.d(20),0);clipChildren=false;clipToPadding=false};content.addView(main)
-  if(book.optBoolean("sample")){main.addView(a.text("КНИГА-ПРИМЕР",10f,a.accent,true).apply{gravity=Gravity.CENTER;letterSpacing=.12f});a.space(main,7)}
-  val title=a.text("",25f,bold=true,serif=true).apply{gravity=Gravity.CENTER;cssLeading(1.15f)};live(title){book.str("title")};main.addView(title)
-  a.space(main,8);val author=a.text("",14f,a.muted).apply{gravity=Gravity.CENTER};live(author){MainActivity.authors(book).ifBlank{"Автор не указан"}};main.addView(author)
-  val series=a.text("",12f,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(7),0,0)};main.addView(series);updates.add{series.text=book.str("series");series.visibility=if(series.text.isBlank())View.GONE else View.VISIBLE}
+  if(book.optBoolean("sample")){main.addView(a.text("КНИГА-ПРИМЕР",Type.CAPTION,a.accent,true).apply{gravity=Gravity.CENTER;letterSpacing=.12f});a.space(main,7)}
+  val title=a.text("",Type.H1,bold=true,serif=true).apply{gravity=Gravity.CENTER;cssLeading(1.15f)};live(title){book.str("title")};main.addView(title)
+  a.space(main,8);val author=a.text("",Type.TEXT,a.muted).apply{gravity=Gravity.CENTER};live(author){MainActivity.authors(book).ifBlank{"Автор не указан"}};main.addView(author)
+  val series=a.text("",Type.CAPTION,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(7),0,0)};main.addView(series);updates.add{series.text=book.str("series");series.visibility=if(series.text.isBlank())View.GONE else View.VISIBLE}
   // approved: the book's shelves are a quiet tag under the author; it opens the same sheet as the status
   val shelfTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true;contentDescription="Полки, сменить"
-   background=a.shape(if(a.light)0x0d000000 else 0x12ffffff,16);setOnClickListener{a.statusSheet(book)};a.press(this)}
+   background=a.shape(Ui.fill(a.light),16);setOnClickListener{a.statusSheet(book)};a.press(this)}
   shelfTag.addView(IconView(a,"shelves",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
-  val shelf=a.text("",13f).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)};live(shelf){BookShelves.of(book).joinToString(", ").ifBlank{"Без полки"}}
+  val shelf=a.text("",Type.SECONDARY).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)};live(shelf){BookShelves.of(book).joinToString(", ").ifBlank{"Без полки"}}
   // when the two tags don't fit side by side, the shelves' names give way (with «…»), never the arrow after it
   shelfTag.addView(shelf,LinearLayout.LayoutParams(-2,-2,1f))
   shelfTag.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
   // approved: the reading status is a second tag of the same kind, beside the shelf
   val statusTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true
-   background=a.shape(if(a.light)0x0d000000 else 0x12ffffff,16);setOnClickListener{a.statusSheet(book)};a.press(this)}
+   background=a.shape(Ui.fill(a.light),16);setOnClickListener{a.statusSheet(book)};a.press(this)}
   val statusIcon=StatusIcon(a,BookStatus.icon(Library.status(book)),a.muted);statusTag.addView(statusIcon,LinearLayout.LayoutParams(a.d(16),a.d(16)))
-  val statusName=a.text("",13f).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1};live(statusName){BookStatus.name(Library.status(book))};statusTag.addView(statusName)
+  val statusName=a.text("",Type.SECONDARY).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1};live(statusName){BookStatus.name(Library.status(book))};statusTag.addView(statusName)
   statusTag.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
   updates.add{val s=Library.status(book);statusIcon.kind=BookStatus.icon(s);statusTag.contentDescription="Статус: ${BookStatus.name(s)}, сменить"}
   statusTag.contentDescription="Статус: ${BookStatus.name(Library.status(book))}, сменить"
@@ -70,17 +70,17 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   fun insetCard()=a.column().apply{a.floatCard(this,24);setPadding(a.d(16),a.d(16),a.d(16),a.d(16))}
   fun divider(parent:LinearLayout){parent.addView(View(a).apply{setBackgroundColor(hair())},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})}
   val reading=insetCard();main.addView(reading)
-  val progressRow=a.line();val status=a.text("",14f,bold=true);val percent=a.text("",13f,a.muted);progressRow.addView(status,LinearLayout.LayoutParams(0,-2,1f));progressRow.addView(percent);reading.addView(progressRow)
-  val chapter=a.text("",13f,a.muted).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(6),0,0)};reading.addView(chapter)
-  val track=FrameLayout(a).apply{background=a.shape(if(a.light)0xffe2e2df.toInt()else 0xff39393c.toInt(),2)};val bar=View(a).apply{background=a.shape(a.fg,2);pivotX=0f};track.addView(bar,LayoutParams(-1,-1));reading.addView(track,LinearLayout.LayoutParams(-1,a.d(3)).apply{topMargin=a.d(14)})
-  val facts=a.line();val volume=a.text("",12f,a.muted);val time=a.text("",12f,a.muted).apply{gravity=Gravity.END};facts.addView(volume,LinearLayout.LayoutParams(0,-2,1f));facts.addView(time,LinearLayout.LayoutParams(0,-2,1f));reading.addView(facts,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(10)})
+  val progressRow=a.line();val status=a.text("",Type.TEXT,bold=true);val percent=a.text("",Type.SECONDARY,a.muted);progressRow.addView(status,LinearLayout.LayoutParams(0,-2,1f));progressRow.addView(percent);reading.addView(progressRow)
+  val chapter=a.text("",Type.SECONDARY,a.muted).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(6),0,0)};reading.addView(chapter)
+  val track=FrameLayout(a).apply{background=a.shape(Ui.press(a.light),2)};val bar=View(a).apply{background=a.shape(a.fg,2);pivotX=0f};track.addView(bar,LayoutParams(-1,-1));reading.addView(track,LinearLayout.LayoutParams(-1,a.d(3)).apply{topMargin=a.d(14)})
+  val facts=a.line();val volume=a.text("",Type.CAPTION,a.muted);val time=a.text("",Type.CAPTION,a.muted).apply{gravity=Gravity.END};facts.addView(volume,LinearLayout.LayoutParams(0,-2,1f));facts.addView(time,LinearLayout.LayoutParams(0,-2,1f));reading.addView(facts,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(10)})
   // a started book: how long it has been read and since when (a read one: in how many days, from — to)
   val spentRow=a.line().apply{gravity=Gravity.TOP};reading.addView(spentRow,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})
-  fun fact(value:String,caption:String){val t=a.column().apply{background=a.shape(if(a.light)0x0d000000 else 0x0fffffff,16);setPadding(a.d(12),a.d(11),a.d(12),a.d(10))}
-   t.addView(a.text(value,18f,a.fg,true,serif=true).apply{maxLines=1});t.addView(a.text(caption,12f,a.muted).apply{maxLines=1;setPadding(0,a.d(3),0,0)})
+  fun fact(value:String,caption:String){val t=a.column().apply{background=a.shape(Ui.fill(a.light),16);setPadding(a.d(12),a.d(11),a.d(12),a.d(10))}
+   t.addView(a.text(value,Type.TITLE,a.fg,true,serif=true).apply{maxLines=1});t.addView(a.text(caption,Type.CAPTION,a.muted).apply{maxLines=1;setPadding(0,a.d(3),0,0)})
    spentRow.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{if(spentRow.childCount>0)leftMargin=a.d(8)})}
   val go=a.button("Читать",true){if(book.optBoolean("noFile")){a.attachId=book.str("id");a.pickBooks(14)}else{a.returnDetailId=book.str("id");a.openBook(book,heroCover)}};reading.addView(go,LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
-  val nofile=a.text("Добавьте файл FB2 или EPUB, чтобы читать книгу и сохранять цитаты.",13f,a.muted).apply{cssLeading(1.5f);setPadding(0,a.d(10),0,0)};reading.addView(nofile)
+  val nofile=a.text("Добавьте файл FB2 или EPUB, чтобы читать книгу и сохранять цитаты.",Type.SECONDARY,a.muted).apply{cssLeading(1.5f);setPadding(0,a.d(10),0,0)};reading.addView(nofile)
   var chapterTitle=""
   updates.add{val p=pct();val missing=book.optBoolean("noFile");go.text=if(!missing&&Library.status(book)=="done")"Читать снова" else "Читать";status.text=when{missing->"В вашей библиотеке";p>=1->"Книга прочитана";Library.status(book)=="reading"->"Сейчас читаете";Library.status(book)=="paused"->"Чтение отложено";else->"Начните новую историю"};percent.text=if(missing||p<=0)"" else "${(p*100).toInt()}%";chapter.text=chapterTitle;chapter.visibility=if(chapterTitle.isBlank()||missing||p>=1)View.GONE else View.VISIBLE;track.visibility=if(missing||p>=1)View.GONE else View.VISIBLE;bar.scaleX=if(p<.01f)0f else p;go.text=when{missing->"Добавить файл книги";p>=1->"Читать снова";Library.status(book)=="reading"->"Продолжить чтение";else->"Читать"};nofile.visibility=if(missing)View.VISIBLE else View.GONE
    val chars=book.optInt("chars",book.optInt("recPages")*1800);volume.text=if(chars>0)"${maxOf(1,kotlin.math.round(chars/1800.0).toInt())} стр." else "Объём уточняется";time.text=""
@@ -92,8 +92,8 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
    spentRow.visibility=if(spentRow.childCount>0)View.VISIBLE else View.GONE;facts.visibility=if(spentRow.childCount>0)View.GONE else View.VISIBLE}
   fun section(top:Int):LinearLayout{val sec=a.column().apply{setPadding(0,a.d(top),0,0);clipChildren=false;clipToPadding=false};main.addView(sec);return sec}
   // block headings, like the sections on the home screen
-  fun heading(sec:LinearLayout,label:String){sec.addView(a.text(label,17f,a.fg,true).apply{setPadding(a.d(2),0,a.d(2),0)},LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(12)})}
-  val about=section(26);heading(about,"О книге");val aboutReveal=DetailReveal(a);about.addView(aboutReveal);val annotation=a.text("",16f,serif=true).apply{cssLeading(1.6f)};aboutReveal.body.addView(annotation);var expandedAbout=false;val more=a.text("Читать полностью",14f,a.accent).apply{minHeight=a.d(44);gravity=Gravity.CENTER_VERTICAL};about.addView(more)
+  fun heading(sec:LinearLayout,label:String){sec.addView(a.text(label,Type.TITLE,a.fg,true).apply{setPadding(a.d(2),0,a.d(2),0)},LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(12)})}
+  val about=section(26);heading(about,"О книге");val aboutReveal=DetailReveal(a);about.addView(aboutReveal);val annotation=a.text("",Type.BODY,serif=true).apply{cssLeading(1.6f)};aboutReveal.body.addView(annotation);var expandedAbout=false;val more=a.text("Читать полностью",Type.TEXT,a.accent).apply{minHeight=a.d(44);gravity=Gravity.CENTER_VERTICAL};about.addView(more)
   fun updateAbout(){val value=book.str("annotation");if(value.isBlank()){val t=android.text.SpannableString("Тут пока нет описания. Добавить?");t.setSpan(object:android.text.style.ClickableSpan(){override fun onClick(v:View){a.metadataEditor(book)};override fun updateDrawState(d:android.text.TextPaint){d.color=a.accent;d.isUnderlineText=false}},23,t.length,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);annotation.text=t;annotation.movementMethod=android.text.method.LinkMovementMethod.getInstance();annotation.highlightColor=0}else{annotation.movementMethod=null;annotation.text=value};annotation.setTextColor(if(value.isBlank())a.muted else a.fg);annotation.maxLines=if(expandedAbout||value.length<=260)Int.MAX_VALUE else 6;annotation.ellipsize=android.text.TextUtils.TruncateAt.END;more.visibility=if(value.length>260)View.VISIBLE else View.GONE;more.text=if(expandedAbout)"Свернуть" else "Читать полностью"};more.contentDescription="Развернуть описание";more.setOnClickListener{expandedAbout=!expandedAbout;aboutReveal.change(true,false){updateAbout()};more.contentDescription=if(expandedAbout)"Свернуть описание" else "Развернуть описание"};updates.add{updateAbout()}
   // No heading and no «Показать»: the pile itself is the control. Tapping it fans the cards out of the pile.
   val quoteSection=section(26);heading(quoteSection,"Цитаты")
@@ -123,7 +123,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
    fun round(icon:String,label:String,turn:Float,enabled:Boolean,fn:()->Unit)=a.icon(icon,label){fn()}.apply{background=a.shape(if(a.light)0xffefefec.toInt() else 0xff2c2c2f.toInt(),20);rotation=turn;isEnabled=enabled;alpha=if(enabled)1f else .35f}
    if(pages>1){val pager=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
     pager.addView(round("back","Предыдущие цитаты",0f,quotePage>0){quotePage--;renderQuotes(true)},LinearLayout.LayoutParams(a.d(40),a.d(40)))
-    pager.addView(a.text("${quotePage+1} из $pages",13f,a.muted).apply{gravity=Gravity.CENTER;contentDescription="Страница цитат ${quotePage+1} из $pages"},LinearLayout.LayoutParams(0,-2,1f))
+    pager.addView(a.text("${quotePage+1} из $pages",Type.SECONDARY,a.muted).apply{gravity=Gravity.CENTER;contentDescription="Страница цитат ${quotePage+1} из $pages"},LinearLayout.LayoutParams(0,-2,1f))
     pager.addView(round("back","Следующие цитаты",180f,quotePage<pages-1){quotePage++;renderQuotes(true)},LinearLayout.LayoutParams(a.d(40),a.d(40)))
     controls.addView(pager,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(12)})}
    // Full width, like «Читать» and the plaques above it.
@@ -169,7 +169,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val feedback=section(26);heading(feedback,"Оценка");val review=ReviewBlock(a,book)
   feedback.addView(review,LinearLayout.LayoutParams(-1,-2));a.shadeUnder(review);updates.add{review.sync()}
   val info=section(26);heading(info,"Подробности");val infoBody=insetCard();info.addView(infoBody);var infoKey=""
-  updates.add{val rows=mutableListOf<Pair<String,String>>();if(book.str("series").isNotBlank())rows.add("Серия" to (book.str("series")+if(book.optDouble("seriesNo",0.0)>0)" · ${book.str("seriesNo")}" else ""));book.optJSONArray("genres")?.strings()?.takeIf{it.isNotEmpty()}?.let{rows.add("Жанры" to it.joinToString(", "))};if(book.optInt("year")!=0)rows.add("Год" to book.optInt("year").toString());if(book.str("lang").isNotBlank())rows.add("Язык" to when(book.str("lang")){"ru"->"Русский";"en"->"Английский";else->book.str("lang").uppercase()});rows.add("Файл" to if(book.optBoolean("noFile"))"Ещё не добавлен" else book.str("format").uppercase()+if(book.optLong("size")>0)" · ${book.optLong("size")/1024} КБ" else "");if(book.optLong("addedAt")>0)rows.add("Добавлена" to java.text.SimpleDateFormat("d MMM yyyy",java.util.Locale("ru")).format(java.util.Date(book.optLong("addedAt"))));if(book.optInt("edits")>0)rows.add("Правки текста" to "${book.optInt("edits")} сохранений");val key=rows.toString();if(key!=infoKey){infoKey=key;infoBody.removeAllViews();rows.forEachIndexed{i,(label,value)->if(i>0)divider(infoBody);val row=a.line();row.addView(a.text(label,13f,a.muted),LinearLayout.LayoutParams(0,-2,.35f));row.addView(a.text(value,14f).apply{gravity=Gravity.END;setPadding(a.d(12),0,0,0)},LinearLayout.LayoutParams(0,-2,.65f));infoBody.addView(row)}}}
+  updates.add{val rows=mutableListOf<Pair<String,String>>();if(book.str("series").isNotBlank())rows.add("Серия" to (book.str("series")+if(book.optDouble("seriesNo",0.0)>0)" · ${book.str("seriesNo")}" else ""));book.optJSONArray("genres")?.strings()?.takeIf{it.isNotEmpty()}?.let{rows.add("Жанры" to it.joinToString(", "))};if(book.optInt("year")!=0)rows.add("Год" to book.optInt("year").toString());if(book.str("lang").isNotBlank())rows.add("Язык" to when(book.str("lang")){"ru"->"Русский";"en"->"Английский";else->book.str("lang").uppercase()});rows.add("Файл" to if(book.optBoolean("noFile"))"Ещё не добавлен" else book.str("format").uppercase()+if(book.optLong("size")>0)" · ${book.optLong("size")/1024} КБ" else "");if(book.optLong("addedAt")>0)rows.add("Добавлена" to java.text.SimpleDateFormat("d MMM yyyy",java.util.Locale("ru")).format(java.util.Date(book.optLong("addedAt"))));if(book.optInt("edits")>0)rows.add("Правки текста" to "${book.optInt("edits")} сохранений");val key=rows.toString();if(key!=infoKey){infoKey=key;infoBody.removeAllViews();rows.forEachIndexed{i,(label,value)->if(i>0)divider(infoBody);val row=a.line();row.addView(a.text(label,Type.SECONDARY,a.muted),LinearLayout.LayoutParams(0,-2,.35f));row.addView(a.text(value,Type.TEXT).apply{gravity=Gravity.END;setPadding(a.d(12),0,0,0)},LinearLayout.LayoutParams(0,-2,.65f));infoBody.addView(row)}}}
   a.followInsets(this){i->panel.layoutParams=(panel.layoutParams as LayoutParams).apply{topMargin=a.d(48)+i.top};content.setPadding(0,0,0,a.d(28)+i.bottom);top.setPadding(a.d(12)+i.left,a.d(18),a.d(12)+i.right,0);main.setPadding(a.d(20)+i.left,0,a.d(20)+i.right,0)}
   a.prefetchContent(book)
   updates.forEach{it()};a.observeBook(this,book.str("id")){fresh->val coverChanged=book.optJSONObject("cover")?.toString()!=fresh.optJSONObject("cover")?.toString()
@@ -192,7 +192,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  // clipping/reordering on hardware even when clipChildren=false. No alpha layer,
  // no panel clip and no DST/SRC compositing layer is needed for this overlay.
  private val flightFadeMatrix=Matrix()
- private val flightFadePaint by lazy{Paint(Paint.ANTI_ALIAS_FLAG).apply{shader=DetailTopFade.shader(a.d(DetailTopFade.DEPTH_DP).toFloat(),if(a.light)0xfff7f7f5.toInt()else 0xff1c1c1e.toInt())}}
+ private val flightFadePaint by lazy{Paint(Paint.ANTI_ALIAS_FLAG).apply{shader=DetailTopFade.shader(a.d(DetailTopFade.DEPTH_DP).toFloat(),Ui.sheet(a.light))}}
  override fun drawChild(c:Canvas,child:View,drawingTime:Long):Boolean = if(child===flight)true else super.drawChild(c,child,drawingTime)
  override fun dispatchDraw(c:Canvas){
   super.dispatchDraw(c)

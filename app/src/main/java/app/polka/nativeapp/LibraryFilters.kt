@@ -69,7 +69,7 @@ internal object LibraryFilters {
         val books=a.homeBooks();val shown=groups.filter{offered(a,it,books)};if(shown.isEmpty())return null
         val strip=a.line().apply{setPadding(a.d(2),0,a.d(2),0)}
         shown.forEach{g->strip.addView(chip(a,g),LinearLayout.LayoutParams(-2,a.d(36)).apply{marginEnd=a.d(8)})}
-        if(active(a))strip.addView(a.text("Сбросить",14f,a.muted).apply{typeface=PolkaFonts.sans(500);gravity=Gravity.CENTER;setPadding(a.d(6),0,a.d(6),0);isClickable=true
+        if(active(a))strip.addView(a.text("Сбросить",Type.TEXT,a.muted).apply{typeface=PolkaFonts.sans(500);gravity=Gravity.CENTER;setPadding(a.d(6),0,a.d(6),0);isClickable=true
             setOnClickListener{clear(a);a.render()}},LinearLayout.LayoutParams(-2,a.d(36)))
         return HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(strip)}}
 
@@ -77,13 +77,13 @@ internal object LibraryFilters {
         val on=selected(a,g);val c=a.line().apply{isClickable=true;isFocusable=true}
         if(on.isEmpty()){
             c.setPadding(a.d(15),0,a.d(10),0);a.controlSurface(c,18f)
-            c.addView(a.text(title(g),14f,a.fg).apply{typeface=PolkaFonts.sans(500)})
+            c.addView(a.text(title(g),Type.TEXT,a.fg).apply{typeface=PolkaFonts.sans(500)})
             c.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{marginStart=a.d(4)})
             c.contentDescription=title(g)
         }else{
             c.setPadding(a.d(15),0,0,0);c.background=a.shape(a.fg,18)
             val words=on.map{short(g,it)}.sortedBy{it.lowercase()}.joinToString(", ")
-            c.addView(a.text(words,14f,a.bg).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(190)})
+            c.addView(a.text(words,Type.TEXT,a.bg).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(190)})
             // the cross takes its own touch: it lets the chip go; the rest of the chip opens its list
             c.addView(IconView(a,"x",a.bg).apply{contentDescription="Убрать фильтр «${title(g)}»";isClickable=true;setPadding(a.d(4),0,a.d(8),0)
                 setOnClickListener{put(a,g,emptySet());a.render()}},LinearLayout.LayoutParams(a.d(34),-1))
@@ -108,8 +108,8 @@ internal class FilterSheet(private val a:MainActivity,private val g:String){
         val list=a.column()
         val host=FastScroll(a,list)
         if(long){
-            val field=EditText(a).apply{hint=when(g){"author"->"Найти автора";"series"->"Найти серию";"genre"->"Найти жанр";else->"Найти"};setHintTextColor(a.muted);setTextColor(a.fg);textSize=15f;typeface=PolkaFonts.sans(400);background=null;setSingleLine(true);setPadding(0,0,0,0)}
-            val bar=a.row().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),0,a.d(16),0);background=a.shape(if(a.light)0x0f000000 else 0x12ffffff,22)}
+            val field=EditText(a).apply{hint=when(g){"author"->"Найти автора";"series"->"Найти серию";"genre"->"Найти жанр";else->"Найти"};setHintTextColor(a.muted);setTextColor(a.fg);textSize=Type.TEXT;typeface=PolkaFonts.sans(400);background=null;setSingleLine(true);setPadding(0,0,0,0)}
+            val bar=a.row().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),0,a.d(16),0);background=a.shape(Ui.fill(a.light),22)}
             bar.addView(IconView(a,"search",a.muted),LinearLayout.LayoutParams(a.d(18),a.d(18)).apply{marginEnd=a.d(10)});bar.addView(field,LinearLayout.LayoutParams(0,-2,1f))
             box.addView(bar,LinearLayout.LayoutParams(-1,a.d(44)).apply{bottomMargin=a.d(4)})
             field.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,x:Int,y:Int,z:Int){};override fun onTextChanged(s:CharSequence?,x:Int,y:Int,z:Int){}
@@ -127,9 +127,9 @@ internal class FilterSheet(private val a:MainActivity,private val g:String){
         list.removeAllViews();ticks.clear();val marks=ArrayList<Pair<String,View>>();var last=""
         options.filter{q.isBlank()||LibraryFilters.label(g,it.first).contains(q,true)}.forEach{(v,n)->
             val name=LibraryFilters.label(g,v)
-            if(letters){val l=name.take(1).uppercase();if(l!=last){last=l;val h=a.text(l,12f,a.muted,true).apply{setPadding(a.d(2),a.d(12),0,a.d(2))};list.addView(h);marks.add(l to h)}}
-            list.addView(row(v,name,n),LinearLayout.LayoutParams(-1,a.d(if(g=="status")54 else 52)))}
-        if(list.childCount==0)list.addView(a.text("Ничего не нашлось",15f,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(24),0,a.d(24))},LinearLayout.LayoutParams(-1,-2))
+            if(letters){val l=name.take(1).uppercase();if(l!=last){last=l;val h=a.text(l,Type.CAPTION,a.muted,true).apply{setPadding(a.d(2),a.d(12),0,a.d(2))};list.addView(h);marks.add(l to h)}}
+            list.addView(row(v,name,n).apply{minimumHeight=a.d(Size.ROW)},LinearLayout.LayoutParams(-1,-2))}
+        if(list.childCount==0)list.addView(a.text("Ничего не нашлось",Type.TEXT,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(24),0,a.d(24))},LinearLayout.LayoutParams(-1,-2))
         host.sections=if(options.size>25)marks else emptyList()}
 
     private fun row(v:String,name:String,n:Int):View{
@@ -138,8 +138,8 @@ internal class FilterSheet(private val a:MainActivity,private val g:String){
             "status"->r.addView(StatusIcon(a,BookStatus.icon(v),a.muted),LinearLayout.LayoutParams(a.d(22),a.d(22)).apply{marginEnd=a.d(14)})
             "author"->r.addView(Initials(a,name),LinearLayout.LayoutParams(a.d(36),a.d(36)).apply{marginEnd=a.d(12)})
         }
-        r.addView(a.text(name,16f,a.fg).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
-        r.addView(a.text(n.toString(),14f,a.muted),LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10);marginEnd=a.d(12)})
+        r.addView(a.text(name,Type.BODY,a.fg).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
+        r.addView(a.text(n.toString(),Type.TEXT,a.muted),LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10);marginEnd=a.d(12)})
         val t=TickBox(a,v in picked);ticks[v]=t;r.addView(t,LinearLayout.LayoutParams(a.d(24),a.d(24)))
         fun describe(){r.contentDescription=name+if(t.on)", выбрано" else ""};describe()
         r.setOnClickListener{t.on=!t.on;if(t.on)picked.add(v) else picked.remove(v);describe();count()};a.press(r)
@@ -155,8 +155,8 @@ internal class FilterSheet(private val a:MainActivity,private val g:String){
         private val text=name.trim().split(Regex("\\s+")).take(2).joinToString(""){it.take(1).uppercase()}
         private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{typeface=PolkaFonts.sans(600);textAlign=Paint.Align.CENTER}
         init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-        override fun onDraw(c:Canvas){val r=min(width,height)/2f;p.color=if(a.light)0xffe6e6e9.toInt() else 0xff2e2e31.toInt();c.drawCircle(width/2f,height/2f,r,p)
-            p.color=if(a.light)0xff55555a.toInt() else 0xffc9c9cd.toInt();p.textSize=r*.72f;val fm=p.fontMetrics;c.drawText(text,width/2f,height/2f-(fm.ascent+fm.descent)/2f,p)}
+        override fun onDraw(c:Canvas){val r=min(width,height)/2f;p.color=Ui.press(a.light);c.drawCircle(width/2f,height/2f,r,p)
+            p.color=Ui.ink2(a.light);p.textSize=r*.72f;val fm=p.fontMetrics;c.drawText(text,width/2f,height/2f-(fm.ascent+fm.descent)/2f,p)}
     }
 }
 
@@ -172,13 +172,13 @@ internal fun MainActivity.sortSheet(){
         savePreferences();rows.forEach{it()};render()}
     listOf("manual","recent","added","title","author","done").forEach{key->
         val r=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(12),0,d(10),0);isClickable=true;isFocusable=true}
-        val name=text(sortName(key),16f,fg);r.addView(name,LinearLayout.LayoutParams(0,-2,1f))
-        val pill=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(9),0,d(13),0);background=shape(if(light)0x0f000000 else 0x1affffff,17);isClickable=true;isFocusable=true;setOnClickListener{pick(key)}}
+        val name=text(sortName(key),Type.BODY,fg);r.addView(name,LinearLayout.LayoutParams(0,-2,1f))
+        val pill=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(9),0,d(13),0);background=shape(Ui.press(light),17);isClickable=true;isFocusable=true;setOnClickListener{pick(key)}}
         val arrow=FrameLayout(this);pill.addView(arrow,LinearLayout.LayoutParams(d(17),d(17)).apply{marginEnd=d(6)})
-        val way=text("",13.5f,fg).apply{typeface=PolkaFonts.sans(600)};pill.addView(way)
+        val way=text("",Type.SECONDARY,fg).apply{typeface=PolkaFonts.sans(600)};pill.addView(way)
         press(pill);r.addView(pill,LinearLayout.LayoutParams(-2,d(34)))
         fun show(){val on=sort==key;val rev=prefs.optBoolean("sortReverse");val turns=on&&key!="manual"
-            r.background=if(on)shape(if(light)0x0b000000 else 0x12ffffff,18) else null
+            r.background=if(on)shape(Ui.fill(light),18) else null
             name.setTextColor(if(on)fg else ColorUtilsCompat.mute(this));name.typeface=PolkaFonts.sans(if(on)600 else 400)
             pill.visibility=if(turns)View.VISIBLE else View.GONE
             if(turns){way.text=sortWay(key,rev);arrow.removeAllViews();arrow.addView(IconView(this,if(sortUp(key,rev))"arrowup" else "arrowdown",fg),FrameLayout.LayoutParams(-1,-1))
@@ -186,7 +186,7 @@ internal fun MainActivity.sortSheet(){
             r.contentDescription=sortName(key)+if(on)", выбрано"+(if(turns)", "+sortWay(key,rev) else "") else ""}
         show();rows.add(::show)
         r.setOnClickListener{pick(key)}
-        press(r);box.addView(r,LinearLayout.LayoutParams(-1,d(54)).apply{leftMargin=-d(12);rightMargin=-d(12)})}
+        press(r);box.addView(r.apply{minimumHeight=d(Size.ROW)},LinearLayout.LayoutParams(-1,-2).apply{leftMargin=-d(12);rightMargin=-d(12)})}
     dialog().setTitle("Сортировка").setView(box).show()
 }
 /** Text orders go А→Я first, dates newest first; [rev] turns either. Up is А→Я and oldest first. */

@@ -16,12 +16,12 @@ import java.util.Locale
 internal class StreakMonth(private val a:MainActivity,private val model:ReadingStatistics,private val today:LocalDate,private val motion:Boolean):LinearLayout(a){
     private var month=YearMonth.from(today)
     private var open=false
-    private val title=a.text("",17f,a.fg,true)
-    private val year=a.text("",13f,a.muted)
+    private val title=a.text("",Type.TITLE,a.fg,true)
+    private val year=a.text("",Type.SECONDARY,a.muted)
     private val grid=MonthGrid()
     // approved: plain arrows, no circles (the card already has its round button)
     private fun arrow(kind:String,label:String,click:()->Unit)=FrameLayout(a).apply{contentDescription=label;isClickable=true;setOnClickListener{click()}
-        addView(IconView(a,kind,if(a.light)0xff6e6e73.toInt() else 0xffa4a4a4.toInt()),FrameLayout.LayoutParams(a.d(16),a.d(16),Gravity.CENTER));a.press(this)}
+        addView(IconView(a,kind,Ui.ink2(a.light)),FrameLayout.LayoutParams(a.d(16),a.d(16),Gravity.CENTER));a.press(this)}
     private val prev=arrow("back","Предыдущий месяц"){go(-1)}
     private val next=arrow("next","Следующий месяц"){go(1)}
     private var anim:ValueAnimator?=null
@@ -34,7 +34,7 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
         val name=a.line().apply{gravity=Gravity.BOTTOM};name.addView(title);name.addView(year.apply{setPadding(a.d(6),0,0,a.d(1))})
         bar.addView(name,LayoutParams(0,-2,1f));bar.addView(prev,LayoutParams(a.d(36),a.d(36)));bar.addView(next,LayoutParams(a.d(36),a.d(36)).apply{marginStart=a.d(2);marginEnd=-a.d(10)})
         addView(bar,LayoutParams(-1,-2))
-        val names=a.line();listOf("пн","вт","ср","чт","пт","сб","вс").forEachIndexed{i,n->names.addView(a.text(n,11f,a.muted).apply{gravity=Gravity.CENTER},LayoutParams(0,-2,1f).apply{if(i>0)marginStart=a.d(6)})}
+        val names=a.line();listOf("пн","вт","ср","чт","пт","сб","вс").forEachIndexed{i,n->names.addView(a.text(n,Type.CAPTION,a.muted).apply{gravity=Gravity.CENTER},LayoutParams(0,-2,1f).apply{if(i>0)marginStart=a.d(6)})}
         addView(names,LayoutParams(-1,-2));addView(grid,LayoutParams(-1,-2).apply{topMargin=a.d(8)})
         bind()
     }
@@ -55,7 +55,7 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
         alpha=1f;grid.reveal(open)
     }
     private inner class MonthGrid:View(a){
-        private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val text=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER;textSize=13.5f*a.resources.displayMetrics.scaledDensity;fontFeatureSettings="tnum"}
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val text=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER;textSize=Type.SECONDARY*a.resources.displayMetrics.scaledDensity;fontFeatureSettings="tnum"}
         var phase=0f
         /** A day that counts in the streak: the goal met (or marked by hand), or a day brought back. */
         private fun kept(d:LocalDate)=model.met(d)||model.ledger.mark(d)==ReadingStatistics.Mark.REPAIRED
@@ -92,9 +92,9 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
          *  today fills up from the bottom; the days ahead are only their faint numbers. */
         override fun onDraw(c:Canvas){
             val lead=month.atDay(1).dayOfWeek.value-1;val cw=cell(width);val r=a.d(10).toFloat()
-            val orange=if(a.light)0xfff07c12.toInt() else 0xffff8a1e.toInt();val ice=if(a.light)0xff5aaee6.toInt() else 0xff8fd0fa.toInt();val empty=if(a.light)0xffe6e6ea.toInt() else 0xff3a3a3d.toInt()
+            val orange=if(a.light)0xfff07c12.toInt() else 0xffff8a1e.toInt();val ice=if(a.light)0xff5aaee6.toInt() else 0xff8fd0fa.toInt();val empty=Ui.press(a.light)
             val dark=0xff1b1b1d.toInt();val goalMs=model.dailyGoal*60000L
-            text.textSize=13.5f*a.resources.displayMetrics.scaledDensity;text.typeface=PolkaFonts.sans(600)
+            text.textSize=Type.SECONDARY*a.resources.displayMetrics.scaledDensity;text.typeface=PolkaFonts.sans(600)
             val step=.14f;val span=1f+step*(rows-1)
             for(row in 0 until rows){val t=((phase*span)-row*step).coerceIn(0f,1f);if(t<=0f)continue
                 val dy=(1f-t)*a.d(8);val alpha=(t*255).toInt()
@@ -110,7 +110,7 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
                             val f=(model.ms(d).toFloat()/goalMs).coerceIn(0f,1f)
                             if(f>0f){c.save();c.clipRect(tile.left,tile.bottom-cw*f,tile.right,tile.bottom);p.color=orange;p.alpha=alpha;c.drawRoundRect(tile,r,r,p);c.restore()}
                             ink=if(f>=.55f)dark else a.fg}
-                        else->{p.color=empty;p.alpha=alpha;c.drawRoundRect(tile,r,r,p);ink=if(a.light)0xff6e6e73.toInt() else 0xffa4a4a8.toInt()}}
+                        else->{p.color=empty;p.alpha=alpha;c.drawRoundRect(tile,r,r,p);ink=Ui.ink2(a.light)}}
                     text.color=ink;text.alpha=(Color.alpha(ink)*t).toInt()
                     c.drawText("$day",tile.centerX(),tile.centerY()-(text.ascent()+text.descent())/2,text)}
             }

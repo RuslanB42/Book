@@ -21,12 +21,12 @@ internal class FootnoteCard(private val a:MainActivity,private val host:FrameLay
         val cardW=host.width-a.d(32)
         val card=a.column().apply{setPadding(a.d(18),a.d(14),a.d(18),a.d(6))
             a.overSurface(this,surface,20);elevation=a.d(16).toFloat();isClickable=true}
-        if(label.isNotBlank())card.addView(TextView(a).apply{this.text=label;textSize=11.5f;letterSpacing=.12f;typeface=PolkaFonts.sans(600);setTextColor(fade(ink,.5f))},LinearLayout.LayoutParams(-2,-2).apply{bottomMargin=a.d(6)})
+        if(label.isNotBlank())card.addView(TextView(a).apply{this.text=label;textSize=Type.CAPTION;letterSpacing=.12f;typeface=PolkaFonts.sans(600);setTextColor(fade(ink,.5f))},LinearLayout.LayoutParams(-2,-2).apply{bottomMargin=a.d(6)})
         val words=TextView(a).apply{this.text=this@FootnoteCard.text;setTextColor(ink);typeface=face;setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,sizePx);setLineSpacing(0f,1.08f)
             movementMethod=android.text.method.LinkMovementMethod.getInstance();setTextIsSelectable(false)}
         val scroll=ScrollView(a).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(words)}
         card.addView(scroll,LinearLayout.LayoutParams(-1,-2))
-        card.addView(TextView(a).apply{this.text="Все примечания";textSize=14f;typeface=PolkaFonts.sans(500);setTextColor(NoteMark.color(ink));gravity=Gravity.CENTER_VERTICAL
+        card.addView(TextView(a).apply{this.text="Все примечания";textSize=Type.TEXT;typeface=PolkaFonts.sans(500);setTextColor(NoteMark.color(ink));gravity=Gravity.CENTER_VERTICAL
             isClickable=true;setOnClickListener{close(true);all()}},LinearLayout.LayoutParams(-2,a.d(40)).apply{topMargin=a.d(4)})
         // how tall it would be: a long note goes to a sheet instead of covering half the page
         card.measure(View.MeasureSpec.makeMeasureSpec(cardW,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))

@@ -16,19 +16,19 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     /** The fan: the shelf's first books in its own order (so they fly into its first places when it opens). */
     internal val fan=ShelfFan(a,list.take(if(compact)3 else 4),compact)
     /** The card around the name and the fan; it fades as the shelf folds into its edit card. */
-    private val face=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)Color.WHITE else 0xff202022.toInt());cornerRadius=a.d(26).toFloat()}
+    private val face=android.graphics.drawable.GradientDrawable().apply{setColor(Ui.card(a.light));cornerRadius=a.d(26).toFloat()}
     // ── edit mode: the header becomes a card with a drag handle, the covers fold away ──
     private val head=a.row().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(40)}
-    private val card=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(16).toFloat();alpha=0}
-    private val name=a.text(title,17f,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
+    private val card=android.graphics.drawable.GradientDrawable().apply{setColor(Ui.card(a.light));cornerRadius=a.d(16).toFloat();alpha=0}
+    private val name=a.text(title,Type.TITLE,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
     private val pen=IconView(a,"pen",a.muted).apply{alpha=0f;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     /** Edit mode: removes a shelf of the user's own (the books stay in the library). */
-    private val trash=IconView(a,"trash",0xffff8a7a.toInt()).apply{alpha=0f;visibility=View.INVISIBLE;isClickable=true;contentDescription="Удалить полку";setPadding(a.d(10),a.d(10),a.d(10),a.d(10))}
+    private val trash=IconView(a,"trash",Ui.danger(a.light)).apply{alpha=0f;visibility=View.INVISIBLE;isClickable=true;contentDescription="Удалить полку";setPadding(a.d(10),a.d(10),a.d(10),a.d(10))}
     internal val handle=Grip()
     /** Delete asks right in the card: the bin grows into a red «Удалить»; a tap anywhere else takes it back. */
-    private val pill=a.text("Удалить",13.5f,Color.WHITE,true).apply{gravity=Gravity.CENTER;setSingleLine(true);background=a.shape(0xffff5a4c.toInt(),16);visibility=View.GONE;isClickable=true;contentDescription="Удалить полку"}
+    private val pill=a.text("Удалить",Type.SECONDARY,if(a.light)Color.WHITE else Ui.bg(false),true).apply{gravity=Gravity.CENTER;setSingleLine(true);background=a.shape(Ui.danger(a.light),16);visibility=View.GONE;isClickable=true;contentDescription="Удалить полку"}
     private var ask=0f;private var askAnim:android.animation.ValueAnimator?=null
-    private val cardColor=if(a.light)Color.WHITE else 0xff242426.toInt()
+    private val cardColor=Ui.card(a.light)
     private val outside:(MotionEvent)->Unit={e->val r=Rect();if(!pill.getGlobalVisibleRect(r)||!r.contains(e.rawX.toInt(),e.rawY.toInt()))cancelAsk()}
     private val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
     private val stageFull=fan.full
@@ -78,7 +78,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     private var pressX=0f;private var pressY=0f;private var pressFired=false
     private val slop=android.view.ViewConfiguration.get(a).scaledTouchSlop
     private val pressed=Runnable{val f=actions?:return@Runnable;if(editing)return@Runnable;pressFired=true
-        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        haptic(a,Haptic.LONG)
         cancelUnder();f()}
     private fun cancelUnder(){val now=android.os.SystemClock.uptimeMillis();val c=MotionEvent.obtain(now,now,MotionEvent.ACTION_CANCEL,pressX,pressY,0);super.dispatchTouchEvent(c);c.recycle()}
     override fun dispatchTouchEvent(e:MotionEvent):Boolean{
@@ -118,7 +118,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     fun cancelAsk(){a.touchWatchers.remove(outside);if(ask<=0f&&askAnim==null)return;runAsk(0f)}
     private fun runAsk(to:Float){askAnim?.cancel();val from=ask;val reduced=a.prefs.str("motion")=="reduced"
         fun set(k:Float){ask=k;val lp=pill.layoutParams;lp.width=(a.d(40)+(a.d(96)-a.d(40))*k).toInt();pill.layoutParams=lp;pill.alpha=(k*1.5f).coerceIn(0f,1f)
-            card.setColor(androidx.core.graphics.ColorUtils.blendARGB(cardColor,0xffff5a4c.toInt(),.14f*k));card.alpha=(progress*255).toInt();apply(progress)
+            card.setColor(androidx.core.graphics.ColorUtils.blendARGB(cardColor,Ui.danger(a.light),.14f*k));card.alpha=(progress*255).toInt();apply(progress)
             // the first frame of the opening is k=0: only a finished closing hides the pill
             pill.visibility=if(k<=0f&&to<=0f)View.GONE else View.VISIBLE}
         if(reduced){set(to);askAnim=null;return}
@@ -232,7 +232,7 @@ internal class ShelfMorph(private val a:MainActivity,val trip:Trip,private val t
     }
     private val W get()=a.root.width.toFloat()
     private val H get()=a.root.height.toFloat()
-    private val cardColor=if(a.light)Color.WHITE else 0xff202022.toInt()
+    private val cardColor=Ui.card(a.light)
     private var page:View?=null
     private val bounds=RectF();private val home=RectF();private var radius=0f
     private var under:ImageView?=null
@@ -365,12 +365,12 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
     private val dash=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=1.4f*a.resources.displayMetrics.density;pathEffect=DashPathEffect(floatArrayOf(a.d(5).toFloat(),a.d(4).toFloat()),0f)}
     private val fill=Paint(Paint.ANTI_ALIAS_FLAG)
     private var lit=0f
-    private val ink=if(a.light)0x000000 else 0xffffff
+    private val ink=Ui.fill(a.light)
     private val label=a.row().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(14),0)}
     private var field:EditText?=null
     init{setWillNotDraw(false);clipChildren=false;isClickable=true;contentDescription="Новая полка"
         label.addView(IconView(a,"plus",a.muted),LinearLayout.LayoutParams(a.d(18),a.d(18)).apply{rightMargin=a.d(10)})
-        label.addView(a.text("Новая полка",15f,a.muted,true))
+        label.addView(a.text("Новая полка",Type.TEXT,a.muted,true))
         addView(label,LayoutParams(-1,-1))
         setOnClickListener{start()};a.press(this)}
     /** The place for a new shelf exists only while editing: it opens and fades in with the edit mode. */
@@ -391,7 +391,7 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
         val sp=Spring.of(.1,460.0);marginAnim?.cancel();marginAnim=android.animation.ValueAnimator.ofFloat(1f,0f).apply{duration=sp.duration;startDelay=after;interpolator=sp.interpolator
             addUpdateListener{val k=it.animatedValue as Float;lp.topMargin=(m0*k).toInt();layoutParams=lp;reveal(k)};start()}}
     private fun start(){if(field!=null||!isAttachedToWindow)return
-        val f=a.edit("","Название полки").apply{setSingleLine(true);textSize=17f;typeface=PolkaFonts.sans(600);setTextColor(a.fg);setHintTextColor(a.muted);background=null;setPadding(a.d(14),0,a.d(14),0);minHeight=0;minimumHeight=0
+        val f=a.edit("","Название полки").apply{setSingleLine(true);textSize=Type.TITLE;typeface=PolkaFonts.sans(600);setTextColor(a.fg);setHintTextColor(a.muted);background=null;setPadding(a.d(14),0,a.d(14),0);minHeight=0;minimumHeight=0
             gravity=Gravity.CENTER_VERTICAL;imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE;alpha=0f
             setOnEditorActionListener{_,act,_->if(act==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){commit();true}else false}
             setOnFocusChangeListener{v,has->if(!has)v.post{if(field===v)commit()}}}
@@ -477,7 +477,7 @@ internal class StatusGrid(private val a:MainActivity,private val tiles:Map<Strin
         when(e.actionMasked){
             MotionEvent.ACTION_DOWN->{val k=order.indices.firstOrNull{i->e.x>=slotX(i)&&e.x<slotX(i)+cellW&&e.y>=slotY(i)&&e.y<slotY(i)+cellH}?.let{order[it]}?:return false
                 held=k;downX=e.x;downY=e.y;parent?.requestDisallowInterceptTouchEvent(true)
-                val v=tiles.getValue(k);v.bringToFront();v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                val v=tiles.getValue(k);v.bringToFront();v.haptic(a,Haptic.LONG)
                 v.animate().scaleX(1.04f).scaleY(1.04f).translationZ(a.d(14).toFloat()).setDuration(180).setInterpolator(glide).start()}
             MotionEvent.ACTION_MOVE->{val k=held?:return true;val v=tiles.getValue(k);val i=order.indexOf(k)
                 val dx=e.x-downX;val dy=e.y-downY;v.translationX=dx;v.translationY=dy
@@ -488,7 +488,7 @@ internal class StatusGrid(private val a:MainActivity,private val tiles:Map<Strin
         return true}
     /** [k] takes place [to]: the others glide from where they are to their new places, the held one stays under the finger. */
     private fun move(k:String,from:Int,to:Int){val before=order.associateWith{key->val j=order.indexOf(key);slotX(j)+tiles.getValue(key).translationX to slotY(j)+tiles.getValue(key).translationY}
-        order.removeAt(from);order.add(to,k);performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        order.removeAt(from);order.add(to,k);haptic(a,Haptic.SELECT)
         order.forEachIndexed{j,key->val v=tiles.getValue(key);val (bx,by)=before.getValue(key)
             v.layout(slotX(j),slotY(j),slotX(j)+cellW,slotY(j)+cellH);v.translationX=bx-slotX(j);v.translationY=by-slotY(j)
             if(key==k){downX+=slotX(j)-slotX(from);downY+=slotY(j)-slotY(from)}
@@ -544,7 +544,7 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
     private fun touch(r:ShelfRow,e:MotionEvent){if(!r.editing)return
         when(e.actionMasked){
             MotionEvent.ACTION_DOWN->{held=r;from=rows.indexOf(r);target=from;startY=e.rawY;lastY=e.rawY;startScroll=a.scroll.scrollY;slot=r.height+a.d(10)
-                r.parent.requestDisallowInterceptTouchEvent(true);r.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                r.parent.requestDisallowInterceptTouchEvent(true);r.haptic(a,Haptic.LONG)
                 r.animate().scaleX(1.03f).scaleY(1.03f).translationZ(a.d(14).toFloat()).setDuration(180).setInterpolator(glide).start()
                 a.scroll.postOnAnimation(edge)}
             MotionEvent.ACTION_MOVE->{lastY=e.rawY;follow()}
@@ -554,7 +554,7 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
     /** The held card stays under the finger, including while the page scrolls under it. */
     private fun follow(){val h=held?:return;val dy=lastY-startY+(a.scroll.scrollY-startScroll);h.translationY=dy
         val t=(from+Math.round(dy/slot)).coerceIn(0,rows.lastIndex)
-        if(t!=target){target=t;h.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        if(t!=target){target=t;h.haptic(a,Haptic.SELECT)
             rows.forEachIndexed{j,o->if(o===h)return@forEachIndexed;val shift=when{j in (from+1)..target-> -slot;j in target until from->slot;else->0}.toFloat()
                 if(o.translationY!=shift)o.animate().translationY(shift).setDuration(240).setInterpolator(glide).start()}}}
     /** Auto-scroll: holding the card near the top or bottom edge scrolls the page, faster the closer to the edge. */
@@ -573,8 +573,8 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
 /** Top of «Полки»: only «Изменить» on the right. In edit mode it turns into a filled «Готово». */
 internal fun MainActivity.shelvesTopBar():View{
     val bar=FrameLayout(this)
-    bar.addView(text("Полки",26f,fg,true,serif=true),FrameLayout.LayoutParams(-2,-2,Gravity.START or Gravity.CENTER_VERTICAL).apply{leftMargin=d(2)})
-    val label=text(if(shelvesEditing)"Готово" else "Редактировать",15f,fg,true).apply{gravity=Gravity.CENTER;setPadding(d(18),0,d(18),0);isClickable=true;isFocusable=true;contentDescription="Редактировать полки"}
+    bar.addView(text("Полки",Type.H1,fg,true,serif=true),FrameLayout.LayoutParams(-2,-2,Gravity.START or Gravity.CENTER_VERTICAL).apply{leftMargin=d(2)})
+    val label=text(if(shelvesEditing)"Готово" else "Редактировать",Type.TEXT,fg,true).apply{gravity=Gravity.CENTER;setPadding(d(18),0,d(18),0);isClickable=true;isFocusable=true;contentDescription="Редактировать полки"}
     fun paint(){val on=shelvesEditing;label.setTextColor(if(on)bg else fg);label.background=if(on)shape(fg,20) else controlSurface(label,20f)}
     paint();shelvesTopBarLabel=label
     label.setOnClickListener{val on=!shelvesEditing;shelfEditor?.setEditing(on)

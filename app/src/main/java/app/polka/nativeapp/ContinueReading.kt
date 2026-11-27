@@ -65,21 +65,21 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  }
  init{
   orientation=VERTICAL;clipChildren=false;clipToPadding=false
-  addView(a.text("Продолжить чтение",17f,bold=true))
+  addView(a.text("Продолжить чтение",Type.TITLE,bold=true))
   readingBooks.forEachIndexed{i,book->
    val card=RisingCoverCard(a).apply{clipChildren=false;clipToPadding=false;isFocusable=true;contentDescription="Продолжить: ${book.str("title")}"}
    floating(card,book,i)
    val cover=CoverView(a,book,a.cover(book));card.addView(cover,FrameLayout.LayoutParams(a.d(92),a.d(138),Gravity.BOTTOM or Gravity.START).apply{marginStart=a.d(16);bottomMargin=a.d(14)})
    card.cover=cover;covers.add(cover)
    val words=a.column().apply{gravity=Gravity.BOTTOM;setPadding(a.d(124),a.d(16),a.d(18),a.d(16));clipChildren=false;clipToPadding=false}
-   words.addView(a.text(book.str("title"),15f,a.fg,true).apply{maxLines=1;isSingleLine=true;ellipsize=TextUtils.TruncateAt.END})
-   a.space(words,3);words.addView(a.text(MainActivity.authors(book),12.5f,a.muted).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END})
+   words.addView(a.text(book.str("title"),Type.TEXT,a.fg,true).apply{maxLines=1;isSingleLine=true;ellipsize=TextUtils.TruncateAt.END})
+   a.space(words,3);words.addView(a.text(MainActivity.authors(book),Type.SECONDARY,a.muted).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END})
    a.space(words,12)
    val pct=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
    val meter=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
    val bar=HeroProgress(a,pct);bars.add(bar)
    meter.addView(bar,LayoutParams(0,a.d(8),1f))
-   meter.addView(a.text("${(pct*100).roundToInt()}%",11f,a.muted),LayoutParams(-2,-2).apply{marginStart=a.d(8)})
+   meter.addView(a.text("${(pct*100).roundToInt()}%",Type.CAPTION,a.muted),LayoutParams(-2,-2).apply{marginStart=a.d(8)})
    words.addView(meter,LayoutParams(-1,-2));a.space(words,12)
    val buttons=a.line()
    buttons.addView(pill("Читать",true,"Читать: ${book.str("title")}"){a.openBook(book,cover)},LayoutParams(0,-2,1f))
@@ -113,7 +113,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   fun paint(c:IntArray,b:Bitmap?=null){tints[i]=b?.let{runCatching{BookGlowRaster.tone(it)}.getOrNull()}?:glow.tone(c[0]);glow.invalidate()}
   val first=shades(null,book);paint(first)
   // the usual card grey; the cover's colour only tints the glow behind the cards
-  val fill=GradientDrawable().apply{setColor(if(light)Color.WHITE else 0xff242426.toInt());cornerRadius=radius}
+  val fill=GradientDrawable().apply{setColor(Ui.card(light));cornerRadius=radius}
   card.background=Floating(a,fill,radius)
   a.cover(book).let{b->if(b!=null)shades(b,book).let{paint(it,b)} else if(book.optJSONObject("cover")!=null)a.requestCover(book){bmp->if(bmp!=null)shades(bmp,book).let{paint(it,bmp);focus(carousel.scrollX)}}}
   card.elevation=0f
@@ -128,7 +128,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   val hsv=FloatArray(3);Color.colorToHSV(base,hsv);val sat=(hsv[1]*.9f).coerceIn(.12f,.62f)
   fun at(v:Float,s:Float)=Color.HSVToColor(floatArrayOf(hsv[0],s,v))
   return if(light)intArrayOf(at(.62f,sat),at(.52f,sat*.9f),at(.38f,sat*.7f)) else intArrayOf(at(.52f,sat),at(.40f,sat*.85f),at(.21f,sat*.5f))}
- private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,12.5f,if(primary)a.bg else a.fg,true).apply{
+ private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,Type.SECONDARY,if(primary)a.bg else a.fg,true).apply{
   gravity=Gravity.CENTER;minHeight=a.d(32);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(6),0,a.d(6),0);contentDescription=description;isClickable=true;isFocusable=true
   background=if(primary)GradientDrawable().apply{setColor(a.fg);cornerRadius=a.d(16).toFloat()} else GradientDrawable().apply{setColor((a.fg and 0xffffff) or ((if(light)0x10 else 0x1c) shl 24));cornerRadius=a.d(16).toFloat()}
   setOnClickListener{click()};pressy(this)}

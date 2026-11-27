@@ -38,7 +38,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
     /** How far the capsule has grown out of its pill (0 the pill, 1 full size). */
     private var grow=1f
     private val card=FrameLayout(a).apply{
-        background=GradientDrawable().apply{setColor(surface);cornerRadius=a.d(40).toFloat();setStroke(maxOf(1,a.d(1)/2),if(a.light)0x0a000000 else 0x10ffffff)}
+        background=GradientDrawable().apply{setColor(surface);cornerRadius=a.d(40).toFloat();setStroke(maxOf(1,a.d(1)/2),Ui.fill(a.light))}
         elevation=a.d(10).toFloat();clipToOutline=true
         outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){
             val w=v.width.toFloat();val h=v.height.toFloat();if(w<=0f||h<=0f){o.setRoundRect(0,0,0,0,0f);return}
@@ -50,10 +50,10 @@ internal class Notice private constructor(internal val a:MainActivity,private va
     private val badge=Badge(a,surface)
     private val icon=FrameLayout(a)
     private val iconGlyph=Dot(a,true)
-    private val title=a.text("",14.5f,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
-    private val sub=a.text("",12.5f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
+    private val title=a.text("",Type.TEXT,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
+    private val sub=a.text("",Type.SECONDARY,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
     private val texts=LinearLayout(a).apply{orientation=LinearLayout.VERTICAL;clipChildren=false;clipToPadding=false}
-    private val button=a.text("",13.5f,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(15),0,a.d(15),0);maxLines=1;a.press(this)}
+    private val button=a.text("",Type.SECONDARY,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(15),0,a.d(15),0);maxLines=1;a.press(this)}
     private val bar=Bar(a)
     private var state:State?=null
     private val hide=Runnable{dismiss()}
@@ -85,14 +85,14 @@ internal class Notice private constructor(internal val a:MainActivity,private va
     private fun put(s:State,first:Boolean){
         state=s;title.text=s.title
         if(compact){(icon.background as GradientDrawable).setColor((s.kind.color and 0xffffff) or 0x2e000000)
-            iconGlyph.set(s.kind,if(s.kind.color==0xff8e8e94.toInt())(if(a.light)0xff6e6e74.toInt() else 0xffc8c8cc.toInt()) else s.kind.color,!first&&!reduced);return}
+            iconGlyph.set(s.kind,if(s.kind.color==0xff8e8e94.toInt())(Ui.ink2(a.light)) else s.kind.color,!first&&!reduced);return}
         val busy=s.progress!=null
         sub.text=s.sub;sub.visibility=if(s.sub.isBlank()||busy)View.GONE else View.VISIBLE
         bar.visibility=if(busy)View.VISIBLE else View.GONE
         button.text=s.action.orEmpty();button.visibility=if(s.action==null)View.GONE else View.VISIBLE
         val quiet=s.kind==Kind.ERROR||s.kind==Kind.PARTIAL
         button.setTextColor(if(quiet)a.fg else a.bg)
-        button.background=GradientDrawable().apply{setColor(if(quiet)(if(a.light)0x12000000 else 0x17ffffff) else a.fg);cornerRadius=a.d(18).toFloat()}
+        button.background=GradientDrawable().apply{setColor(if(quiet)(Ui.press(a.light)) else a.fg);cornerRadius=a.d(18).toFloat()}
         row.setPadding(a.d(8),0,if(s.action==null)a.d(18) else a.d(8),0)
         button.setOnClickListener{s.onAction?.invoke();dismiss()}
         badge.set(s,!first&&!reduced)
@@ -199,7 +199,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
     /** The round badge: the book's cover in a circle (grey and faded for a deleted book) with the status sign on its
      *  edge; a spinner on a plain disc while working; the sign alone on a tinted disc when there is no book. */
     private class Badge(private val a:MainActivity,private val surface:Int):FrameLayout(a){
-        private val disc=View(a).apply{background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(a.light)0xffecebe8.toInt() else 0xff3a3a3d.toInt())}}
+        private val disc=View(a).apply{background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(Ui.press(a.light))}}
         private val covers=FrameLayout(a).apply{outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setOval(0,0,v.width,v.height)}};clipToOutline=true}
         private val spinner=Dot(a,true)
         private val sign=Dot(a,false)
@@ -229,7 +229,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
             val hasBook=book!=null
             // with a book: the sign sits on the edge; without one: the sign alone, large, on a tinted disc
             val alone=!hasBook&&!loading
-            (disc.background as GradientDrawable).setColor(if(alone)(s.kind.color and 0xffffff) or 0x26000000 else if(a.light)0xffecebe8.toInt() else 0xff3a3a3d.toInt())
+            (disc.background as GradientDrawable).setColor(if(alone)(s.kind.color and 0xffffff) or 0x26000000 else Ui.press(a.light))
             plain.visibility=if(alone)View.VISIBLE else View.GONE
             if(alone)plain.set(s.kind,s.kind.color,animate)
             val onEdge=hasBook&&!loading
@@ -291,6 +291,6 @@ internal class Notice private constructor(internal val a:MainActivity,private va
             anim?.cancel();if(!animate||target<0f){shown=maxOf(0f,target);invalidate();return}
             anim=ValueAnimator.ofFloat(from,target).apply{duration=320;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
         override fun onDraw(c:Canvas){if(value<0f)return;val w=width.toFloat();val h=height.toFloat()
-            p.color=if(a.light)0x0f000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,h/2,h/2,p);p.color=a.fg;if(shown>0f)c.drawRoundRect(0f,0f,maxOf(h,w*shown),h,h/2,h/2,p)}
+            p.color=Ui.fill(a.light);c.drawRoundRect(0f,0f,w,h,h/2,h/2,p);p.color=a.fg;if(shown>0f)c.drawRoundRect(0f,0f,maxOf(h,w*shown),h,h/2,h/2,p)}
     }
 }

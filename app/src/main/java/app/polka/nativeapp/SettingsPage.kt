@@ -20,31 +20,31 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     val extra=max(0,(resources.configuration.screenWidthDp-640)/2)
     followInsets(content){i->content.setPadding(d(16+extra)+i.left,i.top+d(8),d(16+extra)+i.right,d(32)+i.bottom)}
     root.addView(scroll,FrameLayout.LayoutParams(-1,-1));settingsPage=scroll
-    val muted2=if(light)0xff6e6e73.toInt() else 0xffa4a4a4.toInt()
-    fun caption(title:String,top:Int=28){content.addView(text(title,13f,muted2,true).apply{setPadding(d(4),0,0,0)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(top);bottomMargin=d(10)})}
+    val muted2=Ui.ink2(light)
+    fun caption(title:String,top:Int=28){content.addView(text(title,Type.SECONDARY,muted2,true).apply{setPadding(d(4),0,0,0)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(top);bottomMargin=d(10)})}
     fun lit(top:Boolean,bottom:Boolean)=android.graphics.drawable.StateListDrawable().apply{setExitFadeDuration(220)
         val r=d(24).toFloat();val t=if(top)r else 0f;val b=if(bottom)r else 0f
-        addState(intArrayOf(android.R.attr.state_pressed),android.graphics.drawable.GradientDrawable().apply{setColor(if(light)0x0c000000 else 0x0fffffff);cornerRadii=floatArrayOf(t,t,t,t,b,b,b,b)})
+        addState(intArrayOf(android.R.attr.state_pressed),android.graphics.drawable.GradientDrawable().apply{setColor(Ui.fill(light));cornerRadii=floatArrayOf(t,t,t,t,b,b,b,b)})
         addState(intArrayOf(),android.graphics.drawable.ColorDrawable(0))}
     // a group is one card, its rows split by thin lines (approved «Настройки А»); a row lights up under the finger
     fun card(rows:List<View>){val box=column().apply{floatCard(this,24)}
-        rows.forEachIndexed{i,r->if(r.isClickable)r.background=lit(i==0,i==rows.lastIndex);if(i>0)box.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,1).apply{leftMargin=d(18)})
-            box.addView(r,LinearLayout.LayoutParams(-1,-2).apply{if(r is LayoutToggle)height=d(56)})}
+        rows.forEachIndexed{i,r->if(r.isClickable)r.background=lit(i==0,i==rows.lastIndex);if(i>0)box.addView(View(this).apply{setBackgroundColor(Ui.line(light))},LinearLayout.LayoutParams(-1,1).apply{leftMargin=d(18)})
+            if(r is LayoutToggle)r.minimumHeight=d(Size.ROW);box.addView(r,LinearLayout.LayoutParams(-1,-2))}
         content.addView(box,LinearLayout.LayoutParams(-1,-2))}
     fun row(title:String,sub:String?=null,value:String?=null,chevron:Boolean=true,click:(()->Unit)?=null):Triple<LinearLayout,TextView?,TextView?>{
         val r=line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=d(if(sub!=null)64 else 56);setPadding(d(18),d(10),d(16),d(10))}
         if(click!=null)r.apply{isClickable=true;isFocusable=true;setOnClickListener{click()}}
-        val names=column();names.addView(text(title,16f,fg))
-        val subView=sub?.let{text(it,13f,muted2).apply{setPadding(0,d(3),0,0)}.also{v->names.addView(v)}}
+        val names=column();names.addView(text(title,Type.BODY,fg))
+        val subView=sub?.let{text(it,Type.SECONDARY,muted2).apply{setPadding(0,d(3),0,0)}.also{v->names.addView(v)}}
         r.addView(names,LinearLayout.LayoutParams(0,-2,1f))
-        val valueView=value?.let{text(it,15f,muted2).also{v->r.addView(v,LinearLayout.LayoutParams(-2,-2).apply{if(chevron)rightMargin=d(10)})}}
+        val valueView=value?.let{text(it,Type.TEXT,muted2).also{v->r.addView(v,LinearLayout.LayoutParams(-2,-2).apply{if(chevron)rightMargin=d(10)})}}
         if(chevron)r.addView(Chevron(this),LinearLayout.LayoutParams(d(10),d(16)))
         return Triple(r,subView,valueView)}
     // head: back, and the large serif title centred on the page (an empty place the back button's size on the right
     // keeps it in the middle), as the greeting on the statistics
     val head=line().apply{gravity=Gravity.CENTER_VERTICAL}
     head.addView(icon("back","Назад"){closeSettings()},LinearLayout.LayoutParams(d(46),d(46)))
-    head.addView(text("Настройки",26f,fg,true,serif=true).apply{gravity=Gravity.CENTER;maxLines=1},LinearLayout.LayoutParams(0,-2,1f))
+    head.addView(text("Настройки",Type.H1,fg,true,serif=true).apply{gravity=Gravity.CENTER;maxLines=1},LinearLayout.LayoutParams(0,-2,1f))
     head.addView(View(this),LinearLayout.LayoutParams(d(46),d(46)))
     content.addView(head,LinearLayout.LayoutParams(-1,-2))
     // appearance
@@ -55,7 +55,7 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     themes.forEachIndexed{i,(key,name)->
         val col=column().apply{gravity=Gravity.CENTER_HORIZONTAL;isClickable=true;isFocusable=true;contentDescription="Оформление: $name"}
         col.addView(ThemePreview(this,key,key==current),LinearLayout.LayoutParams(-1,d(84)))
-        col.addView(text(name,12.5f,if(key==current)fg else muted2,key==current).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(8)})
+        col.addView(text(name,Type.SECONDARY,if(key==current)fg else muted2,key==current).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(8)})
         col.setOnClickListener{if(key!=current){prefs.put("ui",key);savePreferences()
             // the page is rebuilt in the new colours right where it was, without an entrance
             val y=scroll.scrollY;themeCrossfade{settingsPage=null;root.removeView(scroll);render(true,false);if(profileOverlay!=null)refreshProfile();openSettingsPage(false);settingsPage?.let{p->(p as ScrollView).scrollTo(0,y);p.post{p.scrollTo(0,y)}}}}}
@@ -91,7 +91,7 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     // where the reading tools come from
     caption("О приложении")
     card(listOf(row("Версия",value=packageManager.getPackageInfo(packageName,0).versionName,chevron=false).first))
-    content.addView(text("Перевод: Google Переводчик (на устройстве). Словарь: Викисловарь, CC BY-SA 4.0. Фоновые звуки: свободная лицензия CC0. Иконки: Lucide, ISC.",12.5f,muted).apply{setPadding(d(6),d(10),d(6),0);cssLeading(1.4f)})
+    content.addView(text("Перевод: Google Переводчик (на устройстве). Словарь: Викисловарь, CC BY-SA 4.0. Фоновые звуки: свободная лицензия CC0. Иконки: Lucide, ISC.",Type.SECONDARY,muted).apply{setPadding(d(6),d(10),d(6),0);cssLeading(1.4f)})
     if(animate)Depth(this,scroll).enter()
 }
 /** The whole window changes colours under a soft crossfade from a picture of how it looked a moment ago. */
@@ -113,15 +113,15 @@ internal fun MainActivity.closeSettings(){val page=settingsPage?:return;settings
  *  [extra] adds a quiet action under the button (e.g. removing the goal). */
 internal fun MainActivity.numberSheet(title:String,initial:Int,range:IntRange,presets:List<Int>,unit:(Int)->String,extra:Pair<String,()->Unit>?=null,saved:(Int)->Unit){
     val box=column().apply{gravity=Gravity.CENTER_HORIZONTAL}
-    val pill=if(light)0x0e000000 else 0x12ffffff
-    box.addView(text(title,15f,fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
+    val pill=Ui.fill(light)
+    box.addView(text(title,Type.TEXT,fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
     val field=edit(if(initial>0)"$initial" else "","0").apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER;filters=arrayOf(android.text.InputFilter.LengthFilter(range.last.toString().length))
         textSize=56f;typeface=PolkaFonts.serif(this@numberSheet,true);gravity=Gravity.CENTER;background=null;setTextColor(fg);setHintTextColor(if(light)0x33000000 else 0x33ffffff);setPadding(0,0,0,0);imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE;setSelection(text.length);contentDescription=title}
     box.addView(field,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(14)})
-    val caption=text(unit(initial),14f,muted).apply{gravity=Gravity.CENTER}
+    val caption=text(unit(initial),Type.TEXT,muted).apply{gravity=Gravity.CENTER}
     box.addView(caption,LinearLayout.LayoutParams(-1,-2))
     val chips=line()
-    val views=presets.map{n->text("$n",14f,fg,true).apply{gravity=Gravity.CENTER;isClickable=true;isFocusable=true;contentDescription="$n";press(this)}}
+    val views=presets.map{n->text("$n",Type.TEXT,fg,true).apply{gravity=Gravity.CENTER;isClickable=true;isFocusable=true;contentDescription="$n";press(this)}}
     fun paint(){val cur=field.text.toString().toIntOrNull();views.forEachIndexed{i,v->val on=presets[i]==cur;v.background=shape(if(on)fg else pill,19);v.setTextColor(if(on)bg else fg)}}
     views.forEachIndexed{i,v->v.setOnClickListener{field.setText("${presets[i]}");field.setSelection(field.length())};chips.addView(v,LinearLayout.LayoutParams(0,d(38),1f).apply{if(i>0)leftMargin=d(8)})}
     box.addView(chips,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(20)})
@@ -132,8 +132,8 @@ internal fun MainActivity.numberSheet(title:String,initial:Int,range:IntRange,pr
     fun done(){val n=field.text.toString().toIntOrNull();if(n==null||n !in range){field.animate().translationX(d(8).toFloat()).setDuration(60).withEndAction{field.animate().translationX(0f).setDuration(160).setInterpolator(android.view.animation.OvershootInterpolator(3f)).start()}.start();return}
         saved(n);sheet.dismiss()}
     field.setOnEditorActionListener{_,act,_->if(act==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){done();true}else false}
-    box.addView(text("Готово",16f,bg,true).apply{gravity=Gravity.CENTER;background=shape(fg,26);isClickable=true;isFocusable=true;press(this);setOnClickListener{done()}},LinearLayout.LayoutParams(-1,d(52)).apply{topMargin=d(18)})
-    extra?.let{(label,fn)->box.addView(text(label,14f,muted).apply{gravity=Gravity.CENTER;setPadding(0,d(14),0,d(2));isClickable=true;setOnClickListener{fn();sheet.dismiss()}},LinearLayout.LayoutParams(-1,-2))}
+    box.addView(text("Готово",Type.BODY,bg,true).apply{gravity=Gravity.CENTER;background=shape(fg,26);isClickable=true;isFocusable=true;press(this);setOnClickListener{done()}},LinearLayout.LayoutParams(-1,d(52)).apply{topMargin=d(18)})
+    extra?.let{(label,fn)->box.addView(text(label,Type.TEXT,muted).apply{gravity=Gravity.CENTER;setPadding(0,d(14),0,d(2));isClickable=true;setOnClickListener{fn();sheet.dismiss()}},LinearLayout.LayoutParams(-1,-2))}
     sheet=dialog().setBare().setView(box).show()
     field.post{field.requestFocus();(getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(field,0)}
 }

@@ -45,7 +45,7 @@ internal fun MainActivity.statusSheet(book:JSONObject){
     val id=book.str("id")
     fun latest()=books.firstOrNull{it.str("id")==id}?:book
     val box=column()
-    fun header(s:String,top:Int)=box.addView(text(s,20f,fg,true).apply{setPadding(d(6),0,d(6),0)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(top);bottomMargin=d(6)})
+    fun header(s:String,top:Int)=box.addView(text(s,Type.H2,fg,true).apply{setPadding(d(6),0,d(6),0)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(top);bottomMargin=d(6)})
     header("Статус",0)
     var current=Library.status(latest())
     val ticks=HashMap<String,RadioMark>()
@@ -53,12 +53,12 @@ internal fun MainActivity.statusSheet(book:JSONObject){
         val row=line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=d(52);setPadding(d(6),0,d(6),0);isClickable=true;isFocusable=true
             contentDescription=BookStatus.name(s)+if(s==current)", выбрано" else ""}
         row.addView(StatusIcon(this,BookStatus.icon(s),fg),LinearLayout.LayoutParams(d(22),d(22)))
-        row.addView(text(BookStatus.name(s),16f).apply{setPadding(d(14),0,d(8),0)},LinearLayout.LayoutParams(0,-2,1f))
+        row.addView(text(BookStatus.name(s),Type.BODY).apply{setPadding(d(14),0,d(8),0)},LinearLayout.LayoutParams(0,-2,1f))
         val tick=RadioMark(this,s==current)
         row.addView(tick,LinearLayout.LayoutParams(d(22),d(22)));ticks[s]=tick
         row.setOnClickListener{if(s==current)return@setOnClickListener;current=s;ticks.forEach{(k,v)->v.on=k==s}
             setBookStatus(latest(),s)}
-        press(row);box.addView(row,LinearLayout.LayoutParams(-1,d(52)))
+        press(row);box.addView(row.apply{minimumHeight=d(Size.ROW)},LinearLayout.LayoutParams(-1,-2))
     }
     header("Полки",20)
     val list=column();box.addView(list)
@@ -66,20 +66,20 @@ internal fun MainActivity.statusSheet(book:JSONObject){
     fun fill(){list.removeAllViews()
         names().forEach{n->
             val row=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(6),0,d(6),0);isClickable=true;isFocusable=true}
-            row.addView(text(n,16f).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
+            row.addView(text(n,Type.BODY).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
             val tick=TickBox(this,BookShelves.on(latest(),n));row.addView(tick,LinearLayout.LayoutParams(d(24),d(24)))
             fun describe(){row.contentDescription=n+if(tick.on)", на полке" else ""};describe()
             row.setOnClickListener{tick.on=!tick.on;describe()
                 val b=latest().copyJson();val now=BookShelves.of(b);saveBook(BookShelves.put(b,if(tick.on)now+n else now-n))}
-            press(row);list.addView(row,LinearLayout.LayoutParams(-1,d(50)))}
+            press(row);list.addView(row.apply{minimumHeight=d(Size.ROW)},LinearLayout.LayoutParams(-1,-2))}
         val add=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(6),0,d(6),0);isClickable=true;isFocusable=true;contentDescription="Новая полка"}
         add.addView(IconView(this,"plus",muted),LinearLayout.LayoutParams(d(22),d(22)))
-        add.addView(text("Новая полка",16f,muted).apply{setPadding(d(14),0,0,0)})
+        add.addView(text("Новая полка",Type.BODY,muted).apply{setPadding(d(14),0,0,0)})
         add.setOnClickListener{inputDialog("Новая полка",hint="Название полки",action="Создать"){raw->val n=raw.trim();if(n.isBlank())return@inputDialog
             if(!names().any{it.equals(n,true)}){prefs.put("shelves",JSONArray((prefs.optJSONArray("shelves")?.strings().orEmpty()+n).distinct()));savePreferences()}
             val real=names().firstOrNull{it.equals(n,true)}?:n
             val b=latest().copyJson();saveBook(BookShelves.put(b,BookShelves.of(b)+real)){fill()}}}
-        press(add);list.addView(add,LinearLayout.LayoutParams(-1,d(50)))}
+        press(add);list.addView(add.apply{minimumHeight=d(Size.ROW)},LinearLayout.LayoutParams(-1,-2))}
     fill()
     dialog().setView(box).show()
 }

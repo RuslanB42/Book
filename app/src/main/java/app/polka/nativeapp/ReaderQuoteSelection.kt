@@ -148,7 +148,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
         // the colour strip: shown right after a quote is saved (or from «Цвет» on a saved one), in the menu's place
         // the colours (with «свой цвет» last) scroll on their own; «Готово» stays pinned at the right
         strip.addView(dotScroll,LinearLayout.LayoutParams(0,a.d(44),1f));rebuildDots()
-        strip.addView(a.text("Готово",13.5f,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(12),0,a.d(12),0);minHeight=a.d(44);a.press(this);setOnClickListener{done()}})
+        strip.addView(a.text("Готово",Type.SECONDARY,a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(12),0,a.d(12),0);minHeight=a.d(44);a.press(this);setOnClickListener{done()}})
         strip.visibility=GONE;addView(strip,LayoutParams(-1,-2,Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply{leftMargin=a.d(8);rightMargin=a.d(8)})
     }
     /** Long press: a saved quote under the finger is picked up whole (so it can be removed); otherwise the word. */
@@ -157,7 +157,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     fun select(r:IntRange){range.set(r.first,r.last+1);start(false)}
     private fun start(haptic:Boolean){finishSettle();active=true;visibility=VISIBLE;dragging=false;grabDx=0f;grabDy=0f;contentDescription="Выделено: ${range.text(reader.selectionFullText())}"
         appear=if(reduced)1f else 0f;if(!reduced)android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=200;interpolator=android.view.animation.DecelerateInterpolator();addUpdateListener{appear=it.animatedValue as Float;invalidate()};start()}
-        menu.visibility=INVISIBLE;invalidate();post{showMenu()};if(haptic&&a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)}
+        menu.visibility=INVISIBLE;invalidate();post{showMenu()};if(haptic)this.haptic(a,Haptic.LONG)}
     fun clear(fadeOut:Boolean=true){val was=active;active=false;dragging=false;edgeLocked=false;timer.removeCallbacksAndMessages(null);edge=0
         if(was&&!reduced){if(!fadeOut){popOut(menu){menu.visibility=INVISIBLE;menu.alpha=1f;menu.scaleX=1f;menu.scaleY=1f};if(!settling&&!stripOpen)post{if(!active&&!settling&&!stripOpen&&fade<=0f)visibility=GONE};invalidate();return}
             fadeStart=range.start;fadeEnd=range.end;fadeAnim?.cancel();fadeAnim=android.animation.ValueAnimator.ofFloat(appear,0f).apply{duration=180;addUpdateListener{fade=it.animatedValue as Float;invalidate()}

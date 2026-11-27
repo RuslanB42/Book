@@ -167,7 +167,7 @@ internal class SoundButton(private val a:MainActivity,ink:Int):FrameLayout(a){
  *  book's title away); it pops in when a sound starts and folds away when it stops. Tap: «Звуки». */
 internal class SoundChip(private val a:MainActivity,open:()->Unit):LinearLayout(a){
     private val bars=EqBars(a,0)
-    private val label=a.text("",12f,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(92)}
+    private val label=a.text("",Type.CAPTION,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(92)}
     private val bg=GradientDrawable().apply{cornerRadius=a.d(14).toFloat()}
     private val update={refresh(true)}
     private var key:String?="?"
@@ -192,7 +192,7 @@ internal class SoundChip(private val a:MainActivity,open:()->Unit):LinearLayout(
 /** The «Звуки» panel (approved «А»): four tiles, the volume, your own sounds and «Добавить свой звук».
  *  It slides up on the sheet spring with its rows rising in, follows the finger when pulled down and closes. */
 internal class AmbienceSheet(private val a:MainActivity){
-    private val pillColor get()=if(a.light)0x0f000000 else 0x11ffffff
+    private val pillColor get()=Ui.fill(a.light)
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private lateinit var sheet:LinearLayout
     private val tiles=mutableListOf<Tile>()
@@ -203,7 +203,7 @@ internal class AmbienceSheet(private val a:MainActivity){
     /** In the book reader's bottom panel (approved «Читалка А»): the panel's head says «Звуки» and holds «Выключить». */
     fun page():ReaderPanel.Page{
         sheet=a.column().apply{clipToPadding=false;clipChildren=false}
-        off=a.text("Выключить",13f,a.muted).apply{setPadding(a.d(10),a.d(8),a.d(4),a.d(8));isClickable=true;a.press(this);setOnClickListener{Ambience.stop(a)}}
+        off=a.text("Выключить",Type.SECONDARY,a.muted).apply{setPadding(a.d(10),a.d(8),a.d(4),a.d(8));isClickable=true;a.press(this);setOnClickListener{Ambience.stop(a)}}
         fill()
         sheet.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){Ambience.listen(update);paint(false)}
             override fun onViewDetachedFromWindow(v:View){Ambience.unlisten(update)}})
@@ -217,14 +217,14 @@ internal class AmbienceSheet(private val a:MainActivity){
             pair.forEachIndexed{i,s->val t=Tile(s);tiles.add(t);t.setOnClickListener{toggle(s.key)};a.press(t);row.addView(t,LinearLayout.LayoutParams(0,a.d(104),1f).apply{if(i>0)leftMargin=a.d(2)})}
             sheet.addView(row,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=-a.d(4);rightMargin=-a.d(4);if(ri>0)topMargin=a.d(2)})}
         sheet.addView(VolumeBar(),LinearLayout.LayoutParams(-1,a.d(50)).apply{topMargin=a.d(10)})
-        sheet.addView(a.text("СВОИ ЗВУКИ",12f,a.muted,true).apply{letterSpacing=.06f},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(18);bottomMargin=a.d(10);leftMargin=a.d(4)})
+        sheet.addView(a.text("СВОИ ЗВУКИ",Type.CAPTION,a.muted,true).apply{letterSpacing=.06f},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(18);bottomMargin=a.d(10);leftMargin=a.d(4)})
         mineBox=a.column();sheet.addView(mineBox,LinearLayout.LayoutParams(-1,-2))
         val add=a.line().apply{gravity=Gravity.CENTER;isClickable=true;a.press(this);contentDescription="Добавить свой звук"
             background=GradientDrawable().apply{cornerRadius=a.d(18).toFloat();setStroke(a.d(1),if(a.light)0x26000000 else 0x2effffff,a.d(5).toFloat(),a.d(4).toFloat())}
-            addView(a.text("＋",17f,a.fg,true));addView(a.text("Добавить свой звук",14f,a.fg,true).apply{setPadding(a.d(8),0,0,0)})
+            addView(a.text("＋",Type.TITLE,a.fg,true));addView(a.text("Добавить свой звук",Type.TEXT,a.fg,true).apply{setPadding(a.d(8),0,0,0)})
             setOnClickListener{a.pickSound{o->buildMine(o.str("id"));toggle(Ambience.CUSTOM+o.str("id"))}}}
         sheet.addView(add,LinearLayout.LayoutParams(-1,a.d(50)))
-        sheet.addView(a.text("MP3, M4A, OGG или WAV с телефона",11.5f,a.muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
+        sheet.addView(a.text("MP3, M4A, OGG или WAV с телефона",Type.CAPTION,a.muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
         buildMine(null)
     }
 
@@ -234,7 +234,7 @@ internal class AmbienceSheet(private val a:MainActivity){
         if(animate&&!reduced)off.animate().alpha(if(on)1f else 0f).setDuration(200).start() else off.alpha=if(on)1f else 0f;off.isClickable=on
         for(i in 0 until mineBox.childCount)(mineBox.getChildAt(i) as? MineRow)?.refresh(animate)}
     /** [fresh]: the id of a sound just added — its row slides in. */
-    private fun buildMine(fresh:String?){mineBox.removeAllViews();Ambience.mine(a).forEach{o->val row=MineRow(o);mineBox.addView(row,LinearLayout.LayoutParams(-1,a.d(54)).apply{bottomMargin=a.d(8)})
+    private fun buildMine(fresh:String?){mineBox.removeAllViews();Ambience.mine(a).forEach{o->val row=MineRow(o).apply{minimumHeight=a.d(54)};mineBox.addView(row,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(8)})
         if(o.str("id")==fresh&&!reduced){row.alpha=0f;row.translationY=a.d(12).toFloat();row.animate().alpha(1f).translationY(0f).setDuration(360).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
 
     /** A sound tile: its colour glowing from the top right over a deep shade, the icon, the name and a quiet line.
@@ -242,8 +242,8 @@ internal class AmbienceSheet(private val a:MainActivity){
     private inner class Tile(val s:Ambience.Sound):FrameLayout(a){
         private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val ring=a.d(4).toFloat()
         private val bars=EqBars(a,Color.WHITE)
-        private val name=a.text(s.name,14.5f,Color.WHITE,true).apply{maxLines=1}
-        private val note=a.text(s.note,11.5f,0x8cffffff.toInt()).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
+        private val name=a.text(s.name,Type.TEXT,Color.WHITE,true).apply{maxLines=1}
+        private val note=a.text(s.note,Type.CAPTION,0x8cffffff.toInt()).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
         private var on=0f;private var anim:ValueAnimator?=null;private var chosen:Boolean?=null
         init{setWillNotDraw(false);clipChildren=false;contentDescription=s.name
             val texts=a.column();texts.addView(name,LinearLayout.LayoutParams(-1,-2));texts.addView(note,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(2)})
@@ -284,8 +284,8 @@ internal class AmbienceSheet(private val a:MainActivity){
         private var chosen:Boolean?=null
         init{orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(4),0);background=bg;isClickable=true;a.press(this);setOnClickListener{toggle(key)}
             addView(object:View(a){val p=Paint(Paint.ANTI_ALIAS_FLAG);override fun onDraw(c:Canvas){Ambience.icon(c,"note",0f,0f,width.toFloat(),a.muted,p)}},LayoutParams(a.d(18),a.d(18)).apply{marginEnd=a.d(12)})
-            val texts=a.column();texts.addView(a.text(o.str("name"),14f,a.fg).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
-            val d=o.optLong("dur")/1000;texts.addView(a.text("${d/60}:${"%02d".format(d%60)} · по кругу",11.5f,a.muted),LayoutParams(-2,-2).apply{topMargin=a.d(2)})
+            val texts=a.column();texts.addView(a.text(o.str("name"),Type.TEXT,a.fg).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+            val d=o.optLong("dur")/1000;texts.addView(a.text("${d/60}:${"%02d".format(d%60)} · по кругу",Type.CAPTION,a.muted),LayoutParams(-2,-2).apply{topMargin=a.d(2)})
             addView(texts,LayoutParams(0,-2,1f))
             addView(bars,LayoutParams(a.d(17),a.d(15)).apply{marginEnd=a.d(6);marginStart=a.d(8)})
             addView(IconView(a,"trash",a.muted).apply{isClickable=true;contentDescription="Удалить звук";setPadding(a.d(9),a.d(9),a.d(9),a.d(9));a.press(this)
@@ -310,7 +310,7 @@ internal class AmbienceSheet(private val a:MainActivity){
         private fun set(x:Float,done:Boolean,tap:Boolean){v=(x/width).coerceIn(0f,1f);Ambience.setVolume(a,v,done)
             glide?.cancel();if(tap&&!reduced){glide=ValueAnimator.ofFloat(shown,v).apply{duration=220;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}else{shown=v;invalidate()}}
         override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val r=h/2;val dk=a.d(1).toFloat()
-            p.style=Paint.Style.FILL;p.shader=null;p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,r,r,p)
+            p.style=Paint.Style.FILL;p.shader=null;p.color=Ui.fill(a.light);c.drawRoundRect(0f,0f,w,h,r,r,p)
             val fx=w*shown
             p.shader=null;p.color=SliderInk.fill(a);SliderInk.fillTo(c,p,w,h,fx)
             val onFill=if(a.light)Color.WHITE else 0xff1d1d1f.toInt();val onTrack=a.fg

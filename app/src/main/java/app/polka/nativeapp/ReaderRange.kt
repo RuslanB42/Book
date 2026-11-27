@@ -25,7 +25,7 @@ internal class ReaderRange(private val a:MainActivity):SeekBar(a){
  override fun onDraw(c:Canvas){val y=height/2f;val left=paddingLeft.toFloat();val right=(width-paddingRight).toFloat();val to=target()
   if(x.isNaN()||reduced){x=to;vx=0f;s=0f;vs=0f}else if(abs(to-x)>.5f&&!running){running=true;last=0L;postOnAnimation(frame)}
   val h=a.d(2).toFloat()
-  ink.color=if(a.light)0xffd8d8d6.toInt()else 0xff38383a.toInt();c.drawRoundRect(left,y-h,right,y+h,h,h,ink)
+  ink.color=Ui.press(a.light);c.drawRoundRect(left,y-h,right,y+h,h,h,ink)
   ink.color=foreground;c.drawRoundRect(left,y-h,x.coerceIn(left,right),y+h,h,h,ink)
   ink.color=Color.WHITE;drop(c,x,y)}
  private fun step(){val now=System.nanoTime();val dt=if(last==0L)1f/60f else ((now-last)/1e9f).coerceIn(.001f,.034f);last=now

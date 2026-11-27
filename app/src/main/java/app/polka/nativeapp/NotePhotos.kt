@@ -86,7 +86,7 @@ internal object NotePhotos {
 
     /** A small square photo with rounded corners: [bmp] once it is there. */
     fun tile(a:MainActivity,size:Int,radius:Int):ImageView=ImageView(a).apply{scaleType=ImageView.ScaleType.CENTER_CROP
-        background=GradientDrawable().apply{setColor(if(a.light)0x0d000000 else 0x14ffffff);cornerRadius=radius.toFloat()}
+        background=GradientDrawable().apply{setColor(Ui.fill(a.light));cornerRadius=radius.toFloat()}
         outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,radius.toFloat())}};clipToOutline=true
         minimumWidth=size;minimumHeight=size}
 }

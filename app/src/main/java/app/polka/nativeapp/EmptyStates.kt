@@ -82,9 +82,9 @@ internal fun MainActivity.emptyView(kind:String,title:String,hint:String,disc:In
     val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_HORIZONTAL;clipChildren=false;clipToPadding=false}
     val art=EmptyArt(this,kind,disc)
     box.addView(art,LinearLayout.LayoutParams(-2,-2).apply{topMargin=-art.pad;bottomMargin=-art.pad})
-    box.addView(text(title,20f,fg,true).apply{gravity=Gravity.CENTER;maxLines=1;letterSpacing=-.005f},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(22)})
-    box.addView(text(hint,13.5f,muted).apply{gravity=Gravity.CENTER;cssLeading(1.5f);maxWidth=d(236);breakStrategy=android.text.Layout.BREAK_STRATEGY_BALANCED},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(8)})
-    if(action!=null&&onAction!=null)box.addView(text(action,13.5f,bg,true).apply{gravity=Gravity.CENTER;setPadding(d(20),0,d(20),0);background=shape(fg,20);setOnClickListener{onAction()};press(this)},LinearLayout.LayoutParams(-2,d(44)).apply{topMargin=d(22)})
+    box.addView(text(title,Type.H2,fg,true).apply{gravity=Gravity.CENTER;maxLines=1;letterSpacing=-.005f},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(22)})
+    box.addView(text(hint,Type.SECONDARY,muted).apply{gravity=Gravity.CENTER;cssLeading(1.5f);maxWidth=d(236);breakStrategy=android.text.Layout.BREAK_STRATEGY_BALANCED},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(8)})
+    if(action!=null&&onAction!=null)box.addView(text(action,Type.SECONDARY,bg,true).apply{gravity=Gravity.CENTER;setPadding(d(20),0,d(20),0);background=shape(fg,20);setOnClickListener{onAction()};press(this)},LinearLayout.LayoutParams(-2,d(44)).apply{topMargin=d(22)})
     return box
 }
 
@@ -93,8 +93,8 @@ internal fun MainActivity.emptyGoal(year:Int):LinearLayout{
     val row=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
     row.addView(EmptyRoad(this),LinearLayout.LayoutParams(d(60),d(60)))
     val col=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
-    col.addView(text("Пока ни одной книги за $year",15f,fg,true))
-    col.addView(text("Дочитанные появятся на дороге года.",13.5f,muted).apply{cssLeading(1.5f)},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(2)})
+    col.addView(text("Пока ни одной книги за $year",Type.TEXT,fg,true))
+    col.addView(text("Дочитанные появятся на дороге года.",Type.SECONDARY,muted).apply{cssLeading(1.5f)},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(2)})
     row.addView(col,LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=d(12)})
     return row
 }

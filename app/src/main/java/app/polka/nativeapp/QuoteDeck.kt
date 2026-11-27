@@ -24,7 +24,7 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
     /** Which quote each card shows. */
     private val quoteOf=HashMap<View,Int>()
     private var index=(a.quoteDeckIndex[book.str("id")]?:0).coerceIn(0,(list.size-1).coerceAtLeast(0))
-    private val counter=a.text("",12.5f,a.muted)
+    private val counter=a.text("",Type.SECONDARY,a.muted)
     private val deck=Deck()
     private val dots=Dots()
     private fun reduced()=a.prefs.str("motion")=="reduced"
@@ -36,8 +36,8 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
         val head=a.line().apply{gravity=Gravity.BOTTOM;setPadding(a.d(4),0,a.d(4),a.d(12));isClickable=true;setOnClickListener{a.detail(book)};contentDescription="Цитаты из книги ${book.str("title")}"}
         head.addView(CoverView(a,book),LayoutParams(a.d(46),a.d(69)))
         val meta=a.column().apply{setPadding(a.d(14),0,a.d(4),a.d(4))}
-        meta.addView(a.text(book.str("title"),20f,a.fg,true,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
-        meta.addView(a.text(MainActivity.authors(book).ifBlank{"Автор не указан"},13f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(4),0,0)})
+        meta.addView(a.text(book.str("title"),Type.H2,a.fg,true,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+        meta.addView(a.text(MainActivity.authors(book).ifBlank{"Автор не указан"},Type.SECONDARY,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(4),0,0)})
         head.addView(meta,LayoutParams(0,-2,1f))
         if(showHead)addView(head,LayoutParams(-1,-2))
         addView(deck,LayoutParams(-1,-2))
@@ -193,7 +193,7 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             val from=lift;ValueAnimator.ofFloat(from,0f).apply{duration=320;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{pose(it.animatedValue as Float)};start()}}
         private fun fling(dir:Int){
             busy=true;val old=front;val oldH=(old.tag as? Int)?:old.height
-            if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            haptic(a,Haptic.SELECT)
             index=Math.floorMod(index+(if(dir<0)1 else -1),list.size);a.quoteDeckIndex[book.str("id")]=index;updateCounter()
             val glide=PathInterpolator(.2f,0f,0f,1f);val swing=PathInterpolator(.45f,0f,.25f,1f);val settle=android.view.animation.OvershootInterpolator(1.1f)
             val sx=old.translationX;val sy=old.translationY;val sr=old.rotation;val from=lift

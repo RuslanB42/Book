@@ -22,27 +22,27 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     coverBox.addView(c,FrameLayout.LayoutParams(d(104),d(156),Gravity.CENTER_HORIZONTAL))
     box.addView(coverBox,LinearLayout.LayoutParams(-1,d(168))); space(box,10)
     val coverActions=line().apply{gravity=Gravity.CENTER}
-    fun chip(label:String,fn:()->Unit)=text(label,14f,fg,true).apply{gravity=Gravity.CENTER;minHeight=d(38);setPadding(d(16),0,d(16),0);background=shape(if(light)0xffefefec.toInt() else 0xff2c2c2f.toInt(),19);press(this);setOnClickListener{fn()}}
+    fun chip(label:String,fn:()->Unit)=text(label,Type.TEXT,fg,true).apply{gravity=Gravity.CENTER;minHeight=d(38);setPadding(d(16),0,d(16),0);background=shape(if(light)0xffefefec.toInt() else 0xff2c2c2f.toInt(),19);press(this);setOnClickListener{fn()}}
     val pick=chip("Сменить обложку"){ coverTarget=book.str("id"); startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="image/*"; addCategory(Intent.CATEGORY_OPENABLE) },15) }
     lateinit var drop:TextView
     drop=chip("Убрать"){ preview.remove("cover"); preview.remove("coverThumb"); book.remove("cover"); book.remove("coverThumb"); book.put("coverChanged",true); saveBook(book) {}; c.invalidate(); drop.visibility=View.GONE }
     drop.visibility=if(book.optJSONObject("cover")!=null)View.VISIBLE else View.GONE
     coverActions.addView(pick); coverActions.addView(drop,LinearLayout.LayoutParams(-2,-2).apply{leftMargin=d(8)}); box.addView(coverActions)
     fun card()=column().apply{floatCard(this,24);setPadding(d(16),d(4),d(16),d(4))}
-    fun divider(parent:LinearLayout){parent.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,1))}
+    fun divider(parent:LinearLayout){parent.addView(View(this).apply{setBackgroundColor(Ui.line(light))},LinearLayout.LayoutParams(-1,1))}
     fun value(key:String)=when(key) { "authors"->MainActivity.authors(book); "seriesNo"->book.optDouble(key,0.0).let{if(it<=0)"" else if(it%1==0.0)it.toInt().toString() else it.toString()}; else->book.str(key) }
     fun field(parent:LinearLayout,key:String,name:String,hint:String,multi:Boolean=false,lp:LinearLayout.LayoutParams=LinearLayout.LayoutParams(-1,-2)):EditText{
         val cell=column().apply{setPadding(0,d(10),0,d(8))}
-        cell.addView(text(name,12f,muted))
-        val input=EditText(this).apply{typeface=PolkaFonts.sans(400);setText(value(key));setHint(hint);setTextColor(fg);setHintTextColor((muted and 0x00ffffff) or 0x88000000.toInt());textSize=16f;background=null;setPadding(0,d(4),0,d(2));isSingleLine=!multi;if(multi){minLines=3;maxLines=12;gravity=Gravity.TOP};imeOptions=if(multi)android.view.inputmethod.EditorInfo.IME_ACTION_NONE else android.view.inputmethod.EditorInfo.IME_ACTION_NEXT;if(key=="seriesNo")inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL}
+        cell.addView(text(name,Type.CAPTION,muted))
+        val input=EditText(this).apply{typeface=PolkaFonts.sans(400);setText(value(key));setHint(hint);setTextColor(fg);setHintTextColor((muted and 0x00ffffff) or 0x88000000.toInt());textSize=Type.BODY;background=null;setPadding(0,d(4),0,d(2));isSingleLine=!multi;if(multi){minLines=3;maxLines=12;gravity=Gravity.TOP};imeOptions=if(multi)android.view.inputmethod.EditorInfo.IME_ACTION_NONE else android.view.inputmethod.EditorInfo.IME_ACTION_NEXT;if(key=="seriesNo")inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL}
         if(key=="title"||key=="authors")input.addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){};override fun afterTextChanged(s:android.text.Editable?){val v=s?.toString().orEmpty();if(key=="title")preview.put("title",v) else preview.put("authors",JSONArray(v.split(Regex("[,;]")).map{it.trim()}.filter{it.isNotBlank()}));c.invalidate()}})
         cell.addView(input);parent.addView(cell,lp);fields[key]=input;return input
     }
-    fun section(title:String){space(box,20);box.addView(text(title.uppercase(),12f,muted,true).apply{letterSpacing=.06f;setPadding(d(4),0,0,0)});space(box,8)}
+    fun section(title:String){space(box,20);box.addView(text(title.uppercase(),Type.CAPTION,muted,true).apply{letterSpacing=.06f;setPadding(d(4),0,0,0)});space(box,8)}
     section("Книга")
     val main=card();field(main,"title","Название","Как называется книга");divider(main);field(main,"authors","Авторы","Через запятую");box.addView(main)
     section("Серия")
-    val serie=card();val row=line().apply{gravity=Gravity.TOP};field(row,"series","Серия","Название серии",lp=LinearLayout.LayoutParams(0,-2,1f));row.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(1,-1).apply{setMargins(d(12),d(10),d(12),d(10))});field(row,"seriesNo","Номер","—",lp=LinearLayout.LayoutParams(d(72),-2));serie.addView(row);box.addView(serie)
+    val serie=card();val row=line().apply{gravity=Gravity.TOP};field(row,"series","Серия","Название серии",lp=LinearLayout.LayoutParams(0,-2,1f));row.addView(View(this).apply{setBackgroundColor(Ui.line(light))},LinearLayout.LayoutParams(1,-1).apply{setMargins(d(12),d(10),d(12),d(10))});field(row,"seriesNo","Номер","—",lp=LinearLayout.LayoutParams(d(72),-2));serie.addView(row);box.addView(serie)
     // the series as tags under the fields: the one read from the title first (for an issue that has none yet), then the
     // library's series (of comics first for a comic), narrowed down as the name is typed; a tap puts it in, with its
     // number from the title or the next after the series' last
@@ -61,7 +61,7 @@ fun MainActivity.metadataEditor(book:JSONObject) {
             names.forEach{n->val isGuess=guess?.first.equals(n,true)
                 val no=if(isGuess)guess?.second else next(n)
                 val label=n+(if(isGuess&&no!=null)" #"+(if(no%1==0.0)no.toInt().toString() else no.toString()) else "")
-                tags.addView(text(label,13f,fg).apply{gravity=Gravity.CENTER_VERTICAL;minHeight=d(32);setPadding(d(12),0,d(12),0)
+                tags.addView(text(label,Type.SECONDARY,fg).apply{gravity=Gravity.CENTER_VERTICAL;minHeight=d(32);setPadding(d(12),0,d(12),0)
                     background=shape(if(isGuess)(if(light)0x1a1f9d73 else 0x264fd6a2) else (if(light)0xffefefec.toInt() else 0xff2c2c2f.toInt()),16)
                     contentDescription="Серия $label";press(this)
                     setOnClickListener{seriesIn.setText(n);seriesIn.setSelection(n.length)
@@ -75,7 +75,7 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     val raw=book.optJSONArray("genres")?.strings().orEmpty()
     val had=raw.mapNotNull{Genres.name(it)}.distinct()
     val chosen=had.toMutableList()
-    run{val cell=column().apply{setPadding(0,d(10),0,d(14))};cell.addView(text("Жанры",12f,muted))
+    run{val cell=column().apply{setPadding(0,d(10),0,d(14))};cell.addView(text("Жанры",Type.CAPTION,muted))
         val tags=FlowRow(this,d(8),d(8)){false}
         val names=(Genres.all+books.flatMap{b->b.optJSONArray("genres")?.strings().orEmpty().mapNotNull{Genres.name(it)}}+had).distinct().sortedWith(compareBy(java.text.Collator.getInstance(java.util.Locale("ru")),{it}))
         names.forEach{n->tags.addView(ReviewChip(this,n,n in had){chip->if(chip.selectedNow){if(n !in chosen)chosen.add(n)}else chosen.remove(n)})}
@@ -83,7 +83,7 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     divider(more);field(more,"lang","Язык","ru, en…");box.addView(more)
     section("Описание")
     val about=card();field(about,"annotation","Аннотация","О чём эта книга",true);box.addView(about)
-    val error=text("",13f,0xffe5534b.toInt()).apply{visibility=View.GONE;setPadding(d(4),d(10),0,0)}; box.addView(error)
+    val error=text("",Type.SECONDARY,0xffe5534b.toInt()).apply{visibility=View.GONE;setPadding(d(4),d(10),0,0)}; box.addView(error)
     var sheet:AlertDialog?=null
     space(box,20)
     box.addView(button("Сохранить",true) {
@@ -144,7 +144,7 @@ fun MainActivity.saveGridOrder(ordered:List<JSONObject>) {
 fun MainActivity.openBookAt(book:JSONObject,ch:Int,offset:Int) { val p=book.optJSONObject("progress")?.copyJson() ?: JSONObject(); if(p.has("ch"))p.put("returnTo",p.copyJson()); p.put("ch",ch).put("nativeOffset",offset).remove("nativeFraction"); openBook(book.copyJson().put("progress",p)) }
 fun MainActivity.exportBook(book:JSONObject,format:String) { pendingExport=book to format; startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply { val pdf=book.optJSONObject("doc")?.str("type")=="pdf"; val ext=if(format=="doc") (if(pdf) "pdf" else "cbz") else format; type=when(format) { "epub"->"application/epub+zip"; "doc"->if(pdf) "application/pdf" else "application/vnd.comicbook+zip"; else->"application/x-fictionbook+xml" }; addCategory(Intent.CATEGORY_OPENABLE); putExtra(Intent.EXTRA_TITLE,book.str("title").replace(Regex("[/\\\\:*?\"<>|]"),"_")+".$ext") },16) }
 fun MainActivity.recoveryScreen(error:Throwable) {
-    root.removeAllViews(); val box=column().apply { setPadding(d(24),d(40),d(24),d(40)); setBackgroundColor(bg) }; root.addView(box,FrameLayout.LayoutParams(-1,-1)); box.addView(text("Библиотека не загружена",28f,bold=true,serif=true)); space(box,16); box.addView(text("Запись остановлена. Прежние данные и локальные копии не заменяются пустой библиотекой.",16f,muted)); space(box,12); box.addView(text(error.message ?: error.javaClass.simpleName,14f,muted)); space(box,24); box.addView(button("Локальные точки восстановления",true) { localRecovery() }); space(box,10); box.addView(button("Восстановить из .polka") { pickBackup() }); space(box,10); box.addView(button("Попробовать создать внешнюю копию") { exportBackup() })
+    root.removeAllViews(); val box=column().apply { setPadding(d(24),d(40),d(24),d(40)); setBackgroundColor(bg) }; root.addView(box,FrameLayout.LayoutParams(-1,-1)); box.addView(text("Библиотека не загружена",Type.H1,bold=true,serif=true)); space(box,16); box.addView(text("Запись остановлена. Прежние данные и локальные копии не заменяются пустой библиотекой.",Type.BODY,muted)); space(box,12); box.addView(text(error.message ?: error.javaClass.simpleName,Type.TEXT,muted)); space(box,24); box.addView(button("Локальные точки восстановления",true) { localRecovery() }); space(box,10); box.addView(button("Восстановить из .polka") { pickBackup() }); space(box,10); box.addView(button("Попробовать создать внешнюю копию") { exportBackup() })
 }
 
 /** The book leaves the screen at once (the card sinks, the grid closes the gap); the database work and the safety copy follow in the background. */

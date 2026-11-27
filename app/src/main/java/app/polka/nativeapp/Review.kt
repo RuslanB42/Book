@@ -81,15 +81,15 @@ internal class ReviewChip(private val a:MainActivity,val label:String,selected:B
     private val line=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=a.d(1).toFloat()}
     private val rect=RectF()
     private val w=text.measureText(label)
-    private val restFill get()=if(a.light)0x0a000000 else 0x12ffffff
-    private val restLine get()=if(a.light)0x14000000 else 0x1affffff
+    private val restFill get()=Ui.fill(a.light)
+    private val restLine get()=Ui.press(a.light)
     private val onText get()=if(a.light)Color.WHITE else 0xff1c1c1e.toInt()
     private val reduced get()=a.prefs.str("motion")=="reduced"
     init{isClickable=true;isFocusable=true;contentDescription=label;setOnClickListener{toggle()};a.press(this)}
     private fun mix(c1:Int,c2:Int,t:Float)=ArgbEvaluator().evaluate(t.coerceIn(0f,1f),c1,c2) as Int
     override fun onMeasure(ws:Int,hs:Int)=setMeasuredDimension((w+a.d(28)).toInt()+1,a.d(34))
     fun toggle(){selectedNow=!selectedNow;toggled(this)
-        if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        haptic(a,Haptic.SELECT)
         sendAccessibilityEvent(android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED)
         val to=if(selectedNow)1f else 0f;anim?.cancel()
         if(reduced||!isAttachedToWindow){p=to;invalidate();return}
@@ -117,15 +117,15 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
     private val starsBox=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
     // editor
     private val editor=a.column().apply{clipChildren=false;clipToPadding=false}
-    private val ask=a.text("Какой она была",12f,a.muted)
+    private val ask=a.text("Какой она была",Type.CAPTION,a.muted)
     private val chips=FlowRow(a,a.d(8),a.d(8)){false}
-    private val hair=View(a).apply{setBackgroundColor(if(a.light)0x12000000 else 0x14ffffff)}
+    private val hair=View(a).apply{setBackgroundColor(Ui.line(a.light))}
     private val field=EditText(a)
     // note
     private val note=a.column().apply{clipChildren=false;clipToPadding=false}
-    private val words=a.text("",17f,serif=true).apply{cssLeading(1.55f);isClickable=true}
+    private val words=a.text("",Type.TITLE,serif=true).apply{cssLeading(1.55f);isClickable=true}
     private val tagRow=FlowRow(a,a.d(6),a.d(6)){false}
-    private val date=a.text("",12f,a.muted)
+    private val date=a.text("",Type.CAPTION,a.muted)
     private val pen=FrameLayout(a)
     private var shownRating=Rating.halves(book)
     private var lastSig=""
@@ -141,7 +141,7 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
         editor.addView(ask,LayoutParams(-1,-2).apply{topMargin=a.d(6);bottomMargin=a.d(10)})
         editor.addView(chips,LayoutParams(-1,-2))
         editor.addView(hair,LayoutParams(-1,1).apply{topMargin=a.d(14)})
-        field.apply{background=null;setPadding(0,a.d(12),0,a.d(2));textSize=17f;typeface=PolkaFonts.serif(a,false);setTextColor(a.fg);setHintTextColor((a.muted and 0x00ffffff) or 0x88000000.toInt())
+        field.apply{background=null;setPadding(0,a.d(12),0,a.d(2));textSize=Type.TITLE;typeface=PolkaFonts.serif(a,false);setTextColor(a.fg);setHintTextColor((a.muted and 0x00ffffff) or 0x88000000.toInt())
             includeFontPadding=false;cssLeading(1.55f);minHeight=a.d(46);gravity=Gravity.TOP or Gravity.START
             inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             imeOptions=EditorInfo.IME_FLAG_NO_EXTRACT_UI;filters=arrayOf(InputFilter.LengthFilter(600))
@@ -158,7 +158,7 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
         note.addView(tagRow,LayoutParams(-1,-2).apply{topMargin=a.d(12)})
         val foot=FrameLayout(a)
         foot.addView(date,FrameLayout.LayoutParams(-2,-2,Gravity.START or Gravity.CENTER_VERTICAL))
-        pen.background=a.shape(if(a.light)0x0a000000 else 0x12ffffff,16);pen.contentDescription="Изменить отзыв";pen.isClickable=true;pen.isFocusable=true;a.press(pen);pen.setOnClickListener{edit()}
+        pen.background=a.shape(Ui.fill(a.light),16);pen.contentDescription="Изменить отзыв";pen.isClickable=true;pen.isFocusable=true;a.press(pen);pen.setOnClickListener{edit()}
         pen.addView(IconView(a,"pen",a.fg),FrameLayout.LayoutParams(a.d(16),a.d(16),Gravity.CENTER))
         foot.addView(pen,FrameLayout.LayoutParams(a.d(32),a.d(32),Gravity.END or Gravity.CENTER_VERTICAL).apply{rightMargin=-a.d(4)})
         note.addView(foot,LayoutParams(-1,a.d(32)).apply{topMargin=a.d(12);bottomMargin=a.d(4)})
@@ -218,8 +218,8 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
     private fun fillNote(){val t=book.optString("review","").trim()
         words.text=t;words.visibility=if(t.isEmpty())GONE else VISIBLE
         tagRow.removeAllViews();tagRow.reset()
-        tags().forEach{m->tagRow.addView(a.text(m,12.5f,a.fg).apply{alpha=.88f;gravity=Gravity.CENTER;setPadding(a.d(10),0,a.d(10),0);minHeight=a.d(26)
-            background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)0x0a000000 else 0x12ffffff);cornerRadius=a.d(13).toFloat();setStroke(a.d(1),if(a.light)0x14000000 else 0x1affffff)}},ViewGroup.LayoutParams(-2,a.d(26)))}
+        tags().forEach{m->tagRow.addView(a.text(m,Type.SECONDARY,a.fg).apply{alpha=.88f;gravity=Gravity.CENTER;setPadding(a.d(10),0,a.d(10),0);minHeight=a.d(26)
+            background=android.graphics.drawable.GradientDrawable().apply{setColor(Ui.fill(a.light));cornerRadius=a.d(13).toFloat();setStroke(a.d(1),Ui.press(a.light))}},ViewGroup.LayoutParams(-2,a.d(26)))}
         tagRow.visibility=if(tags().isEmpty())GONE else VISIBLE
         (tagRow.layoutParams as LayoutParams).topMargin=a.d(if(t.isEmpty())8 else 12)
         val at=book.optLong("reviewAt",0L)

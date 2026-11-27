@@ -52,7 +52,7 @@ class NativeRating(val a:MainActivity,initial:Int=0,val toggle:Boolean=true,priv
     override fun performClick():Boolean{super.performClick();return true}
     /** Shows [v] (half stars); [silent] — no haptics. */
     fun set(v:Int,silent:Boolean){val n=v.coerceIn(0,10);if(n==value)return;value=n;describe()
-        if(!silent&&a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        if(!silent)haptic(a,Haptic.SELECT)
         sweep?.cancel();val from=shown;val to=n/2f
         if(reduced||!isAttachedToWindow){shown=to;invalidate();return}
         sweep=ValueAnimator.ofFloat(0f,1f).apply{duration=(140+kotlin.math.abs(to-from)*40).toLong().coerceAtMost(320);interpolator=PathInterpolator(.2f,0f,0f,1f)

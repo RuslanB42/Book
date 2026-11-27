@@ -198,7 +198,7 @@ internal class PhoneScan(private val a:MainActivity){
         PhoneBooks.scanned(a,synchronized(pending){ArrayList(all)})
         sheet?.window?.decorView?.findViewWithTag<TextView>("sheet-title")?.text="Найдено на телефоне"
         line.finish()
-        if(groups.isEmpty()){list.addView(a.text("Книг на телефоне не нашлось",15f,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(28),0,a.d(28))},LinearLayout.LayoutParams(-1,-2))
+        if(groups.isEmpty()){list.addView(a.text("Книг на телефоне не нашлось",Type.TEXT,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(28),0,a.d(28))},LinearLayout.LayoutParams(-1,-2))
             button.text="Закрыть";button.isEnabled=true;button.alpha=1f;button.setOnClickListener{sheet?.dismiss()}}}
 
     private fun group(dir:java.io.File,root:java.io.File):Group{
@@ -206,10 +206,10 @@ internal class PhoneScan(private val a:MainActivity){
         val head=a.line().apply{setPadding(a.d(6),a.d(18),a.d(6),a.d(6))}
         val names=a.column()
         val name=PhoneBooks.folderName(dir,root);val path=PhoneBooks.folderPath(dir,root)
-        names.addView(a.text(name,17f,a.fg,true))
-        if(path.isNotEmpty()&&path!=name)names.addView(a.text(path,12f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.START;setPadding(0,a.d(3),0,0)})
+        names.addView(a.text(name,Type.TITLE,a.fg,true))
+        if(path.isNotEmpty()&&path!=name)names.addView(a.text(path,Type.CAPTION,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.START;setPadding(0,a.d(3),0,0)})
         head.addView(names,LinearLayout.LayoutParams(0,-2,1f))
-        val toggle=a.text("",13.5f,a.fg).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(10),a.d(8),0,a.d(8));isClickable=true}
+        val toggle=a.text("",Type.SECONDARY,a.fg).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(10),a.d(8),0,a.d(8));isClickable=true}
         head.addView(toggle)
         view.addView(head,LinearLayout.LayoutParams(-1,-2))
         list.addView(view,LinearLayout.LayoutParams(-1,-2))
@@ -224,13 +224,13 @@ internal class PhoneScan(private val a:MainActivity){
     private fun row(item:Item,g:Group):View{val f=item.f
         val r=a.line().apply{setPadding(a.d(6),a.d(8),a.d(6),a.d(8))}
         val tile=FrameLayout(a).apply{background=a.shape(if(a.light)0xffe9e9ec.toInt() else 0xff2a2a2d.toInt(),5)
-            addView(a.text(f.kind,9.5f,color(f.kind),true).apply{letterSpacing=.04f;gravity=Gravity.CENTER},FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{bottomMargin=a.d(7)})}
+            addView(a.text(f.kind,Type.CAPTION,color(f.kind),true).apply{letterSpacing=.04f;gravity=Gravity.CENTER},FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{bottomMargin=a.d(7)})}
         r.addView(tile,LinearLayout.LayoutParams(a.d(40),a.d(52)))
         val texts=a.column()
-        texts.addView(a.text(f.title,15.5f,a.fg).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
-        texts.addView(a.text(listOf(f.author,size(f.file.length())).filter{it.isNotBlank()}.joinToString(", "),12.5f,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)})
+        texts.addView(a.text(f.title,Type.BODY,a.fg).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+        texts.addView(a.text(listOf(f.author,size(f.file.length())).filter{it.isNotBlank()}.joinToString(", "),Type.SECONDARY,a.muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)})
         r.addView(texts,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(14);marginEnd=a.d(12)})
-        if(item.have){r.addView(a.text("В библиотеке",12.5f,a.muted));r.alpha=.45f;r.contentDescription="${f.title}, в библиотеке"}
+        if(item.have){r.addView(a.text("В библиотеке",Type.SECONDARY,a.muted));r.alpha=.45f;r.contentDescription="${f.title}, в библиотеке"}
         else{val tick=TickBox(a,item.on);item.tick=tick;r.addView(tick,LinearLayout.LayoutParams(a.d(24),a.d(24)))
             fun describe(){r.contentDescription=f.title+if(tick.on)", выбрано" else ""};describe()
             r.isClickable=true;r.isFocusable=true;r.setOnClickListener{tick.on=!tick.on;item.on=tick.on;describe();refresh(g);count()};a.press(r)}
@@ -257,7 +257,7 @@ private class ScanLine(private val a:MainActivity):View(a){
     override fun onDetachedFromWindow(){run.cancel();super.onDetachedFromWindow()}
     fun finish(){animate().alpha(0f).setDuration(220).withEndAction{run.cancel();visibility=GONE}.start()}
     override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val r=h/2
-        p.color=if(a.light)0x14000000 else 0x1affffff;c.drawRoundRect(0f,0f,w,h,r,r,p)
+        p.color=Ui.press(a.light);c.drawRoundRect(0f,0f,w,h,r,r,p)
         val len=w*.38f;val e=MotionSpec.move.getInterpolation(x);val left=-len+(w+len)*e
         c.save();c.clipRect(0f,0f,w,h);p.color=a.fg;c.drawRoundRect(left,0f,left+len,h,r,r,p);c.restore()}
 }

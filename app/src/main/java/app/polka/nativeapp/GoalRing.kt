@@ -17,7 +17,7 @@ internal fun MainActivity.yearTiles(list:List<YearBook>,goal:Int,big:Boolean):Li
         build(t);row.addView(t,LinearLayout.LayoutParams(0,-1,1f).apply{if(row.childCount>0)marginStart=d(8)})}
     fun value(main:String,tail:String,lead:String="")=android.text.SpannableStringBuilder().apply{
         if(lead.isNotEmpty()){append(lead);setSpan(RoundStarSpan(StarRow.starYellow(this@yearTiles),.72f),0,length,0);append(" ")}
-        append(main);if(tail.isNotEmpty()){val st=length;append(" $tail");setSpan(android.text.style.ForegroundColorSpan(if(light)0xff9a9aa0.toInt() else 0xff6e6e73.toInt()),st,length,0);setSpan(android.text.style.AbsoluteSizeSpan(unit.toInt(),true),st,length,0)}}
+        append(main);if(tail.isNotEmpty()){val st=length;append(" $tail");setSpan(android.text.style.ForegroundColorSpan(Ui.icon(light)),st,length,0);setSpan(android.text.style.AbsoluteSizeSpan(unit.toInt(),true),st,length,0)}}
     fun caption(t:String)=text(t,if(big)12f else 11.5f,muted).apply{setPadding(0,d(6),0,0)}
     val done=list.size
     tile{t->t.addView(text("",num,fg,true,serif=true).apply{text=value("$done",if(goal>0)"/$goal" else "");maxLines=1})
@@ -36,9 +36,9 @@ internal fun MainActivity.yearBookCell(yb:YearBook,w:Int):LinearLayout{
     val cv=CoverView(this,yb.book,cover(yb.book)).apply{isClickable=true;contentDescription=yb.book.str("title");setOnClickListener{detail(yb.book,this)}}
     cell.addView(cv,LinearLayout.LayoutParams(w,(w*1.5f).toInt()))
     val r=Rating.halves(yb.book)
-    val stars=text("",11.5f,StarRow.starYellow(this),true).apply{maxLines=1;text=if(r>0)android.text.SpannableStringBuilder("★ ${Rating.text(r)}").apply{setSpan(RoundStarSpan(StarRow.starYellow(this@yearBookCell),.95f),0,1,0)} else ""}
+    val stars=text("",Type.CAPTION,StarRow.starYellow(this),true).apply{maxLines=1;text=if(r>0)android.text.SpannableStringBuilder("★ ${Rating.text(r)}").apply{setSpan(RoundStarSpan(StarRow.starYellow(this@yearBookCell),.95f),0,1,0)} else ""}
     val h=yb.ms/3_600_000L
-    val time=text(if(h>0)"$h ч" else if(yb.ms>=60_000L)"${yb.ms/60_000L} мин" else "",11.5f,if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt(),true).apply{maxLines=1}
+    val time=text(if(h>0)"$h ч" else if(yb.ms>=60_000L)"${yb.ms/60_000L} мин" else "",Type.CAPTION,Ui.ink2(light),true).apply{maxLines=1}
     // the stars and the time share one line under the cover; when both do not fit («★ 4,5» and «23 мин» under a
     // narrow cover) the time goes under the stars instead of the stars breaking in two
     val fits=stars.paint.measureText(stars.text.toString())+d(6)+time.paint.measureText(time.text.toString())<=w
@@ -64,7 +64,7 @@ internal class YearRails(private val a:MainActivity){
 internal fun MainActivity.goalYearPage(model:ReadingStatistics,list:List<YearBook>,goal:Int,year:Int,today:LocalDate,motion:Boolean):LinearLayout{
     val page=column().apply{setPadding(d(20),0,d(20),0);clipChildren=false}
     val rails=YearRails(this);page.tag=rails
-    page.addView(text("МОЙ ГОД В КНИГАХ",13f,if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt(),true).apply{letterSpacing=.16f},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(18)})
+    page.addView(text("МОЙ ГОД В КНИГАХ",Type.SECONDARY,Ui.ink2(light),true).apply{letterSpacing=.16f},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(18)})
     page.addView(text("$year",84f,fg,true,serif=true).apply{includeFontPadding=false;maxLines=1},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(2)})
     page.addView(yearTiles(list,goal,true),LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(20)})
     val last=if(year==today.year)today.monthValue else 12
@@ -76,13 +76,13 @@ internal fun MainActivity.goalYearPage(model:ReadingStatistics,list:List<YearBoo
     for(m in last downTo 1){val books=byMonth[m].orEmpty().sortedByDescending{it.end}
         val row=line().apply{gravity=Gravity.TOP;clipChildren=false}
         val left=column()
-        left.addView(text(names[m-1],15f,if(books.isEmpty())(if(light)0xffa8a8ad.toInt() else 0xff5c5c62.toInt()) else fg,true,serif=true).apply{maxLines=1})
+        left.addView(text(names[m-1],Type.TEXT,if(books.isEmpty())(Ui.icon(light)) else fg,true,serif=true).apply{maxLines=1})
         row.addView(left,LinearLayout.LayoutParams(d(railW),-2).apply{marginEnd=d(14)})
-        if(books.isEmpty()){row.addView(text("без книг",12.5f,if(light)0xffa8a8ad.toInt() else 0xff5c5c62.toInt()),LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(2)})
+        if(books.isEmpty()){row.addView(text("без книг",Type.SECONDARY,Ui.icon(light)),LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(2)})
             page.addView(row,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=d(14)});continue}
         val ms=books.sumOf{it.ms};val h=ms/3_600_000L
-        left.addView(text(if(h>0)"$h ч" else "${ms/60_000L} мин",12f,muted).apply{setPadding(0,d(4),0,0)})
-        left.addView(text("${books.size} ${booksWord(books.size)}",12f,if(light)0xff9a9aa0.toInt() else 0xff6e6e73.toInt()).apply{setPadding(0,d(1),0,0)})
+        left.addView(text(if(h>0)"$h ч" else "${ms/60_000L} мин",Type.CAPTION,muted).apply{setPadding(0,d(4),0,0)})
+        left.addView(text("${books.size} ${booksWord(books.size)}",Type.CAPTION,Ui.icon(light)).apply{setPadding(0,d(1),0,0)})
         val grid=column().apply{clipChildren=false}
         books.chunked(perRow).forEach{chunk->val r=line().apply{clipChildren=false;gravity=Gravity.TOP};chunk.forEach{yb->r.addView(yearBookCell(yb,d(cw)),LinearLayout.LayoutParams(-2,-2).apply{if(r.childCount>0)marginStart=d(gap)})}
             grid.addView(r,LinearLayout.LayoutParams(-2,-2).apply{if(grid.childCount>0)topMargin=d(14)})}

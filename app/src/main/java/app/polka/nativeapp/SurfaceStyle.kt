@@ -23,8 +23,10 @@ internal class OpaqueSurface(private val a:MainActivity,private val radiusDp:Flo
  /** The colour at rest; [fillColor] blends it toward the pressed shade as [press] eases in and out. */
  // on a dark page the higher a surface floats, the lighter it is: the page, a card (#242426), a floating bar, a menu
  // over everything (a bar along the screen's edge keeps its own colour)
- private val restColor:Int get(){val light=themeLight?:a.light;val floats=float&&!flushTop&&!flushBottom;return when{selected&&light->0xffdedee2.toInt();selected->0xff48484c.toInt();
-  floats&&!light&&lift==Lift.OVER->0xff303033.toInt();floats&&!light&&lift==Lift.FLOAT->0xff2a2a2c.toInt();sheet&&light->0xfff7f7f5.toInt();sheet->0xff1c1c1e.toInt();light->Color.WHITE;else->0xff242426.toInt()}}
+ private val restColor:Int get(){val light=themeLight?:a.light;val floats=float&&!flushTop&&!flushBottom;return when{selected&&light->0xffdedee2.toInt();selected->0xff48484c.toInt()
+  tint!=null->tint!!;floats&&!light&&lift==Lift.OVER->Ui.menu(false);floats&&!light&&lift==Lift.FLOAT->Ui.card(false);sheet->Ui.sheet(light);else->Ui.control(light)}}
+ /** A colour of its own instead of the theme's: the reader's bars take their page's (see [ReaderTint]). */
+ internal var tint:Int?=null
  private val pressColor:Int get()=if(themeLight?:a.light)0xffe6e6e9.toInt() else 0xff38383c.toInt()
  private var press=0f;private var pressAnim:android.animation.ValueAnimator?=null
  internal val fillColor:Int get()=if(press<=0f)restColor else androidx.core.graphics.ColorUtils.blendARGB(restColor,pressColor,press)

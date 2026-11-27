@@ -17,7 +17,7 @@ fun MainActivity.quotes() {
     groups.forEach{g->page.addView(QuoteDeck(this,g.book,g.quotes).apply{tag="quote-item"},LinearLayout.LayoutParams(-1,-2));space(page,30)}
 }
 private fun quoteWord(n:Int)=if(n%100 in 11..14)"цитат" else when(n%10){1->"цитата";2,3,4->"цитаты";else->"цитат"}
-internal fun MainActivity.floatCard(v:View,radiusDp:Int=24,color:Int=if(light)Color.WHITE else 0xff242426.toInt(),lift:Int=if(light)8 else 10){
+internal fun MainActivity.floatCard(v:View,radiusDp:Int=24,color:Int=Ui.card(light),lift:Int=if(light)8 else 10){
     // the card floats on the drawn shade (see [FloatShade]); a lower card in a pile casts a weaker one. The elevation only
     // keeps the order of a pile; Android's own shadow is off, it would add a second, harder one.
     val r=d(radiusDp).toFloat();v.background=Floating(this,android.graphics.drawable.GradientDrawable().apply{setColor(color);cornerRadius=r},r,lift/(if(light)8f else 10f));v.elevation=d(lift).toFloat()
@@ -105,17 +105,17 @@ internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){
             v.invalidate()}
     }
 }
-private fun MainActivity.quoteMark()=text("\u201c",38f,accent,true,true).apply{includeFontPadding=false;gravity=Gravity.TOP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
+private fun MainActivity.quoteMark()=text("\u201c",Type.LARGE,accent,true,true).apply{includeFontPadding=false;gravity=Gravity.TOP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
 internal fun MainActivity.quoteStack(b:JSONObject,qs:List<JSONObject>,onOpen:(()->Unit)?=null):View {
     val stack=QuoteStackLayer(this,qs.size);val card=column().apply{quoteSurface(this);setPadding(d(16),d(16),d(16),d(18))}
     stack.addView(card,FrameLayout.LayoutParams(-1,-2));stack.contentDescription="${b.str("title")}: ${qs.size} ${quoteWord(qs.size)}";stack.isFocusable=true;stack.setOnClickListener{onOpen?.invoke()};press(stack)
     val top=line();top.addView(CoverView(this,b),LinearLayout.LayoutParams(d(36),d(54)))
-    val meta=column().apply{setPadding(d(12),0,d(12),0)};meta.addView(text(b.str("title"),15f,bold=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});space(meta,2);meta.addView(text(MainActivity.authors(b).ifBlank{"Автор не указан"},12.5f,muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});top.addView(meta,LinearLayout.LayoutParams(0,-2,1f))
+    val meta=column().apply{setPadding(d(12),0,d(12),0)};meta.addView(text(b.str("title"),Type.TEXT,bold=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});space(meta,2);meta.addView(text(MainActivity.authors(b).ifBlank{"Автор не указан"},Type.SECONDARY,muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});top.addView(meta,LinearLayout.LayoutParams(0,-2,1f))
     val badge=line().apply{background=shape((accent and 0x00ffffff) or (if(light)0x1f000000 else 0x29000000),14);setPadding(d(11),0,d(6),0)}
-    badge.addView(text("${qs.size}",14f,accent,true));badge.addView(IconView(this,"next",accent),LinearLayout.LayoutParams(d(16),d(16)).apply{leftMargin=d(2)});top.addView(badge,LinearLayout.LayoutParams(-2,d(28)))
+    badge.addView(text("${qs.size}",Type.TEXT,accent,true));badge.addView(IconView(this,"next",accent),LinearLayout.LayoutParams(d(16),d(16)).apply{leftMargin=d(2)});top.addView(badge,LinearLayout.LayoutParams(-2,d(28)))
     card.addView(top);space(card,14)
     val excerpt=line().apply{gravity=Gravity.TOP};excerpt.addView(quoteMark(),LinearLayout.LayoutParams(d(22),d(26)))
-    excerpt.addView(text(qs.first().str("text"),16f,(fg and 0x00ffffff) or 0xd9000000.toInt(),serif=true).apply{cssLeading(1.5f);maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=d(4)})
+    excerpt.addView(text(qs.first().str("text"),Type.BODY,(fg and 0x00ffffff) or 0xd9000000.toInt(),serif=true).apply{cssLeading(1.5f);maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=d(4)})
     card.addView(excerpt);return stack
 }
 /** The quote's own colour (as chosen when it was saved). */
@@ -128,29 +128,29 @@ internal class QuoteActionIcon(c:Context,private val kind:String,private val ink
 /** [onDelete] is the notebook's own removal (with a question); a tap on the quote opens its place in the book. */
 internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->Unit)?=null,onDelete:(()->Unit)?=null):View {
     // approved «кавычка над чертой»: a grey card like everywhere else; the quote's colour is only its mark and the line in the margin
-    val col=quoteInk(q);val quiet=if(light)0x0d000000 else 0x12ffffff
+    val col=quoteInk(q);val quiet=Ui.fill(light)
     val card=column().apply{quoteSurface(this);setPadding(d(18),d(14),d(14),d(10))}
     val open={if(onOpen!=null)onOpen()else openBookAt(b,q.optInt("ch"),q.optInt("start"))}
     // the quote mark above, in the quote's colour; the text with a line of the same colour in its margin
-    card.addView(text("\u201c",40f,col,true,true).apply{includeFontPadding=false;gravity=Gravity.TOP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(d(30),d(26)).apply{topMargin=d(4)})
+    card.addView(text("\u201c",Type.NUMBER,col,true,true).apply{includeFontPadding=false;gravity=Gravity.TOP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(d(30),d(26)).apply{topMargin=d(4)})
     val date=java.text.SimpleDateFormat("d MMMM",java.util.Locale("ru")).format(java.util.Date(q.optLong("at",System.currentTimeMillis())))
     val body=line().apply{gravity=Gravity.TOP}
     body.addView(View(this).apply{background=shape(col,2);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(d(3),-1).apply{rightMargin=d(14)})
-    body.addView(text(q.str("text"),17f,serif=true).apply{cssLeading(1.55f);maxLines=5;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,0,d(4),0);setOnClickListener{open()}},LinearLayout.LayoutParams(0,-2,1f))
+    body.addView(text(q.str("text"),Type.TITLE,serif=true).apply{cssLeading(1.55f);maxLines=5;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,0,d(4),0);setOnClickListener{open()}},LinearLayout.LayoutParams(0,-2,1f))
     card.addView(body,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(6)})
     // the reader's own note: plain text right under the fragment, no box and no label
-    q.str("note").trim().takeIf{it.isNotBlank()}?.let{n->card.addView(text(n,16f).apply{cssLeading(1.5f);setOnClickListener{editQuoteNote(b,q)}},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,d(14),d(4),0)})}
+    q.str("note").trim().takeIf{it.isNotBlank()}?.let{n->card.addView(text(n,Type.BODY).apply{cssLeading(1.5f);setOnClickListener{editQuoteNote(b,q)}},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,d(14),d(4),0)})}
     // its photos: a row of small squares under the words; a tap shows them large
     NotePhotos.of(q).takeIf{it.isNotEmpty()}?.let{ids->val row=line();val size=d(64)
         ids.forEachIndexed{i,id->val img=NotePhotos.tile(this,size,d(10)).apply{isClickable=true;contentDescription="Фото ${i+1}";setOnClickListener{NotePhotos.show(this@quoteCardNative,ids,i)}}
             NotePhotos.load(this,id,size){bmp->img.setImageBitmap(bmp)};row.addView(img,LinearLayout.LayoutParams(size,size).apply{if(i>0)marginStart=d(8)})}
         card.addView(HorizontalScrollView(this).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(row)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(12)})}
-    card.addView(View(this).apply{setBackgroundColor(if(light)0x10000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1).apply{topMargin=d(16)})
+    card.addView(View(this).apply{setBackgroundColor(Ui.line(light))},LinearLayout.LayoutParams(-1,1).apply{topMargin=d(16)})
     val foot=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,d(10),0,d(2))}
     // where the quote is from and when it was saved, quietly
     val chapter=q.str("chTitle").trim().takeIf{it.isNotBlank()&&it.length<=40}?:"Глава ${q.optInt("ch")+1}"
-    val where=column();where.addView(text(chapter,12.5f,muted).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
-    where.addView(text(date,11.5f,if(light)0xff86868b.toInt() else 0xff8a8a8e.toInt()).apply{setPadding(0,d(2),0,0)})
+    val where=column();where.addView(text(chapter,Type.SECONDARY,muted).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
+    where.addView(text(date,Type.CAPTION,Ui.ink2(light)).apply{setPadding(0,d(2),0,0)})
     foot.addView(where,LinearLayout.LayoutParams(0,-2,1f).apply{rightMargin=d(8)})
     fun round(kind:String,desc:String,act:()->Unit)=FrameLayout(this).apply{background=android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(quiet)}
         isClickable=true;contentDescription=desc;addView(QuoteActionIcon(this@quoteCardNative,kind,fg),FrameLayout.LayoutParams(d(22),d(22),Gravity.CENTER))
@@ -200,13 +200,13 @@ internal fun MainActivity.noteSheet(fragment:String,ink:Int,value:String,saved:S
     val box=column()
     val about=line().apply{gravity=Gravity.TOP}
     about.addView(View(this).apply{background=shape(ink,2);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO},LinearLayout.LayoutParams(d(3),-1).apply{rightMargin=d(14)})
-    about.addView(text(fragment,16f,serif=true).apply{cssLeading(1.5f);maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
+    about.addView(text(fragment,Type.BODY,serif=true).apply{cssLeading(1.5f);maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
     box.addView(about,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=d(2)});space(box,16)
-    val fieldBg=if(light)0xffffffff.toInt() else 0xff2a2a2d.toInt()
-    val rest=if(light)0x1f000000 else 0x1fffffff;val focus=(fg and 0xffffff) or 0x66000000
+    val fieldBg=Ui.card(light)
+    val rest=Ui.press(light);val focus=(fg and 0xffffff) or 0x66000000
     val frame=FrameLayout(this).apply{background=android.graphics.drawable.GradientDrawable().apply{setColor(fieldBg);cornerRadius=d(16).toFloat();setStroke(d(1),rest)}}
     val input=EditText(this).apply{
-        typeface=PolkaFonts.sans(400);setText(value);hint="Ваша заметка";setTextColor(fg);setHintTextColor(muted);textSize=17f;background=null;isSingleLine=false;minLines=3;maxLines=7;gravity=Gravity.TOP or Gravity.START
+        typeface=PolkaFonts.sans(400);setText(value);hint="Ваша заметка";setTextColor(fg);setHintTextColor(muted);textSize=Type.TITLE;background=null;isSingleLine=false;minLines=3;maxLines=7;gravity=Gravity.TOP or Gravity.START
         imeOptions=android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
         inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
         setLineSpacing(0f,1.2f);setPadding(d(16),d(14),d(16),d(14))
@@ -233,7 +233,7 @@ internal fun MainActivity.noteSheet(fragment:String,ink:Int,value:String,saved:S
         if(photos.size<NotePhotos.MAX){val add=column().apply{gravity=Gravity.CENTER;isClickable=true;contentDescription="Добавить фото"
                 background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=d(12).toFloat();setStroke(d(1)+d(1)/2,if(light)0x2e000000 else 0x2effffff)};press(this)
                 addView(IconView(this@noteSheet,"camera",muted),LinearLayout.LayoutParams(d(20),d(20)))
-                addView(text("Фото",12f,muted).apply{gravity=Gravity.CENTER;setPadding(0,d(4),0,0)})
+                addView(text("Фото",Type.CAPTION,muted).apply{gravity=Gravity.CENTER;setPadding(0,d(4),0,0)})
                 setOnClickListener{NotePhotos.pick(this@noteSheet,NotePhotos.MAX-photos.size){got->got.take(NotePhotos.MAX-photos.size).forEach{photos.add(NotePhotos.Photo(null,it))};fillStrip();paintReady()
                     stripScroll.post{stripScroll.fullScroll(View.FOCUS_RIGHT)}}}}
             strip.addView(add,LinearLayout.LayoutParams(size,size))}}

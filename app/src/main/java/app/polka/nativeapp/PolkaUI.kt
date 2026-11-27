@@ -39,13 +39,13 @@ object PolkaFonts {
 fun TextView.cssLeading(factor:Float) { setLineSpacing(textSize*factor-paint.fontSpacing,1f) }
 fun MainActivity.column()=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
 fun MainActivity.line()=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
-fun MainActivity.label(value:String,parent:LinearLayout) { space(parent,20); parent.addView(text(value.uppercase(),12f,muted,true)); space(parent,10) }
+fun MainActivity.label(value:String,parent:LinearLayout) { space(parent,20); parent.addView(text(value.uppercase(),Type.CAPTION,muted,true)); space(parent,10) }
 fun MainActivity.edit(value:String="",hint:String="",multi:Boolean=false)=EditText(this).apply {
-    setText(value); setHint(hint); setTextColor(fg); setHintTextColor(muted); textSize=16f; typeface=PolkaFonts.sans(400); isSingleLine=!multi; minLines=if(multi) 3 else 1; setPadding(d(14),d(12),d(14),d(12)); this@edit.controlSurface(this,12f)
+    setText(value); setHint(hint); setTextColor(fg); setHintTextColor(muted); textSize=Type.BODY; typeface=PolkaFonts.sans(400); isSingleLine=!multi; minLines=if(multi) 3 else 1; setPadding(d(14),d(12),d(14),d(12)); this@edit.controlSurface(this,12f)
 }
 fun MainActivity.segment(labels:List<String>,selected:Int,onSelect:(Int)->Unit):LinearLayout {
     val box=SlidingSegment(this,selected,labels.size)
-    labels.forEachIndexed { i,s -> box.addView(text(s,14f).apply { gravity=Gravity.CENTER; minHeight=d(36); isSelected=i==selected; press(this); setOnClickListener { box.choose(i); for(j in 0 until box.childCount) box.getChildAt(j).isSelected=j==i; onSelect(i) } },LinearLayout.LayoutParams(0,-2,1f)) }; return box
+    labels.forEachIndexed { i,s -> box.addView(text(s,Type.TEXT).apply { gravity=Gravity.CENTER; minHeight=d(36); isSelected=i==selected; press(this); setOnClickListener { box.choose(i); for(j in 0 until box.childCount) box.getChildAt(j).isSelected=j==i; onSelect(i) } },LinearLayout.LayoutParams(0,-2,1f)) }; return box
 }
 class SlidingSegment(val a:MainActivity,selected:Int,val count:Int,private val trackColor:Int?=null,private val thumbColor:Int?=null,private val pillRadius:Int=10):LinearLayout(a) {
     private var index=selected.coerceAtLeast(0).toFloat()
@@ -171,29 +171,28 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 super.onCreate(b)
                 val owner:DialogInterface=this
                 val wide=a.wideSheet();widePanel=wide
-                val box=a.column().apply { background=a.shape(if(a.light) 0xfff7f7f5.toInt() else 0xff1c1c1e.toInt(),22); clipToOutline=true }
+                val box=a.column().apply { background=a.shape(Ui.sheet(a.light),22); clipToOutline=true }
                 if(!wide){val r=a.d(22).toFloat();(box.background as android.graphics.drawable.GradientDrawable).cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)}
                 a.controlSurface(box,22f,sheet=true).apply{flushBottom=!wide;refresh()};panel=box
                 val animated=a.prefs.str("motion")!="reduced";if(animated)box.alpha=0f
                 motion=SheetMotion{value->moveSheet(value)}
-                val handle=FrameLayout(a).apply { addView(View(a).apply { background=a.shape(if(a.light) 0xffcccccc.toInt() else 0xff424244.toInt(),4) },FrameLayout.LayoutParams(a.d(38),a.d(5),Gravity.CENTER)) }
-                box.addView(handle,LinearLayout.LayoutParams(-1,a.d(18)))
-                val head=FrameLayout(a); head.addView(a.text(title,17f,bold=true).apply { gravity=Gravity.CENTER;tag="sheet-title" },FrameLayout.LayoutParams(-1,a.d(48)))
-                headerAction?.let { (label,fn) -> head.addView(a.text(label,14f,a.muted).apply { typeface=PolkaFonts.sans(500);gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),0,a.d(20),0);isClickable=true;setOnClickListener { fn() } },FrameLayout.LayoutParams(-2,-1,Gravity.END)) }
-                if(cancel&&headerAction==null) head.addView(IconView(a,"x",a.muted).apply { a.controlSurface(this,24f);a.press(this);contentDescription="Закрыть"; setOnClickListener { dismiss() } },FrameLayout.LayoutParams(a.d(32),a.d(32),Gravity.END or Gravity.CENTER_VERTICAL).apply { rightMargin=a.d(12) })
-                if(!bare) box.addView(head)
+                val handle=FrameLayout(a).apply { addView(View(a).apply { background=a.shape(if(a.light)0x33000000 else 0x33ffffff,2) },FrameLayout.LayoutParams(a.d(36),a.d(4),Gravity.CENTER)) }
+                box.addView(handle,LinearLayout.LayoutParams(-1,a.d(16)))
+                // the one window head: «×» on the left (also when the corner holds an action), the title in the middle
+                val head=a.windowHead(title,true,a.fg,Ui.fill(a.light),if(cancel){{dismiss()}}else null,headerAction?.let{(label,fn)->a.headAction(label,a.muted,fn)})
+                if(!bare) box.addView(head,LinearLayout.LayoutParams(-1,a.d(Size.HEADER)).apply{leftMargin=a.d(12);rightMargin=a.d(12);bottomMargin=a.d(4)})
                 val content=a.column().apply { setPadding(a.d(20),a.d(6),a.d(20),a.d(24)) }
-                if(message.isNotBlank()) content.addView(a.text(message,16f).apply { setPadding(0,a.d(8),0,a.d(16)) })
+                if(message.isNotBlank()) content.addView(a.text(message,Type.BODY).apply { setPadding(0,a.d(8),0,a.d(16)) })
                 view?.let { (it.parent as? ViewGroup)?.removeView(it); content.addView(it) }
                 items?.forEachIndexed { i,s ->
                     // the app's own row for a list of boxes to tick (as on «Статус и полки»), not Android's check box
                     if(checked!=null){val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(50);setPadding(a.d(6),a.d(4),a.d(6),a.d(4));isClickable=true;isFocusable=true}
-                        row.addView(a.text(s.toString(),16f).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=a.d(12)})
+                        row.addView(a.text(s.toString(),Type.BODY).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=a.d(12)})
                         val tick=TickBox(a,checked!![i]);row.addView(tick,LinearLayout.LayoutParams(a.d(24),a.d(24)))
                         fun describe(){row.contentDescription=s.toString()+if(tick.on)", выбрано" else ""};describe()
                         row.setOnClickListener{tick.on=!tick.on;checked!![i]=tick.on;describe();onCheck?.invoke(owner,i,tick.on)}
                         a.press(row);content.addView(row,LinearLayout.LayoutParams(-1,-2))}
-                    else content.addView(a.text(s.toString(),16f,if(i in destructiveItems)0xffd9504e.toInt() else a.fg).apply {
+                    else content.addView(a.text(s.toString(),Type.BODY,if(i in destructiveItems)Ui.danger(a.light) else a.fg).apply {
                         minHeight=a.d(52);gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(12),a.d(12),a.d(12));isFocusable=true
                         itemIcons?.getOrNull(i)?.let{kind->
                             setCompoundDrawablesRelative(ActionIconDrawable(kind,currentTextColor).apply{setBounds(0,0,a.d(22),a.d(22))},null,null,null);compoundDrawablePadding=a.d(16)
@@ -203,7 +202,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 }
                 positive?.let { (s,fn) -> a.space(content,12); content.addView(a.button(s,true) { dismiss(); fn?.invoke(this,-1) }) }
                 negative?.let { (s,fn) -> a.space(content,8); content.addView(a.button(s) { dismiss(); fn?.invoke(this,-2) }) }
-                val scroller=SheetScroll(a,if(a.light) 0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()).apply { isFillViewport=false; addView(content) }
+                val scroller=SheetScroll(a,Ui.sheet(a.light)).apply { isFillViewport=false; addView(content) }
                 box.addView(scroller,if(tall)LinearLayout.LayoutParams(-1,0,1f)else LinearLayout.LayoutParams(-1,-2))
                 footer?.let { f -> (f.parent as? ViewGroup)?.removeView(f); f.tag="sheet-footer"; box.addView(f,LinearLayout.LayoutParams(-1,-2)) }
                 val frame=PolkaSheetFrame(a,box,tall,wide).apply {
@@ -358,8 +357,8 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
     private val fill=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
     private var withNames=true
     private var theme:Boolean?=null
-    private val barColor get()=if(a.light)Color.WHITE else 0xff2a2a2c.toInt()
-    private val pillColor get()=if(a.light)0xffececef.toInt() else 0xff3d3d40.toInt()
+    private val barColor get()=Ui.card(a.light)
+    private val pillColor get()=Ui.press(a.light)
     private val padL get()=a.d(if(narrow)10 else 14).toFloat()
     private val gap get()=a.d(if(narrow)6 else 8).toFloat()
     private val icon get()=a.d(24).toFloat()

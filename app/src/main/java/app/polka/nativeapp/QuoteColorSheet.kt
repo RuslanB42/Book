@@ -22,7 +22,7 @@ private const val S_DONE=2
 internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:Int,start:String,private val pick:(String,Boolean)->Unit){
     var onClose:(()->Unit)?=null
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()
+    private val sheetColor get()=Ui.sheet(a.light)
     private var dialog:android.app.Dialog?=null
     private lateinit var holder:View
     private val hsv=FloatArray(3).also{Color.colorToHSV((0xff shl 24) or QuoteColors.rgb(start),it)}
@@ -38,22 +38,22 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         val dlg=android.app.Dialog(a,R.style.PolkaSheetTheme);dialog=dlg
         val root=DragRoot().apply{isClickable=true;setOnClickListener{close()}}
         val sheet=a.column().apply{clipToPadding=false;clipChildren=false;isClickable=true;setPadding(a.d(18),a.d(12),a.d(18),a.d(20));elevation=a.d(16).toFloat()
-            background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(30).toFloat();setStroke(1,if(a.light)0x10000000 else 0x10ffffff)}}
+            background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(30).toFloat();setStroke(1,Ui.fill(a.light))}}
         sheet.addView(View(a).apply{background=a.shape(if(a.light)0x33000000 else 0x38ffffff,3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(14)})
         val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-        head.addView(a.text("Свой цвет",16f,a.fg,true),LinearLayout.LayoutParams(0,-2,1f))
-        head.addView(a.text("Готово",13.5f,a.fg,true).apply{setPadding(a.d(10),a.d(8),a.d(2),a.d(8));isClickable=true;a.press(this);setOnClickListener{close()}})
+        head.addView(a.text("Свой цвет",Type.BODY,a.fg,true),LinearLayout.LayoutParams(0,-2,1f))
+        head.addView(a.text("Готово",Type.SECONDARY,a.fg,true).apply{setPadding(a.d(10),a.d(8),a.d(2),a.d(8));isClickable=true;a.press(this);setOnClickListener{close()}})
         sheet.addView(head,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(10)})
         // the pickers reach into the sheet's side padding, which is where their knobs have room
         pad=SvPad();sheet.addView(pad,LinearLayout.LayoutParams(-1,a.d(170)+knobRoom*2).apply{leftMargin=-knobRoom;rightMargin=-knobRoom;topMargin=-knobRoom+a.d(4)})
         hue=HueBar();sheet.addView(hue,LinearLayout.LayoutParams(-1,a.d(30)+knobRoom*2).apply{leftMargin=-knobRoom;rightMargin=-knobRoom;topMargin=-knobRoom+a.d(14)-knobRoom})
-        val cur=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(8),0,a.d(8),0);background=GradientDrawable().apply{setColor(if(a.light)0x0c000000 else 0x0dffffff);cornerRadius=a.d(23).toFloat()}}
+        val cur=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(8),0,a.d(8),0);background=GradientDrawable().apply{setColor(Ui.fill(a.light));cornerRadius=a.d(23).toFloat()}}
         swatch=Chip();cur.addView(swatch,LinearLayout.LayoutParams(a.d(30),a.d(30)))
-        code=a.text("",14f,if(a.light)0xff55555a.toInt() else 0xffcfcfd4.toInt(),true).apply{letterSpacing=.04f};cur.addView(code,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(12)})
+        code=a.text("",Type.TEXT,Ui.ink2(a.light),true).apply{letterSpacing=.04f};cur.addView(code,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(12)})
         save=SaveButton().apply{setOnClickListener{if(editing)setEditing(false) else store()}}
         cur.addView(save,LinearLayout.LayoutParams(a.d(30),a.d(30)))
         sheet.addView(cur,LinearLayout.LayoutParams(-1,a.d(46)).apply{topMargin=a.d(14)-knobRoom})
-        val sect=a.text("",12f,a.muted,true).apply{letterSpacing=.06f};sectLabel=sect
+        val sect=a.text("",Type.CAPTION,a.muted,true).apply{letterSpacing=.06f};sectLabel=sect
         sheet.addView(sect,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18);bottomMargin=a.d(6);leftMargin=a.d(2)})
         row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false}
         val rowScroll=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(row)}
@@ -115,7 +115,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
     private inner class SaveButton:View(a){
         private val p=Paint(Paint.ANTI_ALIAS_FLAG)
         private var state=-1;private var from=-1;private var k=1f;private var anim:ValueAnimator?=null
-        private val quiet get()=if(a.light)0x12000000 else 0x14ffffff
+        private val quiet get()=Ui.fill(a.light)
         init{isClickable=true;a.press(this)}
         fun set(s:Int){if(s==state)return;from=state;state=s;anim?.cancel();contentDescription=when(s){S_SAVE->"Сохранить цвет";S_SAVED->"Цвет сохранён";else->"Готово"}
             if(from<0||reduced||!isAttachedToWindow){k=1f;invalidate();return}
@@ -154,7 +154,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
             ringAnim=ValueAnimator.ofFloat(ring,if(v)1f else 0f).apply{duration=220;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{ring=it.animatedValue as Float;invalidate()};start()}}
         init{isClickable=true;contentDescription="Цвет $hex";a.press(this)
             setOnClickListener{if(editing)remove() else{Color.colorToHSV((0xff shl 24) or QuoteColors.rgb(hex),hsv);changed(true)}}
-            setOnLongClickListener{if(!editing){if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);setEditing(true)};true}}
+            setOnLongClickListener{if(!editing){haptic(a,Haptic.LONG);setEditing(true)};true}}
         private fun remove(){QuoteColors.setSaved(a,QuoteColors.saved(a).filter{it!=hex})
             if(reduced){buildRow(null);return};animate().scaleX(.2f).scaleY(.2f).alpha(0f).setDuration(180).withEndAction{buildRow(null)}.start()}
         override fun onDraw(c:Canvas){val cx=width/2f;val cy=height/2f;val r=a.d(17).toFloat()
@@ -162,7 +162,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
             p.style=Paint.Style.FILL;p.color=(0xff shl 24) or QuoteColors.rgb(hex);c.drawCircle(cx,cy,r,p)
             p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=0x2effffff;c.drawCircle(cx,cy,r,p)
             if(editing){val bx=cx+r*.72f;val by=cy-r*.72f;val br=a.d(9).toFloat()
-                p.style=Paint.Style.FILL;p.color=sheetColor;c.drawCircle(bx,by,br+a.d(2f),p);p.color=if(a.light)0xffd9d9dc.toInt() else 0xff3a3a3e.toInt();c.drawCircle(bx,by,br,p)
+                p.style=Paint.Style.FILL;p.color=sheetColor;c.drawCircle(bx,by,br+a.d(2f),p);p.color=Ui.press(a.light);c.drawCircle(bx,by,br,p)
                 p.style=Paint.Style.STROKE;p.strokeWidth=a.d(1.6f);p.strokeCap=Paint.Cap.ROUND;p.color=a.fg;val k=a.d(3.2f);c.drawLine(bx-k,by-k,bx+k,by+k,p);c.drawLine(bx+k,by-k,bx-k,by+k,p);p.style=Paint.Style.FILL}}
     }
 

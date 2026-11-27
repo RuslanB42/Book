@@ -68,18 +68,18 @@ internal fun MainActivity.freezeRow(ledger:ReadingStatistics.Ledger,size:Int):Li
 internal fun MainActivity.freezeSheet(ledger:ReadingStatistics.Ledger){
     val box=column().apply{gravity=Gravity.CENTER_HORIZONTAL}
     box.addView(freezeRow(ledger,52),LinearLayout.LayoutParams(-2,-2).apply{gravity=Gravity.CENTER_HORIZONTAL;topMargin=d(6)})
-    box.addView(text("Заморозки",19f,fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(16)})
-    box.addView(text("Сохраняют серию, если день пропущен. Тратятся сами.",14f,muted).apply{gravity=Gravity.CENTER;cssLeading(1.5f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(8);leftMargin=d(10);rightMargin=d(10)})
+    box.addView(text("Заморозки",Type.H2,fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(16)})
+    box.addView(text("Сохраняют серию, если день пропущен. Тратятся сами.",Type.TEXT,muted).apply{gravity=Gravity.CENTER;cssLeading(1.5f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(8);leftMargin=d(10);rightMargin=d(10)})
     // a flat card (no shadow to be cut off by the sheet) with plain grey line icons, like every other list
-    val card=column().apply{background=shape(if(light)0x0a000000 else 0x0dffffff,20);setPadding(d(16),d(2),d(16),d(2))}
-    val ink=if(light)0xff6e6e73.toInt() else 0xff9a9aa0.toInt()
+    val card=column().apply{background=shape(Ui.fill(light),20);setPadding(d(16),d(2),d(16),d(2))}
+    val ink=Ui.ink2(light)
     fun lineIcon(draw:(Canvas,Paint)->Unit)=object:View(this){override fun onDraw(c:Canvas){val s=width/24f;c.save();c.scale(s,s)
         draw(c,Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=1.7f;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND;color=ink});c.restore()}}
-    fun fact(icon:View,label:String,value:String?){if(card.childCount>0)card.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x10ffffff)},LinearLayout.LayoutParams(-1,1))
+    fun fact(icon:View,label:String,value:String?){if(card.childCount>0)card.addView(View(this).apply{setBackgroundColor(Ui.line(light))},LinearLayout.LayoutParams(-1,1))
         val r=line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=d(48)}
         r.addView(icon,LinearLayout.LayoutParams(d(20),d(20)).apply{marginEnd=d(14)})
-        r.addView(text(label,14.5f),LinearLayout.LayoutParams(0,-2,1f))
-        value?.let{r.addView(text(it,14.5f,muted))}
+        r.addView(text(label,Type.TEXT),LinearLayout.LayoutParams(0,-2,1f))
+        value?.let{r.addView(text(it,Type.TEXT,muted))}
         card.addView(r,LinearLayout.LayoutParams(-1,-2))}
     // a week: seven days in a row
     fact(lineIcon{c,p->c.drawRoundRect(3.5f,5f,20.5f,20f,3f,3f,p);c.drawLine(3.5f,9.5f,20.5f,9.5f,p);c.drawLine(8f,3.5f,8f,6.5f,p);c.drawLine(16f,3.5f,16f,6.5f,p)

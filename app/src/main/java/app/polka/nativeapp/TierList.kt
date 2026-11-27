@@ -109,14 +109,14 @@ internal class TierBackdrop(private val a:MainActivity):android.graphics.drawabl
 
 /** One tier on the full screen: the letter with its name on the left, the covers on the right, a hairline above. */
 internal class TierRow(private val a:MainActivity,val k:Int,val covers:FlowRow):LinearLayout(a){
-    private val hair=Paint().apply{color=if(a.light)0x14000000 else 0x10ffffff}
+    private val hair=Paint().apply{color=Ui.fill(a.light)}
     private val band:InsetDrawable
     var lit=false;private set
     init{orientation=HORIZONTAL;clipChildren=false;clipToPadding=false;setWillNotDraw(false)
         setPadding(a.d(8),a.d(11),a.d(18),a.d(11));minimumHeight=a.d(100)
         val label=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(0,a.d(4),0,0)}
         if(k<5){label.addView(TierLetter(a,k,40f,false),LinearLayout.LayoutParams(-2,a.d(50)))
-            label.addView(a.text(Tiers.names[k],10.5f,a.muted).apply{maxLines=1;gravity=Gravity.CENTER;setPadding(0,a.d(4),0,0)})}
+            label.addView(a.text(Tiers.names[k],Type.CAPTION,a.muted).apply{maxLines=1;gravity=Gravity.CENTER;setPadding(0,a.d(4),0,0)})}
         addView(label,LayoutParams(a.d(84),-2))
         addView(covers,LayoutParams(0,-2,1f).apply{marginStart=a.d(4);topMargin=a.d(2)})
         val (_,c2)=if(k<5)Tiers.tone(a,k) else (0xff8a8a90.toInt() to 0xff8a8a90.toInt())
@@ -148,7 +148,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     private val pills=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
     private val pillStrip=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;setPadding(a.d(18),0,a.d(18),0);addView(pills)}
     private var menu:FrameLayout?=null
-    private val countText=a.text("",14f,a.muted)
+    private val countText=a.text("",Type.TEXT,a.muted)
     private val rowsBox=a.column().apply{clipChildren=false;clipToPadding=false}
     private val rows=mutableListOf<TierRow>()
     private var closing=false
@@ -170,10 +170,10 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         frame.isClickable=true;frame.setBackgroundColor(a.bg);frame.elevation=a.d(30).toFloat()
         val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),a.d(8),a.d(16),0)}
         fun round(kind:String,desc:String,click:()->Unit)=FrameLayout(a).apply{isClickable=true;contentDescription=desc;setOnClickListener{click()}
-            background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(a.light)0x0d000000 else 0x14ffffff)}
+            background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(Ui.fill(a.light))}
             addView(Glyph(a,kind,a.fg),FrameLayout.LayoutParams(a.d(19),a.d(19),Gravity.CENTER));a.press(this)}
         bar.addView(round("back","Назад"){close()},LinearLayout.LayoutParams(a.d(46),a.d(46)))
-        bar.addView(a.text("ТИР-ЛИСТ",12.5f,a.muted,true).apply{letterSpacing=.06f;gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f))
+        bar.addView(a.text("ТИР-ЛИСТ",Type.SECONDARY,a.muted,true).apply{letterSpacing=.06f;gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f))
         bar.addView(round("share","Поделиться тир-листом"){openShare()},LinearLayout.LayoutParams(a.d(46),a.d(46)))
         col.addView(bar)
         col.addView(pillStrip,LinearLayout.LayoutParams(-1,a.d(36)).apply{topMargin=a.d(18)})
@@ -209,7 +209,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         val total=a.books.count{Tiers.seriesKey(it)==item.str("series")}
         val box=a.column().apply{setPadding(a.d(20),a.d(4),a.d(20),a.d(12))}
         val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-        head.addView(a.text("${total} ${if(total%100 in 11..14)"выпусков" else when(total%10){1->"выпуск";2,3,4->"выпуска";else->"выпусков"}}, прочитано ${issues.size}",13.5f,a.muted),LinearLayout.LayoutParams(0,-2,1f))
+        head.addView(a.text("${total} ${if(total%100 in 11..14)"выпусков" else when(total%10){1->"выпуск";2,3,4->"выпуска";else->"выпусков"}}, прочитано ${issues.size}",Type.SECONDARY,a.muted),LinearLayout.LayoutParams(0,-2,1f))
         tierOf(item).takeIf{it>=0}?.let{k->head.addView(TierLetter(a,k,34f,false),LinearLayout.LayoutParams(a.d(44),a.d(44)))}
         box.addView(head,LinearLayout.LayoutParams(-1,-2))
         var dialog:android.app.AlertDialog?=null
@@ -217,11 +217,11 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
             chunk.forEach{b->val c=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
                 val cover=FrameLayout(a)
                 cover.addView(CoverView(a,b,a.cover(b)).apply{isClickable=true;contentDescription=b.str("title");setOnClickListener{dialog?.dismiss();a.detail(b,this)};a.press(this)},FrameLayout.LayoutParams(-1,-1))
-                b.optDouble("seriesNo").takeIf{!it.isNaN()}?.let{n->cover.addView(a.text("#"+(if(n%1.0==0.0)n.toLong().toString() else n.toString()),10.5f,0xfff3f2ef.toInt(),true).apply{setPadding(a.d(6),a.d(1),a.d(6),a.d(1))
+                b.optDouble("seriesNo").takeIf{!it.isNaN()}?.let{n->cover.addView(a.text("#"+(if(n%1.0==0.0)n.toLong().toString() else n.toString()),Type.CAPTION,0xfff3f2ef.toInt(),true).apply{setPadding(a.d(6),a.d(1),a.d(6),a.d(1))
                     background=GradientDrawable().apply{cornerRadius=a.d(9).toFloat();setColor(0x99000000.toInt())};elevation=a.d(2).toFloat()},FrameLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(5);topMargin=a.d(5)})}
                 c.addView(cover,LinearLayout.LayoutParams(a.d(68),a.d(102)))
                 val h=Rating.halves(b)
-                c.addView(a.text(if(h>0)"★ ${Rating.text(h)}" else "",11.5f,StarRow.starYellow(a),true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,a.d(20)).apply{topMargin=a.d(4)})
+                c.addView(a.text(if(h>0)"★ ${Rating.text(h)}" else "",Type.CAPTION,StarRow.starYellow(a),true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,a.d(20)).apply{topMargin=a.d(4)})
                 rowL.addView(c,LinearLayout.LayoutParams(0,-2,1f))}
             repeat(4-chunk.size){rowL.addView(View(a),LinearLayout.LayoutParams(0,1,1f))}
             box.addView(rowL,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})}
@@ -237,8 +237,8 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     private fun renderPills(){pills.removeAllViews();val all=Tiers.books(model,null)
         fun add(label:String,on:Boolean,open:(View)->Unit){val ink=if(on)a.bg else a.fg
             val p=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(11),0);isClickable=true;contentDescription=label
-                background=GradientDrawable().apply{cornerRadius=a.d(18).toFloat();setColor(if(on)a.fg else if(a.light)0x0d000000 else 0x14ffffff)};a.press(this)}
-            p.addView(a.text(label,14f,ink,true).apply{maxLines=1})
+                background=GradientDrawable().apply{cornerRadius=a.d(18).toFloat();setColor(if(on)a.fg else Ui.fill(a.light))};a.press(this)}
+            p.addView(a.text(label,Type.TEXT,ink,true).apply{maxLines=1})
             p.addView(IconView(a,"chevdown",ink),LinearLayout.LayoutParams(a.d(13),a.d(13)).apply{marginStart=a.d(6)})
             p.setOnClickListener{open(p)}
             pills.addView(p,LinearLayout.LayoutParams(-2,a.d(36)).apply{if(pills.childCount>0)marginStart=a.d(8)})}
@@ -254,16 +254,16 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     /** A short menu under [anchor]: the chosen line marked with a tick; picking one closes it. */
     private fun choose(anchor:View,items:List<String>,chosen:Int,pick:(Int)->Unit){if(menu!=null||drag!=null||closing)return
         val layer=FrameLayout(a).apply{isClickable=true;setOnClickListener{closeMenu()}}
-        val card=FrameLayout(a).apply{background=GradientDrawable().apply{setColor(if(a.light)Color.WHITE else 0xff2a2a2d.toInt());cornerRadius=a.d(18).toFloat()}
+        val card=FrameLayout(a).apply{background=GradientDrawable().apply{setColor(Ui.card(a.light));cornerRadius=a.d(18).toFloat()}
             elevation=a.d(16).toFloat();clipToOutline=true;isClickable=true}
         val list=a.column().apply{setPadding(a.d(6),a.d(6),a.d(6),a.d(6))}
         items.forEachIndexed{i,t->val on=i==chosen
             val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(12),0);isClickable=true;contentDescription=t
-                if(on)background=GradientDrawable().apply{setColor(if(a.light)0x0d000000 else 0x0fffffff);cornerRadius=a.d(12).toFloat()}
+                if(on)background=GradientDrawable().apply{setColor(Ui.fill(a.light));cornerRadius=a.d(12).toFloat()}
                 setOnClickListener{closeMenu();if(i!=chosen)pick(i)};a.press(this)}
-            row.addView(a.text(t,15f,a.fg,on).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
+            row.addView(a.text(t,Type.TEXT,a.fg,on).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
             if(on)row.addView(IconView(a,"check",a.fg),LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{marginStart=a.d(12)})
-            list.addView(row,LinearLayout.LayoutParams(-1,a.d(44)))}
+            list.addView(row.apply{minimumHeight=a.d(Size.TOUCH)},LinearLayout.LayoutParams(-1,-2))}
         card.addView(ScrollView(a).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(list)},FrameLayout.LayoutParams(-1,-1))
         val at=IntArray(2);anchor.getLocationInWindow(at);val f=IntArray(2);frame.getLocationInWindow(f)
         val w=maxOf(anchor.width,a.d(210));val x=(at[0]-f[0]).coerceIn(a.d(16),maxOf(a.d(16),frame.width-a.d(16)-w));val y=at[1]-f[1]+anchor.height+a.d(8)
@@ -297,7 +297,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
                     (flow.layoutParams as LinearLayout.LayoutParams).apply{marginStart=0;topMargin=a.d(28)}
                     val tray=FrameLayout(a).apply{clipChildren=false;clipToPadding=false
                         background=GradientDrawable().apply{cornerRadius=a.d(22).toFloat();setStroke(a.d(1)+a.d(1)/2,if(a.light)0x26000000 else 0x22ffffff,a.d(5).toFloat(),a.d(4).toFloat())}}
-                    tray.addView(a.text("ЕЩЁ НЕ ОЦЕНЕНЫ",11f,if(a.light)0xff5c5c62.toInt() else 0xffc9c9cf.toInt(),true).apply{letterSpacing=.08f},FrameLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(14);topMargin=a.d(12)})
+                    tray.addView(a.text("ЕЩЁ НЕ ОЦЕНЕНЫ",Type.CAPTION,Ui.ink2(a.light),true).apply{letterSpacing=.08f},FrameLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(14);topMargin=a.d(12)})
                     tray.addView(row,FrameLayout.LayoutParams(-1,-2))
                     box.addView(tray,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=a.d(16);rightMargin=a.d(16);topMargin=a.d(14)})}
                 else box.addView(row,LinearLayout.LayoutParams(-1,-2))
@@ -319,7 +319,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         frame.addView(fl,FrameLayout.LayoutParams(r.width().toInt(),r.height().toInt()));fl.translationX=r.left;fl.translationY=r.top
         val sc=if(row.k==5)1.45f else 1.2f
         if(motion)fl.animate().scaleX(sc).scaleY(sc).rotation(-4f).setDuration(180).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start() else {fl.scaleX=sc;fl.scaleY=sc}
-        frame.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        frame.haptic(a,Haptic.LONG)
         drag=Drag(b,fl,hole,frame.lastX-r.left,frame.lastY-r.top,row,row.k)
         if(row.k<5)row.light(true,motion)
         frame.postOnAnimation(edgeScroll)
@@ -334,7 +334,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         val flow=target.covers;var idx=0
         for(i in 0 until flow.childCount){val ch=flow.getChildAt(i);if(ch===d.hole)continue;val r=where(ch)
             if(y>r.bottom+a.d(4)||(y>=r.top-a.d(4)&&x>r.centerX()))idx++}
-        if(target!==d.row){d.row.light(false,motion);d.row=target;if(target.k<5)target.light(true,motion);frame.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        if(target!==d.row){d.row.light(false,motion);d.row=target;if(target.k<5)target.light(true,motion);frame.haptic(a,Haptic.SELECT)
             val small=target.k==5;d.float.animate().scaleX(if(small)1.45f else 1.2f).scaleY(if(small)1.45f else 1.2f).setDuration(160).start()}
         val cur=d.hole.parent as? FlowRow
         if(cur!==flow||cur.indexOfChild(d.hole)!=idx){cur?.removeView(d.hole);val (w,h)=sizeOf(d.book,target.k==5)
@@ -372,7 +372,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
             if(Tiers.isSeries(b)){b.put("tierPos",i.toDouble());Tiers.place(a,b.str("series"),if(b===book)now else null,i.toDouble());prefs=true}
             else if(b.optDouble("tierPos",-1.0)!=i.toDouble()||b===book){b.put("tierPos",i.toDouble());a.saveBook(b){}}}
         if(prefs)a.savePreferences()
-        if(now!=before)frame.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        if(now!=before)frame.haptic(a,Haptic.SELECT)
     }
 
     /** The main screen is rebuilt when a book is saved (a rating set here): the list stays open on top of it. */
@@ -404,8 +404,8 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         val k=min(maxW.toFloat()/bmp.width,maxH.toFloat()/bmp.height)
         box.addView(img,LinearLayout.LayoutParams((bmp.width*k).toInt(),(bmp.height*k).toInt()))
         val acts=a.line().apply{gravity=Gravity.CENTER}
-        fun act(label:String,primary:Boolean,click:()->Unit)=a.text(label,16f,if(primary)a.bg else a.fg,true).apply{gravity=Gravity.CENTER;isClickable=true
-            background=GradientDrawable().apply{setColor(if(primary)a.fg else if(a.light)0x14000000 else 0x1affffff);cornerRadius=a.d(24).toFloat()};setOnClickListener{click()};a.press(this)}
+        fun act(label:String,primary:Boolean,click:()->Unit)=a.text(label,Type.BODY,if(primary)a.bg else a.fg,true).apply{gravity=Gravity.CENTER;isClickable=true
+            background=GradientDrawable().apply{setColor(if(primary)a.fg else Ui.press(a.light));cornerRadius=a.d(24).toFloat()};setOnClickListener{click()};a.press(this)}
         acts.addView(act("Сохранить",false){save()},LinearLayout.LayoutParams(0,a.d(48),1f))
         acts.addView(act("Отправить",true){send()},LinearLayout.LayoutParams(0,a.d(48),1f).apply{marginStart=a.d(10)})
         box.addView(acts,LinearLayout.LayoutParams((bmp.width*k).toInt(),-2).apply{topMargin=a.d(20)})
@@ -449,7 +449,7 @@ internal object TierPoster{
         tp.typeface=PolkaFonts.serif(a,true);tp.textSize=74f;tp.color=a.fg;c.drawText(title,pad,222f,tp)
         tp.typeface=PolkaFonts.sans(400);tp.textSize=34f;tp.color=a.muted;c.drawText(Tiers.count(books)+(genre?.let{", ${it.lowercase()}"}?:""),pad,278f,tp)
         tp.typeface=PolkaFonts.display(600);tp.textSize=30f;tp.color=a.muted;tp.textAlign=Paint.Align.RIGHT;c.drawText("Glyph",W-pad,130f,tp);tp.textAlign=Paint.Align.LEFT
-        val hair=Paint().apply{color=if(a.light)0x14000000 else 0x12ffffff}
+        val hair=Paint().apply{color=Ui.fill(a.light)}
         var y=top
         groups.forEachIndexed{gi,g->val k=g.index;val h=heights[gi]
             if(gi>0)c.drawRect(pad+labelW,y,W-pad,y+2f,hair)

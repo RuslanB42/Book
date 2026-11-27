@@ -85,7 +85,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         val page=a.col().apply{clipChildren=false;clipToPadding=false;gravity=Gravity.CENTER_HORIZONTAL}
         scroll.addView(page,FrameLayout.LayoutParams(-1,-2))
         root.addView(scroll,FrameLayout.LayoutParams(-1,-1))
-        val close=FrameLayout(a).apply{background=a.shape(if(a.light)0x14000000 else 0x1fffffff,23);contentDescription="Закрыть";isClickable=true;isFocusable=true
+        val close=FrameLayout(a).apply{background=a.shape(Ui.press(a.light),23);contentDescription="Закрыть";isClickable=true;isFocusable=true
             addView(IconView(a,"x",a.fg),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER));setOnClickListener{finish(false,false)};a.press(this)}
         root.addView(close,FrameLayout.LayoutParams(a.d(46),a.d(46),Gravity.TOP or Gravity.END).apply{rightMargin=a.d(16)})
 
@@ -115,20 +115,20 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         coverBox.addView(light);peek?.let{coverBox.addView(it)};coverBox.addView(burst);coverBox.addView(cover)
         page.addView(coverBox,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=a.d(56)})
         // «Прочитано» as the app shows a status: its quiet tag with the read mark the covers carry
-        val chip=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(8),0,a.d(13),0);background=a.shape(if(a.light)0x0d000000 else 0x12ffffff,16)
+        val chip=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(8),0,a.d(13),0);background=a.shape(Ui.fill(a.light),16)
             addView(ReadMark(),LinearLayout.LayoutParams(a.d(18),a.d(18)))
-            addView(a.text("Прочитано",13.5f,a.fg).apply{typeface=PolkaFonts.sans(500)},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(7)})}
+            addView(a.text("Прочитано",Type.SECONDARY,a.fg).apply{typeface=PolkaFonts.sans(500)},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(7)})}
         page.addView(chip,LinearLayout.LayoutParams(-2,a.d(32)).apply{topMargin=a.d(14)})
 
         // below, on the page itself: the title, the author and how it was read, the way on, the rating, the two ways out
         val rest=a.col().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(a.d(10),0,a.d(10),0)}
-        val title=a.text(book.str("title"),26f,a.fg,true,serif=true).apply{gravity=Gravity.CENTER;maxLines=3}
-        val facts=a.text(MainActivity.authors(book),14f,a.muted).apply{gravity=Gravity.CENTER;maxLines=2}
+        val title=a.text(book.str("title"),Type.H1,a.fg,true,serif=true).apply{gravity=Gravity.CENTER;maxLines=3}
+        val facts=a.text(MainActivity.authors(book),Type.TEXT,a.muted).apply{gravity=Gravity.CENTER;maxLines=2}
         val head=a.col().apply{gravity=Gravity.CENTER_HORIZONTAL;addView(title,LinearLayout.LayoutParams(-1,-2));addView(facts,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(6)})}
         nextBook?.let{n->
-            val goOn=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),0,a.d(14),0);background=a.shape(if(a.light)0x14000000 else 0x1fffffff,20)
+            val goOn=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),0,a.d(14),0);background=a.shape(Ui.press(a.light),20)
                 isClickable=true;isFocusable=true;contentDescription="Читать ${issueLabel(n)}";setOnClickListener{goNext(n)};a.press(this)}
-            goOn.addView(a.text("Читать ${issueLabel(n)}",15f,a.fg,true))
+            goOn.addView(a.text("Читать ${issueLabel(n)}",Type.TEXT,a.fg,true))
             goOn.addView(IconView(a,"next",a.fg),LinearLayout.LayoutParams(a.d(17),a.d(17)).apply{marginStart=a.d(6)})
             head.addView(goOn,LinearLayout.LayoutParams(-2,a.d(40)).apply{topMargin=a.d(16)})}
         rest.addView(head,LinearLayout.LayoutParams(-1,-2))
@@ -136,7 +136,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         rest.addView(review,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16)})
         val ways=a.col().apply{
             addView(a.button("Готово",true){finish(true,true)}.apply{background=a.shape(a.fg,26);minHeight=a.d(52)},LinearLayout.LayoutParams(-1,a.d(52)))
-            addView(a.text("Без оценки",15f,a.muted).apply{gravity=Gravity.CENTER;isClickable=true;isFocusable=true;setOnClickListener{finish(false,true)}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(4)})}
+            addView(a.text("Без оценки",Type.TEXT,a.muted).apply{gravity=Gravity.CENTER;isClickable=true;isFocusable=true;setOnClickListener{finish(false,true)}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(4)})}
         rest.addView(ways,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18)})
         page.addView(rest,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(28)})
 
@@ -202,8 +202,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
         close.animate().alpha(1f).setStartDelay(1100).setDuration(300).setInterpolator(MotionSpec.enter).start()
     }
     /** The finish's one vibration: a firm, short «done». */
-    private fun tick(){if(!a.prefs.optBoolean("haptics",true))return
-        root?.performHapticFeedback(if(android.os.Build.VERSION.SDK_INT>=30)HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.LONG_PRESS)}
+    private fun tick(){root?.haptic(a,Haptic.CONFIRM)}
     /** How large the light of «О книге» is round a cover [w] wide (BookGlowRaster's picture, at its spread). */
     private fun lightSize(w:Int):Pair<Int,Int>{val s=w/96f*BookGlowRaster.SPREAD;return ((96+BookGlowRaster.PADDING*2)*s).toInt()+4 to ((144+BookGlowRaster.PADDING*2)*s).toInt()+4}
 

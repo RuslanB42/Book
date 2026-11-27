@@ -38,8 +38,8 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private var period=range.coerceIn(0,2)
     private var goalYear=(a.statisticsGoalYear ?: today.year).coerceAtMost(today.year+1)
     private val light get()=a.light
-    private val captionInk get()=if(light)0xff86868b.toInt() else 0xff8a8a8e.toInt()
-    private val quiet get()=if(light)0xffeeeeec.toInt() else 0xff2f2f31.toInt()
+    private val captionInk get()=Ui.ink2(light)
+    private val quiet get()=Ui.press(light)
     private val strong get()=if(light)0xff161617.toInt() else 0xfff3f2ef.toInt()
     private val blue get()=if(light)0xff3f6fe0.toInt() else 0xff6a94f8.toInt()
     private val mint get()=if(light)0xff1f9d73.toInt() else 0xff4fd6a2.toInt()
@@ -71,13 +71,13 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private val section=a.column().apply{clipChildren=false;clipToPadding=false}
     private fun add(card:View){entrance.add(card);section.addView(card,LinearLayout.LayoutParams(-1,-2));space(section,16)}
     /** Small caps label at the top of a widget («СЕРИЯ», «СКОРОСТЬ»…). */
-    private fun kicker(s:String)=label(s.uppercase(),11.5f,if(light)0xff6e6e73.toInt() else 0xffa9a9ae.toInt(),true).apply{letterSpacing=.06f}
+    private fun kicker(s:String)=label(s.uppercase(),Type.CAPTION,Ui.ink2(light),true).apply{letterSpacing=.06f}
     /** «Добрый вечер» and today's date, centred between Back and Settings. */
     private fun greeting():View{val h=java.time.LocalTime.now().hour
         val hello=when(h){in 5..11->"Доброе утро";in 12..16->"Добрый день";in 17..22->"Добрый вечер";else->"Доброй ночи"}
         val date=today.format(DateTimeFormatter.ofPattern("d MMMM, EEEE",ru))
         return a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(a.d(8),0,a.d(8),0)
-            addView(label(date,12.5f).apply{gravity=Gravity.CENTER});addView(a.text(hello,26f,a.fg,true,serif=true).apply{maxLines=1;gravity=Gravity.CENTER})}}
+            addView(label(date,Type.SECONDARY).apply{gravity=Gravity.CENTER});addView(a.text(hello,Type.H1,a.fg,true,serif=true).apply{maxLines=1;gravity=Gravity.CENTER})}}
     private fun daysWord(n:Int)=if(n%100 in 11..14)"дней" else when(n%10){1->"день";2,3,4->"дня";else->"дней"}
     fun show() {
         val extra=max(0,(a.resources.configuration.screenWidthDp-640)/2)
@@ -133,8 +133,8 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 override fun onViewDetachedFromWindow(v:View){}})}
         return tv}
     /** Small glass chip (year, period). */
-    private fun chip(s:String,click:()->Unit)=label(s,12f,if(light)0xff3a3a3d.toInt() else 0xffdddddd.toInt()).apply{
-        background=GradientDrawable().apply{setColor(if(light)0x0a000000 else 0x12ffffff);cornerRadius=a.d(12).toFloat();setStroke(a.d(1),if(light)0x14000000 else 0x1affffff)}
+    private fun chip(s:String,click:()->Unit)=label(s,Type.CAPTION,if(light)0xff3a3a3d.toInt() else 0xffdddddd.toInt()).apply{
+        background=GradientDrawable().apply{setColor(Ui.fill(light));cornerRadius=a.d(12).toFloat();setStroke(a.d(1),Ui.press(light))}
         setPadding(a.d(10),a.d(5),a.d(10),a.d(5));isClickable=true;setOnClickListener{click()};a.press(this)}
     private fun bestStreak():Int=max(all.ledger.best,all.streak)
 
@@ -150,7 +150,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val col=a.column()
         col.addView(kicker("Серия"));space(col,4)
         col.addView(bigCount(n," ${daysWord(n)} подряд",42f,.38f))
-        space(col,4);col.addView(label(when{ledger.lost>0->"было ${ledger.lost}, рекорд $best ${daysWord(best)}";n>0||best>0->"рекорд $best ${daysWord(best)}";else->"серии пока нет"},12.5f))
+        space(col,4);col.addView(label(when{ledger.lost>0->"было ${ledger.lost}, рекорд $best ${daysWord(best)}";n>0||best>0->"рекорд $best ${daysWord(best)}";else->"серии пока нет"},Type.SECONDARY))
         top.addView(col,LinearLayout.LayoutParams(0,-2,1f))
         // the freezes in the corner (approved: no arrow; the card itself opens the month)
         val ice=a.freezeRow(ledger,24).apply{isClickable=true;contentDescription="Заморозки: ${ledger.freezes} из 2";setOnClickListener{a.freezeSheet(ledger)};a.press(this);setPadding(a.d(4),a.d(4),0,a.d(4))}
@@ -172,10 +172,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             evening&&n>0->"Ещё $left ${minutesAcc(left)} до цели" to (if(ledger.freezes>0)"если не успеете, выручит заморозка" else "иначе серия прервётся")
             else->"Сегодня ${min(minutes,goal)} из $goal мин" to null}
         val foot=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(36)}
-        val words=a.column();words.addView(a.text(title,14f,a.fg,sub!=null||met));sub?.let{words.addView(label(it,12.5f).apply{setPadding(0,a.d(2),0,0)})}
+        val words=a.column();words.addView(a.text(title,Type.TEXT,a.fg,sub!=null||met));sub?.let{words.addView(label(it,Type.SECONDARY).apply{setPadding(0,a.d(2),0,0)})}
         foot.addView(words,LinearLayout.LayoutParams(0,-2,1f))
         val reading=a.books.filter{Library.status(it)=="reading"&&!it.optBoolean("noFile")}.maxByOrNull{it.optLong("openedAt")}
-        if(!met&&reading!=null)foot.addView(a.text("Читать",13.5f,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(16),0,a.d(16),0);background=a.shape(a.fg,18);isClickable=true;setOnClickListener{a.openBook(reading)};a.press(this)},LinearLayout.LayoutParams(-2,a.d(36)).apply{marginStart=a.d(10)})
+        if(!met&&reading!=null)foot.addView(a.text("Читать",Type.SECONDARY,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(16),0,a.d(16),0);background=a.shape(a.fg,18);isClickable=true;setOnClickListener{a.openBook(reading)};a.press(this)},LinearLayout.LayoutParams(-2,a.d(36)).apply{marginStart=a.d(10)})
         box.addView(foot,LinearLayout.LayoutParams(-1,-2))
         val month=StreakMonth(a,all,today,live)
         box.addView(month,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18);leftMargin=-a.d(6);rightMargin=-a.d(6);bottomMargin=-a.d(6)})
@@ -195,11 +195,11 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private fun speed(){
         val box=surface()
         val trend=more.trend()?.takeIf{abs(it)>=1}
-        headRow(box,"Скорость",trend?.let{t->label("${if(t>0)"+" else "−"}${abs(t)}% за месяц",11.5f,if(t>0)mint else rose,true)})
+        headRow(box,"Скорость",trend?.let{t->label("${if(t>0)"+" else "−"}${abs(t)}% за месяц",Type.CAPTION,if(t>0)mint else rose,true)})
         space(box,14)
         box.addView(if(model.speed>0)bigCount(model.speed," слов в минуту",40f,.4f) else big("—",40f))
         space(box,4)
-        box.addView(label(more.pageSeconds()?.let{"страница в среднем за ${pageTime(it)}"}?:"появится после пары минут чтения",12.5f))
+        box.addView(label(more.pageSeconds()?.let{"страница в среднем за ${pageTime(it)}"}?:"появится после пары минут чтения",Type.SECONDARY))
         val weeks=more.weeklySpeed()
         if(weeks.size>=2){val chart=EdgeLine(a,blue,live)
             val fmt=DateTimeFormatter.ofPattern("d MMM",ru)
@@ -242,7 +242,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                     total=model.total(1);avg=(total/monthsSoFar).toFloat()/60000f;perPages=(pgs.sum()/monthsSoFar).roundToInt();per="в месяц";session=more.averageSession(today.withDayOfYear(1),today)}
             }
             fun tile(row:LinearLayout,value:String,what:String){val t=a.column().apply{background=pill(quiet,14);setPadding(a.d(12),a.d(10),a.d(10),a.d(10))}
-                t.addView(a.text(value,18f,a.fg,true,serif=true).apply{maxLines=1});t.addView(label(what,11.5f).apply{maxLines=1;setPadding(0,a.d(3),0,0)})
+                t.addView(a.text(value,Type.TITLE,a.fg,true,serif=true).apply{maxLines=1});t.addView(label(what,Type.CAPTION).apply{maxLines=1;setPadding(0,a.d(3),0,0)})
                 row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{if(row.childCount>0)marginStart=a.d(8)})}
             fun fill(){left.removeAllViews()
                 left.addView(big(if(total>0)duration(total) else "0 мин",40f).apply{maxLines=1;isSingleLine=true})
@@ -267,21 +267,21 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val box=surface();box.addView(kicker("Вкус"))
         author?.let{au->space(box,16);val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
             row.addView(AuthorPortrait(a,au.name,au.books.firstOrNull()?.str("title")),LinearLayout.LayoutParams(a.d(64),a.d(64)).apply{marginEnd=a.d(16)})
-            val t=a.column();t.addView(label("Любимый автор",12.5f));t.addView(a.text(au.name,20f,a.fg,true,serif=true).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)})
-            val n=au.books.size;t.addView(label("$n ${booksWord(n)}"+if(au.ms>=3_600_000L)", ${(au.ms/3_600_000L)} ч чтения" else "",12.5f).apply{setPadding(0,a.d(3),0,0)})
+            val t=a.column();t.addView(label("Любимый автор",Type.SECONDARY));t.addView(a.text(au.name,Type.H2,a.fg,true,serif=true).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)})
+            val n=au.books.size;t.addView(label("$n ${booksWord(n)}"+if(au.ms>=3_600_000L)", ${(au.ms/3_600_000L)} ч чтения" else "",Type.SECONDARY).apply{setPadding(0,a.d(3),0,0)})
             row.addView(t,LinearLayout.LayoutParams(0,-2,1f));box.addView(row)}
         // a pill: a coloured dot, the name, the figure quieter at the far end; tinted with its colour; a line of pills fills the width
         fun chip(row:FlowRow,name:String,figure:String,c:Int,warm:Boolean=true){
             val p=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(7),a.d(12),a.d(7));background=pill((c and 0xffffff) or ((if(warm)0x26 else 0x12) shl 24),14)}
             p.addView(View(a).apply{background=pill(if(warm)c else captionInk,4)},LinearLayout.LayoutParams(a.d(8),a.d(8)).apply{marginEnd=a.d(8)})
-            p.addView(a.text(name,13f,if(warm)a.fg else (if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt())).apply{maxLines=1},LinearLayout.LayoutParams(-2,-2,1f))
-            p.addView(a.text(figure,13f,if(light)0x99000000.toInt() else 0x80ffffff.toInt()).apply{maxLines=1;setPadding(a.d(12),0,0,0)})
+            p.addView(a.text(name,Type.SECONDARY,if(warm)a.fg else (Ui.ink2(light))).apply{maxLines=1},LinearLayout.LayoutParams(-2,-2,1f))
+            p.addView(a.text(figure,Type.SECONDARY,if(light)0x99000000.toInt() else 0x80ffffff.toInt()).apply{maxLines=1;setPadding(a.d(12),0,0,0)})
             row.addView(p)}
-        if(genres.isNotEmpty()){space(box,if(author!=null)22 else 16);box.addView(label("Жанры",12.5f));space(box,10)
+        if(genres.isNotEmpty()){space(box,if(author!=null)22 else 16);box.addView(label("Жанры",Type.SECONDARY));space(box,10)
             val colors=listOf(violet,blue,mint);val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
             genres.take(3).forEachIndexed{i,(name,pct)->chip(row,name,"$pct%",colors[i])}
             box.addView(row,LinearLayout.LayoutParams(-1,-2))}
-        if(decades.isNotEmpty()){space(box,if(author!=null||genres.isNotEmpty())22 else 16);box.addView(label("Время написания",12.5f));space(box,10)
+        if(decades.isNotEmpty()){space(box,if(author!=null||genres.isNotEmpty())22 else 16);box.addView(label("Время написания",Type.SECONDARY));space(box,10)
             val warm=if(light)0xffc87600.toInt() else 0xfff0a83a.toInt();val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
             decades.take(4).forEachIndexed{i,(d,n)->chip(row,"$d-е","$n ${booksWord(n)}",if(i==0)warm else (if(light)0xff000000.toInt() else 0xffffffff.toInt()),i==0)}
             box.addView(row,LinearLayout.LayoutParams(-1,-2))}
@@ -305,10 +305,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
             row.addView(stack(s,36,54,9),LinearLayout.LayoutParams(a.d(54),a.d(58)).apply{marginEnd=a.d(14)})
             val col=a.column();val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-            top.addView(a.text(s.name,17f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
+            top.addView(a.text(s.name,Type.TITLE,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
             val full=s.done>=s.issues.size
-            top.addView(if(full)a.line().apply{gravity=Gravity.CENTER_VERTICAL;addView(StatusIcon(a,"check",mint),LinearLayout.LayoutParams(a.d(13),a.d(13)).apply{marginEnd=a.d(4)});addView(label("дочитана",12.5f,mint))}
-                else label("${s.done} из ${s.issues.size}",12.5f),LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)})
+            top.addView(if(full)a.line().apply{gravity=Gravity.CENTER_VERTICAL;addView(StatusIcon(a,"check",mint),LinearLayout.LayoutParams(a.d(13),a.d(13)).apply{marginEnd=a.d(4)});addView(label("дочитана",Type.SECONDARY,mint))}
+                else label("${s.done} из ${s.issues.size}",Type.SECONDARY),LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)})
             col.addView(top)
             val bar=object:View(a){val p=Paint(Paint.ANTI_ALIAS_FLAG);override fun onDraw(c:Canvas){val r=height/2f;p.color=quiet;c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),r,r,p)
                 p.color=if(full)mint else strong;c.drawRoundRect(0f,0f,width*s.done/max(1f,s.issues.size.toFloat()),height.toFloat(),r,r,p)}}
@@ -325,24 +325,24 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val box=surface();box.addView(kicker("Вкус"))
         fav?.let{s->space(box,16);val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
             row.addView(stack(s,40,60,10),LinearLayout.LayoutParams(a.d(64),a.d(66)).apply{marginEnd=a.d(16)})
-            val t=a.column();t.addView(label("Любимая серия",12.5f));t.addView(a.text(s.name,20f,a.fg,true,serif=true).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)})
+            val t=a.column();t.addView(label("Любимая серия",Type.SECONDARY));t.addView(a.text(s.name,Type.H2,a.fg,true,serif=true).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)})
             val n=s.issues.count{Library.status(it)=="done"||it.optJSONObject("progress")?.optDouble("pct")?.let{p->p>0}==true}
-            t.addView(label("$n ${issuesWord(n)}"+if(s.ms>=3_600_000L)", ${s.ms/3_600_000L} ч чтения" else if(s.ms>=60000L)", ${s.ms/60000L} мин чтения" else "",12.5f).apply{setPadding(0,a.d(3),0,0)})
+            t.addView(label("$n ${issuesWord(n)}"+if(s.ms>=3_600_000L)", ${s.ms/3_600_000L} ч чтения" else if(s.ms>=60000L)", ${s.ms/60000L} мин чтения" else "",Type.SECONDARY).apply{setPadding(0,a.d(3),0,0)})
             row.addView(t,LinearLayout.LayoutParams(0,-2,1f));box.addView(row)}
         fun tag(row:FlowRow,name:String,figure:String,c:Int,warm:Boolean){
             val p=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(7),a.d(12),a.d(7));background=pill((c and 0xffffff) or ((if(warm)0x26 else 0x12) shl 24),14)}
             p.addView(View(a).apply{background=pill(if(warm)c else captionInk,4)},LinearLayout.LayoutParams(a.d(8),a.d(8)).apply{marginEnd=a.d(8)})
-            p.addView(a.text(name,13f,if(warm)a.fg else (if(light)0xff55555a.toInt() else 0xffcfcfd4.toInt())).apply{maxLines=1},LinearLayout.LayoutParams(-2,-2,1f))
-            p.addView(a.text(figure,13f,if(light)0x99000000.toInt() else 0x80ffffff.toInt()).apply{maxLines=1;setPadding(a.d(12),0,0,0)})
+            p.addView(a.text(name,Type.SECONDARY,if(warm)a.fg else (Ui.ink2(light))).apply{maxLines=1},LinearLayout.LayoutParams(-2,-2,1f))
+            p.addView(a.text(figure,Type.SECONDARY,if(light)0x99000000.toInt() else 0x80ffffff.toInt()).apply{maxLines=1;setPadding(a.d(12),0,0,0)})
             row.addView(p)}
-        manga?.let{(c,m)->space(box,if(box.childCount>1)22 else 16);box.addView(label("Что читаешь",12.5f));space(box,10)
+        manga?.let{(c,m)->space(box,if(box.childCount>1)22 else 16);box.addView(label("Что читаешь",Type.SECONDARY));space(box,10)
             val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
             val first=c>=m;tag(row,"Комиксы","$c%",orange,first);tag(row,"Манга","$m%",violet,!first)
             box.addView(row,LinearLayout.LayoutParams(-1,-2))}
-        if(issue!=null||page!=null){space(box,if(box.childCount>1)22 else 16);box.addView(label("Темп",12.5f));space(box,10)
+        if(issue!=null||page!=null){space(box,if(box.childCount>1)22 else 16);box.addView(label("Темп",Type.SECONDARY));space(box,10)
             val tiles=a.line()
             fun tile(value:String,what:String){val t=a.column().apply{background=pill(quiet,14);setPadding(a.d(12),a.d(10),a.d(10),a.d(10))}
-                t.addView(a.text(value,18f,a.fg,true,serif=true).apply{maxLines=1});t.addView(label(what,11.5f).apply{maxLines=1;setPadding(0,a.d(3),0,0)})
+                t.addView(a.text(value,Type.TITLE,a.fg,true,serif=true).apply{maxLines=1});t.addView(label(what,Type.CAPTION).apply{maxLines=1;setPadding(0,a.d(3),0,0)})
                 tiles.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{if(tiles.childCount>0)marginStart=a.d(8)})}
             issue?.let{tile(duration(it),"на выпуск")};page?.let{tile(pageTime(it),"на страницу")}
             box.addView(tiles,LinearLayout.LayoutParams(-1,-2))}
@@ -356,8 +356,8 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val box=surface();box.addView(kicker("Рекорды"))
         fun row(lead:View,title:String,value:String,side:String){space(box,16)
             val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL};r.addView(lead,LinearLayout.LayoutParams(a.d(44),a.d(44)).apply{marginEnd=a.d(14)})
-            val t=a.column();t.addView(label(title,12.5f));t.addView(a.text(value,19f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)});r.addView(t,LinearLayout.LayoutParams(0,-2,1f))
-            if(side.isNotBlank())r.addView(label(side,12.5f).apply{gravity=Gravity.END},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)});box.addView(r)}
+            val t=a.column();t.addView(label(title,Type.SECONDARY));t.addView(a.text(value,Type.H2,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)});r.addView(t,LinearLayout.LayoutParams(0,-2,1f))
+            if(side.isNotBlank())r.addView(label(side,Type.SECONDARY).apply{gravity=Gravity.END},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)});box.addView(r)}
         fun tileOf(kind:String,c:Int)=FrameLayout(a).apply{background=pill((c and 0xffffff) or ((if(light)0x22 else 0x26) shl 24),22);addView(RecordIcon(a,kind,c),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER))}
         fast?.let{(s,days,ms)->row(tileOf("bolt",orange),"Быстрее всего дочитана серия","«${s.name}» за $days ${daysWordRu(days)}",if(ms>=3_600_000L)"${ms/3_600_000L} ч\nчтения" else "${ms/60000} мин\nчтения")}
         sitting?.let{(ms,at)->row(tileOf("hour",violet),"Самая долгая сессия",duration(ms),at?.let{dayMonth(it)}?:"")}
@@ -373,8 +373,8 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val box=surface();box.addView(kicker("Рекорды"))
         fun row(lead:View,title:String,value:String,side:String){space(box,16)
             val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL};r.addView(lead,LinearLayout.LayoutParams(a.d(44),a.d(44)).apply{marginEnd=a.d(14)})
-            val t=a.column();t.addView(label(title,12.5f));t.addView(a.text(value,19f,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)});r.addView(t,LinearLayout.LayoutParams(0,-2,1f))
-            if(side.isNotBlank())r.addView(label(side,12.5f).apply{gravity=Gravity.END},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)});box.addView(r)}
+            val t=a.column();t.addView(label(title,Type.SECONDARY));t.addView(a.text(value,Type.H2,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)});r.addView(t,LinearLayout.LayoutParams(0,-2,1f))
+            if(side.isNotBlank())r.addView(label(side,Type.SECONDARY).apply{gravity=Gravity.END},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)});box.addView(r)}
         fun tileOf(kind:String,c:Int)=FrameLayout(a).apply{background=pill((c and 0xffffff) or ((if(light)0x22 else 0x26) shl 24),22);addView(RecordIcon(a,kind,c),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER))}
         fast?.let{(b,days,ms)->row(tileOf("bolt",orange),"Быстрее всего прочитана","«${b.str("title")}» за $days ${daysWordRu(days)}",if(ms>=3_600_000L)"${ms/3_600_000L} ч\nчтения" else if(ms>=60000)"${ms/60000} мин\nчтения" else "")}
         sitting?.let{(ms,at)->row(tileOf("hour",violet),"Самая долгая сессия",duration(ms),at?.let{dayMonth(it)}?:"")}
@@ -393,10 +393,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         fun bind(){box.removeAllViews()
             val list=yearBooks(model,data,today.year);val target=model.target(today.year)
             val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-            val title=a.column();title.addView(kicker("Мой год в книгах"));title.addView(a.text("${today.year}",30f,a.fg,true,serif=true).apply{includeFontPadding=false;setPadding(0,a.d(6),0,0)})
+            val title=a.column();title.addView(kicker("Мой год в книгах"));title.addView(a.text("${today.year}",Type.H1,a.fg,true,serif=true).apply{includeFontPadding=false;setPadding(0,a.d(6),0,0)})
             top.addView(title,LinearLayout.LayoutParams(0,-2,1f))
             val expand=FrameLayout(a).apply{isClickable=true;contentDescription="Открыть год в книгах";setOnClickListener{openRoad(box,years){bind()}}
-                background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(light)0x0d000000 else 0x12ffffff)}
+                background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(Ui.fill(light))}
                 addView(Glyph(a,"expand",a.fg),FrameLayout.LayoutParams(a.d(15),a.d(15),Gravity.CENTER));a.press(this)}
             top.addView(expand,LinearLayout.LayoutParams(a.d(34),a.d(34)).apply{marginStart=a.d(10)})
             box.addView(top)
@@ -423,7 +423,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             top.addView(kicker("Тир-лист $y"),LinearLayout.LayoutParams(0,-2,1f))
             // the same full-screen button as on «Цель на год»
             top.addView(FrameLayout(a).apply{isClickable=true;contentDescription="Открыть тир-лист";setOnClickListener{box.performClick()}
-                background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(if(light)0x0d000000 else 0x12ffffff)}
+                background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(Ui.fill(light))}
                 addView(Glyph(a,"expand",a.fg),FrameLayout.LayoutParams(a.d(15),a.d(15),Gravity.CENTER));a.press(this)},LinearLayout.LayoutParams(a.d(34),a.d(34)))
             box.addView(top);space(box,8)
             val list=Tiers.books(model,y)
@@ -459,7 +459,7 @@ internal fun MainActivity.wheel(min:Int,max:Int,value:Int,description:String)=Nu
     for(i in 0 until childCount)(getChildAt(i) as? EditText)?.visibility=View.INVISIBLE
 }
 internal fun MainActivity.monthEditor(initial:YearMonth,today:LocalDate,onSave:(YearMonth)->Unit) {
-    val box=column();val captions=line();listOf("Месяц","Год").forEach{captions.addView(text(it,14f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f))};box.addView(captions);val row=line();val month=wheel(1,12,initial.monthValue,"Месяц");val year=wheel(1900,today.year,initial.year,"Год");row.addView(month,LinearLayout.LayoutParams(0,d(144),1f));row.addView(year,LinearLayout.LayoutParams(0,d(144),1f));year.setOnValueChangedListener{_,_,y->month.maxValue=if(y==today.year)today.monthValue else 12};if(initial.year==today.year)month.maxValue=today.monthValue
+    val box=column();val captions=line();listOf("Месяц","Год").forEach{captions.addView(text(it,Type.TEXT,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f))};box.addView(captions);val row=line();val month=wheel(1,12,initial.monthValue,"Месяц");val year=wheel(1900,today.year,initial.year,"Год");row.addView(month,LinearLayout.LayoutParams(0,d(144),1f));row.addView(year,LinearLayout.LayoutParams(0,d(144),1f));year.setOnValueChangedListener{_,_,y->month.maxValue=if(y==today.year)today.monthValue else 12};if(initial.year==today.year)month.maxValue=today.monthValue
     box.addView(row);dialog().setTitle("Месяц календаря").setView(box).setPositiveButton("Показать"){_,_->onSave(YearMonth.of(year.value,month.value))}.show()
 }
 
