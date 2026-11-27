@@ -128,7 +128,7 @@ internal class CardMorph(private val a:MainActivity,private val frame:FrameLayou
     private var gen=0
     fun close(done:()->Unit){gen++;val held=!bounds.isEmpty&&swiping;swiping=false
         frame.post{val r=radius;if(held)home.set(bounds) else full();capture();content.setLayerType(View.LAYER_TYPE_HARDWARE,null);pose(if(held)1f else k,if(held)r else 0f)
-            run(k,0f,if(held)380 else 420,PathInterpolator(.3f,0f,.1f,1f),{pose(it,if(held)r else 0f)}){done()}}}
+            run(k,0f,if(held)380 else 420,MotionSpec.enter,{pose(it,if(held)r else 0f)}){done()}}}
 
     // ── the swipe back ──
     private var swiping=false

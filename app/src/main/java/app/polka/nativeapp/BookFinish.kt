@@ -67,7 +67,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
     private var closed=false
     private val motion get()=a.prefs.str("motion")!="reduced"
     /** The cover's pop: past its size and back, once. */
-    private val pop=android.view.animation.PathInterpolator(.34f,1.56f,.64f,1f)
+    private val pop=Motion.expand.interpolator
     private var root:View?=null
 
     /** [pageBg]: the reader's backdrop (a comic's), which the screen turns into on the way to the next issue. */
@@ -227,7 +227,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
             val rnd=java.util.Random(book.str("id").hashCode().toLong());val colors=palette()
             bits.clear();repeat(24){val tall=rnd.nextBoolean()
                 bits.add(Bit((rnd.nextFloat()*2*Math.PI).toFloat(),a.d(120)+rnd.nextFloat()*a.d(70),a.d(if(tall)6 else 8).toFloat(),a.d(if(tall)14 else 8).toFloat(),(rnd.nextFloat()*2-1)*260f,colors[rnd.nextInt(colors.size)]))}
-            android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=1000;interpolator=android.view.animation.LinearInterpolator()
+            android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.CYCLE;interpolator=android.view.animation.LinearInterpolator()
                 addUpdateListener{t=it.animatedValue as Float;invalidate()}
                 addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){t=-1f;invalidate()}});start()}}
         /** The cover's own colours, lifted to show on the page, with the page's ink. */
@@ -286,7 +286,7 @@ internal fun nextIssue(a:MainActivity,book:JSONObject):JSONObject?{
     val list=a.books.filter{isComic(it)&&it.str("series").trim().lowercase()==key}
         .sortedWith(compareBy<JSONObject>{it.optDouble("seriesNo",0.0).takeIf{n->n>0}?:Double.MAX_VALUE}.thenBy{natural(it.str("title"))})
     val i=list.indexOfFirst{it.str("id")==book.str("id")};if(i<0)return null
-    return list.getOrNull(i+1)?.takeIf{!it.optBoolean("noFile")}
+    return list.getOrNull(i+1)
 }
 /** «#08»: as the issue's own title writes its number, or from its number in the series. */
 internal fun issueLabel(n:JSONObject):String=Regex("#\\s*\\d+").find(n.str("title"))?.value?.replace(" ","")

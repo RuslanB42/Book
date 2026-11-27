@@ -28,7 +28,7 @@ internal class AddMenu(private val a:MainActivity){
         a.root.addView(v,a.root.indexOfChild(fab),FrameLayout.LayoutParams(-1,-1))
         nav.visibility=View.INVISIBLE
         if(reduced){v.pose(1f,1f,FloatArray(v.rows.size){1f},0f,1f);return}
-        val spring=Spring.of(.22,420.0);val total=max(spring.duration,620L)
+        val spring=Motion.expand;val total=max(spring.duration,620L)
         clock=ValueAnimator.ofFloat(0f,total.toFloat()).apply{duration=total;interpolator=LinearInterpolator()
             addUpdateListener{val ms=it.animatedValue as Float
                 val t=spring.interpolator.getInterpolation((ms/spring.duration).coerceIn(0f,1f))
@@ -99,7 +99,7 @@ internal class AddMenu(private val a:MainActivity){
             r.addView(a.text(label,Type.BODY,a.fg).apply{typeface=PolkaFonts.sans(500);maxLines=1},LinearLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(14)})
             // under the finger the row lights up and swells a little (the reference's tile), and settles back after
             var lit=0f;var anim:ValueAnimator?=null
-            fun glow(on:Boolean){anim?.cancel();anim=ValueAnimator.ofFloat(lit,if(on)1f else 0f).apply{duration=if(on)140 else 320;interpolator=MotionSpec.enter
+            fun glow(on:Boolean){anim?.cancel();anim=ValueAnimator.ofFloat(lit,if(on)1f else 0f).apply{duration=if(on)Motion.FAST else Motion.STANDARD;interpolator=MotionSpec.enter
                 addUpdateListener{lit=it.animatedValue as Float;bg.setColor(ColorUtils.setAlphaComponent(a.fg,((if(light)20 else 38)*lit).roundToInt()));val s=1f+.025f*lit;r.scaleX=s;r.scaleY=s};start()}}
             r.setOnTouchListener{_,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->glow(true);MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->glow(false)};false}
             r.setOnClickListener{if(!closing)close(act)}
@@ -125,7 +125,7 @@ internal class AddMenu(private val a:MainActivity){
             now.set(from.left,from.bottom-h,from.left+w,from.bottom);return now}
 
         override fun onDraw(c:Canvas){
-            if(dim>0f)c.drawColor(ColorUtils.setAlphaComponent(if(light)0xfff2f2f0.toInt() else Color.BLACK,((if(light)102 else 153)*dim).roundToInt()))
+            if(dim>0f)c.drawColor(Ui.scrim(light,dim))
             val r=current();val k=t.coerceIn(0f,1f);val radius=r0+(r1-r0)*k
             // the bar has no shade; the menu over the page takes its own as it grows (made for its full size and
             // stretched to the shape on the way)

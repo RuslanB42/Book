@@ -4,25 +4,9 @@ import android.animation.TimeInterpolator
 import kotlin.math.*
 
 /**
- * Motion toolkit ported from anime.js v4 (MIT, Julian Garnier) to native Android:
- * the same easing family, the same physical spring solver, and the same stagger maths —
- * so animations here move the way anime.js animations do on the web.
+ * The spring solver and stagger maths of anime.js v4 (MIT, Julian Garnier). The app's curves are only
+ * [MotionSpec]'s three and its springs only [Motion.expand] and [Motion.response].
  */
-internal object Ease {
-    private fun power(p:Float)={t:Float->t.toDouble().pow(p.toDouble()).toFloat()}
-    private val expo={t:Float->if(t==0f)0f else 2.0.pow(10.0*t-10.0).toFloat()}
-    // easeTypes of anime.js
-    private fun inn(f:(Float)->Float)=TimeInterpolator{t->f(t)}
-    private fun out(f:(Float)->Float)=TimeInterpolator{t->1-f(1-t)}
-    private fun inOut(f:(Float)->Float)=TimeInterpolator{t->if(t<.5f)f(t*2)/2 else 1-f(t*-2+2)/2}
-
-    val outQuad=out(power(2f))
-    val inCubic=inn(power(3f));val outCubic=out(power(3f))
-    val outExpo=out(expo)
-    /** anime.js `out(power)` / `inOut(power)` with a custom exponent (default 1.68). */
-    fun out(p:Float=1.68f)=out(power(p));fun inOut(p:Float=1.68f)=inOut(power(p))
-}
-
 /**
  * anime.js `createSpring`: a damped harmonic oscillator. Either physical parameters (mass, stiffness, damping,
  * velocity) or the perceptual pair (bounce −1…1, duration ms — Apple's SwiftUI model). [interpolator] maps the

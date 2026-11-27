@@ -92,7 +92,7 @@ internal class ReaderPanel(private val a:MainActivity,private val surface:Linear
         settle={end()}
         come.forEach{pose(it,0f,a.d(8).toFloat(),a.d(8).toFloat())}
         lp.height=startH;stage.layoutParams=lp
-        val spring=Spring.of(.22,420.0)
+        val spring=Motion.expand
         val total=max(spring.duration,150L+45L*come.size+300L)
         var hidden=false
         clock=ValueAnimator.ofFloat(0f,total.toFloat()).apply{duration=total;interpolator=LinearInterpolator()

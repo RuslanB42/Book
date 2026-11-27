@@ -12,8 +12,8 @@ import kotlin.math.roundToInt
  *  the average rating. [big] is the full-screen size. */
 internal fun MainActivity.yearTiles(list:List<YearBook>,goal:Int,big:Boolean):LinearLayout{
     val row=line().apply{gravity=Gravity.TOP}
-    val num=if(big)26f else 22f;val unit=if(big)15f else 13f
-    fun tile(build:(LinearLayout)->Unit){val t=column().apply{background=shape(if(light)0x0a000000 else (if(big)0xff242426.toInt() else 0x0affffff),if(big)18 else 16);setPadding(d(12),d(12),d(12),d(13))}
+    val num=if(big)Type.H1 else Type.H2;val unit=if(big)Type.TEXT else Type.SECONDARY
+    fun tile(build:(LinearLayout)->Unit){val t=column().apply{background=shape(if(big&&!light)Ui.control(false) else Ui.fill(light),if(big)Radius.R20 else Radius.R16);setPadding(d(12),d(12),d(12),d(13))}
         build(t);row.addView(t,LinearLayout.LayoutParams(0,-1,1f).apply{if(row.childCount>0)marginStart=d(8)})}
     fun value(main:String,tail:String,lead:String="")=android.text.SpannableStringBuilder().apply{
         if(lead.isNotEmpty()){append(lead);setSpan(RoundStarSpan(StarRow.starYellow(this@yearTiles),.72f),0,length,0);append(" ")}
@@ -65,7 +65,7 @@ internal fun MainActivity.goalYearPage(model:ReadingStatistics,list:List<YearBoo
     val page=column().apply{setPadding(d(20),0,d(20),0);clipChildren=false}
     val rails=YearRails(this);page.tag=rails
     page.addView(text("МОЙ ГОД В КНИГАХ",Type.SECONDARY,Ui.ink2(light),true).apply{letterSpacing=.16f},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(18)})
-    page.addView(text("$year",84f,fg,true,serif=true).apply{includeFontPadding=false;maxLines=1},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(2)})
+    page.addView(text("$year",Type.POSTER,fg,true,serif=true).apply{includeFontPadding=false;maxLines=1},LinearLayout.LayoutParams(-2,-2).apply{topMargin=d(2)})
     page.addView(yearTiles(list,goal,true),LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(20)})
     val last=if(year==today.year)today.monthValue else 12
     val names=listOf("Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь")

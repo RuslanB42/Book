@@ -10,7 +10,7 @@ import android.animation.ValueAnimator
 import kotlin.math.roundToInt
 
 internal object ReadingQueue {
- fun books(all:List<JSONObject>)=all.filter{!it.optBoolean("noFile")&&Library.status(it)=="reading"}.sortedWith(compareByDescending<JSONObject>{it.optLong("openedAt")}.thenBy{it.str("id")})
+ fun books(all:List<JSONObject>)=all.filter{Library.status(it)=="reading"}.sortedWith(compareByDescending<JSONObject>{it.optLong("openedAt")}.thenBy{it.str("id")})
 }
 /** Native scrolling with a spring snap; the next book remains visible. Kindle-style cards: the real cover stands on
  *  the left and rises above the card's top edge; the card is a gradient of the cover's own colour; title, author,
@@ -55,7 +55,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    *  throw's real velocity, so a quick flick and a slow release both flow on without a seam. */
   fun springTo(page:Int,velocity:Int){val target=(page*stride).toFloat();glide?.cancel();if(reduced||target.toInt()==scrollX&&velocity==0){scrollTo(target.toInt(),0);return}
    val k=260.0;val c=2*.8*kotlin.math.sqrt(k);var x=scrollX.toDouble();var v=velocity.toDouble();var last=-1L
-   glide=ValueAnimator.ofFloat(0f,1f).apply{duration=2000;interpolator=null
+   glide=ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.CYCLE*2;interpolator=null
     addUpdateListener{an->val now=an.currentPlayTime;val dt=if(last<0)0.0 else ((now-last).coerceIn(0,40))/1000.0;last=now
      var left=dt;while(left>0){val h=minOf(left,1/240.0);val acc=-k*(x-target)-c*v;v+=acc*h;x+=v*h;left-=h}
      if(kotlin.math.abs(x-target)<.5&&kotlin.math.abs(v)<12){scrollTo(target.toInt(),0);an.cancel()} else scrollTo(x.roundToInt(),0)}
@@ -137,8 +137,8 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  /** The buttons sink clearly under the finger and spring back when released. */
  private fun pressy(v:View){v.setOnTouchListener{view,e->view.background?.setHotspot(e.x,e.y);if(reduced)return@setOnTouchListener false
    when(e.actionMasked){
-    MotionEvent.ACTION_DOWN->view.animate().scaleX(.9f).scaleY(.9f).alpha(.82f).setDuration(Motion.FAST).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()
-    MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val sp=Spring.of(.5,460.0);view.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}
+    MotionEvent.ACTION_DOWN->view.animate().scaleX(.9f).scaleY(.9f).alpha(.82f).setDuration(Motion.FAST).setInterpolator(MotionSpec.enter).start()
+    MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{val sp=Motion.response;view.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(sp.duration).setInterpolator(sp.interpolator).start()}}
    false}}
  private fun resize(viewport:Int){if(viewport<=0||viewport==lastViewport)return;lastViewport=viewport;val content=(viewport-a.d(40)).coerceAtLeast(1)
   // The card in focus sits at the normal page margin on the left; the next one peeks in on the right.
@@ -229,9 +229,9 @@ internal class RisingCoverCard(private val a:MainActivity):FrameLayout(a){
 internal class HeroProgress(private val a:MainActivity,private val fraction:Float,animated:Boolean=false):View(a){
  private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var shown=if(animated)0f else 1f;private var revealed=!animated
  /** Fill the bar the first time its card comes into focus. */
- fun reveal(){if(revealed)return;revealed=true;ValueAnimator.ofFloat(0f,1f).apply{startDelay=120;duration=Motion.LONG;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
+ fun reveal(){if(revealed)return;revealed=true;ValueAnimator.ofFloat(0f,1f).apply{startDelay=120;duration=Motion.LONG;interpolator=MotionSpec.enter;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
  init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
- fun grow(delay:Long){shown=0f;ValueAnimator.ofFloat(0f,1f).apply{startDelay=delay;duration=900;interpolator=Ease.outExpo;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
+ fun grow(delay:Long){shown=0f;ValueAnimator.ofFloat(0f,1f).apply{startDelay=delay;duration=Motion.LONG;interpolator=MotionSpec.enter;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
  override fun onDraw(c:Canvas){val h=a.d(4).toFloat();val cy=height/2f;val w=width.toFloat();val r=h/2
   val ink=a.fg and 0xffffff
   p.shader=null;p.color=ink or ((if(a.light)0x1a else 0x26) shl 24);c.drawRoundRect(0f,cy-r,w,cy+r,r,r,p)

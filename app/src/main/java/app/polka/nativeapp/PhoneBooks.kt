@@ -151,7 +151,7 @@ internal fun MainActivity.phoneScanResumed(){if(!phoneScanAsked)return;phoneScan
 
 internal fun MainActivity.addPhoneBooks(files:List<File>){
     if(files.isEmpty())return
-    importUris(files.map{Uri.fromFile(it)},false){read->PhoneBooks.remember(this,"added",read.mapNotNull{it.path})}
+    importUris(files.map{Uri.fromFile(it)}){read->PhoneBooks.remember(this,"added",read.mapNotNull{it.path})}
 }
 
 /** The sheet of what was found: it fills in while the search goes on (a thin line runs under the title), grouped by
@@ -223,7 +223,7 @@ internal class PhoneScan(private val a:MainActivity){
 
     private fun row(item:Item,g:Group):View{val f=item.f
         val r=a.line().apply{setPadding(a.d(6),a.d(8),a.d(6),a.d(8))}
-        val tile=FrameLayout(a).apply{background=a.shape(if(a.light)0xffe9e9ec.toInt() else 0xff2a2a2d.toInt(),Radius.R8)
+        val tile=FrameLayout(a).apply{background=a.shape(Ui.pressed(a.light),Radius.R8)
             addView(a.text(f.kind,Type.CAPTION,color(f.kind),true).apply{letterSpacing=.04f;gravity=Gravity.CENTER},FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{bottomMargin=a.d(7)})}
         r.addView(tile,LinearLayout.LayoutParams(a.d(40),a.d(52)))
         val texts=a.column()
@@ -244,15 +244,14 @@ internal class PhoneScan(private val a:MainActivity){
 
     private fun add(){val files=chosen().map{it.f.file};if(files.isEmpty())return;stopped=true;sheet?.dismiss();a.addPhoneBooks(files)}
 
-    private fun color(kind:String)=when(kind){"EPUB"->0xff5b8def.toInt();"FB2"->0xffe0a63a.toInt();"PDF"->0xffe06a5a.toInt();"CBZ","CBR","CB7"->0xff8f7af0.toInt()
-        "MOBI","AZW"->0xff4fb38a.toInt();"DOCX","RTF"->0xff6aa0e0.toInt();else->a.muted}
+    private fun color(kind:String)=Palette.fileType(kind)?:a.muted
     private fun size(n:Long):String{val kb=n/1024.0;return if(kb<1000)"${kb.toInt().coerceAtLeast(1)} КБ" else String.format(java.util.Locale("ru"),"%.1f МБ",kb/1024).replace(",0 МБ"," МБ")}
 }
 
 /** The thin line under the sheet's title while the search goes on: a short stroke running along it. */
 private class ScanLine(private val a:MainActivity):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var x=0f
-    private val run=ValueAnimator.ofFloat(0f,1f).apply{duration=1100;repeatCount=ValueAnimator.INFINITE;interpolator=LinearInterpolator();addUpdateListener{x=it.animatedValue as Float;invalidate()}}
+    private val run=ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.CYCLE;repeatCount=ValueAnimator.INFINITE;interpolator=LinearInterpolator();addUpdateListener{x=it.animatedValue as Float;invalidate()}}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(a.prefs.str("motion")!="reduced")run.start()}
     override fun onDetachedFromWindow(){run.cancel();super.onDetachedFromWindow()}
     fun finish(){animate().alpha(0f).setDuration(Motion.STANDARD).withEndAction{run.cancel();visibility=GONE}.start()}

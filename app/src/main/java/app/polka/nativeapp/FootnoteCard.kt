@@ -71,6 +71,6 @@ internal class FootnoteCard(private val a:MainActivity,private val host:FrameLay
                 if(first!=null&&m!=null){if(label.isBlank())label=m.groupValues[1];first.text(first.text().substring(m.range.last+1))}}
             return label to e.outerHtml()}
         private fun blend(a:Int,b:Int,k:Float)=Color.rgb((Color.red(a)+(Color.red(b)-Color.red(a))*k).toInt(),(Color.green(a)+(Color.green(b)-Color.green(a))*k).toInt(),(Color.blue(a)+(Color.blue(b)-Color.blue(a))*k).toInt())
-        private fun fade(c:Int,k:Float)=(c and 0x00ffffff) or ((255*k).toInt() shl 24)
+        private fun fade(c:Int,k:Float)=Ui.alpha(c,(255*k).toInt())
     }
 }

@@ -28,7 +28,7 @@ internal class ButtonMenu(private val a:MainActivity,private val anchor:View,pri
         a.root.addView(v,FrameLayout.LayoutParams(-1,-1))
         anchor.visibility=View.INVISIBLE
         if(reduced){v.pose(1f,1f,FloatArray(v.rows.size){1f},1f);return}
-        val spring=Spring.of(.22,420.0);val total=max(spring.duration,620L)
+        val spring=Motion.expand;val total=max(spring.duration,620L)
         clock=ValueAnimator.ofFloat(0f,total.toFloat()).apply{duration=total;interpolator=LinearInterpolator()
             addUpdateListener{val ms=it.animatedValue as Float
                 val t=spring.interpolator.getInterpolation((ms/spring.duration).coerceIn(0f,1f))
@@ -104,7 +104,7 @@ internal class ButtonMenu(private val a:MainActivity,private val anchor:View,pri
             r.addView(a.text(item.label,Type.BODY,ink).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=a.d(14)})
             // under the finger the row lights up and swells a little, as in the «＋» menu
             var lit=0f;var anim:ValueAnimator?=null
-            fun glow(on:Boolean){anim?.cancel();anim=ValueAnimator.ofFloat(lit,if(on)1f else 0f).apply{duration=if(on)140 else 320;interpolator=MotionSpec.enter
+            fun glow(on:Boolean){anim?.cancel();anim=ValueAnimator.ofFloat(lit,if(on)1f else 0f).apply{duration=if(on)Motion.FAST else Motion.STANDARD;interpolator=MotionSpec.enter
                 addUpdateListener{lit=it.animatedValue as Float;bg.setColor(ColorUtils.setAlphaComponent(ink,((if(light)20 else 38)*lit).roundToInt()));val s=1f+.025f*lit;r.scaleX=s;r.scaleY=s};start()}}
             r.setOnTouchListener{_,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->glow(true);MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->glow(false)};false}
             r.setOnClickListener{if(!closing)close(item.act)}
@@ -128,7 +128,7 @@ internal class ButtonMenu(private val a:MainActivity,private val anchor:View,pri
             now.set(x,y,x+w,y+h);return now}
 
         override fun onDraw(c:Canvas){
-            if(dim>0f)c.drawColor(ColorUtils.setAlphaComponent(if(light)0xfff2f2f0.toInt() else Color.BLACK,((if(light)102 else 153)*dim).roundToInt()))
+            if(dim>0f)c.drawColor(Ui.scrim(light,dim))
             val r=current();val k=t.coerceIn(0f,1f);val radius=r0+(r1-r0)*k
             if(k>0f)FloatShade.draw(c,a,r,radius,light,(255*k).roundToInt(),lift=Lift.OVER,bakeAs=to)
             // the card takes its colour as it leaves the button (whose own ground is in the picture blurring away)

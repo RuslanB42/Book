@@ -9,7 +9,6 @@ import android.view.ViewOutlineProvider
 
 import android.animation.*
 import android.view.*
-import android.view.animation.PathInterpolator
 import android.widget.*
 import org.json.JSONObject
 import kotlin.math.*
@@ -51,8 +50,8 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
     private inner class Dots:View(a){
         private val p=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
         private var at=index.toFloat();private var anim:ValueAnimator?=null
-        private val rest=if(a.light)0xffc9c9cd.toInt() else 0xff5a5a5f.toInt()
-        fun go(i:Int){if(width==0||reduced()){at=i.toFloat();invalidate();return};anim?.cancel();anim=ValueAnimator.ofFloat(at,i.toFloat()).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{at=it.animatedValue as Float;invalidate()};start()}}
+        private val rest=Ui.icon(a.light)
+        fun go(i:Int){if(width==0||reduced()){at=i.toFloat();invalidate();return};anim?.cancel();anim=ValueAnimator.ofFloat(at,i.toFloat()).apply{duration=Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{at=it.animatedValue as Float;invalidate()};start()}}
         override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
         override fun onDraw(c:android.graphics.Canvas){val n=list.size;if(n<2)return
             val dot=a.d(6).toFloat();val gap=a.d(6).toFloat();val wide=a.d(18).toFloat();val h=dot;val y=(height-h)/2f
@@ -189,13 +188,13 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
                     val go=e.actionMasked==MotionEvent.ACTION_UP&&(abs(dx)>width*.3f||abs(vx)>a.d(700)&&sign(vx)==sign(dx))
                     if(go)fling(if(dx<0)-1 else 1) else settleBack()}
             };return true}
-        private fun settleBack(){front.animate().translationX(0f).translationY(0f).rotation(0f).setDuration(Motion.EMPHASIS).setInterpolator(PathInterpolator(.2f,1.25f,.4f,1f)).start()
-            val from=lift;ValueAnimator.ofFloat(from,0f).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{pose(it.animatedValue as Float)};start()}}
+        private fun settleBack(){front.animate().translationX(0f).translationY(0f).rotation(0f).setDuration(Motion.EMPHASIS).setInterpolator(Motion.expand.interpolator).start()
+            val from=lift;ValueAnimator.ofFloat(from,0f).apply{duration=Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{pose(it.animatedValue as Float)};start()}}
         private fun fling(dir:Int){
             busy=true;val old=front;val oldH=(old.tag as? Int)?:old.height
             haptic(a,Haptic.SELECT)
             index=Math.floorMod(index+(if(dir<0)1 else -1),list.size);a.quoteDeckIndex[book.str("id")]=index;updateCounter()
-            val glide=PathInterpolator(.2f,0f,0f,1f);val swing=PathInterpolator(.45f,0f,.25f,1f);val settle=android.view.animation.OvershootInterpolator(1.1f)
+            val glide=MotionSpec.enter;val swing=MotionSpec.move;val settle=Motion.expand.interpolator
             val sx=old.translationX;val sy=old.translationY;val sr=old.rotation;val from=lift
             val outX=width*.82f*dir;val outY=a.d(28).toFloat();val outR=dir*16f
             val back=cards.size-2 // the last place in the fan

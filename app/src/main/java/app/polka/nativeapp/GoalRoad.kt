@@ -93,7 +93,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         roadHost.addView(nw,FrameLayout.LayoutParams(-1,-2))
         scroll.scrollTo(0,0);nw.post{(nw.tag as? YearRails)?.stick(scroll)}
         if(old!=null){if(animated&&motion){old.animate().alpha(0f).setDuration(Motion.FAST).withEndAction{roadHost.removeView(old)}.start()
-            nw.alpha=0f;nw.animate().alpha(1f).setStartDelay(120).setDuration(Motion.EMPHASIS).setInterpolator(Ease.outCubic).start()} else roadHost.removeView(old)}
+            nw.alpha=0f;nw.animate().alpha(1f).setStartDelay(120).setDuration(Motion.EMPHASIS).setInterpolator(MotionSpec.enter).start()} else roadHost.removeView(old)}
     }
     fun back(){if(share!=null)closeShare() else close()}
     fun close(){if(closing)return;closing=true
@@ -110,7 +110,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
     private var poster:Bitmap?=null
     private fun openShare(){if(share!=null)return
         val list=yearBooks(model,data,year);val goal=model.target(year);val y=year
-        val layer=FrameLayout(a).apply{setBackgroundColor(if(a.light)0xe6f2f2f0.toInt() else 0xe608080a.toInt());isClickable=true;setOnClickListener{closeShare()}}
+        val layer=FrameLayout(a).apply{setBackgroundColor(Ui.veil(a.light));isClickable=true;setOnClickListener{closeShare()}}
         val box=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
         val img=ImageView(a).apply{scaleType=ImageView.ScaleType.FIT_CENTER;elevation=a.d(16).toFloat();clipToOutline=true;contentDescription="Мой год в книгах — $y"
             outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,a.d(22).toFloat())}};isClickable=true}
@@ -151,7 +151,7 @@ internal class StarRow(private val a:MainActivity,var rating:Int,private val siz
     override fun onDraw(c:Canvas){val s=a.d(1)*sizeDp;val g=a.d(1)*gapDp
         for(i in 0 until 5){p.color=if(i>=rating)Ui.icon(a.light) else starYellow(a);drawStar(c,i*(s+g),0f,s,p,i>=rating)}}
     companion object{
-        fun starYellow(a:MainActivity)=if(a.light)0xfff5a524.toInt() else 0xffffc53d.toInt()
+        fun starYellow(a:MainActivity)=Palette.star(a.light)
         /** A rounded five-point star filling the [size] square at x, y ([outline]: only its edge). */
         fun drawStar(c:Canvas,x:Float,y:Float,size:Float,p:Paint,outline:Boolean=false){val path=Path();val cx=x+size/2;val cy=y+size*.53f;val R=size*.5f;val r=R*.48f
             for(i in 0 until 10){val rr=if(i%2==0)R else r;val t=Math.toRadians(-90.0+36*i);val px=(cx+rr*cos(t)).toFloat();val py=(cy+rr*sin(t)).toFloat();if(i==0)path.moveTo(px,py) else path.lineTo(px,py)};path.close()

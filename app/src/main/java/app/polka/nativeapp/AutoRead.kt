@@ -42,7 +42,7 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
     private val ink get()=r.autoInk()
     private val page get()=r.autoBg()
     private val surface get()=androidx.core.graphics.ColorUtils.blendARGB(page,ink,.08f)
-    private val muted get()=(ink and 0xffffff) or (0x8c shl 24)
+    private val muted get()=Ui.alpha(ink,0x8c)
 
     // ── the page now (page mode) ──
     private var key="";private var lastPos=-1;private var furthest=-1;private var lastChars=0
@@ -151,14 +151,14 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
         private val p=Paint()
         init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
         override fun onDraw(c:Canvas){translationY=(parent as? View)?.paddingBottom?.toFloat()?:0f
-            val w=width.toFloat();val h=height.toFloat();p.color=(ink and 0xffffff) or (0x14 shl 24);c.drawRect(0f,0f,w,h,p)
-            val k=(spentNow().toFloat()/due.coerceAtLeast(1)).coerceIn(0f,1f);p.color=(ink and 0xffffff) or (0x8c shl 24);c.drawRect(0f,0f,w*k,h,p)}}
+            val w=width.toFloat();val h=height.toFloat();p.color=Ui.alpha(ink,0x14);c.drawRect(0f,0f,w,h,p)
+            val k=(spentNow().toFloat()/due.coerceAtLeast(1)).coerceIn(0f,1f);p.color=Ui.alpha(ink,0x8c);c.drawRect(0f,0f,w*k,h,p)}}
 
     // ── the control (paused) ──
     private var panel:LinearLayout?=null;private var value:TextView?=null
     private fun showValue(t:TextView){val s=android.text.SpannableStringBuilder("$speed  ${sc.unit}")
-        val n="$speed".length;s.setSpan(android.text.style.AbsoluteSizeSpan(26,true),0,n,0);s.setSpan(android.text.style.StyleSpan(Typeface.BOLD),0,n,0)
-        s.setSpan(android.text.style.ForegroundColorSpan(muted),n,s.length,0);s.setSpan(android.text.style.AbsoluteSizeSpan(13,true),n,s.length,0);t.text=s}
+        val n="$speed".length;s.setSpan(android.text.style.AbsoluteSizeSpan(Type.H1.toInt(),true),0,n,0);s.setSpan(android.text.style.StyleSpan(Typeface.BOLD),0,n,0)
+        s.setSpan(android.text.style.ForegroundColorSpan(muted),n,s.length,0);s.setSpan(android.text.style.AbsoluteSizeSpan(Type.SECONDARY.toInt(),true),n,s.length,0);t.text=s}
     private fun showPanel(){val p=panel?:build().also{panel=it}
         p.animate().cancel();p.visibility=View.VISIBLE
         if(a.prefs.str("motion")=="reduced"){p.alpha=1f;p.translationY=0f;return}
@@ -175,10 +175,10 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
         top.addView(play,LinearLayout.LayoutParams(a.d(52),a.d(52)))
         val v=TextView(a).apply{setTextColor(ink);typeface=PolkaFonts.sans(600);includeFontPadding=false;setPadding(a.d(14),0,0,0)};value=v;showValue(v)
         top.addView(v,LinearLayout.LayoutParams(0,-2,1f))
-        top.addView(IconView(a,"x",muted).apply{isClickable=true;contentDescription="Выключить автолистание";setOnClickListener{stop()};a.press(this)},LinearLayout.LayoutParams(a.d(44),a.d(44)))
+        top.addView(IconView(a,"x",muted).apply{isClickable=true;contentDescription="Выключить автолистание";setOnClickListener{stop()};a.press(this);growTouch(a,top)},LinearLayout.LayoutParams(a.d(44),a.d(44)))
         box.addView(top)
         box.addView(Dial(),LinearLayout.LayoutParams(-1,a.d(56)).apply{topMargin=a.d(14)})
-        box.addView(View(a).apply{setBackgroundColor((ink and 0xffffff) or (0x12 shl 24))},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);leftMargin=a.d(16);rightMargin=a.d(16)})
+        box.addView(View(a).apply{setBackgroundColor(Ui.alpha(ink,0x12))},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);leftMargin=a.d(16);rightMargin=a.d(16)})
         box.addView(LayoutToggle(a,"Подстраиваться под меня",adapt){on->adapt=on;a.prefs.put("autoAdapt",on);a.savePreferences()},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(12);leftMargin=a.d(12);rightMargin=a.d(12)})
         box.addView(AskRow(),LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(8);leftMargin=a.d(12);rightMargin=a.d(12)})
         r.autoView.addView(box,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{leftMargin=a.d(14);rightMargin=a.d(14);bottomMargin=a.d(26)+r.autoInset()})
@@ -195,7 +195,7 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
         override fun onDraw(c:Canvas){val h=height.toFloat();val w=width.toFloat();val d=a.resources.displayMetrics.density
             p.color=Ui.fill(a.light);c.drawRoundRect(0f,0f,w,h,h/2,h/2,p)
             t.typeface=PolkaFonts.sans(400);t.textSize=Type.SECONDARY*a.resources.displayMetrics.scaledDensity;val mid=h/2f-(t.ascent()+t.descent())/2f
-            t.color=if(a.light)0xff3a3a3e.toInt() else 0xffcfcfd4.toInt();t.textAlign=Paint.Align.LEFT;c.drawText("«Ещё читаете?»",14*d,mid,t)
+            t.color=Ui.ink2(a.light);t.textAlign=Paint.Align.LEFT;c.drawText("«Ещё читаете?»",14*d,mid,t)
             t.color=Ui.ink2(a.light);t.textAlign=Paint.Align.RIGHT;c.drawText(askLabel(a.prefs.optInt("autoAsk",10)),w-30*d,mid,t)
             c.save();c.translate(w-26*d,(h-16*d)/2);c.scale(16*d/24f,16*d/24f);IosIcons.draw(c,"next",t.color);c.restore()}
     }
@@ -205,7 +205,7 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
         private val gap=a.d(12).toFloat()
         private var at=speed.toFloat()
         private var mark=speed/sc.step
-        private val fling=OverScroller(a,android.view.animation.DecelerateInterpolator(1.6f))
+        private val fling=OverScroller(a,MotionSpec.enter)
         private var vt:VelocityTracker?=null;private var lastX=0f
         private var settle:ValueAnimator?=null
         private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeCap=Paint.Cap.ROUND}
@@ -229,9 +229,9 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
             val first=((p0-cx)/gap).toInt()-1;val last=((p0+cx)/gap).toInt()+1
             for(k in max(0,first)..min((sc.max-sc.min)/sc.step,last)){val x=cx+k*gap-p0;val v=sc.min+k*sc.step;val major=v%sc.major==0
                 val fade=(1f-((x-cx)/cx).let{it*it}).coerceIn(0f,1f)
-                p.strokeWidth=a.d(2).toFloat();p.color=(ink and 0xffffff) or ((255*(if(major).55f else .22f)*fade).toInt() shl 24)
+                p.strokeWidth=a.d(2).toFloat();p.color=Ui.alpha(ink,(255*(if(major).55f else .22f)*fade).toInt())
                 c.drawLine(x,base-a.d(if(major)22 else 12),x,base-a.d(1),p)
-                if(major&&abs(x-cx)>gap*1.5f){t.color=(muted and 0xffffff) or ((255*.8f*fade).toInt() shl 24);c.drawText("$v",x,a.d(12).toFloat(),t)}}
+                if(major&&abs(x-cx)>gap*1.5f){t.color=Ui.alpha(muted,(255*.8f*fade).toInt());c.drawText("$v",x,a.d(12).toFloat(),t)}}
             p.strokeWidth=a.d(3).toFloat();p.color=ink;c.drawLine(cx,base-a.d(34),cx,base-a.d(1),p)}
         override fun onDetachedFromWindow(){fling.forceFinished(true);settle?.cancel();super.onDetachedFromWindow()}
     }
@@ -239,14 +239,14 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
     // ── «Ещё читаете?» ──
     private var card:FrameLayout?=null;private var countdown:ValueAnimator?=null
     private fun ask(){spent=spentNow();asking=true;line.invalidate()
-        val scrim=FrameLayout(a).apply{setBackgroundColor(0x73000000);isClickable=true;setOnClickListener{answer()}}
+        val scrim=FrameLayout(a).apply{setBackgroundColor(Ui.scrim(a.light));isClickable=true;setOnClickListener{answer()}}
         val box=LinearLayout(a).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_HORIZONTAL;setPadding(a.d(22),a.d(24),a.d(22),a.d(18));isClickable=true;elevation=a.d(16).toFloat()
             a.overSurface(this,surface,26)}
         val ring=object:View(a){var k=1f;var secs=20
             private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND}
             private val t=Paint(Paint.ANTI_ALIAS_FLAG).apply{textAlign=Paint.Align.CENTER;textSize=Type.TITLE*a.resources.displayMetrics.scaledDensity;typeface=PolkaFonts.sans(600)}
             override fun onDraw(c:Canvas){val s=a.d(4).toFloat();val rr=RectF(s,s,width-s,height-s);p.strokeWidth=s
-                p.color=(ink and 0xffffff) or (0x1a shl 24);c.drawOval(rr,p);p.color=ink;c.drawArc(rr,-90f,360f*k,false,p)
+                p.color=Ui.alpha(ink,0x1a);c.drawOval(rr,p);p.color=ink;c.drawArc(rr,-90f,360f*k,false,p)
                 t.color=ink;c.drawText("$secs",width/2f,height/2f-(t.ascent()+t.descent())/2f,t)}}
         box.addView(ring,LinearLayout.LayoutParams(a.d(56),a.d(56)))
         box.addView(TextView(a).apply{text="Ещё читаете?";textSize=Type.H2;typeface=PolkaFonts.sans(600);setTextColor(ink);gravity=Gravity.CENTER},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10)})

@@ -5,8 +5,6 @@ import android.graphics.*
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.view.*
-import android.view.animation.OvershootInterpolator
-import android.view.animation.PathInterpolator
 import android.widget.*
 
 /**
@@ -38,12 +36,11 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         val dlg=android.app.Dialog(a,R.style.PolkaSheetTheme);dialog=dlg
         val root=DragRoot().apply{isClickable=true;setOnClickListener{close()}}
         val sheet=a.column().apply{clipToPadding=false;clipChildren=false;isClickable=true;setPadding(a.d(18),a.d(12),a.d(18),a.d(20));elevation=a.d(16).toFloat()
-            background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(30).toFloat();setStroke(1,Ui.fill(a.light))}}
-        sheet.addView(View(a).apply{background=a.shape(if(a.light)0x33000000 else 0x38ffffff,3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(14)})
-        val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-        head.addView(a.text("Свой цвет",Type.BODY,a.fg,true),LinearLayout.LayoutParams(0,-2,1f))
-        head.addView(a.text("Готово",Type.SECONDARY,a.fg,true).apply{setPadding(a.d(10),a.d(8),a.d(2),a.d(8));isClickable=true;a.press(this);setOnClickListener{close()}})
-        sheet.addView(head,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(10)})
+            background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(Radius.R28).toFloat();setStroke(1,Ui.fill(a.light))}}
+        sheet.addView(View(a).apply{background=a.shape(Ui.handle(a.light),3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(14)})
+        // the one window head: «×» on the left, the title in the middle, «Готово» on the right
+        val head=a.windowHead("Свой цвет",true,a.fg,Ui.fill(a.light),{close()},a.headAction("Готово",a.fg){close()})
+        sheet.addView(head,LinearLayout.LayoutParams(-1,a.d(Size.HEADER)).apply{leftMargin=-a.d(6);rightMargin=-a.d(6);bottomMargin=a.d(10)})
         // the pickers reach into the sheet's side padding, which is where their knobs have room
         pad=SvPad();sheet.addView(pad,LinearLayout.LayoutParams(-1,a.d(170)+knobRoom*2).apply{leftMargin=-knobRoom;rightMargin=-knobRoom;topMargin=-knobRoom+a.d(4)})
         hue=HueBar();sheet.addView(hue,LinearLayout.LayoutParams(-1,a.d(30)+knobRoom*2).apply{leftMargin=-knobRoom;rightMargin=-knobRoom;topMargin=-knobRoom+a.d(14)-knobRoom})
@@ -100,7 +97,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         sectLabel?.text="МОИ ЦВЕТА"
         if(!editing)row.addView(AddDot(),LinearLayout.LayoutParams(a.d(52),a.d(52)))
         saved.forEach{h->val s=Swatch(h);row.addView(s,LinearLayout.LayoutParams(a.d(52),a.d(52)))
-            if(h==fresh&&!reduced){s.scaleX=.3f;s.scaleY=.3f;s.alpha=0f;s.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(Motion.EMPHASIS).setInterpolator(OvershootInterpolator(2f)).start()}}
+            if(h==fresh&&!reduced){s.scaleX=.3f;s.scaleY=.3f;s.alpha=0f;s.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(Motion.EMPHASIS).setInterpolator(Motion.expand.interpolator).start()}}
         if(saved.isEmpty()&&editing)setEditing(false)
         for(i in 0 until row.childCount)(row.getChildAt(i) as? Swatch)?.let{it.on=!editing&&it.hex==hex}}
 
@@ -108,7 +105,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
     private inner class Chip:View(a){
         private val p=Paint(Paint.ANTI_ALIAS_FLAG)
         override fun onDraw(c:Canvas){val r=height/2f;p.style=Paint.Style.FILL;p.color=color;c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),r,r,p)
-            p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=if(a.light)0x22000000 else 0x33ffffff;c.drawRoundRect(.5f,.5f,width-.5f,height-.5f,r,r,p)}
+            p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=Ui.outline(a.light);c.drawRoundRect(.5f,.5f,width-.5f,height-.5f,r,r,p)}
     }
     /** Save, as an icon: a «+» on a filled circle; once saved the circle quiets down and a green check draws itself
      *  where the «+» was (the «+» turns away and shrinks). In editing, a plain check means «Готово». */
@@ -119,9 +116,9 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         init{isClickable=true;a.press(this)}
         fun set(s:Int){if(s==state)return;from=state;state=s;anim?.cancel();contentDescription=when(s){S_SAVE->"Сохранить цвет";S_SAVED->"Цвет сохранён";else->"Готово"}
             if(from<0||reduced||!isAttachedToWindow){k=1f;invalidate();return}
-            k=0f;anim=ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
+            k=0f;anim=ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;interpolator=MotionSpec.enter;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
         private fun fill(s:Int)=if(s==S_SAVE)a.fg else quiet
-        private fun ink(s:Int)=when(s){S_SAVE->a.bg;S_SAVED->0xff4fb06a.toInt();else->a.fg}
+        private fun ink(s:Int)=when(s){S_SAVE->a.bg;S_SAVED->Palette.saved;else->a.fg}
         private val check=Path();private val part=Path();private val pm=PathMeasure()
         override fun onDraw(c:Canvas){if(state<0)return;val w=width.toFloat();val h=height.toFloat();val cx=w/2;val cy=h/2;val r=minOf(w,h)/2
             val bg=if(from<0)fill(state) else android.animation.ArgbEvaluator().evaluate(k,fill(from),fill(state)) as Int
@@ -143,7 +140,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         private val p=Paint(Paint.ANTI_ALIAS_FLAG)
         init{isClickable=true;contentDescription="Сохранить цвет";a.press(this);setOnClickListener{store()}}
         override fun onDraw(c:Canvas){val cx=width/2f;val cy=height/2f
-            p.style=Paint.Style.STROKE;p.strokeWidth=a.d(1.5f);p.color=if(a.light)0x33000000 else 0x33ffffff;c.drawCircle(cx,cy,a.d(19).toFloat(),p)
+            p.style=Paint.Style.STROKE;p.strokeWidth=a.d(1.5f);p.color=Ui.outline(a.light);c.drawCircle(cx,cy,a.d(19).toFloat(),p)
             p.style=Paint.Style.FILL;p.color=color;c.drawCircle(cx,cy,a.d(11).toFloat(),p)
             p.color=Color.WHITE;p.strokeWidth=a.d(2f);p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;val k=a.d(4.5f);c.drawLine(cx-k,cy,cx+k,cy,p);c.drawLine(cx,cy-k,cx,cy+k,p);p.style=Paint.Style.FILL}
     }
@@ -151,7 +148,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
     private inner class Swatch(val hex:String):View(a){
         private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var ring=0f;private var ringAnim:ValueAnimator?=null
         var on=false;set(v){if(field==v)return;field=v;ringAnim?.cancel();if(reduced||!isAttachedToWindow){ring=if(v)1f else 0f;invalidate();return}
-            ringAnim=ValueAnimator.ofFloat(ring,if(v)1f else 0f).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{ring=it.animatedValue as Float;invalidate()};start()}}
+            ringAnim=ValueAnimator.ofFloat(ring,if(v)1f else 0f).apply{duration=Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{ring=it.animatedValue as Float;invalidate()};start()}}
         init{isClickable=true;contentDescription="Цвет $hex";a.press(this)
             setOnClickListener{if(editing)remove() else{Color.colorToHSV((0xff shl 24) or QuoteColors.rgb(hex),hsv);changed(true)}}
             setOnLongClickListener{if(!editing){haptic(a,Haptic.LONG);setEditing(true)};true}}
@@ -160,7 +157,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         override fun onDraw(c:Canvas){val cx=width/2f;val cy=height/2f;val r=a.d(17).toFloat()
             if(ring>0f){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2f);p.color=a.fg;p.alpha=(255*ring).toInt();c.drawCircle(cx,cy,r+a.d(4f),p);p.alpha=255}
             p.style=Paint.Style.FILL;p.color=(0xff shl 24) or QuoteColors.rgb(hex);c.drawCircle(cx,cy,r,p)
-            p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=0x2effffff;c.drawCircle(cx,cy,r,p)
+            p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=Ui.outline(false);c.drawCircle(cx,cy,r,p)
             if(editing){val bx=cx+r*.72f;val by=cy-r*.72f;val br=a.d(9).toFloat()
                 p.style=Paint.Style.FILL;p.color=sheetColor;c.drawCircle(bx,by,br+a.d(2f),p);p.color=Ui.press(a.light);c.drawCircle(bx,by,br,p)
                 p.style=Paint.Style.STROKE;p.strokeWidth=a.d(1.6f);p.strokeCap=Paint.Cap.ROUND;p.color=a.fg;val k=a.d(3.2f);c.drawLine(bx-k,by-k,bx+k,by+k,p);c.drawLine(bx+k,by-k,bx-k,by+k,p);p.style=Paint.Style.FILL}}
@@ -197,7 +194,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
             knob(c,p,b.left+b.width()*hsv[0]/360f,b.centerY(),r,Color.HSVToColor(floatArrayOf(hsv[0],1f,1f)))}
     }
     private fun knob(c:Canvas,p:Paint,x:Float,y:Float,r:Float,fill:Int){
-        p.style=Paint.Style.FILL;p.color=0x40000000;c.drawCircle(x,y+a.d(1.5f),r+a.d(3f),p)
+        p.style=Paint.Style.FILL;p.color=Ui.SHADOW;c.drawCircle(x,y+a.d(1.5f),r+a.d(3f),p)
         p.color=Color.WHITE;c.drawCircle(x,y,r+a.d(3f),p);p.color=fill;c.drawCircle(x,y,r,p)}
 
     /** Pull the panel down to close it (the pickers keep their own drags). */

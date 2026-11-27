@@ -7,7 +7,6 @@ import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import android.util.LruCache
 import android.view.*
-import android.view.animation.PathInterpolator
 import android.widget.*
 import org.json.JSONObject
 import java.io.File
@@ -269,7 +268,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     /** Opens a page picked in the strip or the grid: the next or previous one slides in, a far one fades in. */
     private fun jump(i:Int){if(i==page)return;val pv=paged
         if(pv!=null&&kotlin.math.abs(i-page)==1){pv.turn(i-page);return}
-        go(i,false);if(!reduced){stage.animate().cancel();stage.alpha=.25f;stage.animate().alpha(1f).setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}
+        go(i,false);if(!reduced){stage.animate().cancel();stage.alpha=.25f;stage.animate().alpha(1f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start()}}
     private fun toggleMark(){val m=marks();if(page in m)m.remove(page) else m.add(page);book.put("pageMarks",org.json.JSONArray(m.sorted()));paint();save(false)}
     private fun menu(anchor:View){
         ButtonMenu(a,anchor,listOf(ButtonMenu.Item("check","Статус и полки"){a.statusSheet(book)},ButtonMenu.Item("pen","Изменить данные"){a.metadataEditor(book)},
@@ -288,8 +287,8 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
                     r.addView(cell,lp)}
                 grid.addView(r,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(14)})}}
         if(marks().isNotEmpty()){
-            val seg=SlidingSegment(a,0,2,Ui.fill(a.light),if(a.light)Color.WHITE else 0xfff2f2f2.toInt(),20)
-            fun tint(k:Int){for(i in 0 until seg.childCount)(seg.getChildAt(i) as TextView).setTextColor(if(i==k)(if(a.light)a.fg else 0xff111111.toInt()) else a.muted)}
+            val seg=SlidingSegment(a,0,2,Ui.fill(a.light),if(a.light)Color.WHITE else a.fg,Radius.R20)
+            fun tint(k:Int){for(i in 0 until seg.childCount)(seg.getChildAt(i) as TextView).setTextColor(if(i==k)(if(a.light)a.fg else a.bg) else a.muted)}
             listOf("Все","Закладки").forEachIndexed{k,l->seg.addView(a.text(l,Type.SECONDARY,bold=true).apply{gravity=Gravity.CENTER;a.press(this);setOnClickListener{seg.choose(k);tint(k);onlyMarks=k==1;fill()}},LinearLayout.LayoutParams(0,-1,1f))}
             tint(0);box.addView(seg,LinearLayout.LayoutParams(-1,a.d(40)).apply{bottomMargin=a.d(16)})}
         box.addView(grid);fill()
@@ -302,7 +301,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     private fun settingsPage():ReaderPanel.Page{
         val refreshers=mutableListOf<()->Unit>();val kit=PanelKit(a,refreshers)
         val box=a.column().apply{clipChildren=false;clipToPadding=false}
-        val backdrops=listOf(Triple("black","Чёрный",0xff000000.toInt() to 0xfff3f2ef.toInt()),Triple("graphite","Графит",0xff1c1c1e.toInt() to 0xfff3f2ef.toInt()),Triple("white","Белый",0xfff3f2ef.toInt() to 0xff1e1d1b.toInt()))
+        val backdrops=listOf("black" to "Чёрный","graphite" to "Графит","white" to "Белый").map{(k,l)->ReaderTint.comic(k).let{t->Triple(k,l,t.page to t.ink)}}
         box.addView(kit.colourCards(backdrops,false,{bgKey}){k->root.crossfadeColours(a){a.prefs.put("comicBg",k);a.savePreferences();applyLook();panel.rebuild(settingsPage())}},LinearLayout.LayoutParams(-1,a.d(72)))
         box.addView(kit.brightness{applyBrightness(dialog.window)},LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
         val turns=listOf(Triple("curl","curl","Листание"),Triple("slide","slide","Сдвиг"),Triple("cover","cover","Наложение"),Triple("none","none","Без анимации"),Triple("ribbon","scroll","Лента"))
@@ -334,7 +333,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
             if(width<=0)return
             val b=bitmap(i,(width*2/3).coerceAtLeast(a.d(60))){invalidate()}
             c.save();c.clipPath(Path().apply{addRoundRect(0f,0f,w,h,r,r,Path.Direction.CW)})
-            if(b!=null){val s=maxOf(w/b.width,h/b.height);val bw=b.width*s;c.drawBitmap(b,null,RectF((w-bw)/2,0f,(w+bw)/2,b.height*s),p)}else{p.color=if(a.light)0xffe6e6e3.toInt() else 0xff2a2a2d.toInt();c.drawRect(0f,0f,w,h,p)}
+            if(b!=null){val s=maxOf(w/b.width,h/b.height);val bw=b.width*s;c.drawBitmap(b,null,RectF((w-bw)/2,0f,(w+bw)/2,b.height*s),p)}else{p.color=Ui.pressed(a.light);c.drawRect(0f,0f,w,h,p)}
             c.restore()
             if(i==page){p.style=Paint.Style.STROKE;val sw=a.d(2).toFloat();p.strokeWidth=sw;p.color=a.fg;c.drawRoundRect(sw/2,sw/2,w-sw/2,h-sw/2,r,r,p);p.style=Paint.Style.FILL}
             if(marked){val x=w-a.d(20);val bw=a.d(13).toFloat();val bh=a.d(19).toFloat();p.color=a.fg
@@ -350,14 +349,14 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
             val side=if(i==cur)0 else if(i<cur)-1 else 1;val tx=side*(if(rtl&&mode!="ribbon")-1 else 1)*(a.d(44)*.09f+a.d(3))
             if(scaleX==s&&translationX==tx&&was==on)return
             animate().cancel()
-            if(reduced||!isAttachedToWindow){scaleX=s;scaleY=s;translationX=tx} else animate().scaleX(s).scaleY(s).translationX(tx).setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start();invalidate()}
+            if(reduced||!isAttachedToWindow){scaleX=s;scaleY=s;translationX=tx} else animate().scaleX(s).scaleY(s).translationX(tx).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start();invalidate()}
         override fun onDraw(c:Canvas){val r=a.d(5).toFloat();val w=width.toFloat();val h=height.toFloat()
             // in view along the strip (the bar itself may still be sliding in from off the screen)
             val x=left-stripScroll.scrollX;val shown=x+width>0&&x<stripScroll.width
             val b=if(shown)bitmap(i,a.d(76)){invalidate()} else cache.get(key(i,a.d(76)))
             p.alpha=if(on)255 else 190
             c.save();c.clipPath(Path().apply{addRoundRect(0f,0f,w,h,r,r,Path.Direction.CW)})
-            if(b!=null){val s=maxOf(w/b.width,h/b.height);val bw=b.width*s;c.drawBitmap(b,null,RectF((w-bw)/2,0f,(w+bw)/2,b.height*s),p)}else{p.color=if(lightBg)0xffdcdcd8.toInt() else 0xff2a2a2d.toInt();c.drawRect(0f,0f,w,h,p)}
+            if(b!=null){val s=maxOf(w/b.width,h/b.height);val bw=b.width*s;c.drawBitmap(b,null,RectF((w-bw)/2,0f,(w+bw)/2,b.height*s),p)}else{p.color=ReaderTint.comic(bgKey).card;c.drawRect(0f,0f,w,h,p)}
             c.restore()
             if(on){p.style=Paint.Style.STROKE;p.strokeWidth=a.d(2).toFloat()/scaleX;p.color=ink();p.alpha=255;val k=-a.d(3).toFloat()/scaleX;c.drawRoundRect(k,k,w-k,h-k,r-k,r-k,p);p.style=Paint.Style.FILL}}
     }
@@ -392,7 +391,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
                     // past the first or the last page the page only gives a little, there is nothing to pull in
                     val edge=(shift-dx>0&&!has(-1))||(shift-dx<0&&!has(1));shift-=if(edge)dx*.3f else dx;invalidate()};return true}
             override fun onFling(e1:MotionEvent?,e2:MotionEvent,vx:Float,vy:Float):Boolean{
-                if(axis==2){val to=(pan-vy*.28f).coerceIn(0f,maxPan(page));panAnim?.cancel();if(reduced){pan=to;invalidate()}else panAnim=ValueAnimator.ofFloat(pan,to).apply{duration=Motion.EMPHASIS;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{pan=it.animatedValue as Float;invalidate()};start()};return true}
+                if(axis==2){val to=(pan-vy*.28f).coerceIn(0f,maxPan(page));panAnim?.cancel();if(reduced){pan=to;invalidate()}else panAnim=ValueAnimator.ofFloat(pan,to).apply{duration=Motion.EMPHASIS;interpolator=MotionSpec.enter;addUpdateListener{pan=it.animatedValue as Float;invalidate()};start()};return true}
                 if(turning!=null){flingX=vx;return true}
                 if(scale<=1.01f&&kotlin.math.abs(vx)>a.d(500)&&kotlin.math.abs(vx)>kotlin.math.abs(vy)){flung=true;step(if((vx<0)!=rtl)1 else -1,kotlin.math.abs(vx))};return true}})
         private var flung=false
@@ -416,7 +415,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         fun show(i:Int,animate:Boolean){scale=1f;px=0f;py=0f;pan=0f;if(!animate){shift=0f;invalidate()}}
         private fun settle(to:Float,velocity:Float=0f){anim?.cancel();settled=false;if(reduced){shift=to;settled=true;invalidate();return}
             val span=kotlin.math.abs(to-shift)
-            anim=ValueAnimator.ofFloat(shift,to).apply{duration=if(velocity>0f)(span/velocity*1000f).toLong().coerceIn(160L,340L) else (180+160*span/width.coerceAtLeast(1)).toLong().coerceIn(180L,340L);interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shift=it.animatedValue as Float;invalidate()}
+            anim=ValueAnimator.ofFloat(shift,to).apply{duration=if(velocity>0f)(span/velocity*1000f).toLong().coerceIn(160L,340L) else (180+160*span/width.coerceAtLeast(1)).toLong().coerceIn(180L,340L);interpolator=MotionSpec.enter;addUpdateListener{shift=it.animatedValue as Float;invalidate()}
                 addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){settled=true}});start()}}
         // ── a turn as in the book reader: the page and the one it turns to as two pictures of the screen, turned over it ──
         private val sheetTurn get()=turnStyle!="slide"
@@ -425,7 +424,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         /** The screen with page [i] on it, as it is drawn. */
         private fun shot(i:Int,panned:Boolean):Bitmap{val b=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);val c=Canvas(b);c.drawColor(bgColor())
             val r=fit(i);if(panned)c.translate(0f,-pan)
-            val pic=bitmap(i,width){};if(pic!=null)c.drawBitmap(pic,null,r,p) else{p.color=if(lightBg)0xffdcdcd8.toInt() else 0xff1c1c1e.toInt();c.drawRect(r,p)};return b}
+            val pic=bitmap(i,width){};if(pic!=null)c.drawBitmap(pic,null,r,p) else{p.color=ReaderTint.comic(bgKey).panel;c.drawRect(r,p)};return b}
         /** Starts turning toward the page on [side] of the screen (-1 left, +1 right); false when there is none. */
         private fun beginTurn(side:Int,y:Float,anchor:Float):Boolean{if(turning!=null||!has(side)||width<=0||height<=0)return false
             val t=page+(if(rtl)-side else side)
@@ -443,14 +442,14 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
             val toward=((-vx*turnSide/width.coerceAtLeast(1))*(if(commit)1f else -1f)).coerceAtLeast(0f)
             val flight=if(toward>0f)(1.6f*remaining/toward*1000f).toLong().coerceIn(200L,520L) else (remaining*560f).toLong().coerceIn(220L,480L)
             val slope=(toward*flight/1000f/remaining).coerceIn(0f,2.6f)
-            turnClock=ValueAnimator.ofFloat(start,end).apply{duration=if(gesture)flight else 520L;interpolator=if(gesture)android.animation.TimeInterpolator{u->slope*u+(3f-2f*slope)*u*u+(slope-2f)*u*u*u} else PathInterpolator(.42f,0f,.16f,1f)
+            turnClock=ValueAnimator.ofFloat(start,end).apply{duration=if(gesture)flight else 520L;interpolator=if(gesture)android.animation.TimeInterpolator{u->slope*u+(3f-2f*slope)*u*u+(slope-2f)*u*u*u} else MotionSpec.move
                 addUpdateListener{v.pose(it.animatedValue as Float,v.touchY)}
                 addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){done()}});start()}}
         override fun onDetachedFromWindow(){turnClock?.removeAllListeners();turnClock?.cancel();turnClock=null;super.onDetachedFromWindow()}
         private fun zoomTo(s:Float,fx:Float,fy:Float){val from=scale;val fpx=px;val fpy=py
             val tpx=if(s<=1f)0f else fx-(fx-px)*(s/scale);val tpy=if(s<=1f)0f else fy-(fy-py)*(s/scale)
             if(reduced){scale=s;px=tpx;py=tpy;clamp();invalidate();return}
-            ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{val t=it.animatedValue as Float;scale=from+(s-from)*t;px=fpx+(tpx-fpx)*t;py=fpy+(tpy-fpy)*t;clamp();invalidate()};start()}}
+            ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{val t=it.animatedValue as Float;scale=from+(s-from)*t;px=fpx+(tpx-fpx)*t;py=fpy+(tpy-fpy)*t;clamp();invalidate()};start()}}
         private fun fit(i:Int):RectF{val (w,h)=source.size(i)
             if(widthFit){val dh=h*width/w.toFloat();val t=if(dh<=height)(height-dh)/2 else 0f;return RectF(0f,t,width.toFloat(),t+dh)}
             val s=minOf(width/w.toFloat(),height/h.toFloat());val dw=w*s;val dh=h*s;return RectF((width-dw)/2,(height-dh)/2,(width+dw)/2,(height+dh)/2)}
@@ -467,7 +466,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
                 // a page already on screen keeps its picture while a sharper or evicted copy is (re)loaded: it never
                 // drops to the blank tile for a frame (that flickered while turning)
                 val b=(bitmap(i,target){invalidate()}?:bitmap(i,width){invalidate()})?.also{held[i]=it}?:held[i]
-                if(b!=null)c.drawBitmap(b,null,r,p) else{p.color=if(lightBg)0xffdcdcd8.toInt() else 0xff1c1c1e.toInt();c.drawRect(r,p)}
+                if(b!=null)c.drawBitmap(b,null,r,p) else{p.color=ReaderTint.comic(bgKey).panel;c.drawRect(r,p)}
                 c.restore()}
             // keep the neighbours warm, two ahead and one behind, so a quick run of swipes never shows an empty page
             for(k in intArrayOf(1,-1,2))(page+k).takeIf{it in 0 until n}?.let{bitmap(it,width){if(kotlin.math.abs(shift)>0f)invalidate()}}}
@@ -493,7 +492,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
                 val near=bottom>sy-screen&&top<sy+screen*2
                 if(!near)held=null
                 val b=if(near)(bitmap(i,width){invalidate()}?.also{held=it}?:held) else null
-                if(b!=null)c.drawBitmap(b,null,Rect(0,0,width,height),p) else{p.color=if(lightBg)0xffdcdcd8.toInt() else 0xff1c1c1e.toInt();c.drawRect(0f,0f,width.toFloat(),height.toFloat(),p)}}
+                if(b!=null)c.drawBitmap(b,null,Rect(0,0,width,height),p) else{p.color=ReaderTint.comic(bgKey).panel;c.drawRect(0f,0f,width.toFloat(),height.toFloat(),p)}}
         }
         override fun onScrollChanged(l:Int,t:Int,ol:Int,ot:Int){super.onScrollChanged(l,t,ol,ot);for(i in 0 until column.childCount)column.getChildAt(i).invalidate()}
     }

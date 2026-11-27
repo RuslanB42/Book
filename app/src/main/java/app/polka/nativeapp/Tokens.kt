@@ -34,8 +34,10 @@ internal object Type {
     const val H1=26f
     /** A tab's own title. */
     const val LARGE=34f
-    /** Totals in the statistics. */
+    /** Totals in the statistics, a number being typed in. */
     const val NUMBER=40f
+    /** Not a step of the scale: the year on «Мой год в книгах», a poster's own numeral. */
+    const val POSTER=84f
     /** The step a computed size falls on. */
     fun snap(sp:Float)=when{sp<12.25f->CAPTION;sp<13.75f->SECONDARY;sp<15.25f->TEXT;sp<16.75f->BODY;sp<18.5f->TITLE;sp<23f->H2;sp<32f->H1;sp<39f->LARGE;sp<44f->NUMBER;else->sp}
 }
@@ -52,6 +54,8 @@ internal object Ui {
     fun menu(l:Boolean)=if(l)Color.WHITE else 0xff303033.toInt()
     /** Under a window. */
     fun scrim(l:Boolean)=if(l)0x66f2f2f0 else 0x99000000.toInt()
+    /** The scrim [k] of the way in (0 none, 1 full). */
+    fun scrim(l:Boolean,k:Float)=alpha(scrim(l),((scrim(l) ushr 24)*k.coerceIn(0f,1f)).toInt())
     fun ink(l:Boolean)=if(l)0xff1a1a1c.toInt() else 0xfff3f2ef.toInt()
     /** The one secondary grey: 5.7:1 on the light ground, 7.3:1 on the dark one. */
     fun ink2(l:Boolean)=if(l)0xff5f5f63.toInt() else 0xffa4a4a4.toInt()
@@ -67,6 +71,29 @@ internal object Ui {
     fun fill(l:Boolean)=if(l)0x0f000000 else 0x11ffffff
     /** Under the finger. */
     fun press(l:Boolean)=if(l)0x1c000000 else 0x1fffffff
+    /** A sheet's grabber at its top. */
+    fun handle(l:Boolean)=if(l)0x33000000 else 0x33ffffff
+    /** A ring or edge drawn round something (swatches, outlined chips, empty places). */
+    fun outline(l:Boolean)=if(l)0x2e000000 else 0x2effffff
+    /** What is chosen on a filled track (a segment's thumb, a pressed surface): opaque. */
+    fun selected(l:Boolean)=if(l)Color.WHITE else 0xff48484c.toInt()
+    /** An opaque surface under the finger. */
+    fun pressed(l:Boolean)=if(l)0xffe6e6e9.toInt() else 0xff38383c.toInt()
+    /** A slider's or switch's track when off. */
+    fun track(l:Boolean)=if(l)0x29000000 else 0xff3a3a3d.toInt()
+    /** A switch's knob, off and on. */
+    fun knob(l:Boolean)=if(l)Color.WHITE else 0xffcfcfd4.toInt()
+    fun knobOn(l:Boolean)=if(l)Color.WHITE else 0xff1d1d20.toInt()
+    /** A full-screen page laid over another (the tier list, the year's road). */
+    fun veil(l:Boolean)=if(l)0xe6f2f2f0.toInt() else 0xe608080a.toInt()
+    /** A dark wash over a picture, for what stands on it (a cross on a photo, a badge on a cover). */
+    const val OVER_PICTURE=0x8c000000.toInt()
+    /** A soft shadow under a small raised thing. */
+    const val SHADOW=0x33000000
+    /** Words on a picture or on a dark wash. */
+    const val ON_PICTURE=0xfff3f2ef.toInt()
+    /** [c] at another opacity (0..255): a tint of a colour, not a colour of its own. */
+    fun alpha(c:Int,a:Int)=(c and 0xffffff) or (a.coerceIn(0,255) shl 24)
     /** Delete and other things that cannot be taken back: 4.9:1 light, 5.1:1 on a dark card. */
     fun danger(l:Boolean)=if(l)0xffc2342f.toInt() else 0xffff6961.toInt()
 }
@@ -102,6 +129,13 @@ internal object Motion {
     const val STANDARD=250L
     const val EMPHASIS=400L
     const val LONG=600L
+    /** One turn of something that runs on by itself: a spinner, a shimmer, the sounds' flicker. */
+    const val CYCLE=1000L
+    /** «Раскрытие»: surfaces that open and move — menus out of a button, the reader's panel, sheets, notices,
+     *  anything that once had its own overshoot. */
+    val expand by lazy{Spring.of(.22,420.0)}
+    /** «Отклик»: small things answering a finger — shelves rearranging, a button let go. */
+    val response by lazy{Spring.of(.1,460.0)}
 }
 
 /** One map of haptics for the whole app, all off with the «Вибрация» setting. Moving between pages, sheets and menus

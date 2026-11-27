@@ -32,7 +32,7 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
   // The editor is a twin of the page: same metrics, paddings, spacing, hyphenation and justification,
   // so entering edit mode leaves every word exactly where it was.
   editor.apply{
-   background=null;defaultFocusHighlightEnabled=false;setTextColor(ink);setHintTextColor(a.muted);highlightColor=(a.accent and 0x00ffffff) or 0x55000000
+   background=null;defaultFocusHighlightEnabled=false;setTextColor(ink);setHintTextColor(a.muted);highlightColor=Ui.alpha(a.accent,0x55)
    inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
    imeOptions=android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
    setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,body.textSize);typeface=body.typeface;letterSpacing=body.letterSpacing;textLocale=body.textLocale
@@ -53,12 +53,12 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
   val actions=a.line()
   fun action(label:String,description:String,icon:String?=null,fn:()->Unit){val control=if(icon!=null)IconView(a,icon,ink)else a.text(label,Type.TITLE,ink,true,serif=true).apply{gravity=Gravity.CENTER;if(label=="К")typeface=Typeface.create(typeface,Typeface.ITALIC)};a.press(control);control.contentDescription=description;control.setOnClickListener{if(!saving)fn()};actions.addView(control,LinearLayout.LayoutParams(0,a.d(44),1f))}
   action("","Отменить действие","undo"){undo()};action("","Повторить действие","redo"){redo()}
-  actions.addView(View(a).apply{setBackgroundColor((ink and 0x00ffffff) or 0x22000000)},LinearLayout.LayoutParams(1,a.d(22)))
+  actions.addView(View(a).apply{setBackgroundColor(Ui.alpha(ink,0x22))},LinearLayout.LayoutParams(1,a.d(22)))
   action("Ж","Полужирный"){format("bold")};action("К","Курсив"){format("italic")};action("","Заголовок","head"){format("heading")}
   toolbar.addView(actions)
-  error.textSize=12f;error.setTextColor(if(lightPage)0xffa52820.toInt()else 0xffff8a75.toInt());error.visibility=View.GONE;error.setPadding(a.d(6),a.d(4),a.d(6),0);toolbar.addView(error)
+  error.textSize=Type.CAPTION;error.setTextColor(Ui.danger(lightPage));error.visibility=View.GONE;error.setPadding(a.d(6),a.d(4),a.d(6),0);toolbar.addView(error)
   val buttons=a.line().apply{setPadding(0,a.d(8),0,0)}
-  fun pill(label:String,filled:Boolean,description:String,fn:()->Unit)=a.text(label,Type.TEXT,if(filled)pageBg else ink,filled).apply{gravity=Gravity.CENTER;background=a.shape(if(filled)ink else (ink and 0x00ffffff) or 0x1a000000,Radius.R24);contentDescription=description;a.press(this);setOnClickListener{fn()}}
+  fun pill(label:String,filled:Boolean,description:String,fn:()->Unit)=a.text(label,Type.TEXT,if(filled)pageBg else ink,filled).apply{gravity=Gravity.CENTER;background=a.shape(if(filled)ink else Ui.alpha(ink,0x1a),Radius.R24);contentDescription=description;a.press(this);setOnClickListener{fn()}}
   buttons.addView(pill("Отмена",false,"Отменить правки страницы"){cancel()},LinearLayout.LayoutParams(0,a.d(44),1f).apply{rightMargin=a.d(5)})
   buttons.addView(pill("Сохранить",true,"Сохранить страницу"){save()},LinearLayout.LayoutParams(0,a.d(44),1f).apply{leftMargin=a.d(5)})
   toolbar.addView(buttons)

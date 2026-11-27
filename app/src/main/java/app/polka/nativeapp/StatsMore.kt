@@ -151,8 +151,8 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
     private val hair=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeWidth=max(1f,dp*.8f)}
     private val dot=Paint(Paint.ANTI_ALIAS_FLAG)
     private val text=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=Type.CAPTION*a.resources.displayMetrics.scaledDensity;typeface=PolkaFonts.sans(400)}
-    private val tipTitle=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=14f*dp;typeface=PolkaFonts.sans(600)}
-    private val tipSub=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=12f*dp;typeface=PolkaFonts.sans(400)}
+    private val tipTitle=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=Type.TEXT*a.resources.displayMetrics.scaledDensity;typeface=PolkaFonts.sans(600)}
+    private val tipSub=Paint(Paint.ANTI_ALIAS_FLAG).apply{textSize=Type.CAPTION*a.resources.displayMetrics.scaledDensity;typeface=PolkaFonts.sans(400)}
     private val tipBg=Paint(Paint.ANTI_ALIAS_FLAG)
     private val path=Path();private val area=Path();private val tip=RectF()
     private val muted get()=Ui.ink2(a.light)
@@ -204,10 +204,10 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
         val ey=y(shown.last());path.lineTo(w,ey)
         area.set(path);area.lineTo(w,h);area.lineTo(0f,h);area.close()
         c.save();c.clipRect(0f,-h,w*reveal+1,h*2)
-        fill.shader=LinearGradient(0f,12f*dp,0f,h,(ink and 0xffffff) or 0x4d000000,ink and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(area,fill)
+        fill.shader=LinearGradient(0f,12f*dp,0f,h,Ui.alpha(ink,0x4d),ink and 0xffffff,Shader.TileMode.CLAMP);c.drawPath(area,fill)
         c.drawPath(path,line);c.restore()
         // the average: a hairline and its word on the right, on the side away from the line
-        avgShown?.let{v->val ay=y(v);hair.color=(a.fg and 0xffffff) or 0x29000000;c.drawLine(0f,ay,w,ay,hair)
+        avgShown?.let{v->val ay=y(v);hair.color=Ui.alpha(a.fg,0x29);c.drawLine(0f,ay,w,ay,hair)
             if(avgWord.isNotBlank()){text.color=muted;text.textAlign=Paint.Align.RIGHT
                 // the line's height across the word's width, from the points that fall under it
                 val tw=text.measureText(avgWord);val x0=w-18f*dp-tw;val under=shown.indices.filter{x(it)>=x0-x(0)}.map{y(shown[it])}+ey
@@ -218,14 +218,14 @@ internal class EdgeLine(private val a:MainActivity,private val ink:Int,private v
         drawLabels(c,labels,strong,points.size,spans,if(morph<1f&&oldN>0)((morph-.35f)/.65f).coerceIn(0f,1f) else 1f)
         if(reveal<1f)return
         // today's point travels from where it was to where it is now, along the line
-        if(hold<0){val ex=if(morph<1f&&oldN>0)xn(oldN-1,oldN)+(x(shown.size-1)-xn(oldN-1,oldN))*morph else x(shown.size-1);val ey=y(along(shown,ex/w));dot.color=(ink and 0xffffff) or 0x38000000;c.drawCircle(ex,ey,10f*dp,dot);dot.color=ink;c.drawCircle(ex,ey,5f*dp,dot);return}
+        if(hold<0){val ex=if(morph<1f&&oldN>0)xn(oldN-1,oldN)+(x(shown.size-1)-xn(oldN-1,oldN))*morph else x(shown.size-1);val ey=y(along(shown,ex/w));dot.color=Ui.alpha(ink,0x38);c.drawCircle(ex,ey,10f*dp,dot);dot.color=ink;c.drawCircle(ex,ey,5f*dp,dot);return}
         // held: the guide, the point, and its bubble above it
-        val hx=x(hold);val hy=y(shown[hold]);hair.color=(a.fg and 0xffffff) or 0x59000000;c.drawLine(hx,0f,hx,h,hair)
+        val hx=x(hold);val hy=y(shown[hold]);hair.color=Ui.alpha(a.fg,0x59);c.drawLine(hx,0f,hx,h,hair)
         dot.color=card;c.drawCircle(hx,hy,9f*dp,dot);dot.color=ink;c.drawCircle(hx,hy,6f*dp,dot)
         val p=points[hold];tipTitle.color=a.fg;tipSub.color=Ui.ink2(a.light)
         val tw=max(tipTitle.measureText(p.title),tipSub.measureText(p.sub))+22f*dp;val th=48f*dp
         val tx=(hx-tw/2).coerceIn(10f*dp,w-10f*dp-tw);val ty=hy-14f*dp-th
-        tip.set(tx,ty,tx+tw,ty+th);tipBg.color=if(a.light)0xfff0f0f2.toInt() else 0xff3a3a3d.toInt();FloatShade.draw(c,a,tip,12f*dp,a.light,lift=Lift.OVER);c.drawRoundRect(tip,12f*dp,12f*dp,tipBg)
+        tip.set(tx,ty,tx+tw,ty+th);tipBg.color=Ui.selected(a.light);FloatShade.draw(c,a,tip,12f*dp,a.light,lift=Lift.OVER);c.drawRoundRect(tip,12f*dp,12f*dp,tipBg)
         tipTitle.textAlign=Paint.Align.LEFT;c.drawText(p.title,tx+11f*dp,ty+21f*dp,tipTitle);c.drawText(p.sub,tx+11f*dp,ty+39f*dp,tipSub)
     }
     private fun drawLabels(c:Canvas,labels:List<Pair<Int,String>>,strong:Int,n:Int,spans:Boolean,alpha:Float){if(alpha<=0f)return
@@ -263,7 +263,7 @@ internal class WeekStrip(private val a:MainActivity,private val names:List<Strin
     private val grow=1f
     init{contentDescription="Неделя: "+names.indices.joinToString(", "){names[it]+" "+when(marks[it]){1->"цель выполнена";2->"спасён заморозкой";4->"сегодня";else->"пропуск"}}}
     override fun onDraw(c:Canvas){val gap=5f*dp;val n=names.size;val w=(width-gap*(n-1))/n;val h=10f*dp
-        val orange=if(a.light)0xfff07c12.toInt() else 0xffff8a1e.toInt();val ice=if(a.light)0xff5aaee6.toInt() else 0xff8fd0fa.toInt();val empty=Ui.press(a.light)
+        val orange=Palette.streak(a.light);val ice=Palette.ice(a.light);val empty=Ui.press(a.light)
         for(i in 0 until n){val x=i*(w+gap);r.set(x,0f,x+w,h)
             p.color=empty;c.drawRoundRect(r,h/2,h/2,p)
             val f=when(marks[i]){1,2->1f;4->today;else->0f}*grow

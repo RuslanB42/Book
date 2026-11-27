@@ -213,8 +213,8 @@ internal class FastScroll(private val a:MainActivity,private val content:View):F
     override fun onAttachedToWindow(){super.onAttachedToWindow();var v=parent;while(v!=null&&v !is ScrollView)v=v.parent;sv=v as? ScrollView;viewTreeObserver.addOnScrollChangedListener(scrolled)}
     override fun onDetachedFromWindow(){viewTreeObserver.removeOnScrollChangedListener(scrolled);removeCallbacks(hide);fade?.cancel();pop?.cancel();holding=false;super.onDetachedFromWindow()}
     private fun fadeTo(t:Float){if(a.prefs.str("motion")=="reduced"){shown=t;invalidate();return};if(fade?.isRunning==true&&abs(t-shown)<.01f)return;fade?.cancel()
-        fade=ValueAnimator.ofFloat(shown,t).apply{duration=if(t>shown)150 else 300;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
-    private fun popTo(t:Float){pop?.cancel();pop=ValueAnimator.ofFloat(bubble,t).apply{duration=if(t>bubble)140 else 220;interpolator=MotionSpec.enter;addUpdateListener{bubble=it.animatedValue as Float;invalidate()};start()}}
+        fade=ValueAnimator.ofFloat(shown,t).apply{duration=if(t>shown)Motion.FAST else Motion.STANDARD;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
+    private fun popTo(t:Float){pop?.cancel();pop=ValueAnimator.ofFloat(bubble,t).apply{duration=if(t>bubble)Motion.FAST else Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{bubble=it.animatedValue as Float;invalidate()};start()}}
     // the visible window of the list, in this view's own coordinates
     private fun window():Pair<Float,Float>{val s=sv?:return 0f to height.toFloat();val loc=IntArray(2);val sl=IntArray(2);getLocationInWindow(loc);s.getLocationInWindow(sl)
         val top=(sl[1]-loc[1]).toFloat().coerceAtLeast(0f);return top to min(height.toFloat(),top+s.height-s.paddingBottom)}
@@ -233,7 +233,7 @@ internal class FastScroll(private val a:MainActivity,private val content:View):F
     override fun dispatchDraw(c:Canvas){super.dispatchDraw(c);if(sections.isEmpty()||shown<=0f)return
         val y=handleTop();val x=width-edge+(edge-thick)/2f
         p.color=a.fg;p.alpha=(255*shown*(if(dragging)1f else .55f)).roundToInt();c.drawRoundRect(x,y,x+thick,y+len,thick/2f,thick/2f,p)
-        if(bubble>0f){val l=letter()?:return;val h=a.d(56).toFloat();tp.typeface=PolkaFonts.serif(a,true);tp.textSize=a.d(28).toFloat();val w=max(h,tp.measureText(l)+a.d(40))
+        if(bubble>0f){val l=letter()?:return;val h=a.d(56).toFloat();tp.typeface=PolkaFonts.serif(a,true);tp.textSize=Type.H1*a.resources.displayMetrics.scaledDensity;val w=max(h,tp.measureText(l)+a.d(40))
             val cx=x-a.d(14)-w/2f;val cy=y+len/2f;c.save();c.scale(.85f+.15f*bubble,.85f+.15f*bubble,cx+w/2f,cy)
             p.alpha=(255*bubble).roundToInt();c.drawRoundRect(cx-w/2f,cy-h/2f,cx+w/2f,cy+h/2f,h/2f,h/2f,p)
             tp.color=a.bg;tp.alpha=(255*bubble).roundToInt();val fm=tp.fontMetrics;c.drawText(l,cx,cy-(fm.ascent+fm.descent)/2f,tp);c.restore()}}

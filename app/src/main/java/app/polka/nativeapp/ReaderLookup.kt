@@ -9,7 +9,6 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.view.*
-import android.view.animation.PathInterpolator
 import android.widget.*
 import org.json.JSONArray
 import org.json.JSONObject
@@ -28,7 +27,7 @@ internal class LineIcon(c:Context,private var kind:String,var ink:Int):View(c){
     fun set(k:String,color:Int){kind=k;ink=color;invalidate()}
     override fun onDraw(c:Canvas){val px=size*resources.displayMetrics.density;val s=px/24f
         c.save();c.translate((width-px)/2f,(height-px)/2f);c.scale(s,s);p.color=ink;p.strokeWidth=1.8f;p.style=Paint.Style.STROKE
-        if(kind=="colordot"){p.style=Paint.Style.FILL;p.color=dot?:ink;c.drawCircle(12f,12f,8f,p);p.style=Paint.Style.STROKE;p.color=0x40ffffff;p.strokeWidth=1f;c.drawCircle(12f,12f,8f,p);c.restore();return}
+        if(kind=="colordot"){p.style=Paint.Style.FILL;p.color=dot?:ink;c.drawCircle(12f,12f,8f,p);p.style=Paint.Style.STROKE;p.color=Ui.outline(false);p.strokeWidth=1f;c.drawCircle(12f,12f,8f,p);c.restore();return}
         IosIcons.draw(c,kind,ink);c.restore()}
 }
 
@@ -168,15 +167,17 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
 
     /** A word with a capital letter is most likely a name: it is looked up in the encyclopedia even without the dictionary. */
     private val isName get()=selected.trim().trimStart{!it.isLetter()}.firstOrNull()?.isUpperCase()==true
-    fun dictionary(){show();if(Dictionary.ready(a)||isName)lookupWord() else offerDownload()}
-    fun translation(){show();translate(null,null)}
+    fun dictionary(){show("Словарь");if(Dictionary.ready(a)||isName)lookupWord() else offerDownload()}
+    fun translation(){show("Перевод");translate(null,null)}
 
-    private fun show(){
+    private fun show(title:String){
         val dlg=android.app.Dialog(a,R.style.PolkaSheetTheme);dialog=dlg
         val root=DragRoot().apply{isClickable=true;setOnClickListener{close()}}
-        holder=a.column().apply{isClickable=true;setPadding(a.d(20),a.d(12),a.d(20),a.d(20));elevation=a.d(16).toFloat()
+        holder=a.column().apply{isClickable=true;setPadding(a.d(20),0,a.d(20),a.d(20));elevation=a.d(16).toFloat()
             background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(Radius.R28).toFloat()}}
-        holder.addView(View(a).apply{background=a.shape(if(a.light)0x30000000 else 0x30ffffff,3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(16)})
+        holder.addView(FrameLayout(a).apply{addView(View(a).apply{background=a.shape(Ui.handle(a.light),2)},FrameLayout.LayoutParams(a.d(36),a.d(4),Gravity.CENTER))},LinearLayout.LayoutParams(-1,a.d(16)))
+        // the one window head, as on every sheet
+        holder.addView(a.windowHead(title,true,a.fg,quiet,{close()}),LinearLayout.LayoutParams(-1,a.d(Size.HEADER)).apply{leftMargin=-a.d(8);rightMargin=-a.d(8);bottomMargin=a.d(4)})
         body=a.column();val scroll=ScrollView(a).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(body)}
         holder.addView(scroll,LinearLayout.LayoutParams(-1,-2,1f))
         val lp=FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{setMargins(a.d(8),a.d(80),a.d(8),a.d(8))}
@@ -197,8 +198,8 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
     /** Replaces the content; the card eases to its new height. */
     private fun content(build:LinearLayout.()->Unit){
         val h0=holder.height;body.removeAllViews();body.build()
-        if(h0>0&&!reduced){holder.post{val h1=holder.height;if(h1!=h0){holder.translationY=(h1-h0).toFloat();holder.animate().translationY(0f).setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
-        body.alpha=0f;body.animate().alpha(1f).setDuration(if(reduced)0 else 180).start()}
+        if(h0>0&&!reduced){holder.post{val h1=holder.height;if(h1!=h0){holder.translationY=(h1-h0).toFloat();holder.animate().translationY(0f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start()}}}
+        body.alpha=0f;body.animate().alpha(1f).setDuration(if(reduced)0 else Motion.FAST).start()}
     private fun loading()=content{addView(ProgressBar(a).apply{isIndeterminate=true;indeterminateTintList=android.content.res.ColorStateList.valueOf(a.muted)},LinearLayout.LayoutParams(a.d(28),a.d(28)).apply{gravity=Gravity.CENTER_HORIZONTAL;topMargin=a.d(18);bottomMargin=a.d(26)})}
     private fun hairline(p:LinearLayout)=p.addView(View(a).apply{setBackgroundColor(Ui.line(a.light))},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})
     private fun round(kind:String,desc:String,fn:()->Unit)=FrameLayout(a).apply{background=a.shape(quiet,Radius.R20);isClickable=true;contentDescription=desc;a.press(this);setOnClickListener{fn()}
@@ -298,7 +299,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
             val w=TextView(a).apply{text=first.optString("w");textSize=Type.H1;setTextColor(a.fg);typeface=PolkaFonts.literata(a,true)}
             val ipa=first.optString("i")
             if(ipa.isNotBlank()){val sp=android.text.SpannableStringBuilder(first.optString("w")).append("  ").append(ipa)
-                val st=first.optString("w").length+2;sp.setSpan(android.text.style.AbsoluteSizeSpan(15,true),st,sp.length,0);sp.setSpan(android.text.style.ForegroundColorSpan(a.muted),st,sp.length,0);sp.setSpan(android.text.style.TypefaceSpan(PolkaFonts.sans(400)),st,sp.length,0);w.text=sp}
+                val st=first.optString("w").length+2;sp.setSpan(android.text.style.AbsoluteSizeSpan(Type.TEXT.toInt(),true),st,sp.length,0);sp.setSpan(android.text.style.ForegroundColorSpan(a.muted),st,sp.length,0);sp.setSpan(android.text.style.TypefaceSpan(PolkaFonts.sans(400)),st,sp.length,0);w.text=sp}
             t.addView(w);if(first.optString("p").isNotBlank())t.addView(a.text(first.optString("p"),Type.SECONDARY,a.muted),LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(4)})
             head.addView(t,LinearLayout.LayoutParams(0,-2,1f))
             head.addView(round("speaker","Произнести"){speak(first.optString("w").replace("́",""),lang)},LinearLayout.LayoutParams(a.d(40),a.d(40)))

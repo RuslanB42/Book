@@ -9,7 +9,6 @@ import android.graphics.drawable.InsetDrawable
 import android.os.Build
 import android.provider.MediaStore
 import android.view.*
-import android.view.animation.PathInterpolator
 import android.widget.*
 import androidx.core.content.FileProvider
 import org.json.JSONObject
@@ -23,8 +22,7 @@ internal object Tiers {
     fun of(book:JSONObject)=Rating.halves(book).let{h->if(h>0)5-(h+1)/2 else -1}
     /** Light and deep tone of each tier's letter. Approved «Приглушённая»: the classic tier-list order (S red, A orange,
      *  B amber, C yellow, D green), quieter and denser so it sits on the app's graphite; deeper on a light page. */
-    fun tone(a:MainActivity,k:Int):Pair<Int,Int> =if(a.light)when(k){0->0xffd9625c.toInt() to 0xffb8433d.toInt();1->0xffd98a4a.toInt() to 0xffb0662a.toInt();2->0xffcfa548.toInt() to 0xffa37c22.toInt();3->0xffb5a83e.toInt() to 0xff8a7f22.toInt();else->0xff7fa650.toInt() to 0xff5c8233.toInt()}
-        else when(k){0->0xfff2a3a0.toInt() to 0xffd9625c.toInt();1->0xfff2c49b.toInt() to 0xffd98a4a.toInt();2->0xfff0d79a.toInt() to 0xffcfa548.toInt();3->0xffe8e2a0.toInt() to 0xffbdb45a.toInt();else->0xffc9e3a2.toInt() to 0xff8fb862.toInt()}
+    fun tone(a:MainActivity,k:Int):Pair<Int,Int> =Palette.tier(a.light,k)
     /** Finished books of [year] (all of them when null), own order inside a tier first, then the latest finished. */
     fun books(model:ReadingStatistics,year:Int?)=model.finishedAll.filter{year==null||it.date?.year==year}.map{it.book}
     fun sorted(list:List<JSONObject>)=list.sortedWith(compareBy<JSONObject>{it.optDouble("tierPos",Double.MAX_VALUE)}.thenByDescending{it.optLong("completedAt")})
@@ -72,9 +70,9 @@ internal class SeriesFan(a:MainActivity,issues:List<JSONObject>,small:Boolean):F
             if(i>0){cv.pivotX=w/2f;cv.pivotY=h.toFloat();cv.rotation=if(i==1)4.5f else 9f
                 val g=if(i==1)191 else 140;cv.setLayerType(View.LAYER_TYPE_HARDWARE,Paint().apply{colorFilter=LightingColorFilter(Color.rgb(g,g,g),0)})}
             addView(cv,LayoutParams(w,h).apply{leftMargin=if(i==0)dp(2f) else dp(6f);topMargin=dp(3f)})}
-        addView(TextView(a).apply{text="${issues.size} вып.";textSize=maxOf(Type.CAPTION,10.5f*k);typeface=PolkaFonts.sans(600);setTextColor(0xfff3f2ef.toInt());gravity=Gravity.CENTER
+        addView(TextView(a).apply{text="${issues.size} вып.";textSize=maxOf(Type.CAPTION,10.5f*k);typeface=PolkaFonts.sans(600);setTextColor(Ui.ON_PICTURE);gravity=Gravity.CENTER
             includeFontPadding=false;setPadding(dp(7f),0,dp(7f),0)
-            background=GradientDrawable().apply{cornerRadius=dp(10f).toFloat();setColor(0xe0121214.toInt());setStroke(1,0x24ffffff)};elevation=a.d(3).toFloat()},
+            background=GradientDrawable().apply{cornerRadius=dp(10f).toFloat();setColor(Ui.alpha(Ui.sheet(false),0xe0));setStroke(1,Ui.outline(false))};elevation=a.d(3).toFloat()},
             LayoutParams(-2,dp(20f),Gravity.BOTTOM or Gravity.START).apply{leftMargin=dp(2f)})
         importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES}
     companion object{fun size(a:MainActivity,small:Boolean)=if(small)Pair(a.d(50),a.d(68)) else Pair(a.d(60),a.d(82))}
@@ -88,7 +86,7 @@ internal class TierLetter(private val a:MainActivity,private val k:Int,size:Floa
         setTextColor(Color.WHITE)}
     override fun onSizeChanged(w:Int,h:Int,ow:Int,oh:Int){super.onSizeChanged(w,h,ow,oh);val (c1,c2)=Tiers.tone(a,k)
         paint.shader=LinearGradient(0f,0f,0f,h.toFloat(),c1,c2,Shader.TileMode.CLAMP)
-        if(glow&&!a.light)setShadowLayer(a.d(14).toFloat(),0f,0f,(c2 and 0xffffff) or (0x66 shl 24)) else setShadowLayer(0f,0f,0f,0)}
+        if(glow&&!a.light)setShadowLayer(a.d(14).toFloat(),0f,0f,Ui.alpha(c2,0x66)) else setShadowLayer(0f,0f,0f,0)}
 }
 
 /** The tier screen's backdrop: the page colour with a warm golden light from the top. Baked once, like the goal road's. */
@@ -103,7 +101,7 @@ internal class TierBackdrop(private val a:MainActivity):android.graphics.drawabl
         fun prepare(a:MainActivity){val w=a.resources.displayMetrics.widthPixels;val k="$w${a.light}";if(k==key)return;a.work({bake(a,w)})}
         @Synchronized fun bake(a:MainActivity,w:Int):Bitmap?{if(w<=0)return null;val k="$w${a.light}";if(k==key&&tex!=null)return tex
             val rx=w*1.05f;val h=(rx*1.1f).toInt()
-            val out=Glow.face(w,h,a.bg,if(a.light)0xfff5b52a.toInt() else 0xffe0a12a.toInt(),w*.5f,0f,rx*1.5f,if(a.light).12f else .16f,2.6f*1.7f*1.7f)?:return null;tex=out;key=k;return out}
+            val out=Glow.face(w,h,a.bg,Palette.gold(a.light),w*.5f,0f,rx*1.5f,if(a.light).12f else .16f,2.6f*1.7f*1.7f)?:return null;tex=out;key=k;return out}
     }
 }
 
@@ -119,12 +117,12 @@ internal class TierRow(private val a:MainActivity,val k:Int,val covers:FlowRow):
             label.addView(a.text(Tiers.names[k],Type.CAPTION,a.muted).apply{maxLines=1;gravity=Gravity.CENTER;setPadding(0,a.d(4),0,0)})}
         addView(label,LayoutParams(a.d(84),-2))
         addView(covers,LayoutParams(0,-2,1f).apply{marginStart=a.d(4);topMargin=a.d(2)})
-        val (_,c2)=if(k<5)Tiers.tone(a,k) else (0xff8a8a90.toInt() to 0xff8a8a90.toInt())
-        val g=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf((c2 and 0xffffff) or (0x26 shl 24),(c2 and 0xffffff) or (0x0a shl 24),(c2 and 0xffffff) or (0x05 shl 24))).apply{cornerRadius=a.d(Radius.R20).toFloat();setStroke(a.d(1),(c2 and 0xffffff) or (0x40 shl 24))}
+        val (_,c2)=if(k<5)Tiers.tone(a,k) else (Palette.untiered to Palette.untiered)
+        val g=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(Ui.alpha(c2,0x26),Ui.alpha(c2,0x0a),Ui.alpha(c2,0x05))).apply{cornerRadius=a.d(Radius.R20).toFloat();setStroke(a.d(1),Ui.alpha(c2,0x40))}
         band=InsetDrawable(g,a.d(8),a.d(2),a.d(8),a.d(2)).apply{alpha=0};background=band}
     fun light(on:Boolean,motion:Boolean){if(on==lit)return;lit=on;invalidate()
         if(!motion){band.alpha=if(on)255 else 0;return}
-        android.animation.ValueAnimator.ofInt(band.alpha,if(on)255 else 0).apply{duration=if(on)200 else 260;addUpdateListener{band.alpha=it.animatedValue as Int}}.start()}
+        android.animation.ValueAnimator.ofInt(band.alpha,if(on)255 else 0).apply{duration=if(on)Motion.STANDARD else Motion.STANDARD;addUpdateListener{band.alpha=it.animatedValue as Int}}.start()}
     override fun onDraw(c:Canvas){super.onDraw(c);if(k in 1..4&&!lit)c.drawRect(a.d(100).toFloat(),0f,(width-a.d(18)).toFloat(),a.d(1).toFloat(),hair)}
 }
 
@@ -217,8 +215,8 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
             chunk.forEach{b->val c=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
                 val cover=FrameLayout(a)
                 cover.addView(CoverView(a,b,a.cover(b)).apply{isClickable=true;contentDescription=b.str("title");setOnClickListener{dialog?.dismiss();a.detail(b,this)};a.press(this)},FrameLayout.LayoutParams(-1,-1))
-                b.optDouble("seriesNo").takeIf{!it.isNaN()}?.let{n->cover.addView(a.text("#"+(if(n%1.0==0.0)n.toLong().toString() else n.toString()),Type.CAPTION,0xfff3f2ef.toInt(),true).apply{setPadding(a.d(6),a.d(1),a.d(6),a.d(1))
-                    background=GradientDrawable().apply{cornerRadius=a.d(9).toFloat();setColor(0x99000000.toInt())};elevation=a.d(2).toFloat()},FrameLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(5);topMargin=a.d(5)})}
+                b.optDouble("seriesNo").takeIf{!it.isNaN()}?.let{n->cover.addView(a.text("#"+(if(n%1.0==0.0)n.toLong().toString() else n.toString()),Type.CAPTION,Ui.ON_PICTURE,true).apply{setPadding(a.d(6),a.d(1),a.d(6),a.d(1))
+                    background=GradientDrawable().apply{cornerRadius=a.d(9).toFloat();setColor(Ui.OVER_PICTURE)};elevation=a.d(2).toFloat()},FrameLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(5);topMargin=a.d(5)})}
                 c.addView(cover,LinearLayout.LayoutParams(a.d(68),a.d(102)))
                 val h=Rating.halves(b)
                 c.addView(a.text(if(h>0)"★ ${Rating.text(h)}" else "",Type.CAPTION,StarRow.starYellow(a),true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,a.d(20)).apply{topMargin=a.d(4)})
@@ -284,7 +282,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         shown.clear();list.forEach{shown[it.str("id")]=tierOf(it)}
         fun build(){fill(rowsBox,list)}
         if(animated&&motion){rowsBox.animate().cancel();rowsBox.animate().alpha(0f).setDuration(Motion.FAST).withEndAction{build();rowsBox.translationY=a.d(8).toFloat()
-            rowsBox.animate().alpha(1f).translationY(0f).setDuration(Motion.EMPHASIS).setInterpolator(PathInterpolator(.16f,1f,.3f,1f)).start()}.start()} else build()
+            rowsBox.animate().alpha(1f).translationY(0f).setDuration(Motion.EMPHASIS).setInterpolator(MotionSpec.enter).start()}.start()} else build()
     }
     /** Lays five rows (and the tray) into [box]. */
     private fun fill(box:LinearLayout,list:List<JSONObject>){box.removeAllViews();rows.clear()
@@ -296,7 +294,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
                 if(k==5){row.minimumHeight=0;row.setPadding(a.d(14),a.d(12),a.d(14),a.d(14));(row.getChildAt(0)).visibility=View.GONE
                     (flow.layoutParams as LinearLayout.LayoutParams).apply{marginStart=0;topMargin=a.d(28)}
                     val tray=FrameLayout(a).apply{clipChildren=false;clipToPadding=false
-                        background=GradientDrawable().apply{cornerRadius=a.d(Radius.R24).toFloat();setStroke(a.d(1)+a.d(1)/2,if(a.light)0x26000000 else 0x22ffffff,a.d(5).toFloat(),a.d(4).toFloat())}}
+                        background=GradientDrawable().apply{cornerRadius=a.d(Radius.R24).toFloat();setStroke(a.d(1)+a.d(1)/2,Ui.outline(a.light),a.d(5).toFloat(),a.d(4).toFloat())}}
                     tray.addView(a.text("ЕЩЁ НЕ ОЦЕНЕНЫ",Type.CAPTION,Ui.ink2(a.light),true).apply{letterSpacing=.08f},FrameLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(14);topMargin=a.d(12)})
                     tray.addView(row,FrameLayout.LayoutParams(-1,-2))
                     box.addView(tray,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=a.d(16);rightMargin=a.d(16);topMargin=a.d(14)})}
@@ -318,7 +316,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         val fl=(if(Tiers.isSeries(b))SeriesFan(a,Tiers.members[b.str("id")].orEmpty(),row.k==5) else CoverView(a,b,a.cover(b))).apply{elevation=a.d(16).toFloat();pivotX=r.width()/2;pivotY=r.height()/2}
         frame.addView(fl,FrameLayout.LayoutParams(r.width().toInt(),r.height().toInt()));fl.translationX=r.left;fl.translationY=r.top
         val sc=if(row.k==5)1.45f else 1.2f
-        if(motion)fl.animate().scaleX(sc).scaleY(sc).rotation(-4f).setDuration(Motion.FAST).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start() else {fl.scaleX=sc;fl.scaleY=sc}
+        if(motion)fl.animate().scaleX(sc).scaleY(sc).rotation(-4f).setDuration(Motion.FAST).setInterpolator(MotionSpec.enter).start() else {fl.scaleX=sc;fl.scaleY=sc}
         frame.haptic(a,Haptic.LONG)
         drag=Drag(b,fl,hole,frame.lastX-r.left,frame.lastY-r.top,row,row.k)
         if(row.k<5)row.light(true,motion)
@@ -358,7 +356,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         val small=target.k==5;val w=d.float.width.coerceAtLeast(1).toFloat();val hgt=d.float.height.coerceAtLeast(1).toFloat();val sw=r.width()/w
         // the scale pivots on the middle, so aim the middle of the cover at the middle of its place
         d.float.animate().translationX(r.left-(w-r.width())/2).translationY(r.top-(hgt-r.height())/2).scaleX(sw).scaleY(sw).rotation(0f).alpha(if(small).6f else 1f)
-            .setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).withEndAction{settle()}.start()
+            .setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).withEndAction{settle()}.start()
     }
     /** Saves the new rating and the order inside the row the book landed in. */
     private fun commit(book:JSONObject,row:TierRow,flow:FlowRow){
@@ -394,7 +392,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     // ───── share picture ─────
     private fun openShare(){if(share!=null||drag!=null)return
         val list=Tiers.group(a,filtered()).filter{tierOf(it)>=0}
-        val layer=FrameLayout(a).apply{setBackgroundColor(if(a.light)0xe6f2f2f0.toInt() else 0xe608080a.toInt());isClickable=true;setOnClickListener{closeShare()}}
+        val layer=FrameLayout(a).apply{setBackgroundColor(Ui.veil(a.light));isClickable=true;setOnClickListener{closeShare()}}
         val box=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL}
         val title=if(kind=="comic")(if(year!=null)"Мои комиксы $year" else "Мои комиксы") else if(year!=null)"Мой $year в книгах" else "Мои книги"
         val bmp=TierPoster.render(a,title,genre,list);poster?.recycle();poster=bmp
@@ -443,7 +441,7 @@ internal object TierPoster{
         val top=330f;val H=(top+heights.sum()+pad+40f).toInt().coerceAtLeast(720)
         val bmp=Bitmap.createBitmap(W,H,Bitmap.Config.ARGB_8888);val c=Canvas(bmp)
         c.drawColor(a.bg)
-        Glow.face(W,H,a.bg,if(a.light)0xfff5b52a.toInt() else 0xffe0a12a.toInt(),W*.5f,0f,W*1.6f,if(a.light).12f else .16f,2.6f*1.7f*1.7f)?.let{c.drawBitmap(it,0f,0f,null);it.recycle()}
+        Glow.face(W,H,a.bg,Palette.gold(a.light),W*.5f,0f,W*1.6f,if(a.light).12f else .16f,2.6f*1.7f*1.7f)?.let{c.drawBitmap(it,0f,0f,null);it.recycle()}
         val tp=Paint(Paint.ANTI_ALIAS_FLAG)
         tp.typeface=PolkaFonts.sans(600);tp.textSize=30f;tp.letterSpacing=.08f;tp.color=a.muted;c.drawText("ТИР-ЛИСТ",pad,130f,tp);tp.letterSpacing=0f
         tp.typeface=PolkaFonts.serif(a,true);tp.textSize=74f;tp.color=a.fg;c.drawText(title,pad,222f,tp)

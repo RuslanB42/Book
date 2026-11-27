@@ -24,7 +24,7 @@ internal open class MarkedTextView(c:Context):TextView(c){
         super.onDraw(canvas)
         val l=layout?:return;val t=text as? Spanned?:return
         val marks=t.getSpans(0,t.length,LearnMark::class.java);if(marks.isEmpty())return
-        val dp=resources.displayMetrics.density;dot.color=(currentTextColor and 0xffffff) or (0x8c shl 24)
+        val dp=resources.displayMetrics.density;dot.color=Ui.alpha(currentTextColor,0x8c)
         val step=3.4f*dp;val r=.9f*dp
         canvas.save();canvas.translate(compoundPaddingLeft.toFloat(),extendedPaddingTop.toFloat())
         for(m in marks){val s=t.getSpanStart(m);val e=t.getSpanEnd(m);if(s<0||e<=s)continue
@@ -222,15 +222,15 @@ private fun MainActivity.quietFill()=Ui.fill(light)
 private fun MainActivity.roundButton(kind:String,desc:String,size:Int=40,fn:()->Unit)=FrameLayout(this).apply{
     background=shape(quietFill(),size/2);isClickable=true;contentDescription=desc;press(this);setOnClickListener{fn()}
     addView(LineIcon(this@roundButton,kind,fg).apply{this.size=20f},FrameLayout.LayoutParams(-1,-1))}
-private val MainActivity.mint get()=if(light)0xff1f9d6b.toInt() else 0xff63d2a1.toInt()
-private val MainActivity.rose get()=if(light)0xffd2543f.toInt() else 0xffff8a7a.toInt()
+private val MainActivity.mint get()=Palette.right(light)
+private val MainActivity.rose get()=Palette.wrong(light)
 
 /** Five dots: the word's step. */
 internal class StageDots(private val a:MainActivity,var stage:Int):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onMeasure(w:Int,h:Int)=setMeasuredDimension(a.d(46),a.d(8))
     override fun onDraw(c:Canvas){val d=a.d(6).toFloat();val gap=a.d(4).toFloat();val y=height/2f
-        for(i in 0 until 5){p.color=if(i<stage)a.fg else (a.fg and 0xffffff) or (0x29 shl 24);c.drawCircle(d/2+i*(d+gap),y,d/2,p)}}
+        for(i in 0 until 5){p.color=if(i<stage)a.fg else Ui.alpha(a.fg,0x29);c.drawCircle(d/2+i*(d+gap),y,d/2,p)}}
 }
 
 /** The «Слова» tab (approved): today's lesson in one plaque, then every word as a plain row; the known ones quieter. */
@@ -240,8 +240,8 @@ fun MainActivity.wordsPage(){
     val today=Words.lesson(this).size
     val card=line().apply{floatCard(this,24);gravity=Gravity.CENTER_VERTICAL;setPadding(d(18),d(14),d(14),d(14))}
     card.addView(TextView(this).apply{val sb=SpannableStringBuilder(if(today>0)"$today" else "Всё повторено")
-        if(today>0){val st=sb.length;sb.append(" на сегодня");sb.setSpan(android.text.style.AbsoluteSizeSpan(15,true),st,sb.length,0);sb.setSpan(android.text.style.ForegroundColorSpan(muted),st,sb.length,0);sb.setSpan(TypefaceSpanCompat(PolkaFonts.sans(400)),st,sb.length,0)}
-        text=sb;textSize=if(today>0)32f else 18f;setTextColor(fg);typeface=PolkaFonts.serif(this@wordsPage,true);includeFontPadding=false},LinearLayout.LayoutParams(0,-2,1f))
+        if(today>0){val st=sb.length;sb.append(" на сегодня");sb.setSpan(android.text.style.AbsoluteSizeSpan(Type.TEXT.toInt(),true),st,sb.length,0);sb.setSpan(android.text.style.ForegroundColorSpan(muted),st,sb.length,0);sb.setSpan(TypefaceSpanCompat(PolkaFonts.sans(400)),st,sb.length,0)}
+        text=sb;textSize=if(today>0)Type.LARGE else Type.TITLE;setTextColor(fg);typeface=PolkaFonts.serif(this@wordsPage,true);includeFontPadding=false},LinearLayout.LayoutParams(0,-2,1f))
     if(today>0)card.addView(text("Начать",Type.TEXT,bg,true).apply{gravity=Gravity.CENTER;setPadding(d(24),0,d(24),0);background=shape(fg,Radius.R24);isClickable=true;press(this);setOnClickListener{WordLesson(this@wordsPage).start()}},LinearLayout.LayoutParams(-2,d(48)))
     card.minimumHeight=d(76);page.addView(card,LinearLayout.LayoutParams(-1,-2));space(page,10)
     val learning=words.filterNot{Words.known(it)}.sortedByDescending{it.optLong("added")};val known=words.filter{Words.known(it)}.sortedByDescending{it.optLong("added")}
@@ -284,7 +284,7 @@ internal fun MainActivity.openWord(w:JSONObject){wordPage?.let{return}
     val list=column();Words.meetings(w).forEach{(s,_,title)->
         list.addView(View(this).apply{setBackgroundColor(Ui.line(light))},LinearLayout.LayoutParams(-1,1))
         val c=column().apply{setPadding(0,d(14),0,d(14))}
-        c.addView(Words.context(this,w,s,16f,if(light)0xff3a3a3c.toInt() else 0xffcfcfd4.toInt(),fg))
+        c.addView(Words.context(this,w,s,Type.BODY,muted,fg))
         if(title.isNotBlank())c.addView(text(title,Type.SECONDARY,muted),LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(6)})
         list.addView(c)}
     content.addView(list,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(30)})
@@ -313,7 +313,7 @@ internal class WordLesson(private val a:MainActivity){
         fun set(x:Float){anim?.cancel();if(reduced||width==0){v=x;invalidate();return}
             anim=android.animation.ValueAnimator.ofFloat(v,x).apply{duration=MotionSpec.SWITCH;interpolator=MotionSpec.move;addUpdateListener{v=it.animatedValue as Float;invalidate()};start()}}
         private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-        override fun onDraw(c:Canvas){val r=height/2f;p.color=(a.fg and 0xffffff) or (0x1a shl 24);c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),r,r,p);p.color=a.fg;if(v>0f)c.drawRoundRect(0f,0f,max(height.toFloat(),width*v),height.toFloat(),r,r,p)}}
+        override fun onDraw(c:Canvas){val r=height/2f;p.color=Ui.alpha(a.fg,0x1a);c.drawRoundRect(0f,0f,width.toFloat(),height.toFloat(),r,r,p);p.color=a.fg;if(v>0f)c.drawRoundRect(0f,0f,max(height.toFloat(),width*v),height.toFloat(),r,r,p)}}
 
     fun start(){
         queue.clear();queue.addAll(Words.lesson(a));total=queue.size;done=0;if(total==0)return
@@ -321,9 +321,9 @@ internal class WordLesson(private val a:MainActivity){
         root=FrameLayout(a).apply{setBackgroundColor(a.bg)}
         col=a.column()
         val top=a.line()
-        top.addView(IconView(a,"x",a.muted).apply{contentDescription="Закрыть";isClickable=true;setOnClickListener{close()}},LinearLayout.LayoutParams(a.d(44),a.d(44)))
+        top.addView(a.leadButton(true,a.fg,Ui.fill(a.light)){close()},LinearLayout.LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH)))
         bar=Progress();top.addView(bar,LinearLayout.LayoutParams(0,a.d(4),1f).apply{marginStart=a.d(6);marginEnd=a.d(6)})
-        col.addView(top,LinearLayout.LayoutParams(-1,a.d(48)))
+        col.addView(top,LinearLayout.LayoutParams(-1,a.d(Size.HEADER)))
         stage=FrameLayout(a);col.addView(stage,LinearLayout.LayoutParams(-1,0,1f))
         next=a.text("Дальше",Type.BODY,a.bg,true).apply{gravity=Gravity.CENTER;background=a.shape(a.fg,Radius.R28);isClickable=true;a.press(this);visibility=View.GONE;setOnClickListener{advance()}}
         col.addView(next,LinearLayout.LayoutParams(-1,a.d(52)).apply{topMargin=a.d(12)})
@@ -365,19 +365,19 @@ internal class WordLesson(private val a:MainActivity){
     private fun choose(w:JSONObject,words:Boolean,others:List<String>):View{
         val c=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;setPadding(0,a.d(36),0,0)}
         if(!words){c.addView(TextView(a).apply{text=w.str("w");textSize=Type.NUMBER;setTextColor(a.fg);typeface=PolkaFonts.literata(a,true);gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2))
-            sentenceOf(w)?.let{s->c.addView(Words.context(a,w,s,16.5f,a.muted,a.fg).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14);leftMargin=a.d(6);rightMargin=a.d(6)})}}
+            sentenceOf(w)?.let{s->c.addView(Words.context(a,w,s,Type.BODY,a.muted,a.fg).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14);leftMargin=a.d(6);rightMargin=a.d(6)})}}
         else c.addView(TextView(a).apply{text=Words.plain(Words.meaning(w));textSize=Type.H2;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{leftMargin=a.d(6);rightMargin=a.d(6)})
         val right=if(words)w.str("w") else Words.plain(Words.meaning(w))
         val options=(others+right).shuffled()
         val list=a.column();val rows=ArrayList<TextView>()
-        options.forEach{o->val t=TextView(a).apply{text=o;tag=o;textSize=if(words)19f else 16f;setTextColor(a.fg);typeface=PolkaFonts.literata(a,words);maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END
+        options.forEach{o->val t=TextView(a).apply{text=o;tag=o;textSize=if(words)Type.H2 else Type.BODY;setTextColor(a.fg);typeface=PolkaFonts.literata(a,words);maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END
             setPadding(a.d(16),a.d(15),a.d(16),a.d(15));background=a.shape(Ui.card(a.light),Radius.R20);isClickable=true;a.press(this)
             setOnClickListener{pick(w,o==right,this,rows.first{r->r.tag==right})}}
             rows+=t;list.addView(t,LinearLayout.LayoutParams(-1,-2).apply{if(list.childCount>0)topMargin=a.d(10)})}
         c.addView(list,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(36)})
         return ScrollView(a).apply{isVerticalScrollBarEnabled=false;addView(c)}
     }
-    private fun paint(v:TextView,ink:Int){v.background=GradientDrawableCompat.box(a,(ink and 0xffffff) or (0x29 shl 24),ink,18)}
+    private fun paint(v:TextView,ink:Int){v.background=GradientDrawableCompat.box(a,Ui.alpha(ink,0x29),ink,18)}
     private fun pick(w:JSONObject,ok:Boolean,chosen:TextView,right:TextView){if(answered)return;answered=true
         val secs=(android.os.SystemClock.uptimeMillis()-shownAt)/1000.0
         if(ok){paint(chosen,a.mint);result(w,if(secs<6)3 else 2);handler.postDelayed({advance()},650)}
@@ -390,7 +390,7 @@ internal class WordLesson(private val a:MainActivity){
         if(s!=null&&r!=null){val sb=SpannableStringBuilder(s.substring(0,r.first)).append(" ".repeat((r.last-r.first+1).coerceIn(5,12))).append(s.substring(r.last+1))
             val st=r.first;val en=st+(r.last-r.first+1).coerceIn(5,12);sb.setSpan(android.text.style.UnderlineSpan(),st,en,0)
             c.addView(TextView(a).apply{text=sb;textSize=Type.H2;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;cssLeading(1.6f)},LinearLayout.LayoutParams(-1,-2))}
-        c.addView(TextView(a).apply{text=Words.meaning(w);textSize=if(s!=null&&r!=null)15f else 22f;setTextColor(if(s!=null&&r!=null)a.muted else a.fg);typeface=PolkaFonts.literata(a,false,s!=null&&r!=null);gravity=Gravity.CENTER;cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(12)})
+        c.addView(TextView(a).apply{text=Words.meaning(w);textSize=if(s!=null&&r!=null)Type.TEXT else Type.H2;setTextColor(if(s!=null&&r!=null)a.muted else a.fg);typeface=PolkaFonts.literata(a,false,s!=null&&r!=null);gravity=Gravity.CENTER;cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(12)})
         val field=EditText(a).apply{textSize=Type.H2;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;background=a.shape(Ui.card(a.light),Radius.R20)
             setPadding(a.d(16),0,a.d(16),0);isSingleLine=true;imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE or android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
             inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
@@ -406,8 +406,8 @@ internal class WordLesson(private val a:MainActivity){
         val forms=(w.optJSONArray("forms")?.let{f->(0 until f.length()).map{f.getString(it)}}?:emptyList()).toSet()+w.str("k")+Dictionary.key(inSentence)
         val secs=(android.os.SystemClock.uptimeMillis()-shownAt)/1000.0
         field.isEnabled=false
-        if(typed in forms){field.background=GradientDrawableCompat.box(a,(a.mint and 0xffffff) or (0x29 shl 24),a.mint,18);result(w,if(secs<8)4 else if(secs<20)3 else 2);handler.postDelayed({hideKeyboard();advance()},700)}
-        else{field.background=GradientDrawableCompat.box(a,(a.rose and 0xffffff) or (0x29 shl 24),a.rose,18)
+        if(typed in forms){field.background=GradientDrawableCompat.box(a,Ui.alpha(a.mint,0x29),a.mint,18);result(w,if(secs<8)4 else if(secs<20)3 else 2);handler.postDelayed({hideKeyboard();advance()},700)}
+        else{field.background=GradientDrawableCompat.box(a,Ui.alpha(a.rose,0x29),a.rose,18)
             (field.parent as ViewGroup).findViewWithTag<TextView>("answer")?.let{it.text=inSentence;it.visibility=View.VISIBLE}
             result(w,1);hideKeyboard();showNext()}}
 

@@ -46,7 +46,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         head.addView(name,LayoutParams(-2,-2))
         head.addView(pen,LayoutParams(a.d(16),a.d(16)).apply{leftMargin=a.d(6)})
         head.addView(View(a),LayoutParams(0,1,1f))
-        name.textSize=if(compact)17f else 20f;name.typeface=PolkaFonts.serif(a,true)
+        name.textSize=if(compact)Type.TITLE else Type.H2;name.typeface=PolkaFonts.serif(a,true)
         if(compact)head.minimumHeight=0
         end.addView(handle,FrameLayout.LayoutParams(a.d(if(compact)30 else 44),a.d(44),Gravity.CENTER_VERTICAL or Gravity.END))
         // the bin sits right before the grip, at the same place on every card
@@ -99,7 +99,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         anim?.cancel();val to=if(on)1f else 0f
         if(!animate||a.prefs.str("motion")=="reduced"){apply(to);return}
         val from=progress
-        val sp=Spring.of(.1,460.0);anim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=sp.duration;startDelay=delay;interpolator=sp.interpolator;addUpdateListener{apply(it.animatedValue as Float)};start()}}
+        val sp=Motion.response;anim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=sp.duration;startDelay=delay;interpolator=sp.interpolator;addUpdateListener{apply(it.animatedValue as Float)};start()}}
     private fun apply(e:Float){progress=e
         val lp=stage.layoutParams as MarginLayoutParams;lp.height=(stageFull*(1-e)).toInt();lp.topMargin=(a.d(if(compact)6 else 12)*(1-e)).toInt();stage.layoutParams=lp
         // while folding, the covers and the shelf are cut at the shrinking bottom instead of spilling over the next shelf
@@ -122,7 +122,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
             // the first frame of the opening is k=0: only a finished closing hides the pill
             pill.visibility=if(k<=0f&&to<=0f)View.GONE else View.VISIBLE}
         if(reduced){set(to);askAnim=null;return}
-        askAnim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=if(to>from)280 else 220;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{set(it.animatedValue as Float)}
+        askAnim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=if(to>from)Motion.STANDARD else Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{set(it.animatedValue as Float)}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(askAnim===x)askAnim=null}});start()}}
     /** Margins follow the new order after a drag. */
     fun settleMargin(){apply(progress)}
@@ -158,7 +158,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         // the shelves reload after a rename: let this tap finish first
         if(next.isNotBlank()&&next!=title){name.text=next;title=next;if(key.startsWith("s:"))key="s:$next";head.contentDescription="$next, ${MainActivity.countBooks(list.size)}";centerName();settleBreath();val r=rename;a.root.post{r?.invoke(next)}}}
     /** Saved: the card breathes once. */
-    private fun settleBreath(){if(a.prefs.str("motion")=="reduced")return;head.animate().scaleX(1.012f).scaleY(1.012f).setDuration(Motion.FAST).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).withEndAction{head.animate().scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).start()}.start()}
+    private fun settleBreath(){if(a.prefs.str("motion")=="reduced")return;head.animate().scaleX(1.012f).scaleY(1.012f).setDuration(Motion.FAST).setInterpolator(MotionSpec.enter).withEndAction{head.animate().scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).start()}.start()}
 
     /** Six-dot grip; dragging it moves the shelf. */
     internal inner class Grip:View(a){
@@ -201,7 +201,7 @@ internal class ShelfFan(private val a:MainActivity,val books:List<JSONObject>,pr
         val at=IntArray(2);getLocationOnScreen(at);return RectF((at[0]+c.left).toFloat(),(at[1]+c.top).toFloat(),(at[0]+c.right).toFloat(),(at[1]+c.bottom).toFloat()) to c.rotation}
     /** An empty shelf's place for a book. */
     private inner class Place:View(a){
-        private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=a.d(1)*1.5f;color=if(a.light)0x33000000 else 0x29ffffff
+        private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=a.d(1)*1.5f;color=Ui.outline(a.light)
             pathEffect=DashPathEffect(floatArrayOf(a.d(5).toFloat(),a.d(4).toFloat()),0f);strokeCap=Paint.Cap.ROUND}
         private val plus=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeWidth=a.d(1)*1.75f;color=a.muted;strokeCap=Paint.Cap.ROUND}
         override fun onDraw(c:Canvas){val h=p.strokeWidth;val rr=a.d(if(small)5 else 6).toFloat();c.drawRoundRect(h,h,width-h,height-h,rr,rr,p)
@@ -228,7 +228,7 @@ internal class ShelfMorph(private val a:MainActivity,val trip:Trip,private val t
         var busy=false;private set
         fun box(v:View):RectF{val at=IntArray(2);v.getLocationOnScreen(at);return RectF(at[0].toFloat(),at[1].toFloat(),(at[0]+v.width).toFloat(),(at[1]+v.height).toFloat())}
         private const val OPEN=520L;private const val CLOSE=440L
-        private val close=android.view.animation.PathInterpolator(.3f,0f,.1f,1f)
+        private val close=MotionSpec.enter
     }
     private val W get()=a.root.width.toFloat()
     private val H get()=a.root.height.toFloat()
@@ -388,7 +388,7 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
     private fun fold(after:Long){if(!fresh)return;fresh=false;if(a.shelvesEditing)return
         val lp=layoutParams as? LinearLayout.LayoutParams?:return;val m0=lp.topMargin
         if(a.prefs.str("motion")=="reduced"){lp.topMargin=0;layoutParams=lp;reveal(0f);return}
-        val sp=Spring.of(.1,460.0);marginAnim?.cancel();marginAnim=android.animation.ValueAnimator.ofFloat(1f,0f).apply{duration=sp.duration;startDelay=after;interpolator=sp.interpolator
+        val sp=Motion.response;marginAnim?.cancel();marginAnim=android.animation.ValueAnimator.ofFloat(1f,0f).apply{duration=sp.duration;startDelay=after;interpolator=sp.interpolator
             addUpdateListener{val k=it.animatedValue as Float;lp.topMargin=(m0*k).toInt();layoutParams=lp;reveal(k)};start()}}
     private fun start(){if(field!=null||!isAttachedToWindow)return
         val f=a.edit("","Название полки").apply{setSingleLine(true);textSize=Type.TITLE;typeface=PolkaFonts.sans(600);setTextColor(a.fg);setHintTextColor(a.muted);background=null;setPadding(a.d(14),0,a.d(14),0);minHeight=0;minimumHeight=0
@@ -407,7 +407,7 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
         if(f.hasFocus()){a.root.isFocusableInTouchMode=true;a.root.requestFocus()}
         val made=next.isNotBlank()&&create(next)
         // the typed name leaves with the new shelf; the place quietly becomes «+ Новая полка» again
-        f.animate().alpha(0f).setStartDelay(0).setDuration(if(made)140 else 120).withEndAction{removeView(f)}.start()
+        f.animate().alpha(0f).setStartDelay(0).setDuration(if(made)Motion.FAST else Motion.FAST).withEndAction{removeView(f)}.start()
         label.animate().alpha(1f).setStartDelay(if(made)200 else 80).setDuration(Motion.STANDARD).start()
         light(0f);isClickable=true
         // from the «+» menu: the new shelf has grown above (420 ms); then the place folds away
@@ -417,7 +417,7 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
     fun setEditing(on:Boolean,animate:Boolean,delay:Long=0){if(!on)commit();val lp=layoutParams as? LinearLayout.LayoutParams?:return;val to=a.d(if(on)10 else 0);marginAnim?.cancel()
         if(!animate||a.prefs.str("motion")=="reduced"){lp.topMargin=to;layoutParams=lp;reveal(if(on)1f else 0f);return}
         val m0=lp.topMargin;val s0=shown;val s1=if(on)1f else 0f
-        val sp=Spring.of(.1,460.0);marginAnim=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=delay;interpolator=sp.interpolator;addUpdateListener{val k=it.animatedValue as Float;lp.topMargin=(m0+(to-m0)*k).toInt();layoutParams=lp;reveal((s0+(s1-s0)*k).coerceIn(0f,1f))};start()}}
+        val sp=Motion.response;marginAnim=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=delay;interpolator=sp.interpolator;addUpdateListener{val k=it.animatedValue as Float;lp.topMargin=(m0+(to-m0)*k).toInt();layoutParams=lp;reveal((s0+(s1-s0)*k).coerceIn(0f,1f))};start()}}
 }
 
 /** «Полки» (approved «Б: полки, статусы сверху»): the four statuses as small shelves in a block of two by two, always
@@ -462,7 +462,7 @@ internal class StatusGrid(private val a:MainActivity,private val tiles:Map<Strin
     private val gap=a.d(10)
     private var editing=false
     private var held:String?=null;private var downX=0f;private var downY=0f;private var cellW=0;private var cellH=0
-    private val glide=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+    private val glide=MotionSpec.enter
     init{clipChildren=false;clipToPadding=false;order.forEach{k->addView(tiles.getValue(k),LayoutParams(-1,-2))}}
     override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws);cellW=(w-gap)/2
         tiles.values.forEach{it.measure(MeasureSpec.makeMeasureSpec(cellW,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(0,MeasureSpec.UNSPECIFIED))}
@@ -504,9 +504,9 @@ internal class StatusGrid(private val a:MainActivity,private val tiles:Map<Strin
 internal class ShelfEditor(private val a:MainActivity,private val page:LinearLayout,private val rows:MutableList<ShelfRow>,private val place:ShelfSlot?=null,private val statuses:StatusGrid?=null){
     private var held:ShelfRow?=null;private var from=0;private var target=0;private var startY=0f;private var slot=1
     private var startScroll=0;private var lastY=0f
-    private val glide=android.view.animation.PathInterpolator(.2f,0f,0f,1f)
+    private val glide=MotionSpec.enter
     init{rows.forEach{r->r.handle.setOnTouchListener{_,e->touch(r,e);true}}}
-    fun setEditing(on:Boolean){a.shelvesEditing=on;statuses?.setEditing(on,true);val delays=Stagger.delays(rows.size+1,30,ease=Ease.outQuad);rows.forEachIndexed{i,r->r.setEditing(on,true,delays[i])};place?.setEditing(on,true,delays.last())}
+    fun setEditing(on:Boolean){a.shelvesEditing=on;statuses?.setEditing(on,true);val delays=Stagger.delays(rows.size+1,30,ease=MotionSpec.enter);rows.forEachIndexed{i,r->r.setEditing(on,true,delays[i])};place?.setEditing(on,true,delays.last())}
     private fun saveOrder(){a.prefs.put("shelfOrder",org.json.JSONArray(rows.map{it.key}));a.savePreferences()}
     private val reduced get()=a.prefs.str("motion")=="reduced"
     /** The shelf [key] leaves the page in place (the quick menu's «Удалить полку»); false if it is not here. */
@@ -524,7 +524,7 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
         val s1=if(follow)maxOf(s0,content0+full+m-viewport) else s0
         // no scaling: the shelf glass runs to the screen edges, and a scaled row showed with its sides cut off
         lp.height=0;lp.topMargin=0;r.layoutParams=lp;r.alpha=0f;r.translationY=a.d(14).toFloat()
-        android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.LONG;interpolator=android.view.animation.PathInterpolator(.42f,0f,.18f,1f);addUpdateListener{val k=it.animatedValue as Float;lp.height=(full*k).toInt().coerceAtLeast(1);lp.topMargin=(m*k).toInt();r.layoutParams=lp
+        android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.LONG;interpolator=MotionSpec.move;addUpdateListener{val k=it.animatedValue as Float;lp.height=(full*k).toInt().coerceAtLeast(1);lp.topMargin=(m*k).toInt();r.layoutParams=lp
                 if(s1>s0)sv.scrollTo(0,(s0+(s1-s0)*k).toInt())}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){lp.height=LinearLayout.LayoutParams.WRAP_CONTENT;r.layoutParams=lp;r.settleMargin()}});start()}
         r.animate().alpha(1f).translationY(0f).setStartDelay(160).setDuration(Motion.LONG).setInterpolator(glide).start()}
@@ -533,12 +533,12 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
         val finish={page.removeView(r);rows.remove(r);rows.forEach{it.settleMargin()};saveOrder();done()}
         if(reduced||!r.isAttachedToWindow){finish();return}
         // it melts away where it stands, then its place closes
-        r.animate().alpha(0f).setStartDelay(40).setDuration(Motion.EMPHASIS).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,.6f,1f)).start()
+        r.animate().alpha(0f).setStartDelay(40).setDuration(Motion.EMPHASIS).setInterpolator(MotionSpec.move).start()
         val lp=r.layoutParams as LinearLayout.LayoutParams;val h=r.height;val m=lp.topMargin
         // the first card of the page leaves: the one after it gives up its gap at the same pace, so nothing jumps at
         // the end (below the statuses every card keeps its gap)
         val next=if(i==0&&page.indexOfChild(r)==0)rows.getOrNull(1) else null;val nlp=next?.layoutParams as? LinearLayout.LayoutParams;val nm=nlp?.topMargin?:0
-        android.animation.ValueAnimator.ofFloat(0f,1f).apply{startDelay=300;duration=Motion.EMPHASIS;interpolator=android.view.animation.PathInterpolator(.42f,0f,.18f,1f)
+        android.animation.ValueAnimator.ofFloat(0f,1f).apply{startDelay=300;duration=Motion.EMPHASIS;interpolator=MotionSpec.move
             addUpdateListener{val k=it.animatedValue as Float;lp.height=(h*(1-k)).toInt();lp.topMargin=(m*(1-k)).toInt();r.layoutParams=lp;if(next!=null&&nlp!=null){nlp.topMargin=(nm*(1-k)).toInt();next.layoutParams=nlp}}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){finish()}});start()}}
     private fun touch(r:ShelfRow,e:MotionEvent){if(!r.editing)return
@@ -578,7 +578,7 @@ internal fun MainActivity.shelvesTopBar():View{
     fun paint(){val on=shelvesEditing;label.setTextColor(if(on)bg else fg);label.background=if(on)shape(fg,Radius.R20) else controlSurface(label,20f)}
     paint();shelvesTopBarLabel=label
     label.setOnClickListener{val on=!shelvesEditing;shelfEditor?.setEditing(on)
-        label.animate().alpha(0f).scaleX(.92f).scaleY(.92f).setDuration(Motion.FAST).withEndAction{label.text=if(on)"Готово" else "Редактировать";paint();label.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
+        label.animate().alpha(0f).scaleX(.92f).scaleY(.92f).setDuration(Motion.FAST).withEndAction{label.text=if(on)"Готово" else "Редактировать";paint();label.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start()}.start()}
     press(label)
     bar.addView(label,FrameLayout.LayoutParams(-2,d(40),Gravity.END or Gravity.CENTER_VERTICAL))
     return bar

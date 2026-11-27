@@ -26,7 +26,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  }
  // Fully round track and thumb, matching the pills used across the app.
  private fun roundTabs(labels:List<String>):LinearLayout{
-  val box=SlidingSegment(a,selected,labels.size,quiet(),if(a.light)android.graphics.Color.WHITE else 0xff48484c.toInt(),24)
+  val box=SlidingSegment(a,selected,labels.size,quiet(),Ui.selected(a.light),Radius.R24)
   fun tint(index:Int){for(i in 0 until box.childCount)(box.getChildAt(i) as TextView).apply{isSelected=i==index;setTextColor(if(isSelected)a.fg else a.muted)}}
   labels.forEachIndexed{i,s->box.addView(a.text(s,Type.TEXT).apply{gravity=Gravity.CENTER;minHeight=a.d(38);a.press(this);setOnClickListener{if(i!=selected){box.choose(i);tint(i);switchTo(i)}}},LinearLayout.LayoutParams(0,-2,1f))}
   tint(selected);return box
@@ -66,7 +66,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
    val want=(s[1]+sv.height-at[1]-below).coerceAtLeast(a.d(200))
    holder.setPadding(0,0,0,sv.paddingBottom+a.d(16))
    val lp=holder.layoutParams;if(lp.height!=want){lp.height=want;holder.layoutParams=lp;return false};return true}})
-  toc.forEach{item->val current=item.optInt("ch")==r.chapter;list.addView(a.text(r.prettyTitle(item.str("title")),Type.BODY,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),Radius.R16);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
+  toc.forEach{item->val current=item.optInt("ch")==r.chapter;list.addView(a.text(r.prettyTitle(item.str("title")),Type.BODY,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape(Ui.alpha(a.accent,0x1f),Radius.R16);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
   // the list opens at the chapter being read (a little of the one before it still showing above)
   here?.let{row->holder.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
    if(row.height==0)return true;holder.viewTreeObserver.removeOnPreDrawListener(this)
@@ -128,7 +128,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private fun bookmarkCard(item:JSONObject):View{
   val tone=a.fg and 0xffffff
   val go={close();r.goToLocation(item.optInt("ch"),item.optInt("start",item.optInt("nativeOffset",0)))}
-  val card=a.line().apply{gravity=Gravity.CENTER_VERTICAL;a.floatCard(this,24);background=Floating(a,android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(Radius.R24).toFloat();setStroke(1,(0x14 shl 24) or tone)},a.d(24).toFloat())
+  val card=a.line().apply{gravity=Gravity.CENTER_VERTICAL;a.floatCard(this,24);background=Floating(a,android.graphics.drawable.GradientDrawable().apply{setColor(Ui.control(a.light));cornerRadius=a.d(Radius.R24).toFloat();setStroke(1,(0x14 shl 24) or tone)},a.d(24).toFloat())
    setPadding(a.d(14),a.d(10),a.d(10),a.d(10));isClickable=true;setOnClickListener{go()};a.press(this);contentDescription="Закладка: ${r.chapterName(item.optInt("ch"))}"}
   card.addView(IconView(a,"bookmark",a.muted),LinearLayout.LayoutParams(a.d(20),a.d(20)).apply{rightMargin=a.d(12)})
   val texts=a.column()
@@ -146,7 +146,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   notebookResults.animate().cancel()
   if(!animate||reduced()){notebookResults.alpha=1f;notebookResults.translationY=0f;return}
   notebookResults.alpha=0f;notebookResults.translationY=a.d(8).toFloat()
-  notebookResults.animate().alpha(1f).translationY(0f).setDuration(Motion.STANDARD).setStartDelay(40).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()
+  notebookResults.animate().alpha(1f).translationY(0f).setDuration(Motion.STANDARD).setStartDelay(40).setInterpolator(MotionSpec.enter).start()
  }
  private fun search(){
   val input=a.edit("","Поиск").apply{contentDescription="Поиск по книге";imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH};val results=a.column();pane.addView(searchField(input));a.space(pane,14);pane.addView(results)
@@ -154,7 +154,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   input.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){input.removeCallbacks(searchTask);searchTask=Runnable{run()};input.postDelayed(searchTask,250)};override fun afterTextChanged(s:Editable?){} });run()
  }
  private fun searchField(input:EditText):View{
-  val field=FrameLayout(a);input.setPadding(a.d(38),0,a.d(12),0);input.textSize=16f;input.background=OpaqueSurface(a,22f);field.addView(input,FrameLayout.LayoutParams(-1,a.d(44)));field.addView(IconView(a,"search",a.muted),FrameLayout.LayoutParams(a.d(18),a.d(18),Gravity.CENTER_VERTICAL).apply{leftMargin=a.d(12)});return field
+  val field=FrameLayout(a);input.setPadding(a.d(38),0,a.d(12),0);input.textSize=Type.BODY;input.background=OpaqueSurface(a,22f);field.addView(input,FrameLayout.LayoutParams(-1,a.d(44)));field.addView(IconView(a,"search",a.muted),FrameLayout.LayoutParams(a.d(18),a.d(18),Gravity.CENTER_VERTICAL).apply{leftMargin=a.d(12)});return field
  }
  private var searchTask=Runnable{}
 }

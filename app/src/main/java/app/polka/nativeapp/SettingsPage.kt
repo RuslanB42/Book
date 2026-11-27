@@ -73,7 +73,7 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
         .let{flame=it.first;flameValue=it.third!!}
     row("Цель на $year",value="…"){val model=ReadingStatistics(stats,books);val cur=model.target(year)
         fun store(n:Int?){(stats.optJSONObject("annualGoals")?:JSONObject().also{stats.put("annualGoals",it)}).apply{if(n==null)remove("$year") else put("$year",n)};updateStatistics{changeAnnualGoal(it,year,n)};refreshPlaques()}
-        numberSheet("Цель на $year",cur,1..9999,listOf(12,24,36,52),{n->if(n<=0)"книг за год" else MainActivity.countBooks(n).substringAfter(' ')+" за год · примерно ${max(1,(n/12f).roundToInt())} в месяц"},if(cur>0)("Убрать цель" to {store(null)}) else null){n->store(n)}}
+        numberSheet("Цель на $year",cur,1..9999,listOf(12,24,36,52),{n->if(n<=0)"книг за год" else MainActivity.countBooks(n).substringAfter(' ')+" за год, примерно ${max(1,(n/12f).roundToInt())} в месяц"},if(cur>0)("Убрать цель" to {store(null)}) else null){n->store(n)}}
         .let{goal=it.first;goalValue=it.third!!}
     card(listOf(flame,goal))
     work({stats=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")}?:JSONObject()}){refreshPlaques()}
@@ -116,7 +116,7 @@ internal fun MainActivity.numberSheet(title:String,initial:Int,range:IntRange,pr
     val pill=Ui.fill(light)
     box.addView(text(title,Type.TEXT,fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
     val field=edit(if(initial>0)"$initial" else "","0").apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER;filters=arrayOf(android.text.InputFilter.LengthFilter(range.last.toString().length))
-        textSize=56f;typeface=PolkaFonts.serif(this@numberSheet,true);gravity=Gravity.CENTER;background=null;setTextColor(fg);setHintTextColor(if(light)0x33000000 else 0x33ffffff);setPadding(0,0,0,0);imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE;setSelection(text.length);contentDescription=title}
+        textSize=Type.NUMBER;typeface=PolkaFonts.serif(this@numberSheet,true);gravity=Gravity.CENTER;background=null;setTextColor(fg);setHintTextColor(Ui.icon(light));setPadding(0,0,0,0);imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE;setSelection(text.length);contentDescription=title}
     box.addView(field,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(14)})
     val caption=text(unit(initial),Type.TEXT,muted).apply{gravity=Gravity.CENTER}
     box.addView(caption,LinearLayout.LayoutParams(-1,-2))
@@ -129,7 +129,7 @@ internal fun MainActivity.numberSheet(title:String,initial:Int,range:IntRange,pr
         override fun afterTextChanged(s:android.text.Editable?){caption.text=unit(s.toString().toIntOrNull()?:0);paint()}})
     paint()
     lateinit var sheet:android.app.AlertDialog
-    fun done(){val n=field.text.toString().toIntOrNull();if(n==null||n !in range){field.animate().translationX(d(8).toFloat()).setDuration(60).withEndAction{field.animate().translationX(0f).setDuration(Motion.FAST).setInterpolator(android.view.animation.OvershootInterpolator(3f)).start()}.start();return}
+    fun done(){val n=field.text.toString().toIntOrNull();if(n==null||n !in range){field.animate().translationX(d(8).toFloat()).setDuration(Motion.FAST/2).withEndAction{field.animate().translationX(0f).setDuration(Motion.FAST).setInterpolator(Motion.expand.interpolator).start()}.start();return}
         saved(n);sheet.dismiss()}
     field.setOnEditorActionListener{_,act,_->if(act==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){done();true}else false}
     box.addView(text("Готово",Type.BODY,bg,true).apply{gravity=Gravity.CENTER;background=shape(fg,Radius.R28);isClickable=true;isFocusable=true;press(this);setOnClickListener{done()}},LinearLayout.LayoutParams(-1,d(52)).apply{topMargin=d(18)})

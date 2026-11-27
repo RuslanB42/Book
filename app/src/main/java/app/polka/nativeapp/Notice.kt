@@ -22,18 +22,18 @@ import kotlin.math.*
  */
 internal class Notice private constructor(internal val a:MainActivity,private val compact:Boolean){
     enum class Kind(val color:Int,val glyph:String){
-        LOADING(0xfff0a742.toInt(),""),OK(0xff34b866.toInt(),"check"),PARTIAL(0xfff0a742.toInt(),"bang"),ERROR(0xffef5b4c.toInt(),"x"),
-        KNOWN(0xff6e6e74.toInt(),"book"),ATTACHED(0xff4cb0e5.toInt(),"clip"),DELETED(0xffef5b4c.toInt(),"trash"),
-        COPIED(0xfff0a742.toInt(),"copy"),INFO(0xff8e8e94.toInt(),"info"),SHELF(0xff8e8e94.toInt(),"shelf"),FOUND(0xff5b8def.toInt(),"folder")}
+        LOADING(Palette.waiting,""),OK(Palette.done,"check"),PARTIAL(Palette.waiting,"bang"),ERROR(Palette.failed,"x"),
+        KNOWN(Palette.known,"book"),DELETED(Palette.failed,"trash"),
+        COPIED(Palette.waiting,"copy"),INFO(Palette.note,"info"),SHELF(Palette.note,"shelf"),FOUND(Palette.found,"folder")}
     class State(val kind:Kind,val title:String,val sub:String="",val books:List<JSONObject> =emptyList(),val blank:Boolean=false,
                 val action:String?=null,val onAction:(()->Unit)?=null,val progress:Float?=null,val faded:Boolean=false)
 
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    private val smooth=PathInterpolator(.2f,0f,0f,1f)
+    private val smooth=MotionSpec.enter
     private val host=a.window.decorView as FrameLayout
     /** Room round the capsule for its shadow. */
     private val pad=a.d(24)
-    private val surface=if(a.light)Color.WHITE else 0xff2c2c2f.toInt()
+    private val surface=Ui.menu(a.light)
     private val frame=FrameLayout(a).apply{clipChildren=false;clipToPadding=false;setPadding(pad,pad,pad,pad)}
     /** How far the capsule has grown out of its pill (0 the pill, 1 full size). */
     private var grow=1f
@@ -84,8 +84,8 @@ internal class Notice private constructor(internal val a:MainActivity,private va
 
     private fun put(s:State,first:Boolean){
         state=s;title.text=s.title
-        if(compact){(icon.background as GradientDrawable).setColor((s.kind.color and 0xffffff) or 0x2e000000)
-            iconGlyph.set(s.kind,if(s.kind.color==0xff8e8e94.toInt())(Ui.ink2(a.light)) else s.kind.color,!first&&!reduced);return}
+        if(compact){(icon.background as GradientDrawable).setColor(Ui.alpha(s.kind.color,0x2e))
+            iconGlyph.set(s.kind,if(s.kind.color==Palette.note)(Ui.ink2(a.light)) else s.kind.color,!first&&!reduced);return}
         val busy=s.progress!=null
         sub.text=s.sub;sub.visibility=if(s.sub.isBlank()||busy)View.GONE else View.VISIBLE
         bar.visibility=if(busy)View.VISIBLE else View.GONE
@@ -116,7 +116,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
         card.addOnLayoutChangeListener(object:View.OnLayoutChangeListener{override fun onLayoutChange(v:View,l:Int,t:Int,r:Int,b:Int,ol:Int,ot:Int,or:Int,ob:Int){
             if(r-l<=0||b-t<=0)return;v.removeOnLayoutChangeListener(this);if(leaving)return
             val from=offscreen();frame.translationY=from
-            motion=ValueAnimator.ofFloat(from,0f).apply{duration=Motion.LONG;interpolator=Spring(.86f);addUpdateListener{frame.translationY=it.animatedValue as Float};start()}}})
+            motion=ValueAnimator.ofFloat(from,0f).apply{duration=Motion.expand.duration;interpolator=Motion.expand.interpolator;addUpdateListener{frame.translationY=it.animatedValue as Float};start()}}})
         schedule()
     }
 
@@ -141,7 +141,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
             addUpdateListener{val t=it.animatedValue as Float;ghosts.forEachIndexed{k,g->g.alpha=((1f-t)*255).roundToInt();val b=g.bounds;val top=tops[k]-(a.d(5)*t).roundToInt();g.setBounds(b.left,top,b.right,top+b.height())}}
             addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){ghosts.forEach{card.overlay.remove(it);(it as android.graphics.drawable.BitmapDrawable).bitmap.recycle()}}});start()}
         if(h1!=h0&&h0>0){card.layoutParams=card.layoutParams.apply{height=h0}
-            ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;interpolator=PathInterpolator(.3f,0f,.1f,1f)
+            ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;interpolator=MotionSpec.enter
                 addUpdateListener{val t=it.animatedValue as Float;card.layoutParams=card.layoutParams.apply{height=(h0+(h1-h0)*t).roundToInt()};card.invalidateOutline()}
                 addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){card.layoutParams=card.layoutParams.apply{height=FrameLayout.LayoutParams.WRAP_CONTENT}}});start()}}
         if(s.kind==Kind.ERROR||s.kind==Kind.PARTIAL)card.postDelayed({shake()},260)
@@ -162,10 +162,6 @@ internal class Notice private constructor(internal val a:MainActivity,private va
         motion?.cancel();card.animate().cancel();(frame.parent as? ViewGroup)?.removeView(frame);badge.stop();onGone?.invoke()}
     /** How far up the capsule must go to be fully past the top edge of the display, shadow included. */
     private fun offscreen():Float=-(frame.top+pad+card.height+card.translationY+a.d(20))
-    /** A critically-near damped spring (as iOS banners move): [damping] below 1 gives a barely visible settle. */
-    private class Spring(private val damping:Float):android.animation.TimeInterpolator{
-        override fun getInterpolation(t:Float):Float{if(t>=1f)return 1f;val w=11f;val z=damping;val wd=w*sqrt(1f-z*z)
-            return 1f-exp(-z*w*t)*(cos(wd*t)+z*w/wd*sin(wd*t))}}
     /** Leaves the way it came: up past the top edge of the display. */
     fun dismiss(fast:Boolean=false){if(a.isFinishing||a.isDestroyed){dismissNow();return};if(leaving)return;leaving=true;card.removeCallbacks(hide);if(Notice.current===this)Notice.current=null
         val gone:()->Unit={(frame.parent as? ViewGroup)?.removeView(frame);badge.stop();onGone?.invoke()}
@@ -173,7 +169,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
         motion?.cancel();card.animate().cancel();frame.animate().cancel()
         // back up past the top edge of the display, the way it came
         val y0=frame.translationY;val to=offscreen()
-        motion=ValueAnimator.ofFloat(0f,1f).apply{duration=if(fast)260 else 360;interpolator=PathInterpolator(.4f,0f,.9f,.6f)
+        motion=ValueAnimator.ofFloat(0f,1f).apply{duration=if(fast)Motion.STANDARD else Motion.EMPHASIS;interpolator=MotionSpec.exit
             addUpdateListener{frame.translationY=y0+(to-y0)*(it.animatedValue as Float)}
             addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){gone()}});start()}}
 
@@ -224,12 +220,12 @@ internal class Notice private constructor(internal val a:MainActivity,private va
                         if(s.faded)setLayerType(View.LAYER_TYPE_HARDWARE,Paint().apply{colorFilter=ColorMatrixColorFilter(ColorMatrix().apply{setSaturation(0f)})})}
                     // the cover fills the circle (cropped to its middle)
                     covers.addView(v,LayoutParams(a.d(44),a.d(66),Gravity.CENTER))
-                    if(animate){covers.alpha=0f;covers.animate().alpha(if(s.faded).6f else 1f).setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()} else covers.alpha=if(s.faded).6f else 1f}}
+                    if(animate){covers.alpha=0f;covers.animate().alpha(if(s.faded).6f else 1f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start()} else covers.alpha=if(s.faded).6f else 1f}}
             else if(book!=null)covers.alpha=if(s.faded).6f else 1f
             val hasBook=book!=null
             // with a book: the sign sits on the edge; without one: the sign alone, large, on a tinted disc
             val alone=!hasBook&&!loading
-            (disc.background as GradientDrawable).setColor(if(alone)(s.kind.color and 0xffffff) or 0x26000000 else Ui.press(a.light))
+            (disc.background as GradientDrawable).setColor(if(alone)Ui.alpha(s.kind.color,0x26) else Ui.press(a.light))
             plain.visibility=if(alone)View.VISIBLE else View.GONE
             if(alone)plain.set(s.kind,s.kind.color,animate)
             val onEdge=hasBook&&!loading
@@ -254,13 +250,13 @@ internal class Notice private constructor(internal val a:MainActivity,private va
             path.reset();glyph(k.glyph,path)
             if(!animate||(was==null&&bare)){pop=1f;ink=1f;invalidate();if(!animate)return}
             pop=if(bare)1f else 0f;ink=0f
-            if(!bare)ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;interpolator=OvershootInterpolator(2.4f);addUpdateListener{pop=it.animatedValue as Float;invalidate()};start()}
-            ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.STANDARD;startDelay=if(bare)60 else 150;interpolator=DecelerateInterpolator(1.4f);addUpdateListener{ink=it.animatedValue as Float;invalidate()};start()}}
+            if(!bare)ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;interpolator=Motion.expand.interpolator;addUpdateListener{pop=it.animatedValue as Float;invalidate()};start()}
+            ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.STANDARD;startDelay=if(bare)60 else 150;interpolator=MotionSpec.enter;addUpdateListener{ink=it.animatedValue as Float;invalidate()};start()}}
         private fun startSpin(){if(spinner!=null)return;if(a.prefs.str("motion")=="reduced"){invalidate();return}
-            spinner=ValueAnimator.ofFloat(0f,360f).apply{duration=900;repeatCount=ValueAnimator.INFINITE;interpolator=LinearInterpolator();addUpdateListener{spin=it.animatedValue as Float;invalidate()};start()}}
+            spinner=ValueAnimator.ofFloat(0f,360f).apply{duration=Motion.CYCLE;repeatCount=ValueAnimator.INFINITE;interpolator=LinearInterpolator();addUpdateListener{spin=it.animatedValue as Float;invalidate()};start()}}
         override fun onDetachedFromWindow(){spinner?.cancel();spinner=null;super.onDetachedFromWindow()}
         override fun onDraw(c:Canvas){val k=kind?:return;val s=(width-2*inset)/24f;c.save();c.translate(inset,inset);c.scale(s,s)
-            if(k==Kind.LOADING){p.style=Paint.Style.STROKE;p.strokeWidth=2.6f;p.color=(color and 0xffffff) or 0x40000000;c.drawCircle(12f,12f,8.5f,p)
+            if(k==Kind.LOADING){p.style=Paint.Style.STROKE;p.strokeWidth=2.6f;p.color=Ui.alpha(color,0x40);c.drawCircle(12f,12f,8.5f,p)
                 p.color=color;c.drawArc(3.5f,3.5f,20.5f,20.5f,spin-90f,100f,false,p);c.restore();return}
             if(!bare){p.style=Paint.Style.FILL;p.color=color;c.drawCircle(12f,12f,12f*pop,p)}
             if(ink>0f){p.style=Paint.Style.STROKE;p.strokeWidth=if(bare)2.1f else 3f;p.color=if(bare)color else Color.WHITE
@@ -276,7 +272,6 @@ internal class Notice private constructor(internal val a:MainActivity,private va
             "bang"->{p.moveTo(12f,6f);p.lineTo(12f,13.5f);p.moveTo(12f,17.6f);p.lineTo(12f,17.7f)}
             "book"->{p.moveTo(5f,5.5f);p.lineTo(10.5f,5.5f);p.quadTo(12.5f,5.5f,12.5f,7.5f);p.lineTo(12.5f,19f);p.quadTo(12.5f,17.4f,10.9f,17.4f);p.lineTo(5f,17.4f);p.close()
                 p.moveTo(19f,5.5f);p.lineTo(13.5f,5.5f);p.quadTo(11.5f,5.5f,11.5f,7.5f);p.moveTo(19f,5.5f);p.lineTo(19f,17.4f);p.lineTo(13.1f,17.4f);p.quadTo(11.5f,17.4f,11.5f,19f)}
-            "clip"->{p.moveTo(15.5f,7f);p.lineTo(8.7f,13.8f);p.quadTo(7.6f,15.4f,9.3f,16.6f);p.quadTo(10.6f,17.4f,11.9f,16.4f);p.lineTo(18.6f,9.7f);p.quadTo(20.3f,6.8f,17.8f,4.6f);p.quadTo(15.3f,2.7f,12.9f,4f);p.lineTo(5.5f,11.4f);p.quadTo(2.6f,15.6f,6.2f,19f);p.quadTo(9.9f,21.9f,13.5f,19.4f);p.lineTo(19.5f,13.4f)}
             "trash"->{p.moveTo(5f,7f);p.lineTo(19f,7f);p.moveTo(10f,7f);p.lineTo(10f,5.5f);p.lineTo(14f,5.5f);p.lineTo(14f,7f);p.moveTo(7f,7f);p.lineTo(7.8f,19f);p.lineTo(16.2f,19f);p.lineTo(17f,7f)}
             "copy"->{p.addRoundRect(9f,9f,19f,20f,2.4f,2.4f,Path.Direction.CW);p.moveTo(15f,9f);p.lineTo(15f,6.5f);p.quadTo(15f,4.5f,13f,4.5f);p.lineTo(6.5f,4.5f);p.quadTo(4.5f,4.5f,4.5f,6.5f);p.lineTo(4.5f,14f);p.quadTo(4.5f,16f,6.5f,16f);p.lineTo(9f,16f)}
             "info"->{p.moveTo(12f,11f);p.lineTo(12f,17f);p.moveTo(12f,7.2f);p.lineTo(12f,7.3f)}
@@ -289,7 +284,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
         private val p=Paint(Paint.ANTI_ALIAS_FLAG)
         fun to(v:Float?,animate:Boolean){val target=v?:-1f;if(target==value)return;val from=if(value<0f)0f else value;value=target
             anim?.cancel();if(!animate||target<0f){shown=maxOf(0f,target);invalidate();return}
-            anim=ValueAnimator.ofFloat(from,target).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
+            anim=ValueAnimator.ofFloat(from,target).apply{duration=Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
         override fun onDraw(c:Canvas){if(value<0f)return;val w=width.toFloat();val h=height.toFloat()
             p.color=Ui.fill(a.light);c.drawRoundRect(0f,0f,w,h,h/2,h/2,p);p.color=a.fg;if(shown>0f)c.drawRoundRect(0f,0f,maxOf(h,w*shown),h,h/2,h/2,p)}
     }

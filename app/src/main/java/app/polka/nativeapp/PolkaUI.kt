@@ -9,7 +9,6 @@ import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.*
-import android.view.animation.PathInterpolator
 import android.widget.*
 
 /** The app's type pair: Brygada 1918 (serif — headings, book titles, big numbers) + Geologica (sans — everything else).
@@ -63,8 +62,8 @@ fun MainActivity.press(v:View) {
     v.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(view:View){};override fun onViewDetachedFromWindow(view:View){v.animate().cancel();v.scaleX=1f;v.scaleY=1f}})
     v.setOnTouchListener { view,e -> view.background?.setHotspot(e.x,e.y);if(prefs.str("motion")=="reduced")return@setOnTouchListener false
         // a gentle eased dip under the finger and a soft settle on release (no snap, no bounce)
-        when(e.actionMasked){MotionEvent.ACTION_DOWN->{v.animate().cancel();v.animate().scaleX(.955f).scaleY(.955f).setDuration(Motion.FAST).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}
-            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{v.animate().cancel();v.animate().scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}};false }
+        when(e.actionMasked){MotionEvent.ACTION_DOWN->{v.animate().cancel();v.animate().scaleX(.955f).scaleY(.955f).setDuration(Motion.FAST).setInterpolator(MotionSpec.enter).start()}
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{v.animate().cancel();v.animate().scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start()}};false }
 }
 private fun MainActivity.wideSheet()=resources.configuration.let { it.screenWidthDp>=720 && it.screenHeightDp>=600 }
 
@@ -176,7 +175,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 a.controlSurface(box,22f,sheet=true).apply{flushBottom=!wide;refresh()};panel=box
                 val animated=a.prefs.str("motion")!="reduced";if(animated)box.alpha=0f
                 motion=SheetMotion{value->moveSheet(value)}
-                val handle=FrameLayout(a).apply { addView(View(a).apply { background=a.shape(if(a.light)0x33000000 else 0x33ffffff,2) },FrameLayout.LayoutParams(a.d(36),a.d(4),Gravity.CENTER)) }
+                val handle=FrameLayout(a).apply { addView(View(a).apply { background=a.shape(Ui.handle(a.light),2) },FrameLayout.LayoutParams(a.d(36),a.d(4),Gravity.CENTER)) }
                 box.addView(handle,LinearLayout.LayoutParams(-1,a.d(16)))
                 // the one window head: «×» on the left (also when the corner holds an action), the title in the middle
                 val head=a.windowHead(title,true,a.fg,Ui.fill(a.light),if(cancel){{dismiss()}}else null,headerAction?.let{(label,fn)->a.headAction(label,a.muted,fn)})
@@ -285,7 +284,7 @@ internal class PolkaSheetFrame(private val a:MainActivity,internal val panel:Lin
         }
         if(dragging){d.onTouch(this,e);if(e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL){dragging=false;watching=false};return true}
         return super.dispatchTouchEvent(e)}
-    internal val shade=View(a).apply{setBackgroundColor(0x57000000)}
+    internal val shade=View(a).apply{setBackgroundColor(Ui.scrim(a.light))}
     private var safe=androidx.core.graphics.Insets.NONE
     init {
         addView(shade,LayoutParams(-1,-1))
@@ -380,7 +379,7 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
 
     /** Where the tabs stand with [index] chosen: it as wide as its icon and name, the others sharing the rest. */
     private fun target(index:Int){val inner=(width-2*pad).toFloat();if(inner<=0f)return
-        label.textSize=(if(narrow)14f else 15f)*a.resources.displayMetrics.scaledDensity;label.typeface=PolkaFonts.sans(600)
+        label.textSize=Type.TEXT*a.resources.displayMetrics.scaledDensity;label.typeface=PolkaFonts.sans(600)
         var chosen=padL+icon+gap+label.measureText(labels[index])+a.d(if(narrow)12 else 16)
         withNames=(inner-chosen)/(keys.size-1)>=a.d(48)
         if(!withNames)chosen=inner/keys.size
@@ -424,7 +423,7 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
 
     fun bind(tab:String,onSelect:(String)->Unit) {
         choose=onSelect
-        if(theme!=a.light){theme=a.light;background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(Radius.R28).toFloat();setColor(barColor);if(a.light)setStroke(a.d(1),0x12000000)};invalidate()}
+        if(theme!=a.light){theme=a.light;background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(Radius.R28).toFloat();setColor(barColor);if(a.light)setStroke(a.d(1),Ui.line(true))};invalidate()}
         val index=keys.indexOf(tab).coerceAtLeast(0)
         val first=selected<0;selected=index
         items.forEachIndexed{i,v->v.isSelected=i==index;v.setOnClickListener{onSelect(keys[i])}}

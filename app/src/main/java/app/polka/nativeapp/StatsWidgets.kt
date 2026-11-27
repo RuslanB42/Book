@@ -15,7 +15,7 @@ internal class WidgetCardDrawable(private val a:MainActivity,private val radius:
     private var tex:Bitmap?=null;private var texKey="";private var fade=1f
     override fun draw(c:Canvas){draw0(c)}
     private fun draw0(c:Canvas){val b=bounds;if(b.width()<=0||b.height()<=0)return;r.set(b)
-        base.color=if(a.light)Color.WHITE else 0xff242426.toInt();c.drawRoundRect(r,radius,radius,base)
+        base.color=Ui.control(a.light);c.drawRoundRect(r,radius,radius,base)
         val g=glow?:return
         // one soft light, pre-rendered with a gaussian falloff and fine noise so the 8-bit steps never show as rings
         // rendered once per card width; when the card's height changes (a section opens) the light is simply stretched
@@ -27,7 +27,7 @@ internal class WidgetCardDrawable(private val a:MainActivity,private val radius:
     /** The card's face with its light baked in at full resolution: base colour plus a gaussian glow, each channel
      *  dithered with fine triangular noise in output space, so no 8-bit rings can appear. Cached per size. */
     private fun render(w:Int,h:Int,g:Int):Bitmap?{val key="$w:$g:$fx:$fy:$reach:${a.light}";synchronized(cache){cache[key]?.let{if(!it.isRecycled)return it}}
-        val base=if(a.light)Color.WHITE else 0xff1c1c1f.toInt();val rx=max(w,h)*reach*1.15f
+        val base=if(a.light)Color.WHITE else Ui.sheet(false);val rx=max(w,h)*reach*1.15f
         // gaussian exp(-3.2 q²) reaches ~4 % at the radius: the gradient spans 1.6 radii so it fades fully to nothing
         return Glow.face(w,h,base,g,w*fx,h*fy,rx*1.6f,if(a.light).10f else .2f,3.2f*1.6f*1.6f)?.also{synchronized(cache){cache[key]=it}}}
     private companion object{val cache=HashMap<String,Bitmap>()}
@@ -42,11 +42,11 @@ internal class PeriodPills(private val a:MainActivity,labels:List<String>,select
     private val row=LinearLayout(a).apply{orientation=LinearLayout.HORIZONTAL}
     // stretched (books / comics across the page), the halves share the width and stand a little taller
     private val items=labels.map{s->a.text(s,if(stretch)14f else 13f,a.muted).apply{gravity=Gravity.CENTER;setPadding(a.d(14),a.d(if(stretch)10 else 7),a.d(14),a.d(if(stretch)10 else 7));isClickable=true}}
-    private val thumb=View(a).apply{background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)Color.WHITE else 0xff48484c.toInt());cornerRadius=a.d(21).toFloat()}}
+    private val thumb=View(a).apply{background=android.graphics.drawable.GradientDrawable().apply{setColor(Ui.selected(a.light));cornerRadius=a.d(21).toFloat()}}
     private var current=selected;private var slide:ValueAnimator?=null
     private val on get()=a.fg
     init{setPadding(a.d(3),a.d(3),a.d(3),a.d(3))
-        background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)0xffeeeeec.toInt() else 0xff2f2f31.toInt());cornerRadius=a.d(24).toFloat()}
+        background=android.graphics.drawable.GradientDrawable().apply{setColor(Ui.pressed(a.light));cornerRadius=a.d(24).toFloat()}
         addView(thumb,LayoutParams(0,0));addView(row,LayoutParams(if(stretch)-1 else -2,-2))
         items.forEachIndexed{i,t->row.addView(t,if(stretch)LinearLayout.LayoutParams(0,-2,1f) else LinearLayout.LayoutParams(-2,-2));t.setOnClickListener{if(i!=current)select(i)}}
         items.forEachIndexed{i,t->t.setTextColor(if(i==current)on else a.muted);t.typeface=PolkaFonts.sans(400)}}
@@ -116,7 +116,7 @@ internal class CountNumber(private val a:MainActivity,private val n:Int,private 
     init{contentDescription="$n$unit";importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_YES}
     override fun onMeasure(w:Int,h:Int){val fm=pn.fontMetrics;setMeasuredDimension(ceil(pn.measureText("$n")+pu.measureText(unit)).toInt()+a.d(2),ceil(fm.descent-fm.ascent).toInt())}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(started||shown>=n)return;started=true
-        ValueAnimator.ofInt(0,n).apply{startDelay=delay;duration=720;interpolator=android.view.animation.PathInterpolator(.3f,.3f,.6f,.8f)
+        ValueAnimator.ofInt(0,n).apply{startDelay=delay;duration=Motion.LONG;interpolator=MotionSpec.move
             addUpdateListener{val v=it.animatedValue as Int;if(v!=shown){shown=v;invalidate()}};start()}}
     override fun onDraw(c:Canvas){draw0(c)}
     private fun draw0(c:Canvas){val base=-pn.fontMetrics.ascent;val s="$shown";val full=pn.measureText("$n")

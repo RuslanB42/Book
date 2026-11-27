@@ -73,7 +73,6 @@ internal object IosIcons {
     "flame" to listOf(Op(false,false,1.75f,true,"M12 3 q1 4 4 6.5 t3 5.5 a1 1 0 0 1 -14 0 5 5 0 0 1 1 -3 1 1 0 0 0 5 0 c0 -2 -1.5 -3 -1.5 -5 q0 -2 2.5 -4",null)),
     "sound" to listOf(Op(false,false,1.75f,true,"M2 10 v3 M6 6 v11 M10 3 v18 M14 8 v7 M18 5 v13 M22 10 v3",null)),
     "move" to listOf(Op(false,false,1.75f,true,"M5 7 a2 2 0 0 0 -2 2 v11 M5.803 18 H5 a2 2 0 0 0 0 4 h9.5 a.5 .5 0 0 0 .5 -.5 V21 M9 15 V4 a2 2 0 0 1 2 -2 h9.5 a.5 .5 0 0 1 .5 .5 v14 a.5 .5 0 0 1 -.5 .5 H11 a2 2 0 0 1 0 -4 h10",null)),
-    "paperclip" to listOf(Op(false,false,1.75f,true,"M16 6 l-8.414 8.586 a2 2 0 0 0 2.829 2.829 l8.414 -8.586 a4 4 0 1 0 -5.657 -5.657 l-8.379 8.551 a6 6 0 1 0 8.485 8.485 l8.379 -8.551",null)),
     "notebook" to listOf(Op(false,false,1.75f,true,"M2 6 h4 M2 10 h4 M2 14 h4 M2 18 h4 M6 2 h12 a2 2 0 0 1 2 2 v16 a2 2 0 0 1 -2 2 h-12 a2 2 0 0 1 -2 -2 v-16 a2 2 0 0 1 2 -2ZM16 2 v20",null)),
     "sunmin" to listOf(Op(false,false,1.75f,true,"M8 12 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M12 4 h.01 M20 12 h.01 M12 20 h.01 M4 12 h.01 M17.657 6.343 h.01 M17.657 17.657 h.01 M6.343 17.657 h.01 M6.343 6.343 h.01",null)),
     "sunmax" to listOf(Op(false,false,1.75f,true,"M8 12 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M12 2 v2 M12 20 v2 M4.93 4.93 l1.41 1.41 M17.66 17.66 l1.41 1.41 M2 12 h2 M20 12 h2 M6.34 17.66 l-1.41 1.41 M19.07 4.93 l-1.41 1.41",null)),

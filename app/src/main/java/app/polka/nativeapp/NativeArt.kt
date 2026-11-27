@@ -148,8 +148,8 @@ class ThinProgress(context:Context,val fraction:Double,val foreground:Int,val tr
 }
 
 private const val SWAP=.52f
-private val SWAP_OUT=android.view.animation.PathInterpolator(.3f,0f,1f,1f)
-private val SWAP_IN=android.view.animation.PathInterpolator(0f,0f,.2f,1f)
+private val SWAP_OUT=MotionSpec.exit
+private val SWAP_IN=MotionSpec.enter
 /** Two drawings, each with its own fade, scale and blur, for a cover changing into another. */
 @androidx.annotation.RequiresApi(31)
 private class BlurLayers{

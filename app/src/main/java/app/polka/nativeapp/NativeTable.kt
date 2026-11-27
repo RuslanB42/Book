@@ -14,7 +14,7 @@ class NativeTableModel(val width:Int,val columns:Int,val pad:Int,val heights:Int
         return rich.getSpans(offset,offset,URLSpan::class.java).firstOrNull()?.url
     }
     fun draw(c:Canvas) {
-        val border=Paint(Paint.ANTI_ALIAS_FLAG).apply { color=(hair and 0xffffff) or 0x66000000; strokeWidth=1f; style=Paint.Style.STROKE }
+        val border=Paint(Paint.ANTI_ALIAS_FLAG).apply { color=Ui.alpha(hair,0x66); strokeWidth=1f; style=Paint.Style.STROKE }
         cells.forEach { cell -> val rect=bounds(cell); c.drawRect(rect,border); c.save(); c.clipRect(rect); c.translate(rect.left+pad*2,rect.top+pad); cell.layout.draw(c); c.restore() }
     }
 }

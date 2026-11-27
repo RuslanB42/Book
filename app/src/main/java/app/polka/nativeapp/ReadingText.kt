@@ -186,6 +186,6 @@ internal class NoteMark(private val color:Int):MetricAffectingSpan(){
         fun isRef(el:org.jsoup.nodes.Element,href:String,shown:String):Boolean{if(!href.contains('#')||href.contains("://"))return false
             return el.attr("type")=="note"||el.attr("epub:type").contains("noteref")||el.attr("role")=="doc-noteref"||marker.matches(shown)}
         /** Calm blue on a dark page, a deeper blue on a light one. */
-        fun color(ink:Int):Int{val l=(Color.red(ink)*.299+Color.green(ink)*.587+Color.blue(ink)*.114)/255;return if(l>.5)0xff8ab4f8.toInt() else 0xff2f6bd0.toInt()}
+        fun color(ink:Int):Int{val l=(Color.red(ink)*.299+Color.green(ink)*.587+Color.blue(ink)*.114)/255;return Palette.link(l>.5)}
     }
 }

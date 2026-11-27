@@ -55,10 +55,10 @@ class NativeRating(val a:MainActivity,initial:Int=0,val toggle:Boolean=true,priv
         if(!silent)haptic(a,Haptic.SELECT)
         sweep?.cancel();val from=shown;val to=n/2f
         if(reduced||!isAttachedToWindow){shown=to;invalidate();return}
-        sweep=ValueAnimator.ofFloat(0f,1f).apply{duration=(140+kotlin.math.abs(to-from)*40).toLong().coerceAtMost(320);interpolator=PathInterpolator(.2f,0f,0f,1f)
+        sweep=ValueAnimator.ofFloat(0f,1f).apply{duration=(Motion.FAST+(kotlin.math.abs(to-from)*40).toLong()).coerceAtMost(Motion.EMPHASIS);interpolator=MotionSpec.enter
             addUpdateListener{shown=from+(to-from)*(it.animatedValue as Float);invalidate()};start()}}
     private fun hop(v:Int){if(v<=0||reduced)return;val i=(v+1)/2-1
-        ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;addUpdateListener{val t=it.animatedFraction;press[i]=if(t<.25f)1f-.14f*(t/.25f) else .86f+.14f*PathInterpolator(.3f,1.4f,.5f,1f).getInterpolation((t-.25f)/.75f);invalidate()};start()}}
+        ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;addUpdateListener{val t=it.animatedFraction;press[i]=if(t<.25f)1f-.14f*(t/.25f) else .86f+.14f*Motion.expand.interpolator.getInterpolation((t-.25f)/.75f);invalidate()};start()}}
     override fun onDraw(c:Canvas){
         val path=StarShape.path;val y=(height-star)/2f;val yellow=StarRow.starYellow(a)
         for(i in 0 until 5){val x=left+i*(star+gap);val f=(shown-i).coerceIn(0f,1f)

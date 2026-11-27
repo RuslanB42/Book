@@ -22,7 +22,7 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     coverBox.addView(c,FrameLayout.LayoutParams(d(104),d(156),Gravity.CENTER_HORIZONTAL))
     box.addView(coverBox,LinearLayout.LayoutParams(-1,d(168))); space(box,10)
     val coverActions=line().apply{gravity=Gravity.CENTER}
-    fun chip(label:String,fn:()->Unit)=text(label,Type.TEXT,fg,true).apply{gravity=Gravity.CENTER;minHeight=d(38);setPadding(d(16),0,d(16),0);background=shape(if(light)0xffefefec.toInt() else 0xff2c2c2f.toInt(),Radius.R20);press(this);setOnClickListener{fn()}}
+    fun chip(label:String,fn:()->Unit)=text(label,Type.TEXT,fg,true).apply{gravity=Gravity.CENTER;minHeight=d(38);setPadding(d(16),0,d(16),0);background=shape(Ui.pressed(light),Radius.R20);press(this);setOnClickListener{fn()}}
     val pick=chip("Сменить обложку"){ coverTarget=book.str("id"); startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="image/*"; addCategory(Intent.CATEGORY_OPENABLE) },15) }
     lateinit var drop:TextView
     drop=chip("Убрать"){ preview.remove("cover"); preview.remove("coverThumb"); book.remove("cover"); book.remove("coverThumb"); book.put("coverChanged",true); saveBook(book) {}; c.invalidate(); drop.visibility=View.GONE }
@@ -34,7 +34,7 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     fun field(parent:LinearLayout,key:String,name:String,hint:String,multi:Boolean=false,lp:LinearLayout.LayoutParams=LinearLayout.LayoutParams(-1,-2)):EditText{
         val cell=column().apply{setPadding(0,d(10),0,d(8))}
         cell.addView(text(name,Type.CAPTION,muted))
-        val input=EditText(this).apply{typeface=PolkaFonts.sans(400);setText(value(key));setHint(hint);setTextColor(fg);setHintTextColor((muted and 0x00ffffff) or 0x88000000.toInt());textSize=Type.BODY;background=null;setPadding(0,d(4),0,d(2));isSingleLine=!multi;if(multi){minLines=3;maxLines=12;gravity=Gravity.TOP};imeOptions=if(multi)android.view.inputmethod.EditorInfo.IME_ACTION_NONE else android.view.inputmethod.EditorInfo.IME_ACTION_NEXT;if(key=="seriesNo")inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL}
+        val input=EditText(this).apply{typeface=PolkaFonts.sans(400);setText(value(key));setHint(hint);setTextColor(fg);setHintTextColor(Ui.alpha(muted,0x88));textSize=Type.BODY;background=null;setPadding(0,d(4),0,d(2));isSingleLine=!multi;if(multi){minLines=3;maxLines=12;gravity=Gravity.TOP};imeOptions=if(multi)android.view.inputmethod.EditorInfo.IME_ACTION_NONE else android.view.inputmethod.EditorInfo.IME_ACTION_NEXT;if(key=="seriesNo")inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL}
         if(key=="title"||key=="authors")input.addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){};override fun afterTextChanged(s:android.text.Editable?){val v=s?.toString().orEmpty();if(key=="title")preview.put("title",v) else preview.put("authors",JSONArray(v.split(Regex("[,;]")).map{it.trim()}.filter{it.isNotBlank()}));c.invalidate()}})
         cell.addView(input);parent.addView(cell,lp);fields[key]=input;return input
     }
@@ -62,7 +62,7 @@ fun MainActivity.metadataEditor(book:JSONObject) {
                 val no=if(isGuess)guess?.second else next(n)
                 val label=n+(if(isGuess&&no!=null)" #"+(if(no%1==0.0)no.toInt().toString() else no.toString()) else "")
                 tags.addView(text(label,Type.SECONDARY,fg).apply{gravity=Gravity.CENTER_VERTICAL;minHeight=d(32);setPadding(d(12),0,d(12),0)
-                    background=shape(if(isGuess)(if(light)0x1a1f9d73 else 0x264fd6a2) else (if(light)0xffefefec.toInt() else 0xff2c2c2f.toInt()),Radius.R16)
+                    background=shape(if(isGuess)Ui.alpha(Palette.mint(light),if(light)0x1a else 0x26) else Ui.pressed(light),Radius.R16)
                     contentDescription="Серия $label";press(this)
                     setOnClickListener{seriesIn.setText(n);seriesIn.setSelection(n.length)
                         if(noIn.text.isBlank())no?.let{v->noIn.setText(if(v%1==0.0)v.toInt().toString() else v.toString())}}})}
@@ -83,7 +83,7 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     divider(more);field(more,"lang","Язык","ru, en…");box.addView(more)
     section("Описание")
     val about=card();field(about,"annotation","Аннотация","О чём эта книга",true);box.addView(about)
-    val error=text("",Type.SECONDARY,0xffe5534b.toInt()).apply{visibility=View.GONE;setPadding(d(4),d(10),0,0)}; box.addView(error)
+    val error=text("",Type.SECONDARY,Ui.danger(light)).apply{visibility=View.GONE;setPadding(d(4),d(10),0,0)}; box.addView(error)
     var sheet:AlertDialog?=null
     space(box,20)
     box.addView(button("Сохранить",true) {
@@ -101,9 +101,9 @@ fun MainActivity.metadataEditor(book:JSONObject) {
 private fun MainActivity.bookActionItems(book:JSONObject,fromDetail:Boolean):List<ButtonMenu.Item>{
     val all=mutableListOf(ButtonMenu.Item("information","О книге"){detail(book)},ButtonMenu.Item("pen","Изменить данные"){metadataEditor(book)},
         ButtonMenu.Item("star","Оценить"){dialog().setTitle("Ваша оценка").setView(ratingStars(book) { saveBook(book.copyJson().also{c->Rating.put(c,it)}) {} }).show()},
-        ButtonMenu.Item("paperclip","Прикрепить файл"){attachId=book.str("id"); pickBooks(14)},ButtonMenu.Item("check","Статус и полки"){statusSheet(book)})
+        ButtonMenu.Item("check","Статус и полки"){statusSheet(book)})
     if(PageDocs.isDoc(book)) all.add(ButtonMenu.Item("download","Скачать файл"){exportBook(book,"doc")})
-    else if(!book.optBoolean("noFile")) all.addAll(listOf(ButtonMenu.Item("download","Скачать FB2"){exportBook(book,"fb2")},ButtonMenu.Item("download","Скачать EPUB"){exportBook(book,"epub")}))
+    else all.addAll(listOf(ButtonMenu.Item("download","Скачать FB2"){exportBook(book,"fb2")},ButtonMenu.Item("download","Скачать EPUB"){exportBook(book,"epub")}))
     all.add(ButtonMenu.Item("trash","Удалить книгу",destructive=true){confirm("Удалить книгу?","Текст, цитаты и заметки этой книги будут удалены из библиотеки.") { deleteBook(book) }})
     if(fromDetail) all.removeAll{it.label in setOf("О книге","Оценить","Статус и полки")}
     return all
@@ -119,7 +119,7 @@ internal class ThemePreview(private val a:MainActivity,private val kind:String,p
     private val p=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c:android.graphics.Canvas){
         val pad=a.d(4).toFloat();val r=a.d(14).toFloat();val rect=android.graphics.RectF(pad,pad,width-pad,height-pad)
-        val dark=0xff1c1c1e.toInt();val lightBg=0xfff7f7f5.toInt();val darkInk=0x55ffffff;val lightInk=0x33000000
+        val dark=Ui.sheet(false);val lightBg=Ui.sheet(true);val darkInk=Ui.alpha(Ui.ink(false),0x55);val lightInk=Ui.alpha(Ui.ink(true),0x33)
         fun page(bg:Int,ink:Int,clip:android.graphics.RectF?){val save=c.save();clip?.let{c.clipRect(it)};p.style=android.graphics.Paint.Style.FILL;p.color=bg;c.drawRoundRect(rect,r,r,p);p.color=ink
             val x=rect.left+a.d(10);val w=rect.width()-a.d(20);var y=rect.top+a.d(14);val h=a.d(5).toFloat()
             c.drawRoundRect(x,y,x+w*.62f,y+h,h/2,h/2,p);y+=a.d(12)
@@ -128,7 +128,7 @@ internal class ThemePreview(private val a:MainActivity,private val kind:String,p
         when(kind){"light"->page(lightBg,lightInk,null);"system"->{page(lightBg,lightInk,android.graphics.RectF(0f,0f,width/2f,height.toFloat()));page(dark,darkInk,android.graphics.RectF(width/2f,0f,width.toFloat(),height.toFloat()))};else->page(dark,darkInk,null)}
         p.style=android.graphics.Paint.Style.STROKE
         if(selected){p.strokeWidth=a.d(2).toFloat();p.color=a.accent;c.drawRoundRect(rect.left-a.d(2)+1,rect.top-a.d(2)+1,rect.right+a.d(2)-1,rect.bottom+a.d(2)-1,r+a.d(2),r+a.d(2),p)}
-        else{p.strokeWidth=1f;p.color=if(a.light)0x1f000000 else 0x29ffffff;c.drawRoundRect(rect,r,r,p)}
+        else{p.strokeWidth=1f;p.color=Ui.outline(a.light);c.drawRoundRect(rect,r,r,p)}
     }
 }
 /** Commit order without rebuilding the grid or moving the scroll position. */
@@ -157,7 +157,7 @@ internal fun MainActivity.deleteBook(book:JSONObject) {
     val closeGap={ gridMotion=true; render(true,false) }
     val vanish={ val v=gridCell(id)
         if(v==null||!v.isShown||prefs.str("motion")=="reduced") closeGap()
-        else { v.pivotX=v.width/2f; v.pivotY=v.height*.4f; v.animate().cancel(); v.animate().alpha(0f).scaleX(.86f).scaleY(.86f).setDuration(Motion.STANDARD).setInterpolator(android.view.animation.PathInterpolator(.4f,0f,1f,1f)).withEndAction{ closeGap() }.start() } }
+        else { v.pivotX=v.width/2f; v.pivotY=v.height*.4f; v.animate().cancel(); v.animate().alpha(0f).scaleX(.86f).scaleY(.86f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.exit).withEndAction{ closeGap() }.start() } }
     if(sheet!=null){ sheet.afterClose={ vanish() }; sheet.discard() } else vanish()
     // the book is only hidden while its notice is up: «Вернуть» brings it back, otherwise it is removed when the notice goes.
     // Several deletions in a row share one notice (it updates in place) instead of notices chasing each other off the screen.

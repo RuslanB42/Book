@@ -19,14 +19,14 @@ internal fun MainActivity.inputDialog(title:String,value:String="",hint:String="
     val box=column()
     helper?.let{box.addView(text(it,Type.TEXT,muted).apply{gravity=Gravity.CENTER;setPadding(d(8),0,d(8),0)});space(box,14)}
     val fieldBg=Ui.card(light)
-    val rest=Ui.press(light);val focus=(fg and 0xffffff) or 0x66000000
+    val rest=Ui.press(light);val focus=Ui.alpha(fg,0x66)
     val frame=FrameLayout(this).apply{background=GradientDrawable().apply{setColor(fieldBg);cornerRadius=d(Radius.R16).toFloat();setStroke(d(1),rest)}}
     val input=EditText(this).apply{
         typeface=PolkaFonts.sans(400);setText(value);setHint(hint);setTextColor(fg);setHintTextColor(muted);textSize=Type.TITLE;background=null;isSingleLine=true
         imeOptions=EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_EXTRACT_UI
         inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
         setPadding(d(16),0,d(44),0);gravity=Gravity.CENTER_VERTICAL
-        if(android.os.Build.VERSION.SDK_INT>=29){textCursorDrawable=GradientDrawable().apply{setColor(fg);setSize(d(2),d(22))};highlightColor=(fg and 0xffffff) or 0x33000000}
+        if(android.os.Build.VERSION.SDK_INT>=29){textCursorDrawable=GradientDrawable().apply{setColor(fg);setSize(d(2),d(22))};highlightColor=Ui.alpha(fg,0x33)}
         setSelection(text.length)}
     frame.addView(input,FrameLayout.LayoutParams(-1,-1))
     val clear=IconView(this,"x",muted).apply{contentDescription="Очистить";isClickable=true;setOnClickListener{input.setText("");input.requestFocus()};visibility=if(value.isEmpty())View.GONE else View.VISIBLE}

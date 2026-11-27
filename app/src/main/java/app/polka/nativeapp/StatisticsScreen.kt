@@ -4,7 +4,6 @@ import android.animation.ValueAnimator
 import android.graphics.*
 import android.graphics.drawable.GradientDrawable
 import android.view.*
-import android.view.animation.PathInterpolator
 import android.widget.*
 import org.json.JSONObject
 import java.time.*
@@ -12,11 +11,11 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.*
 
-internal val statBlue=0xff79beff.toInt()
-internal val statMint=0xff65e5b5.toInt()
-internal val statAmber=0xffffbc60.toInt()
-internal val statViolet=0xffc7a3ff.toInt()
-internal val statCyan=0xff60e0ee.toInt()
+internal val statBlue=Palette.statBlue
+internal val statMint=Palette.statMint
+internal val statAmber=Palette.statAmber
+internal val statViolet=Palette.statViolet
+internal val statCyan=Palette.statCyan
 private val weekNames=listOf("Пн","Вт","Ср","Чт","Пт","Сб","Вс")
 private val ru=Locale("ru")
 
@@ -40,13 +39,13 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     private val light get()=a.light
     private val captionInk get()=Ui.ink2(light)
     private val quiet get()=Ui.press(light)
-    private val strong get()=if(light)0xff161617.toInt() else 0xfff3f2ef.toInt()
-    private val blue get()=if(light)0xff3f6fe0.toInt() else 0xff6a94f8.toInt()
-    private val mint get()=if(light)0xff1f9d73.toInt() else 0xff4fd6a2.toInt()
-    private val violet get()=if(light)0xff7a56d8.toInt() else 0xffa98bf7.toInt()
-    private val rose get()=if(light)0xffd0457f.toInt() else 0xfff28bb5.toInt()
-    private val orange get()=if(light)0xffe07a10.toInt() else 0xffff9a3c.toInt()
-    private fun label(s:String,size:Float=14f,color:Int=captionInk,bold:Boolean=false)=a.text(s,size,color,bold)
+    private val strong get()=Ui.ink(light)
+    private val blue get()=Palette.blue(light)
+    private val mint get()=Palette.mint(light)
+    private val violet get()=Palette.violet(light)
+    private val rose get()=Palette.rose(light)
+    private val orange get()=Palette.orange(light)
+    private fun label(s:String,size:Float=Type.TEXT,color:Int=captionInk,bold:Boolean=false)=a.text(s,size,color,bold)
     private fun space(box:LinearLayout,n:Int=12)=a.space(box,n)
     private fun pill(color:Int,radius:Int)=GradientDrawable().apply{setColor(color);cornerRadius=a.d(radius).toFloat()}
     /** White (dark: graphite) card with a hairline edge and a soft, wide shadow underneath so it hovers over the page. */
@@ -59,7 +58,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         outlineProvider=object:ViewOutlineProvider(){override fun getOutline(v:View,o:Outline){o.setRoundRect(0,0,v.width,v.height,radius)}}
     }
     private fun tile(kind:String,color:Int):View=FrameLayout(a).apply{
-        background=pill((color and 0xffffff) or ((if(light)0x26 else 0x33) shl 24),11);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        background=pill(Ui.alpha(color,(if(light)0x26 else 0x33)),11);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
         addView(IconView(a,kind,color),FrameLayout.LayoutParams(a.d(17),a.d(17),Gravity.CENTER))
     }
     private val motionOn get()=animate&&a.prefs.str("motion")!="reduced"
@@ -115,7 +114,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** A counting numeral drawn straight onto the canvas: no text layout is rebuilt while it counts, so the count costs
      *  nothing but a redraw. The words after it are set smaller and grey, like [big]. */
     private fun bigCount(n:Int,unit:String,size:Float,unitScale:Float):View=CountNumber(a,n,unit,size,unitScale,captionInk,0,false)
-    private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=.42f,firstOnly:Boolean=false):TextView{
+    private fun big(text:String,size:Float,countTo:Int?=null,unitScale:Float=Type.BODY/size,firstOnly:Boolean=false):TextView{
         val tv=a.text("",size,a.fg).apply{typeface=PolkaFonts.display();letterSpacing=-.01f;includeFontPadding=false;fontFeatureSettings="lnum, tnum"}
         fun styled(t:String):CharSequence{val sp=android.text.SpannableString(t);var i=0
             if(firstOnly){val k=t.indexOfFirst{!it.isDigit()};if(k>0){sp.setSpan(SansSpan(),k,t.length,0);sp.setSpan(android.text.style.RelativeSizeSpan(unitScale),k,t.length,0);sp.setSpan(android.text.style.ForegroundColorSpan(captionInk),k,t.length,0)};return sp}
@@ -126,14 +125,14 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         if(countTo!=null&&countTo>0&&motionOn){val fmt=text.replaceFirst(countTo.toString(),"%d")
             tv.minWidth=ceil(android.text.Layout.getDesiredWidth(styled(text),tv.paint)).toInt();tv.text=styled(String.format(fmt,0))
             tv.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{var done=false
-                override fun onViewAttachedToWindow(v:View){if(done)return;done=true;android.animation.ValueAnimator.ofInt(0,countTo).apply{duration=720;startDelay=myDelay;interpolator=PathInterpolator(.3f,.3f,.6f,.8f);
+                override fun onViewAttachedToWindow(v:View){if(done)return;done=true;android.animation.ValueAnimator.ofInt(0,countTo).apply{duration=Motion.LONG;startDelay=myDelay;interpolator=MotionSpec.move;
                     // fixed width while counting: a changing wrap-content text re-laid out the whole page on every frame
                     addListener(object:android.animation.AnimatorListenerAdapter(){
                         override fun onAnimationStart(x:android.animation.Animator){tv.layoutParams?.let{lp->lp.width=max(tv.width,tv.minWidth+a.d(2));tv.layoutParams=lp}}});addUpdateListener{tv.text=styled(String.format(fmt,it.animatedValue as Int))};start()}}
                 override fun onViewDetachedFromWindow(v:View){}})}
         return tv}
     /** Small glass chip (year, period). */
-    private fun chip(s:String,click:()->Unit)=label(s,Type.CAPTION,if(light)0xff3a3a3d.toInt() else 0xffdddddd.toInt()).apply{
+    private fun chip(s:String,click:()->Unit)=label(s,Type.CAPTION,a.fg).apply{
         background=GradientDrawable().apply{setColor(Ui.fill(light));cornerRadius=a.d(Radius.R12).toFloat();setStroke(a.d(1),Ui.press(light))}
         setPadding(a.d(10),a.d(5),a.d(10),a.d(5));isClickable=true;setOnClickListener{click()};a.press(this)}
     private fun bestStreak():Int=max(all.ledger.best,all.streak)
@@ -143,13 +142,13 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** Streak: the flame, the days in a row and the record, the freezes in the corner; the week as one strip of seven
      *  segments (today's fills up); one plain line at the foot, with «Читать» while today still matters. */
     private fun streak(){
-        val box=surface(0xfff9601f.toInt(),.14f,.62f,.75f).apply{clipToOutline=true}
+        val box=surface(Palette.flame,.14f,.62f,.75f).apply{clipToOutline=true}
         val ledger=all.ledger;val n=ledger.count;val best=bestStreak();val met=all.met(today);val goal=all.dailyGoal
         val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
         top.addView(StreakFlameView(a,n>0,live),LinearLayout.LayoutParams(a.d(76),a.d(96)).apply{leftMargin=-a.d(6);topMargin=-a.d(6);bottomMargin=-a.d(6);rightMargin=a.d(10)})
         val col=a.column()
         col.addView(kicker("Серия"));space(col,4)
-        col.addView(bigCount(n," ${daysWord(n)} подряд",42f,.38f))
+        col.addView(bigCount(n," ${daysWord(n)} подряд",Type.NUMBER,Type.BODY/Type.NUMBER))
         space(col,4);col.addView(label(when{ledger.lost>0->"было ${ledger.lost}, рекорд $best ${daysWord(best)}";n>0||best>0->"рекорд $best ${daysWord(best)}";else->"серии пока нет"},Type.SECONDARY))
         top.addView(col,LinearLayout.LayoutParams(0,-2,1f))
         // the freezes in the corner (approved: no arrow; the card itself opens the month)
@@ -174,7 +173,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val foot=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(36)}
         val words=a.column();words.addView(a.text(title,Type.TEXT,a.fg,sub!=null||met));sub?.let{words.addView(label(it,Type.SECONDARY).apply{setPadding(0,a.d(2),0,0)})}
         foot.addView(words,LinearLayout.LayoutParams(0,-2,1f))
-        val reading=a.books.filter{Library.status(it)=="reading"&&!it.optBoolean("noFile")}.maxByOrNull{it.optLong("openedAt")}
+        val reading=a.books.filter{Library.status(it)=="reading"}.maxByOrNull{it.optLong("openedAt")}
         if(!met&&reading!=null)foot.addView(a.text("Читать",Type.SECONDARY,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(16),0,a.d(16),0);background=a.shape(a.fg,Radius.R20);isClickable=true;setOnClickListener{a.openBook(reading)};a.press(this)},LinearLayout.LayoutParams(-2,a.d(36)).apply{marginStart=a.d(10)})
         box.addView(foot,LinearLayout.LayoutParams(-1,-2))
         val month=StreakMonth(a,all,today,live)
@@ -197,7 +196,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val trend=more.trend()?.takeIf{abs(it)>=1}
         headRow(box,"Скорость",trend?.let{t->label("${if(t>0)"+" else "−"}${abs(t)}% за месяц",Type.CAPTION,if(t>0)mint else rose,true)})
         space(box,14)
-        box.addView(if(model.speed>0)bigCount(model.speed," слов в минуту",40f,.4f) else big("—",40f))
+        box.addView(if(model.speed>0)bigCount(model.speed," слов в минуту",Type.NUMBER,Type.BODY/Type.NUMBER) else big("—",Type.NUMBER))
         space(box,4)
         box.addView(label(more.pageSeconds()?.let{"страница в среднем за ${pageTime(it)}"}?:"появится после пары минут чтения",Type.SECONDARY))
         val weeks=more.weeklySpeed()
@@ -245,7 +244,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
                 t.addView(a.text(value,Type.TITLE,a.fg,true,serif=true).apply{maxLines=1});t.addView(label(what,Type.CAPTION).apply{maxLines=1;setPadding(0,a.d(3),0,0)})
                 row.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{if(row.childCount>0)marginStart=a.d(8)})}
             fun fill(){left.removeAllViews()
-                left.addView(big(if(total>0)duration(total) else "0 мин",40f).apply{maxLines=1;isSingleLine=true})
+                left.addView(big(if(total>0)duration(total) else "0 мин",Type.NUMBER).apply{maxLines=1;isSingleLine=true})
                 // approved: the averages as three small tiles
                 val tiles=a.line();tile(tiles,duration((avg*60000).toLong()),per);if(perPages>0)tile(tiles,"$perPages стр.",per);session?.let{tile(tiles,duration(it),"за один заход")}
                 space(left,14);left.addView(tiles,LinearLayout.LayoutParams(-1,-2))}
@@ -272,18 +271,18 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             row.addView(t,LinearLayout.LayoutParams(0,-2,1f));box.addView(row)}
         // a pill: a coloured dot, the name, the figure quieter at the far end; tinted with its colour; a line of pills fills the width
         fun chip(row:FlowRow,name:String,figure:String,c:Int,warm:Boolean=true){
-            val p=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(7),a.d(12),a.d(7));background=pill((c and 0xffffff) or ((if(warm)0x26 else 0x12) shl 24),14)}
+            val p=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(7),a.d(12),a.d(7));background=pill(Ui.alpha(c,(if(warm)0x26 else 0x12)),14)}
             p.addView(View(a).apply{background=pill(if(warm)c else captionInk,4)},LinearLayout.LayoutParams(a.d(8),a.d(8)).apply{marginEnd=a.d(8)})
             p.addView(a.text(name,Type.SECONDARY,if(warm)a.fg else (Ui.ink2(light))).apply{maxLines=1},LinearLayout.LayoutParams(-2,-2,1f))
-            p.addView(a.text(figure,Type.SECONDARY,if(light)0x99000000.toInt() else 0x80ffffff.toInt()).apply{maxLines=1;setPadding(a.d(12),0,0,0)})
+            p.addView(a.text(figure,Type.SECONDARY,a.muted).apply{maxLines=1;setPadding(a.d(12),0,0,0)})
             row.addView(p)}
         if(genres.isNotEmpty()){space(box,if(author!=null)22 else 16);box.addView(label("Жанры",Type.SECONDARY));space(box,10)
             val colors=listOf(violet,blue,mint);val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
             genres.take(3).forEachIndexed{i,(name,pct)->chip(row,name,"$pct%",colors[i])}
             box.addView(row,LinearLayout.LayoutParams(-1,-2))}
         if(decades.isNotEmpty()){space(box,if(author!=null||genres.isNotEmpty())22 else 16);box.addView(label("Время написания",Type.SECONDARY));space(box,10)
-            val warm=if(light)0xffc87600.toInt() else 0xfff0a83a.toInt();val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
-            decades.take(4).forEachIndexed{i,(d,n)->chip(row,"$d-е","$n ${booksWord(n)}",if(i==0)warm else (if(light)0xff000000.toInt() else 0xffffffff.toInt()),i==0)}
+            val warm=Palette.warm(light);val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
+            decades.take(4).forEachIndexed{i,(d,n)->chip(row,"$d-е","$n ${booksWord(n)}",if(i==0)warm else Ui.ink(light),i==0)}
             box.addView(row,LinearLayout.LayoutParams(-1,-2))}
         box.contentDescription="Вкус"+(author?.let{": любимый автор ${it.name}"}?:"")
         add(box)
@@ -330,10 +329,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             t.addView(label("$n ${issuesWord(n)}"+if(s.ms>=3_600_000L)", ${s.ms/3_600_000L} ч чтения" else if(s.ms>=60000L)", ${s.ms/60000L} мин чтения" else "",Type.SECONDARY).apply{setPadding(0,a.d(3),0,0)})
             row.addView(t,LinearLayout.LayoutParams(0,-2,1f));box.addView(row)}
         fun tag(row:FlowRow,name:String,figure:String,c:Int,warm:Boolean){
-            val p=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(7),a.d(12),a.d(7));background=pill((c and 0xffffff) or ((if(warm)0x26 else 0x12) shl 24),14)}
+            val p=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(7),a.d(12),a.d(7));background=pill(Ui.alpha(c,(if(warm)0x26 else 0x12)),14)}
             p.addView(View(a).apply{background=pill(if(warm)c else captionInk,4)},LinearLayout.LayoutParams(a.d(8),a.d(8)).apply{marginEnd=a.d(8)})
             p.addView(a.text(name,Type.SECONDARY,if(warm)a.fg else (Ui.ink2(light))).apply{maxLines=1},LinearLayout.LayoutParams(-2,-2,1f))
-            p.addView(a.text(figure,Type.SECONDARY,if(light)0x99000000.toInt() else 0x80ffffff.toInt()).apply{maxLines=1;setPadding(a.d(12),0,0,0)})
+            p.addView(a.text(figure,Type.SECONDARY,a.muted).apply{maxLines=1;setPadding(a.d(12),0,0,0)})
             row.addView(p)}
         manga?.let{(c,m)->space(box,if(box.childCount>1)22 else 16);box.addView(label("Что читаешь",Type.SECONDARY));space(box,10)
             val row=FlowRow(a,a.d(8),a.d(8),stretch=true){false}
@@ -358,7 +357,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL};r.addView(lead,LinearLayout.LayoutParams(a.d(44),a.d(44)).apply{marginEnd=a.d(14)})
             val t=a.column();t.addView(label(title,Type.SECONDARY));t.addView(a.text(value,Type.H2,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)});r.addView(t,LinearLayout.LayoutParams(0,-2,1f))
             if(side.isNotBlank())r.addView(label(side,Type.SECONDARY).apply{gravity=Gravity.END},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)});box.addView(r)}
-        fun tileOf(kind:String,c:Int)=FrameLayout(a).apply{background=pill((c and 0xffffff) or ((if(light)0x22 else 0x26) shl 24),22);addView(RecordIcon(a,kind,c),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER))}
+        fun tileOf(kind:String,c:Int)=FrameLayout(a).apply{background=pill(Ui.alpha(c,(if(light)0x22 else 0x26)),22);addView(RecordIcon(a,kind,c),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER))}
         fast?.let{(s,days,ms)->row(tileOf("bolt",orange),"Быстрее всего дочитана серия","«${s.name}» за $days ${daysWordRu(days)}",if(ms>=3_600_000L)"${ms/3_600_000L} ч\nчтения" else "${ms/60000} мин\nчтения")}
         sitting?.let{(ms,at)->row(tileOf("hour",violet),"Самая долгая сессия",duration(ms),at?.let{dayMonth(it)}?:"")}
         day?.let{(n,at)->row(tileOf("pages",mint),"Больше всего за день","$n ${issuesWord(n)}",dayMonth(at))}
@@ -375,7 +374,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
             val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL};r.addView(lead,LinearLayout.LayoutParams(a.d(44),a.d(44)).apply{marginEnd=a.d(14)})
             val t=a.column();t.addView(label(title,Type.SECONDARY));t.addView(a.text(value,Type.H2,a.fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;setPadding(0,a.d(3),0,0)});r.addView(t,LinearLayout.LayoutParams(0,-2,1f))
             if(side.isNotBlank())r.addView(label(side,Type.SECONDARY).apply{gravity=Gravity.END},LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)});box.addView(r)}
-        fun tileOf(kind:String,c:Int)=FrameLayout(a).apply{background=pill((c and 0xffffff) or ((if(light)0x22 else 0x26) shl 24),22);addView(RecordIcon(a,kind,c),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER))}
+        fun tileOf(kind:String,c:Int)=FrameLayout(a).apply{background=pill(Ui.alpha(c,(if(light)0x22 else 0x26)),22);addView(RecordIcon(a,kind,c),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER))}
         fast?.let{(b,days,ms)->row(tileOf("bolt",orange),"Быстрее всего прочитана","«${b.str("title")}» за $days ${daysWordRu(days)}",if(ms>=3_600_000L)"${ms/3_600_000L} ч\nчтения" else if(ms>=60000)"${ms/60000} мин\nчтения" else "")}
         sitting?.let{(ms,at)->row(tileOf("hour",violet),"Самая долгая сессия",duration(ms),at?.let{dayMonth(it)}?:"")}
         day?.let{(pages,at)->row(tileOf("pages",mint),"Больше всего за день","$pages ${pagesWord(pages)}",dayMonth(at))}
@@ -386,7 +385,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
     /** «Мой год в книгах» (approved): the year, the three numbers as tiles, the year's latest books with their stars and
      *  hours; the card (or its button) opens the whole year. */
     private fun books(){
-        val box=surface(if(light)0xff009a5c.toInt() else 0xff37c080.toInt(),.86f,.12f,.8f)
+        val box=surface(Palette.reached(light),.86f,.12f,.8f)
         a.goalCard=box
         val years=(model.finished.mapNotNull{it.date?.year}+today.year).distinct().sortedDescending().take(8)
         goalYear=today.year

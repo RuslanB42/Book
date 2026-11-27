@@ -7,7 +7,6 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.os.Build
 import android.view.*
-import android.view.animation.PathInterpolator
 import android.widget.*
 import androidx.core.graphics.PathParser
 import org.json.JSONArray
@@ -23,12 +22,11 @@ import java.io.File
 internal object Ambience {
     class Sound(val key:String,val name:String,val note:String,val glow:Int,val deep:Int,val icon:String)
     val builtIn=listOf(
-        Sound("fire","Камин","треск дров",0xffc2562b.toInt(),0xff3a1a10.toInt(),"fire"),
-        Sound("rain","Дождь","по крыше и окну",0xff3f6f9e.toInt(),0xff14202d.toInt(),"rain"),
-        Sound("sea","Море","волны у берега",0xff2f8d9a.toInt(),0xff0f2629.toInt(),"sea"),
-        Sound("forest","Лес","птицы вечером",0xff4f8a4a.toInt(),0xff152414.toInt(),"forest"))
+        Sound("fire","Камин","треск дров",Palette.fire.light,Palette.fire.deep,"fire"),
+        Sound("rain","Дождь","по крыше и окну",Palette.rain.light,Palette.rain.deep,"rain"),
+        Sound("sea","Море","волны у берега",Palette.sea.light,Palette.sea.deep,"sea"),
+        Sound("forest","Лес","птицы вечером",Palette.forest.light,Palette.forest.deep,"forest"))
     const val CUSTOM="mine:"
-    private const val MINE_COLOR=0xff9d98f2.toInt()
 
     var key:String?=null;private set
     private var cur:MediaPlayer?=null;private var queued:MediaPlayer?=null
@@ -41,7 +39,7 @@ internal object Ambience {
     fun setVolume(a:MainActivity,v:Float,save:Boolean){a.prefs.put("ambVol",v.toDouble());if(save)a.savePreferences();apply(a)}
     private fun apply(a:MainActivity){val v=volume(a)*gain;try{cur?.setVolume(v,v);queued?.setVolume(v,v)}catch(_:Exception){}}
 
-    fun color(a:MainActivity,k:String?)=builtIn.firstOrNull{it.key==k}?.glow?:MINE_COLOR
+    fun color(a:MainActivity,k:String?)=builtIn.firstOrNull{it.key==k}?.glow?:Palette.mine
     fun name(a:MainActivity,k:String?)=builtIn.firstOrNull{it.key==k}?.name?:mine(a).firstOrNull{CUSTOM+it.str("id")==k}?.str("name")?:""
     fun mine(a:MainActivity)=(a.prefs.optJSONArray("sounds")?:JSONArray()).let{arr->(0 until arr.length()).mapNotNull{arr.optJSONObject(it)}}
     private fun dir(a:MainActivity)=File(a.filesDir,"sounds").apply{mkdirs()}
@@ -124,10 +122,10 @@ internal class EqBars(private val a:MainActivity,var ink:Int):View(a){
         levelAnim?.cancel()
         if(reduced){level=if(on)1f else 0f;invalidate();return}
         if(on){if(grow)level=0f;tick()}
-        levelAnim=ValueAnimator.ofFloat(level,if(on)1f else 0f).apply{duration=if(on)520 else 420;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{level=it.animatedValue as Float;invalidate()}
+        levelAnim=ValueAnimator.ofFloat(level,if(on)1f else 0f).apply{duration=if(on)Motion.LONG else Motion.EMPHASIS;interpolator=MotionSpec.enter;addUpdateListener{level=it.animatedValue as Float;invalidate()}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(!live){loop?.cancel();loop=null}}});start()}}
     private fun tick(){if(loop!=null||!isAttachedToWindow||reduced)return
-        loop=ValueAnimator.ofFloat(0f,1f).apply{duration=1000;repeatCount=ValueAnimator.INFINITE;addUpdateListener{invalidate()};start()}}
+        loop=ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.CYCLE;repeatCount=ValueAnimator.INFINITE;addUpdateListener{invalidate()};start()}}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(live)tick()}
     override fun onDetachedFromWindow(){loop?.cancel();loop=null;levelAnim?.cancel();super.onDetachedFromWindow()}
     override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val bw=w/7f;p.color=ink
@@ -151,12 +149,12 @@ internal class SoundButton(private val a:MainActivity,ink:Int):FrameLayout(a){
     override fun onAttachedToWindow(){super.onAttachedToWindow();Ambience.listen(update);refresh(false)}
     override fun onDetachedFromWindow(){Ambience.unlisten(update);super.onDetachedFromWindow()}
     private fun refresh(animate:Boolean){val on=Ambience.key!=null;val col=Ambience.color(a,Ambience.key)
-        if(on){tint.setColor((col and 0xffffff) or 0x38000000);bars.ink=if(a.light)col else androidx.core.graphics.ColorUtils.blendARGB(col,Color.WHITE,.35f)}
+        if(on){tint.setColor(Ui.alpha(col,0x38));bars.ink=if(a.light)col else androidx.core.graphics.ColorUtils.blendARGB(col,Color.WHITE,.35f)}
         val changed=shown!=on;shown=on
         val motion=animate&&changed&&a.prefs.str("motion")!="reduced"
         fun show(v:View,vis:Boolean,from:Float){v.animate().cancel();if(!motion){v.alpha=if(vis)1f else 0f;v.scaleX=1f;v.scaleY=1f;return}
-            if(vis){v.scaleX=from;v.scaleY=from;v.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(Motion.EMPHASIS).setInterpolator(android.view.animation.OvershootInterpolator(1.6f)).start()}
-            else v.animate().alpha(0f).scaleX(from).scaleY(from).setDuration(Motion.STANDARD).setInterpolator(PathInterpolator(.4f,0f,1f,1f)).start()}
+            if(vis){v.scaleX=from;v.scaleY=from;v.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(Motion.EMPHASIS).setInterpolator(Motion.expand.interpolator).start()}
+            else v.animate().alpha(0f).scaleX(from).scaleY(from).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.exit).start()}
         if(changed||!animate){show(disc,on,.5f);show(still,!on,.6f);show(bars,on,.4f)}
         bars.set(Ambience.playing,changed&&on)}
     private class IconSlot(private val a:MainActivity,var ink:Int):View(a){private val p=Paint(Paint.ANTI_ALIAS_FLAG)
@@ -179,11 +177,11 @@ internal class SoundChip(private val a:MainActivity,open:()->Unit):LinearLayout(
     private fun refresh(animate:Boolean){val k=Ambience.key;val motion=animate&&a.prefs.str("motion")!="reduced"
         bars.set(Ambience.playing,false)
         if(k==key)return;val was=key;key=k
-        if(k!=null){val col=Ambience.color(a,k);bg.setColor((col and 0xffffff) or 0x38000000);val ink=if(a.light)col else androidx.core.graphics.ColorUtils.blendARGB(col,Color.WHITE,.4f)
+        if(k!=null){val col=Ambience.color(a,k);bg.setColor(Ui.alpha(col,0x38));val ink=if(a.light)col else androidx.core.graphics.ColorUtils.blendARGB(col,Color.WHITE,.4f)
             label.setTextColor(ink);bars.ink=ink;label.text=Ambience.name(a,k)}
         animate().cancel()
         when{
-            k!=null&&(was==null||was=="?"&&visibility!=View.VISIBLE)->{visibility=View.VISIBLE;if(motion){alpha=0f;scaleX=.7f;scaleY=.7f;animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(Motion.EMPHASIS).setInterpolator(android.view.animation.OvershootInterpolator(1.4f)).start()}else{alpha=1f;scaleX=1f;scaleY=1f}}
+            k!=null&&(was==null||was=="?"&&visibility!=View.VISIBLE)->{visibility=View.VISIBLE;if(motion){alpha=0f;scaleX=.7f;scaleY=.7f;animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(Motion.EMPHASIS).setInterpolator(Motion.expand.interpolator).start()}else{alpha=1f;scaleX=1f;scaleY=1f}}
             k==null->{if(motion&&visibility==View.VISIBLE)animate().alpha(0f).scaleX(.7f).scaleY(.7f).setDuration(Motion.STANDARD).withEndAction{visibility=View.GONE}.start() else visibility=View.GONE}
             motion->{label.alpha=0f;label.animate().alpha(1f).setDuration(Motion.STANDARD).start()}
         }}
@@ -220,7 +218,7 @@ internal class AmbienceSheet(private val a:MainActivity){
         sheet.addView(a.text("СВОИ ЗВУКИ",Type.CAPTION,a.muted,true).apply{letterSpacing=.06f},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(18);bottomMargin=a.d(10);leftMargin=a.d(4)})
         mineBox=a.column();sheet.addView(mineBox,LinearLayout.LayoutParams(-1,-2))
         val add=a.line().apply{gravity=Gravity.CENTER;isClickable=true;a.press(this);contentDescription="Добавить свой звук"
-            background=GradientDrawable().apply{cornerRadius=a.d(Radius.R20).toFloat();setStroke(a.d(1),if(a.light)0x26000000 else 0x2effffff,a.d(5).toFloat(),a.d(4).toFloat())}
+            background=GradientDrawable().apply{cornerRadius=a.d(Radius.R20).toFloat();setStroke(a.d(1),Ui.outline(a.light),a.d(5).toFloat(),a.d(4).toFloat())}
             addView(a.text("＋",Type.TITLE,a.fg,true));addView(a.text("Добавить свой звук",Type.TEXT,a.fg,true).apply{setPadding(a.d(8),0,0,0)})
             setOnClickListener{a.pickSound{o->buildMine(o.str("id"));toggle(Ambience.CUSTOM+o.str("id"))}}}
         sheet.addView(add,LinearLayout.LayoutParams(-1,a.d(50)))
@@ -235,7 +233,7 @@ internal class AmbienceSheet(private val a:MainActivity){
         for(i in 0 until mineBox.childCount)(mineBox.getChildAt(i) as? MineRow)?.refresh(animate)}
     /** [fresh]: the id of a sound just added — its row slides in. */
     private fun buildMine(fresh:String?){mineBox.removeAllViews();Ambience.mine(a).forEach{o->val row=MineRow(o).apply{minimumHeight=a.d(54)};mineBox.addView(row,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(8)})
-        if(o.str("id")==fresh&&!reduced){row.alpha=0f;row.translationY=a.d(12).toFloat();row.animate().alpha(1f).translationY(0f).setDuration(Motion.EMPHASIS).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
+        if(o.str("id")==fresh&&!reduced){row.alpha=0f;row.translationY=a.d(12).toFloat();row.animate().alpha(1f).translationY(0f).setDuration(Motion.EMPHASIS).setInterpolator(MotionSpec.enter).start()}}}
 
     /** A sound tile: its colour glowing from the top right over a deep shade, the icon, the name and a quiet line.
      *  Chosen, it gives a soft pulse, the glow swells, the ring draws in around it and the bars rise. */
@@ -243,7 +241,7 @@ internal class AmbienceSheet(private val a:MainActivity){
         private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val ring=a.d(4).toFloat()
         private val bars=EqBars(a,Color.WHITE)
         private val name=a.text(s.name,Type.TEXT,Color.WHITE,true).apply{maxLines=1}
-        private val note=a.text(s.note,Type.CAPTION,0x8cffffff.toInt()).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
+        private val note=a.text(s.note,Type.CAPTION,Ui.alpha(Ui.ON_PICTURE,0x8c)).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
         private var on=0f;private var anim:ValueAnimator?=null;private var chosen:Boolean?=null
         init{setWillNotDraw(false);clipChildren=false;contentDescription=s.name
             val texts=a.column();texts.addView(name,LinearLayout.LayoutParams(-1,-2));texts.addView(note,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(2)})
@@ -256,8 +254,8 @@ internal class AmbienceSheet(private val a:MainActivity){
             if(chosen==now&&anim==null){chosen=now;return};val becameOn=now&&chosen==false;chosen=now
             val to=if(now)1f else 0f;anim?.cancel()
             if(!motion){on=to;invalidate();return}
-            if(becameOn){scaleX=.96f;scaleY=.96f;animate().scaleX(1f).scaleY(1f).setDuration(Motion.EMPHASIS).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).start()}
-            anim=ValueAnimator.ofFloat(on,to).apply{duration=if(now)420 else 220;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{on=it.animatedValue as Float;invalidate()}
+            if(becameOn){scaleX=.96f;scaleY=.96f;animate().scaleX(1f).scaleY(1f).setDuration(Motion.EMPHASIS).setInterpolator(Motion.expand.interpolator).start()}
+            anim=ValueAnimator.ofFloat(on,to).apply{duration=if(now)Motion.EMPHASIS else Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{on=it.animatedValue as Float;invalidate()}
                 addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){anim=null}});start()}}
         /** The scene's photo (assets/sounds/<key>.jpg), decoded once. */
         private val photo:Bitmap?=try{a.assets.open("sounds/${s.key}.jpg").use{BitmapFactory.decodeStream(it)}}catch(_:Exception){null}
@@ -274,7 +272,7 @@ internal class AmbienceSheet(private val a:MainActivity){
                 gray.setSaturation(.5f+.5f*on);val dim=.5f+.4f*on;mix.set(floatArrayOf(dim,0f,0f,0f,0f, 0f,dim,0f,0f,0f, 0f,0f,dim,0f,0f, 0f,0f,0f,1f,0f));mix.preConcat(gray)
                 p.colorFilter=ColorMatrixColorFilter(mix);p.isFilterBitmap=true;c.drawBitmap(ph,null,RectF(x0,y0,x0+pw,y0+phh),p);p.colorFilter=null}
             else{p.color=s.deep;c.drawRect(l,t,rr,b,p)}
-            p.shader=LinearGradient(0f,t+(b-t)*.35f,0f,b,0,0xb0000000.toInt(),Shader.TileMode.CLAMP);c.drawRect(l,t,rr,b,p);p.shader=null
+            p.shader=LinearGradient(0f,t+(b-t)*.35f,0f,b,0,Ui.alpha(Ui.OVER_PICTURE,0xb0),Shader.TileMode.CLAMP);c.drawRect(l,t,rr,b,p);p.shader=null
             c.restore()}
     }
     /** Your own sound: a note, its name and length, dancing bars when it plays, a bin to remove it. */
@@ -285,7 +283,7 @@ internal class AmbienceSheet(private val a:MainActivity){
         init{orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(4),0);background=bg;isClickable=true;a.press(this);setOnClickListener{toggle(key)}
             addView(object:View(a){val p=Paint(Paint.ANTI_ALIAS_FLAG);override fun onDraw(c:Canvas){Ambience.icon(c,"note",0f,0f,width.toFloat(),a.muted,p)}},LayoutParams(a.d(18),a.d(18)).apply{marginEnd=a.d(12)})
             val texts=a.column();texts.addView(a.text(o.str("name"),Type.TEXT,a.fg).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
-            val d=o.optLong("dur")/1000;texts.addView(a.text("${d/60}:${"%02d".format(d%60)} · по кругу",Type.CAPTION,a.muted),LayoutParams(-2,-2).apply{topMargin=a.d(2)})
+            val d=o.optLong("dur")/1000;texts.addView(a.text("${d/60}:${"%02d".format(d%60)}, по кругу",Type.CAPTION,a.muted),LayoutParams(-2,-2).apply{topMargin=a.d(2)})
             addView(texts,LayoutParams(0,-2,1f))
             addView(bars,LayoutParams(a.d(17),a.d(15)).apply{marginEnd=a.d(6);marginStart=a.d(8)})
             addView(IconView(a,"trash",a.muted).apply{isClickable=true;contentDescription="Удалить звук";setPadding(a.d(9),a.d(9),a.d(9),a.d(9));a.press(this)
@@ -293,7 +291,7 @@ internal class AmbienceSheet(private val a:MainActivity){
             refresh(false)}
         fun refresh(animate:Boolean){val now=Ambience.key==key;val motion=animate&&!reduced
             bars.visibility=if(now)View.VISIBLE else View.INVISIBLE;bars.set(now&&Ambience.playing,motion&&now&&chosen==false)
-            if(chosen!=now){bg.setStroke(if(now)a.d(2) else 0,a.fg);if(motion&&now){scaleX=.97f;scaleY=.97f;animate().scaleX(1f).scaleY(1f).setDuration(Motion.EMPHASIS).setInterpolator(android.view.animation.OvershootInterpolator(2f)).start()}};chosen=now}
+            if(chosen!=now){bg.setStroke(if(now)a.d(2) else 0,a.fg);if(motion&&now){scaleX=.97f;scaleY=.97f;animate().scaleX(1f).scaleY(1f).setDuration(Motion.EMPHASIS).setInterpolator(Motion.expand.interpolator).start()}};chosen=now}
     }
     /** Volume as a capsule like «Размер» in the text settings: a bright fill grows from the left, and the speaker,
      *  «Громкость» and the number are drawn twice — dark over the fill, light over the track — so they always read. */
@@ -308,17 +306,17 @@ internal class AmbienceSheet(private val a:MainActivity){
         private fun press(on:Boolean){}
         /** A tap jumps there smoothly; dragging follows the finger. */
         private fun set(x:Float,done:Boolean,tap:Boolean){v=(x/width).coerceIn(0f,1f);Ambience.setVolume(a,v,done)
-            glide?.cancel();if(tap&&!reduced){glide=ValueAnimator.ofFloat(shown,v).apply{duration=Motion.STANDARD;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}else{shown=v;invalidate()}}
+            glide?.cancel();if(tap&&!reduced){glide=ValueAnimator.ofFloat(shown,v).apply{duration=Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}else{shown=v;invalidate()}}
         override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val r=h/2;val dk=a.d(1).toFloat()
             p.style=Paint.Style.FILL;p.shader=null;p.color=Ui.fill(a.light);c.drawRoundRect(0f,0f,w,h,r,r,p)
             val fx=w*shown
             p.shader=null;p.color=SliderInk.fill(a);SliderInk.fillTo(c,p,w,h,fx)
-            val onFill=if(a.light)Color.WHITE else 0xff1d1d1f.toInt();val onTrack=a.fg
+            val onFill=Ui.knobOn(a.light);val onTrack=a.fg
             fun content(ink:Int,value:Int){p.color=ink
                 c.save();c.translate(dk*17,h/2-dk*9);c.scale(dk*18/24f,dk*18/24f);p.style=Paint.Style.STROKE;p.strokeWidth=1.9f;p.strokeJoin=Paint.Join.ROUND;p.strokeCap=Paint.Cap.ROUND
                 c.drawPath(speaker,p);if(shown>.01f)c.drawArc(10.5f,8.5f,17f,15.5f,-55f,110f,false,p);if(shown>.5f)c.drawArc(11f,5.5f,21f,18.5f,-55f,110f,false,p);c.restore();p.style=Paint.Style.FILL
-                p.textSize=dk*14;p.typeface=PolkaFonts.sans(500);c.drawText("Громкость",dk*44,h/2+dk*5,p)
-                p.typeface=PolkaFonts.sans(600);p.textSize=dk*14;p.textAlign=Paint.Align.RIGHT;c.drawText("$value",w-dk*20,h/2+dk*5,p);p.textAlign=Paint.Align.LEFT}
+                p.textSize=Type.TEXT*a.resources.displayMetrics.scaledDensity;p.typeface=PolkaFonts.sans(500);c.drawText("Громкость",dk*44,h/2+dk*5,p)
+                p.typeface=PolkaFonts.sans(600);p.textSize=Type.TEXT*a.resources.displayMetrics.scaledDensity;p.textAlign=Paint.Align.RIGHT;c.drawText("$value",w-dk*20,h/2+dk*5,p);p.textAlign=Paint.Align.LEFT}
             val value=(shown*100).roundToIntSafe()
             c.save();c.clipRect(fx,0f,w,h);content(onTrack,value);c.restore()
             c.save();c.clipRect(0f,0f,fx,h);content(onFill,value);c.restore()}

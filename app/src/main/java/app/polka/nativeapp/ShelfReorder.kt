@@ -64,7 +64,7 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         Canvas(card).apply{translate(pad.toFloat(),pad.toFloat());val a0=view.alpha;view.alpha=1f;view.draw(this);view.alpha=a0}
         val n=card.width*card.height;val px=IntArray(n);card.getPixels(px,0,card.width,0,0,card.width,card.height)
         // Keep only the solid body: the view's own soft shadows must not widen the silhouette.
-        for(k in 0 until n)px[k]=if((px[k] ushr 24)>=235)0xff000000.toInt() else 0
+        for(k in 0 until n)px[k]=if((px[k] ushr 24)>=235)Color.BLACK else 0
         val mask=Bitmap.createBitmap(px,card.width,card.height,Bitmap.Config.ARGB_8888)
         val small=Bitmap.createScaledBitmap(mask,maxOf(1,mask.width/4),maxOf(1,mask.height/4),true);mask.recycle()
         val out=Bitmap.createBitmap(small.width,small.height,Bitmap.Config.ARGB_8888);val c=Canvas(out);val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)

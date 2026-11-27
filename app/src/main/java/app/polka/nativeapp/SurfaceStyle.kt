@@ -23,13 +23,13 @@ internal class OpaqueSurface(private val a:MainActivity,private val radiusDp:Flo
  /** The colour at rest; [fillColor] blends it toward the pressed shade as [press] eases in and out. */
  // on a dark page the higher a surface floats, the lighter it is: the page, a card (#242426), a floating bar, a menu
  // over everything (a bar along the screen's edge keeps its own colour)
- private val restColor:Int get(){val light=themeLight?:a.light;val floats=float&&!flushTop&&!flushBottom;return when{selected&&light->0xffdedee2.toInt();selected->0xff48484c.toInt()
+ private val restColor:Int get(){val light=themeLight?:a.light;val floats=float&&!flushTop&&!flushBottom;return when{selected&&light->Ui.pressed(true);selected->Ui.selected(false)
   tint!=null->tint!!;floats&&!light&&lift==Lift.OVER->Ui.menu(false);floats&&!light&&lift==Lift.FLOAT->Ui.card(false);sheet->if(themeLight==null)a.sheetColor else Ui.sheet(light);else->Ui.control(light)}}
  /** A colour of its own instead of the theme's: the reader's bars take their page's (see [ReaderTint]). */
  internal var tint:Int?=null
  /** A chip seen lower than it is to tap (dp): 36 seen in its 48. */
  internal var seenHeight:Float?=null
- private val pressColor:Int get()=if(themeLight?:a.light)0xffe6e6e9.toInt() else 0xff38383c.toInt()
+ private val pressColor:Int get()=Ui.pressed(themeLight?:a.light)
  private var press=0f;private var pressAnim:android.animation.ValueAnimator?=null
  internal val fillColor:Int get()=if(press<=0f)restColor else androidx.core.graphics.ColorUtils.blendARGB(restColor,pressColor,press)
  override fun onBoundsChange(bounds:Rect){val r=RectF(bounds);seenHeight?.let{s->val px=s*a.resources.displayMetrics.density;if(r.height()>px)r.inset(0f,(r.height()-px)/2f)};val radius=radiusDp*a.resources.displayMetrics.density;path.rewind();if(flushBottom||flushTop)path.addRoundRect(r,floatArrayOf(if(flushTop)0f else radius,if(flushTop)0f else radius,if(flushTop)0f else radius,if(flushTop)0f else radius,if(flushBottom)0f else radius,if(flushBottom)0f else radius,if(flushBottom)0f else radius,if(flushBottom)0f else radius),Path.Direction.CW)else path.addRoundRect(r,radius,radius,Path.Direction.CW)}
@@ -39,7 +39,7 @@ internal class OpaqueSurface(private val a:MainActivity,private val radiusDp:Flo
  override fun isStateful()=true
  // a soft press: the shade eases in under the finger and fades out slowly after it (no white flash)
  override fun onStateChange(state:IntArray):Boolean{val next=state.contains(android.R.attr.state_pressed);if(next==pressed)return false;pressed=next
-  pressAnim?.cancel();pressAnim=android.animation.ValueAnimator.ofFloat(press,if(next)1f else 0f).apply{duration=if(next)140 else 420;interpolator=android.view.animation.PathInterpolator(.2f,0f,0f,1f);addUpdateListener{press=it.animatedValue as Float;invalidateSelf()};start()}
+  pressAnim?.cancel();pressAnim=android.animation.ValueAnimator.ofFloat(press,if(next)1f else 0f).apply{duration=if(next)Motion.FAST else Motion.EMPHASIS;interpolator=MotionSpec.enter;addUpdateListener{press=it.animatedValue as Float;invalidateSelf()};start()}
   return false}
  override fun getOutline(outline:Outline){if(flushBottom||flushTop)outline.setConvexPath(path)else outline.setRoundRect(bounds,radiusDp*a.resources.displayMetrics.density);outline.alpha=1f}
  override fun setAlpha(alpha:Int){opacity=alpha;invalidateSelf()}
@@ -59,6 +59,11 @@ internal fun MainActivity.controlSurface(host:View,radius:Float=28f,selected:Boo
 }
 
 /** Analytic damped spring, independent of frame rate. Retargeting retains presentation velocity. */
+/** [LiquidSpring] moves as «Раскрытие» ([Motion.expand]: bounce .22, 420 ms): its decay and ringing, worked out
+ *  once from that spring (ζ = 1 − bounce, ω₀ = 2π / 0.42 s), so a move that keeps its speed feels the same as one
+ *  that starts from rest. */
+private const val LIQ_DECAY=11.67f
+private const val LIQ_WD=9.36f
 internal class LiquidSpring(private val changed:(Float,Float)->Unit){
  var value=0f;private set
  var velocity=0f;private set
@@ -66,7 +71,7 @@ internal class LiquidSpring(private val changed:(Float,Float)->Unit){
  internal fun sample(ms:Long){clock?.let{it.pause();if(ms>=it.duration)it.end()else it.currentPlayTime=ms}}
  fun snap(to:Float){stop();value=to;velocity=0f;changed(value,velocity)}
  fun stop(){clock?.removeAllListeners();clock?.cancel();clock=null}
- fun to(target:Float){stop();val start=value;val speed=velocity;clock=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.LONG;interpolator=android.view.animation.LinearInterpolator();addUpdateListener{val t=currentPlayTime/1000f;val decay=exp(-15f*t);val wd=13f;val delta=start-target;val b=(speed+15f*delta)/wd;value=target+decay*(delta*cos(wd*t)+b*sin(wd*t));velocity=decay*((-15f*delta+wd*b)*cos(wd*t)+(-15f*b-wd*delta)*sin(wd*t));changed(value,velocity)};addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(animation:android.animation.Animator){value=target;velocity=0f;changed(value,velocity)}});start()}}
+ fun to(target:Float){stop();val start=value;val speed=velocity;clock=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.LONG;interpolator=android.view.animation.LinearInterpolator();addUpdateListener{val t=currentPlayTime/1000f;val decay=exp(-LIQ_DECAY*t);val wd=LIQ_WD;val delta=start-target;val b=(speed+LIQ_DECAY*delta)/wd;value=target+decay*(delta*cos(wd*t)+b*sin(wd*t));velocity=decay*((-LIQ_DECAY*delta+wd*b)*cos(wd*t)+(-LIQ_DECAY*b-wd*delta)*sin(wd*t));changed(value,velocity)};addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(animation:android.animation.Animator){value=target;velocity=0f;changed(value,velocity)}});start()}}
 }
 
 /**

@@ -5,7 +5,6 @@ import android.graphics.*
 import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.animation.LinearInterpolator
-import android.view.animation.PathInterpolator
 import kotlin.math.*
 
 /**
@@ -34,14 +33,14 @@ internal abstract class ChoiceMark(protected val a:MainActivity,on:Boolean):View
             addUpdateListener{v=it.animatedValue as Float;invalidate()};start()}}
     override fun drawableStateChanged(){super.drawableStateChanged();val p=isPressed;if(reduced)return
         val target=if(p)1f else 0f;if((pressAnim?.isRunning==true&&pressTarget==target)||press==target)return;pressTarget=target
-        pressAnim?.cancel();pressAnim=ValueAnimator.ofFloat(press,target).apply{duration=if(p)140 else 260;interpolator=PathInterpolator(.2f,0f,0f,1f)
+        pressAnim?.cancel();pressAnim=ValueAnimator.ofFloat(press,target).apply{duration=if(p)Motion.FAST else Motion.STANDARD;interpolator=MotionSpec.enter
             addUpdateListener{press=it.animatedValue as Float;invalidate()};start()}}
     private var pressTarget=-1f
     override fun onDetachedFromWindow(){anim?.cancel();pressAnim?.cancel();super.onDetachedFromWindow()}
     protected fun ease(t:Float):Float{val x=t.coerceIn(0f,1f);return 1f-(1f-x)*(1f-x)*(1f-x)}
     /** 0 → 1 → 0 with its top at [at]: the little swell as a mark settles. */
     protected fun bump(t:Float,at:Float=.6f):Float{val x=t.coerceIn(0f,1f);return if(x<at)sin(x/at*PI.toFloat()/2f) else cos((x-at)/(1f-at)*PI.toFloat()/2f)}
-    protected val outline get()=if(a.light)0x40000000 else 0x5affffff
+    protected val outline get()=Ui.alpha(Ui.ink(a.light),if(a.light)0x40 else 0x5a)
 }
 
 /** A square box to tick (several may be ticked): an outline when empty; ticked, it fills from its middle and the check

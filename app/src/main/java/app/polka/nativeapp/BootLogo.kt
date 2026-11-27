@@ -13,7 +13,7 @@ internal fun MainActivity.bootLogo():View=FrameLayout(this).apply {
 internal fun MainActivity.revealFromBoot(logo:View?){
     (logo?.parent as? android.view.ViewGroup)?.removeView(logo)
     val reduced=prefs.str("motion")=="reduced"
-    val ease=android.view.animation.PathInterpolator(.16f,1f,.3f,1f)
+    val ease=MotionSpec.enter
     var i=0
     for(k in 0 until root.childCount){val v=root.getChildAt(k);if(v.visibility!=View.VISIBLE||v.alpha<1f)continue
         v.alpha=0f

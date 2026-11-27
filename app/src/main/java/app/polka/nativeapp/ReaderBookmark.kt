@@ -3,8 +3,6 @@ package app.polka.nativeapp
 import android.animation.ValueAnimator
 import android.graphics.*
 import android.view.View
-import android.view.animation.OvershootInterpolator
-import android.view.animation.PathInterpolator
 import kotlin.math.min
 
 /** Toolbar bookmark: an outline that fills with the accent colour while the ribbon drops in. */
@@ -15,7 +13,7 @@ internal class BookmarkIcon(private val a:MainActivity,ink:Int):IconView(a,"book
         if(value==on&&anim==null&&fill==(if(value)1f else 0f))return
         on=value;anim?.cancel();anim=null;val target=if(value)1f else 0f
         if(!animate||a.prefs.str("motion")=="reduced"){fill=target;invalidate();return}
-        anim=ValueAnimator.ofFloat(fill,target).apply{duration=if(value)320L else 220L;interpolator=PathInterpolator(.33f,0f,.2f,1f);addUpdateListener{fill=it.animatedValue as Float;invalidate()};start()}
+        anim=ValueAnimator.ofFloat(fill,target).apply{duration=if(value)Motion.STANDARD else Motion.STANDARD;interpolator=MotionSpec.move;addUpdateListener{fill=it.animatedValue as Float;invalidate()};start()}
     }
     override fun onDetachedFromWindow(){anim?.cancel();anim=null;super.onDetachedFromWindow()}
     override fun onDraw(c:Canvas){
@@ -41,7 +39,7 @@ internal class BookmarkRibbon(private val a:MainActivity):View(a) {
         fun draw(c:Canvas,a:MainActivity,length:Float){
             if(length<=.5f)return;val w=a.d(WIDTH_DP).toFloat();val notch=min(w*.4f,length*.45f)
             val p=Paint(Paint.ANTI_ALIAS_FLAG);val path=Path().apply{moveTo(0f,-4f);lineTo(w,-4f);lineTo(w,length);lineTo(w/2f,length-notch);lineTo(0f,length);close()}
-            p.setShadowLayer(a.d(5).toFloat(),0f,a.d(1).toFloat(),0x22000000);p.color=a.accent;c.drawPath(path,p)
+            p.setShadowLayer(a.d(5).toFloat(),0f,a.d(1).toFloat(),Ui.SHADOW);p.color=a.accent;c.drawPath(path,p)
         }
     }
     var length=0f;private set
@@ -61,7 +59,7 @@ internal class BookmarkRibbon(private val a:MainActivity):View(a) {
         val fromX=x();val toX=if(target>0f)restX() else fromX
         if(!animate||a.prefs.str("motion")=="reduced"||!isAttachedToWindow){length=target;cx=if(target>0f)Float.NaN else fromX;invalidate();return}
         val from=length;val grow=from<target
-        anim=ValueAnimator.ofFloat(0f,1f).apply{duration=if(drop&&grow)420L else 300L;interpolator=if(drop&&grow)OvershootInterpolator(1.5f) else PathInterpolator(.22f,1f,.36f,1f)
+        anim=ValueAnimator.ofFloat(0f,1f).apply{duration=if(drop&&grow)Motion.EMPHASIS else Motion.STANDARD;interpolator=if(drop&&grow)Motion.expand.interpolator else MotionSpec.enter
             addUpdateListener{val t=it.animatedValue as Float;length=(from+(target-from)*t).coerceAtLeast(0f);cx=fromX+(toX-fromX)*t.coerceIn(0f,1f);invalidate()}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){if(anim===x&&target>0f){cx=Float.NaN;invalidate()}}});start()}
     }
