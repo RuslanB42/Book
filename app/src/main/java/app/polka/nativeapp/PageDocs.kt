@@ -98,7 +98,7 @@ internal object PageDocs {
             if(series.isNotBlank()){book.put("series",series);number.toDoubleOrNull()?.let{book.put("seriesNo",it)}}
             listOf("Writer","Penciller").firstNotNullOfOrNull{tag->d.selectFirst(tag)?.text()?.takeIf{it.isNotBlank()}}?.let{book.put("authors",JSONArray(it.split(',').map{s->s.trim()}.filter{s->s.isNotBlank()}))}
             d.selectFirst("Summary")?.text()?.takeIf{it.isNotBlank()}?.let{book.put("annotation",it)}
-            if(d.selectFirst("Manga")?.text().equals("YesAndRightToLeft",true))book.put("pageMode","rtl")}catch(_:Exception){}}
+            if(d.selectFirst("Manga")?.text().equals("YesAndRightToLeft",true))book.put("pageRtl",true)}catch(_:Exception){}}
         // no series in the file: it is read from the title (as the library already names it)
         SeriesGuess.fill(book,a.books)
         return Imported(book,content(book),listOf(cover))}

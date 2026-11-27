@@ -79,7 +79,7 @@ internal class StatsMore(private val data:JSONObject,private val books:List<JSON
     /** The series read the most (by time). */
     fun favouriteSeries():Series?=series.filter{it.ms>=10*60000L}.maxByOrNull{it.ms}
     /** Comics and manga (a manga reads from right to left), each's share of the time, when both are read. */
-    fun mangaShare():Pair<Int,Int>?{val read=books.filter{isComic(it)&&readMs(it)>0};val manga=read.filter{it.str("pageMode")=="rtl"}.sumOf{readMs(it)};val all=read.sumOf{readMs(it)}
+    fun mangaShare():Pair<Int,Int>?{val read=books.filter{isComic(it)&&readMs(it)>0};val manga=read.filter{it.optBoolean("pageRtl")||it.str("pageMode")=="rtl"}.sumOf{readMs(it)};val all=read.sumOf{readMs(it)}
         if(all<=0||manga<=0||manga>=all)return null;val m=(manga*100.0/all).roundToInt().coerceIn(1,99);return (100-m) to m}
     /** How long an issue takes on average (the finished ones read here), and a page. */
     fun issuePace():Long?{val done=model.finished.map{it.book}.map{readMs(it)}.filter{it>=60000L};return if(done.isEmpty())null else done.sum()/done.size}

@@ -53,11 +53,14 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     private val io=Executors.newFixedThreadPool(2)
     private val cache=object:LruCache<String,Bitmap>((Runtime.getRuntime().maxMemory()/5).toInt()){override fun sizeOf(k:String,v:Bitmap)=v.byteCount}
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    private var mode=book.str("pageMode","paged").let{if(it=="rtl"){book.put("pageRtl",true);"paged"}else it}
+    // how pages turn and whether they run as one strip are the reader's own settings, the same for books, documents
+    // and comics (they used to be kept apart for comics, and the strip for each comic on its own); a comic's old
+    // «справа налево» kept as the mode becomes its own switch
+    private var mode=run{if(book.str("pageMode")=="rtl")book.put("pageRtl",true);book.remove("pageMode");if(a.prefs.str("mode","paged")=="scroll")"ribbon" else "paged"}
     /** Pages turn right to left (manga). */
     private var rtl=book.optBoolean("pageRtl")
     /** How a page turns, as in the book reader: «curl», «slide», «cover» or «none». */
-    private val turnStyle get()=a.prefs.str("comicTurn","slide")
+    private val turnStyle get()=a.prefs.str("turn","curl")
     private var page=(book.optJSONObject("progress")?.optInt("page",0)?:0).coerceIn(0,maxOf(0,n-1))
     private val dialog=android.app.Dialog(a,R.style.PolkaBlackFull)
     /** Every touch is the reader being with the page. */
@@ -172,7 +175,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         markIcon?.let{it.isSelected=page in marks();it.invalidate()}
         for(i in 0 until strip.childCount)(strip.getChildAt(i) as? Thumb)?.place(page)
         strip.getChildAt(page)?.let{t->val target=t.left+t.width/2-stripScroll.width/2;if(reduced)stripScroll.scrollTo(target,0) else stripScroll.smoothScrollTo(target,0)}}
-    private fun setMode(m:String,animate:Boolean){mode=m;book.put("pageMode",m);stage.removeAllViews();paged=null;ribbon=null
+    private fun setMode(m:String,animate:Boolean){mode=m;stage.removeAllViews();paged=null;ribbon=null
         if(m=="ribbon")ribbon=RibbonView().also{stage.addView(it,FrameLayout.LayoutParams(-1,-1));it.post{it.scrollTo(page)}}
         else paged=PagedView().also{stage.addView(it,FrameLayout.LayoutParams(-1,-1));it.post{it.show(page,false)}}
         if(animate&&!reduced){stage.alpha=0f;stage.animate().alpha(1f).setDuration(220).start()}
@@ -329,8 +332,8 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
             val show={val on=current()==key;tile.on=on;name.setTextColor(if(on)a.fg else a.muted);name.typeface=PolkaFonts.sans(if(on)600 else 400)}
             show();shows.add(show)
             col.setOnClickListener{if(current()==key)return@setOnClickListener
-                if(key!="ribbon"){a.prefs.put("comicTurn",key);a.savePreferences()}
                 val want=if(key=="ribbon")"ribbon" else "paged"
+                if(key!="ribbon")a.prefs.put("turn",key);a.prefs.put("mode",if(want=="ribbon")"scroll" else "paged");a.savePreferences()
                 if(mode!=want)root.postDelayed({setMode(want,true)},if(reduced)0L else 300L)
                 mode=want;shows.forEach{it()}}
             a.press(col);turns.addView(col,LinearLayout.LayoutParams(0,-2,1f))}
