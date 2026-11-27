@@ -21,7 +21,10 @@ internal class OpaqueSurface(private val a:MainActivity,private val radiusDp:Flo
  internal var lift=Lift.FLOAT
  internal fun refresh(){onBoundsChange(bounds);invalidateSelf()}
  /** The colour at rest; [fillColor] blends it toward the pressed shade as [press] eases in and out. */
- private val restColor:Int get(){val light=themeLight?:a.light;return when{selected&&light->0xffdedee2.toInt();selected->0xff48484c.toInt();sheet&&light->0xfff7f7f5.toInt();sheet->0xff1c1c1e.toInt();light->Color.WHITE;else->0xff242426.toInt()}}
+ // on a dark page the higher a surface floats, the lighter it is: the page, a card (#242426), a floating bar, a menu
+ // over everything (a bar along the screen's edge keeps its own colour)
+ private val restColor:Int get(){val light=themeLight?:a.light;val floats=float&&!flushTop&&!flushBottom;return when{selected&&light->0xffdedee2.toInt();selected->0xff48484c.toInt();
+  floats&&!light&&lift==Lift.OVER->0xff303033.toInt();floats&&!light&&lift==Lift.FLOAT->0xff2a2a2c.toInt();sheet&&light->0xfff7f7f5.toInt();sheet->0xff1c1c1e.toInt();light->Color.WHITE;else->0xff242426.toInt()}}
  private val pressColor:Int get()=if(themeLight?:a.light)0xffe6e6e9.toInt() else 0xff38383c.toInt()
  private var press=0f;private var pressAnim:android.animation.ValueAnimator?=null
  internal val fillColor:Int get()=if(press<=0f)restColor else androidx.core.graphics.ColorUtils.blendARGB(restColor,pressColor,press)
@@ -69,17 +72,17 @@ internal class LiquidSpring(private val changed:(Float,Float)->Unit){
  */
 internal enum class Lift(val e:Float,val light:Float,val dark:Float){
  /** A knob, a thumb or a tab's pill on its own track. */
- TOUCH(9f,.10f,.24f),
+ TOUCH(9f,.10f,.20f),
  /** A book cover lying on the page (thin: it stands lower than a card). */
- COVER(26f,.062f,.15f),
+ COVER(26f,.062f,.13f),
  /** A card lying on the page. */
- REST(40f,.065f,.18f),
+ REST(40f,.065f,.16f),
  /** The bars and the round button floating over the content. */
- FLOAT(46f,.074f,.19f),
+ FLOAT(46f,.074f,.17f),
  /** Menus, notes and chips popping up over everything. */
- OVER(52f,.085f,.21f),
+ OVER(52f,.085f,.19f),
  /** Something picked up and carried under the finger. */
- CARRY(44f,.09f,.22f)
+ CARRY(44f,.09f,.20f)
 }
 
 /**
@@ -102,6 +105,11 @@ internal object FloatShade{
  private const val LIGHT_TINT=0x40424a;private const val DARK_TINT=0x050507
  /** The shade's colour (no alpha). */
  fun tint(light:Boolean)=if(light)LIGHT_TINT else DARK_TINT
+ /** The first of the five layers a shade has. On a dark page only the three broad ones: a page that dark leaves the
+  *  shade some twenty steps of brightness to fall through (two hundred on a light one), so the tight layers by the
+  *  edge stood out as a hard dark rim; there the depth is told by the surfaces (higher is lighter, see [OpaqueSurface])
+  *  and the shade is only a wide, faint fall. */
+ fun firstLayer(light:Boolean)=if(light)0 else 2
  /** The light's slant: a shade moves this much to the right for every step it falls. */
  const val SLANT=.1f
  /** The longest drop of a shade cast by a thing [w]×[h] px at [lift]. */
@@ -114,7 +122,7 @@ internal object FloatShade{
   val out=try{Bitmap.createBitmap(max(1,W/4),max(1,H/4),Bitmap.Config.ARGB_8888)}catch(e:Throwable){return null};val c=Canvas(out);c.scale(.25f,.25f)
   val tint=tint(light);val each=((if(light)lift.light else lift.dark)*255).roundToInt()
   val lp=Paint(Paint.ANTI_ALIAS_FLAG);val r=RectF()
-  for(i in 0 until 5){val dy=e*(1f/(1 shl (4-i)));val sigma=.6f*dy+.4f*dp;val tuck=min(.14f*dy,.1f*min(w,h));val dx=SLANT*dy
+  for(i in firstLayer(light) until 5){val dy=e*(1f/(1 shl (4-i)));val sigma=.6f*dy+.4f*dp;val tuck=min(.14f*dy,.1f*min(w,h));val dx=SLANT*dy
    // [up]: a bar along the bottom edge casts its shade upward (below it there is only the edge of the screen)
    val fall=if(up)-dy else dy
    r.set(pad+tuck+dx,pad+tuck+fall,pad+w-tuck+dx,pad+h-tuck+fall);if(r.width()<=1f||r.height()<=1f)continue
@@ -122,7 +130,7 @@ internal object FloatShade{
   // dither: a step of the page's colour is about 255/its brightness steps of the shade's alpha (one on a light page,
   // about twelve on a dark one), so the noise is half a step of the page's colour, thinning out where the shade fades
   // away (the clear page round it gets no grain)
-  if(dither){val amp=if(light)1 else 8;val n=out.width*out.height;val px=IntArray(n);out.getPixels(px,0,out.width,0,0,out.width,out.height);val rnd=java.util.Random(7)
+  if(dither){val amp=if(light)1 else 6;val n=out.width*out.height;val px=IntArray(n);out.getPixels(px,0,out.width,0,0,out.width,out.height);val rnd=java.util.Random(7)
    for(k in 0 until n){val al=px[k] ushr 24;if(al==0)continue;val q=min(amp,1+al*amp/16);px[k]=((al+rnd.nextInt(2*q+1)-q).coerceIn(0,255) shl 24) or tint}
    out.setPixels(px,0,out.width,0,0,out.width,out.height)}
   return Baked(out,pad).also{cache.put(key,it)}}

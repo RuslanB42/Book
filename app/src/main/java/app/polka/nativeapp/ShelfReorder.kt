@@ -69,7 +69,7 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
         val small=Bitmap.createScaledBitmap(mask,maxOf(1,mask.width/4),maxOf(1,mask.height/4),true);mask.recycle()
         val out=Bitmap.createBitmap(small.width,small.height,Bitmap.Config.ARGB_8888);val c=Canvas(out);val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         val dp=a.resources.displayMetrics.density;val e=FloatShade.reach(a,Lift.CARRY,w,h);val each=((if(a.light)Lift.CARRY.light else Lift.CARRY.dark)*255).toInt()
-        for(i in 0 until 5){val dy=e/(1 shl (4-i));val sigma=(.6f*dy+.4f*dp)/4f;val off=IntArray(2)
+        for(i in FloatShade.firstLayer(a.light) until 5){val dy=e/(1 shl (4-i));val sigma=(.6f*dy+.4f*dp)/4f;val off=IntArray(2)
             val b=small.extractAlpha(Paint().apply{maskFilter=BlurMaskFilter(maxOf(.5f,sigma/.57735f),BlurMaskFilter.Blur.NORMAL)},off)
             p.color=(each shl 24) or FloatShade.tint(a.light);c.drawBitmap(b,off[0]+FloatShade.SLANT*dy/4f,off[1]+dy/4f,p);b.recycle()}
         small.recycle();return card to out
