@@ -48,9 +48,8 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
   // Quote highlights are read-only decoration; links keep their colour but stop being clickable.
   editor.text.getSpans(0,editor.length(),BackgroundColorSpan::class.java).forEach{editor.text.removeSpan(it)};editor.text.getSpans(0,editor.length(),QuoteInk::class.java).forEach{editor.text.removeSpan(it)}
   editor.text.getSpans(0,editor.length(),ClickableSpan::class.java).forEach{span->val from=editor.text.getSpanStart(span);val to=editor.text.getSpanEnd(span);editor.text.removeSpan(span);if(to>from)editor.text.setSpan(ForegroundColorSpan(a.accent),from,to,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)}
-  toolbar.orientation=LinearLayout.VERTICAL;toolbar.setPadding(a.d(10),a.d(8),a.d(10),a.d(10))
-  a.controlSurface(toolbar,26f,sheet=true).apply{themeLight=lightPage;refresh()}
-  toolbar.elevation=a.d(12).toFloat();toolbar.isClickable=true
+  // the reader's bottom panel carries these rows (it takes the page's colours for them)
+  toolbar.orientation=LinearLayout.VERTICAL;toolbar.isClickable=true
   val actions=a.line()
   fun action(label:String,description:String,icon:String?=null,fn:()->Unit){val control=if(icon!=null)IconView(a,icon,ink)else a.text(label,18f,ink,true,serif=true).apply{gravity=Gravity.CENTER;if(label=="К")typeface=Typeface.create(typeface,Typeface.ITALIC)};a.press(control);control.contentDescription=description;control.setOnClickListener{if(!saving)fn()};actions.addView(control,LinearLayout.LayoutParams(0,a.d(44),1f))}
   action("","Отменить действие","undo"){undo()};action("","Повторить действие","redo"){redo()}

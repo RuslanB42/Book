@@ -12,8 +12,8 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-/** «Оформление чтения» (approved design): a compact panel at the bottom, under half the screen and without dimming,
- *  so every change shows at once in the page above it. The main page holds brightness, theme, text size and font; «Ещё» and the font list open inside the same panel at the same height. */
+/** «Оформление чтения» (approved design), inside the reader's bottom panel, so every change shows at once in the page
+ *  above it. The main page holds brightness, theme, text size and font; «Ещё» and the font list open a level deeper. */
 internal class ReaderSettings(private val a:MainActivity,private val r:NativeReader) {
     private val themes=listOf("night" to "Ночь","black" to "Чёрная","sepia" to "Сепия","paper" to "Бумага")
     private val fonts=listOf(Triple("literata","Literata","для долгого чтения"),Triple("ptserif","PT Serif","классическая книжная"),Triple("sans","Без засечек","чистая и простая"))
@@ -25,63 +25,10 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     private val GAP get()=a.d(12)
     /** A held control lifts on a card 6dp round it: half the gap above, below and at the sides. */
     private val RIM get()=a.d(6)
-    private var dialog:android.app.Dialog?=null
-    private var entrance:SheetMotion?=null
-    private lateinit var sheet:LinearLayout
-    private lateinit var pages:FrameLayout
-    private lateinit var main:View
-    private var sub:View?=null
     private val refreshers=mutableListOf<()->Unit>()
 
-    fun show(){
-        val dlg=android.app.Dialog(a,R.style.PolkaSheetTheme);dialog=dlg
-        val root=DragRoot().apply{isClickable=true;setOnClickListener{close()}}
-        sheet=a.column().apply{clipToPadding=false;clipChildren=false;isClickable=true;setPadding(a.d(18),a.d(12),a.d(18),a.d(20));elevation=a.d(16).toFloat()
-            background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(30).toFloat();setStroke(1,if(a.light)0x10000000 else 0x10ffffff)}}
-        sheet.addView(View(a).apply{background=a.shape(if(a.light)0x33000000 else 0x38ffffff,3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(18)})
-        pages=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
-        main=mainPage();pages.addView(main,FrameLayout.LayoutParams(-1,-2))
-        // the page fades while it slides: drawn through an offscreen layer that layer would end at the page's edges
-        // and cut the ring around the chosen theme (it sits outside its tile); drawn directly, nothing is cut
-        main.forceHasOverlappingRendering(false)
-        sheet.addView(pages,LinearLayout.LayoutParams(-1,-2))
-        val lp=FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{setMargins(a.d(8),0,a.d(8),a.d(8))}
-        root.addView(sheet,lp)
-        dlg.setContentView(root)
-        dlg.window?.let{w->w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0));w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);w.setLayout(-1,-1);w.setWindowAnimations(0)
-            ReaderWindow.configure(w,true,r.backgroundColor)
-            if(Build.VERSION.SDK_INT>=30)w.attributes=w.attributes.apply{setFitInsetsTypes(0);setFitInsetsSides(0)}}
-        SafeArea.bind(root){i->val s=SafeArea.content(i,false);lp.bottomMargin=a.d(8)+s.bottom;lp.leftMargin=a.d(8)+s.left;lp.rightMargin=a.d(8)+s.right;sheet.layoutParams=lp}
-        dlg.setOnKeyListener{_,code,e->if(code==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){if(sub!=null)back() else close();true}else false}
-        dlg.show()
-        // the usual sheet entrance: the panel slides up from below the screen on the app's sheet spring
-        if(!reduced){sheet.translationY=a.d(1200).toFloat();sheet.post{val h=sheet.height+a.d(24).toFloat();val spring=SheetMotion{v->sheet.translationY=h*v};entrance=spring;spring.snap(1f);spring.to(0f)}}
-    }
-    /** The panel follows a downward drag (from anywhere on it that is not a control being dragged) and leaves past a
-     *  quarter of its height or on a quick flick; otherwise it settles back. */
-    private inner class DragRoot:FrameLayout(a){
-        private var x0=0f;private var y0=0f;private var dragging=false;private var vt:VelocityTracker?=null
-        private fun inSheet(x:Float,y:Float):Boolean{val r=Rect();sheet.getGlobalVisibleRect(r);return r.contains(x.toInt(),y.toInt())}
-        private fun subScrolled():Boolean{var found=false;fun walk(v:View){if(v is SheetScroll&&v.canScrollVertically(-1))found=true;if(v is ViewGroup)for(i in 0 until v.childCount)walk(v.getChildAt(i))};sub?.let{walk(it)};return found}
-        override fun onInterceptTouchEvent(e:MotionEvent):Boolean{
-            when(e.actionMasked){
-                MotionEvent.ACTION_DOWN->{x0=e.rawX;y0=e.rawY;dragging=false;vt?.recycle();vt=VelocityTracker.obtain();vt?.addMovement(e)}
-                MotionEvent.ACTION_MOVE->{vt?.addMovement(e);val dy=e.rawY-y0;val dx=e.rawX-x0
-                    if(!dragging&&dialog!=null&&dy>a.d(10)&&dy>abs(dx)*1.3f&&inSheet(x0,y0)&&!subScrolled()){dragging=true;entrance?.stop();sheet.animate().cancel();return true}}}
-            return false}
-        override fun onTouchEvent(e:MotionEvent):Boolean{
-            if(!dragging)return super.onTouchEvent(e)
-            vt?.addMovement(e)
-            when(e.actionMasked){
-                MotionEvent.ACTION_MOVE->{val dy=e.rawY-y0;sheet.translationY=if(dy>0)dy else dy*.2f}
-                MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{dragging=false;vt?.computeCurrentVelocity(1000);val vy=vt?.yVelocity?:0f;vt?.recycle();vt=null
-                    if(e.actionMasked==MotionEvent.ACTION_UP&&(sheet.translationY>sheet.height*.25f||vy>a.d(900)))close()
-                    else sheet.animate().translationY(0f).setDuration(MotionSpec.SETTLE).setInterpolator(MotionSpec.move).start()}}
-            return true}
-    }
-    private fun close(){val d=dialog?:return;dialog=null;entrance?.stop()
-        if(reduced){d.dismiss();return}
-        sheet.animate().translationY(sheet.height+a.d(24).toFloat()).setDuration(MotionSpec.SHEET_OUT).setInterpolator(MotionSpec.exit).withEndAction{d.dismiss()}.start()}
+    /** Opens in the reader's bottom panel (approved «Читалка А»): «Текст», and «Ещё» and the fonts a level deeper. */
+    fun show(){r.panel.push(ReaderPanel.Page("Текст",mainPage(),onReturn={refresh()}))}
 
     // ---- pages -------------------------------------------------------------------------------
 
@@ -102,42 +49,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         box.addView(more,LinearLayout.LayoutParams(-1,H).apply{topMargin=gap})
         refresh();return box
     }
-    /** A sub-page slides in over the main one at the main page's height; its content scrolls if longer. */
-    private var heightAnim:ValueAnimator?=null
-    private fun glideHeight(from:Int,to:Int,done:()->Unit={}){heightAnim?.cancel();val lp=pages.layoutParams
-        if(reduced||from==to){lp.height=to;pages.layoutParams=lp;done();return}
-        heightAnim=ValueAnimator.ofInt(from,to).apply{duration=if(to>from)MotionSpec.DEEP_IN else MotionSpec.DEEP_BACK;interpolator=if(to>from)MotionSpec.enter else MotionSpec.move;addUpdateListener{lp.height=it.animatedValue as Int;pages.layoutParams=lp}
-            addListener(object:android.animation.AnimatorListenerAdapter(){var cancelled=false;override fun onAnimationCancel(x:android.animation.Animator){cancelled=true};override fun onAnimationEnd(x:android.animation.Animator){if(!cancelled)done()}});start()}}
-    /** While a page slides, it is cut at the sheet's own edges — not at the pages' edges, which run through the
-     *  ring around the chosen theme (it sits outside its tile) and cut it off for the length of the slide. */
-    private fun slideClip(on:Boolean){pages.clipBounds=if(on)android.graphics.Rect(-sheet.paddingLeft,-a.d(14),pages.width+sheet.paddingRight,pages.height+a.d(600)) else null}
-    private fun open(page:View){if(sub!=null)return;val h=main.height
-        val holder=a.column()
-        val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-        head.addView(FrameLayout(a).apply{background=a.shape(pillColor,17);isClickable=true;a.press(this);setOnClickListener{back()};contentDescription="Назад";addView(Chevron(a,true),FrameLayout.LayoutParams(a.d(12),a.d(18),Gravity.CENTER))},LinearLayout.LayoutParams(a.d(34),a.d(34)))
-        head.addView(a.text(page.tag as? String?:"",15f,a.fg,true).apply{setPadding(a.d(10),0,0,0)})
-        holder.addView(head,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=GAP})
-        val scroll=SheetScroll(a,sheetColor,30,18).apply{addView(page)}
-        holder.addView(scroll,LinearLayout.LayoutParams(-1,-2))
-        // how tall the page wants to be, capped so the book still shows above the panel
-        holder.measure(View.MeasureSpec.makeMeasureSpec(pages.width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
-        val cap=(a.resources.displayMetrics.heightPixels*.8f).toInt()-a.d(80)
-        val target=holder.measuredHeight.coerceAtMost(cap)
-        if(holder.measuredHeight>cap)(scroll.layoutParams as LinearLayout.LayoutParams).apply{height=0;weight=1f}
-        pages.addView(holder,FrameLayout.LayoutParams(-1,target));sub=holder
-        main.layoutParams=main.layoutParams.apply{height=h}
-        glideHeight(h,target)
-        val w=pages.width.toFloat()
-        if(reduced){main.visibility=View.INVISIBLE;return}
-        slideClip(true);holder.translationX=w;holder.animate().translationX(0f).setDuration(MotionSpec.DEEP_IN).setInterpolator(MotionSpec.enter).withEndAction{slideClip(false)}.start()
-        main.animate().translationX(-w*MotionSpec.DEEP_SHIFT).alpha(0f).setDuration(MotionSpec.DEEP_IN).setInterpolator(MotionSpec.enter).start()}
-    private fun back(){val s=sub?:return;sub=null;val w=pages.width.toFloat();refresh()
-        val mainH=main.height.takeIf{it>0}?:pages.height
-        glideHeight(pages.height,mainH){pages.layoutParams=pages.layoutParams.apply{height=ViewGroup.LayoutParams.WRAP_CONTENT}}
-        if(reduced){pages.removeView(s);main.visibility=View.VISIBLE;main.alpha=1f;main.translationX=0f;return}
-        slideClip(true);s.animate().translationX(w).setDuration(MotionSpec.DEEP_BACK).setInterpolator(MotionSpec.move).withEndAction{pages.removeView(s);slideClip(false)}.start()
-        main.animate().translationX(0f).alpha(1f).setDuration(MotionSpec.DEEP_BACK).setInterpolator(MotionSpec.move).start()}
-
+    private fun open(page:View){r.panel.push(ReaderPanel.Page(page.tag as? String,page))}
     private fun layoutPage():View{
         val box=a.column().apply{tag="Ещё";clipChildren=false;clipToPadding=false}
         box.addView(turnRow(),LinearLayout.LayoutParams(-1,-2))
@@ -244,13 +156,13 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             var child=row;var parent=child.parent as? ViewGroup
             while(parent!=null){for(i in 0 until parent.childCount){val v=parent.getChildAt(i);if(v!==child){hidden.add(v to v.alpha);if(reduced)v.alpha=0f else v.animate().alpha(0f).setStartDelay(0).setDuration(160).setInterpolator(PathInterpolator(.4f,0f,.2f,1f)).start()}}
                 parent.background?.let{bg->val an=ValueAnimator.ofInt(255,0).apply{duration=if(reduced)0 else 180;addUpdateListener{bg.alpha=it.animatedValue as Int};start()};faded.add(bg to an)}
-                if(parent===sheet)break;child=parent;parent=parent.parent as? ViewGroup}
+                if(parent===r.panel.view)break;child=parent;parent=parent.parent as? ViewGroup}
             // the scroll view's fading edges would still draw over the background; switch them off while focused
-            var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? SheetScroll)?.fadeEnabled=false;g=g.parent}
+            var g:ViewParent?=row.parent;while(g!=null&&g!==r.panel.view){(g as? SheetScroll)?.fadeEnabled=false;g=g.parent}
             // the held row becomes its own small floating card, so the book text never runs into it; the reader bars step aside
             // the card stays inside the page (the row's frame reaches 4dp past its edges and was cut off on the right) and
             // casts no shadow: it only has to keep the text off the capsule
-            unclip.clear();var up:ViewParent?=row.parent;while(up is ViewGroup){unclip.add(up to (up.clipChildren to up.clipToPadding));up.clipChildren=false;up.clipToPadding=false;if(up===sheet)break;up=up.parent}
+            unclip.clear();var up:ViewParent?=row.parent;while(up is ViewGroup){unclip.add(up to (up.clipChildren to up.clipToPadding));up.clipChildren=false;up.clipToPadding=false;if(up===r.panel.view)break;up=up.parent}
             val card=GradientDrawable().apply{setColor(sheetColor);cornerRadius=row.height/2f;alpha=0};val pad=intArrayOf(row.paddingLeft,row.paddingTop,row.paddingRight,row.paddingBottom);row.background=card;row.setPadding(pad[0],pad[1],pad[2],pad[3]);row.elevation=0f
             ValueAnimator.ofFloat(0f,1f).apply{duration=if(reduced)0 else 180;addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt()};start()}
             r.fadeChrome(true)
@@ -261,7 +173,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             r.fadeChrome(false)
             hidden.forEach{(v,alpha)->if(reduced)v.alpha=alpha else v.animate().alpha(alpha).setStartDelay(60).setDuration(240).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()};hidden.clear()
             faded.forEach{(bg,an)->an.cancel();ValueAnimator.ofInt(bg.alpha,255).apply{duration=if(reduced)0 else 240;startDelay=if(reduced)0 else 40;addUpdateListener{bg.alpha=it.animatedValue as Int};start()}};faded.clear()
-            var g:ViewParent?=row.parent;while(g!=null&&g!==sheet){(g as? SheetScroll)?.fadeEnabled=true;g=g.parent}
+            var g:ViewParent?=row.parent;while(g!=null&&g!==r.panel.view){(g as? SheetScroll)?.fadeEnabled=true;g=g.parent}
             val restore=unclip.toList();unclip.clear();row.postDelayed({restore.forEach{(v,c)->v.clipChildren=c.first;v.clipToPadding=c.second;v.invalidate()}},if(reduced)0L else 320L)
         }
     }
@@ -293,7 +205,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     private fun reset(){
         listOf("lhv","ls","ws","margin").forEach{a.prefs.remove(it)}
         a.prefs.put("size",19.0);a.prefs.put("lh","normal");a.prefs.put("font","literata");a.prefs.put("justify",true);a.prefs.put("hyph",true);a.prefs.put("trimEmpty",false)
-        a.savePreferences();r.applyTypography();val d=dialog;dialog=null;d?.dismiss();r.view.post{ReaderSettings(a,r).show()}
+        a.savePreferences();r.applyTypography();refresh();r.panel.replace(ReaderPanel.Page("Ещё",layoutPage()))
     }
 }
 

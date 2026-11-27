@@ -45,10 +45,13 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     private val chromeIcons=mutableListOf<IconView>()
     private var soundButton:SoundButton?=null
     /** While a background sound plays: a small chip with dancing bars and its name in the top bar; a tap opens «Звуки». */
-    private val soundChip by lazy{SoundChip(a){AmbienceSheet(a,readerBackground).show()}}
+    private val soundChip by lazy{SoundChip(a){sounds()}}
     private val soundWatch:()->Unit={}
     private fun paintSoundChip(){soundChip.repaint()}
     private val bottom=LinearLayout(a).apply { orientation=LinearLayout.VERTICAL; setPadding(a.d(18),a.d(8),a.d(18),a.d(4)) }
+    /** Text settings, sounds and page editing open inside the bottom panel (see [ReaderPanel]). */
+    internal val panel=ReaderPanel(a,bottom){readerLightTheme}
+    private var readerLightTheme=false
     private val slider=ReaderRange(a)
     private val percent=TextView(a)
     private var scrubbing=false
@@ -168,13 +171,13 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         chapterButton.addView(IconView(a,"toc",a.fg).apply{chromeIcons.add(this)},LinearLayout.LayoutParams(a.d(20),a.d(20)))
         footer.setTextColor(a.fg);footer.gravity=Gravity.CENTER_VERTICAL;footer.textSize=15f;footer.maxLines=1;footer.ellipsize=android.text.TextUtils.TruncateAt.END;footer.setPadding(a.d(12),0,a.d(6),0);footer.setOnClickListener{navigation()}
         chapterButton.addView(footer,LinearLayout.LayoutParams(0,a.d(44),1f));positionRow.addView(chapterButton,LinearLayout.LayoutParams(0,a.d(44),1f))
-        remaining.setTextColor(a.muted);remaining.textSize=14f;remaining.gravity=Gravity.CENTER_VERTICAL;positionRow.addView(remaining,LinearLayout.LayoutParams(-2,a.d(44)).apply{leftMargin=a.d(12)});positionRow.addView(backChip,LinearLayout.LayoutParams(-2,a.d(30)).apply{leftMargin=a.d(12);gravity=Gravity.CENTER_VERTICAL});bottom.addView(positionRow)
+        remaining.setTextColor(a.muted);remaining.textSize=14f;remaining.gravity=Gravity.CENTER_VERTICAL;positionRow.addView(remaining,LinearLayout.LayoutParams(-2,a.d(44)).apply{leftMargin=a.d(12)});positionRow.addView(backChip,LinearLayout.LayoutParams(-2,a.d(30)).apply{leftMargin=a.d(12);gravity=Gravity.CENTER_VERTICAL});panel.main.addView(positionRow)
         footer.setOnLongClickListener { settings(); true }
         slider.max=1000; slider.progressTintList=android.content.res.ColorStateList.valueOf(a.fg); slider.thumbTintList=android.content.res.ColorStateList.valueOf(a.fg)
-        slider.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener { override fun onProgressChanged(s:SeekBar?,v:Int,user:Boolean) { if(user) percent.text="${v/10}% от всей книги" }; override fun onStartTrackingTouch(s:SeekBar?) { scrubbing=true }; override fun onStopTrackingTouch(s:SeekBar?) { scrubbing=false; jumpProgress((s?.progress ?: 0)/1000.0) } }); bottom.addView(slider,LinearLayout.LayoutParams(-1,a.d(28)))
-        percent.setTextColor(a.muted); percent.textSize=13f; percent.gravity=Gravity.CENTER; bottom.addView(percent)
+        slider.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener { override fun onProgressChanged(s:SeekBar?,v:Int,user:Boolean) { if(user) percent.text="${v/10}% от всей книги" }; override fun onStartTrackingTouch(s:SeekBar?) { scrubbing=true }; override fun onStopTrackingTouch(s:SeekBar?) { scrubbing=false; jumpProgress((s?.progress ?: 0)/1000.0) } }); panel.main.addView(slider,LinearLayout.LayoutParams(-1,a.d(28)))
+        percent.setTextColor(a.muted); percent.textSize=13f; percent.gravity=Gravity.CENTER; panel.main.addView(percent)
         val tools=a.line().apply { gravity=Gravity.CENTER;setPadding(0,a.d(4),0,0) }
-        listOf("contents" to "Оглавление и заметки","bm" to "Добавить закладку","play" to "Автолистание","aa" to "Настройки текста","pen" to "Править текущую страницу").forEachIndexed { i,p -> tools.addView((if(p.first=="bm")bookmarkIcon else IconView(a,p.first,a.fg)).apply { chromeIcons.add(this);contentDescription=p.second; setOnClickListener { when(i) { 0->navigation(); 1->addBookmark(); 2->autoRead(); 3->settings(); 4->editChapter() } }; a.press(this) },LinearLayout.LayoutParams(0,a.d(48),1f)) }; soundButton=SoundButton(a,a.fg).apply{isClickable=true;setOnClickListener{AmbienceSheet(a,readerBackground).show()};a.press(this)};tools.addView(soundButton,4,LinearLayout.LayoutParams(0,a.d(48),1f));bottom.addView(tools);view.addView(bottom,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));folio.setTextColor(a.muted);folio.textSize=12f;folio.gravity=Gravity.CENTER;folio.importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;view.addView(folio,1,FrameLayout.LayoutParams(-1,a.d(16),Gravity.BOTTOM).apply{bottomMargin=a.d(14)});view.addView(ribbon,2,FrameLayout.LayoutParams(-1,-1));calm=paged()&&a.prefs.optBoolean("seenReader",false);setCalm(calm,false)
+        listOf("contents" to "Оглавление и заметки","bm" to "Добавить закладку","play" to "Автолистание","aa" to "Настройки текста","pen" to "Править текущую страницу").forEachIndexed { i,p -> tools.addView((if(p.first=="bm")bookmarkIcon else IconView(a,p.first,a.fg)).apply { chromeIcons.add(this);contentDescription=p.second; setOnClickListener { when(i) { 0->navigation(); 1->addBookmark(); 2->autoRead(); 3->settings(); 4->editChapter() } }; a.press(this) },LinearLayout.LayoutParams(0,a.d(48),1f)) }; soundButton=SoundButton(a,a.fg).apply{isClickable=true;setOnClickListener{sounds()};a.press(this)};tools.addView(soundButton,4,LinearLayout.LayoutParams(0,a.d(48),1f));panel.main.addView(tools);bottom.addView(panel.stage,LinearLayout.LayoutParams(-1,-2));view.addView(bottom,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));folio.setTextColor(a.muted);folio.textSize=12f;folio.gravity=Gravity.CENTER;folio.importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;view.addView(folio,1,FrameLayout.LayoutParams(-1,a.d(16),Gravity.BOTTOM).apply{bottomMargin=a.d(14)});view.addView(ribbon,2,FrameLayout.LayoutParams(-1,-1));calm=paged()&&a.prefs.optBoolean("seenReader",false);setCalm(calm,false)
 
         val gestures=object:GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e:MotionEvent)=true
@@ -588,7 +591,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         if(preparing||disposed||editorOpen||isTurning()||!paged()||scroll.width<=0||scroll.height<=0)return false
         val next=pageIndex+direction;if(next<0&&chapter==0)return false
         if(next>pageStarts.lastIndex&&chapter==chapters.length()-1){if(direction>0)handler.post{pastEnd()};return false}
-        if(direction>0&&!calm&&selectionTurnDone==null)setCalm(true,true)
+        if(direction>0&&!calm&&selectionTurnDone==null&&panel.depth==0)setCalm(true,true)
         pageSlidePending=true;gestureTurn=interactive;released=null;targetCommitted=false;dragProgress=0f;dragY=y
         val token=++curlToken;val currentKey="${chapterKey(chapter)}:$pageIndex:${hasBookmark()}"
         val source=cachedCurrent?.takeIf{it.first==currentKey}?.second ?: snapshot(null,folioLabel(pageIndex,pageStarts.size),hasBookmark())
@@ -657,7 +660,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         if(!paged()){if(direction>0&&atEnd())pastEnd() else scroll.smoothScrollBy(0,direction*pageHeight());return}
         quoteSelection.clear()
         if(a.prefs.str("motion")=="reduced"||a.prefs.str("turn","curl")=="none"){
-            if(direction>0)setCalm(true,false)
+            if(direction>0&&panel.depth==0)setCalm(true,false)
             findTarget(direction){target->if(target!=null){targetPage=target;commitTarget();targetPage=null;targetCommitted=false;save()}else if(direction>0)pastEnd()};return
         }
         beginCurl(direction,false,scroll.height*.9f)
@@ -672,8 +675,10 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         change()
         cover.animate().alpha(0f).setStartDelay(40).setDuration(420).setInterpolator(MotionSpec.enter).withEndAction{view.removeView(cover);cover.setImageDrawable(null);pic.recycle()}.start()}
     /** While a setting is being dragged the reader's bars fade away (only their opacity: the calm state is not touched). */
-    internal fun fadeChrome(hide:Boolean){if(calm)return;val reduced=a.prefs.str("motion")=="reduced";listOf(topBar,bottom).forEach{v->v.animate().cancel();v.translationY=0f;if(reduced)v.alpha=if(hide)0f else 1f else v.animate().alpha(if(hide)0f else 1f).setDuration(if(hide)160 else 240).setInterpolator(MotionSpec.enter).start()}}
-    fun toggleChrome(){if(!editorOpen)setCalm(!calm,true)}
+    internal fun fadeChrome(hide:Boolean){if(calm)return;val reduced=a.prefs.str("motion")=="reduced";(if(panel.depth>0)listOf(topBar) else listOf(topBar,bottom)).forEach{v->v.animate().cancel();v.translationY=0f;if(reduced)v.alpha=if(hide)0f else 1f else v.animate().alpha(if(hide)0f else 1f).setDuration(if(hide)160 else 240).setInterpolator(MotionSpec.enter).start()}}
+    /** A tap on the page: with a page open in the panel it goes back to the reader's own rows, else the bars come and go. */
+    fun toggleChrome(){if(editorOpen)return;if(panel.depth>0){panel.home();return};setCalm(!calm,true)}
+    internal fun sounds()=panel.push(AmbienceSheet(a,readerBackground).page())
 
     // ── Автолистание (see [AutoRead]) ──
     internal var auto:AutoRead?=null;private set
@@ -717,7 +722,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     /** The reader's own colours (theme): background, bars, icons, text ink. */
     private fun applyColors(){
         val pair=when(a.prefs.str("rt")) { "black"->0xff000000.toInt() to 0xffc9c7c1.toInt(); "sepia"->0xfff3ead8.toInt() to 0xff3a2e22.toInt(); "paper"->0xfffbfaf7.toInt() to 0xff1e1d1b.toInt(); "night"->0xff18181a.toInt() to 0xffdedcd6.toInt(); else->a.bg to a.fg }
-        readerBackground=pair.first;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{float=true;themeLight=android.graphics.Color.red(pair.first)>128;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};soundButton?.ink=pair.second;paintSoundChip();footer.setTextColor(pair.second);body.setTextColor(pair.second);titleText?.setTextColor(pair.second);
+        readerBackground=pair.first;readerLightTheme=android.graphics.Color.red(pair.first)>128;a.root.setBackgroundColor(pair.first);ReaderWindow.configure(a.window,true,pair.first);view.setBackgroundColor(pair.first);listOf(topBar to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{float=true;themeLight=if(bar===bottom&&panel.depth>0)themeLight else readerLightTheme;flushTop=bar===topBar;flushBottom=bar===bottom;refresh()}}; slider.foreground=pair.second;slider.invalidate();chromeIcons.forEach{it.ink=pair.second;it.invalidate()};soundButton?.ink=pair.second;paintSoundChip();footer.setTextColor(pair.second);body.setTextColor(pair.second);titleText?.setTextColor(pair.second);
     }
     /** A theme change only recolours the page: no reflow (the layout is the same), so the crossfade over it is clean.
      *  Tables keep their ink inside their own layouts, so a chapter with tables is reflowed once the fade is over. */
@@ -809,18 +814,20 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         view.addView(ghost,view.indexOfChild(scroll)+1,FrameLayout.LayoutParams(scroll.width,scroll.height).apply{leftMargin=scroll.left-view.paddingLeft;topMargin=scroll.top-view.paddingTop})
         ghost.animate().alpha(0f).setStartDelay(40).setDuration(300).setInterpolator(android.view.animation.DecelerateInterpolator()).withEndAction{view.removeView(ghost);bmp.recycle()}.start()
     }
+    private val editorInset=View.OnLayoutChangeListener{_,_,_,_,_,_,_,_,_->if(!editorOpen)return@OnLayoutChangeListener;val lp=scroll.layoutParams as FrameLayout.LayoutParams;val inset=(bottom.height-view.paddingBottom+a.d(12)).coerceAtLeast(0);if(lp.bottomMargin!=inset){lp.bottomMargin=inset;scroll.layoutParams=lp}}
     internal fun mountEditor(editor:EditText,toolbar:View){
         val reduced=a.prefs.str("motion")=="reduced"
-        listOf(topBar,bottom,folio).forEach{v->v.animate().cancel();if(v.visibility!=View.VISIBLE||reduced){v.visibility=View.INVISIBLE}else v.animate().alpha(0f).setDuration(180).withEndAction{v.visibility=View.INVISIBLE;v.alpha=1f}.start()}
+        listOf(topBar,folio).forEach{v->v.animate().cancel();if(v.visibility!=View.VISIBLE||reduced){v.visibility=View.INVISIBLE}else v.animate().alpha(0f).setDuration(180).withEndAction{v.visibility=View.INVISIBLE;v.alpha=1f}.start()}
+        // the bottom panel stays (brought back if the bars were away) and turns into the editor's buttons
+        chromeSprings[bottom]?.stop();bottom.animate().cancel();bottom.visibility=View.VISIBLE;bottom.alpha=1f;bottom.translationY=0f
         ribbon.visibility=View.INVISIBLE
         if(!reduced)crossfadePage()
         val y=scroll.scrollY
         scroll.removeView(body);scroll.addView(editor,FrameLayout.LayoutParams(-1,-2));scroll.scrollTo(0,if(paged())0 else editShift)
         if(!paged())editor.post{scroll.scrollTo(0,editShift)}
-        view.addView(toolbar,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{leftMargin=a.d(12);rightMargin=a.d(12);bottomMargin=a.d(12)})
+        panel.push(ReaderPanel.Page(null,toolbar,light=readerLightTheme))
         // Reserve the panel's height so the caret is never hidden under it; the width never changes, so lines never re-break.
-        toolbar.addOnLayoutChangeListener{_,_,_,_,_,_,_,_,_->if(!editorOpen)return@addOnLayoutChangeListener;val lp=scroll.layoutParams as FrameLayout.LayoutParams;val inset=toolbar.height+a.d(20);if(lp.bottomMargin!=inset){lp.bottomMargin=inset;scroll.layoutParams=lp}}
-        if(!reduced){toolbar.alpha=0f;toolbar.translationY=a.d(28).toFloat();toolbar.animate().alpha(1f).translationY(0f).setStartDelay(60).setDuration(320).setInterpolator(android.view.animation.PathInterpolator(.22f,1f,.36f,1f)).start()}
+        bottom.addOnLayoutChangeListener(editorInset)
         if(y<0)scroll.scrollTo(0,0)
     }
     internal fun unmountEditor(editor:EditText,toolbar:View,draft:PageDraft,changed:Boolean){
@@ -832,7 +839,9 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         }
         // Reader state is restored at once (Back, close and turns work immediately); only the panel fades out on its own.
         restore()
-        if(a.prefs.str("motion")=="reduced"||!toolbar.isAttachedToWindow)view.removeView(toolbar) else{toolbar.isEnabled=false;toolbar.animate().alpha(0f).translationY(a.d(20).toFloat()).setStartDelay(0).setDuration(200).withEndAction{view.removeView(toolbar)}.start()}
+        bottom.removeOnLayoutChangeListener(editorInset);toolbar.isEnabled=false;panel.home()
     }
     fun requestClose():Boolean {noteCard?.let{it.close(true);return false};val edit=pageEditor?:return true;edit.cancel();return false}
+    /** Back with a page open in the panel (not the editor, which Back cancels as before): one page back. */
+    fun panelBack():Boolean{if(pageEditor!=null||noteCard!=null||panel.depth==0)return false;panel.back();return true}
 }

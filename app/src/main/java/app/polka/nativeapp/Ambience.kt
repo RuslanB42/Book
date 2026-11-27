@@ -203,16 +203,18 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
     private lateinit var mineBox:LinearLayout
     private val update={paint(true)}
 
-    fun show(){
-        val dlg=android.app.Dialog(a,R.style.PolkaSheetTheme);dialog=dlg
-        val root=DragRoot().apply{isClickable=true;setOnClickListener{close()}}
-        sheet=a.column().apply{clipToPadding=false;clipChildren=false;isClickable=true;setPadding(a.d(16),a.d(12),a.d(16),a.d(18));elevation=a.d(16).toFloat()
-            background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(30).toFloat();setStroke(1,if(a.light)0x10000000 else 0x10ffffff)}}
-        sheet.addView(View(a).apply{background=a.shape(if(a.light)0x33000000 else 0x38ffffff,3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(14)})
-        val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-        head.addView(a.text("Звуки",16f,a.fg,true),LinearLayout.LayoutParams(0,-2,1f))
+    /** In the book reader's bottom panel (approved «Читалка А»): the panel's head says «Звуки» and holds «Выключить». */
+    fun page():ReaderPanel.Page{
+        sheet=a.column().apply{clipToPadding=false;clipChildren=false}
         off=a.text("Выключить",13f,a.muted).apply{setPadding(a.d(10),a.d(8),a.d(4),a.d(8));isClickable=true;a.press(this);setOnClickListener{Ambience.stop(a)}}
-        head.addView(off);sheet.addView(head,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(10);leftMargin=a.d(2)})
+        fill()
+        sheet.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){Ambience.listen(update);paint(false)}
+            override fun onViewDetachedFromWindow(v:View){Ambience.unlisten(update)}})
+        paint(false)
+        return ReaderPanel.Page("Звуки",sheet,right=off)
+    }
+    /** The tiles, the volume and your own sounds. */
+    private fun fill(){
         // two rows of two tiles; each tile carries its own ring room (4) so nothing sticks out of the rows
         Ambience.builtIn.chunked(2).forEachIndexed{ri,pair->val row=a.line().apply{clipChildren=false;clipToPadding=false}
             pair.forEachIndexed{i,s->val t=Tile(s);tiles.add(t);t.setOnClickListener{toggle(s.key)};a.press(t);row.addView(t,LinearLayout.LayoutParams(0,a.d(104),1f).apply{if(i>0)leftMargin=a.d(2)})}
@@ -227,6 +229,19 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
         sheet.addView(add,LinearLayout.LayoutParams(-1,a.d(50)))
         sheet.addView(a.text("MP3, M4A, OGG или WAV с телефона",11.5f,a.muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
         buildMine(null)
+    }
+
+    fun show(){
+        val dlg=android.app.Dialog(a,R.style.PolkaSheetTheme);dialog=dlg
+        val root=DragRoot().apply{isClickable=true;setOnClickListener{close()}}
+        sheet=a.column().apply{clipToPadding=false;clipChildren=false;isClickable=true;setPadding(a.d(16),a.d(12),a.d(16),a.d(18));elevation=a.d(16).toFloat()
+            background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(30).toFloat();setStroke(1,if(a.light)0x10000000 else 0x10ffffff)}}
+        sheet.addView(View(a).apply{background=a.shape(if(a.light)0x33000000 else 0x38ffffff,3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(14)})
+        val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
+        head.addView(a.text("Звуки",16f,a.fg,true),LinearLayout.LayoutParams(0,-2,1f))
+        off=a.text("Выключить",13f,a.muted).apply{setPadding(a.d(10),a.d(8),a.d(4),a.d(8));isClickable=true;a.press(this);setOnClickListener{Ambience.stop(a)}}
+        head.addView(off);sheet.addView(head,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(10);leftMargin=a.d(2)})
+        fill()
         val scroll=SheetScroll(a,sheetColor,30,18).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;clipChildren=false;addView(sheet)}
         holder=scroll
         val lp=FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{setMargins(a.d(8),0,a.d(8),a.d(8))}
