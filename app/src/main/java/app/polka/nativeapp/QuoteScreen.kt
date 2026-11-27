@@ -49,14 +49,17 @@ internal class QuoteSurface(private val a:MainActivity,private val strength:Floa
     var under:RectF?=null
     private val fill=Paint(Paint.ANTI_ALIAS_FLAG)
     private val r=RectF()
-    private fun tone():Int{val tones=if(a.light)intArrayOf(Color.WHITE,0xfff7f7f5.toInt(),0xffefefec.toInt()) else intArrayOf(0xff28282a.toInt(),0xff1d1d1f.toInt(),0xff19191b.toInt())
+    // every sheet stays lighter than the page (a sheet darker than the page read as a black slab, not a card), a
+    // little darker the lower it lies
+    private fun tone():Int{val tones=if(a.light)intArrayOf(Color.WHITE,0xfffbfbfa.toInt(),0xfff7f7f6.toInt()) else intArrayOf(0xff28282a.toInt(),0xff232325.toInt(),0xff1f1f21.toInt())
         val i=depth.toInt().coerceAtMost(1);return androidx.core.graphics.ColorUtils.blendARGB(tones[i],tones[i+1],depth-i)}
     private fun box(){val b=bounds;val h=(visible?.invoke()?:b.height()).coerceIn(1,maxOf(1,b.height()));r.set(b.left+narrow,b.top.toFloat(),b.right-narrow,(b.top+h).toFloat())}
     private val shadeR=RectF()
     override fun draw(c:Canvas){box();val o=opacity/255f;val p=pile;val u=under
         when{
             p!=null->{shadeR.set(r.left-p.left,r.top-p.top,r.right+p.right,r.bottom+p.bottom);FloatShade.draw(c,a,shadeR,radius,a.light,(255*.55f*o).toInt(),true)}
-            u!=null->{c.save();c.clipRect(u);FloatShade.draw(c,a,r,radius,a.light,(255*.9f*o).toInt(),lift=Lift.TOUCH);c.restore()}
+            // only a soft edge on the card under it: a strong one darkened the sheets below the page itself
+            u!=null->{c.save();c.clipRect(u);FloatShade.draw(c,a,r,radius,a.light,(255*.35f*o).toInt(),lift=Lift.TOUCH);c.restore()}
             else->FloatShade.draw(c,a,r,radius,a.light,(255*.55f*strength*o).toInt(),true)}
         fill.color=tone();fill.alpha=opacity;c.drawRoundRect(r,radius,radius,fill)}
     override fun getOutline(o:Outline){box();o.setRoundRect(r.left.toInt(),r.top.toInt(),r.right.toInt(),r.bottom.toInt(),radius)}
