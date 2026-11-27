@@ -2,6 +2,8 @@ package app.polka.nativeapp
 
 import android.graphics.Outline
 import android.graphics.RectF
+import android.graphics.Matrix
+import android.graphics.Path
 
 import android.view.ViewOutlineProvider
 
@@ -139,11 +141,22 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
          *  before it is moved to the end of the list). */
         private fun shades(){val order=cards.sortedByDescending{it.z};val top=order.first()
             fun s(v:View)=v.background as? QuoteSurface
-            if(order.size<2){s(top)?.let{it.pile=null;it.under=null};top.invalidate();return}
+            if(order.size<2){s(top)?.let{it.pile=null;it.under=null;it.own=1f};top.invalidate();return}
+            // the card on top, moved or turned by the finger, leaves the pile: its own shade comes in as it goes
+            val lifted=(abs(top.translationX)/a.d(48)+abs(top.rotation)/6f).coerceIn(0f,1f)
+            val rad=a.d(24).toFloat();val m=Matrix();val inv=Matrix()
             order.forEachIndexed{k,v->val sv=s(v)?:return@forEachIndexed
-                if(k==order.lastIndex){val n=sv.narrow-(s(top)?.narrow?:0f);sv.pile=RectF(n,(v.translationY-top.translationY).coerceAtLeast(0f),n,0f);sv.under=null}
-                else{val nx=order[k+1];val nn=s(nx)?.narrow?:0f;val dy=nx.translationY-v.translationY;val h=((nx.tag as? Int)?:nx.height).toFloat()
-                    sv.pile=null;sv.under=RectF(nn,dy,v.width-nn,dy+h)}
+                sv.own=if(k==0)lifted else 0f
+                if(k==order.lastIndex){
+                    // the pile reaches up to the card on top, or (as it is lifted off) to the card under it
+                    fun reach(t:View)=(v.translationY-t.translationY).coerceAtLeast(0f) to (sv.narrow-(s(t)?.narrow?:0f))
+                    val (t0,n0)=reach(top);val (t1,n1)=reach(order[1])
+                    val up=t0+(t1-t0)*lifted;val side=n0+(n1-n0)*lifted
+                    sv.pile=RectF(side,up,side,0f);sv.under=null}
+                else{val nx=order[k+1];val nn=s(nx)?.narrow?:0f;val h=((nx.tag as? Int)?:nx.height).toFloat()
+                    // the outline of the card under it, brought into this card's own coordinates (as moved and turned)
+                    m.set(nx.matrix);v.matrix.invert(inv);m.postConcat(inv)
+                    sv.pile=null;sv.under=Path().apply{addRoundRect(nn,0f,nx.width-nn,h,rad,rad,Path.Direction.CW);transform(m)}}
                 v.invalidate()}}
         private fun pose(p:Float){lift=p;val h=(front.tag as? Int)?:front.height;for(k in 1 until cards.size){val v=cards[k]
             if(v.tag!=h){v.tag=h;fit(v);v.invalidateOutline()}

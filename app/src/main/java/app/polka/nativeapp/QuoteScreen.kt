@@ -44,9 +44,12 @@ internal class QuoteSurface(private val a:MainActivity,private val strength:Floa
     /** The lowest card of a pile: how far the pile reaches past this card's face on each side (px; left, top, right,
      *  bottom), for the one shade of the whole pile. */
     var pile:RectF?=null
-    /** A card lying on another: where the card under it shows (in this card's own coordinates), the only place its
-     *  short contact shade goes. */
-    var under:RectF?=null
+    /** A card lying on another: the outline of the card under it (in this card's own coordinates: rounded, moved and
+     *  turned as that card is), the only place its short contact shade goes. */
+    var under:Path?=null
+    /** How much of its own whole shade the card casts: a card alone, or one lifted off its pile by the finger (fading in
+     *  as it leaves the pile, while its contact shade on the pile fades out). */
+    var own=1f
     private val fill=Paint(Paint.ANTI_ALIAS_FLAG)
     private val r=RectF()
     // every sheet stays lighter than the page (a sheet darker than the page read as a black slab, not a card), a
@@ -56,11 +59,10 @@ internal class QuoteSurface(private val a:MainActivity,private val strength:Floa
     private fun box(){val b=bounds;val h=(visible?.invoke()?:b.height()).coerceIn(1,maxOf(1,b.height()));r.set(b.left+narrow,b.top.toFloat(),b.right-narrow,(b.top+h).toFloat())}
     private val shadeR=RectF()
     override fun draw(c:Canvas){box();val o=opacity/255f;val p=pile;val u=under
-        when{
-            p!=null->{shadeR.set(r.left-p.left,r.top-p.top,r.right+p.right,r.bottom+p.bottom);FloatShade.draw(c,a,shadeR,radius,a.light,(255*.55f*o).toInt(),true)}
-            // only a soft edge on the card under it: a strong one darkened the sheets below the page itself
-            u!=null->{c.save();c.clipRect(u);FloatShade.draw(c,a,r,radius,a.light,(255*.35f*o).toInt(),lift=Lift.TOUCH);c.restore()}
-            else->FloatShade.draw(c,a,r,radius,a.light,(255*.55f*strength*o).toInt(),true)}
+        if(p!=null){shadeR.set(r.left-p.left,r.top-p.top,r.right+p.right,r.bottom+p.bottom);FloatShade.draw(c,a,shadeR,radius,a.light,(255*.55f*o).toInt(),true)}
+        if(own>0f)FloatShade.draw(c,a,r,radius,a.light,(255*.55f*strength*own*o).toInt(),true)
+        // only a soft edge on the card under it (a strong one darkened the sheets below the page itself), and only on it
+        if(u!=null&&own<1f){c.save();c.clipPath(u);FloatShade.draw(c,a,r,radius,a.light,(255*.35f*(1f-own)*o).toInt(),lift=Lift.TOUCH);c.restore()}
         fill.color=tone();fill.alpha=opacity;c.drawRoundRect(r,radius,radius,fill)}
     override fun getOutline(o:Outline){box();o.setRoundRect(r.left.toInt(),r.top.toInt(),r.right.toInt(),r.bottom.toInt(),radius)}
     private var opacity=255
@@ -88,9 +90,11 @@ internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){
         sheets.forEachIndexed{i,v->val inset=a.d(12)*(i+1);val off=step*(i+1);v.layout(inset,off,w-inset,off+fh)}
         // the pile's one shade from its lowest sheet; each card above shades only the sheet right under it
         val cards=listOfNotNull(f)+sheets;if(cards.size<2)return
+        val rad=a.d(24).toFloat()
         cards.forEachIndexed{k,v->val s=v.background as? QuoteSurface?:return@forEachIndexed
-            if(k==cards.lastIndex){val inset=(v.left).toFloat();s.pile=RectF(inset,v.top.toFloat(),inset,0f);s.under=null}
-            else{val n=cards[k+1];s.pile=null;s.under=RectF((n.left-v.left).toFloat(),(n.top-v.top).toFloat(),(n.right-v.left).toFloat(),(n.bottom-v.top).toFloat())}
+            if(k==cards.lastIndex){val inset=(v.left).toFloat();s.pile=RectF(inset,v.top.toFloat(),inset,0f);s.under=null;s.own=0f}
+            else{val n=cards[k+1];s.pile=null;s.own=0f
+                s.under=Path().apply{addRoundRect((n.left-v.left).toFloat(),(n.top-v.top).toFloat(),(n.right-v.left).toFloat(),(n.bottom-v.top).toFloat(),rad,rad,Path.Direction.CW)}}
             v.invalidate()}
     }
 }
