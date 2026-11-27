@@ -4,26 +4,20 @@ import android.animation.ValueAnimator
 import android.graphics.*
 import android.view.View
 import android.view.animation.LinearInterpolator
-import android.view.animation.PathInterpolator
 import kotlin.math.hypot
 import kotlin.math.pow
 
-/** One way of turning pages in «Ещё» (approved variant А): a little page in the reader's own colours that keeps
- *  showing its turn over and over, with the ring of the chosen tile round it. [kind] is curl, slide, cover, none or scroll. */
-/** [bare]: only the little page, filling the view (it sits on a card that draws the ground and the ring itself). */
-internal class TurnTile(private val a:MainActivity,private val kind:String,private val paper:Int,private val ink:Int,private val bare:Boolean=false):View(a){
-    private var k=0f;private var ring:ValueAnimator?=null;private var first=true
-    var on=false;set(v){if(field==v&&!first)return;field=v;val target=if(v)1f else 0f
-        if(first||!isAttachedToWindow||reduced){first=false;k=target;invalidate();return}
-        ring?.cancel();ring=ValueAnimator.ofFloat(k,target).apply{duration=300;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
+/** One way of turning pages on the readers' «Листание» cards: a little page in the reader's own colours, filling
+ *  the view, that keeps showing its turn over and over (the card draws the ground and the ring). [kind] is curl,
+ *  slide, cover, none or scroll. */
+internal class TurnTile(private val a:MainActivity,private val kind:String,private val paper:Int,private val ink:Int):View(a){
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     private var clock:ValueAnimator?=null;private var t=1.15f
     private val d=a.resources.displayMetrics.density
-    override fun onMeasure(ws:Int,hs:Int){val w=MeasureSpec.getSize(ws);if(bare)super.onMeasure(ws,hs) else setMeasuredDimension(w,(w*1.3f).toInt())}
     override fun onAttachedToWindow(){super.onAttachedToWindow();if(reduced)return
         clock=ValueAnimator.ofFloat(0f,2.6f).apply{duration=2600;repeatCount=ValueAnimator.INFINITE;interpolator=LinearInterpolator();addUpdateListener{t=it.animatedValue as Float;invalidate()};start()}}
-    override fun onDetachedFromWindow(){clock?.cancel();clock=null;ring?.cancel();super.onDetachedFromWindow()}
+    override fun onDetachedFromWindow(){clock?.cancel();clock=null;super.onDetachedFromWindow()}
     private fun ease(x:Float)=if(x<.5f)4*x*x*x else 1-(-2*x+2).pow(3)/2
     /** A page of text at [x0]: nine lines, a paragraph indent; [second] is the page after, laid out a little differently. */
     private fun page(c:Canvas,x0:Float,y0:Float,w:Float,h:Float,second:Boolean){
@@ -32,15 +26,7 @@ internal class TurnTile(private val a:MainActivity,private val kind:String,priva
         for(i in 0 until 9){val ind=if(i in indents)w*.08f else 0f;val full=w-2*pad-ind;val ww=full*(if(i in shorts).5f else (.86f+((i*7+(if(second)12 else 3))%4)*.045f)).coerceAtMost(1f)
             val y=y0+pad*.9f+i*lh;c.drawRoundRect(x0+pad+ind,y,x0+pad+ind+ww,y+maxOf(1.6f*d*.6f,lh*.28f),d,d,p)}
         p.alpha=255}
-    override fun onDraw(c:Canvas){
-        if(bare){c.save();c.clipPath(Path().apply{addRoundRect(RectF(0f,0f,width.toFloat(),height.toFloat()),9*d,9*d,Path.Direction.CW)});turn(c,0f,0f,width.toFloat(),height.toFloat());c.restore();return}
-        val inset=4*d;val box=RectF(inset,inset,width-inset,height-inset);val rad=12*d
-        if(k>0f){p.shader=null;p.style=Paint.Style.STROKE;p.strokeWidth=2*d;p.color=a.fg;p.alpha=(255*k).toInt();val o=d+(1f-k)*2f*d;c.drawRoundRect(RectF(o,o,width-o,height-o),rad+inset-o,rad+inset-o,p);p.alpha=255}
-        p.shader=null;p.style=Paint.Style.FILL;p.color=if(a.light)0x0f000000 else 0x11ffffff;c.drawRoundRect(box,rad,rad,p)
-        val m=6*d;val x=box.left+m;val y=box.top+m;val w=box.width()-2*m;val h=box.height()-2*m
-        c.save();c.clipPath(Path().apply{addRoundRect(RectF(x,y,x+w,y+h),5*d,5*d,Path.Direction.CW)})
-        turn(c,x,y,w,h)
-        c.restore()}
+    override fun onDraw(c:Canvas){c.save();c.clipPath(Path().apply{addRoundRect(RectF(0f,0f,width.toFloat(),height.toFloat()),9*d,9*d,Path.Direction.CW)});turn(c,0f,0f,width.toFloat(),height.toFloat());c.restore()}
     /** The page at [x],[y] turning its way at the moment of the loop. */
     private fun turn(c:Canvas,x:Float,y:Float,w:Float,h:Float){
         val ph=if(reduced)1.15f else t;val q=when{ph<.7f->0f;ph<1.6f->ease((ph-.7f)/.9f);else->1f}

@@ -678,7 +678,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     internal fun fadeChrome(hide:Boolean){if(calm)return;val reduced=a.prefs.str("motion")=="reduced";(if(panel.depth>0)listOf(topBar) else listOf(topBar,bottom)).forEach{v->v.animate().cancel();v.translationY=0f;if(reduced)v.alpha=if(hide)0f else 1f else v.animate().alpha(if(hide)0f else 1f).setDuration(if(hide)160 else 240).setInterpolator(MotionSpec.enter).start()}}
     /** A tap on the page: with a page open in the panel it goes back to the reader's own rows, else the bars come and go. */
     fun toggleChrome(){if(editorOpen)return;if(panel.depth>0){panel.home();return};setCalm(!calm,true)}
-    internal fun sounds()=panel.push(AmbienceSheet(a,readerBackground).page())
+    internal fun sounds()=panel.push(AmbienceSheet(a).page())
 
     // ── Автолистание (see [AutoRead]) ──
     internal var auto:AutoRead?=null;private set

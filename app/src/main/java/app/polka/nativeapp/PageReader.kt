@@ -74,6 +74,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     private val heartbeat=object:Runnable{override fun run(){credit();root.postDelayed(this,5000)}}
     private val stage=FrameLayout(a)
     private lateinit var top:LinearLayout;private lateinit var bottom:LinearLayout
+    private lateinit var panel:ReaderPanel
     private lateinit var strip:LinearLayout;private lateinit var stripScroll:HorizontalScrollView
     private lateinit var titleView:TextView;private lateinit var authorView:TextView;private lateinit var pageLabel:TextView;private lateinit var leftLabel:TextView
     private var markIcon:IconView?=null;private lateinit var soundButton:SoundButton;private lateinit var soundChip:SoundChip
@@ -106,7 +107,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         SafeArea.bind(root){i->val s=SafeArea.content(i,false)
             top.layoutParams=(top.layoutParams as FrameLayout.LayoutParams).apply{height=a.d(52)+s.top};top.setPadding(a.d(8)+s.left,a.d(4)+s.top,a.d(8)+s.right,a.d(4))
             bottom.setPadding(a.d(18)+s.left,a.d(8),a.d(18)+s.right,a.d(4)+s.bottom)}
-        dialog.setOnKeyListener{_,code,e->if(code==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){close();true}else false}
+        dialog.setOnKeyListener{_,code,e->if(code==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){if(panel.depth>0)panel.back() else close();true}else false}
         dialog.setOnDismissListener{finish()}
         setMode(mode,false)
         dialog.show()
@@ -182,7 +183,9 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         // the strip runs the way the pages turn
         strip.layoutDirection=if(rtl&&m!="ribbon")View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
         root.post{paint()}}
-    fun toggleChrome()=setChrome(!chrome)
+    /** A tap on the page: with a page open in the panel it goes back to the reader's own rows, else the bars come and go. */
+    fun toggleChrome(){if(panel.depth>0){panel.home();return};setChrome(!chrome)}
+    private fun sounds()=panel.push(AmbienceSheet(a).page())
 
     // ── Автолистание (see [AutoRead]): a page's time is seconds; in the strip, a screen's ──
     private var auto:AutoRead?=null
@@ -211,7 +214,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     override fun autoReturn(p:JSONObject){jump(p.optInt("page"))}
     override fun quoteActive()=false
     override fun autoEnded(){auto=null}
-    private fun setChrome(on:Boolean){chrome=on;listOf(top to -1,bottom to 1).forEach{(v,s)->v.animate().cancel()
+    private fun setChrome(on:Boolean){if(!on&&panel.depth>0)return;chrome=on;listOf(top to -1,bottom to 1).forEach{(v,s)->v.animate().cancel()
         chromeSprings[v]?.stop()
         if(reduced){v.alpha=if(on)1f else 0f;v.translationY=if(on)0f else s*v.height.toFloat();v.visibility=if(on)View.VISIBLE else View.INVISIBLE;return@forEach}
         // the same spring as the book reader's bars: they glide in and out with the sheets that rise from below
@@ -229,35 +232,37 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         titleView=a.text(book.str("title"),15f,ink(),true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END};texts.addView(titleView)
         authorView=a.text(MainActivity.authors(book),13f,mutedInk()).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;visibility=if(text.isBlank())View.GONE else View.VISIBLE};texts.addView(authorView)
         top.addView(texts,LinearLayout.LayoutParams(0,a.d(48),1f));texts.gravity=Gravity.CENTER_VERTICAL
-        soundChip=SoundChip(a){AmbienceSheet(a,bgColor()).show()};top.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
+        soundChip=SoundChip(a){sounds()};top.addView(soundChip,LinearLayout.LayoutParams(-2,a.d(28)).apply{marginEnd=a.d(2);marginStart=a.d(6)})
         val more=icon("more","Меню книги"){};more.setOnClickListener{menu(more)};top.addView(more,LinearLayout.LayoutParams(a.d(48),a.d(48)))
         top.forceHasOverlappingRendering(false)
         root.addView(top,FrameLayout.LayoutParams(-1,a.d(52),Gravity.TOP))
         bottom=a.column().apply{setPadding(a.d(18),a.d(8),a.d(18),a.d(4));clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)}
+        // settings and sounds open inside this panel, as in the book reader (see [ReaderPanel])
+        panel=ReaderPanel(a,bottom){lightBg}
         val row=a.line()
         pageLabel=a.text("",15f,ink()).apply{gravity=Gravity.CENTER_VERTICAL};leftLabel=a.text("",14f,mutedInk()).apply{gravity=Gravity.CENTER_VERTICAL}
         row.addView(pageLabel,LinearLayout.LayoutParams(0,a.d(40),1f));row.addView(leftLabel,LinearLayout.LayoutParams(-2,a.d(40)))
-        bottom.addView(row)
+        panel.main.addView(row)
         // the pages as small cards: the current one is larger and ringed; a tap opens a page
         strip=a.line().apply{gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false;setPadding(a.d(18),0,a.d(18),0)}
         for(i in 0 until n)strip.addView(Thumb(i).apply{setOnClickListener{jump(i)}},LinearLayout.LayoutParams(a.d(44),a.d(66)).apply{if(i>0)marginStart=a.d(9)})
         stripScroll=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipChildren=false;clipToPadding=false;addView(strip,FrameLayout.LayoutParams(-2,-1))}
         stripScroll.setOnScrollChangeListener{_,_,_,_,_->for(i in 0 until strip.childCount)strip.getChildAt(i).invalidate()}
-        bottom.addView(stripScroll,LinearLayout.LayoutParams(-1,a.d(88)).apply{leftMargin=-a.d(18);rightMargin=-a.d(18)})
+        panel.main.addView(stripScroll,LinearLayout.LayoutParams(-1,a.d(88)).apply{leftMargin=-a.d(18);rightMargin=-a.d(18)})
         val tools=a.line().apply{gravity=Gravity.CENTER;setPadding(0,a.d(4),0,0)}
         tools.addView(icon("contents","Страницы"){pagesSheet()},LinearLayout.LayoutParams(0,a.d(48),1f))
         if(!comic)markIcon=icon("bm","Закладка на этой странице"){toggleMark()}.also{tools.addView(it,LinearLayout.LayoutParams(0,a.d(48),1f))}
         tools.addView(icon("play","Автолистание"){autoRead()},LinearLayout.LayoutParams(0,a.d(48),1f))
         tools.addView(icon("aa","Оформление"){settingsPanel()},LinearLayout.LayoutParams(0,a.d(48),1f))
-        soundButton=SoundButton(a,ink()).apply{isClickable=true;setOnClickListener{AmbienceSheet(a,bgColor()).show()};a.press(this)}
+        soundButton=SoundButton(a,ink()).apply{isClickable=true;setOnClickListener{sounds()};a.press(this)}
         tools.addView(soundButton,LinearLayout.LayoutParams(0,a.d(48),1f))
-        bottom.addView(tools)
+        panel.main.addView(tools);bottom.addView(panel.stage,LinearLayout.LayoutParams(-1,-2))
         root.addView(bottom,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM))
     }
     /** Backdrop, bars and ink for the chosen background. */
     private fun applyLook(){val c=bgColor();root.setBackgroundColor(c)
         dialog.window?.let{w->w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(c));ReaderWindow.configure(w,true,c)}
-        listOf(top to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{float=true;themeLight=lightBg;flushTop=bar===top;flushBottom=bar===bottom;refresh()}}
+        listOf(top to 22f,bottom to 26f).forEach{(bar,radius)->a.controlSurface(bar,radius,sheet=true).apply{float=true;themeLight=if(bar===bottom&&panel.depth>0)themeLight else lightBg;flushTop=bar===top;flushBottom=bar===bottom;refresh()}}
         val surface=(bottom.background as OpaqueSurface).fillColor;icons.forEach{it.ink=ink();it.cut=surface;it.invalidate()};soundButton.ink=ink();soundChip.repaint()
         titleView.setTextColor(ink());authorView.setTextColor(mutedInk());pageLabel.setTextColor(ink());leftLabel.setTextColor(mutedInk())
         paged?.invalidate();ribbon?.invalidate()}
@@ -293,69 +298,33 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         sheet=a.dialog().setTitle("Страницы").setView(box).setTall(true).show()
     }
     /** «Оформление» for pictures: the reader's panel (brightness), the backdrop, how pages turn and how they fit. */
+    /** «Оформление» in the bottom panel, built like the book reader's «Текст» (approved «Текст А»): the backdrop as
+     *  cards, brightness, and «Листание» and «Масштаб» a level deeper. */
     private fun settingsPanel(){
-        val dlg=android.app.Dialog(a,R.style.PolkaSheetTheme)
-        val sheetColor=if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt();val pill=if(a.light)0x0f000000 else 0x11ffffff;val H=a.d(50)
-        val root2=FrameLayout(a).apply{isClickable=true}
-        val sheet=a.column().apply{isClickable=true;clipChildren=false;clipToPadding=false;setPadding(a.d(18),a.d(12),a.d(18),a.d(20));elevation=a.d(16).toFloat()
-            background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(30).toFloat();setStroke(1,if(a.light)0x10000000 else 0x10ffffff)}}
-        sheet.addView(View(a).apply{background=a.shape(if(a.light)0x33000000 else 0x38ffffff,3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(18)})
-        // brightness, exactly as in the reader
-        val bright=a.line()
-        val system=try{android.provider.Settings.System.getInt(a.contentResolver,android.provider.Settings.System.SCREEN_BRIGHTNESS)/255f}catch(_:Exception){.5f}
-        val start=a.prefs.optDouble("bright",-1.0).toFloat().let{if(it<0)system else it}.coerceIn(.02f,1f)
-        val auto=AutoChip(a,a.prefs.optDouble("bright",-1.0)<0)
-        val bar=BrightBar(a,start){v,done->a.prefs.put("bright",v.toDouble());auto.set(false);applyBrightness(dialog.window);applyBrightness(dlg.window);if(done)a.savePreferences()}
-        bar.dim=auto.on
-        auto.setOnClickListener{val on=!auto.on;auto.set(on);bar.dim=on;a.prefs.put("bright",if(on)-1.0 else bar.value.toDouble());a.savePreferences();applyBrightness(dialog.window);applyBrightness(dlg.window)}
-        bright.addView(bar,LinearLayout.LayoutParams(0,H,1f));bright.addView(auto,LinearLayout.LayoutParams(a.d(84),H).apply{leftMargin=a.d(10)});sheet.addView(bright)
-        fun caption(t:String)=sheet.addView(a.text(t,13f,a.muted).apply{typeface=PolkaFonts.sans(500)},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(16);bottomMargin=a.d(8);leftMargin=a.d(4)})
-        caption("Фон")
-        val tiles=a.line();val all=mutableListOf<Pair<String,BackdropTile>>()
-        listOf(Triple("black","Чёрный",0xff000000.toInt()),Triple("graphite","Графит",0xff1c1c1e.toInt()),Triple("white","Белый",0xfff3f2ef.toInt())).forEachIndexed{i,(k,label,c)->
-            val t=BackdropTile(a,c,label).apply{isClickable=true;contentDescription="Фон: $label";on=bgKey==k;setOnClickListener{if(bgKey!=k){a.prefs.put("comicBg",k);a.savePreferences();applyLook();all.forEach{(kk,v)->v.on=kk==k}}};a.press(this)}
-            all.add(k to t);tiles.addView(t,LinearLayout.LayoutParams(0,a.d(58),1f).apply{if(i>0)leftMargin=a.d(2)})}
-        sheet.addView(tiles,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=-a.d(4);rightMargin=-a.d(4)})
-        fun segment(labels:List<String>,selected:Int,pick:(Int)->Unit):View{
-            val seg=SlidingSegment(a,selected,labels.size,pill,if(a.light)Color.WHITE else 0xfff2f2f2.toInt(),25)
-            fun tint(k:Int){for(i in 0 until seg.childCount)(seg.getChildAt(i) as TextView).setTextColor(if(i==k)(if(a.light)a.fg else 0xff111111.toInt()) else a.muted)}
-            labels.forEachIndexed{k,l->seg.addView(a.text(l,13.5f,bold=true).apply{gravity=Gravity.CENTER;maxLines=1;a.press(this);setOnClickListener{seg.choose(k);tint(k);pick(k)}},LinearLayout.LayoutParams(0,-1,1f))}
-            tint(selected);return seg}
-        // how pages turn, as in the book reader: the same live previews, the strip («Лента») being one of them
-        val turns=a.line().apply{gravity=Gravity.TOP}
-        val shows=ArrayList<()->Unit>()
-        fun current()=if(mode=="ribbon")"ribbon" else turnStyle
-        listOf("curl" to "Листание","slide" to "Сдвиг","cover" to "Наложение","none" to "Без анимации","ribbon" to "Лента").forEach{(key,label)->
-            val col=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;isClickable=true;contentDescription=label}
-            val tile=TurnTile(a,if(key=="ribbon")"scroll" else key,bgColor(),ink());col.addView(tile,LinearLayout.LayoutParams(-1,-2))
-            val name=a.text(label,11.5f,a.muted).apply{gravity=Gravity.CENTER;maxLines=2;setLineSpacing(0f,1.1f)};col.addView(name,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})
-            val show={val on=current()==key;tile.on=on;name.setTextColor(if(on)a.fg else a.muted);name.typeface=PolkaFonts.sans(if(on)600 else 400)}
-            show();shows.add(show)
-            col.setOnClickListener{if(current()==key)return@setOnClickListener
+        val refreshers=mutableListOf<()->Unit>();val kit=PanelKit(a,refreshers)
+        val box=a.column().apply{clipChildren=false;clipToPadding=false}
+        val backdrops=listOf(Triple("black","Чёрный",0xff000000.toInt() to 0xfff3f2ef.toInt()),Triple("graphite","Графит",0xff1c1c1e.toInt() to 0xfff3f2ef.toInt()),Triple("white","Белый",0xfff3f2ef.toInt() to 0xff1e1d1b.toInt()))
+        box.addView(kit.colourCards(backdrops,false,{bgKey}){k->a.prefs.put("comicBg",k);a.savePreferences();applyLook();refreshers.forEach{it()}},LinearLayout.LayoutParams(-1,a.d(72)))
+        box.addView(kit.brightness{applyBrightness(dialog.window)},LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
+        val turns=listOf(Triple("curl","curl","Листание"),Triple("slide","slide","Сдвиг"),Triple("cover","cover","Наложение"),Triple("none","none","Без анимации"),Triple("ribbon","scroll","Лента"))
+        fun currentTurn()=if(mode=="ribbon")"ribbon" else turnStyle
+        val (turnRow,turnValue)=kit.row("Листание"){
+            val page=a.column().apply{clipChildren=false;clipToPadding=false}
+            page.addView(kit.turnCards(turns,bgColor(),ink(),{currentTurn()}){key->
                 val want=if(key=="ribbon")"ribbon" else "paged"
                 if(key!="ribbon")a.prefs.put("turn",key);a.prefs.put("mode",if(want=="ribbon")"scroll" else "paged");a.savePreferences()
                 if(mode!=want)root.postDelayed({setMode(want,true)},if(reduced)0L else 300L)
-                mode=want;shows.forEach{it()}}
-            a.press(col);turns.addView(col,LinearLayout.LayoutParams(0,-2,1f))}
-        sheet.addView(turns,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16)})
-        sheet.addView(LayoutToggle(a,"Справа налево",rtl){on->rtl=on;book.put("pageRtl",on);save(false);if(mode!="ribbon")setMode(mode,true)},LinearLayout.LayoutParams(-1,H).apply{topMargin=a.d(12)})
-        caption("Масштаб")
-        sheet.addView(segment(listOf("Страница целиком","По ширине"),if(widthFit)1 else 0){k->a.prefs.put("comicFit",if(k==1)"width" else "page");a.savePreferences();paged?.refit()},LinearLayout.LayoutParams(-1,H))
-        val lp=FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{setMargins(a.d(8),0,a.d(8),a.d(8))}
-        root2.addView(sheet,lp)
-        var entrance:SheetMotion?=null;var closing=false
-        fun dismiss(){if(closing)return;closing=true;entrance?.stop();if(reduced){dlg.dismiss();return}
-            sheet.animate().translationY(sheet.height+a.d(24).toFloat()).setDuration(MotionSpec.SHEET_OUT).setInterpolator(MotionSpec.exit).withEndAction{dlg.dismiss()}.start()}
-        root2.setOnClickListener{dismiss()}
-        dlg.setContentView(root2)
-        dlg.window?.let{w->w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0));w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);w.setLayout(-1,-1);w.setWindowAnimations(0)
-            ReaderWindow.configure(w,true,bgColor())
-            if(android.os.Build.VERSION.SDK_INT>=30)w.attributes=w.attributes.apply{setFitInsetsTypes(0);setFitInsetsSides(0)}}
-        applyBrightness(dlg.window)
-        SafeArea.bind(root2){i->val s=SafeArea.content(i,false);lp.bottomMargin=a.d(8)+s.bottom;lp.leftMargin=a.d(8)+s.left;lp.rightMargin=a.d(8)+s.right;sheet.layoutParams=lp}
-        dlg.setOnKeyListener{_,code,e->if(code==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){dismiss();true}else false}
-        dlg.show()
-        if(!reduced){sheet.translationY=a.d(1200).toFloat();sheet.post{val h=sheet.height+a.d(24).toFloat();val spring=SheetMotion{v->sheet.translationY=h*v};entrance=spring;spring.snap(1f);spring.to(0f)}}
+                mode=want},kit.bleed)
+            page.addView(kit.card(listOf(LayoutToggle(a,"Справа налево",rtl,plain=true){on->rtl=on;book.put("pageRtl",on);save(false);if(mode!="ribbon")setMode(mode,true)})),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16)})
+            panel.push(ReaderPanel.Page("Листание",page))}
+        refreshers.add{turnValue.text=turns.first{it.first==currentTurn()}.third}
+        val fits=listOf("page" to "Страница целиком","width" to "По ширине")
+        val (fitRow,fitValue)=kit.row("Масштаб"){
+            panel.push(ReaderPanel.Page("Масштаб",kit.checkList(fits,{if(widthFit)"width" else "page"}){k->a.prefs.put("comicFit",k);a.savePreferences();paged?.refit()}))}
+        refreshers.add{fitValue.text=if(widthFit)"По ширине" else "Страница целиком"}
+        box.addView(kit.card(listOf(turnRow,fitRow)),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16)})
+        refreshers.forEach{it()}
+        panel.push(ReaderPanel.Page("Оформление",box,onReturn={refreshers.forEach{it()}}))
     }
     /** A page in the «Страницы» grid: the picture as a card, ringed when it is the open page, a ribbon when bookmarked. */
     private inner class GridThumb(val i:Int,private val marked:Boolean):View(a){
@@ -532,17 +501,3 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
 }
 
 /** A backdrop choice in the comics «Оформление»: the colour as a tile with its name, ringed when chosen (like the reader's themes). */
-internal class BackdropTile(private val a:MainActivity,private val bg:Int,private val label:String):View(a){
-    private var k=0f;private var anim:ValueAnimator?=null;private var first=true
-    var on=false;set(v){if(field==v&&!first)return;field=v;val target=if(v)1f else 0f
-        if(first||!isAttachedToWindow||a.prefs.str("motion")=="reduced"){first=false;k=target;invalidate();return}
-        anim?.cancel();anim=ValueAnimator.ofFloat(k,target).apply{duration=300;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
-    override fun onDraw(c:Canvas){val d=a.resources.displayMetrics.density;val inset=4*d;val r=RectF(inset,inset,width-inset,height-inset);val rad=16*d
-        if(k>0f){p.style=Paint.Style.STROKE;p.strokeWidth=2*d;p.color=a.fg;p.alpha=(255*k).toInt();val o=d+(1f-k)*2f*d;c.drawRoundRect(RectF(o,o,width-o,height-o),rad+inset-o,rad+inset-o,p);p.alpha=255}
-        p.style=Paint.Style.FILL;p.color=bg;c.drawRoundRect(r,rad,rad,p)
-        p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=if(Color.red(bg)>128)0x1a000000 else 0x24ffffff;c.drawRoundRect(r,rad,rad,p)
-        p.style=Paint.Style.FILL;p.color=if(Color.red(bg)>128)0xff1e1d1b.toInt() else 0xfff3f2ef.toInt();p.textSize=13.5f*a.resources.displayMetrics.scaledDensity;p.typeface=PolkaFonts.sans(500);p.textAlign=Paint.Align.CENTER
-        c.drawText(label,width/2f,height/2f-(p.ascent()+p.descent())/2f,p)}
-}

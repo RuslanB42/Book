@@ -191,13 +191,10 @@ internal class SoundChip(private val a:MainActivity,open:()->Unit):LinearLayout(
 
 /** The «Звуки» panel (approved «А»): four tiles, the volume, your own sounds and «Добавить свой звук».
  *  It slides up on the sheet spring with its rows rising in, follows the finger when pulled down and closes. */
-internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int){
-    private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()
+internal class AmbienceSheet(private val a:MainActivity){
     private val pillColor get()=if(a.light)0x0f000000 else 0x11ffffff
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    private var dialog:android.app.Dialog?=null
     private lateinit var sheet:LinearLayout
-    private lateinit var holder:View
     private val tiles=mutableListOf<Tile>()
     private lateinit var off:TextView
     private lateinit var mineBox:LinearLayout
@@ -231,36 +228,6 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
         buildMine(null)
     }
 
-    fun show(){
-        val dlg=android.app.Dialog(a,R.style.PolkaSheetTheme);dialog=dlg
-        val root=DragRoot().apply{isClickable=true;setOnClickListener{close()}}
-        sheet=a.column().apply{clipToPadding=false;clipChildren=false;isClickable=true;setPadding(a.d(16),a.d(12),a.d(16),a.d(18));elevation=a.d(16).toFloat()
-            background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(30).toFloat();setStroke(1,if(a.light)0x10000000 else 0x10ffffff)}}
-        sheet.addView(View(a).apply{background=a.shape(if(a.light)0x33000000 else 0x38ffffff,3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(14)})
-        val head=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
-        head.addView(a.text("Звуки",16f,a.fg,true),LinearLayout.LayoutParams(0,-2,1f))
-        off=a.text("Выключить",13f,a.muted).apply{setPadding(a.d(10),a.d(8),a.d(4),a.d(8));isClickable=true;a.press(this);setOnClickListener{Ambience.stop(a)}}
-        head.addView(off);sheet.addView(head,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(10);leftMargin=a.d(2)})
-        fill()
-        val scroll=SheetScroll(a,sheetColor,30,18).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;clipChildren=false;addView(sheet)}
-        holder=scroll
-        val lp=FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{setMargins(a.d(8),0,a.d(8),a.d(8))}
-        root.addView(scroll,lp)
-        dlg.setContentView(root)
-        dlg.window?.let{w->w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0));w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);w.setLayout(-1,-1);w.setWindowAnimations(0)
-            ReaderWindow.configure(w,true,readerBg)
-            if(Build.VERSION.SDK_INT>=30)w.attributes=w.attributes.apply{setFitInsetsTypes(0);setFitInsetsSides(0)}}
-        SafeArea.bind(root){i->val s=SafeArea.content(i,false);lp.bottomMargin=a.d(8)+s.bottom;lp.topMargin=s.top+a.d(60);lp.leftMargin=a.d(8)+s.left;lp.rightMargin=a.d(8)+s.right;scroll.layoutParams=lp}
-        dlg.setOnKeyListener{_,code,e->if(code==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){close();true}else false}
-        dlg.setOnDismissListener{Ambience.unlisten(update)}
-        Ambience.listen(update);paint(false)
-        dlg.show()
-        if(!reduced){scroll.translationY=a.d(1200).toFloat();scroll.post{val h=scroll.height+a.d(24).toFloat();SheetMotion{v->scroll.translationY=h*v}.apply{snap(1f);to(0f)}}}
-    }
-    private fun close(velocity:Float=0f){val d=dialog?:return;dialog=null
-        if(reduced){d.dismiss();return}
-        val v=holder;val left=v.height+a.d(24)-v.translationY
-        v.animate().translationY(v.height+a.d(24).toFloat()).setDuration((if(velocity>0f)(left/velocity*1000f).toLong() else MotionSpec.SHEET_OUT).coerceIn(140L,MotionSpec.SHEET_OUT)).setInterpolator(MotionSpec.exit).withEndAction{d.dismiss()}.start()}
     private fun toggle(k:String){if(Ambience.key==k)Ambience.stop(a) else Ambience.play(a,k)}
     private fun paint(animate:Boolean){tiles.forEach{it.refresh(animate)}
         val on=Ambience.key!=null;off.animate().cancel()
@@ -269,22 +236,6 @@ internal class AmbienceSheet(private val a:MainActivity,private val readerBg:Int
     /** [fresh]: the id of a sound just added — its row slides in. */
     private fun buildMine(fresh:String?){mineBox.removeAllViews();Ambience.mine(a).forEach{o->val row=MineRow(o);mineBox.addView(row,LinearLayout.LayoutParams(-1,a.d(54)).apply{bottomMargin=a.d(8)})
         if(o.str("id")==fresh&&!reduced){row.alpha=0f;row.translationY=a.d(12).toFloat();row.animate().alpha(1f).translationY(0f).setDuration(360).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}}}
-
-    /** Pull the panel down to close it: from its handle, its empty parts, or when its list is scrolled to the top. */
-    private inner class DragRoot:FrameLayout(a){
-        private var y0=0f;private var x0=0f;private var dragging=false;private var vt:VelocityTracker?=null
-        private fun inSheet(x:Float,y:Float):Boolean{val r=Rect();holder.getGlobalVisibleRect(r);return r.contains(x.toInt(),y.toInt())}
-        override fun onInterceptTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){
-            MotionEvent.ACTION_DOWN->{x0=e.rawX;y0=e.rawY;dragging=false;vt?.recycle();vt=VelocityTracker.obtain();vt?.addMovement(e)}
-            MotionEvent.ACTION_MOVE->{vt?.addMovement(e);val dy=e.rawY-y0;val dx=e.rawX-x0
-                if(!dragging&&inSheet(x0,y0)&&dy>a.d(10)&&dy>kotlin.math.abs(dx)*1.4f&&!holder.canScrollVertically(-1)){dragging=true;y0=e.rawY;return true}}};return false}
-        override fun onTouchEvent(e:MotionEvent):Boolean{if(!dragging)return super.onTouchEvent(e);vt?.addMovement(e)
-            when(e.actionMasked){
-                MotionEvent.ACTION_MOVE->holder.translationY=(e.rawY-y0).coerceAtLeast(0f)
-                MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{vt?.computeCurrentVelocity(1000);val v=vt?.yVelocity?:0f;dragging=false
-                    if(holder.translationY>holder.height*.25f||v>a.d(900))close(v.coerceAtLeast(0f))
-                    else holder.animate().translationY(0f).setDuration(MotionSpec.SETTLE).setInterpolator(MotionSpec.move).start()}};return true}
-    }
 
     /** A sound tile: its colour glowing from the top right over a deep shade, the icon, the name and a quiet line.
      *  Chosen, it gives a soft pulse, the glow swells, the ring draws in around it and the bars rise. */

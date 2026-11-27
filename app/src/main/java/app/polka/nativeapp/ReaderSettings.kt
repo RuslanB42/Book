@@ -24,11 +24,10 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     private val themes=listOf("night" to "Ночь","black" to "Чёрная","sepia" to "Сепия","paper" to "Бумага")
     private val fonts=listOf("literata" to "Literata","ptserif" to "PT Serif","sans" to "Без засечек")
     private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()
-    private val pillColor get()=if(a.light)0x0f000000 else 0x11ffffff
-    private val cardColor get()=if(a.light)Color.WHITE else 0xff2a2a2d.toInt()
-    private val muted2 get()=if(a.light)0xff6e6e73.toInt() else 0xffa4a4a4.toInt()
+    private val muted2 get()=kit.muted
     private val reduced get()=a.prefs.str("motion")=="reduced"
     private val refreshers=mutableListOf<()->Unit>()
+    private val kit=PanelKit(a,refreshers)
 
     fun show(){r.panel.push(ReaderPanel.Page("Текст",mainPage(),onReturn={refresh()}))}
 
@@ -36,15 +35,15 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
 
     private fun mainPage():View{
         val box=a.column().apply{clipChildren=false;clipToPadding=false}
-        box.addView(themeCards(),LinearLayout.LayoutParams(-1,a.d(72)))
-        box.addView(brightnessRow(),LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
+        box.addView(kit.colourCards(themes.map{(k,l)->Triple(k,l,colors(k))},true,{a.prefs.str("rt","night")}){key->r.crossfade{a.prefs.put("rt",key);a.savePreferences();r.applyTheme();refresh()}},LinearLayout.LayoutParams(-1,a.d(72)))
+        box.addView(kit.brightness{r.applyBrightness()},LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
         box.addView(SizeStepper(a,a.prefs.optDouble("size",19.0).roundToInt()){v->a.prefs.put("size",v.toDouble());a.savePreferences();typography()}.also{s->refreshers.add{s.sync(a.prefs.optDouble("size",19.0).roundToInt())}},
             LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(8)})
-        val (fontRow,fontValue)=row("Шрифт"){r.panel.push(ReaderPanel.Page("Шрифт",fontPage()))}
+        val (fontRow,fontValue)=kit.row("Шрифт"){r.panel.push(ReaderPanel.Page("Шрифт",fontPage()))}
         refreshers.add{val k=a.prefs.str("font","literata");fontValue.text=fontName(k);fontValue.typeface=PolkaFonts.reader(a,k)}
-        val (layoutRow,layoutValue)=row("Вёрстка"){r.panel.push(layoutPage())}
+        val (layoutRow,layoutValue)=kit.row("Вёрстка"){r.panel.push(layoutPage())}
         refreshers.add{layoutValue.text=if(a.prefs.optBoolean("justify",true))"По ширине" else "По левому краю"}
-        box.addView(card(listOf(fontRow,layoutRow)),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16)})
+        box.addView(kit.card(listOf(fontRow,layoutRow)),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16)})
         refresh();return box
     }
     private fun fontName(k:String)=fonts.firstOrNull{it.first==k}?.second?:CustomFonts.name(a,k)?:"Literata"
@@ -58,7 +57,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
                 val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(56);setPadding(a.d(16),0,a.d(14),0);isClickable=true;isFocusable=true;contentDescription=label+if(key==cur)", выбран" else ""}
                 // the name itself, set in its own face, shows the font
                 row.addView(TextView(a).apply{text=label;textSize=19f;setTextColor(a.fg);typeface=PolkaFonts.reader(a,key);includeFontPadding=false;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
-                if(key==cur)row.addView(FrameLayout(a).apply{background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(a.fg)};addView(IconView(a,"check",a.bg),FrameLayout.LayoutParams(a.d(16),a.d(16),Gravity.CENTER))},LinearLayout.LayoutParams(a.d(24),a.d(24)))
+                if(key==cur)row.addView(kit.checkMark(),LinearLayout.LayoutParams(a.d(24),a.d(24)))
                 // your own fonts can be removed again: a round button in the app's red for deleting
                 if(custom)row.addView(FrameLayout(a).apply{background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(0x29d9504e)};isClickable=true;contentDescription="Удалить шрифт";a.press(this)
                     addView(IconView(a,"trash",0xffe5635f.toInt()),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER))
@@ -70,70 +69,34 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
                 addView(IconView(a,"plus",a.fg),LinearLayout.LayoutParams(a.d(20),a.d(20)))
                 addView(a.text("Добавить шрифт",15f,a.fg).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(8),0,0,0)})
                 setOnClickListener{a.pickFont{key->a.prefs.put("font",key);a.savePreferences();build();typography()}}}
-            box.addView(card(rows+add),LinearLayout.LayoutParams(-1,-2))}
+            box.addView(kit.card(rows+add),LinearLayout.LayoutParams(-1,-2))}
         build();return box
     }
 
     private fun layoutPage():ReaderPanel.Page{
         val box=a.column().apply{clipChildren=false;clipToPadding=false}
-        box.addView(caption("ЛИСТАНИЕ",0))
-        box.addView(turnCards(),LinearLayout.LayoutParams(-1,-2).apply{leftMargin=-a.d(16);rightMargin=-a.d(16)})
-        box.addView(caption("ИНТЕРВАЛЫ"))
+        box.addView(kit.caption("ЛИСТАНИЕ",0))
+        val (paper,ink)=colors(a.prefs.str("rt","night"))
+        box.addView(kit.turnCards(listOf(Triple("curl","curl","Листание"),Triple("slide","slide","Сдвиг"),Triple("cover","cover","Наложение"),Triple("none","none","Без анимации"),Triple("scroll","scroll","Прокрутка")),
+            paper,ink,{if(!r.paged())"scroll" else a.prefs.str("turn","curl")}){key->
+            if(key=="scroll")r.crossfade{r.setReadingMode(false);refresh()}
+            else{a.prefs.put("turn",key);a.savePreferences();if(!r.paged())r.crossfade{r.setReadingMode(true);refresh()}}},kit.bleed)
+        box.addView(kit.caption("ИНТЕРВАЛЫ"))
         val sliders=mutableListOf(
             sliderRow("Межстрочный",1.2f,2.2f,.05f,r.lineHeight(),1.6f,{fmt(it,2)}){v->a.prefs.put("lhv",v.toDouble())},
             sliderRow("Поля",8f,48f,2f,a.prefs.optInt("margin",24).toFloat(),24f,{"${it.roundToInt()}"}){v->a.prefs.put("margin",v.roundToInt())},
             sliderRow("Межбуквенный",-.03f,.12f,.005f,a.prefs.optDouble("ls",0.0).toFloat(),0f,{percent(it)}){v->a.prefs.put("ls",v.toDouble())})
         if(Build.VERSION.SDK_INT>=29)sliders.add(sliderRow("Межсловный",0f,.6f,.02f,a.prefs.optDouble("ws",0.0).toFloat(),0f,{percent(it)}){v->a.prefs.put("ws",v.toDouble())})
-        box.addView(card(sliders),LinearLayout.LayoutParams(-1,-2))
-        box.addView(caption("ТЕКСТ"))
+        box.addView(kit.card(sliders),LinearLayout.LayoutParams(-1,-2))
+        box.addView(kit.caption("ТЕКСТ"))
         fun sw(title:String,key:String,default:Boolean)=LayoutToggle(a,title,a.prefs.optBoolean(key,default),plain=true){on->r.crossfade{a.prefs.put(key,on);a.savePreferences();typography()}}
-        box.addView(card(listOf(sw("По ширине","justify",true),sw("Переносы","hyph",true),sw("Убирать пустые строки","trimEmpty",false))),LinearLayout.LayoutParams(-1,-2))
+        box.addView(kit.card(listOf(sw("По ширине","justify",true),sw("Переносы","hyph",true),sw("Убирать пустые строки","trimEmpty",false))),LinearLayout.LayoutParams(-1,-2))
         val reset=a.text("Сбросить",13f,muted2).apply{setPadding(a.d(10),a.d(8),a.d(2),a.d(8));isClickable=true;a.press(this);setOnClickListener{reset(this)}}
         return ReaderPanel.Page("Вёрстка",box,right=reset)
     }
 
     // ---- building blocks -----------------------------------------------------------------------
 
-    private fun caption(t:String,top:Int=18)=a.text(t,12f,muted2,true).apply{letterSpacing=.06f;setPadding(a.d(4),a.d(top),0,a.d(9))}
-    /** A group as one card, its rows split by thin lines; a tappable row lights up under the finger. */
-    private fun card(rows:List<View>):View{val box=a.column().apply{background=a.shape(cardColor,20)}
-        fun lit(top:Boolean,bottom:Boolean)=android.graphics.drawable.StateListDrawable().apply{setExitFadeDuration(220)
-            val rad=a.d(20).toFloat();val t=if(top)rad else 0f;val b=if(bottom)rad else 0f
-            addState(intArrayOf(android.R.attr.state_pressed),GradientDrawable().apply{setColor(if(a.light)0x0c000000 else 0x0fffffff);cornerRadii=floatArrayOf(t,t,t,t,b,b,b,b)})
-            addState(intArrayOf(),android.graphics.drawable.ColorDrawable(0))}
-        rows.forEachIndexed{i,v->if(i>0)box.addView(View(a).apply{setBackgroundColor(if(a.light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,1).apply{leftMargin=a.d(16)})
-            if(v.isClickable)v.background=lit(i==0,i==rows.lastIndex)
-            box.addView(v,LinearLayout.LayoutParams(-1,if(v is LayoutToggle)a.d(52) else -2))}
-        return box}
-    /** A row that opens a page: the name, its current value in grey and a chevron. */
-    private fun row(name:String,open:()->Unit):Pair<LinearLayout,TextView>{
-        val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(52);setPadding(a.d(16),0,a.d(14),0);isClickable=true;isFocusable=true;setOnClickListener{open()}}
-        r.addView(a.text(name,15.5f,a.fg),LinearLayout.LayoutParams(0,-2,1f))
-        val value=a.text("",15f,muted2).apply{maxLines=1};r.addView(value,LinearLayout.LayoutParams(-2,-2).apply{rightMargin=a.d(8)})
-        r.addView(Chevron(a),LinearLayout.LayoutParams(a.d(10),a.d(16)))
-        return r to value}
-    /** The four themes as cards: «Аа» and the name in the theme's own colours; the chosen one ringed inside. */
-    private fun themeCards():View{
-        val row=a.line()
-        themes.forEachIndexed{i,(key,label)->
-            val (bg,ink)=colors(key)
-            val tile=ThemeCard(a,bg,ink,label).apply{isClickable=true;contentDescription="Тема: $label"}
-            refreshers.add{tile.on=a.prefs.str("rt","night")==key}
-            tile.setOnClickListener{if(a.prefs.str("rt","night")!=key){tile.tick(a);r.crossfade{a.prefs.put("rt",key);a.savePreferences();r.applyTheme();refresh()}}}
-            a.press(tile);row.addView(tile,LinearLayout.LayoutParams(0,-1,1f).apply{if(i>0)leftMargin=a.d(8)})}
-        return row
-    }
-    private fun brightnessRow():View{
-        val row=a.line()
-        val system=try{android.provider.Settings.System.getInt(a.contentResolver,android.provider.Settings.System.SCREEN_BRIGHTNESS)/255f}catch(_:Exception){.5f}
-        val start=a.prefs.optDouble("bright",-1.0).toFloat().let{if(it<0)system else it}.coerceIn(.02f,1f)
-        val auto=AutoChip(a,a.prefs.optDouble("bright",-1.0)<0).apply{textSize=13f;typeface=PolkaFonts.sans(600)}
-        val bar=ThinSlider(a,.02f,1f,0f,start,null,pill=true){v,done->a.prefs.put("bright",v.toDouble());auto.set(false);r.applyBrightness();if(done)a.savePreferences()}.apply{contentDescription="Яркость экрана"}
-        bar.dim=auto.on
-        auto.setOnClickListener{val on=!auto.on;auto.tick(a);auto.set(on);bar.dim=on;a.prefs.put("bright",if(on)-1.0 else bar.value.toDouble());a.savePreferences();r.applyBrightness()}
-        row.addView(bar,LinearLayout.LayoutParams(0,-1,1f));row.addView(auto,LinearLayout.LayoutParams(a.d(76),-1).apply{leftMargin=a.d(8)})
-        return row
-    }
     /** A layout setting in a card: the name and the value on top, a thin slider under them (a tick at the default).
      *  Held, the row lifts on its own and everything else fades, so only the text and that one control remain. */
     private fun sliderRow(title:String,from:Float,to:Float,step:Float,value:Float,default:Float,format:(Float)->String,set:(Float)->Unit):View{
@@ -144,25 +107,6 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
         bar.onGrab={on->spotlight(box,on)}
         box.addView(bar,LinearLayout.LayoutParams(-1,a.d(26)).apply{topMargin=a.d(8)})
         return box
-    }
-    /** How pages turn: a card for each way with a little live page turning that way; the cards scroll sideways. */
-    private fun turnCards():View{
-        val (paper,ink)=colors(a.prefs.str("rt","night"))
-        val strip=a.line().apply{setPadding(a.d(16),a.d(2),a.d(16),a.d(2));clipToPadding=false}
-        listOf("curl" to "Листание","slide" to "Сдвиг","cover" to "Наложение","none" to "Без анимации","scroll" to "Прокрутка").forEachIndexed{i,(key,label)->
-            val ring=RingCard(a,cardColor)
-            val col=a.column().apply{gravity=Gravity.CENTER;isClickable=true;contentDescription=label;background=ring}
-            col.addView(TurnTile(a,key,paper,ink,bare=true),LinearLayout.LayoutParams(a.d(56),a.d(76)))
-            val name=a.text(label,12f,muted2).apply{gravity=Gravity.CENTER;maxLines=1};col.addView(name,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(9)})
-            fun current()=if(!r.paged())"scroll" else a.prefs.str("turn","curl")
-            val show={val on=current()==key;ring.on=on;name.setTextColor(if(on)a.fg else muted2);name.typeface=PolkaFonts.sans(if(on)600 else 500)}
-            show();refreshers.add(show)
-            col.setOnClickListener{if(current()==key)return@setOnClickListener;col.tick(a)
-                if(key=="scroll"){refresh();r.crossfade{r.setReadingMode(false);refresh()}}
-                else{a.prefs.put("turn",key);a.savePreferences();if(!r.paged())r.crossfade{r.setReadingMode(true);refresh()}}
-                refresh()}
-            a.press(col);strip.addView(col,LinearLayout.LayoutParams(a.d(96),a.d(118)).apply{if(i>0)leftMargin=a.d(8)})}
-        return HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(strip)}
     }
     private fun fmt(v:Float,digits:Int=1):String{val t=if(digits==2)"%.2f".format(java.util.Locale.US,v) else "%.1f".format(java.util.Locale.US,v);return t.trimEnd('0').trimEnd('.').replace('.',',')}
     private fun percent(v:Float):String{val p=(v*100).roundToInt();return if(p==0)"0" else if(p>0)"+$p%" else "−${-p}%"}
@@ -210,31 +154,6 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     }
 }
 
-/** The brightness bar: a wide pill that fills to the level, a small sun at the start and a big one at the end. */
-internal class BrightBar(private val a:MainActivity,start:Float,private val change:(Float,Boolean)->Unit):View(a){
-    var value=start.coerceIn(.02f,1f);private set
-    var dim=false;set(v){field=v;invalidate()}
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeCap=Paint.Cap.ROUND}
-    init{contentDescription="Яркость экрана";isClickable=true}
-    override fun onTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){
-        MotionEvent.ACTION_DOWN->{parent?.requestDisallowInterceptTouchEvent(true);set(e.x,false)}
-        MotionEvent.ACTION_MOVE->set(e.x,false)
-        MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->set(e.x,true)};return true}
-    private fun set(x:Float,done:Boolean){value=(x/width).coerceIn(.02f,1f);dim=false;invalidate();change(value,done)}
-    override fun onDraw(c:Canvas){val h=height.toFloat();val r=h/2;val w=width.toFloat();val d=a.resources.displayMetrics.density
-        p.style=Paint.Style.FILL;p.shader=null;p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,r,r,p)
-        val fx=w*value
-        p.shader=null;p.color=SliderInk.fill(a)
-        SliderInk.fillTo(c,p,w,h,fx)
-        fun sun(cx:Float,big:Boolean,ink:Int){val k=if(big)1f else .78f;p.color=ink;p.style=Paint.Style.FILL;c.drawCircle(cx,h/2,(if(big)3.6f else 2.9f)*d,p)
-            p.style=Paint.Style.STROKE;p.strokeCap=Paint.Cap.ROUND;p.strokeWidth=(if(big)1.6f else 1.4f)*d;val r0=(if(big)6.5f else 5.2f)*d;val r1=(if(big)9f else 6.9f)*d
-            for(i in 0 until 8){val t=Math.PI*i/4;c.drawLine(cx+(cos(t)*r0).toFloat(),h/2+(sin(t)*r0).toFloat(),cx+(cos(t)*r1).toFloat(),h/2+(sin(t)*r1).toFloat(),p)};p.style=Paint.Style.FILL}
-        // both suns in two inks, split exactly at the fill's edge — like the labels of the other sliders
-        val onFill=if(a.light)Color.WHITE else 0xff1d1d20.toInt();val off=if(a.light)0xff55555a.toInt() else 0xffcfcfd4.toInt()
-        c.save();c.clipRect(fx,0f,w,h);sun(h/2,false,off);sun(w-h/2,true,off);c.restore()
-        c.save();c.clipRect(0f,0f,fx,h);sun(h/2,false,onFill);sun(w-h/2,true,onFill);c.restore()}
-}
-
 /** A drawn chevron for «go to a page» (or back when [back]), rounded and in the caption colour. */
 internal class Chevron(private val a:MainActivity,private val back:Boolean=false):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND}
@@ -255,7 +174,7 @@ internal class AutoChip(private val a:MainActivity,initial:Boolean):TextView(a){
 
 /** A theme as a card: «Аа» and its name in the theme's own ink on its own paper; the chosen one gets a ring in that
  *  ink drawn just inside its edge (the card keeps its size), drawing in softly. */
-internal class ThemeCard(private val a:MainActivity,private val bg:Int,private val ink:Int,private val name:String):View(a){
+internal class ThemeCard(private val a:MainActivity,private val bg:Int,private val ink:Int,private val name:String,private val glyph:Boolean=true):View(a){
     private var k=0f;private var anim:ValueAnimator?=null;private var first=true
     var on=false;set(v){if(field==v&&!first)return;field=v;val target=if(v)1f else 0f
         if(first||!isAttachedToWindow||a.prefs.str("motion")=="reduced"){first=false;k=target;invalidate();return}
@@ -267,10 +186,12 @@ internal class ThemeCard(private val a:MainActivity,private val bg:Int,private v
         p.style=Paint.Style.STROKE;p.strokeWidth=d;p.color=if(Color.red(bg)>128)0x1a000000 else 0x1fffffff;c.drawRoundRect(d/2,d/2,w-d/2,h-d/2,rad,rad,p)
         if(k>0f){p.strokeWidth=2*d;p.color=ink;p.alpha=(255*k).toInt();val o=d;c.drawRoundRect(o,o,w-o,h-o,rad-o,rad-o,p);p.alpha=255}
         p.style=Paint.Style.FILL;p.color=ink;p.textAlign=Paint.Align.CENTER
-        p.textSize=22*sd;p.typeface=PolkaFonts.reader(a,"literata");p.isFakeBoldText=true;val big=-p.ascent()
+        p.textSize=22*sd;p.typeface=PolkaFonts.reader(a,"literata");p.isFakeBoldText=true;val big=if(glyph)-p.ascent() else 24*d
         val small=Paint(p).apply{textSize=11*sd;typeface=PolkaFonts.sans(500);isFakeBoldText=false;alpha=204}
         val total=big+5*d+(-small.ascent());val top=(h-total)/2
-        c.drawText("Аа",w/2,top+big,p);c.drawText(name,w/2,top+big+5*d-small.ascent(),small)}
+        // «Аа» for a theme of the text; for the comics' backdrop a little page lying on it
+        if(glyph)c.drawText("Аа",w/2,top+big,p) else{p.alpha=90;c.drawRoundRect(w/2-9*d,top,w/2+9*d,top+big,3*d,3*d,p);p.alpha=255}
+        c.drawText(name,w/2,top+big+5*d-small.ascent(),small)}
 }
 
 /** A card's ground with a ring just inside its edge when [on] (the card keeps its size). */
