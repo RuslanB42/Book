@@ -455,7 +455,16 @@ class MainActivity : Activity() {
     fun filters() {
         val box=column()
         label("Сортировка книг",box)
-        val group=RadioGroup(this); listOf("manual","recent","title","author").forEach { value -> group.addView(RadioButton(this).apply { id=View.generateViewId(); text=sortName(value); setTextColor(fg); textSize=16f; minHeight=d(48); buttonTintList=android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked),intArrayOf()),intArrayOf(accent,muted)); tag=value; isChecked=sort==value; setOnClickListener { sort=value; prefs.put("sort",value); savePreferences(); render() } }) }; box.addView(group)
+        // one row per order, its round mark on the right (as on «Статус и полки»), not Android's radio buttons
+        val marks=HashMap<String,Pair<View,RadioMark>>()
+        fun describe(){marks.forEach{(k,m)->m.first.contentDescription=sortName(k)+if(sort==k)", выбрано" else ""}}
+        listOf("manual","recent","title","author").forEach { value ->
+            val row=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(6),0,d(6),0);isClickable=true;isFocusable=true}
+            row.addView(text(sortName(value),16f),LinearLayout.LayoutParams(0,-2,1f))
+            val mark=RadioMark(this,sort==value);row.addView(mark,LinearLayout.LayoutParams(d(22),d(22)));marks[value]=row to mark
+            row.setOnClickListener{if(sort==value)return@setOnClickListener;sort=value;marks.forEach{(k,m)->m.second.on=k==value};describe();prefs.put("sort",value);savePreferences();render()}
+            press(row);box.addView(row,LinearLayout.LayoutParams(-1,d(52)))}
+        describe()
         dialog().setTitle("Фильтры и сортировка").setView(box).show()
     }
     fun sortName(key:String=sort):String = when(key) { "recent" -> "Недавние"; "title" -> "По названию"; "author" -> "По автору"; else -> "Мой порядок" }

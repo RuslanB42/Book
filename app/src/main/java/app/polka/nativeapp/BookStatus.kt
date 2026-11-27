@@ -1,7 +1,6 @@
 package app.polka.nativeapp
 
 import android.graphics.Canvas
-import android.graphics.Paint
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
@@ -49,15 +48,15 @@ internal fun MainActivity.statusSheet(book:JSONObject){
     fun header(s:String,top:Int)=box.addView(text(s,20f,fg,true).apply{setPadding(d(6),0,d(6),0)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(top);bottomMargin=d(6)})
     header("Статус",0)
     var current=Library.status(latest())
-    val ticks=HashMap<String,View>()
+    val ticks=HashMap<String,RadioMark>()
     listOf("reading","want","done","paused").forEach{s->
         val row=line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=d(52);setPadding(d(6),0,d(6),0);isClickable=true;isFocusable=true
             contentDescription=BookStatus.name(s)+if(s==current)", выбрано" else ""}
         row.addView(StatusIcon(this,BookStatus.icon(s),fg),LinearLayout.LayoutParams(d(22),d(22)))
         row.addView(text(BookStatus.name(s),16f).apply{setPadding(d(14),0,d(8),0)},LinearLayout.LayoutParams(0,-2,1f))
-        val tick=StatusIcon(this,"check",fg).apply{visibility=if(s==current)View.VISIBLE else View.INVISIBLE}
-        row.addView(tick,LinearLayout.LayoutParams(d(20),d(20)));ticks[s]=tick
-        row.setOnClickListener{if(s==current)return@setOnClickListener;current=s;ticks.forEach{(k,v)->v.visibility=if(k==s)View.VISIBLE else View.INVISIBLE}
+        val tick=RadioMark(this,s==current)
+        row.addView(tick,LinearLayout.LayoutParams(d(22),d(22)));ticks[s]=tick
+        row.setOnClickListener{if(s==current)return@setOnClickListener;current=s;ticks.forEach{(k,v)->v.on=k==s}
             setBookStatus(latest(),s)}
         press(row);box.addView(row,LinearLayout.LayoutParams(-1,d(52)))
     }
@@ -83,15 +82,4 @@ internal fun MainActivity.statusSheet(book:JSONObject){
         press(add);list.addView(add,LinearLayout.LayoutParams(-1,d(50)))}
     fill()
     dialog().setView(box).show()
-}
-
-/** A square box to tick: an outline when empty, filled with a check when ticked. */
-internal class TickBox(private val a:MainActivity,on:Boolean):View(a){
-    var on=on;set(v){field=v;invalidate()}
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-    override fun onDraw(c:Canvas){val r=a.d(7).toFloat();val w=width.toFloat();val h=height.toFloat()
-        if(on){p.style=Paint.Style.FILL;p.color=a.fg;c.drawRoundRect(0f,0f,w,h,r,r,p)
-            c.save();val s=w*.68f/24f;c.translate((w-24f*s)/2f,(h-24f*s)/2f);c.scale(s,s);IosIcons.draw(c,"check",a.bg);c.restore()}
-        else{val k=a.d(1)*1.75f;p.style=Paint.Style.STROKE;p.strokeWidth=k;p.color=if(a.light)0x40000000 else 0x5affffff;c.drawRoundRect(k/2,k/2,w-k/2,h-k/2,r,r,p)}}
 }

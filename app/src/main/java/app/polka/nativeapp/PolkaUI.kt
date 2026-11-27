@@ -180,7 +180,13 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 if(message.isNotBlank()) content.addView(a.text(message,16f).apply { setPadding(0,a.d(8),0,a.d(16)) })
                 view?.let { (it.parent as? ViewGroup)?.removeView(it); content.addView(it) }
                 items?.forEachIndexed { i,s ->
-                    if(checked!=null) content.addView(CheckBox(a).apply { text=s; setTextColor(a.fg); minHeight=a.d(48); isChecked=checked!![i]; buttonTintList=android.content.res.ColorStateList.valueOf(a.accent); setOnCheckedChangeListener { _,on -> checked!![i]=on; onCheck?.invoke(owner,i,on) } })
+                    // the app's own row for a list of boxes to tick (as on «Статус и полки»), not Android's check box
+                    if(checked!=null){val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(50);setPadding(a.d(6),a.d(4),a.d(6),a.d(4));isClickable=true;isFocusable=true}
+                        row.addView(a.text(s.toString(),16f).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{marginEnd=a.d(12)})
+                        val tick=TickBox(a,checked!![i]);row.addView(tick,LinearLayout.LayoutParams(a.d(24),a.d(24)))
+                        fun describe(){row.contentDescription=s.toString()+if(tick.on)", выбрано" else ""};describe()
+                        row.setOnClickListener{tick.on=!tick.on;checked!![i]=tick.on;describe();onCheck?.invoke(owner,i,tick.on)}
+                        a.press(row);content.addView(row,LinearLayout.LayoutParams(-1,-2))}
                     else content.addView(a.text(s.toString(),16f,if(i in destructiveItems)0xffd9504e.toInt() else a.fg).apply {
                         minHeight=a.d(52);gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(12),a.d(12),a.d(12));isFocusable=true
                         itemIcons?.getOrNull(i)?.let{kind->

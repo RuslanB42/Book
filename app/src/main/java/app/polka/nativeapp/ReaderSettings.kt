@@ -435,29 +435,46 @@ internal class LayoutBar(private val a:MainActivity,private val title:String,pri
         val nx=w-15*d;t.color=if(fx>nx-4*d)onFill else (if(a.light)a.fg else 0xfff3f2ef.toInt());c.drawText(num,nx,base,t);t.isFakeBoldText=false}
 }
 
-/** A switch as a capsule: the name on the left, a small switch on the right; the knob glides across. */
+/** A switch as a capsule: the name on the left, a small switch on the right. After the reference: under the finger
+ *  the knob swells toward where it would go; let go, it stretches across the track (its far end first, the near end
+ *  following and settling a little past and back) while the track takes its colour. */
 internal class LayoutToggle(private val a:MainActivity,private val title:String,initial:Boolean,private val change:(Boolean)->Unit):View(a){
-    private var on=initial;private var k=if(initial)1f else 0f;private var anim:ValueAnimator?=null
+    private var on=initial
+    /** Where the knob's two ends are, 0 the left place and 1 the right one; equal at rest. */
+    private var lead=if(initial)1f else 0f;private var trail=lead
+    private var press=0f;private var anim:ValueAnimator?=null;private var pressAnim:ValueAnimator?=null
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG);private val face by lazy{a.text("",1f).typeface}
+    private val reduced get()=a.prefs.str("motion")=="reduced"
     init{isClickable=true;contentDescription=title;a.press(this);setOnClickListener{flip()}}
     override fun onInitializeAccessibilityNodeInfo(info:android.view.accessibility.AccessibilityNodeInfo){super.onInitializeAccessibilityNodeInfo(info);info.isCheckable=true;info.isChecked=on;info.className="android.widget.Switch"}
+    override fun drawableStateChanged(){super.drawableStateChanged();if(reduced)return;val to=if(isPressed)1f else 0f;if(press==to)return
+        pressAnim?.cancel();pressAnim=ValueAnimator.ofFloat(press,to).apply{duration=if(isPressed)160 else 240;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{press=it.animatedValue as Float;invalidate()};start()}}
     private fun flip(){on=!on;anim?.cancel();if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-        if(a.prefs.str("motion")=="reduced"){k=if(on)1f else 0f;invalidate()}
-        else anim=ValueAnimator.ofFloat(k,if(on)1f else 0f).apply{duration=220;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}
+        val to=if(on)1f else 0f
+        if(reduced){lead=to;trail=to;invalidate()}
+        else{val l0=lead;val t0=trail;val reach=PathInterpolator(.3f,0f,.1f,1f);val follow=android.view.animation.OvershootInterpolator(1.7f)
+            anim=ValueAnimator.ofFloat(0f,1f).apply{duration=420;interpolator=android.view.animation.LinearInterpolator()
+                addUpdateListener{val x=it.animatedValue as Float;lead=l0+(to-l0)*reach.getInterpolation((x/.55f).coerceIn(0f,1f))
+                    trail=t0+(to-t0)*follow.getInterpolation(((x-.22f)/.78f).coerceIn(0f,1f));invalidate()};start()}}
         // let the knob start moving before the page is rebuilt
         postDelayed({change(on)},60)}
-    override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
+    override fun onDetachedFromWindow(){anim?.cancel();pressAnim?.cancel();super.onDetachedFromWindow()}
     override fun onDraw(c:Canvas){val h=height.toFloat();val w=width.toFloat();val d=a.resources.displayMetrics.density
         p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,h/2,h/2,p)
         t.typeface=face;t.textSize=13f*a.resources.displayMetrics.scaledDensity;t.color=if(a.light)0xff3a3a3e.toInt() else 0xffcfcfd4.toInt()
         val sw=36*d;val sh=22*d;val sx=w-8*d-sw;val sy=(h-sh)/2
         val room=sx-14*d-6*d;var label=title;if(t.measureText(label)>room){while(label.length>1&&t.measureText("$label…")>room)label=label.dropLast(1);label="$label…"}
         c.drawText(label,14*d,h/2f-(t.ascent()+t.descent())/2f,t)
+        val k=((lead+trail)/2f).coerceIn(0f,1f)
         val offTrack=if(a.light)0x29000000 else 0xff3a3a3d.toInt();val onTrack=if(a.light)0xff1a1a1c.toInt() else 0xfff3f2ef.toInt()
         p.color=androidx.core.graphics.ColorUtils.blendARGB(offTrack,onTrack,k);c.drawRoundRect(sx,sy,sx+sw,sy+sh,sh/2,sh/2,p)
-        val kr=(sh-5*d)/2;val kx=sx+2.5f*d+kr+(sw-5*d-2*kr)*k
+        val kr=(sh-5*d)/2;val left=sx+2.5f*d+kr;val span=sw-5*d-2*kr
+        val a0=left+span*minOf(lead,trail);val b0=left+span*maxOf(lead,trail)
+        // stretched it thins a little; pressed it swells toward the other side
+        val stretch=abs(lead-trail);val swell=.5f*kr*press;val ry=kr*(1f-.12f*stretch-.08f*press)
+        val l=a0-kr-(if(on)swell else 0f);val r=b0+kr+(if(on)0f else swell)
         val offKnob=if(a.light)Color.WHITE else 0xffcfcfd4.toInt();val onKnob=if(a.light)Color.WHITE else 0xff1d1d20.toInt()
-        p.color=androidx.core.graphics.ColorUtils.blendARGB(offKnob,onKnob,k);p.setShadowLayer(2.2f*d,0f,.6f*d,0x2a000000);c.drawCircle(kx,h/2,kr,p);p.clearShadowLayer()}
+        p.color=androidx.core.graphics.ColorUtils.blendARGB(offKnob,onKnob,k);p.setShadowLayer(2.2f*d,0f,.6f*d,0x2a000000);c.drawRoundRect(l,h/2-ry,r,h/2+ry,ry,ry,p);p.clearShadowLayer()}
 }
 
 /** One look for every pill slider: a solid fill in the text colour (no grey gradient, never dimmed), growing exactly
