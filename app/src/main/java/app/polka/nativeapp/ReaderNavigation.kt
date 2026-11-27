@@ -128,7 +128,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private fun bookmarkCard(item:JSONObject):View{
   val tone=a.fg and 0xffffff
   val go={close();r.goToLocation(item.optInt("ch"),item.optInt("start",item.optInt("nativeOffset",0)))}
-  val card=a.line().apply{gravity=Gravity.CENTER_VERTICAL;a.floatCard(this,24);background=android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(24).toFloat();setStroke(1,(0x14 shl 24) or tone)}
+  val card=a.line().apply{gravity=Gravity.CENTER_VERTICAL;a.floatCard(this,24);background=Floating(a,android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(24).toFloat();setStroke(1,(0x14 shl 24) or tone)},a.d(24).toFloat())
    setPadding(a.d(14),a.d(10),a.d(10),a.d(10));isClickable=true;setOnClickListener{go()};a.press(this);contentDescription="Закладка: ${r.chapterName(item.optInt("ch"))}"}
   card.addView(IconView(a,"bookmark",a.muted),LinearLayout.LayoutParams(a.d(20),a.d(20)).apply{rightMargin=a.d(12)})
   val texts=a.column()

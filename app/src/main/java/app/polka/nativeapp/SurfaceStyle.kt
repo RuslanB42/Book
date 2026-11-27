@@ -53,45 +53,66 @@ internal class LiquidSpring(private val changed:(Float,Float)->Unit){
  fun to(target:Float){stop();val start=value;val speed=velocity;clock=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=620;interpolator=android.view.animation.LinearInterpolator();addUpdateListener{val t=currentPlayTime/1000f;val decay=exp(-15f*t);val wd=13f;val delta=start-target;val b=(speed+15f*delta)/wd;value=target+decay*(delta*cos(wd*t)+b*sin(wd*t));velocity=decay*((-15f*delta+wd*b)*cos(wd*t)+(-15f*b-wd*delta)*sin(wd*t));changed(value,velocity)};addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(animation:android.animation.Animator){value=target;velocity=0f;changed(value,velocity)}});start()}}
 }
 
-/** The floating shade (see [OpaqueSurface.float]): a soft shade all round, baked ONCE per size into a small blurred
- *  picture (live blur was slow: the shade showed up late and stepped in while the bars slid in). */
+/** The floating shade (see [OpaqueSurface.float]), after the references: light falls from above, so the shade lies
+ *  UNDER the card rather than round it — a broad soft pool, narrower than the card and dropped below it (its sides
+ *  tucked in, so no rim shows at the sides or the top), a short contact shade along the bottom edge that sets the card
+ *  on the page, and a very faint haze all round. Its sizes follow the card (a button gets a small one). On a light page
+ *  it is a cool grey, never flat black; on a dark one black and deeper, so it still reads. Dithered, so its long fall
+ *  shows no steps; the picture reaches past the whole fall, so it never ends in an edge. Baked ONCE per size into a
+ *  small blurred picture (live blur was slow: the shade showed up late and stepped in while the bars slid in). */
 internal object FloatShade{
  private val p=Paint(Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
- private val cache=object:android.util.LruCache<String,Bitmap>(24){override fun entryRemoved(e:Boolean,k:String,o:Bitmap,n:Bitmap?){}}
+ private class Baked(val bmp:Bitmap,val pad:Float)
+ private val cache=object:android.util.LruCache<String,Baked>(24){override fun entryRemoved(e:Boolean,k:String,o:Baked,n:Baked?){}}
  private val dst=RectF()
- /** Room round the shape for the whole soft fall (three sigmas of the wide shade and its drop): a smaller margin cut
-  *  the shade off at the bitmap's edge, which showed as a faint box round the card. */
- private fun pad(a:MainActivity)=a.d(72).toFloat()
- private fun bake(a:MainActivity,w:Int,h:Int,light:Boolean,shape:(Canvas,Paint,Float)->Unit):Bitmap?{
-  val key="$w:$h:$light:${shape.hashCode()}";cache.get(key)?.let{return it}
-  val pad=pad(a);val W=(w+2*pad).toInt();val H=(h+2*pad).toInt()
-  // Only wide, faint gaussians: one broad fall a little below the card and a soft near one. No tight contact layer —
-  // that was the line you could see round every plaque, and on a dark page the dark shades read as black patches.
-  val wide=Glow.blurred(W,H,4,a.d(22).toFloat()){c,pp->pp.color=0x12000000;shape(c,pp,pad)}?:return null
-  val near=Glow.blurred(W,H,4,a.d(9).toFloat()){c,pp->pp.color=0x08000000;shape(c,pp,pad)}
-  val out=Bitmap.createBitmap(wide.width,wide.height,Bitmap.Config.ARGB_8888);val c=Canvas(out);val fp=Paint(Paint.FILTER_BITMAP_FLAG)
-  // the shades are baked at a quarter of the size, so their drops are in quarters too (light from above)
-  c.drawBitmap(wide,0f,a.d(6)/4f,fp);near?.let{c.drawBitmap(it,0f,a.d(2)/4f,fp);it.recycle()};wide.recycle()
-  cache.put(key,out);return out}
- private fun put(c:Canvas,a:MainActivity,b:Bitmap,r:RectF,opacity:Int){val pad=pad(a);dst.set(r.left-pad,r.top-pad,r.right+pad,r.bottom+pad);p.alpha=opacity;c.drawBitmap(b,null,dst,p)}
- /** On a dark page any shade darker than the page shows as a dark rim round the card, however soft: the dark
-  *  theme casts none (the lighter fill alone lifts the card). */
- fun draw(c:Canvas,a:MainActivity,r:RectF,radius:Float,light:Boolean,opacity:Int=255){if(!light)return;val w=r.width().toInt();val h=r.height().toInt();if(w<2||h<2)return
-  val rad=radius;bake(a,w,h,light,Shape.round(rad))?.let{put(c,a,it,r,opacity)}}
- fun drawPath(c:Canvas,a:MainActivity,path:Path,light:Boolean,opacity:Int=255){if(!light)return;val r=RectF();path.computeBounds(r,true);val w=r.width().toInt();val h=r.height().toInt();if(w<2||h<2)return
-  bake(a,w,h,light,Shape.path(path,r))?.let{put(c,a,it,r,opacity)}}
- /** Shapes with a stable identity per form, so each size and form is baked once. */
- private object Shape{
-  private val rounds=HashMap<Int,(Canvas,Paint,Float)->Unit>();private val paths=HashMap<String,(Canvas,Paint,Float)->Unit>()
-  fun round(r:Float)=rounds.getOrPut((r*10).toInt()){{c,pp,pad->c.drawRoundRect(pad,pad,c.width*4f-pad,c.height*4f-pad,r,r,pp)}}
-  fun path(path:Path,b:RectF):(Canvas,Paint,Float)->Unit{val shifted=Path(path).apply{offset(-b.left,-b.top)};val key="${b.width().toInt()}x${b.height().toInt()}:${shifted.hashCode()/1}"
-   return paths.getOrPut("${b.width().toInt()}x${b.height().toInt()}"){{c,pp,pad->c.save();c.translate(pad,pad);c.drawPath(shifted,pp);c.restore()}}}
- }
+ /** One gaussian: how far it is tucked in at the sides and the top, dropped below, its spread (dp, for a card 170dp
+  *  high) and its strength on a light and on a dark page. */
+ private class Layer(val inX:Float,val inTop:Float,val dy:Float,val sigma:Float,val light:Float,val dark:Float)
+ private val layers=listOf(Layer(22f,26f,16f,16f,.18f,.62f),Layer(4f,8f,3f,4f,.08f,.55f),Layer(0f,0f,4f,26f,.05f,.20f))
+ private const val LIGHT_TINT=0x181b28
+ private fun scale(a:MainActivity,w:Int,h:Int)=(min(w,h)/a.d(170).toFloat()).coerceIn(.35f,1.3f)
+ private fun bake(a:MainActivity,w:Int,h:Int,light:Boolean,shapeKey:String,shape:(Canvas,Paint,RectF)->Unit):Baked?{
+  val key="$w:$h:$light:$shapeKey";cache.get(key)?.let{return it}
+  // (sizes come in steps of 8dp, so a card that grows is not baked again every frame; the picture is stretched the
+  // few pixels to the card, which no soft shade shows)
+  val s=scale(a,w,h);val dp=a.resources.displayMetrics.density*s
+  // room for the haze's whole fall (three sigmas past its drop)
+  val pad=(4f+3f*26f)*dp+a.d(4);val W=(w+2*pad).toInt();val H=(h+2*pad).toInt()
+  val out=try{Bitmap.createBitmap(max(1,W/4),max(1,H/4),Bitmap.Config.ARGB_8888)}catch(e:Throwable){return null};val c=Canvas(out);val fp=Paint(Paint.FILTER_BITMAP_FLAG)
+  val tint=if(light)LIGHT_TINT else 0
+  for(l in layers){val r=RectF(pad+l.inX*dp,pad+(l.inTop+l.dy)*dp,pad+w-l.inX*dp,pad+h+l.dy*dp);if(r.width()<=1f||r.height()<=1f)continue
+   val b=Glow.blurred(W,H,4,l.sigma*dp){cc,pp->pp.color=tint or (0xff shl 24);shape(cc,pp,r)}?:continue
+   fp.alpha=((if(light)l.light else l.dark)*255).roundToInt();c.drawBitmap(b,0f,0f,fp);b.recycle()}
+  // dither: a step of the page's colour is about 255/its brightness steps of the shade's alpha (one on a light page,
+  // about twelve on a dark one), so the noise is half a step of the page's colour
+  val amp=if(light)1 else 8;val n=out.width*out.height;val px=IntArray(n);out.getPixels(px,0,out.width,0,0,out.width,out.height);val rnd=java.util.Random(7)
+  // (thinning out where the shade fades away, so the clear page round it gets no grain)
+  for(i in 0 until n){val al=px[i] ushr 24;if(al==0)continue;val k=min(amp,1+al*amp/16);px[i]=((al+rnd.nextInt(2*k+1)-k).coerceIn(0,255) shl 24) or tint}
+  out.setPixels(px,0,out.width,0,0,out.width,out.height)
+  return Baked(out,pad).also{cache.put(key,it)}}
+ private fun put(c:Canvas,b:Baked,r:RectF,opacity:Int){dst.set(r.left-b.pad,r.top-b.pad,r.right+b.pad,r.bottom+b.pad);p.alpha=opacity;c.drawBitmap(b.bmp,null,dst,p)}
+ private fun step(a:MainActivity,v:Float):Int{val q=a.d(8);return max(q,((v/q).roundToInt())*q)}
+ fun draw(c:Canvas,a:MainActivity,r:RectF,radius:Float,light:Boolean,opacity:Int=255){if(r.width()<2||r.height()<2)return;val w=step(a,r.width());val h=step(a,r.height())
+  bake(a,w,h,light,"r${(radius*10).toInt()}"){cc,pp,to->cc.drawRoundRect(to,radius,radius,pp)}?.let{put(c,it,r,opacity)}}
+ fun drawPath(c:Canvas,a:MainActivity,path:Path,light:Boolean,opacity:Int=255){val r=RectF();path.computeBounds(r,true);if(r.width()<2||r.height()<2)return;val w=step(a,r.width());val h=step(a,r.height())
+  val from=RectF(r);bake(a,w,h,light,"p${path.hashCode()}"){cc,pp,to->val m=Matrix();m.setRectToRect(from,to,Matrix.ScaleToFit.FILL);cc.drawPath(Path(path).apply{transform(m)},pp)}?.let{put(c,it,r,opacity)}}
 }
+/** The floating shade under [card], drawn by its parent: for a card that clips itself to its outline (which would cut
+ *  off a shade of its own). The parent is redrawn whenever the card moves or changes size. */
+internal class ShadeUnder(private val a:MainActivity,private val card:View,private val radiusPx:Float):Drawable(){
+ private val r=RectF()
+ override fun draw(c:Canvas){if(card.visibility!=View.VISIBLE||card.width<2||card.parent==null)return
+  r.set(card.left+card.translationX,card.top+card.translationY,card.right+card.translationX,card.bottom+card.translationY);FloatShade.draw(c,a,r,radiusPx,a.light,(255*card.alpha.coerceIn(0f,1f)).roundToInt())}
+ override fun setAlpha(alpha:Int){}
+ override fun setColorFilter(f:ColorFilter?){}
+ @Deprecated("Deprecated in Java") override fun getOpacity()=PixelFormat.TRANSLUCENT
+}
+internal fun MainActivity.shadeUnder(card:View,radiusDp:Int=24){val host=card.parent as? View?:return
+ host.background=ShadeUnder(this,card,d(radiusDp).toFloat());card.addOnLayoutChangeListener{_,_,_,_,_,_,_,_,_->host.invalidate()}}
 /** Any drawable with the floating shade under it (for plain shapes: cards, the add button). */
-internal class Floating(private val a:MainActivity,private val inner:Drawable,private val radiusPx:Float):Drawable(),Drawable.Callback{
+internal class Floating(private val a:MainActivity,private val inner:Drawable,private val radiusPx:Float,private val strength:Float=1f):Drawable(),Drawable.Callback{
  init{inner.callback=this}
- override fun draw(c:Canvas){FloatShade.draw(c,a,RectF(bounds),radiusPx.coerceAtMost(bounds.height()/2f),a.light);inner.draw(c)}
+ override fun draw(c:Canvas){FloatShade.draw(c,a,RectF(bounds),radiusPx.coerceAtMost(bounds.height()/2f),a.light,(255*strength.coerceIn(0f,1f)).roundToInt());inner.draw(c)}
  override fun onBoundsChange(b:Rect){inner.bounds=b}
  override fun isStateful()=inner.isStateful
  override fun onStateChange(state:IntArray):Boolean{val ch=inner.setState(state);if(ch)invalidateSelf();return ch}

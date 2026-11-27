@@ -105,7 +105,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   fun renderQuotes(animated:Boolean=false,unfold:Boolean=false,settle:Boolean=false){
    folding=false;val cards=mutableListOf<View>();val extras=mutableListOf<View>()
    val fan=unfold&&animated&&!reducedMotion()
-   quoteReveal.change(animated,dissolveInk=!unfold&&!settle,crossfadeInk=fan||settle,duration=if(fan)580L else if(settle)200L else 360L,clip=!(fan||settle),curve=if(fan)android.view.animation.PathInterpolator(.32f,.06f,.16f,1f) else MotionSpec.enter){
+   quoteReveal.change(animated,dissolveInk=!unfold&&!settle,crossfadeInk=fan||settle,duration=if(fan)580L else if(settle)200L else 360L,curve=if(fan)android.view.animation.PathInterpolator(.32f,.06f,.16f,1f) else MotionSpec.enter){
    quoteBody.removeAllViews()
    val quotes=book.optJSONArray("quotes")?.objects().orEmpty().sortedWith(compareBy<JSONObject>{it.optInt("ch")}.thenBy{it.optInt("start")})
    quoteSection.visibility=if(quotes.isEmpty())View.GONE else View.VISIBLE
@@ -135,13 +135,12 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
     // Fan-out in lockstep with the growing block: every frame (after layout, before draw) each card is placed
     // between its spot in the pile (narrower, a few dp lower, behind the first) and its final spot.
     val pile=a.d(9).toFloat();val inset=a.d(12).toFloat()
-    cards.forEach{it.setLayerType(View.LAYER_TYPE_HARDWARE,null)}
     val driver=object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
      val p=quoteReveal.progress
      cards.forEachIndexed{i,c->if(c.width>0){val k=minOf(i,2);val t=((p-i*.07f)/(1f-.14f)).coerceIn(0f,1f)
       c.pivotX=c.width/2f;c.pivotY=0f;c.translationY=(-c.top+pile*k)*(1f-t);val sx=(c.width-2*inset*k)/c.width;c.scaleX=sx+(1f-sx)*t;c.translationZ=-a.d(3)*k*(1f-t);c.alpha=if(i<3)1f else t}}
      extras.forEach{e->val t=((p-.55f)/.45f).coerceIn(0f,1f);e.alpha=t;e.translationY=a.d(10)*(1f-t)}
-     if(p>=1f){cards.forEach{it.setLayerType(View.LAYER_TYPE_NONE,null)};if(quoteBody.viewTreeObserver.isAlive)quoteBody.viewTreeObserver.removeOnPreDrawListener(this)}
+     if(p>=1f){if(quoteBody.viewTreeObserver.isAlive)quoteBody.viewTreeObserver.removeOnPreDrawListener(this)}
      return true}}
     quoteBody.viewTreeObserver.addOnPreDrawListener(driver)
    }
@@ -153,9 +152,9 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
    val quotes=book.optJSONArray("quotes")?.objects().orEmpty()
    if(reducedMotion()||cards.isEmpty()||quotes.isEmpty()||!quoteReveal.isLaidOut||quoteBody.width<=0){quotePage=0;renderQuotes(true);return}
    val w=quoteBody.width;val probe=a.quoteStack(book,quotes){};probe.measure(View.MeasureSpec.makeMeasureSpec(w,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));probe.layout(0,0,w,probe.measuredHeight)
-   val picture=android.graphics.Bitmap.createBitmap(w,probe.measuredHeight.coerceAtLeast(1),android.graphics.Bitmap.Config.ARGB_8888);probe.draw(android.graphics.Canvas(picture))
+   val picture=quoteReveal.picture(probe,w,probe.measuredHeight)
    val pile=a.d(9).toFloat();val inset=a.d(12).toFloat();val extras=(0 until quoteBody.childCount).map{quoteBody.getChildAt(it)}.filter{it !in cards}
-   folding=true;cards.forEach{it.animate().cancel();it.setLayerType(View.LAYER_TYPE_HARDWARE,null)}
+   folding=true;cards.forEach{it.animate().cancel()}
    quoteReveal.overlay=picture;quoteReveal.overlayAlpha=0f
    quoteReveal.animateHeight(probe.measuredHeight,440L,android.view.animation.PathInterpolator(.33f,0f,.2f,1f),{p->
     cards.forEachIndexed{i,c->if(c.width>0){val k=minOf(i,2);val back=cards.size-1-i;val q=((p-back*.05f)/(1f-.1f)).coerceIn(0f,1f)
@@ -163,12 +162,12 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
      c.alpha=1f-((q-.55f)/.45f).coerceIn(0f,1f)}}
     extras.forEach{e->e.alpha=(1f-p/.3f).coerceIn(0f,1f)}
     quoteReveal.overlayAlpha=((p-.45f)/.5f).coerceIn(0f,1f)
-   }){cards.forEach{it.setLayerType(View.LAYER_TYPE_NONE,null)};quotePage=0;renderQuotes()}
+   }){quotePage=0;renderQuotes()}
   }
   collapseQuotes={cards->collapseQuotesImpl(cards)}
   updates.add{val key=(book.optJSONArray("quotes")?.toString()?:"[]")+(book.optJSONArray("notes")?.toString()?:"[]");if(key!=quoteKey){quoteKey=key;renderQuotes()}}
   val feedback=section(26);heading(feedback,"Оценка");val review=ReviewBlock(a,book)
-  feedback.addView(review,LinearLayout.LayoutParams(-1,-2));updates.add{review.sync()}
+  feedback.addView(review,LinearLayout.LayoutParams(-1,-2));a.shadeUnder(review);updates.add{review.sync()}
   val info=section(26);heading(info,"Подробности");val infoBody=insetCard();info.addView(infoBody);var infoKey=""
   updates.add{val rows=mutableListOf<Pair<String,String>>();if(book.str("series").isNotBlank())rows.add("Серия" to (book.str("series")+if(book.optDouble("seriesNo",0.0)>0)" · ${book.str("seriesNo")}" else ""));book.optJSONArray("genres")?.strings()?.takeIf{it.isNotEmpty()}?.let{rows.add("Жанры" to it.joinToString(", "))};if(book.optInt("year")!=0)rows.add("Год" to book.optInt("year").toString());if(book.str("lang").isNotBlank())rows.add("Язык" to when(book.str("lang")){"ru"->"Русский";"en"->"Английский";else->book.str("lang").uppercase()});rows.add("Файл" to if(book.optBoolean("noFile"))"Ещё не добавлен" else book.str("format").uppercase()+if(book.optLong("size")>0)" · ${book.optLong("size")/1024} КБ" else "");if(book.optLong("addedAt")>0)rows.add("Добавлена" to java.text.SimpleDateFormat("d MMM yyyy",java.util.Locale("ru")).format(java.util.Date(book.optLong("addedAt"))));if(book.optInt("edits")>0)rows.add("Правки текста" to "${book.optInt("edits")} сохранений");val key=rows.toString();if(key!=infoKey){infoKey=key;infoBody.removeAllViews();rows.forEachIndexed{i,(label,value)->if(i>0)divider(infoBody);val row=a.line();row.addView(a.text(label,13f,a.muted),LinearLayout.LayoutParams(0,-2,.35f));row.addView(a.text(value,14f).apply{gravity=Gravity.END;setPadding(a.d(12),0,0,0)},LinearLayout.LayoutParams(0,-2,.65f));infoBody.addView(row)}}}
   a.followInsets(this){i->panel.layoutParams=(panel.layoutParams as LayoutParams).apply{topMargin=a.d(48)+i.top};content.setPadding(0,0,0,a.d(28)+i.bottom);top.setPadding(a.d(12)+i.left,a.d(18),a.d(12)+i.right,0);main.setPadding(a.d(20)+i.left,0,a.d(20)+i.right,0)}

@@ -18,10 +18,13 @@ fun MainActivity.quotes() {
 }
 private fun quoteWord(n:Int)=if(n%100 in 11..14)"цитат" else when(n%10){1->"цитата";2,3,4->"цитаты";else->"цитат"}
 internal fun MainActivity.floatCard(v:View,radiusDp:Int=24,color:Int=if(light)Color.WHITE else 0xff242426.toInt(),lift:Int=if(light)8 else 10){
-    val r=d(radiusDp).toFloat();v.background=android.graphics.drawable.GradientDrawable().apply{setColor(color);cornerRadius=r};v.elevation=d(lift).toFloat()
+    // the card floats on the drawn shade (see [FloatShade]); a lower card in a pile casts a weaker one. The elevation only
+    // keeps the order of a pile; Android's own shadow is off, it would add a second, harder one.
+    val r=d(radiusDp).toFloat();v.background=Floating(this,android.graphics.drawable.GradientDrawable().apply{setColor(color);cornerRadius=r},r,lift/(if(light)8f else 10f));v.elevation=d(lift).toFloat()
     v.outlineProvider=object:ViewOutlineProvider(){override fun getOutline(view:View,o:Outline){o.setRoundRect(0,0,view.width,view.height,r)}}
-    // a faint key-light shadow in the light theme only (the theme has no ambient ring); on a dark page none at all
-    if(android.os.Build.VERSION.SDK_INT>=28)v.outlineSpotShadowColor=if(light)Color.BLACK else Color.TRANSPARENT
+    if(android.os.Build.VERSION.SDK_INT>=28){v.outlineSpotShadowColor=Color.TRANSPARENT;v.outlineAmbientShadowColor=Color.TRANSPARENT}
+    // faded without an offscreen layer: a layer is cut to the card, and so would be its shade
+    v.forceHasOverlappingRendering(false)
 }
 /** A real pile: one or two narrower sheets peek out under the front card, each with its own shadow. */
 internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){
