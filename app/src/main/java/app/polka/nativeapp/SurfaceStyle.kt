@@ -27,14 +27,12 @@ internal class OpaqueSurface(private val a:MainActivity,private val radiusDp:Flo
   tint!=null->tint!!;floats&&!light&&lift==Lift.OVER->Ui.menu(false);floats&&!light&&lift==Lift.FLOAT->Ui.card(false);sheet->if(themeLight==null)a.sheetColor else Ui.sheet(light);else->Ui.control(light)}}
  /** A colour of its own instead of the theme's: the reader's bars take their page's (see [ReaderTint]). */
  internal var tint:Int?=null
- /** A round button seen smaller than it is to tap (dp): 40 seen inside its 48 (see [Size.ROUND]). */
- internal var seen:Float?=null
  /** A chip seen lower than it is to tap (dp): 36 seen in its 48. */
  internal var seenHeight:Float?=null
  private val pressColor:Int get()=if(themeLight?:a.light)0xffe6e6e9.toInt() else 0xff38383c.toInt()
  private var press=0f;private var pressAnim:android.animation.ValueAnimator?=null
  internal val fillColor:Int get()=if(press<=0f)restColor else androidx.core.graphics.ColorUtils.blendARGB(restColor,pressColor,press)
- override fun onBoundsChange(bounds:Rect){val r=RectF(bounds);seen?.let{s->val px=s*a.resources.displayMetrics.density;if(r.width()>px&&r.height()>px)r.inset((r.width()-px)/2f,(r.height()-px)/2f)};seenHeight?.let{s->val px=s*a.resources.displayMetrics.density;if(r.height()>px)r.inset(0f,(r.height()-px)/2f)};val radius=radiusDp*a.resources.displayMetrics.density;path.rewind();if(flushBottom||flushTop)path.addRoundRect(r,floatArrayOf(if(flushTop)0f else radius,if(flushTop)0f else radius,if(flushTop)0f else radius,if(flushTop)0f else radius,if(flushBottom)0f else radius,if(flushBottom)0f else radius,if(flushBottom)0f else radius,if(flushBottom)0f else radius),Path.Direction.CW)else path.addRoundRect(r,radius,radius,Path.Direction.CW)}
+ override fun onBoundsChange(bounds:Rect){val r=RectF(bounds);seenHeight?.let{s->val px=s*a.resources.displayMetrics.density;if(r.height()>px)r.inset(0f,(r.height()-px)/2f)};val radius=radiusDp*a.resources.displayMetrics.density;path.rewind();if(flushBottom||flushTop)path.addRoundRect(r,floatArrayOf(if(flushTop)0f else radius,if(flushTop)0f else radius,if(flushTop)0f else radius,if(flushTop)0f else radius,if(flushBottom)0f else radius,if(flushBottom)0f else radius,if(flushBottom)0f else radius,if(flushBottom)0f else radius),Path.Direction.CW)else path.addRoundRect(r,radius,radius,Path.Direction.CW)}
  override fun draw(c:Canvas){if(float&&!flushTop&&!flushBottom)FloatShade.draw(c,a,RectF(bounds),radiusDp*a.resources.displayMetrics.density,themeLight?:a.light,opacity,lift=lift)
   else if(float)FloatShade.drawPath(c,a,path,themeLight?:a.light,opacity,flushBottom,lift)
   paint.color=fillColor;paint.alpha=opacity;c.drawPath(path,paint)}

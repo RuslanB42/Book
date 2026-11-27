@@ -2,8 +2,12 @@ package app.polka.nativeapp
 
 import android.graphics.Color
 import android.os.Build
+import android.graphics.Rect
 import android.view.HapticFeedbackConstants
+import android.view.MotionEvent
+import android.view.TouchDelegate
 import android.view.View
+import android.view.ViewGroup
 
 /*
  * The design system (approved «Glyph: система перед релизом»). Screens take sizes, colours, radii and motion from
@@ -128,3 +132,27 @@ internal enum class Haptic{
         THRESHOLD->if(Build.VERSION.SDK_INT>=34)HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE else HapticFeedbackConstants.CLOCK_TICK}
 }
 internal fun View.haptic(a:MainActivity,kind:Haptic){if(a.prefs.optBoolean("haptics",true))performHapticFeedback(kind.constant())}
+
+/** A small control keeps its look and still takes the 48 dp a finger needs: [host], an ancestor with room round it,
+ *  passes on the taps that land near it (see [GrowTouch]). */
+internal fun View.growTouch(a:MainActivity,host:ViewGroup){val v=this
+    host.addOnLayoutChangeListener{_,_,_,_,_,_,_,_,_->host.post{GrowTouch.of(host).place(v,a.d(Size.TOUCH))}}}
+
+/** Several grown tap areas in one parent (Android's own [TouchDelegate] holds only one). */
+internal class GrowTouch private constructor(private val host:ViewGroup):TouchDelegate(Rect(),host){
+    companion object{fun of(host:ViewGroup)=(host.touchDelegate as? GrowTouch)?:GrowTouch(host).also{host.touchDelegate=it}}
+    private val areas=LinkedHashMap<View,TouchDelegate>()
+    private var active:TouchDelegate?=null
+    fun place(v:View,size:Int){
+        if(!v.isAttachedToWindow||v.width==0||v.visibility!=View.VISIBLE){areas.remove(v);return}
+        val r=Rect();v.getDrawingRect(r)
+        try{host.offsetDescendantRectToMyCoords(v,r)}catch(_:IllegalArgumentException){areas.remove(v);return}
+        r.inset(-maxOf(0,(size-r.width()+1)/2),-maxOf(0,(size-r.height()+1)/2))
+        areas[v]=TouchDelegate(r,v)}
+    override fun onTouchEvent(e:MotionEvent):Boolean{
+        if(e.actionMasked==MotionEvent.ACTION_DOWN){active=areas.values.firstOrNull{it.onTouchEvent(e)};return active!=null}
+        val d=active?:return false
+        val done=d.onTouchEvent(e)
+        if(e.actionMasked==MotionEvent.ACTION_UP||e.actionMasked==MotionEvent.ACTION_CANCEL)active=null
+        return done}
+}

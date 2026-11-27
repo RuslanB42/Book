@@ -49,7 +49,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val series=a.text("",Type.CAPTION,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(7),0,0)};main.addView(series);updates.add{series.text=book.str("series");series.visibility=if(series.text.isBlank())View.GONE else View.VISIBLE}
   // approved: the book's shelves are a quiet tag under the author; it opens the same sheet as the status
   val shelfTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true;contentDescription="Полки, сменить"
-   background=android.graphics.drawable.InsetDrawable(a.shape(Ui.fill(a.light),Radius.R20),0,a.d(6),0,a.d(6));setOnClickListener{a.statusSheet(book)};a.press(this)}
+   background=a.shape(Ui.fill(a.light),Radius.R16);setOnClickListener{a.statusSheet(book)};a.press(this)}
   shelfTag.addView(IconView(a,"shelves",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
   val shelf=a.text("",Type.SECONDARY).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)};live(shelf){BookShelves.of(book).joinToString(", ").ifBlank{"Без полки"}}
   // when the two tags don't fit side by side, the shelves' names give way (with «…»), never the arrow after it
@@ -57,15 +57,17 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   shelfTag.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
   // approved: the reading status is a second tag of the same kind, beside the shelf
   val statusTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true
-   background=android.graphics.drawable.InsetDrawable(a.shape(Ui.fill(a.light),Radius.R20),0,a.d(6),0,a.d(6));setOnClickListener{a.statusSheet(book)};a.press(this)}
+   background=a.shape(Ui.fill(a.light),Radius.R16);setOnClickListener{a.statusSheet(book)};a.press(this)}
   val statusIcon=StatusIcon(a,BookStatus.icon(Library.status(book)),a.muted);statusTag.addView(statusIcon,LinearLayout.LayoutParams(a.d(16),a.d(16)))
   val statusName=a.text("",Type.SECONDARY).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1};live(statusName){BookStatus.name(Library.status(book))};statusTag.addView(statusName)
   statusTag.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
   updates.add{val s=Library.status(book);statusIcon.kind=BookStatus.icon(s);statusTag.contentDescription="Статус: ${BookStatus.name(s)}, сменить"}
   statusTag.contentDescription="Статус: ${BookStatus.name(Library.status(book))}, сменить"
   val tags=a.line().apply{gravity=Gravity.CENTER}
-  tags.addView(statusTag,LinearLayout.LayoutParams(-2,a.d(Size.TOUCH)));tags.addView(shelfTag,LinearLayout.LayoutParams(-2,a.d(Size.TOUCH)).apply{marginStart=a.d(8)})
-  main.addView(tags,LinearLayout.LayoutParams(-1,a.d(Size.TOUCH)).apply{topMargin=a.d(8)})
+  tags.addView(statusTag,LinearLayout.LayoutParams(-2,a.d(32)));tags.addView(shelfTag,LinearLayout.LayoutParams(-2,a.d(32)).apply{marginStart=a.d(8)})
+  // seen as approved (32 dp), tapped across 48
+  statusTag.growTouch(a,main);shelfTag.growTouch(a,main)
+  main.addView(tags,LinearLayout.LayoutParams(-1,a.d(32)).apply{topMargin=a.d(14)})
   a.space(main,24)
   fun insetCard()=a.column().apply{a.floatCard(this,24);setPadding(a.d(16),a.d(16),a.d(16),a.d(16))}
   fun divider(parent:LinearLayout){parent.addView(View(a).apply{setBackgroundColor(hair())},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})}

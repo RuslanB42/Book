@@ -72,19 +72,21 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
    val cover=CoverView(a,book,a.cover(book));card.addView(cover,FrameLayout.LayoutParams(a.d(92),a.d(138),Gravity.BOTTOM or Gravity.START).apply{marginStart=a.d(16);bottomMargin=a.d(14)})
    card.cover=cover;covers.add(cover)
    val words=a.column().apply{gravity=Gravity.BOTTOM;setPadding(a.d(124),a.d(16),a.d(18),a.d(16));clipChildren=false;clipToPadding=false}
-   words.addView(a.text(book.str("title"),Type.BODY,a.fg,true).apply{maxLines=1;isSingleLine=true;ellipsize=TextUtils.TruncateAt.END})
+   words.addView(a.text(book.str("title"),Type.TEXT,a.fg,true).apply{maxLines=1;isSingleLine=true;ellipsize=TextUtils.TruncateAt.END})
    a.space(words,3);words.addView(a.text(MainActivity.authors(book),Type.SECONDARY,a.muted).apply{maxLines=1;ellipsize=TextUtils.TruncateAt.END})
    a.space(words,12)
    val pct=(book.optJSONObject("progress")?.optDouble("pct",0.0)?:0.0).toFloat().coerceIn(0f,1f)
    val meter=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
    val bar=HeroProgress(a,pct);bars.add(bar)
    meter.addView(bar,LayoutParams(0,a.d(8),1f))
-   meter.addView(a.text("${(pct*100).roundToInt()}%",Type.SECONDARY,a.muted),LayoutParams(-2,-2).apply{marginStart=a.d(8)})
-   words.addView(meter,LayoutParams(-1,-2));a.space(words,6)
+   meter.addView(a.text("${(pct*100).roundToInt()}%",Type.CAPTION,a.muted),LayoutParams(-2,-2).apply{marginStart=a.d(8)})
+   words.addView(meter,LayoutParams(-1,-2));a.space(words,12)
    val buttons=a.line()
    buttons.addView(pill("Читать",true,"Читать: ${book.str("title")}"){a.openBook(book,cover)},LayoutParams(0,-2,1f))
    buttons.addView(pill("О книге",false,"О книге ${book.str("title")}"){a.detail(book,cover)},LayoutParams(0,-2,1f).apply{marginStart=a.d(8)})
    words.addView(buttons)
+   // the buttons look as approved (32 dp) and still take the 48 dp a finger needs, round them inside the card
+   for(i in 0 until buttons.childCount)buttons.getChildAt(i).growTouch(a,card)
    card.addView(words,0,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));card.words=words;texts.add(words)
    // the card itself does nothing on a touch (no opening, no press animation): only its buttons answer
    card.isClickable=false
@@ -128,10 +130,9 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
   val hsv=FloatArray(3);Color.colorToHSV(base,hsv);val sat=(hsv[1]*.9f).coerceIn(.12f,.62f)
   fun at(v:Float,s:Float)=Color.HSVToColor(floatArrayOf(hsv[0],s,v))
   return if(light)intArrayOf(at(.62f,sat),at(.52f,sat*.9f),at(.38f,sat*.7f)) else intArrayOf(at(.52f,sat),at(.40f,sat*.85f),at(.21f,sat*.5f))}
- private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,Type.TEXT,if(primary)a.bg else a.fg,true).apply{
-  // 40 dp seen, the whole 48 to tap
-  gravity=Gravity.CENTER;minHeight=a.d(Size.TOUCH);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(6),0,a.d(6),0);contentDescription=description;isClickable=true;isFocusable=true
-  background=android.graphics.drawable.InsetDrawable(if(primary)GradientDrawable().apply{setColor(a.fg);cornerRadius=a.d(Radius.R20).toFloat()} else GradientDrawable().apply{setColor(Ui.press(light));cornerRadius=a.d(Radius.R20).toFloat()},0,a.d(4),0,a.d(4))
+ private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,Type.SECONDARY,if(primary)a.bg else a.fg,true).apply{
+  gravity=Gravity.CENTER;minHeight=a.d(32);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(6),0,a.d(6),0);contentDescription=description;isClickable=true;isFocusable=true
+  background=if(primary)GradientDrawable().apply{setColor(a.fg);cornerRadius=a.d(Radius.R16).toFloat()} else GradientDrawable().apply{setColor(Ui.press(light));cornerRadius=a.d(Radius.R16).toFloat()}
   setOnClickListener{click()};pressy(this)}
  /** The buttons sink clearly under the finger and spring back when released. */
  private fun pressy(v:View){v.setOnTouchListener{view,e->view.background?.setHotspot(e.x,e.y);if(reduced)return@setOnTouchListener false
