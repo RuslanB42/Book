@@ -53,11 +53,7 @@ class SlidingSegment(val a:MainActivity,selected:Int,val count:Int,private val t
     init { orientation=HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; setPadding(a.d(2),a.d(2),a.d(2),a.d(2)); background=if(trackColor!=null)a.shape(trackColor,pillRadius)else a.controlSurface(this,12f); setWillNotDraw(false);spring.snap(index) }
     fun choose(value:Int) { val target=value.coerceIn(0,(count-1).coerceAtLeast(0)).toFloat();if(a.prefs.str("motion")=="reduced")spring.snap(target)else spring.to(target) }
     override fun onDraw(c:android.graphics.Canvas) { super.onDraw(c); val pad=a.d(2).toFloat(); val cell=(width-pad*2)/count;
-        // the selected thumb stands a little above the track: the app's shade at a touch's height, in both themes
-        // (kept inside the track: the thumb shades the track, not the page round it)
-        val r=if(thumbColor!=null)a.d(pillRadius-2).toFloat() else a.d(9).toFloat();val tr=if(trackColor!=null)a.d(pillRadius).toFloat() else a.d(12).toFloat()
-        c.save();c.clipPath(android.graphics.Path().apply{addRoundRect(0f,0f,width.toFloat(),height.toFloat(),tr,tr,android.graphics.Path.Direction.CW)})
-        FloatShade.draw(c,a,android.graphics.RectF(pad+cell*index,pad,pad+cell*(index+1),height-pad),r,a.light,lift=Lift.TOUCH);c.restore()
+        // the selected thumb lies flat in its track: no shade (as asked, on every such switch)
 if(thumbColor!=null){ink.color=thumbColor;c.drawRoundRect(pad+cell*index,pad,pad+cell*(index+1),height-pad,a.d(pillRadius-2).toFloat(),a.d(pillRadius-2).toFloat(),ink)}else{c.save();c.translate(pad+cell*index,pad);segmentThumb.setBounds(0,0,cell.toInt(),(height-pad*2).toInt());segmentThumb.draw(c);c.restore()} }
     override fun onDetachedFromWindow() { spring.stop(); super.onDetachedFromWindow() }
 }

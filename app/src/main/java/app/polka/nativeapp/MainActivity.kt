@@ -186,6 +186,11 @@ class MainActivity : Activity() {
     /** A swipe back finished: the list this page came from is already uncovered; it is built live where it was. */
     internal fun swipedBack(){if(shelf==null&&auto==null)return;navRevealed=true;shelfMorph=null
         val y=backdropY;val back=if(backdrop!=null)backdropTab else "shelves";shelf=null;auto=null;query="";tab=back;render(false,false);restoreScroll(y)}
+    /** The rebuilt page stays where it was: scrolled to [y] before its first frame is drawn, and that frame is skipped
+     *  so the rows for the place are laid out first (a posted scroll showed one frame of the page's top: after the book's
+     *  data was changed, closing its card flashed the top of the shelf). */
+    private fun keepScroll(y:Int){val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this)
+        if(sv.scrollY==y)return true;sv.scrollTo(0,y);return false}})}
     /** Scrolls the new page to [y] after its layout but before its first frame (a posted scroll showed a frame at the top). */
     private fun restoreScroll(y:Int){val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this);sv.scrollTo(0,y);return true}})}
     /** Into a shelf (yours or a status one). From its card on «Полки» ([from]) the card opens into the shelf (see
@@ -343,7 +348,7 @@ class MainActivity : Activity() {
         // which cut off the shelf glass (it reaches into the side margins) until the fade ended.
         page=col().apply{clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)};wrapper.addView(page,LinearLayout.LayoutParams(-1,-2))
         renderLibraryResults()
-        navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; words?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; tierList?.reattach(); if(preservePosition) scroll.post { scroll.scrollTo(0,oldY) }; gridSnap?.let { playGrid(it,if(preservePosition) oldY else null) }; if(gridSnap==null&&animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),MotionSpec.PAGE_IN)
+        navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; words?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; tierList?.reattach(); if(preservePosition) keepScroll(oldY); gridSnap?.let { playGrid(it,if(preservePosition) oldY else null) }; if(gridSnap==null&&animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),MotionSpec.PAGE_IN)
     }
     internal fun searchBooks():List<JSONObject> {val q=query.trim();return (if(tab=="home")homeBooks()else books).filter{(it.str("title")+" "+authors(it)+" "+it.str("series")+" "+BookShelves.of(it).joinToString(" ")).contains(q,true)}.sortedByDescending{maxOf(it.optLong("openedAt"),it.optLong("addedAt"))}}
     internal fun renderLibraryResults(){
