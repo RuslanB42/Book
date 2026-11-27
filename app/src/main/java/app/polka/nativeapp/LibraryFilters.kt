@@ -165,7 +165,9 @@ internal class FilterSheet(private val a:MainActivity,private val g:String){
 internal fun MainActivity.sortSheet(){
     val box=column();val rows=ArrayList<()->Unit>()
     // the lit row reaches a little past the sheet's text edge, so every name stays on one line
-    box.post{(box.parent as? ViewGroup)?.clipToPadding=false}
+    // (the sheet's content clips to its padding and its children to their bounds; it lets the list's rows out)
+    box.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewDetachedFromWindow(v:View){}
+        override fun onViewAttachedToWindow(v:View){(box.parent as? ViewGroup)?.apply{clipToPadding=false;clipChildren=false}}})
     fun pick(key:String){if(sort==key){if(key=="manual")return;prefs.put("sortReverse",!prefs.optBoolean("sortReverse"))}else{sort=key;prefs.put("sort",key);prefs.put("sortReverse",false)}
         savePreferences();rows.forEach{it()};render()}
     listOf("manual","recent","added","title","author","done").forEach{key->
