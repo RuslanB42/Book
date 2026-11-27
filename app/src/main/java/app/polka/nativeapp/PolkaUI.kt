@@ -4,6 +4,8 @@ import android.app.AlertDialog
 import android.content.DialogInterface
 import android.graphics.Typeface
 import android.graphics.Color
+import android.graphics.Canvas
+import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.*
@@ -324,51 +326,108 @@ internal class PolkaSheetFrame(private val a:MainActivity,internal val panel:Lin
 /** Replace, including deleted fields; preserve identity for open native views. */
 fun replaceJson(target:org.json.JSONObject,source:org.json.JSONObject) { if(target===source) return; val copy=source.copyJson(); target.keys().asSequence().toList().forEach { target.remove(it) }; copy.keys().forEach { target.put(it,copy.get(it)) } }
 
-/** Persistent native indicator; content updates do not restart its transition. */
-/** The active tab's pill, standing a little above its bar: the app's shade at a touch's height (see [Lift.TOUCH]),
- *  in both themes. */
-internal class LiftedPill(private val a:MainActivity,private val fill:Int):android.graphics.drawable.Drawable(){
-    private val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply{color=fill}
-    override fun draw(c:android.graphics.Canvas){val b=android.graphics.RectF(bounds);val r=b.height()/2f
-        FloatShade.draw(c,a,b,r,a.light,paint.alpha,lift=Lift.TOUCH)
-        c.drawRoundRect(b,r,r,paint)}
-    override fun setAlpha(alpha:Int){paint.alpha=alpha}
-    override fun setColorFilter(f:android.graphics.ColorFilter?){paint.colorFilter=f}
-    @Deprecated("Deprecated in Java") override fun getOpacity()=android.graphics.PixelFormat.TRANSLUCENT
-}
+/**
+ * The bottom bar (approved «Б»): flat, no shade. The chosen tab is a tonal pill with its icon and name; the others
+ * are icons sharing what is left of the row up to the «＋». 64dp tall, as the system bars are (Material 3's bar,
+ * iOS 26's tab bar): the pill is 52 with an even 6 round it, every tab at least 48 wide. Switching, the pill glides
+ * to the new tab while the tabs trade widths and the name fades in; the pill can be dragged along the bar.
+ */
 class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
-    private val pill=View(a)
-    private val buttons=mutableListOf<IconView>()
     private val keys=listOf("home","shelves","quotes","words")
+    private val labels=listOf("Книги","Полки","Цитаты","Слова")
+    private val names=listOf("Мои книги","Полки","Цитаты","Слова")
+    private val items=keys.indices.map{Item(it)}
     private var choose:((String)->Unit)?=null
-    private var dragStart=0f;private var dragOrigin=0f;private var dragging=false
-    override fun onInterceptTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){MotionEvent.ACTION_DOWN->{dragStart=e.x;dragOrigin=spring.value;dragging=false};MotionEvent.ACTION_MOVE->if(kotlin.math.abs(e.x-dragStart)>a.d(8)){dragging=true;parent?.requestDisallowInterceptTouchEvent(true);return true}};return false}
-    override fun onTouchEvent(e:MotionEvent):Boolean{if(!dragging)return super.onTouchEvent(e);when(e.actionMasked){MotionEvent.ACTION_MOVE->{spring.snap((dragOrigin+e.x-dragStart).coerceIn(0f,a.d((keys.size-1)*56).toFloat()));};MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{if(e.actionMasked==MotionEvent.ACTION_UP)spring.snap((dragOrigin+e.x-dragStart).coerceIn(0f,a.d((keys.size-1)*56).toFloat()));val index=if(e.actionMasked==MotionEvent.ACTION_CANCEL)selected else kotlin.math.round(spring.value/a.d(56)).toInt().coerceIn(0,keys.size-1);dragging=false;spring.to(a.d(index*56).toFloat());if(index!=selected)choose?.invoke(keys[index])}};return true}
     private var selected=-1
+    private var shown=-1
+    // where each tab is (left and width, inside the padding) and how much it is the chosen one: now, at the start of
+    // the move and at its end
+    private val x=FloatArray(4);private val w=FloatArray(4);private val s=FloatArray(4)
+    private val x0=FloatArray(4);private val w0=FloatArray(4);private val s0=FloatArray(4)
+    private val x1=FloatArray(4);private val w1=FloatArray(4);private val s1=FloatArray(4)
+    private val pill=RectF();private val pill0=RectF();private val pill1=RectF()
+    private var f=1f
+    private val spring=LiquidSpring{v,_->blend(v)}
+    private val pad=a.d(6)
+    private val narrow get()=a.resources.configuration.screenWidthDp<380
+    private val label=android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    private val fill=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    private var withNames=true
     private var theme:Boolean?=null
-    private var material=OpaqueSurface(a,30f)
-    private val spring=LiquidSpring{value,speed->pill.translationX=value;val stretch=(kotlin.math.abs(speed)/a.d(2000)).coerceAtMost(.09f);pill.scaleX=1+stretch;pill.scaleY=1-stretch*.45f;tint(value)}
-    /** Each icon takes its colour from how much of the sliding pill is under it right now: the dark «on the pill» ink and
-     *  the filled shape only where the pill is, so no icon ever turns dark on the bar (and vanishes) before the pill arrives
-     *  or stays muted on the pill after it has gone. */
-    private fun tint(x:Float){if(buttons.isEmpty())return;val step=a.d(56).toFloat()
-        buttons.forEachIndexed{i,b->val k=(1f-kotlin.math.abs(x-i*step)/step).coerceIn(0f,1f)
-            val ink=android.animation.ArgbEvaluator().evaluate(k,a.muted,a.bg) as Int;val on=k>.5f
-            if(b.ink!=ink||b.isSelected!=on){b.ink=ink;b.cut=a.fg;b.isSelected=on;b.invalidate()}}}
+    private val barColor get()=if(a.light)Color.WHITE else 0xff2a2a2c.toInt()
+    private val pillColor get()=if(a.light)0xffececef.toInt() else 0xff3d3d40.toInt()
+    private val padL get()=a.d(if(narrow)10 else 14).toFloat()
+    private val gap get()=a.d(if(narrow)6 else 8).toFloat()
+    private val icon get()=a.d(24).toFloat()
+
+    private inner class Item(val i:Int):View(a){
+        init{contentDescription=names[i];isClickable=true;isFocusable=true;a.press(this)}
+        override fun onDraw(c:Canvas){val k=s[i].coerceIn(0f,1f);val h=height.toFloat()
+            val ix=(width-icon)/2f+(padL-(width-icon)/2f)*(if(withNames)k else 0f)
+            c.save();c.translate(ix,(h-icon)/2f);c.scale(icon/24f,icon/24f)
+            IosIcons.draw(c,keys[i],androidx.core.graphics.ColorUtils.blendARGB(a.muted,a.fg,k),k>.5f&&IosIcons.hasFilled(keys[i]),pillColor);c.restore()
+            if(withNames&&k>.01f){label.color=a.fg;label.alpha=(255*k).toInt();val fm=label.fontMetrics
+                c.drawText(labels[i],ix+icon+gap,h/2f-(fm.ascent+fm.descent)/2f,label)}}
+    }
+
     init {
-        material.float=true;background=material;elevation=0f;clipChildren=false;clipToPadding=false
-        addView(pill,LayoutParams(a.d(52),a.d(48)).apply { leftMargin=a.d(5); topMargin=a.d(5) })
-        // The active tab's pill floats: a soft shadow under it; icons sit above it.
-        val row=a.line();keys.forEachIndexed { i,key->val button=IconView(a,key,a.muted).apply{contentDescription=listOf("Мои книги","Полки","Цитаты","Слова")[i];isClickable=true;isFocusable=true;a.press(this)};buttons.add(button);row.addView(button,LinearLayout.LayoutParams(a.d(52),a.d(48)).apply{if(i>0)marginStart=a.d(4)}) };addView(row,LayoutParams(-2,a.d(48)).apply{leftMargin=a.d(5);topMargin=a.d(5)})
+        setWillNotDraw(false);clipChildren=true
+        items.forEach{addView(it)}
     }
+
+    /** Where the tabs stand with [index] chosen: it as wide as its icon and name, the others sharing the rest. */
+    private fun target(index:Int){val inner=(width-2*pad).toFloat();if(inner<=0f)return
+        label.textSize=(if(narrow)14f else 15f)*a.resources.displayMetrics.scaledDensity;label.typeface=PolkaFonts.sans(600)
+        var chosen=padL+icon+gap+label.measureText(labels[index])+a.d(if(narrow)12 else 16)
+        withNames=(inner-chosen)/(keys.size-1)>=a.d(48)
+        if(!withNames)chosen=inner/keys.size
+        val rest=(inner-chosen)/(keys.size-1);var at=0f
+        for(i in keys.indices){val ww=if(i==index)chosen else rest;x1[i]=at;w1[i]=ww;s1[i]=if(i==index)1f else 0f;at+=ww}
+        pill1.set(x1[index],0f,x1[index]+w1[index],(height-2*pad).toFloat())}
+
+    private fun blend(v:Float){f=v
+        for(i in keys.indices){x[i]=x0[i]+(x1[i]-x0[i])*v;w[i]=w0[i]+(w1[i]-w0[i])*v;s[i]=s0[i]+(s1[i]-s0[i])*v}
+        pill.set(pill0.left+(pill1.left-pill0.left)*v,pill0.top,pill0.right+(pill1.right-pill0.right)*v,pill0.bottom+(pill1.bottom-pill0.bottom)*v)
+        place();items.forEach{it.invalidate()};invalidate()}
+
+    private fun place(){val h=height-2*pad;if(h<=0)return
+        items.forEachIndexed{i,v->val l=pad+x[i].toInt();v.layout(l,pad,l+kotlin.math.max(1,w[i].toInt()),pad+h)}}
+
+    /** Moves to [index] from wherever the bar is now (a move cut short goes on from where it is). */
+    private fun go(index:Int,animate:Boolean){shown=index;if(width==0)return;target(index)
+        if(!animate||a.prefs.str("motion")=="reduced"){x.indices.forEach{x0[it]=x1[it];w0[it]=w1[it];s0[it]=s1[it]};pill0.set(pill1);spring.snap(1f);return}
+        System.arraycopy(x,0,x0,0,4);System.arraycopy(w,0,w0,0,4);System.arraycopy(s,0,s0,0,4);pill0.set(pill)
+        if(pill0.isEmpty){pill0.set(pill1)}
+        spring.snap(0f);spring.to(1f)}
+
+    override fun onSizeChanged(nw:Int,nh:Int,ow:Int,oh:Int){super.onSizeChanged(nw,nh,ow,oh);if(shown>=0)go(shown,false)}
+    override fun onLayout(changed:Boolean,l:Int,t:Int,r:Int,b:Int){place()}
+    override fun onDraw(c:Canvas){super.onDraw(c);paintPill(c)}
+    private fun paintPill(c:Canvas){if(pill.isEmpty)return;fill.color=pillColor;val r=pill.height()/2f
+        c.drawRoundRect(pad+pill.left,pad+pill.top,pad+pill.right,pad+pill.bottom,r,r,fill)}
+    /** The bar's tabs and pill without its surface (the «＋» menu grows out of the bar and blurs these away). */
+    internal fun paintContent(c:Canvas){paintPill(c);items.forEach{v->c.save();c.translate(v.left.toFloat(),v.top.toFloat());v.draw(c);c.restore()}}
+
+    // the pill can be dragged along the bar: it goes to the tab under the finger and the tab is chosen on letting go
+    private var downX=0f;private var dragging=false
+    private fun under(px:Float):Int{val at=px-pad;for(i in keys.indices)if(at<x1[i]+w1[i])return i;return keys.size-1}
+    override fun onInterceptTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){MotionEvent.ACTION_DOWN->{downX=e.x;dragging=false}
+        MotionEvent.ACTION_MOVE->if(kotlin.math.abs(e.x-downX)>a.d(8)){dragging=true;parent?.requestDisallowInterceptTouchEvent(true);return true}};return false}
+    override fun onTouchEvent(e:MotionEvent):Boolean{if(!dragging)return super.onTouchEvent(e)
+        when(e.actionMasked){
+            MotionEvent.ACTION_MOVE->{val i=under(e.x);if(i!=shown)go(i,true)}
+            MotionEvent.ACTION_UP->{dragging=false;val i=under(e.x);if(i!=selected)choose?.invoke(keys[i]) else if(shown!=selected)go(selected,true)}
+            MotionEvent.ACTION_CANCEL->{dragging=false;if(shown!=selected)go(selected,true)}};return true}
+
     fun bind(tab:String,onSelect:(String)->Unit) {
-        choose=onSelect;
-        if(theme!=a.light){theme=a.light;material.float=true;material.refresh();pill.background=LiftedPill(a,a.fg)}
-        val index=keys.indexOf(tab).coerceAtLeast(0);val x=a.d(index*56).toFloat()
-        if(selected<0||a.prefs.str("motion")=="reduced")spring.snap(x)else if(selected!=index)spring.to(x);selected=index
-        buttons.forEachIndexed{i,b->b.cut=a.fg;b.setOnClickListener{onSelect(keys[i])}};tint(spring.value)
+        choose=onSelect
+        if(theme!=a.light){theme=a.light;background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(32).toFloat();setColor(barColor);if(a.light)setStroke(a.d(1),0x12000000)};invalidate()}
+        val index=keys.indexOf(tab).coerceAtLeast(0)
+        val first=selected<0;selected=index
+        items.forEachIndexed{i,v->v.isSelected=i==index;v.setOnClickListener{onSelect(keys[i])}}
+        if(first)go(index,false) else if(shown!=index)go(index,true)
     }
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(selected>=0&&kotlin.math.abs(spring.value-a.d(selected*56))>.01f){if(a.prefs.str("motion")=="reduced")spring.snap(a.d(selected*56).toFloat())else spring.to(a.d(selected*56).toFloat())}}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(f<.999f&&shown>=0)go(shown,true)}
     override fun onDetachedFromWindow(){spring.stop();super.onDetachedFromWindow()}
 }
 

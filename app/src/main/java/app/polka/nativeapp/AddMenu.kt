@@ -76,11 +76,11 @@ internal class AddMenu(private val a:MainActivity){
 
         init{
             setWillNotDraw(false);clipChildren=false;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
-            val w=min(a.d(300).toFloat(),fab.left-a.d(12)-from.left);val h=a.d(6)*2f+a.d(54)*3f+a.d(13)
+            val w=min(a.d(300).toFloat(),from.width());val h=a.d(6)*2f+a.d(54)*3f+a.d(13)
             to=RectF(from.left,from.bottom-h,from.left+w,from.bottom)
             // the bar's own icons, as they are now, to blur away inside the growing card
             runCatching{Bitmap.createBitmap(nav.width,nav.height,Bitmap.Config.ARGB_8888)}.getOrNull()?.let{bmp->val c=Canvas(bmp)
-                val g=nav as ViewGroup;for(i in 0 until g.childCount){val ch=g.getChildAt(i);c.save();c.translate(ch.left+ch.translationX,ch.top+ch.translationY);ch.draw(c);c.restore()}
+                (nav as? PolkaNavigation)?.paintContent(c)
                 snapshot.setImageBitmap(bmp)}
             snapshot.importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
             addView(snapshot,LayoutParams(nav.width,nav.height).apply{leftMargin=from.left.toInt();topMargin=from.top.toInt()})
@@ -127,10 +127,13 @@ internal class AddMenu(private val a:MainActivity){
         override fun onDraw(c:Canvas){
             if(dim>0f)c.drawColor(ColorUtils.setAlphaComponent(if(light)0xfff2f2f0.toInt() else Color.BLACK,((if(light)102 else 153)*dim).roundToInt()))
             val r=current();val k=t.coerceIn(0f,1f);val radius=r0+(r1-r0)*k
-            // the bar's shade into the menu's: each made for its own end and stretched to the shape between
-            if(k<1f)FloatShade.draw(c,a,r,radius,light,(255*(1f-k)).roundToInt(),lift=Lift.FLOAT,bakeAs=from)
+            // the bar has no shade; the menu over the page takes its own as it grows (made for its full size and
+            // stretched to the shape on the way)
             if(k>0f)FloatShade.draw(c,a,r,radius,light,(255*k).roundToInt(),lift=Lift.OVER,bakeAs=to)
-            fill.color=ColorUtils.blendARGB(barColor,menuColor,k);c.drawRoundRect(r,radius,radius,fill)}
+            fill.style=Paint.Style.FILL;fill.color=ColorUtils.blendARGB(barColor,menuColor,k);c.drawRoundRect(r,radius,radius,fill)
+            // the light bar's thin edge, gone once it is the menu
+            if(light&&k<1f){fill.style=Paint.Style.STROKE;fill.strokeWidth=a.d(1).toFloat();fill.color=ColorUtils.setAlphaComponent(Color.BLACK,(18*(1f-k)).roundToInt())
+                val e=a.d(1)/2f;c.drawRoundRect(r.left+e,r.top+e,r.right-e,r.bottom-e,radius-e,radius-e,fill)}}
 
         override fun dispatchDraw(c:Canvas){val r=current();val k=t.coerceIn(0f,1f);val radius=r0+(r1-r0)*k
             path.rewind();path.addRoundRect(r,radius,radius,Path.Direction.CW);c.save();c.clipPath(path);super.dispatchDraw(c);c.restore()}
