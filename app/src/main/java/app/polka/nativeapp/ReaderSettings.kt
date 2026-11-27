@@ -12,138 +12,157 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-/** «Оформление чтения» (approved design), inside the reader's bottom panel, so every change shows at once in the page
- *  above it. The main page holds brightness, theme, text size and font; «Ещё» and the font list open a level deeper. */
+/** A light tick under the finger for a choice made (when vibration is on in the settings). */
+internal fun View.tick(a:MainActivity,kind:Int=HapticFeedbackConstants.CLOCK_TICK){if(a.prefs.optBoolean("haptics",true))performHapticFeedback(kind)}
+
+/**
+ * Text settings in the reader's bottom panel (approved «Текст А: слоями, как в Apple Books»): «Текст» with the themes
+ * as cards, brightness, the size as one capsule and two rows, «Шрифт» and «Вёрстка» a level deeper. One grid: 16 dp
+ * at the panel's sides and between blocks, controls 48 dp high, rows 52 dp in cards. Every choice ticks.
+ */
 internal class ReaderSettings(private val a:MainActivity,private val r:NativeReader) {
     private val themes=listOf("night" to "Ночь","black" to "Чёрная","sepia" to "Сепия","paper" to "Бумага")
-    private val fonts=listOf(Triple("literata","Literata","для долгого чтения"),Triple("ptserif","PT Serif","классическая книжная"),Triple("sans","Без засечек","чистая и простая"))
+    private val fonts=listOf("literata" to "Literata","ptserif" to "PT Serif","sans" to "Без засечек")
     private val sheetColor get()=if(a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()
     private val pillColor get()=if(a.light)0x0f000000 else 0x11ffffff
-    private val onColor get()=if(a.light)0x1f000000 else 0x24ffffff
+    private val cardColor get()=if(a.light)Color.WHITE else 0xff2a2a2d.toInt()
+    private val muted2 get()=if(a.light)0xff6e6e73.toInt() else 0xffa4a4a4.toInt()
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    private val H get()=a.d(50)
-    private val GAP get()=a.d(12)
-    /** A held control lifts on a card 6dp round it: half the gap above, below and at the sides. */
-    private val RIM get()=a.d(6)
     private val refreshers=mutableListOf<()->Unit>()
 
-    /** Opens in the reader's bottom panel (approved «Читалка А»): «Текст», and «Ещё» and the fonts a level deeper. */
     fun show(){r.panel.push(ReaderPanel.Page("Текст",mainPage(),onReturn={refresh()}))}
 
     // ---- pages -------------------------------------------------------------------------------
 
     private fun mainPage():View{
-        val box=a.column().apply{clipChildren=false;clipToPadding=false};val gap=GAP
-        box.addView(brightnessRow())
-        box.addView(themeTiles(),LinearLayout.LayoutParams(-1,-2).apply{topMargin=gap-a.d(4);bottomMargin=-a.d(4);leftMargin=-a.d(4);rightMargin=-a.d(4)})
-        // the size slider is the wider one (it is dragged); held, it lifts on its own card and the rest steps aside
-        val fontSize=a.line().apply{gravity=Gravity.CENTER_VERTICAL;clipChildren=false;clipToPadding=false}
-        val sizeWrap=FrameLayout(a).apply{setPadding(RIM,RIM,RIM,RIM);clipChildren=false}
-        val size=sizeBar();sizeWrap.addView(size,FrameLayout.LayoutParams(-1,H));(size as? SizeBar)?.onGrab={on->spotlight(sizeWrap,on)}
-        fontSize.addView(sizeWrap,LinearLayout.LayoutParams(0,H+2*RIM,1.45f).apply{leftMargin=-RIM;topMargin=-RIM;bottomMargin=-RIM;rightMargin=-RIM})
-        fontSize.addView(fontButton(),LinearLayout.LayoutParams(0,H,1f).apply{leftMargin=a.d(10)})
-        box.addView(fontSize,LinearLayout.LayoutParams(-1,-2).apply{topMargin=gap})
-        val more=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(18),0,a.d(16),0);background=a.shape(pillColor,100);isClickable=true;a.press(this);setOnClickListener{open(layoutPage())}}
-        more.addView(a.text("Ещё",14.5f),LinearLayout.LayoutParams(0,-2,1f))
-        more.addView(Chevron(a),LinearLayout.LayoutParams(a.d(12),a.d(18)))
-        box.addView(more,LinearLayout.LayoutParams(-1,H).apply{topMargin=gap})
+        val box=a.column().apply{clipChildren=false;clipToPadding=false}
+        box.addView(themeCards(),LinearLayout.LayoutParams(-1,a.d(72)))
+        box.addView(brightnessRow(),LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
+        box.addView(SizeStepper(a,a.prefs.optDouble("size",19.0).roundToInt()){v->a.prefs.put("size",v.toDouble());a.savePreferences();typography()}.also{s->refreshers.add{s.sync(a.prefs.optDouble("size",19.0).roundToInt())}},
+            LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(8)})
+        val (fontRow,fontValue)=row("Шрифт"){r.panel.push(ReaderPanel.Page("Шрифт",fontPage()))}
+        refreshers.add{val k=a.prefs.str("font","literata");fontValue.text=fontName(k);fontValue.typeface=PolkaFonts.reader(a,k)}
+        val (layoutRow,layoutValue)=row("Вёрстка"){r.panel.push(layoutPage())}
+        refreshers.add{layoutValue.text=if(a.prefs.optBoolean("justify",true))"По ширине" else "По левому краю"}
+        box.addView(card(listOf(fontRow,layoutRow)),LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(16)})
         refresh();return box
     }
-    private fun open(page:View){r.panel.push(ReaderPanel.Page(page.tag as? String,page))}
-    private fun layoutPage():View{
-        val box=a.column().apply{tag="Ещё";clipChildren=false;clipToPadding=false}
-        box.addView(turnRow(),LinearLayout.LayoutParams(-1,-2))
-        val list=a.column().apply{clipChildren=false;clipToPadding=false}
-        fun held(bar:LayoutBar):View{val wrap=FrameLayout(a).apply{setPadding(RIM,RIM,RIM,RIM)};wrap.addView(bar,FrameLayout.LayoutParams(-1,H));bar.onGrab={on->spotlight(wrap,on)};return wrap}
-        fun bar(title:String,from:Float,to:Float,step:Float,value:Float,default:Float,format:(Float)->String,set:(Float)->Unit)=
-            held(LayoutBar(a,title,from,to,step,value,default,format){v,done->set(v);typography();if(done)a.savePreferences()})
-        listOf(
-            bar("Межстрочный",1.2f,2.2f,.05f,r.lineHeight(),1.6f,{fmt(it,2)}){v->a.prefs.put("lhv",v.toDouble())},
-            bar("Поля",8f,48f,2f,a.prefs.optInt("margin",24).toFloat(),24f,{"${it.roundToInt()}"}){v->a.prefs.put("margin",v.roundToInt())},
-            bar("Межбуквенный",-.03f,.12f,.005f,a.prefs.optDouble("ls",0.0).toFloat(),0f,{percent(it)}){v->a.prefs.put("ls",v.toDouble())})
-            .forEach{list.addView(it,LinearLayout.LayoutParams(-1,-2))}
-        if(Build.VERSION.SDK_INT>=29)list.addView(bar("Межсловный",0f,.6f,.02f,a.prefs.optDouble("ws",0.0).toFloat(),0f,{percent(it)}){v->a.prefs.put("ws",v.toDouble())},LinearLayout.LayoutParams(-1,-2))
-        fun sw(title:String,key:String,default:Boolean):View{val wrap=FrameLayout(a).apply{setPadding(RIM,RIM,RIM,RIM)}
-            wrap.addView(LayoutToggle(a,title,a.prefs.optBoolean(key,default)){on->r.crossfade{a.prefs.put(key,on);a.savePreferences();typography()}},FrameLayout.LayoutParams(-1,H));return wrap}
-        val pair=a.line();pair.addView(sw("По ширине","justify",true),LinearLayout.LayoutParams(0,-2,1f));pair.addView(sw("Переносы","hyph",true),LinearLayout.LayoutParams(0,-2,1f))
-        list.addView(pair,LinearLayout.LayoutParams(-1,-2));list.addView(sw("Убирать пустые строки","trimEmpty",false),LinearLayout.LayoutParams(-1,-2))
-        // the capsules' own 6dp frame (the spotlight card) makes the 12dp gaps; it reaches past the page edges by 6dp
-        box.addView(list,LinearLayout.LayoutParams(-1,-2).apply{topMargin=GAP-RIM;leftMargin=-RIM;rightMargin=-RIM})
-        box.addView(a.text("Сбросить вёрстку",13.5f,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,GAP-RIM+a.d(8),0,a.d(4));a.press(this);setOnClickListener{reset()}},LinearLayout.LayoutParams(-1,-2))
-        return box
-    }
+    private fun fontName(k:String)=fonts.firstOrNull{it.first==k}?.second?:CustomFonts.name(a,k)?:"Literata"
+
     private fun fontPage():View{
-        val box=a.column().apply{tag="Шрифт"}
-        val rows=mutableListOf<Pair<String,LinearLayout>>()
-        fun paint(){val cur=a.prefs.str("font","literata");rows.forEach{(k,v)->v.background=a.shape(if(k==cur)onColor else pillColor,16);v.findViewWithTag<View>("tick")?.visibility=if(k==cur)View.VISIBLE else View.INVISIBLE}}
-        fun build(){box.removeAllViews();rows.clear()
-            val all=fonts.map{Triple(it.first,it.second,it.third)}+CustomFonts.list(a).map{Triple(it.first,it.second,"ваш шрифт")}
-            all.forEach{(key,label,note)->
+        val box=a.column()
+        fun build(){box.removeAllViews()
+            val cur=a.prefs.str("font","literata")
+            val rows=(fonts+CustomFonts.list(a).map{it.first to it.second}).map{(key,label)->
                 val custom=key.startsWith(CustomFonts.PREFIX)
-                val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(if(custom)6 else 14),0);isClickable=true;a.press(this)}
-                val texts=a.column()
-                texts.addView(TextView(a).apply{text=label;textSize=19f;setTextColor(a.fg);typeface=PolkaFonts.reader(a,key);includeFontPadding=false;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END})
-                texts.addView(a.text(note,11f,a.muted).apply{setPadding(0,a.d(3),0,0)})
-                row.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
-                row.addView(a.text("✓",13f,a.bg,true).apply{tag="tick";gravity=Gravity.CENTER;background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(a.fg)}},LinearLayout.LayoutParams(a.d(22),a.d(22)))
-                // your own fonts can be removed again (the book falls back to Literata if it was in use)
-                if(custom)row.addView(IconView(a,"trash",a.muted).apply{isClickable=true;contentDescription="Удалить шрифт";setPadding(a.d(9),a.d(9),a.d(9),a.d(9));a.press(this)
-                    setOnClickListener{a.confirm("Удалить шрифт?","«$label» пропадёт из списка шрифтов."){CustomFonts.remove(a,key);a.savePreferences();build();typography()}}},LinearLayout.LayoutParams(a.d(40),a.d(40)).apply{leftMargin=a.d(4)})
-                row.setOnClickListener{a.prefs.put("font",key);a.savePreferences();paint();typography()}
-                rows.add(key to row);box.addView(row,LinearLayout.LayoutParams(-1,a.d(58)).apply{bottomMargin=a.d(6)})}
+                val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(56);setPadding(a.d(16),0,a.d(14),0);isClickable=true;isFocusable=true;contentDescription=label+if(key==cur)", выбран" else ""}
+                // the name itself, set in its own face, shows the font
+                row.addView(TextView(a).apply{text=label;textSize=19f;setTextColor(a.fg);typeface=PolkaFonts.reader(a,key);includeFontPadding=false;maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
+                if(key==cur)row.addView(FrameLayout(a).apply{background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(a.fg)};addView(IconView(a,"check",a.bg),FrameLayout.LayoutParams(a.d(16),a.d(16),Gravity.CENTER))},LinearLayout.LayoutParams(a.d(24),a.d(24)))
+                // your own fonts can be removed again: a round button in the app's red for deleting
+                if(custom)row.addView(FrameLayout(a).apply{background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(0x29d9504e)};isClickable=true;contentDescription="Удалить шрифт";a.press(this)
+                    addView(IconView(a,"trash",0xffe5635f.toInt()),FrameLayout.LayoutParams(a.d(20),a.d(20),Gravity.CENTER))
+                    setOnClickListener{a.confirm("Удалить шрифт?","«$label» пропадёт из списка шрифтов."){CustomFonts.remove(a,key);a.savePreferences();build();typography()}}},LinearLayout.LayoutParams(a.d(36),a.d(36)).apply{leftMargin=a.d(10)})
+                row.setOnClickListener{if(a.prefs.str("font","literata")!=key){row.tick(a);a.prefs.put("font",key);a.savePreferences();build();typography()}}
+                row as View}
             // add a font from a file: the new one is chosen at once
-            val add=a.line().apply{gravity=Gravity.CENTER;isClickable=true;a.press(this);contentDescription="Добавить шрифт"
-                background=GradientDrawable().apply{cornerRadius=a.d(16).toFloat();setStroke(a.d(1),if(a.light)0x26000000 else 0x2effffff,a.d(5).toFloat(),a.d(4).toFloat())}
-                addView(a.text("＋",17f,a.fg,true),LinearLayout.LayoutParams(-2,-2))
-                addView(a.text("Добавить шрифт",14f,a.fg,true).apply{setPadding(a.d(8),0,0,0)})
+            val add=a.line().apply{gravity=Gravity.CENTER;minimumHeight=a.d(52);isClickable=true;isFocusable=true;contentDescription="Добавить шрифт"
+                addView(IconView(a,"plus",a.fg),LinearLayout.LayoutParams(a.d(20),a.d(20)))
+                addView(a.text("Добавить шрифт",15f,a.fg).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(8),0,0,0)})
                 setOnClickListener{a.pickFont{key->a.prefs.put("font",key);a.savePreferences();build();typography()}}}
-            box.addView(add,LinearLayout.LayoutParams(-1,a.d(52)).apply{topMargin=a.d(2)})
-            box.addView(a.text("TTF, OTF или ZIP с телефона",11.5f,a.muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
-            paint()}
+            box.addView(card(rows+add),LinearLayout.LayoutParams(-1,-2))}
         build();return box
+    }
+
+    private fun layoutPage():ReaderPanel.Page{
+        val box=a.column().apply{clipChildren=false;clipToPadding=false}
+        box.addView(caption("ЛИСТАНИЕ",0))
+        box.addView(turnCards(),LinearLayout.LayoutParams(-1,-2).apply{leftMargin=-a.d(16);rightMargin=-a.d(16)})
+        box.addView(caption("ИНТЕРВАЛЫ"))
+        val sliders=mutableListOf(
+            sliderRow("Межстрочный",1.2f,2.2f,.05f,r.lineHeight(),1.6f,{fmt(it,2)}){v->a.prefs.put("lhv",v.toDouble())},
+            sliderRow("Поля",8f,48f,2f,a.prefs.optInt("margin",24).toFloat(),24f,{"${it.roundToInt()}"}){v->a.prefs.put("margin",v.roundToInt())},
+            sliderRow("Межбуквенный",-.03f,.12f,.005f,a.prefs.optDouble("ls",0.0).toFloat(),0f,{percent(it)}){v->a.prefs.put("ls",v.toDouble())})
+        if(Build.VERSION.SDK_INT>=29)sliders.add(sliderRow("Межсловный",0f,.6f,.02f,a.prefs.optDouble("ws",0.0).toFloat(),0f,{percent(it)}){v->a.prefs.put("ws",v.toDouble())})
+        box.addView(card(sliders),LinearLayout.LayoutParams(-1,-2))
+        box.addView(caption("ТЕКСТ"))
+        fun sw(title:String,key:String,default:Boolean)=LayoutToggle(a,title,a.prefs.optBoolean(key,default),plain=true){on->r.crossfade{a.prefs.put(key,on);a.savePreferences();typography()}}
+        box.addView(card(listOf(sw("По ширине","justify",true),sw("Переносы","hyph",true),sw("Убирать пустые строки","trimEmpty",false))),LinearLayout.LayoutParams(-1,-2))
+        val reset=a.text("Сбросить",13f,muted2).apply{setPadding(a.d(10),a.d(8),a.d(2),a.d(8));isClickable=true;a.press(this);setOnClickListener{reset(this)}}
+        return ReaderPanel.Page("Вёрстка",box,right=reset)
     }
 
     // ---- building blocks -----------------------------------------------------------------------
 
+    private fun caption(t:String,top:Int=18)=a.text(t,12f,muted2,true).apply{letterSpacing=.06f;setPadding(a.d(4),a.d(top),0,a.d(9))}
+    /** A group as one card, its rows split by thin lines; a tappable row lights up under the finger. */
+    private fun card(rows:List<View>):View{val box=a.column().apply{background=a.shape(cardColor,20)}
+        fun lit(top:Boolean,bottom:Boolean)=android.graphics.drawable.StateListDrawable().apply{setExitFadeDuration(220)
+            val rad=a.d(20).toFloat();val t=if(top)rad else 0f;val b=if(bottom)rad else 0f
+            addState(intArrayOf(android.R.attr.state_pressed),GradientDrawable().apply{setColor(if(a.light)0x0c000000 else 0x0fffffff);cornerRadii=floatArrayOf(t,t,t,t,b,b,b,b)})
+            addState(intArrayOf(),android.graphics.drawable.ColorDrawable(0))}
+        rows.forEachIndexed{i,v->if(i>0)box.addView(View(a).apply{setBackgroundColor(if(a.light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,1).apply{leftMargin=a.d(16)})
+            if(v.isClickable)v.background=lit(i==0,i==rows.lastIndex)
+            box.addView(v,LinearLayout.LayoutParams(-1,if(v is LayoutToggle)a.d(52) else -2))}
+        return box}
+    /** A row that opens a page: the name, its current value in grey and a chevron. */
+    private fun row(name:String,open:()->Unit):Pair<LinearLayout,TextView>{
+        val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(52);setPadding(a.d(16),0,a.d(14),0);isClickable=true;isFocusable=true;setOnClickListener{open()}}
+        r.addView(a.text(name,15.5f,a.fg),LinearLayout.LayoutParams(0,-2,1f))
+        val value=a.text("",15f,muted2).apply{maxLines=1};r.addView(value,LinearLayout.LayoutParams(-2,-2).apply{rightMargin=a.d(8)})
+        r.addView(Chevron(a),LinearLayout.LayoutParams(a.d(10),a.d(16)))
+        return r to value}
+    /** The four themes as cards: «Аа» and the name in the theme's own colours; the chosen one ringed inside. */
+    private fun themeCards():View{
+        val row=a.line()
+        themes.forEachIndexed{i,(key,label)->
+            val (bg,ink)=colors(key)
+            val tile=ThemeCard(a,bg,ink,label).apply{isClickable=true;contentDescription="Тема: $label"}
+            refreshers.add{tile.on=a.prefs.str("rt","night")==key}
+            tile.setOnClickListener{if(a.prefs.str("rt","night")!=key){tile.tick(a);r.crossfade{a.prefs.put("rt",key);a.savePreferences();r.applyTheme();refresh()}}}
+            a.press(tile);row.addView(tile,LinearLayout.LayoutParams(0,-1,1f).apply{if(i>0)leftMargin=a.d(8)})}
+        return row
+    }
     private fun brightnessRow():View{
         val row=a.line()
         val system=try{android.provider.Settings.System.getInt(a.contentResolver,android.provider.Settings.System.SCREEN_BRIGHTNESS)/255f}catch(_:Exception){.5f}
         val start=a.prefs.optDouble("bright",-1.0).toFloat().let{if(it<0)system else it}.coerceIn(.02f,1f)
-        val auto=AutoChip(a,a.prefs.optDouble("bright",-1.0)<0)
-        val bar=BrightBar(a,start){v,done->a.prefs.put("bright",v.toDouble());auto.set(false);r.applyBrightness();if(done)a.savePreferences()}
+        val auto=AutoChip(a,a.prefs.optDouble("bright",-1.0)<0).apply{textSize=13f;typeface=PolkaFonts.sans(600)}
+        val bar=ThinSlider(a,.02f,1f,0f,start,null,pill=true){v,done->a.prefs.put("bright",v.toDouble());auto.set(false);r.applyBrightness();if(done)a.savePreferences()}.apply{contentDescription="Яркость экрана"}
         bar.dim=auto.on
-        auto.setOnClickListener{val on=!auto.on;auto.set(on);bar.dim=on;a.prefs.put("bright",if(on)-1.0 else bar.value.toDouble());a.savePreferences();r.applyBrightness()}
-        row.addView(bar,LinearLayout.LayoutParams(0,H,1f));row.addView(auto,LinearLayout.LayoutParams(a.d(84),H).apply{leftMargin=a.d(10)})
+        auto.setOnClickListener{val on=!auto.on;auto.tick(a);auto.set(on);bar.dim=on;a.prefs.put("bright",if(on)-1.0 else bar.value.toDouble());a.savePreferences();r.applyBrightness()}
+        row.addView(bar,LinearLayout.LayoutParams(0,-1,1f));row.addView(auto,LinearLayout.LayoutParams(a.d(76),-1).apply{leftMargin=a.d(8)})
         return row
     }
-    private fun themeTiles():View{
-        val row=a.line()
-        themes.forEachIndexed{i,(key,label)->
-            val (bg,ink)=colors(key)
-            val tile=ThemeTile(a,bg,ink).apply{isClickable=true;contentDescription="Тема: $label"}
-            refreshers.add{tile.on=a.prefs.str("rt","night")==key}
-            tile.setOnClickListener{if(a.prefs.str("rt","night")!=key)r.crossfade{a.prefs.put("rt",key);a.savePreferences();r.applyTheme();refresh()}}
-            a.press(tile);row.addView(tile,LinearLayout.LayoutParams(0,a.d(66),1f).apply{if(i>0)leftMargin=a.d(2)})}
-        return row
+    /** A layout setting in a card: the name and the value on top, a thin slider under them (a tick at the default).
+     *  Held, the row lifts on its own and everything else fades, so only the text and that one control remain. */
+    private fun sliderRow(title:String,from:Float,to:Float,step:Float,value:Float,default:Float,format:(Float)->String,set:(Float)->Unit):View{
+        val box=a.column().apply{setPadding(a.d(16),a.d(12),a.d(16),a.d(12))}
+        val head=a.line();head.addView(a.text(title,15.5f,a.fg),LinearLayout.LayoutParams(0,-2,1f))
+        val shown=a.text(format(value),15.5f,muted2);head.addView(shown);box.addView(head)
+        val bar=ThinSlider(a,from,to,step,value,default){v,done->shown.text=format(v);set(v);typography();if(done)a.savePreferences()}.apply{contentDescription=title}
+        bar.onGrab={on->spotlight(box,on)}
+        box.addView(bar,LinearLayout.LayoutParams(-1,a.d(26)).apply{topMargin=a.d(8)})
+        return box
     }
-    private fun fontButton():View{
-        val v=a.line().apply{gravity=Gravity.CENTER_VERTICAL;background=a.shape(pillColor,100);setPadding(a.d(14),0,a.d(14),0);isClickable=true;a.press(this);setOnClickListener{open(fontPage())};contentDescription="Шрифт"}
-        val sample=TextView(a).apply{text="Аа";textSize=19f;setTextColor(a.fg);includeFontPadding=false}
-        v.addView(sample)
-        val texts=a.column().apply{setPadding(a.d(10),0,a.d(10),0)}
-        texts.addView(a.text("Шрифт",10f,a.muted).apply{includeFontPadding=false})
-        val name=TextView(a).apply{textSize=13.5f;setTextColor(a.fg);includeFontPadding=false;maxLines=1}
-        texts.addView(name,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(2)})
-        v.addView(texts,LinearLayout.LayoutParams(0,-2,1f))
-        v.addView(Chevron(a),LinearLayout.LayoutParams(a.d(10),a.d(16)))
-        refreshers.add{val k=a.prefs.str("font","literata");name.text=fonts.firstOrNull{it.first==k}?.second?:CustomFonts.name(a,k)?:"Literata";val tf=PolkaFonts.reader(a,k);name.typeface=tf;sample.typeface=tf}
-        return v
-    }
-    /** Text size as a capsule like brightness: «Размер» on the left, the number on the right. */
-    private fun sizeBar():View{
-        val bar=SizeBar(a,a.prefs.optDouble("size",19.0).toFloat()){v,done->if(a.prefs.optDouble("size",19.0).toFloat()!=v){a.prefs.put("size",v.toDouble());typography()};if(done)a.savePreferences()}
-        refreshers.add{bar.sync(a.prefs.optDouble("size",19.0).toFloat())}
-        return bar
+    /** How pages turn: a card for each way with a little live page turning that way; the cards scroll sideways. */
+    private fun turnCards():View{
+        val (paper,ink)=colors(a.prefs.str("rt","night"))
+        val strip=a.line().apply{setPadding(a.d(16),a.d(2),a.d(16),a.d(2));clipToPadding=false}
+        listOf("curl" to "Листание","slide" to "Сдвиг","cover" to "Наложение","none" to "Без анимации","scroll" to "Прокрутка").forEachIndexed{i,(key,label)->
+            val ring=RingCard(a,cardColor)
+            val col=a.column().apply{gravity=Gravity.CENTER;isClickable=true;contentDescription=label;background=ring}
+            col.addView(TurnTile(a,key,paper,ink,bare=true),LinearLayout.LayoutParams(a.d(56),a.d(76)))
+            val name=a.text(label,12f,muted2).apply{gravity=Gravity.CENTER;maxLines=1};col.addView(name,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(9)})
+            fun current()=if(!r.paged())"scroll" else a.prefs.str("turn","curl")
+            val show={val on=current()==key;ring.on=on;name.setTextColor(if(on)a.fg else muted2);name.typeface=PolkaFonts.sans(if(on)600 else 500)}
+            show();refreshers.add(show)
+            col.setOnClickListener{if(current()==key)return@setOnClickListener;col.tick(a)
+                if(key=="scroll"){refresh();r.crossfade{r.setReadingMode(false);refresh()}}
+                else{a.prefs.put("turn",key);a.savePreferences();if(!r.paged())r.crossfade{r.setReadingMode(true);refresh()}}
+                refresh()}
+            a.press(col);strip.addView(col,LinearLayout.LayoutParams(a.d(96),a.d(118)).apply{if(i>0)leftMargin=a.d(8)})}
+        return HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(strip)}
     }
     private fun fmt(v:Float,digits:Int=1):String{val t=if(digits==2)"%.2f".format(java.util.Locale.US,v) else "%.1f".format(java.util.Locale.US,v);return t.trimEnd('0').trimEnd('.').replace('.',',')}
     private fun percent(v:Float):String{val p=(v*100).roundToInt();return if(p==0)"0" else if(p>0)"+$p%" else "−${-p}%"}
@@ -177,35 +196,17 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             val restore=unclip.toList();unclip.clear();row.postDelayed({restore.forEach{(v,c)->v.clipChildren=c.first;v.clipToPadding=c.second;v.invalidate()}},if(reduced)0L else 320L)
         }
     }
-    /** How pages turn (approved variant А): five live previews in one row, scrolling being one of them. */
-    private fun turnRow():View{
-        val row=a.line().apply{gravity=Gravity.TOP}
-        val (paper,ink)=colors(a.prefs.str("rt","night"))
-        listOf("curl" to "Листание","slide" to "Сдвиг","cover" to "Наложение","none" to "Без анимации","scroll" to "Прокрутка").forEach{(key,label)->
-            val col=a.column().apply{gravity=Gravity.CENTER_HORIZONTAL;isClickable=true;contentDescription=label}
-            val tile=TurnTile(a,key,paper,ink);col.addView(tile,LinearLayout.LayoutParams(-1,-2))
-            val name=a.text(label,11.5f,a.muted).apply{gravity=Gravity.CENTER;maxLines=2;setLineSpacing(0f,1.1f)};col.addView(name,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})
-            fun current()=if(!r.paged())"scroll" else a.prefs.str("turn","curl")
-            val show={val on=current()==key;tile.on=on;name.setTextColor(if(on)a.fg else a.muted);name.typeface=PolkaFonts.sans(if(on)600 else 400)}
-            // shown at once: the page opens with the chosen way already ringed
-            show();refreshers.add(show)
-            col.setOnClickListener{if(current()==key)return@setOnClickListener
-                if(key=="scroll"){refresh();r.crossfade{r.setReadingMode(false);refresh()}}
-                else{a.prefs.put("turn",key);a.savePreferences();if(!r.paged())r.crossfade{r.setReadingMode(true);refresh()}}
-                refresh()}
-            a.press(col);row.addView(col,LinearLayout.LayoutParams(0,-2,1f))}
-        return row
-    }
 
     // ---- state -----------------------------------------------------------------------------
 
     private fun colors(key:String)=when(key){"black"->0xff000000.toInt() to 0xffc9c7c1.toInt();"sepia"->0xfff3ead8.toInt() to 0xff3a2e22.toInt();"paper"->0xfffbfaf7.toInt() to 0xff1e1d1b.toInt();else->0xff18181a.toInt() to 0xffdedcd6.toInt()}
     private fun typography(){r.applyTypography();refresh()}
     private fun refresh(){refreshers.forEach{it()}}
-    private fun reset(){
+    private fun reset(v:View){
         listOf("lhv","ls","ws","margin").forEach{a.prefs.remove(it)}
-        a.prefs.put("size",19.0);a.prefs.put("lh","normal");a.prefs.put("font","literata");a.prefs.put("justify",true);a.prefs.put("hyph",true);a.prefs.put("trimEmpty",false)
-        a.savePreferences();r.applyTypography();refresh();r.panel.replace(ReaderPanel.Page("Ещё",layoutPage()))
+        a.prefs.put("lh","normal");a.prefs.put("justify",true);a.prefs.put("hyph",true);a.prefs.put("trimEmpty",false)
+        v.tick(a,if(Build.VERSION.SDK_INT>=30)HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY)
+        a.savePreferences();typography();r.panel.replace(layoutPage())
     }
 }
 
@@ -234,22 +235,6 @@ internal class BrightBar(private val a:MainActivity,start:Float,private val chan
         c.save();c.clipRect(0f,0f,fx,h);sun(h/2,false,onFill);sun(w-h/2,true,onFill);c.restore()}
 }
 
-/** A theme as a rounded tile with «Аа» in its own ink; the ring around the chosen one draws in softly. */
-internal class ThemeTile(private val a:MainActivity,private val bg:Int,private val ink:Int):View(a){
-    private var k=0f;private var anim:ValueAnimator?=null;private var first=true
-    var on=false;set(v){if(field==v&&!first)return;field=v;val target=if(v)1f else 0f
-        if(first||!isAttachedToWindow||a.prefs.str("motion")=="reduced"){first=false;k=target;invalidate();return}
-        anim?.cancel();anim=ValueAnimator.ofFloat(k,target).apply{duration=300;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
-    override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
-    override fun onDraw(c:Canvas){val d=a.resources.displayMetrics.density;val inset=4*d;val r=RectF(inset,inset,width-inset,height-inset);val rad=16*d
-        if(k>0f){p.style=Paint.Style.STROKE;p.strokeWidth=2*d;p.color=a.fg;p.alpha=(255*k).toInt();val o=d+(1f-k)*2f*d;c.drawRoundRect(RectF(o,o,width-o,height-o),rad+inset-o,rad+inset-o,p);p.alpha=255}
-        p.style=Paint.Style.FILL;p.color=bg;c.drawRoundRect(r,rad,rad,p)
-        p.style=Paint.Style.STROKE;p.strokeWidth=1f;p.color=if(Color.red(bg)>128)0x1a000000 else 0x24ffffff;c.drawRoundRect(r,rad,rad,p)
-        p.style=Paint.Style.FILL;p.color=ink;p.textSize=17*a.resources.displayMetrics.scaledDensity;p.typeface=PolkaFonts.reader(a,"literata");p.textAlign=Paint.Align.CENTER
-        c.drawText("Аа",width/2f,height/2f-(p.ascent()+p.descent())/2f,p)}
-}
-
 /** A drawn chevron for «go to a page» (or back when [back]), rounded and in the caption colour. */
 internal class Chevron(private val a:MainActivity,private val back:Boolean=false):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND}
@@ -260,48 +245,6 @@ internal class Chevron(private val a:MainActivity,private val back:Boolean=false
         path.rewind();path.moveTo(1.5f*d,1.8f*d);path.lineTo(7.3f*d,8f*d);path.lineTo(1.5f*d,14.2f*d);c.drawPath(path,p);c.restore()}
 }
 
-/** Text size 14…32 as a capsule like the brightness bar. The fill follows the finger and settles on whole steps;
- *  «Размер» is dark where the fill covers it and light elsewhere; the number on the right. A light tick on every step. */
-internal class SizeBar(private val a:MainActivity,start:Float,private val change:(Float,Boolean)->Unit):View(a){
-    private val from=14f;private val to=32f
-    private var value=start.coerceIn(from,to).roundToInt().toFloat()
-    private var pos=frac(value);private var settle:ValueAnimator?=null;private var pulse=0f;private var pulseAnim:ValueAnimator?=null
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG);private val face by lazy{a.text("",1f).typeface}
-    var onGrab:((Boolean)->Unit)?=null
-    init{contentDescription="Размер текста";isClickable=true}
-    private fun frac(v:Float)=(v-from)/(to-from)
-    private val reduced get()=a.prefs.str("motion")=="reduced"
-    fun sync(v:Float){val n=v.coerceIn(from,to).roundToInt().toFloat();if(n==value)return;value=n;glide(frac(n))}
-    private fun glide(target:Float){settle?.cancel();if(reduced||!isAttachedToWindow){pos=target;invalidate();return}
-        settle=ValueAnimator.ofFloat(pos,target).apply{duration=260;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{pos=it.animatedValue as Float;invalidate()};start()}}
-    private fun knobFrac(x:Float):Float{val h=height.toFloat();return ((x-h*.5f)/(width-h).coerceAtLeast(1f)).coerceIn(0f,1f)}
-    override fun onTouchEvent(e:MotionEvent):Boolean{
-        when(e.actionMasked){
-            MotionEvent.ACTION_DOWN->{parent?.requestDisallowInterceptTouchEvent(true);settle?.cancel();onGrab?.invoke(true);track(e.x,false)}
-            MotionEvent.ACTION_MOVE->track(e.x,false)
-            MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{track(e.x,true);glide(frac(value));onGrab?.invoke(false)}}
-        return true}
-    private fun track(x:Float,done:Boolean){val f=knobFrac(x);pos=f;val n=(from+f*(to-from)).roundToInt().toFloat()
-        if(n!=value){value=n;if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);bump()}
-        invalidate();change(value,done)}
-    private fun bump(){if(reduced)return;pulseAnim?.cancel();pulseAnim=ValueAnimator.ofFloat(1f,0f).apply{duration=240;addUpdateListener{pulse=it.animatedValue as Float;invalidate()};start()}}
-    override fun onDetachedFromWindow(){settle?.cancel();pulseAnim?.cancel();super.onDetachedFromWindow()}
-    override fun onDraw(c:Canvas){val h=height.toFloat();val r=h/2;val w=width.toFloat();val d=a.resources.displayMetrics.density
-        p.shader=null;p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,r,r,p)
-        val fx=w*pos
-        p.shader=null;p.color=SliderInk.fill(a)
-        SliderInk.fillTo(c,p,w,h,fx)
-        val onFill=if(a.light)Color.WHITE else 0xff1d1d20.toInt();val off=if(a.light)0xff55555a.toInt() else 0xffcfcfd4.toInt()
-        t.typeface=face;t.textSize=13.5f*a.resources.displayMetrics.scaledDensity;t.textAlign=Paint.Align.LEFT
-        val base=h/2f-(t.ascent()+t.descent())/2f;val lx=16*d
-        // the label in two inks, split exactly at the fill's edge
-        t.color=off;c.save();c.clipRect(fx,0f,w,h);c.drawText("Размер",lx,base,t);c.restore()
-        t.color=onFill;c.save();c.clipRect(0f,0f,fx,h);c.drawText("Размер",lx,base,t);c.restore()
-        val num=value.roundToInt().toString();t.textAlign=Paint.Align.RIGHT;t.isFakeBoldText=true
-        val nx=w-16*d;t.color=if(fx>nx-4*d)onFill else (if(a.light)a.fg else 0xfff3f2ef.toInt())
-        c.save();val s=1f+.14f*pulse;c.scale(s,s,nx-t.measureText(num)/2f,h/2f);c.drawText(num,nx,base,t);c.restore();t.isFakeBoldText=false}
-}
-
 /** «Авто» pill used for brightness. */
 internal class AutoChip(private val a:MainActivity,initial:Boolean):TextView(a){
     var on=initial;private set
@@ -310,46 +253,120 @@ internal class AutoChip(private val a:MainActivity,initial:Boolean):TextView(a){
     private fun paint(){background=a.shape(if(on)a.fg else (if(a.light)0xffe6e6e3.toInt() else 0xff333336.toInt()),100);setTextColor(if(on)a.bg else a.muted)}
 }
 
-/** A layout setting as a capsule like «Размер»: the name on the left in two inks split at the fill, the value on the
- *  right, a quiet dot at the default (the fill catches on it with a tick). The fill follows the finger and settles on whole steps. */
-internal class LayoutBar(private val a:MainActivity,private val title:String,private val from:Float,private val to:Float,private val step:Float,start:Float,private val default:Float?,private val format:(Float)->String,private val change:(Float,Boolean)->Unit):View(a){
-    var onGrab:((Boolean)->Unit)?=null
-    private fun snap(v:Float)=(from+((v-from)/step).roundToInt()*step).coerceIn(from,to)
-    private var value=snap(start);private var pos=frac(value);private var settle:ValueAnimator?=null
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG);private val face by lazy{a.text("",1f).typeface}
-    private val reduced get()=a.prefs.str("motion")=="reduced"
-    init{contentDescription=title;isClickable=true}
-    private fun frac(v:Float)=((v-from)/(to-from)).coerceIn(0f,1f)
-    private fun knobFrac(x:Float):Float{val h=height.toFloat();return ((x-h*.5f)/(width-h).coerceAtLeast(1f)).coerceIn(0f,1f)}
-    override fun onTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){
-        MotionEvent.ACTION_DOWN->{parent?.requestDisallowInterceptTouchEvent(true);settle?.cancel();onGrab?.invoke(true);track(e.x,false)}
-        MotionEvent.ACTION_MOVE->track(e.x,false)
-        MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{track(e.x,true);glide(frac(value));onGrab?.invoke(false)}};return true}
-    private fun track(x:Float,done:Boolean){var f=knobFrac(x);val d=default;if(d!=null&&abs(f-frac(d))<.025f)f=frac(d)
-        pos=f;val n=snap(from+f*(to-from))
-        if(n!=value){value=n;if(a.prefs.optBoolean("haptics",true))performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)}
-        invalidate();change(value,done)}
-    private fun glide(target:Float){settle?.cancel();if(reduced||!isAttachedToWindow){pos=target;invalidate();return}
-        settle=ValueAnimator.ofFloat(pos,target).apply{duration=240;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{pos=it.animatedValue as Float;invalidate()};start()}}
-    override fun onDetachedFromWindow(){settle?.cancel();super.onDetachedFromWindow()}
-    override fun onDraw(c:Canvas){val h=height.toFloat();val r=h/2;val w=width.toFloat();val d=a.resources.displayMetrics.density
-        p.shader=null;p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,r,r,p)
-        val fx=w*pos
-        p.shader=null;p.color=SliderInk.fill(a)
-        SliderInk.fillTo(c,p,w,h,fx)
-        default?.let{dv->val dx=h/2+(w-h)*frac(dv);p.color=if(dx<fx)(if(a.light)0x59ffffff else 0x591d1d20) else (if(a.light)0x29000000 else 0x38ffffff);c.drawCircle(dx,h/2,3*d,p)}
-        val onFill=if(a.light)Color.WHITE else 0xff1d1d20.toInt();val off=if(a.light)0xff55555a.toInt() else 0xffcfcfd4.toInt()
-        t.typeface=face;t.textSize=13f*a.resources.displayMetrics.scaledDensity;t.textAlign=Paint.Align.LEFT
-        val base=h/2f-(t.ascent()+t.descent())/2f;val lx=15*d
-        t.color=off;c.save();c.clipRect(fx,0f,w,h);c.drawText(title,lx,base,t);c.restore()
-        t.color=onFill;c.save();c.clipRect(0f,0f,fx,h);c.drawText(title,lx,base,t);c.restore()
-        val num=format(value);t.textAlign=Paint.Align.RIGHT;t.isFakeBoldText=true
-        val nx=w-15*d;t.color=if(fx>nx-4*d)onFill else (if(a.light)a.fg else 0xfff3f2ef.toInt());c.drawText(num,nx,base,t);t.isFakeBoldText=false}
+/** A theme as a card: «Аа» and its name in the theme's own ink on its own paper; the chosen one gets a ring in that
+ *  ink drawn just inside its edge (the card keeps its size), drawing in softly. */
+internal class ThemeCard(private val a:MainActivity,private val bg:Int,private val ink:Int,private val name:String):View(a){
+    private var k=0f;private var anim:ValueAnimator?=null;private var first=true
+    var on=false;set(v){if(field==v&&!first)return;field=v;val target=if(v)1f else 0f
+        if(first||!isAttachedToWindow||a.prefs.str("motion")=="reduced"){first=false;k=target;invalidate();return}
+        anim?.cancel();anim=ValueAnimator.ofFloat(k,target).apply{duration=300;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
+    override fun onDraw(c:Canvas){val d=a.resources.displayMetrics.density;val sd=a.resources.displayMetrics.scaledDensity;val w=width.toFloat();val h=height.toFloat();val rad=16*d
+        p.style=Paint.Style.FILL;p.color=bg;c.drawRoundRect(0f,0f,w,h,rad,rad,p)
+        p.style=Paint.Style.STROKE;p.strokeWidth=d;p.color=if(Color.red(bg)>128)0x1a000000 else 0x1fffffff;c.drawRoundRect(d/2,d/2,w-d/2,h-d/2,rad,rad,p)
+        if(k>0f){p.strokeWidth=2*d;p.color=ink;p.alpha=(255*k).toInt();val o=d;c.drawRoundRect(o,o,w-o,h-o,rad-o,rad-o,p);p.alpha=255}
+        p.style=Paint.Style.FILL;p.color=ink;p.textAlign=Paint.Align.CENTER
+        p.textSize=22*sd;p.typeface=PolkaFonts.reader(a,"literata");p.isFakeBoldText=true;val big=-p.ascent()
+        val small=Paint(p).apply{textSize=11*sd;typeface=PolkaFonts.sans(500);isFakeBoldText=false;alpha=204}
+        val total=big+5*d+(-small.ascent());val top=(h-total)/2
+        c.drawText("Аа",w/2,top+big,p);c.drawText(name,w/2,top+big+5*d-small.ascent(),small)}
 }
 
-/** A switch as a capsule: the name on the left, a small switch on the right. After the reference: under the finger
- *  the knob swells toward where it would go; let go, it stretches across the track (its far end first, the near end
- *  following and settling a little past and back) while the track takes its colour. */
+/** A card's ground with a ring just inside its edge when [on] (the card keeps its size). */
+internal class RingCard(private val a:MainActivity,private val fill:Int):android.graphics.drawable.Drawable(){
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var k=0f;private var anim:ValueAnimator?=null;private var first=true
+    var on=false;set(v){if(field==v&&!first)return;field=v;val target=if(v)1f else 0f
+        if(first||a.prefs.str("motion")=="reduced"){first=false;k=target;invalidateSelf();return}
+        anim?.cancel();anim=ValueAnimator.ofFloat(k,target).apply{duration=300;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{k=it.animatedValue as Float;invalidateSelf()};start()}}
+    override fun draw(c:Canvas){val d=a.resources.displayMetrics.density;val b=RectF(bounds);val rad=18*d
+        p.style=Paint.Style.FILL;p.color=fill;c.drawRoundRect(b,rad,rad,p)
+        if(k>0f){p.style=Paint.Style.STROKE;p.strokeWidth=2*d;p.color=a.fg;p.alpha=(255*k).toInt();b.inset(d,d);c.drawRoundRect(b,rad-d,rad-d,p);p.alpha=255}}
+    override fun setAlpha(alpha:Int){p.alpha=alpha}
+    override fun setColorFilter(cf:ColorFilter?){p.colorFilter=cf}
+    @Deprecated("Deprecated in Java") override fun getOpacity()=PixelFormat.TRANSLUCENT
+}
+
+/** The text size as one capsule: a smaller «A» on the left, the number in the middle, a larger «A» on the right.
+ *  Each tap moves one step (held, it keeps going) with a tick; at the end of the range it refuses with a firmer one. */
+internal class SizeStepper(private val a:MainActivity,start:Int,private val change:(Int)->Unit):LinearLayout(a){
+    private val from=14;private val to=32
+    private var value=start.coerceIn(from,to)
+    private val number=a.text("",16f,a.fg,true)
+    private val less:FrameLayout;private val more:FrameLayout
+    private val repeat=android.os.Handler(android.os.Looper.getMainLooper())
+    init{orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;background=a.shape(if(a.light)0x0f000000 else 0x11ffffff,24);clipToOutline=true
+        fun seg(size:Float,label:String,dir:Int)=FrameLayout(a).apply{isClickable=true;contentDescription=label
+            background=android.graphics.drawable.StateListDrawable().apply{setExitFadeDuration(220);addState(intArrayOf(android.R.attr.state_pressed),android.graphics.drawable.ColorDrawable(if(a.light)0x0c000000 else 0x0fffffff));addState(intArrayOf(),android.graphics.drawable.ColorDrawable(0))}
+            addView(a.text("A",size,a.fg).apply{typeface=PolkaFonts.sans(500);includeFontPadding=false},FrameLayout.LayoutParams(-2,-2,Gravity.CENTER))
+            // held, it keeps stepping
+            val seg=this;var repeated=false
+            val go=object:Runnable{override fun run(){if(!seg.isPressed)return;repeated=true;step(dir,seg);repeat.postDelayed(this,90)}}
+            setOnTouchListener{_,e->when(e.actionMasked){MotionEvent.ACTION_DOWN->{repeated=false;repeat.postDelayed(go,420)};MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->repeat.removeCallbacks(go)};false}
+            setOnClickListener{if(!repeated)step(dir,seg);repeated=false}}
+        less=seg(14f,"Меньше",-1);more=seg(22f,"Больше",1)
+        fun line()=View(a).apply{setBackgroundColor(if(a.light)0x1a000000 else 0x1fffffff)}
+        addView(less,LayoutParams(a.d(72),-1));addView(line(),LayoutParams(1,a.d(22)))
+        addView(number.apply{gravity=Gravity.CENTER},LayoutParams(0,-2,1f))
+        addView(line(),LayoutParams(1,a.d(22)));addView(more,LayoutParams(a.d(72),-1))
+        paint()}
+    private fun step(dir:Int,v:View){val next=value+dir
+        if(next<from||next>to){v.tick(a,if(Build.VERSION.SDK_INT>=30)HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS);return}
+        value=next;v.tick(a);paint();pulse();change(value)}
+    fun sync(v:Int){val n=v.coerceIn(from,to);if(n==value)return;value=n;paint()}
+    private fun paint(){val s=android.text.SpannableStringBuilder("$value")
+        val tail="  размер";s.append(tail);s.setSpan(android.text.style.ForegroundColorSpan(if(a.light)0xff6e6e73.toInt() else 0xffa4a4a4.toInt()),s.length-tail.length,s.length,0)
+        s.setSpan(android.text.style.AbsoluteSizeSpan(13,true),s.length-tail.length,s.length,0);s.setSpan(android.text.style.StyleSpan(Typeface.NORMAL),s.length-tail.length,s.length,0)
+        number.text=s;number.contentDescription="Размер текста $value"
+        less.alpha=if(value>from)1f else .35f;more.alpha=if(value<to)1f else .35f}
+    private fun pulse(){if(a.prefs.str("motion")=="reduced")return;number.animate().cancel();number.scaleX=1.12f;number.scaleY=1.12f;number.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(PathInterpolator(.2f,0f,0f,1f)).start()}
+    override fun onDetachedFromWindow(){repeat.removeCallbacksAndMessages(null);super.onDetachedFromWindow()}
+}
+
+/** A thin slider: a 4 dp track filled in the text colour up to a round white knob; [pill]: on its own capsule with a
+ *  small sun at the start and a big one at the end (brightness). [step] 0 is smooth; otherwise it settles on whole
+ *  steps with a tick on each, and catches on [default] (shown as a small mark on the track). */
+internal class ThinSlider(private val a:MainActivity,private val from:Float,private val to:Float,private val step:Float,start:Float,private val default:Float?,private val pill:Boolean=false,private val change:(Float,Boolean)->Unit):View(a){
+    var value=snap(start);private set
+    var dim=false;set(v){field=v;invalidate()}
+    var onGrab:((Boolean)->Unit)?=null
+    private var press=0f;private var pressAnim:ValueAnimator?=null
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeCap=Paint.Cap.ROUND}
+    private val d=a.resources.displayMetrics.density
+    init{isClickable=true}
+    private fun snap(v:Float)=if(step<=0f)v.coerceIn(from,to) else (from+((v-from)/step).roundToInt()*step).coerceIn(from,to)
+    private fun frac(v:Float)=((v-from)/(to-from)).coerceIn(0f,1f)
+    private val left get()=if(pill)44*d else 11*d
+    private val right get()=width-(if(pill)48*d else 11*d)
+    override fun onTouchEvent(e:MotionEvent):Boolean{when(e.actionMasked){
+        MotionEvent.ACTION_DOWN->{parent?.requestDisallowInterceptTouchEvent(true);onGrab?.invoke(true);grab(true);track(e.x,false)}
+        MotionEvent.ACTION_MOVE->track(e.x,false)
+        MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{track(e.x,true);grab(false);onGrab?.invoke(false)}};return true}
+    private fun grab(on:Boolean){if(a.prefs.str("motion")=="reduced")return;pressAnim?.cancel()
+        pressAnim=ValueAnimator.ofFloat(press,if(on)1f else 0f).apply{duration=if(on)140 else 240;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{press=it.animatedValue as Float;invalidate()};start()}}
+    private fun track(x:Float,done:Boolean){var f=((x-left)/(right-left).coerceAtLeast(1f)).coerceIn(0f,1f)
+        default?.let{dv->if(abs(f-frac(dv))<.025f)f=frac(dv)}
+        val n=snap(from+f*(to-from));dim=false
+        // a tick on each step; a smooth one ticks only at its two ends
+        if(n!=value){val edge=step<=0f&&(n<=from||n>=to)&&value>from&&value<to;if(step>0f||edge)tick(a);value=n}
+        invalidate();change(value,done)}
+    override fun onDetachedFromWindow(){pressAnim?.cancel();super.onDetachedFromWindow()}
+    override fun onDraw(c:Canvas){val h=height.toFloat();val w=width.toFloat();val cy=h/2
+        if(pill){p.style=Paint.Style.FILL;p.color=if(a.light)0x0f000000 else 0x11ffffff;c.drawRoundRect(0f,0f,w,h,h/2,h/2,p)
+            val muted=if(a.light)0xff8a8a8f.toInt() else 0xffa4a4a4.toInt()
+            sun(c,16*d+8*d,cy,false,muted);sun(c,w-16*d-10*d,cy,true,a.fg)}
+        val x0=left;val x1=right;val fx=x0+(x1-x0)*frac(value)
+        p.style=Paint.Style.FILL;p.color=if(a.light)0x1f000000 else 0xff3a3a3c.toInt();c.drawRoundRect(x0,cy-2*d,x1,cy+2*d,2*d,2*d,p)
+        default?.let{dv->val dx=x0+(x1-x0)*frac(dv);p.color=if(a.light)0x33000000 else 0x4dffffff;c.drawRoundRect(dx-d,cy-5*d,dx+d,cy+5*d,d,d,p)}
+        p.color=if(dim)(if(a.light)0xffb0b0b4.toInt() else 0xff6a6a6e.toInt()) else SliderInk.fill(a);c.drawRoundRect(x0,cy-2*d,fx.coerceAtLeast(x0+4*d),cy+2*d,2*d,2*d,p)
+        val kr=(if(pill)10f else 11f)*d*(1f+.12f*press)
+        FloatShade.draw(c,a,RectF(fx-kr,cy-kr,fx+kr,cy+kr),kr,a.light,lift=Lift.TOUCH)
+        p.color=Color.WHITE;c.drawCircle(fx,cy,kr,p)}
+    private fun sun(c:Canvas,cx:Float,cy:Float,big:Boolean,ink:Int){p.color=ink;p.style=Paint.Style.FILL;c.drawCircle(cx,cy,(if(big)3.6f else 2.9f)*d,p)
+        p.style=Paint.Style.STROKE;p.strokeWidth=(if(big)1.6f else 1.4f)*d;val r0=(if(big)6.5f else 5.2f)*d;val r1=(if(big)9f else 6.9f)*d
+        for(i in 0 until 8){val t=Math.PI*i/4;c.drawLine(cx+(cos(t)*r0).toFloat(),cy+(sin(t)*r0).toFloat(),cx+(cos(t)*r1).toFloat(),cy+(sin(t)*r1).toFloat(),p)};p.style=Paint.Style.FILL}
+}
+
 /** A switch with its name: on its own capsule, or [plain], a row of a settings card (the card draws the ground and
  *  lights the row under a finger). The switch is the platforms' size, 52 x 32 dp. */
 internal class LayoutToggle(private val a:MainActivity,private val title:String,initial:Boolean,private val plain:Boolean=false,private val change:(Boolean)->Unit):View(a){

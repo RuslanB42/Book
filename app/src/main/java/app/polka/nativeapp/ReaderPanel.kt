@@ -58,8 +58,8 @@ internal class ReaderPanel(private val a:MainActivity,private val surface:Linear
         val cap=((surface.parent as? View)?.height?:a.root.height)*58/100
         if(box.measuredHeight>cap){val headH=box.measuredHeight-page.content.measuredHeight;box.removeView(page.content)
             val color=if(page.light?:a.light)0xfff7f7f5.toInt() else 0xff1c1c1e.toInt()
-            // it cuts what scrolls past its top and foot, but reaches 8dp past the sides, where rings round chosen tiles sit
-            val side=a.d(8)
+            // it cuts what scrolls past its top and foot, but reaches out to the panel's sides, where rings round chosen tiles sit
+            val side=a.d(18)
             val scroll=SheetScroll(a,color,30,18).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;setPadding(side,0,side,0);addView(page.content)}
             box.addView(scroll,LinearLayout.LayoutParams(-1,max(a.d(120),cap-headH)).apply{leftMargin=-side;rightMargin=-side})}
         box.visibility=View.INVISIBLE
