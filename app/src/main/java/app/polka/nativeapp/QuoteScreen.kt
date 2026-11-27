@@ -111,7 +111,7 @@ internal fun MainActivity.quoteStack(b:JSONObject,qs:List<JSONObject>,onOpen:(()
     stack.addView(card,FrameLayout.LayoutParams(-1,-2));stack.contentDescription="${b.str("title")}: ${qs.size} ${quoteWord(qs.size)}";stack.isFocusable=true;stack.setOnClickListener{onOpen?.invoke()};press(stack)
     val top=line();top.addView(CoverView(this,b),LinearLayout.LayoutParams(d(36),d(54)))
     val meta=column().apply{setPadding(d(12),0,d(12),0)};meta.addView(text(b.str("title"),Type.TEXT,bold=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});space(meta,2);meta.addView(text(MainActivity.authors(b).ifBlank{"Автор не указан"},Type.SECONDARY,muted).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END});top.addView(meta,LinearLayout.LayoutParams(0,-2,1f))
-    val badge=line().apply{background=shape((accent and 0x00ffffff) or (if(light)0x1f000000 else 0x29000000),14);setPadding(d(11),0,d(6),0)}
+    val badge=line().apply{background=shape((accent and 0x00ffffff) or (if(light)0x1f000000 else 0x29000000),Radius.R16);setPadding(d(11),0,d(6),0)}
     badge.addView(text("${qs.size}",Type.TEXT,accent,true));badge.addView(IconView(this,"next",accent),LinearLayout.LayoutParams(d(16),d(16)).apply{leftMargin=d(2)});top.addView(badge,LinearLayout.LayoutParams(-2,d(28)))
     card.addView(top);space(card,14)
     val excerpt=line().apply{gravity=Gravity.TOP};excerpt.addView(quoteMark(),LinearLayout.LayoutParams(d(22),d(26)))
@@ -204,7 +204,7 @@ internal fun MainActivity.noteSheet(fragment:String,ink:Int,value:String,saved:S
     box.addView(about,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=d(2)});space(box,16)
     val fieldBg=Ui.card(light)
     val rest=Ui.press(light);val focus=(fg and 0xffffff) or 0x66000000
-    val frame=FrameLayout(this).apply{background=android.graphics.drawable.GradientDrawable().apply{setColor(fieldBg);cornerRadius=d(16).toFloat();setStroke(d(1),rest)}}
+    val frame=FrameLayout(this).apply{background=android.graphics.drawable.GradientDrawable().apply{setColor(fieldBg);cornerRadius=d(Radius.R16).toFloat();setStroke(d(1),rest)}}
     val input=EditText(this).apply{
         typeface=PolkaFonts.sans(400);setText(value);hint="Ваша заметка";setTextColor(fg);setHintTextColor(muted);textSize=Type.TITLE;background=null;isSingleLine=false;minLines=3;maxLines=7;gravity=Gravity.TOP or Gravity.START
         imeOptions=android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
@@ -231,7 +231,7 @@ internal fun MainActivity.noteSheet(fragment:String,ink:Int,value:String,saved:S
                 setOnClickListener{photos.remove(p);fillStrip();paintReady()}},FrameLayout.LayoutParams(d(22),d(22),Gravity.TOP or Gravity.END).apply{setMargins(0,d(5),d(5),0)})
             strip.addView(cell,LinearLayout.LayoutParams(size,size).apply{marginEnd=d(8)})}
         if(photos.size<NotePhotos.MAX){val add=column().apply{gravity=Gravity.CENTER;isClickable=true;contentDescription="Добавить фото"
-                background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=d(12).toFloat();setStroke(d(1)+d(1)/2,if(light)0x2e000000 else 0x2effffff)};press(this)
+                background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=d(Radius.R12).toFloat();setStroke(d(1)+d(1)/2,if(light)0x2e000000 else 0x2effffff)};press(this)
                 addView(IconView(this@noteSheet,"camera",muted),LinearLayout.LayoutParams(d(20),d(20)))
                 addView(text("Фото",Type.CAPTION,muted).apply{gravity=Gravity.CENTER;setPadding(0,d(4),0,0)})
                 setOnClickListener{NotePhotos.pick(this@noteSheet,NotePhotos.MAX-photos.size){got->got.take(NotePhotos.MAX-photos.size).forEach{photos.add(NotePhotos.Photo(null,it))};fillStrip();paintReady()

@@ -93,7 +93,7 @@ internal class AddMenu(private val a:MainActivity){
         }
 
         private fun row(icon:String,label:String,act:()->Unit){
-            val bg=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(18).toFloat();setColor(Color.TRANSPARENT)}
+            val bg=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(Radius.R20).toFloat();setColor(Color.TRANSPARENT)}
             val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),0,a.d(16),0);isClickable=true;isFocusable=true;contentDescription=label;background=bg}
             r.addView(IconView(a,icon,a.fg),LinearLayout.LayoutParams(a.d(24),a.d(24)))
             r.addView(a.text(label,Type.BODY,a.fg).apply{typeface=PolkaFonts.sans(500);maxLines=1},LinearLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(14)})

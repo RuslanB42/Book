@@ -47,7 +47,7 @@ internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:I
         // the pickers reach into the sheet's side padding, which is where their knobs have room
         pad=SvPad();sheet.addView(pad,LinearLayout.LayoutParams(-1,a.d(170)+knobRoom*2).apply{leftMargin=-knobRoom;rightMargin=-knobRoom;topMargin=-knobRoom+a.d(4)})
         hue=HueBar();sheet.addView(hue,LinearLayout.LayoutParams(-1,a.d(30)+knobRoom*2).apply{leftMargin=-knobRoom;rightMargin=-knobRoom;topMargin=-knobRoom+a.d(14)-knobRoom})
-        val cur=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(8),0,a.d(8),0);background=GradientDrawable().apply{setColor(Ui.fill(a.light));cornerRadius=a.d(23).toFloat()}}
+        val cur=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(8),0,a.d(8),0);background=GradientDrawable().apply{setColor(Ui.fill(a.light));cornerRadius=a.d(Radius.R24).toFloat()}}
         swatch=Chip();cur.addView(swatch,LinearLayout.LayoutParams(a.d(30),a.d(30)))
         code=a.text("",Type.TEXT,Ui.ink2(a.light),true).apply{letterSpacing=.04f};cur.addView(code,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(12)})
         save=SaveButton().apply{setOnClickListener{if(editing)setEditing(false) else store()}}

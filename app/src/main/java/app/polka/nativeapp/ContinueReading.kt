@@ -131,7 +131,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  private fun pill(label:String,primary:Boolean,description:String,click:()->Unit):TextView=a.text(label,Type.TEXT,if(primary)a.bg else a.fg,true).apply{
   // 40 dp seen, the whole 48 to tap
   gravity=Gravity.CENTER;minHeight=a.d(Size.TOUCH);maxLines=1;ellipsize=TextUtils.TruncateAt.END;setPadding(a.d(6),0,a.d(6),0);contentDescription=description;isClickable=true;isFocusable=true
-  background=android.graphics.drawable.InsetDrawable(if(primary)GradientDrawable().apply{setColor(a.fg);cornerRadius=a.d(20).toFloat()} else GradientDrawable().apply{setColor(Ui.press(light));cornerRadius=a.d(20).toFloat()},0,a.d(4),0,a.d(4))
+  background=android.graphics.drawable.InsetDrawable(if(primary)GradientDrawable().apply{setColor(a.fg);cornerRadius=a.d(Radius.R20).toFloat()} else GradientDrawable().apply{setColor(Ui.press(light));cornerRadius=a.d(Radius.R20).toFloat()},0,a.d(4),0,a.d(4))
   setOnClickListener{click()};pressy(this)}
  /** The buttons sink clearly under the finger and spring back when released. */
  private fun pressy(v:View){v.setOnTouchListener{view,e->view.background?.setHotspot(e.x,e.y);if(reduced)return@setOnTouchListener false

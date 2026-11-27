@@ -81,7 +81,7 @@ internal object LibraryFilters {
             c.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{marginStart=a.d(4)})
             c.contentDescription=title(g)
         }else{
-            c.setPadding(a.d(15),0,0,0);c.background=android.graphics.drawable.InsetDrawable(a.shape(a.fg,18),0,a.d(6),0,a.d(6))
+            c.setPadding(a.d(15),0,0,0);c.background=android.graphics.drawable.InsetDrawable(a.shape(a.fg,Radius.R20),0,a.d(6),0,a.d(6))
             val words=on.map{short(g,it)}.sortedBy{it.lowercase()}.joinToString(", ")
             c.addView(a.text(words,Type.TEXT,a.bg).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(190)})
             // the cross takes its own touch: it lets the chip go; the rest of the chip opens its list
@@ -109,7 +109,7 @@ internal class FilterSheet(private val a:MainActivity,private val g:String){
         val host=FastScroll(a,list)
         if(long){
             val field=EditText(a).apply{hint=when(g){"author"->"Найти автора";"series"->"Найти серию";"genre"->"Найти жанр";else->"Найти"};setHintTextColor(a.muted);setTextColor(a.fg);textSize=Type.TEXT;typeface=PolkaFonts.sans(400);background=null;setSingleLine(true);setPadding(0,0,0,0)}
-            val bar=a.row().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),0,a.d(16),0);background=a.shape(Ui.fill(a.light),22)}
+            val bar=a.row().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),0,a.d(16),0);background=a.shape(Ui.fill(a.light),Radius.R24)}
             bar.addView(IconView(a,"search",a.muted),LinearLayout.LayoutParams(a.d(18),a.d(18)).apply{marginEnd=a.d(10)});bar.addView(field,LinearLayout.LayoutParams(0,-2,1f))
             box.addView(bar,LinearLayout.LayoutParams(-1,a.d(44)).apply{bottomMargin=a.d(4)})
             field.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,x:Int,y:Int,z:Int){};override fun onTextChanged(s:CharSequence?,x:Int,y:Int,z:Int){}
@@ -173,12 +173,12 @@ internal fun MainActivity.sortSheet(){
     listOf("manual","recent","added","title","author","done").forEach{key->
         val r=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(12),0,d(10),0);isClickable=true;isFocusable=true}
         val name=text(sortName(key),Type.BODY,fg);r.addView(name,LinearLayout.LayoutParams(0,-2,1f))
-        val pill=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(9),0,d(13),0);background=shape(Ui.press(light),17);isClickable=true;isFocusable=true;setOnClickListener{pick(key)}}
+        val pill=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(9),0,d(13),0);background=shape(Ui.press(light),Radius.R20);isClickable=true;isFocusable=true;setOnClickListener{pick(key)}}
         val arrow=FrameLayout(this);pill.addView(arrow,LinearLayout.LayoutParams(d(17),d(17)).apply{marginEnd=d(6)})
         val way=text("",Type.SECONDARY,fg).apply{typeface=PolkaFonts.sans(600)};pill.addView(way)
         press(pill);r.addView(pill,LinearLayout.LayoutParams(-2,d(34)))
         fun show(){val on=sort==key;val rev=prefs.optBoolean("sortReverse");val turns=on&&key!="manual"
-            r.background=if(on)shape(Ui.fill(light),18) else null
+            r.background=if(on)shape(Ui.fill(light),Radius.R20) else null
             name.setTextColor(if(on)fg else ColorUtilsCompat.mute(this));name.typeface=PolkaFonts.sans(if(on)600 else 400)
             pill.visibility=if(turns)View.VISIBLE else View.GONE
             if(turns){way.text=sortWay(key,rev);arrow.removeAllViews();arrow.addView(IconView(this,if(sortUp(key,rev))"arrowup" else "arrowdown",fg),FrameLayout.LayoutParams(-1,-1))

@@ -175,7 +175,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         val dlg=android.app.Dialog(a,R.style.PolkaSheetTheme);dialog=dlg
         val root=DragRoot().apply{isClickable=true;setOnClickListener{close()}}
         holder=a.column().apply{isClickable=true;setPadding(a.d(20),a.d(12),a.d(20),a.d(20));elevation=a.d(16).toFloat()
-            background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(28).toFloat()}}
+            background=GradientDrawable().apply{setColor(sheetColor);cornerRadius=a.d(Radius.R28).toFloat()}}
         holder.addView(View(a).apply{background=a.shape(if(a.light)0x30000000 else 0x30ffffff,3)},LinearLayout.LayoutParams(a.d(36),a.d(5)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=a.d(16)})
         body=a.column();val scroll=ScrollView(a).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;addView(body)}
         holder.addView(scroll,LinearLayout.LayoutParams(-1,-2,1f))
@@ -201,13 +201,13 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         body.alpha=0f;body.animate().alpha(1f).setDuration(if(reduced)0 else 180).start()}
     private fun loading()=content{addView(ProgressBar(a).apply{isIndeterminate=true;indeterminateTintList=android.content.res.ColorStateList.valueOf(a.muted)},LinearLayout.LayoutParams(a.d(28),a.d(28)).apply{gravity=Gravity.CENTER_HORIZONTAL;topMargin=a.d(18);bottomMargin=a.d(26)})}
     private fun hairline(p:LinearLayout)=p.addView(View(a).apply{setBackgroundColor(Ui.line(a.light))},LinearLayout.LayoutParams(-1,1).apply{topMargin=a.d(14);bottomMargin=a.d(14)})
-    private fun round(kind:String,desc:String,fn:()->Unit)=FrameLayout(a).apply{background=a.shape(quiet,20);isClickable=true;contentDescription=desc;a.press(this);setOnClickListener{fn()}
+    private fun round(kind:String,desc:String,fn:()->Unit)=FrameLayout(a).apply{background=a.shape(quiet,Radius.R20);isClickable=true;contentDescription=desc;a.press(this);setOnClickListener{fn()}
         addView(LineIcon(a,kind,a.fg).apply{size=20f},FrameLayout.LayoutParams(-1,-1))}
     private fun copy(){(a.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Glyph",copyText));Notice.short(a,Notice.Kind.COPIED,"Скопировано");close()}
     /** A translation: «Копировать» and «В заметку», equal icon buttons (approved). */
     private fun actions(p:LinearLayout){
         val row=a.line().apply{gravity=Gravity.CENTER}
-        fun btn(kind:String,label:String,fn:()->Unit)=a.line().apply{gravity=Gravity.CENTER;background=a.shape(quiet,22);isClickable=true;contentDescription=label;a.press(this);setOnClickListener{fn()}
+        fun btn(kind:String,label:String,fn:()->Unit)=a.line().apply{gravity=Gravity.CENTER;background=a.shape(quiet,Radius.R24);isClickable=true;contentDescription=label;a.press(this);setOnClickListener{fn()}
             addView(LineIcon(a,kind,a.fg).apply{size=21f},LinearLayout.LayoutParams(a.d(24),a.d(24)))}
         row.addView(btn("copy","Копировать"){copy()},LinearLayout.LayoutParams(0,a.d(44),1f))
         row.addView(View(a),LinearLayout.LayoutParams(a.d(10),1))
@@ -223,7 +223,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         fun saved()=Words.find(a,Dictionary.key(lemma),lang)
         val icon=LineIcon(a,"learn",a.bg).apply{size=20f};val label=a.text("",Type.BODY,a.bg,true)
         val b=a.line().apply{gravity=Gravity.CENTER;isClickable=true;a.press(this);addView(icon,LinearLayout.LayoutParams(a.d(22),a.d(22)));addView(label,LinearLayout.LayoutParams(-2,-2).apply{marginStart=a.d(10)})}
-        fun paint(){val on=saved()!=null;b.background=a.shape(if(on)quiet else a.fg,26);icon.set(if(on)"check" else "learn",if(on)a.fg else a.bg);label.setTextColor(if(on)a.fg else a.bg)
+        fun paint(){val on=saved()!=null;b.background=a.shape(if(on)quiet else a.fg,Radius.R28);icon.set(if(on)"check" else "learn",if(on)a.fg else a.bg);label.setTextColor(if(on)a.fg else a.bg)
             label.text=if(on)"Учу" else "Учить слово";b.contentDescription=if(on)"Убрать из изучения" else "Учить слово"}
         b.setOnClickListener{val have=saved()
             if(have!=null){Words.remove(a,have.str("id"));paint();a.reader?.refreshWordMarks();return@setOnClickListener}
@@ -237,25 +237,25 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         p.addView(row,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18)})}
     private fun message(title:String,sub:String?,action:String?=null,fn:(()->Unit)?=null)=content{
         addView(a.text(title,Type.BODY,a.fg,true));if(sub!=null)addView(a.text(sub,Type.SECONDARY,a.muted).apply{cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(4)})
-        if(action!=null)addView(a.text(action,Type.TEXT,a.fg,true).apply{gravity=Gravity.CENTER;background=a.shape(quiet,22);isClickable=true;a.press(this);setOnClickListener{fn?.invoke()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}
+        if(action!=null)addView(a.text(action,Type.TEXT,a.fg,true).apply{gravity=Gravity.CENTER;background=a.shape(quiet,Radius.R24);isClickable=true;a.press(this);setOnClickListener{fn?.invoke()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}
 
     // ── dictionary ──
     private fun offerDownload(){
         content{val head=a.line()
-            head.addView(FrameLayout(a).apply{background=a.shape(quiet,16);addView(LineIcon(a,"dictionary",a.fg),FrameLayout.LayoutParams(-1,-1))},LinearLayout.LayoutParams(a.d(48),a.d(48)))
+            head.addView(FrameLayout(a).apply{background=a.shape(quiet,Radius.R16);addView(LineIcon(a,"dictionary",a.fg),FrameLayout.LayoutParams(-1,-1))},LinearLayout.LayoutParams(a.d(48),a.d(48)))
             val t=a.column();t.addView(a.text("Словарь без интернета",Type.BODY,a.fg,true));t.addView(a.text("Русский и английский, из Викисловаря. Скачивается один раз, около 35 МБ",Type.SECONDARY,a.muted).apply{cssLeading(1.35f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(2)})
             head.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(14)});addView(head)
-            addView(a.text("Скачать",Type.TEXT,a.bg,true).apply{gravity=Gravity.CENTER;background=a.shape(a.fg,22);isClickable=true;a.press(this);setOnClickListener{download()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}}
+            addView(a.text("Скачать",Type.TEXT,a.bg,true).apply{gravity=Gravity.CENTER;background=a.shape(a.fg,Radius.R24);isClickable=true;a.press(this);setOnClickListener{download()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}}
     private fun download(){
         lateinit var bar:ThinBar;lateinit var left:TextView;lateinit var right:TextView
         content{val head=a.line()
-            head.addView(FrameLayout(a).apply{background=a.shape(quiet,16);addView(LineIcon(a,"dictionary",a.fg),FrameLayout.LayoutParams(-1,-1))},LinearLayout.LayoutParams(a.d(48),a.d(48)))
+            head.addView(FrameLayout(a).apply{background=a.shape(quiet,Radius.R16);addView(LineIcon(a,"dictionary",a.fg),FrameLayout.LayoutParams(-1,-1))},LinearLayout.LayoutParams(a.d(48),a.d(48)))
             val t=a.column();t.addView(a.text("Словарь без интернета",Type.BODY,a.fg,true));t.addView(a.text("Русский и английский, из Викисловаря",Type.SECONDARY,a.muted))
             head.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{marginStart=a.d(14)});addView(head)
             bar=ThinBar();addView(bar,LinearLayout.LayoutParams(-1,a.d(6)).apply{topMargin=a.d(20)})
             val row=a.line();left=a.text("Подключаюсь…",Type.SECONDARY,a.muted);right=a.text("",Type.SECONDARY,a.muted)
             row.addView(left,LinearLayout.LayoutParams(0,-2,1f));row.addView(right);addView(row,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(8)})
-            addView(a.text("Отмена",Type.TEXT,a.fg,true).apply{gravity=Gravity.CENTER;background=a.shape(quiet,22);isClickable=true;a.press(this);setOnClickListener{Dictionary.cancel=true;close()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}
+            addView(a.text("Отмена",Type.TEXT,a.fg,true).apply{gravity=Gravity.CENTER;background=a.shape(quiet,Radius.R24);isClickable=true;a.press(this);setOnClickListener{Dictionary.cancel=true;close()}},LinearLayout.LayoutParams(-1,a.d(44)).apply{topMargin=a.d(18)})}
         io.execute{try{Dictionary.download(a){n,total->holder.post{if(total>0){bar.set(n.toFloat()/total);left.text="${n/1_000_000} из ${total/1_000_000} МБ";right.text="${n*100/total}%"}else left.text="${n/1_000_000} МБ"}}
                 holder.post{if(dialog!=null)lookupWord()}}
             catch(_:InterruptedException){}
@@ -336,7 +336,7 @@ internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,p
         if(src!=null)run(src) else Translation.identify(text){l->holder.post{if(dialog!=null)run(l?:if(text.any{it in 'а'..'я'||it in 'А'..'Я'})"ru" else "en")}}}
     private fun showTranslation(result:String){copyText=result
         content{
-            val seg=a.line().apply{gravity=Gravity.CENTER_VERTICAL;background=a.shape(Ui.fill(a.light),20);setPadding(a.d(4),0,a.d(4),0)}
+            val seg=a.line().apply{gravity=Gravity.CENTER_VERTICAL;background=a.shape(Ui.fill(a.light),Radius.R20);setPadding(a.d(4),0,a.d(4),0)}
             seg.addView(a.text(Translation.name(from?:"en"),Type.SECONDARY,a.fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-1,1f))
             seg.addView(FrameLayout(a).apply{isClickable=true;contentDescription="Поменять языки";a.press(this);setOnClickListener{val f=to;val t=from;if(f!=null&&t!=null)translateSwapped(f,t)}
                 addView(LineIcon(a,"swap",a.muted).apply{size=18f},FrameLayout.LayoutParams(-1,-1))},LinearLayout.LayoutParams(a.d(40),-1))

@@ -252,7 +252,7 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
         box.addView(TextView(a).apply{text="Ещё читаете?";textSize=Type.H2;typeface=PolkaFonts.sans(600);setTextColor(ink);gravity=Gravity.CENTER},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(10)})
         box.addView(TextView(a).apply{text="Давно не было касаний. Если не ответить, листание остановится";textSize=Type.TEXT;setTextColor(muted);gravity=Gravity.CENTER;typeface=PolkaFonts.sans(400)},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(6);leftMargin=a.d(10);rightMargin=a.d(10)})
         box.addView(TextView(a).apply{text="Читаю";textSize=Type.TEXT;typeface=PolkaFonts.sans(600);setTextColor(page);gravity=Gravity.CENTER;isClickable=true
-            background=GradientDrawable().apply{setColor(ink);cornerRadius=a.d(24).toFloat()};setOnClickListener{answer()};a.press(this)},LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(18)})
+            background=GradientDrawable().apply{setColor(ink);cornerRadius=a.d(Radius.R24).toFloat()};setOnClickListener{answer()};a.press(this)},LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(18)})
         scrim.addView(box,FrameLayout.LayoutParams(-1,-2,Gravity.CENTER).apply{leftMargin=a.d(22);rightMargin=a.d(22)})
         r.autoView.addView(scrim,FrameLayout.LayoutParams(-1,-1));card=scrim
         if(a.prefs.str("motion")!="reduced"){scrim.alpha=0f;scrim.animate().alpha(1f).setDuration(MotionSpec.ASK_IN).setInterpolator(MotionSpec.enter).start()}

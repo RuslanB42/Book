@@ -168,7 +168,7 @@ internal class SoundButton(private val a:MainActivity,ink:Int):FrameLayout(a){
 internal class SoundChip(private val a:MainActivity,open:()->Unit):LinearLayout(a){
     private val bars=EqBars(a,0)
     private val label=a.text("",Type.CAPTION,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(92)}
-    private val bg=GradientDrawable().apply{cornerRadius=a.d(14).toFloat()}
+    private val bg=GradientDrawable().apply{cornerRadius=a.d(Radius.R16).toFloat()}
     private val update={refresh(true)}
     private var key:String?="?"
     init{orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);background=android.graphics.drawable.InsetDrawable(bg,0,a.d(10),0,a.d(10));isClickable=true;contentDescription="Фоновые звуки";setOnClickListener{open()};a.press(this)
@@ -220,7 +220,7 @@ internal class AmbienceSheet(private val a:MainActivity){
         sheet.addView(a.text("СВОИ ЗВУКИ",Type.CAPTION,a.muted,true).apply{letterSpacing=.06f},LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(18);bottomMargin=a.d(10);leftMargin=a.d(4)})
         mineBox=a.column();sheet.addView(mineBox,LinearLayout.LayoutParams(-1,-2))
         val add=a.line().apply{gravity=Gravity.CENTER;isClickable=true;a.press(this);contentDescription="Добавить свой звук"
-            background=GradientDrawable().apply{cornerRadius=a.d(18).toFloat();setStroke(a.d(1),if(a.light)0x26000000 else 0x2effffff,a.d(5).toFloat(),a.d(4).toFloat())}
+            background=GradientDrawable().apply{cornerRadius=a.d(Radius.R20).toFloat();setStroke(a.d(1),if(a.light)0x26000000 else 0x2effffff,a.d(5).toFloat(),a.d(4).toFloat())}
             addView(a.text("＋",Type.TITLE,a.fg,true));addView(a.text("Добавить свой звук",Type.TEXT,a.fg,true).apply{setPadding(a.d(8),0,0,0)})
             setOnClickListener{a.pickSound{o->buildMine(o.str("id"));toggle(Ambience.CUSTOM+o.str("id"))}}}
         sheet.addView(add,LinearLayout.LayoutParams(-1,a.d(50)))
@@ -280,7 +280,7 @@ internal class AmbienceSheet(private val a:MainActivity){
     /** Your own sound: a note, its name and length, dancing bars when it plays, a bin to remove it. */
     private inner class MineRow(val o:JSONObject):LinearLayout(a){
         private val key=Ambience.CUSTOM+o.str("id");private val bars=EqBars(a,a.fg)
-        private val bg=GradientDrawable().apply{setColor(pillColor);cornerRadius=a.d(18).toFloat()}
+        private val bg=GradientDrawable().apply{setColor(pillColor);cornerRadius=a.d(Radius.R20).toFloat()}
         private var chosen:Boolean?=null
         init{orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(4),0);background=bg;isClickable=true;a.press(this);setOnClickListener{toggle(key)}
             addView(object:View(a){val p=Paint(Paint.ANTI_ALIAS_FLAG);override fun onDraw(c:Canvas){Ambience.icon(c,"note",0f,0f,width.toFloat(),a.muted,p)}},LayoutParams(a.d(18),a.d(18)).apply{marginEnd=a.d(12)})

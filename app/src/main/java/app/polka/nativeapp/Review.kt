@@ -158,7 +158,7 @@ internal class ReviewBlock(private val a:MainActivity,private val book:JSONObjec
         note.addView(tagRow,LayoutParams(-1,-2).apply{topMargin=a.d(12)})
         val foot=FrameLayout(a)
         foot.addView(date,FrameLayout.LayoutParams(-2,-2,Gravity.START or Gravity.CENTER_VERTICAL))
-        pen.background=a.shape(Ui.fill(a.light),16);pen.contentDescription="Изменить отзыв";pen.isClickable=true;pen.isFocusable=true;a.press(pen);pen.setOnClickListener{edit()}
+        pen.background=a.shape(Ui.fill(a.light),Radius.R16);pen.contentDescription="Изменить отзыв";pen.isClickable=true;pen.isFocusable=true;a.press(pen);pen.setOnClickListener{edit()}
         pen.addView(IconView(a,"pen",a.fg),FrameLayout.LayoutParams(a.d(16),a.d(16),Gravity.CENTER))
         foot.addView(pen,FrameLayout.LayoutParams(a.d(32),a.d(32),Gravity.END or Gravity.CENTER_VERTICAL).apply{rightMargin=-a.d(4)})
         note.addView(foot,LayoutParams(-1,a.d(32)).apply{topMargin=a.d(12);bottomMargin=a.d(4)})

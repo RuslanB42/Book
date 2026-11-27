@@ -242,7 +242,7 @@ fun MainActivity.wordsPage(){
     card.addView(TextView(this).apply{val sb=SpannableStringBuilder(if(today>0)"$today" else "Всё повторено")
         if(today>0){val st=sb.length;sb.append(" на сегодня");sb.setSpan(android.text.style.AbsoluteSizeSpan(15,true),st,sb.length,0);sb.setSpan(android.text.style.ForegroundColorSpan(muted),st,sb.length,0);sb.setSpan(TypefaceSpanCompat(PolkaFonts.sans(400)),st,sb.length,0)}
         text=sb;textSize=if(today>0)32f else 18f;setTextColor(fg);typeface=PolkaFonts.serif(this@wordsPage,true);includeFontPadding=false},LinearLayout.LayoutParams(0,-2,1f))
-    if(today>0)card.addView(text("Начать",Type.TEXT,bg,true).apply{gravity=Gravity.CENTER;setPadding(d(24),0,d(24),0);background=shape(fg,24);isClickable=true;press(this);setOnClickListener{WordLesson(this@wordsPage).start()}},LinearLayout.LayoutParams(-2,d(48)))
+    if(today>0)card.addView(text("Начать",Type.TEXT,bg,true).apply{gravity=Gravity.CENTER;setPadding(d(24),0,d(24),0);background=shape(fg,Radius.R24);isClickable=true;press(this);setOnClickListener{WordLesson(this@wordsPage).start()}},LinearLayout.LayoutParams(-2,d(48)))
     card.minimumHeight=d(76);page.addView(card,LinearLayout.LayoutParams(-1,-2));space(page,10)
     val learning=words.filterNot{Words.known(it)}.sortedByDescending{it.optLong("added")};val known=words.filter{Words.known(it)}.sortedByDescending{it.optLong("added")}
     val all=learning+known
@@ -325,7 +325,7 @@ internal class WordLesson(private val a:MainActivity){
         bar=Progress();top.addView(bar,LinearLayout.LayoutParams(0,a.d(4),1f).apply{marginStart=a.d(6);marginEnd=a.d(6)})
         col.addView(top,LinearLayout.LayoutParams(-1,a.d(48)))
         stage=FrameLayout(a);col.addView(stage,LinearLayout.LayoutParams(-1,0,1f))
-        next=a.text("Дальше",Type.BODY,a.bg,true).apply{gravity=Gravity.CENTER;background=a.shape(a.fg,26);isClickable=true;a.press(this);visibility=View.GONE;setOnClickListener{advance()}}
+        next=a.text("Дальше",Type.BODY,a.bg,true).apply{gravity=Gravity.CENTER;background=a.shape(a.fg,Radius.R28);isClickable=true;a.press(this);visibility=View.GONE;setOnClickListener{advance()}}
         col.addView(next,LinearLayout.LayoutParams(-1,a.d(52)).apply{topMargin=a.d(12)})
         root.addView(col,FrameLayout.LayoutParams(-1,-1));dlg.setContentView(root)
         dlg.window?.let{w->w.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0));w.setLayout(-1,-1);w.setWindowAnimations(0);ReaderWindow.configure(w,false,a.bg)
@@ -371,7 +371,7 @@ internal class WordLesson(private val a:MainActivity){
         val options=(others+right).shuffled()
         val list=a.column();val rows=ArrayList<TextView>()
         options.forEach{o->val t=TextView(a).apply{text=o;tag=o;textSize=if(words)19f else 16f;setTextColor(a.fg);typeface=PolkaFonts.literata(a,words);maxLines=3;ellipsize=android.text.TextUtils.TruncateAt.END
-            setPadding(a.d(16),a.d(15),a.d(16),a.d(15));background=a.shape(Ui.card(a.light),18);isClickable=true;a.press(this)
+            setPadding(a.d(16),a.d(15),a.d(16),a.d(15));background=a.shape(Ui.card(a.light),Radius.R20);isClickable=true;a.press(this)
             setOnClickListener{pick(w,o==right,this,rows.first{r->r.tag==right})}}
             rows+=t;list.addView(t,LinearLayout.LayoutParams(-1,-2).apply{if(list.childCount>0)topMargin=a.d(10)})}
         c.addView(list,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(36)})
@@ -391,7 +391,7 @@ internal class WordLesson(private val a:MainActivity){
             val st=r.first;val en=st+(r.last-r.first+1).coerceIn(5,12);sb.setSpan(android.text.style.UnderlineSpan(),st,en,0)
             c.addView(TextView(a).apply{text=sb;textSize=Type.H2;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;cssLeading(1.6f)},LinearLayout.LayoutParams(-1,-2))}
         c.addView(TextView(a).apply{text=Words.meaning(w);textSize=if(s!=null&&r!=null)15f else 22f;setTextColor(if(s!=null&&r!=null)a.muted else a.fg);typeface=PolkaFonts.literata(a,false,s!=null&&r!=null);gravity=Gravity.CENTER;cssLeading(1.4f)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(12)})
-        val field=EditText(a).apply{textSize=Type.H2;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;background=a.shape(Ui.card(a.light),18)
+        val field=EditText(a).apply{textSize=Type.H2;setTextColor(a.fg);typeface=PolkaFonts.literata(a);gravity=Gravity.CENTER;background=a.shape(Ui.card(a.light),Radius.R20)
             setPadding(a.d(16),0,a.d(16),0);isSingleLine=true;imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE or android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
             inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
             setOnEditorActionListener{v,_,_->check(w,v as EditText,if(s!=null&&r!=null)s.substring(r.first,r.last+1) else w.str("w"));true}}

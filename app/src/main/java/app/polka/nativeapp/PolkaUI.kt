@@ -171,7 +171,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 super.onCreate(b)
                 val owner:DialogInterface=this
                 val wide=a.wideSheet();widePanel=wide
-                val box=a.column().apply { background=a.shape(a.sheetColor,22); clipToOutline=true }
+                val box=a.column().apply { background=a.shape(a.sheetColor,Radius.R24); clipToOutline=true }
                 if(!wide){val r=a.d(22).toFloat();(box.background as android.graphics.drawable.GradientDrawable).cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)}
                 a.controlSurface(box,22f,sheet=true).apply{flushBottom=!wide;refresh()};panel=box
                 val animated=a.prefs.str("motion")!="reduced";if(animated)box.alpha=0f
@@ -424,7 +424,7 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
 
     fun bind(tab:String,onSelect:(String)->Unit) {
         choose=onSelect
-        if(theme!=a.light){theme=a.light;background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(28).toFloat();setColor(barColor);if(a.light)setStroke(a.d(1),0x12000000)};invalidate()}
+        if(theme!=a.light){theme=a.light;background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(Radius.R28).toFloat();setColor(barColor);if(a.light)setStroke(a.d(1),0x12000000)};invalidate()}
         val index=keys.indexOf(tab).coerceAtLeast(0)
         val first=selected<0;selected=index
         items.forEachIndexed{i,v->v.isSelected=i==index;v.setOnClickListener{onSelect(keys[i])}}

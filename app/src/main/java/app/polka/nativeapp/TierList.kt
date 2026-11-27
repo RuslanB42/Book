@@ -120,7 +120,7 @@ internal class TierRow(private val a:MainActivity,val k:Int,val covers:FlowRow):
         addView(label,LayoutParams(a.d(84),-2))
         addView(covers,LayoutParams(0,-2,1f).apply{marginStart=a.d(4);topMargin=a.d(2)})
         val (_,c2)=if(k<5)Tiers.tone(a,k) else (0xff8a8a90.toInt() to 0xff8a8a90.toInt())
-        val g=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf((c2 and 0xffffff) or (0x26 shl 24),(c2 and 0xffffff) or (0x0a shl 24),(c2 and 0xffffff) or (0x05 shl 24))).apply{cornerRadius=a.d(18).toFloat();setStroke(a.d(1),(c2 and 0xffffff) or (0x40 shl 24))}
+        val g=GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf((c2 and 0xffffff) or (0x26 shl 24),(c2 and 0xffffff) or (0x0a shl 24),(c2 and 0xffffff) or (0x05 shl 24))).apply{cornerRadius=a.d(Radius.R20).toFloat();setStroke(a.d(1),(c2 and 0xffffff) or (0x40 shl 24))}
         band=InsetDrawable(g,a.d(8),a.d(2),a.d(8),a.d(2)).apply{alpha=0};background=band}
     fun light(on:Boolean,motion:Boolean){if(on==lit)return;lit=on;invalidate()
         if(!motion){band.alpha=if(on)255 else 0;return}
@@ -237,7 +237,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     private fun renderPills(){pills.removeAllViews();val all=Tiers.books(model,null)
         fun add(label:String,on:Boolean,open:(View)->Unit){val ink=if(on)a.bg else a.fg
             val p=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(11),0);isClickable=true;contentDescription=label
-                background=GradientDrawable().apply{cornerRadius=a.d(18).toFloat();setColor(if(on)a.fg else Ui.fill(a.light))};a.press(this)}
+                background=GradientDrawable().apply{cornerRadius=a.d(Radius.R20).toFloat();setColor(if(on)a.fg else Ui.fill(a.light))};a.press(this)}
             p.addView(a.text(label,Type.TEXT,ink,true).apply{maxLines=1})
             p.addView(IconView(a,"chevdown",ink),LinearLayout.LayoutParams(a.d(13),a.d(13)).apply{marginStart=a.d(6)})
             p.setOnClickListener{open(p)}
@@ -254,12 +254,12 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
     /** A short menu under [anchor]: the chosen line marked with a tick; picking one closes it. */
     private fun choose(anchor:View,items:List<String>,chosen:Int,pick:(Int)->Unit){if(menu!=null||drag!=null||closing)return
         val layer=FrameLayout(a).apply{isClickable=true;setOnClickListener{closeMenu()}}
-        val card=FrameLayout(a).apply{background=GradientDrawable().apply{setColor(Ui.card(a.light));cornerRadius=a.d(18).toFloat()}
+        val card=FrameLayout(a).apply{background=GradientDrawable().apply{setColor(Ui.card(a.light));cornerRadius=a.d(Radius.R20).toFloat()}
             elevation=a.d(16).toFloat();clipToOutline=true;isClickable=true}
         val list=a.column().apply{setPadding(a.d(6),a.d(6),a.d(6),a.d(6))}
         items.forEachIndexed{i,t->val on=i==chosen
             val row=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(14),0,a.d(12),0);isClickable=true;contentDescription=t
-                if(on)background=GradientDrawable().apply{setColor(Ui.fill(a.light));cornerRadius=a.d(12).toFloat()}
+                if(on)background=GradientDrawable().apply{setColor(Ui.fill(a.light));cornerRadius=a.d(Radius.R12).toFloat()}
                 setOnClickListener{closeMenu();if(i!=chosen)pick(i)};a.press(this)}
             row.addView(a.text(t,Type.TEXT,a.fg,on).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
             if(on)row.addView(IconView(a,"check",a.fg),LinearLayout.LayoutParams(a.d(16),a.d(16)).apply{marginStart=a.d(12)})
@@ -296,7 +296,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
                 if(k==5){row.minimumHeight=0;row.setPadding(a.d(14),a.d(12),a.d(14),a.d(14));(row.getChildAt(0)).visibility=View.GONE
                     (flow.layoutParams as LinearLayout.LayoutParams).apply{marginStart=0;topMargin=a.d(28)}
                     val tray=FrameLayout(a).apply{clipChildren=false;clipToPadding=false
-                        background=GradientDrawable().apply{cornerRadius=a.d(22).toFloat();setStroke(a.d(1)+a.d(1)/2,if(a.light)0x26000000 else 0x22ffffff,a.d(5).toFloat(),a.d(4).toFloat())}}
+                        background=GradientDrawable().apply{cornerRadius=a.d(Radius.R24).toFloat();setStroke(a.d(1)+a.d(1)/2,if(a.light)0x26000000 else 0x22ffffff,a.d(5).toFloat(),a.d(4).toFloat())}}
                     tray.addView(a.text("ЕЩЁ НЕ ОЦЕНЕНЫ",Type.CAPTION,Ui.ink2(a.light),true).apply{letterSpacing=.08f},FrameLayout.LayoutParams(-2,-2).apply{leftMargin=a.d(14);topMargin=a.d(12)})
                     tray.addView(row,FrameLayout.LayoutParams(-1,-2))
                     box.addView(tray,LinearLayout.LayoutParams(-1,-2).apply{leftMargin=a.d(16);rightMargin=a.d(16);topMargin=a.d(14)})}
@@ -405,7 +405,7 @@ internal class TierListOverlay(private val a:MainActivity,private val model:Read
         box.addView(img,LinearLayout.LayoutParams((bmp.width*k).toInt(),(bmp.height*k).toInt()))
         val acts=a.line().apply{gravity=Gravity.CENTER}
         fun act(label:String,primary:Boolean,click:()->Unit)=a.text(label,Type.BODY,if(primary)a.bg else a.fg,true).apply{gravity=Gravity.CENTER;isClickable=true
-            background=GradientDrawable().apply{setColor(if(primary)a.fg else Ui.press(a.light));cornerRadius=a.d(24).toFloat()};setOnClickListener{click()};a.press(this)}
+            background=GradientDrawable().apply{setColor(if(primary)a.fg else Ui.press(a.light));cornerRadius=a.d(Radius.R24).toFloat()};setOnClickListener{click()};a.press(this)}
         acts.addView(act("Сохранить",false){save()},LinearLayout.LayoutParams(0,a.d(48),1f))
         acts.addView(act("Отправить",true){send()},LinearLayout.LayoutParams(0,a.d(48),1f).apply{marginStart=a.d(10)})
         box.addView(acts,LinearLayout.LayoutParams((bmp.width*k).toInt(),-2).apply{topMargin=a.d(20)})

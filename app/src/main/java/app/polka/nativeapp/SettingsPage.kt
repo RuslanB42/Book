@@ -122,7 +122,7 @@ internal fun MainActivity.numberSheet(title:String,initial:Int,range:IntRange,pr
     box.addView(caption,LinearLayout.LayoutParams(-1,-2))
     val chips=line()
     val views=presets.map{n->text("$n",Type.TEXT,fg,true).apply{gravity=Gravity.CENTER;isClickable=true;isFocusable=true;contentDescription="$n";press(this)}}
-    fun paint(){val cur=field.text.toString().toIntOrNull();views.forEachIndexed{i,v->val on=presets[i]==cur;v.background=shape(if(on)fg else pill,19);v.setTextColor(if(on)bg else fg)}}
+    fun paint(){val cur=field.text.toString().toIntOrNull();views.forEachIndexed{i,v->val on=presets[i]==cur;v.background=shape(if(on)fg else pill,Radius.R20);v.setTextColor(if(on)bg else fg)}}
     views.forEachIndexed{i,v->v.setOnClickListener{field.setText("${presets[i]}");field.setSelection(field.length())};chips.addView(v,LinearLayout.LayoutParams(0,d(38),1f).apply{if(i>0)leftMargin=d(8)})}
     box.addView(chips,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(20)})
     field.addTextChangedListener(object:android.text.TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,c:Int){}
@@ -132,7 +132,7 @@ internal fun MainActivity.numberSheet(title:String,initial:Int,range:IntRange,pr
     fun done(){val n=field.text.toString().toIntOrNull();if(n==null||n !in range){field.animate().translationX(d(8).toFloat()).setDuration(60).withEndAction{field.animate().translationX(0f).setDuration(Motion.FAST).setInterpolator(android.view.animation.OvershootInterpolator(3f)).start()}.start();return}
         saved(n);sheet.dismiss()}
     field.setOnEditorActionListener{_,act,_->if(act==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){done();true}else false}
-    box.addView(text("Готово",Type.BODY,bg,true).apply{gravity=Gravity.CENTER;background=shape(fg,26);isClickable=true;isFocusable=true;press(this);setOnClickListener{done()}},LinearLayout.LayoutParams(-1,d(52)).apply{topMargin=d(18)})
+    box.addView(text("Готово",Type.BODY,bg,true).apply{gravity=Gravity.CENTER;background=shape(fg,Radius.R28);isClickable=true;isFocusable=true;press(this);setOnClickListener{done()}},LinearLayout.LayoutParams(-1,d(52)).apply{topMargin=d(18)})
     extra?.let{(label,fn)->box.addView(text(label,Type.TEXT,muted).apply{gravity=Gravity.CENTER;setPadding(0,d(14),0,d(2));isClickable=true;setOnClickListener{fn();sheet.dismiss()}},LinearLayout.LayoutParams(-1,-2))}
     sheet=dialog().setBare().setView(box).show()
     field.post{field.requestFocus();(getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(field,0)}

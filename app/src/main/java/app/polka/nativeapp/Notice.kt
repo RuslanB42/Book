@@ -92,7 +92,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
         button.text=s.action.orEmpty();button.visibility=if(s.action==null)View.GONE else View.VISIBLE
         val quiet=s.kind==Kind.ERROR||s.kind==Kind.PARTIAL
         button.setTextColor(if(quiet)a.fg else a.bg)
-        button.background=GradientDrawable().apply{setColor(if(quiet)(Ui.press(a.light)) else a.fg);cornerRadius=a.d(18).toFloat()}
+        button.background=GradientDrawable().apply{setColor(if(quiet)(Ui.press(a.light)) else a.fg);cornerRadius=a.d(Radius.R20).toFloat()}
         row.setPadding(a.d(8),0,if(s.action==null)a.d(18) else a.d(8),0)
         button.setOnClickListener{s.onAction?.invoke();dismiss()}
         badge.set(s,!first&&!reduced)

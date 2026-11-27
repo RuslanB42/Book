@@ -20,7 +20,7 @@ internal fun MainActivity.inputDialog(title:String,value:String="",hint:String="
     helper?.let{box.addView(text(it,Type.TEXT,muted).apply{gravity=Gravity.CENTER;setPadding(d(8),0,d(8),0)});space(box,14)}
     val fieldBg=Ui.card(light)
     val rest=Ui.press(light);val focus=(fg and 0xffffff) or 0x66000000
-    val frame=FrameLayout(this).apply{background=GradientDrawable().apply{setColor(fieldBg);cornerRadius=d(16).toFloat();setStroke(d(1),rest)}}
+    val frame=FrameLayout(this).apply{background=GradientDrawable().apply{setColor(fieldBg);cornerRadius=d(Radius.R16).toFloat();setStroke(d(1),rest)}}
     val input=EditText(this).apply{
         typeface=PolkaFonts.sans(400);setText(value);setHint(hint);setTextColor(fg);setHintTextColor(muted);textSize=Type.TITLE;background=null;isSingleLine=true
         imeOptions=EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_EXTRACT_UI

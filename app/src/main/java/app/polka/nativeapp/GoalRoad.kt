@@ -118,7 +118,7 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
         box.addView(img,LinearLayout.LayoutParams(pw,ph))
         val acts=a.line().apply{gravity=Gravity.CENTER}
         fun act(label:String,primary:Boolean,click:()->Unit)=a.text(label,Type.BODY,if(primary)a.bg else a.fg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(22),0,a.d(22),0);isClickable=true
-            background=GradientDrawable().apply{setColor(if(primary)a.fg else Ui.press(a.light));cornerRadius=a.d(24).toFloat()};setOnClickListener{click()};a.press(this)}
+            background=GradientDrawable().apply{setColor(if(primary)a.fg else Ui.press(a.light));cornerRadius=a.d(Radius.R24).toFloat()};setOnClickListener{click()};a.press(this)}
         acts.addView(act("Закрыть",false){closeShare()},LinearLayout.LayoutParams(-2,a.d(48)))
         acts.addView(act("Отправить",true){send(y)},LinearLayout.LayoutParams(-2,a.d(48)).apply{marginStart=a.d(10)})
         box.addView(acts,LinearLayout.LayoutParams(-2,-2).apply{topMargin=a.d(18)})
@@ -143,13 +143,13 @@ internal class GoalRoadOverlay(private val a:MainActivity,private val model:Read
             a.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply{type="image/png";putExtra(Intent.EXTRA_STREAM,uri);clipData=ClipData.newUri(a.contentResolver,"Мой год в книгах",uri);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)},"Поделиться"))}}
 }
 
-/** Five plain stars, filled yellow up to the rating; the rest are yellow outlines. */
+/** Five plain stars, filled yellow up to the rating; the rest are grey outlines. */
 internal class StarRow(private val a:MainActivity,var rating:Int,private val sizeDp:Float,private val gapDp:Float=2f):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     init{contentDescription=if(rating in 1..5)"Оценка $rating из 5" else "Без оценки"}
     override fun onMeasure(w:Int,h:Int)=setMeasuredDimension((a.d(1)*(sizeDp*5+gapDp*4)).roundToInt(),(a.d(1)*sizeDp).roundToInt())
     override fun onDraw(c:Canvas){val s=a.d(1)*sizeDp;val g=a.d(1)*gapDp
-        for(i in 0 until 5){p.color=starYellow(a);drawStar(c,i*(s+g),0f,s,p,i>=rating)}}
+        for(i in 0 until 5){p.color=if(i>=rating)Ui.icon(a.light) else starYellow(a);drawStar(c,i*(s+g),0f,s,p,i>=rating)}}
     companion object{
         fun starYellow(a:MainActivity)=if(a.light)0xfff5a524.toInt() else 0xffffc53d.toInt()
         /** A rounded five-point star filling the [size] square at x, y ([outline]: only its edge). */

@@ -28,7 +28,7 @@ internal class StreakMonth(private val a:MainActivity,private val model:ReadingS
     init{
         orientation=VERTICAL;visibility=GONE;clipChildren=false
         // approved «месяц в своём лотке»: the month lies on a darker tray inside the card, no lines
-        background=a.shape(if(a.light)0xfff2f2f4.toInt() else 0xff1c1c1e.toInt(),20);setPadding(a.d(14),a.d(16),a.d(14),a.d(14))
+        background=a.shape(if(a.light)0xfff2f2f4.toInt() else 0xff1c1c1e.toInt(),Radius.R20);setPadding(a.d(14),a.d(16),a.d(14),a.d(14))
         // month name on the left, small round arrows on the right; no separating lines
         val bar=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,0,0,a.d(8))}
         val name=a.line().apply{gravity=Gravity.BOTTOM};name.addView(title);name.addView(year.apply{setPadding(a.d(6),0,0,a.d(1))})

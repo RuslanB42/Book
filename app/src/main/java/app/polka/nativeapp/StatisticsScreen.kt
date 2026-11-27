@@ -134,7 +134,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         return tv}
     /** Small glass chip (year, period). */
     private fun chip(s:String,click:()->Unit)=label(s,Type.CAPTION,if(light)0xff3a3a3d.toInt() else 0xffdddddd.toInt()).apply{
-        background=GradientDrawable().apply{setColor(Ui.fill(light));cornerRadius=a.d(12).toFloat();setStroke(a.d(1),Ui.press(light))}
+        background=GradientDrawable().apply{setColor(Ui.fill(light));cornerRadius=a.d(Radius.R12).toFloat();setStroke(a.d(1),Ui.press(light))}
         setPadding(a.d(10),a.d(5),a.d(10),a.d(5));isClickable=true;setOnClickListener{click()};a.press(this)}
     private fun bestStreak():Int=max(all.ledger.best,all.streak)
 
@@ -175,7 +175,7 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         val words=a.column();words.addView(a.text(title,Type.TEXT,a.fg,sub!=null||met));sub?.let{words.addView(label(it,Type.SECONDARY).apply{setPadding(0,a.d(2),0,0)})}
         foot.addView(words,LinearLayout.LayoutParams(0,-2,1f))
         val reading=a.books.filter{Library.status(it)=="reading"&&!it.optBoolean("noFile")}.maxByOrNull{it.optLong("openedAt")}
-        if(!met&&reading!=null)foot.addView(a.text("Читать",Type.SECONDARY,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(16),0,a.d(16),0);background=a.shape(a.fg,18);isClickable=true;setOnClickListener{a.openBook(reading)};a.press(this)},LinearLayout.LayoutParams(-2,a.d(36)).apply{marginStart=a.d(10)})
+        if(!met&&reading!=null)foot.addView(a.text("Читать",Type.SECONDARY,a.bg,true).apply{gravity=Gravity.CENTER;setPadding(a.d(16),0,a.d(16),0);background=a.shape(a.fg,Radius.R20);isClickable=true;setOnClickListener{a.openBook(reading)};a.press(this)},LinearLayout.LayoutParams(-2,a.d(36)).apply{marginStart=a.d(10)})
         box.addView(foot,LinearLayout.LayoutParams(-1,-2))
         val month=StreakMonth(a,all,today,live)
         box.addView(month,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(18);leftMargin=-a.d(6);rightMargin=-a.d(6);bottomMargin=-a.d(6)})

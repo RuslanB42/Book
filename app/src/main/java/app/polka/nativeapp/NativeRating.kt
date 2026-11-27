@@ -63,8 +63,8 @@ class NativeRating(val a:MainActivity,initial:Int=0,val toggle:Boolean=true,priv
         val path=StarShape.path;val y=(height-star)/2f;val yellow=StarRow.starYellow(a)
         for(i in 0 until 5){val x=left+i*(star+gap);val f=(shown-i).coerceIn(0f,1f)
             c.save();c.translate(x+star/2,y+star/2);c.scale(press[i],press[i]);c.translate(-star/2,-star/2);c.scale(star/24,star/24)
-            // an empty star is the same yellow, only not filled in
-            if(f<1f){p.style=Paint.Style.STROKE;p.strokeWidth=1.5f;p.color=yellow;c.drawPath(path,p)}
+            // an empty star is a grey outline (the yellow one was 2:1 on white, too faint to count)
+            if(f<1f){p.style=Paint.Style.STROKE;p.strokeWidth=1.5f;p.color=Ui.icon(a.light);c.drawPath(path,p)}
             if(f>0f){c.save();c.clipRect(0f,0f,24f*f,24f);p.color=yellow;p.style=Paint.Style.FILL_AND_STROKE;p.strokeWidth=1.5f;c.drawPath(path,p);c.restore()}
             c.restore()}
     }

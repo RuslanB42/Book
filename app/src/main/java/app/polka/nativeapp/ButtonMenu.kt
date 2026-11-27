@@ -98,7 +98,7 @@ internal class ButtonMenu(private val a:MainActivity,private val anchor:View,pri
 
         private fun row(item:Item){
             val ink=if(item.destructive)Ui.danger(a.light) else a.fg
-            val bg=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(18).toFloat();setColor(Color.TRANSPARENT)}
+            val bg=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(Radius.R20).toFloat();setColor(Color.TRANSPARENT)}
             val r=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(16),0,a.d(16),0);isClickable=true;isFocusable=true;contentDescription=item.label;background=bg}
             r.addView(IconView(a,item.icon,ink),LinearLayout.LayoutParams(a.d(24),a.d(24)))
             r.addView(a.text(item.label,Type.BODY,ink).apply{typeface=PolkaFonts.sans(500);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f).apply{leftMargin=a.d(14)})

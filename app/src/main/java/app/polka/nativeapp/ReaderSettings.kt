@@ -164,7 +164,7 @@ internal class Chevron(private val a:MainActivity,private val back:Boolean=false
     private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{style=Paint.Style.STROKE;strokeCap=Paint.Cap.ROUND;strokeJoin=Paint.Join.ROUND}
     private val path=Path()
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
-    override fun onDraw(c:Canvas){val d=a.resources.displayMetrics.density;val w=9*d;val h=16*d;p.strokeWidth=2.2f*d;p.color=ink?:if(back)a.fg else (Ui.ink2(a.light))
+    override fun onDraw(c:Canvas){val d=a.resources.displayMetrics.density;val w=9*d;val h=16*d;p.strokeWidth=2.2f*d;p.color=ink?:if(back)a.fg else a.muted
         c.save();c.translate((width-w)/2f,(height-h)/2f);if(back)c.scale(-1f,1f,w/2f,h/2f)
         path.rewind();path.moveTo(1.5f*d,1.8f*d);path.lineTo(7.3f*d,8f*d);path.lineTo(1.5f*d,14.2f*d);c.drawPath(path,p);c.restore()}
 }
@@ -221,7 +221,7 @@ internal class SizeStepper(private val a:MainActivity,start:Int,private val chan
     private val number=a.text("",Type.BODY,a.fg,true)
     private val less:FrameLayout;private val more:FrameLayout
     private val repeat=android.os.Handler(android.os.Looper.getMainLooper())
-    init{orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;background=a.shape(Ui.fill(a.light),24);clipToOutline=true
+    init{orientation=HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;background=a.shape(Ui.fill(a.light),Radius.R24);clipToOutline=true
         fun seg(size:Float,label:String,dir:Int)=FrameLayout(a).apply{isClickable=true;contentDescription=label
             background=android.graphics.drawable.StateListDrawable().apply{setExitFadeDuration(220);addState(intArrayOf(android.R.attr.state_pressed),android.graphics.drawable.ColorDrawable(Ui.fill(a.light)));addState(intArrayOf(),android.graphics.drawable.ColorDrawable(0))}
             addView(a.text("A",size,a.fg).apply{typeface=PolkaFonts.sans(500);includeFontPadding=false},FrameLayout.LayoutParams(-2,-2,Gravity.CENTER))

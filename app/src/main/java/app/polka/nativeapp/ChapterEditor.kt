@@ -58,7 +58,7 @@ class ChapterEditor(private val a:MainActivity,private val reader:NativeReader,p
   toolbar.addView(actions)
   error.textSize=12f;error.setTextColor(if(lightPage)0xffa52820.toInt()else 0xffff8a75.toInt());error.visibility=View.GONE;error.setPadding(a.d(6),a.d(4),a.d(6),0);toolbar.addView(error)
   val buttons=a.line().apply{setPadding(0,a.d(8),0,0)}
-  fun pill(label:String,filled:Boolean,description:String,fn:()->Unit)=a.text(label,Type.TEXT,if(filled)pageBg else ink,filled).apply{gravity=Gravity.CENTER;background=a.shape(if(filled)ink else (ink and 0x00ffffff) or 0x1a000000,22);contentDescription=description;a.press(this);setOnClickListener{fn()}}
+  fun pill(label:String,filled:Boolean,description:String,fn:()->Unit)=a.text(label,Type.TEXT,if(filled)pageBg else ink,filled).apply{gravity=Gravity.CENTER;background=a.shape(if(filled)ink else (ink and 0x00ffffff) or 0x1a000000,Radius.R24);contentDescription=description;a.press(this);setOnClickListener{fn()}}
   buttons.addView(pill("Отмена",false,"Отменить правки страницы"){cancel()},LinearLayout.LayoutParams(0,a.d(44),1f).apply{rightMargin=a.d(5)})
   buttons.addView(pill("Сохранить",true,"Сохранить страницу"){save()},LinearLayout.LayoutParams(0,a.d(44),1f).apply{leftMargin=a.d(5)})
   toolbar.addView(buttons)

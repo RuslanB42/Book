@@ -66,7 +66,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
    val want=(s[1]+sv.height-at[1]-below).coerceAtLeast(a.d(200))
    holder.setPadding(0,0,0,sv.paddingBottom+a.d(16))
    val lp=holder.layoutParams;if(lp.height!=want){lp.height=want;holder.layoutParams=lp;return false};return true}})
-  toc.forEach{item->val current=item.optInt("ch")==r.chapter;list.addView(a.text(r.prettyTitle(item.str("title")),Type.BODY,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),14);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
+  toc.forEach{item->val current=item.optInt("ch")==r.chapter;list.addView(a.text(r.prettyTitle(item.str("title")),Type.BODY,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape((a.accent and 0xffffff) or (0x1f shl 24),Radius.R16);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
   // the list opens at the chapter being read (a little of the one before it still showing above)
   here?.let{row->holder.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
    if(row.height==0)return true;holder.viewTreeObserver.removeOnPreDrawListener(this)
@@ -81,7 +81,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   // Filter chips are built once; selecting one only recolours them (no rebuild), and the list below fades in.
   chipViews.clear();val chips=a.line()
   chipLabels.forEachIndexed{index,_->
-   val chip=a.text("",Type.TEXT,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);maxLines=1;setPadding(a.d(16),0,a.d(16),0);tag=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(19).toFloat()};background=tag as android.graphics.drawable.Drawable;isClickable=true;isFocusable=true;setOnClickListener{selectFilter(index)};a.press(this)}
+   val chip=a.text("",Type.TEXT,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);maxLines=1;setPadding(a.d(16),0,a.d(16),0);tag=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(Radius.R20).toFloat()};background=tag as android.graphics.drawable.Drawable;isClickable=true;isFocusable=true;setOnClickListener{selectFilter(index)};a.press(this)}
    chipViews.add(chip);chips.addView(chip,LinearLayout.LayoutParams(-2,a.d(38)).apply{if(index>0)leftMargin=a.d(8)})
   }
   val strip=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(chips);setPadding(0,a.d(2),0,a.d(4))};pane.addView(strip)
@@ -128,7 +128,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
  private fun bookmarkCard(item:JSONObject):View{
   val tone=a.fg and 0xffffff
   val go={close();r.goToLocation(item.optInt("ch"),item.optInt("start",item.optInt("nativeOffset",0)))}
-  val card=a.line().apply{gravity=Gravity.CENTER_VERTICAL;a.floatCard(this,24);background=Floating(a,android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(24).toFloat();setStroke(1,(0x14 shl 24) or tone)},a.d(24).toFloat())
+  val card=a.line().apply{gravity=Gravity.CENTER_VERTICAL;a.floatCard(this,24);background=Floating(a,android.graphics.drawable.GradientDrawable().apply{setColor(if(a.light)android.graphics.Color.WHITE else 0xff242426.toInt());cornerRadius=a.d(Radius.R24).toFloat();setStroke(1,(0x14 shl 24) or tone)},a.d(24).toFloat())
    setPadding(a.d(14),a.d(10),a.d(10),a.d(10));isClickable=true;setOnClickListener{go()};a.press(this);contentDescription="Закладка: ${r.chapterName(item.optInt("ch"))}"}
   card.addView(IconView(a,"bookmark",a.muted),LinearLayout.LayoutParams(a.d(20),a.d(20)).apply{rightMargin=a.d(12)})
   val texts=a.column()

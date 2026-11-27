@@ -22,7 +22,7 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     coverBox.addView(c,FrameLayout.LayoutParams(d(104),d(156),Gravity.CENTER_HORIZONTAL))
     box.addView(coverBox,LinearLayout.LayoutParams(-1,d(168))); space(box,10)
     val coverActions=line().apply{gravity=Gravity.CENTER}
-    fun chip(label:String,fn:()->Unit)=text(label,Type.TEXT,fg,true).apply{gravity=Gravity.CENTER;minHeight=d(38);setPadding(d(16),0,d(16),0);background=shape(if(light)0xffefefec.toInt() else 0xff2c2c2f.toInt(),19);press(this);setOnClickListener{fn()}}
+    fun chip(label:String,fn:()->Unit)=text(label,Type.TEXT,fg,true).apply{gravity=Gravity.CENTER;minHeight=d(38);setPadding(d(16),0,d(16),0);background=shape(if(light)0xffefefec.toInt() else 0xff2c2c2f.toInt(),Radius.R20);press(this);setOnClickListener{fn()}}
     val pick=chip("Сменить обложку"){ coverTarget=book.str("id"); startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="image/*"; addCategory(Intent.CATEGORY_OPENABLE) },15) }
     lateinit var drop:TextView
     drop=chip("Убрать"){ preview.remove("cover"); preview.remove("coverThumb"); book.remove("cover"); book.remove("coverThumb"); book.put("coverChanged",true); saveBook(book) {}; c.invalidate(); drop.visibility=View.GONE }
@@ -62,7 +62,7 @@ fun MainActivity.metadataEditor(book:JSONObject) {
                 val no=if(isGuess)guess?.second else next(n)
                 val label=n+(if(isGuess&&no!=null)" #"+(if(no%1==0.0)no.toInt().toString() else no.toString()) else "")
                 tags.addView(text(label,Type.SECONDARY,fg).apply{gravity=Gravity.CENTER_VERTICAL;minHeight=d(32);setPadding(d(12),0,d(12),0)
-                    background=shape(if(isGuess)(if(light)0x1a1f9d73 else 0x264fd6a2) else (if(light)0xffefefec.toInt() else 0xff2c2c2f.toInt()),16)
+                    background=shape(if(isGuess)(if(light)0x1a1f9d73 else 0x264fd6a2) else (if(light)0xffefefec.toInt() else 0xff2c2c2f.toInt()),Radius.R16)
                     contentDescription="Серия $label";press(this)
                     setOnClickListener{seriesIn.setText(n);seriesIn.setSelection(n.length)
                         if(noIn.text.isBlank())no?.let{v->noIn.setText(if(v%1==0.0)v.toInt().toString() else v.toString())}}})}

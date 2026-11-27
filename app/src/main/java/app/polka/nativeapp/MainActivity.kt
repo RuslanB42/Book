@@ -168,8 +168,8 @@ class MainActivity : Activity() {
     fun shape(color: Int, radius: Int = 16): GradientDrawable = GradientDrawable().apply { setColor(color); cornerRadius=d(radius).toFloat() }
     @android.annotation.SuppressLint("WrongConstant")
     fun text(value: String, size: Float=16f, color: Int=fg, bold: Boolean=false, serif: Boolean=false): TextView = TextView(this).apply { text=value; textSize=size; setTextColor(color); typeface=if(serif) PolkaFonts.serif(this@MainActivity,bold) else PolkaFonts.sans(if(bold)600 else 400); includeFontPadding=false; cssLeading(1.2f); if(serif) breakStrategy=android.text.Layout.BREAK_STRATEGY_BALANCED }
-    fun button(value: String, primary: Boolean=false, onClick: () -> Unit): TextView = text(value,Type.BODY, if(primary) bg else fg,true).apply { gravity=Gravity.CENTER; minHeight=d(48); setPadding(d(16),d(12),d(16),d(12)); background=if(primary)shape(fg,28)else this@MainActivity.controlSurface(this,28f); setOnClickListener { onClick() }; press(this) }
-    fun icon(kind:String, label:String, selected:Boolean=false, action:()->Unit): View = IconView(this,kind,if(selected) bg else fg).apply { contentDescription=label; isClickable=true; isFocusable=true; background=if(selected)shape(fg,28)else this@MainActivity.controlSurface(this,28f).apply{seen=Size.ROUND.toFloat()}; setOnClickListener { action() };press(this) }
+    fun button(value: String, primary: Boolean=false, onClick: () -> Unit): TextView = text(value,Type.BODY, if(primary) bg else fg,true).apply { gravity=Gravity.CENTER; minHeight=d(48); setPadding(d(16),d(12),d(16),d(12)); background=if(primary)shape(fg,Radius.R28)else this@MainActivity.controlSurface(this,28f); setOnClickListener { onClick() }; press(this) }
+    fun icon(kind:String, label:String, selected:Boolean=false, action:()->Unit): View = IconView(this,kind,if(selected) bg else fg).apply { contentDescription=label; isClickable=true; isFocusable=true; background=if(selected)shape(fg,Radius.R28)else this@MainActivity.controlSurface(this,28f).apply{seen=Size.ROUND.toFloat()}; setOnClickListener { action() };press(this) }
     fun col()=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL }
     fun row()=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL }
     fun space(parent: LinearLayout, height: Int) { parent.addView(View(this),LinearLayout.LayoutParams(1,d(height))) }
@@ -414,7 +414,7 @@ class MainActivity : Activity() {
         shelfSearch=null
         val field=EditText(this).apply{hint="Найти на полке";setHintTextColor(muted);setTextColor(fg);textSize=Type.TEXT;typeface=PolkaFonts.sans(400);background=null;setSingleLine(true);setPadding(0,0,0,0)
             imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH;setOnEditorActionListener{v,_,_->(getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(v.windowToken,0);true}}
-        val bar=row().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(16),0,d(16),0);background=shape(Ui.fill(light),22)}
+        val bar=row().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(16),0,d(16),0);background=shape(Ui.fill(light),Radius.R24)}
         bar.addView(IconView(this,"search",muted),LinearLayout.LayoutParams(d(18),d(18)).apply{marginEnd=d(10)});bar.addView(field,LinearLayout.LayoutParams(0,-2,1f))
         page.addView(bar,LinearLayout.LayoutParams(-1,d(44)).apply{topMargin=d(16);bottomMargin=d(22)})
         shelfSearch=field }
@@ -466,7 +466,7 @@ class MainActivity : Activity() {
         val narrow=resources.configuration.screenWidthDp<380;val side=d(if(narrow)12 else 16);val gap=d(if(narrow)8 else 10)
         root.addView(nav,FrameLayout.LayoutParams(-1,d(56),Gravity.BOTTOM or Gravity.START))
         followInsets(nav){i->nav.layoutParams=(nav.layoutParams as FrameLayout.LayoutParams).apply{leftMargin=side+i.left;rightMargin=side+i.right+d(56)+gap;bottomMargin=floatingBottom()}}
-        val add=icon("plus","Добавить",true) { if(addMenu!=null) addMenu?.close() else AddMenu(this).open() }; addButton=add;add.background=shape(fg,28);add.elevation=0f
+        val add=icon("plus","Добавить",true) { if(addMenu!=null) addMenu?.close() else AddMenu(this).open() }; addButton=add;add.background=shape(fg,Radius.R28);add.elevation=0f
         root.addView(add,FrameLayout.LayoutParams(d(56),d(56),Gravity.BOTTOM or Gravity.END))
         followInsets(add){i->add.layoutParams=(add.layoutParams as FrameLayout.LayoutParams).apply{rightMargin=side+i.right;bottomMargin=floatingBottom()}}
         // Inside a shelf there is no navigation, as in the profile: it goes into the shelf with the list it belongs to

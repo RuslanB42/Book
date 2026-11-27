@@ -223,7 +223,7 @@ internal class PhoneScan(private val a:MainActivity){
 
     private fun row(item:Item,g:Group):View{val f=item.f
         val r=a.line().apply{setPadding(a.d(6),a.d(8),a.d(6),a.d(8))}
-        val tile=FrameLayout(a).apply{background=a.shape(if(a.light)0xffe9e9ec.toInt() else 0xff2a2a2d.toInt(),5)
+        val tile=FrameLayout(a).apply{background=a.shape(if(a.light)0xffe9e9ec.toInt() else 0xff2a2a2d.toInt(),Radius.R8)
             addView(a.text(f.kind,Type.CAPTION,color(f.kind),true).apply{letterSpacing=.04f;gravity=Gravity.CENTER},FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM).apply{bottomMargin=a.d(7)})}
         r.addView(tile,LinearLayout.LayoutParams(a.d(40),a.d(52)))
         val texts=a.column()

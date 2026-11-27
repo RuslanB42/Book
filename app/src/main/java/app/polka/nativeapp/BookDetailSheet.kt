@@ -10,7 +10,7 @@ import org.json.*
 /** Source book-sheet v3, in the activity window: no duplicate dialog/header or window handoff. */
 class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,private val source:View?):FrameLayout(a){
  private val scrim=View(a).apply{setBackgroundColor(0x80000000.toInt());setOnClickListener{dismiss()}}
- private val panel=DetailPanel().apply{background=a.shape(a.sheetColor,22).apply{val r=a.d(22).toFloat();cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)};clipToOutline=true}
+ private val panel=DetailPanel().apply{background=a.shape(a.sheetColor,Radius.R24).apply{val r=a.d(22).toFloat();cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)};clipToOutline=true}
  private val scroller=ScrollView(a).apply{isFillViewport=false;clipChildren=false}
  private val content=a.column().apply{clipChildren=false;clipToPadding=false;setPadding(0,0,0,a.d(28))}
  private lateinit var heroCover:CoverView
@@ -49,7 +49,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val series=a.text("",Type.CAPTION,a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(7),0,0)};main.addView(series);updates.add{series.text=book.str("series");series.visibility=if(series.text.isBlank())View.GONE else View.VISIBLE}
   // approved: the book's shelves are a quiet tag under the author; it opens the same sheet as the status
   val shelfTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true;contentDescription="Полки, сменить"
-   background=android.graphics.drawable.InsetDrawable(a.shape(Ui.fill(a.light),18),0,a.d(6),0,a.d(6));setOnClickListener{a.statusSheet(book)};a.press(this)}
+   background=android.graphics.drawable.InsetDrawable(a.shape(Ui.fill(a.light),Radius.R20),0,a.d(6),0,a.d(6));setOnClickListener{a.statusSheet(book)};a.press(this)}
   shelfTag.addView(IconView(a,"shelves",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
   val shelf=a.text("",Type.SECONDARY).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;maxWidth=a.d(150)};live(shelf){BookShelves.of(book).joinToString(", ").ifBlank{"Без полки"}}
   // when the two tags don't fit side by side, the shelves' names give way (with «…»), never the arrow after it
@@ -57,7 +57,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   shelfTag.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
   // approved: the reading status is a second tag of the same kind, beside the shelf
   val statusTag=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(10),0,a.d(11),0);isClickable=true;isFocusable=true
-   background=android.graphics.drawable.InsetDrawable(a.shape(Ui.fill(a.light),18),0,a.d(6),0,a.d(6));setOnClickListener{a.statusSheet(book)};a.press(this)}
+   background=android.graphics.drawable.InsetDrawable(a.shape(Ui.fill(a.light),Radius.R20),0,a.d(6),0,a.d(6));setOnClickListener{a.statusSheet(book)};a.press(this)}
   val statusIcon=StatusIcon(a,BookStatus.icon(Library.status(book)),a.muted);statusTag.addView(statusIcon,LinearLayout.LayoutParams(a.d(16),a.d(16)))
   val statusName=a.text("",Type.SECONDARY).apply{typeface=PolkaFonts.sans(500);setPadding(a.d(7),0,a.d(6),0);maxLines=1};live(statusName){BookStatus.name(Library.status(book))};statusTag.addView(statusName)
   statusTag.addView(IconView(a,"chevdown",a.muted),LinearLayout.LayoutParams(a.d(16),a.d(16)))
@@ -76,7 +76,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val facts=a.line();val volume=a.text("",Type.CAPTION,a.muted);val time=a.text("",Type.CAPTION,a.muted).apply{gravity=Gravity.END};facts.addView(volume,LinearLayout.LayoutParams(0,-2,1f));facts.addView(time,LinearLayout.LayoutParams(0,-2,1f));reading.addView(facts,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(10)})
   // a started book: how long it has been read and since when (a read one: in how many days, from — to)
   val spentRow=a.line().apply{gravity=Gravity.TOP};reading.addView(spentRow,LinearLayout.LayoutParams(-1,-2).apply{topMargin=a.d(14)})
-  fun fact(value:String,caption:String){val t=a.column().apply{background=a.shape(Ui.fill(a.light),16);setPadding(a.d(12),a.d(11),a.d(12),a.d(10))}
+  fun fact(value:String,caption:String){val t=a.column().apply{background=a.shape(Ui.fill(a.light),Radius.R16);setPadding(a.d(12),a.d(11),a.d(12),a.d(10))}
    t.addView(a.text(value,Type.TITLE,a.fg,true,serif=true).apply{maxLines=1});t.addView(a.text(caption,Type.CAPTION,a.muted).apply{maxLines=1;setPadding(0,a.d(3),0,0)})
    spentRow.addView(t,LinearLayout.LayoutParams(0,-2,1f).apply{if(spentRow.childCount>0)leftMargin=a.d(8)})}
   val go=a.button("Читать",true){if(book.optBoolean("noFile")){a.attachId=book.str("id");a.pickBooks(14)}else{a.returnDetailId=book.str("id");a.openBook(book,heroCover)}};reading.addView(go,LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
@@ -120,7 +120,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
     quoteBody.addView(card,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(14)});cards.add(card)
    }
    val controls=a.column()
-   fun round(icon:String,label:String,turn:Float,enabled:Boolean,fn:()->Unit)=a.icon(icon,label){fn()}.apply{background=a.shape(if(a.light)0xffefefec.toInt() else 0xff2c2c2f.toInt(),20);rotation=turn;isEnabled=enabled;alpha=if(enabled)1f else .35f}
+   fun round(icon:String,label:String,turn:Float,enabled:Boolean,fn:()->Unit)=a.icon(icon,label){fn()}.apply{background=a.shape(if(a.light)0xffefefec.toInt() else 0xff2c2c2f.toInt(),Radius.R20);rotation=turn;isEnabled=enabled;alpha=if(enabled)1f else .35f}
    if(pages>1){val pager=a.line().apply{gravity=Gravity.CENTER_VERTICAL}
     pager.addView(round("back","Предыдущие цитаты",0f,quotePage>0){quotePage--;renderQuotes(true)},LinearLayout.LayoutParams(a.d(40),a.d(40)))
     pager.addView(a.text("${quotePage+1} из $pages",Type.SECONDARY,a.muted).apply{gravity=Gravity.CENTER;contentDescription="Страница цитат ${quotePage+1} из $pages"},LinearLayout.LayoutParams(0,-2,1f))

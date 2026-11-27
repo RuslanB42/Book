@@ -16,17 +16,17 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     /** The fan: the shelf's first books in its own order (so they fly into its first places when it opens). */
     internal val fan=ShelfFan(a,list.take(if(compact)3 else 4),compact)
     /** The card around the name and the fan; it fades as the shelf folds into its edit card. */
-    private val face=android.graphics.drawable.GradientDrawable().apply{setColor(Ui.card(a.light));cornerRadius=a.d(26).toFloat()}
+    private val face=android.graphics.drawable.GradientDrawable().apply{setColor(Ui.card(a.light));cornerRadius=a.d(Radius.R28).toFloat()}
     // ── edit mode: the header becomes a card with a drag handle, the covers fold away ──
     private val head=a.row().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=a.d(40)}
-    private val card=android.graphics.drawable.GradientDrawable().apply{setColor(Ui.card(a.light));cornerRadius=a.d(16).toFloat();alpha=0}
+    private val card=android.graphics.drawable.GradientDrawable().apply{setColor(Ui.card(a.light));cornerRadius=a.d(Radius.R16).toFloat();alpha=0}
     private val name=a.text(title,Type.TITLE,a.fg,true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END}
     private val pen=IconView(a,"pen",a.muted).apply{alpha=0f;importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO}
     /** Edit mode: removes a shelf of the user's own (the books stay in the library). */
     private val trash=IconView(a,"trash",Ui.danger(a.light)).apply{alpha=0f;visibility=View.INVISIBLE;isClickable=true;contentDescription="Удалить полку";setPadding(a.d(10),a.d(10),a.d(10),a.d(10))}
     internal val handle=Grip()
     /** Delete asks right in the card: the bin grows into a red «Удалить»; a tap anywhere else takes it back. */
-    private val pill=a.text("Удалить",Type.SECONDARY,if(a.light)Color.WHITE else Ui.bg(false),true).apply{gravity=Gravity.CENTER;setSingleLine(true);background=a.shape(Ui.danger(a.light),16);visibility=View.GONE;isClickable=true;contentDescription="Удалить полку"}
+    private val pill=a.text("Удалить",Type.SECONDARY,if(a.light)Color.WHITE else Ui.bg(false),true).apply{gravity=Gravity.CENTER;setSingleLine(true);background=a.shape(Ui.danger(a.light),Radius.R16);visibility=View.GONE;isClickable=true;contentDescription="Удалить полку"}
     private var ask=0f;private var askAnim:android.animation.ValueAnimator?=null
     private val cardColor=Ui.card(a.light)
     private val outside:(MotionEvent)->Unit={e->val r=Rect();if(!pill.getGlobalVisibleRect(r)||!r.contains(e.rawX.toInt(),e.rawY.toInt()))cancelAsk()}
@@ -575,7 +575,7 @@ internal fun MainActivity.shelvesTopBar():View{
     val bar=FrameLayout(this)
     bar.addView(text("Полки",Type.H1,fg,true,serif=true),FrameLayout.LayoutParams(-2,-2,Gravity.START or Gravity.CENTER_VERTICAL).apply{leftMargin=d(2)})
     val label=text(if(shelvesEditing)"Готово" else "Редактировать",Type.TEXT,fg,true).apply{gravity=Gravity.CENTER;setPadding(d(18),0,d(18),0);isClickable=true;isFocusable=true;contentDescription="Редактировать полки"}
-    fun paint(){val on=shelvesEditing;label.setTextColor(if(on)bg else fg);label.background=if(on)shape(fg,20) else controlSurface(label,20f)}
+    fun paint(){val on=shelvesEditing;label.setTextColor(if(on)bg else fg);label.background=if(on)shape(fg,Radius.R20) else controlSurface(label,20f)}
     paint();shelvesTopBarLabel=label
     label.setOnClickListener{val on=!shelvesEditing;shelfEditor?.setEditing(on)
         label.animate().alpha(0f).scaleX(.92f).scaleY(.92f).setDuration(Motion.FAST).withEndAction{label.text=if(on)"Готово" else "Редактировать";paint();label.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(android.view.animation.PathInterpolator(.2f,0f,0f,1f)).start()}.start()}
