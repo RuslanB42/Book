@@ -291,6 +291,16 @@ class MainActivity : Activity() {
         fullCovers.get(id)?.let { done(it); return }
         work({ val bitmap=library.dao.asset(id)?.bytes?.let { BookImages.decode(it,2400) }; if(bitmap!=null) fullCovers.put(id,bitmap); runOnUiThread { if(!isDestroyed) done(bitmap) } })
     }
+    /** A picked picture as a cover: turned upright and kept at 1800 px as a JPEG of a few hundred KB. A phone photo is
+     *  several MB, and every later look at the cover would decode all of it again. */
+    private fun pickedCover(uri:Uri):Pair<AssetRow,Bitmap> {
+        val bytes=readLimited(uri)
+        val raw=BookImages.decode(bytes,1800) ?: error("Неверный формат изображения")
+        val turn=try { when(android.media.ExifInterface(bytes.inputStream()).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION,1)) { 6->90; 3->180; 8->270; else->0 } } catch(_:Exception) { 0 }
+        val up=if(turn==0) raw else Bitmap.createBitmap(raw,0,0,raw.width,raw.height,Matrix().apply { postRotate(turn.toFloat()) },true).also { if(it!==raw) raw.recycle() }
+        val png=up.hasAlpha(); val out=ByteArrayOutputStream(); up.compress(if(png) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG,90,out)
+        return AssetRow(uid(),if(png) "image/png" else "image/jpeg",out.toByteArray()) to up
+    }
     fun cover(book:JSONObject): Bitmap? = book.optJSONObject("cover")?.str("__polkaBlob")?.let { covers.get(it) }
     fun <T> compute(action:()->T,failed:((Exception)->Unit)?=null,done:(T)->Unit):java.util.concurrent.Future<*> = cpu.submit { try { val result=action();runOnUiThread { if(!isFinishing && !isDestroyed)done(result) } }catch(e:Exception){if(e !is InterruptedException && !Thread.currentThread().isInterrupted)runOnUiThread { if(!isFinishing && !isDestroyed){failed?.invoke(e);errorDialog(e)} }} }
     fun work(action:()->Unit, failed:((Exception)->Unit)?=null, done:()->Unit={}) { if(io.isShutdown) return; io.execute { try { action(); runOnUiThread { if(!isFinishing && !isDestroyed) done() } } catch(e:Exception) { runOnUiThread { importDialog?.dismiss(); importDialog=null; if(!isFinishing && !isDestroyed) { failed?.invoke(e); if(!initialized) { bootFinished=true; recoveryScreen(e) } else errorDialog(e) } } } } }
@@ -679,7 +689,11 @@ class MainActivity : Activity() {
                     if(added.isNotEmpty()) { added.forEach { CustomFonts.register(this,it.first,it.second) }; done(added[0].first)
                         Notice.short(this,Notice.Kind.OK,if(added.size==1) "Шрифт «${added[0].second}» добавлен" else "Добавлено шрифтов: ${added.size}") } else Notice.short(this,Notice.Kind.ERROR,reason) } }
             17 -> data.data?.let { uri -> val file=pendingCalendarImage ?: return;work({contentResolver.openOutputStream(uri,"wt")!!.use{out->file.inputStream().use{it.copyTo(out)}}}) }
-            15 -> data.data?.let { uri -> val id=coverTarget ?: return; work({ val bytes=readLimited(uri); require(BitmapFactory.decodeByteArray(bytes,0,bytes.size)!=null) { "Неверный формат изображения" }; val asset=uid(); library.db.runInTransaction { library.dao.putAsset(AssetRow(asset,contentResolver.getType(uri) ?: "image/jpeg",bytes)); val b=JSONObject(library.dao.book(id)!!.json).put("cover",JSONObject().put("__polkaBlob",asset)).put("coverChanged",true); library.save(b) }; loadData() }) { refreshBookViews(id) { render() } } }
+            // the picture is decoded once, here: both caches get it at once, so every view of the book shows it on the next frame
+            15 -> data.data?.let { uri -> val id=coverTarget ?: return; var saved:JSONObject?=null
+                work({ val (asset,full)=pickedCover(uri); val b=JSONObject(library.dao.book(id)!!.json).put("cover",JSONObject().put("__polkaBlob",asset.id)).put("coverChanged",true)
+                    library.db.runInTransaction { library.dao.putAsset(asset); library.save(b) }
+                    fullCovers.put(asset.id,full); covers.put(asset.id,BookImages.fit(full,900)); saved=b }) { saved?.let { publishBook(it) }; refreshBookViews(id) { render() } } }
             16 -> data.data?.let { uri -> val spec=pendingExport ?: return; work({ val bytes=if(spec.second=="doc") PageDocs.export(this,spec.first).second else BookExport.build(library,spec.first,spec.second); contentResolver.openOutputStream(uri,"wt")!!.use { it.write(bytes) } }) }
             10,14 -> importUris(if(data.clipData!=null) (0 until data.clipData!!.itemCount).map { data.clipData!!.getItemAt(it).uri } else listOfNotNull(data.data),requestCode==14)
             11 -> data.data?.let { uri -> confirm("Восстановить библиотеку?","Текущая библиотека будет заменена. Перед заменой сохранится локальная точка восстановления.") { work({ val temp=File(cacheDir,"restore-input.polka"); try { contentResolver.openInputStream(uri)!!.use { input -> temp.outputStream().use { input.copyTo(it) } }; ArchiveIO.restore(applicationContext,library,temp) { ArchiveIO.checkpoint(library,File(filesDir,"checkpoints"),"safety") }; loadData() } finally { temp.delete() } }) { initialized=true; reader=null; shelf=null; auto=null; render(); checkpointSoon() } } }

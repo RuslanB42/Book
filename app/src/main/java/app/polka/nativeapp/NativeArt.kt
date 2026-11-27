@@ -11,8 +11,12 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
     val bookId get()=book.str("id")
     /** Large views (book card, cover editor, recommendation): swap to the original-resolution cover once loaded. */
     var hiRes=false
-    private var full:Bitmap?=null
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(hiRes&&full==null){val expected=book.optJSONObject("cover")?.toString().orEmpty();(context as? MainActivity)?.requestFullCover(book){b->if(b!=null&&expected==book.optJSONObject("cover")?.toString().orEmpty()){full=b;invalidate();artworkChanged?.invoke()}}}}
+    // the full picture belongs to one cover: when the book's cover changes, the old one is dropped and the new one asked for
+    private var full:Bitmap?=null;private var fullKey="";private var fullAsked:String?=null
+    private fun coverKey()=book.optJSONObject("cover")?.toString().orEmpty()
+    private fun askFull(){val expected=coverKey();if(!hiRes||fullAsked==expected)return;fullAsked=expected
+        (context as? MainActivity)?.requestFullCover(book){b->if(b!=null&&expected==coverKey()){full=b;fullKey=expected;invalidate();artworkChanged?.invoke()}}}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();askFull()}
     /** 0..1 multiplier for the cast shadow only (cover pixels untouched). Lets two covers hand a shadow over without a pop or a clipped alpha layer. */
     var shadowFade=1f
         set(v){val n=v.coerceIn(0f,1f);if(n!=field){field=n;invalidate()}}
@@ -64,7 +68,8 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
     private fun blank(c:Canvas,b:RectF){val dark=(context as? MainActivity)?.light==false;blankPaint.color=if(dark)0xff2a2a2d.toInt() else 0xffe6e4df.toInt();val path=Path();BookCoverVolume.outline(path,b);c.drawPath(path,blankPaint)}
     private fun currentArtwork():Bitmap? {
         val ref=book.optJSONObject("cover")
-        full?.let{f->if(!f.isRecycled)return f}
+        full?.let{f->if(!f.isRecycled&&fullKey==ref?.toString().orEmpty())return f}
+        if(hiRes&&isAttachedToWindow)askFull()
         val cached=if(ref!=null)(context as? MainActivity)?.cover(book) else null
         if(cached!=null){retainedArtwork=cached;retainedKey=ref?.toString().orEmpty()}
         return cached?:retainedArtwork?.takeIf{retainedKey==ref?.toString().orEmpty()}

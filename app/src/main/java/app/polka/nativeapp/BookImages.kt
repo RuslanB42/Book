@@ -19,7 +19,9 @@ object BookImages {
         // downscale — a 1500 px cover is no longer decoded at 375 px.
         var sample=1; while(maxOf(bounds.outWidth,bounds.outHeight)/(sample*2)>=maxSide) sample*=2
         val raw=BitmapFactory.decodeByteArray(bytes,0,bytes.size,BitmapFactory.Options().apply { inSampleSize=sample }) ?: return null
-        val long=maxOf(raw.width,raw.height); if(long<=maxSide) return raw
-        val k=maxSide.toFloat()/long; return Bitmap.createScaledBitmap(raw,(raw.width*k).toInt().coerceAtLeast(1),(raw.height*k).toInt().coerceAtLeast(1),true).also { if(it!==raw) raw.recycle() }
+        return fit(raw,maxSide).also { if(it!==raw) raw.recycle() }
     }
+    /** [b] scaled down, filtered, to [maxSide] on its long side; [b] itself when it is no larger. */
+    fun fit(b:Bitmap,maxSide:Int):Bitmap { val long=maxOf(b.width,b.height); if(long<=maxSide) return b
+        val k=maxSide.toFloat()/long; return Bitmap.createScaledBitmap(b,(b.width*k).toInt().coerceAtLeast(1),(b.height*k).toInt().coerceAtLeast(1),true) }
 }
