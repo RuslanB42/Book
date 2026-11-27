@@ -148,11 +148,13 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
             order.forEachIndexed{k,v->val sv=s(v)?:return@forEachIndexed
                 sv.own=if(k==0)lifted else 0f
                 if(k==order.lastIndex){
-                    // the pile reaches up to the card on top, or (as it is lifted off) to the card under it
-                    fun reach(t:View)=(v.translationY-t.translationY).coerceAtLeast(0f) to (sv.narrow-(s(t)?.narrow?:0f))
-                    val (t0,n0)=reach(top);val (t1,n1)=reach(order[1])
-                    val up=t0+(t1-t0)*lifted;val side=n0+(n1-n0)*lifted
-                    sv.pile=RectF(side,up,side,0f);sv.under=null}
+                    // every card's face in the pile, in this card's coordinates, each at its place in the pile (the top
+                    // card at the top's place, giving it up to the card under it as the finger lifts it off)
+                    fun face(u:View,y:Float,n:Float)=RectF(n,y-v.translationY,u.width-n,y-v.translationY+((u.tag as? Int)?:u.height))
+                    val faces=order.drop(1).map{u->face(u,u.translationY,s(u)?.narrow?:0f)}.toMutableList()
+                    val tf=face(top,0f,0f);val uf=faces[0]
+                    faces.add(0,RectF(tf.left+(uf.left-tf.left)*lifted,tf.top+(uf.top-tf.top)*lifted,tf.right+(uf.right-tf.right)*lifted,tf.bottom+(uf.bottom-tf.bottom)*lifted))
+                    sv.pile=faces;sv.under=null}
                 else{val nx=order[k+1];val nn=s(nx)?.narrow?:0f;val h=((nx.tag as? Int)?:nx.height).toFloat()
                     // the outline of the card under it, brought into this card's own coordinates (as moved and turned)
                     m.set(nx.matrix);v.matrix.invert(inv);m.postConcat(inv)

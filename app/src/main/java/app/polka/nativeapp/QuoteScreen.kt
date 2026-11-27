@@ -41,9 +41,10 @@ internal class QuoteSurface(private val a:MainActivity,private val strength:Floa
     /** How much narrower than its view the card is on each side (px): a sheet lying lower in a pile. */
     var narrow=0f
         set(v){if(v!=field){field=v;invalidateSelf()}}
-    /** The lowest card of a pile: how far the pile reaches past this card's face on each side (px; left, top, right,
-     *  bottom), for the one shade of the whole pile. */
-    var pile:RectF?=null
+    /** The lowest card of a pile: the faces of every card of the pile (in this card's own coordinates), for the one
+     *  shade of the whole pile, cast by its real outline (the cards under the top one are narrower: a shade cast by
+     *  the top card's whole width showed dark wedges under its lower corners, where there is no card). */
+    var pile:List<RectF>?=null
     /** A card lying on another: the outline of the card under it (in this card's own coordinates: rounded, moved and
      *  turned as that card is), the only place its short contact shade goes. */
     var under:Path?=null
@@ -59,7 +60,13 @@ internal class QuoteSurface(private val a:MainActivity,private val strength:Floa
     private fun box(){val b=bounds;val h=(visible?.invoke()?:b.height()).coerceIn(1,maxOf(1,b.height()));r.set(b.left+narrow,b.top.toFloat(),b.right-narrow,(b.top+h).toFloat())}
     private val shadeR=RectF()
     override fun draw(c:Canvas){box();val o=opacity/255f;val p=pile;val u=under
-        if(p!=null){shadeR.set(r.left-p.left,r.top-p.top,r.right+p.right,r.bottom+p.bottom);FloatShade.draw(c,a,shadeR,radius,a.light,(255*.55f*o).toInt(),true)}
+        if(p!=null&&p.isNotEmpty()){if(p.size==1)FloatShade.draw(c,a,p[0],radius,a.light,(255*.55f*o).toInt(),true)
+            else{val path=Path();p.forEach{q->path.addRoundRect(q,radius,radius,Path.Direction.CW)}
+                // the key is the outline relative to its own bounds, so a pile that only moves keeps its baked shade
+                // (in steps of 4dp, so a pile changing shape under the finger is not baked anew every frame)
+                val b=RectF();path.computeBounds(b,true);val q4=a.d(4).toFloat();fun k(v:Float)=Math.round(v/q4)
+                val rel=StringBuilder("pile");p.forEach{q->rel.append(':').append(k(q.left-b.left)).append(',').append(k(q.top-b.top)).append(',').append(k(q.right-b.left)).append(',').append(k(q.bottom-b.top))}
+                FloatShade.drawPath(c,a,path,a.light,(255*.55f*o).toInt(),lift=Lift.REST,dither=true,key=rel.toString())}}
         if(own>0f)FloatShade.draw(c,a,r,radius,a.light,(255*.55f*strength*own*o).toInt(),true)
         // only a soft edge on the card under it (a strong one darkened the sheets below the page itself), and only on it
         if(u!=null&&own<1f){c.save();c.clipPath(u);FloatShade.draw(c,a,r,radius,a.light,(255*.35f*(1f-own)*o).toInt(),lift=Lift.TOUCH);c.restore()}
@@ -92,7 +99,7 @@ internal class QuoteStackLayer(val a:MainActivity,val count:Int):FrameLayout(a){
         val cards=listOfNotNull(f)+sheets;if(cards.size<2)return
         val rad=a.d(24).toFloat()
         cards.forEachIndexed{k,v->val s=v.background as? QuoteSurface?:return@forEachIndexed
-            if(k==cards.lastIndex){val inset=(v.left).toFloat();s.pile=RectF(inset,v.top.toFloat(),inset,0f);s.under=null;s.own=0f}
+            if(k==cards.lastIndex){s.pile=cards.map{u->RectF((u.left-v.left).toFloat(),(u.top-v.top).toFloat(),(u.right-v.left).toFloat(),(u.bottom-v.top).toFloat())};s.under=null;s.own=0f}
             else{val n=cards[k+1];s.pile=null;s.own=0f
                 s.under=Path().apply{addRoundRect((n.left-v.left).toFloat(),(n.top-v.top).toFloat(),(n.right-v.left).toFloat(),(n.bottom-v.top).toFloat(),rad,rad,Path.Direction.CW)}}
             v.invalidate()}

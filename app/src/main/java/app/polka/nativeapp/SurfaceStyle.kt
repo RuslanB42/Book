@@ -132,8 +132,9 @@ internal object FloatShade{
  private fun step(a:MainActivity,v:Float):Int{val q=a.d(if(v<a.d(64))2 else 8);return max(q,((v/q).roundToInt())*q)}
  fun draw(c:Canvas,a:MainActivity,r:RectF,radius:Float,light:Boolean,opacity:Int=255,dither:Boolean=false,lift:Lift=Lift.REST){if(r.width()<2||r.height()<2||opacity<=0)return;val w=step(a,r.width());val h=step(a,r.height())
   bake(a,w,h,light,dither,lift,"r${(radius*10).toInt()}"){cc,pp,to->val tuck=(w-to.width())/2f;val rr=(radius-tuck).coerceIn(0f,min(to.width(),to.height())/2f);cc.drawRoundRect(to,rr,rr,pp)}?.let{put(c,it,r,opacity)}}
- fun drawPath(c:Canvas,a:MainActivity,path:Path,light:Boolean,opacity:Int=255,up:Boolean=false,lift:Lift=Lift.FLOAT){val r=RectF();path.computeBounds(r,true);if(r.width()<2||r.height()<2||opacity<=0)return;val w=step(a,r.width());val h=step(a,r.height())
-  val from=RectF(r);bake(a,w,h,light,false,lift,"p${path.hashCode()}",up){cc,pp,to->val m=Matrix();m.setRectToRect(from,to,Matrix.ScaleToFit.FILL);cc.drawPath(Path(path).apply{transform(m)},pp)}?.let{put(c,it,r,opacity)}}
+ /** [key]: what the shape is (a path made anew with the same shape keeps its baked shade); [dither] as in [draw]. */
+ fun drawPath(c:Canvas,a:MainActivity,path:Path,light:Boolean,opacity:Int=255,up:Boolean=false,lift:Lift=Lift.FLOAT,dither:Boolean=false,key:String?=null){val r=RectF();path.computeBounds(r,true);if(r.width()<2||r.height()<2||opacity<=0)return;val w=step(a,r.width());val h=step(a,r.height())
+  val from=RectF(r);bake(a,w,h,light,dither,lift,"p${key?:path.hashCode()}",up){cc,pp,to->val m=Matrix();m.setRectToRect(from,to,Matrix.ScaleToFit.FILL);cc.drawPath(Path(path).apply{transform(m)},pp)}?.let{put(c,it,r,opacity)}}
 }
 /** The floating shade under [card], drawn by its parent: for a card that clips itself to its outline (which would cut
  *  off a shade of its own). The parent is redrawn whenever the card moves or changes size. */
