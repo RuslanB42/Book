@@ -38,11 +38,14 @@ internal class QuoteSurface(private val a:MainActivity,private val strength:Floa
     var depth=0f
         set(v){val n=v.coerceIn(0f,2f);if(n!=field){field=n;invalidateSelf()}}
     var visible:(()->Int?)?=null
+    /** How much narrower than its view the card is on each side (px): a sheet lying lower in a pile. */
+    var narrow=0f
+        set(v){if(v!=field){field=v;invalidateSelf()}}
     private val fill=Paint(Paint.ANTI_ALIAS_FLAG)
     private val r=RectF()
     private fun tone():Int{val tones=if(a.light)intArrayOf(Color.WHITE,0xfff7f7f5.toInt(),0xffefefec.toInt()) else intArrayOf(0xff28282a.toInt(),0xff1d1d1f.toInt(),0xff19191b.toInt())
         val i=depth.toInt().coerceAtMost(1);return androidx.core.graphics.ColorUtils.blendARGB(tones[i],tones[i+1],depth-i)}
-    private fun box(){val b=bounds;val h=(visible?.invoke()?:b.height()).coerceIn(1,maxOf(1,b.height()));r.set(b.left.toFloat(),b.top.toFloat(),b.right.toFloat(),(b.top+h).toFloat())}
+    private fun box(){val b=bounds;val h=(visible?.invoke()?:b.height()).coerceIn(1,maxOf(1,b.height()));r.set(b.left+narrow,b.top.toFloat(),b.right-narrow,(b.top+h).toFloat())}
     override fun draw(c:Canvas){box();FloatShade.draw(c,a,r,radius,a.light,(255*.55f*strength*(opacity/255f)).toInt(),true)
         fill.color=tone();fill.alpha=opacity;c.drawRoundRect(r,radius,radius,fill)}
     override fun getOutline(o:Outline){box();o.setRoundRect(r.left.toInt(),r.top.toInt(),r.right.toInt(),r.bottom.toInt(),radius)}

@@ -83,7 +83,9 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
      * becomes its last sheet, while the sheet in front straightens up into the card: nothing appears or disappears.
      */
     private inner class Deck:FrameLayout(a){
-        private val fanRot=floatArrayOf(-2.4f,3.2f);private val fanX=floatArrayOf(-a.d(4).toFloat(),a.d(6).toFloat());private val fanY=floatArrayOf(a.d(6).toFloat(),a.d(9).toFloat())
+        // the sheets lie straight under the card (after the reference): each a little narrower and peeking out a little
+        // lower than the one above it, as the pile in the book card
+        private val fanY=floatArrayOf(a.d(9).toFloat(),a.d(18).toFloat());private val fanIn=floatArrayOf(a.d(12).toFloat(),a.d(24).toFloat())
         private val depth=minOf(list.size,3)
         /** cards[0] is the card on top; cards[1..] are the sheets of the fan. */
         private val cards=MutableList(depth){k->card(Math.floorMod(index+k,list.size))}
@@ -121,15 +123,14 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
                 c.clipBounds=if(room>=c.height)null else android.graphics.Rect(0,0,c.width,maxOf(0,room))}}
         /** Place [v] at slot [slot] (−1 = the card's own place, 0/1 = the fan), moved [p] of the way to the slot before it. */
         private fun place(v:View,slot:Int,p:Float){
-            fun r(s:Int):Float{return if(s<0)0f else fanRot[s]}
-            fun x(s:Int):Float{return if(s<0)0f else fanX[s]}
             fun y(s:Int):Float{return if(s<0)0f else fanY[s]}
+            fun n(s:Int):Float{return if(s<0)0f else fanIn[s]}
             fun e(s:Int):Float{return a.d(if(s<0)(if(a.light)8 else 10) else if(s==0)(if(a.light)4 else 6) else 3).toFloat()}
             val to=slot-1;v.pivotX=v.width/2f;v.pivotY=((v.tag as? Int)?:v.height)/2f
-            v.rotation=r(slot)+(r(to)-r(slot))*p;v.translationX=x(slot)+(x(to)-x(slot))*p;v.translationY=y(slot)+(y(to)-y(slot))*p
+            v.rotation=0f;v.translationX=0f;v.translationY=y(slot)+(y(to)-y(slot))*p
             v.elevation=e(slot)+(e(to)-e(slot))*p.coerceIn(0f,1f);v.translationZ=-a.d(1)*(slot+1-p)
-            // lighter as it rises toward the top
-            (v.background as? QuoteSurface)?.depth=slot+1-p}
+            // lighter and wider as it rises toward the top
+            (v.background as? QuoteSurface)?.let{it.depth=slot+1-p;it.narrow=n(slot)+(n(to)-n(slot))*p}}
         /** [p] (0..1, may overshoot a little) moves every sheet one place forward. The sheets keep the card's height and
          *  stay blank, so nothing shows from under the card or below the deck while it is dragged. */
         private fun pose(p:Float){lift=p;val h=(front.tag as? Int)?:front.height;for(k in 1 until cards.size){val v=cards[k]
@@ -202,8 +203,8 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
                     ValueAnimator.ofFloat(0f,1f).apply{duration=520;interpolator=swing
                         addUpdateListener{val t=it.animatedValue as Float
                             old.pivotX=old.width/2f;old.pivotY=((old.tag as? Int)?:old.height)/2f
-                            old.translationX=outX+(fanX[back]-outX)*t;old.translationY=outY+(fanY[back]-outY)*t;old.rotation=outR+(fanRot[back]-outR)*t
-                            reveal=(t/.3f).coerceIn(0f,1f);(old.background as? QuoteSurface)?.depth=(back+1)*t
+                            old.translationX=outX*(1f-t);old.translationY=outY+(fanY[back]-outY)*t;old.rotation=outR*(1f-t)
+                            reveal=(t/.3f).coerceIn(0f,1f);(old.background as? QuoteSurface)?.let{it.depth=(back+1)*t;it.narrow=fanIn[back]*t}
                             pose(lp+(1f-lp)*settle.getInterpolation(t))}
                         addListener(object:AnimatorListenerAdapter(){override fun onAnimationEnd(x:Animator){finish()}});start()}}});start()}
         }
