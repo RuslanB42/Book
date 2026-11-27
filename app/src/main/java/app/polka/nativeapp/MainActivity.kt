@@ -473,7 +473,7 @@ class MainActivity : Activity() {
                 val target=tabScroll[key] ?: 0;val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this);sv.scrollTo(0,target);return true}})
                 screenMotion.pushTab(oldScroll,to>from) } else scroll.smoothScrollTo(0,0)
     }
-    fun sortName(key:String=sort):String = when(key) { "recent" -> "Недавние"; "added" -> "Добавлены"; "title" -> "Название"; "author" -> "Автор"; "done" -> "Прочитаны"; else -> "Мой порядок" }
+    fun sortName(key:String=sort):String = when(key) { "recent" -> "По дате открытия"; "added" -> "По дате добавления"; "title" -> "По названию"; "author" -> "По автору"; "done" -> "По дате прочтения"; else -> "Мой порядок" }
     fun search() { librarySearch?.toggle() }
     /** «Новая полка» (the «+» menu, the home shelves): the page glides over to «Полки», the usual name window opens,
      *  and the new shelf then grows in at the end of the shelves while the page follows it down. */

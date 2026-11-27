@@ -160,27 +160,34 @@ internal class FilterSheet(private val a:MainActivity,private val g:String){
     }
 }
 
-/** The order (approved «Сортировка»): a short list; the chosen order tapped again turns the other way, its arrow shows
- *  which. «Мой порядок» has no other way. */
+/** The order (approved «Сортировка» SO1–SO3): the chosen order is the lit row; its way is a small pill in it (an arrow
+ *  and the words), and a tap on it, or on the row again, turns the order. «Мой порядок» has no other way. */
 internal fun MainActivity.sortSheet(){
     val box=column();val rows=ArrayList<()->Unit>()
+    // the lit row reaches a little past the sheet's text edge, so every name stays on one line
+    box.post{(box.parent as? ViewGroup)?.clipToPadding=false}
+    fun pick(key:String){if(sort==key){if(key=="manual")return;prefs.put("sortReverse",!prefs.optBoolean("sortReverse"))}else{sort=key;prefs.put("sort",key);prefs.put("sortReverse",false)}
+        savePreferences();rows.forEach{it()};render()}
     listOf("manual","recent","added","title","author","done").forEach{key->
-        val r=line().apply{setPadding(d(4),0,d(4),0);isClickable=true;isFocusable=true}
+        val r=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(12),0,d(10),0);isClickable=true;isFocusable=true}
         val name=text(sortName(key),16f,fg);r.addView(name,LinearLayout.LayoutParams(0,-2,1f))
-        val way=text("",14f,muted);r.addView(way,LinearLayout.LayoutParams(-2,-2).apply{marginEnd=d(6)})
-        val arrow=FrameLayout(this);r.addView(arrow,LinearLayout.LayoutParams(d(18),d(18)))
-        fun show(){val on=sort==key;val rev=prefs.optBoolean("sortReverse")
-            name.setTextColor(if(on)fg else ColorUtilsCompat.mute(this));name.typeface=PolkaFonts.sans(if(on)500 else 400)
-            way.text=if(on&&key!="manual")sortWay(key,rev) else ""
-            arrow.removeAllViews();if(on&&key!="manual")arrow.addView(IconView(this,if(sortUp(key,rev))"arrowup" else "arrowdown",fg),FrameLayout.LayoutParams(-1,-1))
-            r.contentDescription=sortName(key)+if(on)", выбрано"+(if(key!="manual")", "+sortWay(key,rev) else "") else ""}
+        val pill=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(9),0,d(13),0);background=shape(if(light)0x0f000000 else 0x1affffff,17);isClickable=true;isFocusable=true;setOnClickListener{pick(key)}}
+        val arrow=FrameLayout(this);pill.addView(arrow,LinearLayout.LayoutParams(d(17),d(17)).apply{marginEnd=d(6)})
+        val way=text("",13.5f,fg).apply{typeface=PolkaFonts.sans(600)};pill.addView(way)
+        press(pill);r.addView(pill,LinearLayout.LayoutParams(-2,d(34)))
+        fun show(){val on=sort==key;val rev=prefs.optBoolean("sortReverse");val turns=on&&key!="manual"
+            r.background=if(on)shape(if(light)0x0b000000 else 0x12ffffff,18) else null
+            name.setTextColor(if(on)fg else ColorUtilsCompat.mute(this));name.typeface=PolkaFonts.sans(if(on)600 else 400)
+            pill.visibility=if(turns)View.VISIBLE else View.GONE
+            if(turns){way.text=sortWay(key,rev);arrow.removeAllViews();arrow.addView(IconView(this,if(sortUp(key,rev))"arrowup" else "arrowdown",fg),FrameLayout.LayoutParams(-1,-1))
+                pill.contentDescription="Порядок: "+sortWay(key,rev)+", сменить"}
+            r.contentDescription=sortName(key)+if(on)", выбрано"+(if(turns)", "+sortWay(key,rev) else "") else ""}
         show();rows.add(::show)
-        r.setOnClickListener{if(sort==key){if(key=="manual")return@setOnClickListener;prefs.put("sortReverse",!prefs.optBoolean("sortReverse"))}else{sort=key;prefs.put("sort",key);prefs.put("sortReverse",false)}
-            savePreferences();rows.forEach{it()};render()}
-        press(r);box.addView(r,LinearLayout.LayoutParams(-1,d(54)))}
+        r.setOnClickListener{pick(key)}
+        press(r);box.addView(r,LinearLayout.LayoutParams(-1,d(54)).apply{leftMargin=-d(12);rightMargin=-d(12)})}
     dialog().setTitle("Сортировка").setView(box).show()
 }
-/** Text orders go А→Я first, dates newest first; [rev] turns either. */
+/** Text orders go А→Я first, dates newest first; [rev] turns either. Up is А→Я and oldest first. */
 private fun sortUp(key:String,rev:Boolean)=(key=="title"||key=="author")!=rev
 private fun sortWay(key:String,rev:Boolean)=if(key=="title"||key=="author")(if(rev)"Я–А" else "А–Я") else (if(rev)"Сначала старые" else "Сначала новые")
 private object ColorUtilsCompat{fun mute(a:MainActivity)=androidx.core.graphics.ColorUtils.blendARGB(a.fg,a.muted,.35f)}
