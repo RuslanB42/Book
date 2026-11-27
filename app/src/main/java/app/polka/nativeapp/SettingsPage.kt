@@ -8,9 +8,9 @@ import java.time.LocalDate
 import kotlin.math.*
 
 /**
- * «Настройки» as its own page (approved design): quiet group captions, the appearance as three page tiles, «Огонёк»
- * and «Цель» as two small plaques like the statistics cards, behaviour as two switch capsules, backups as two
- * buttons and a capsule. Only grey and white, except the flame and the green road.
+ * «Настройки» as its own page (approved «Настройки А»): quiet group captions, the appearance as three page tiles, and
+ * every other group one card of 56 dp rows (names 16 sp, values grey with a chevron, switches 52 x 32 dp), split by thin
+ * lines. Only grey and white.
  */
 fun MainActivity.settings(){settingsPage?.let{return};openSettingsPage(true)}
 
@@ -18,11 +18,28 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     val scroll=ScrollView(this).apply{isFillViewport=true;clipToPadding=false;isVerticalScrollBarEnabled=false;setBackgroundColor(bg);elevation=d(24).toFloat();isClickable=true}
     val content=column();scroll.addView(content)
     val extra=max(0,(resources.configuration.screenWidthDp-640)/2)
-    followInsets(content){i->content.setPadding(d(20+extra)+i.left,i.top+d(8),d(20+extra)+i.right,d(32)+i.bottom)}
+    followInsets(content){i->content.setPadding(d(16+extra)+i.left,i.top+d(8),d(16+extra)+i.right,d(32)+i.bottom)}
     root.addView(scroll,FrameLayout.LayoutParams(-1,-1));settingsPage=scroll
     val muted2=if(light)0xff6e6e73.toInt() else 0xffa4a4a4.toInt()
-    val pill=if(light)0x0e000000 else 0x12ffffff
-    fun group(title:String,top:Int=26){content.addView(text(title,13f,muted2).apply{setPadding(d(4),0,0,0)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(top);bottomMargin=d(10)})}
+    fun caption(title:String,top:Int=28){content.addView(text(title,13f,muted2,true).apply{setPadding(d(4),0,0,0)},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(top);bottomMargin=d(10)})}
+    fun lit(top:Boolean,bottom:Boolean)=android.graphics.drawable.StateListDrawable().apply{setExitFadeDuration(220)
+        val r=d(24).toFloat();val t=if(top)r else 0f;val b=if(bottom)r else 0f
+        addState(intArrayOf(android.R.attr.state_pressed),android.graphics.drawable.GradientDrawable().apply{setColor(if(light)0x0c000000 else 0x0fffffff);cornerRadii=floatArrayOf(t,t,t,t,b,b,b,b)})
+        addState(intArrayOf(),android.graphics.drawable.ColorDrawable(0))}
+    // a group is one card, its rows split by thin lines (approved «Настройки А»); a row lights up under the finger
+    fun card(rows:List<View>){val box=column().apply{floatCard(this,24)}
+        rows.forEachIndexed{i,r->if(r.isClickable)r.background=lit(i==0,i==rows.lastIndex);if(i>0)box.addView(View(this).apply{setBackgroundColor(if(light)0x12000000 else 0x14ffffff)},LinearLayout.LayoutParams(-1,1).apply{leftMargin=d(18)})
+            box.addView(r,LinearLayout.LayoutParams(-1,-2).apply{if(r is LayoutToggle)height=d(56)})}
+        content.addView(box,LinearLayout.LayoutParams(-1,-2))}
+    fun row(title:String,sub:String?=null,value:String?=null,chevron:Boolean=true,click:(()->Unit)?=null):Triple<LinearLayout,TextView?,TextView?>{
+        val r=line().apply{gravity=Gravity.CENTER_VERTICAL;minimumHeight=d(if(sub!=null)64 else 56);setPadding(d(18),d(10),d(16),d(10))}
+        if(click!=null)r.apply{isClickable=true;isFocusable=true;setOnClickListener{click()}}
+        val names=column();names.addView(text(title,16f,fg))
+        val subView=sub?.let{text(it,13f,muted2).apply{setPadding(0,d(3),0,0)}.also{v->names.addView(v)}}
+        r.addView(names,LinearLayout.LayoutParams(0,-2,1f))
+        val valueView=value?.let{text(it,15f,muted2).also{v->r.addView(v,LinearLayout.LayoutParams(-2,-2).apply{if(chevron)rightMargin=d(10)})}}
+        if(chevron)r.addView(Chevron(this),LinearLayout.LayoutParams(d(10),d(16)))
+        return Triple(r,subView,valueView)}
     // head: back, and the large serif title centred on the page (an empty place the back button's size on the right
     // keeps it in the middle), as the greeting on the statistics
     val head=line().apply{gravity=Gravity.CENTER_VERTICAL}
@@ -31,7 +48,7 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
     head.addView(View(this),LinearLayout.LayoutParams(d(46),d(46)))
     content.addView(head,LinearLayout.LayoutParams(-1,-2))
     // appearance
-    group("Оформление",20)
+    caption("Оформление",18)
     val themes=listOf("dark" to "Тёмное","light" to "Светлое","system" to "Как в системе")
     val current=prefs.str("ui",prefs.str("theme","dark")).let{if(it in themes.map{t->t.first})it else "dark"}
     val tiles=line()
@@ -44,50 +61,39 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
             val y=scroll.scrollY;themeCrossfade{settingsPage=null;root.removeView(scroll);render(true,false);if(profileOverlay!=null)refreshProfile();openSettingsPage(false);settingsPage?.let{p->(p as ScrollView).scrollTo(0,y);p.post{p.scrollTo(0,y)}}}}}
         press(col);tiles.addView(col,LinearLayout.LayoutParams(0,-2,1f).apply{if(i>0)leftMargin=d(10)})}
     content.addView(tiles)
-    // reading: two value capsules, the same height as the switches (filled in once the statistics are loaded)
-    group("Чтение")
+    // reading (filled in once the statistics are loaded)
+    caption("Чтение")
     val year=LocalDate.now().year
-    val capInk=if(light)0xff3a3a3e.toInt() else 0xffcfcfd4.toInt()
-    fun valueRow(title:String):Pair<LinearLayout,TextView>{val row=line().apply{gravity=Gravity.CENTER_VERTICAL;background=shape(pill,24);setPadding(d(18),0,d(16),0);isClickable=true;isFocusable=true;press(this)}
-        row.addView(text(title,14f,capInk),LinearLayout.LayoutParams(0,-2,1f))
-        val v=text("…",14f,fg,true);row.addView(v,LinearLayout.LayoutParams(-2,-2).apply{rightMargin=d(10)})
-        row.addView(Chevron(this),LinearLayout.LayoutParams(d(10),d(16)));return row to v}
-    val (flame,flameValue)=valueRow("Огонёк");val (goal,goalValue)=valueRow("Цель на $year")
-    content.addView(flame,LinearLayout.LayoutParams(-1,d(48)));content.addView(goal,LinearLayout.LayoutParams(-1,d(48)).apply{topMargin=d(10)})
     var stats=JSONObject()
+    lateinit var flame:LinearLayout;lateinit var goal:LinearLayout;lateinit var flameValue:TextView;lateinit var goalValue:TextView
     fun refreshPlaques(){val model=ReadingStatistics(stats,books);val m=stats.optInt("goal",10);val t=model.target(year)
         flameValue.text="$m мин в день";flame.contentDescription="Огонёк: $m минут в день"
         goalValue.text=if(t>0)MainActivity.countBooks(t) else "не задана";goal.contentDescription="Цель на $year: "+goalValue.text}
-    work({stats=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")}?:JSONObject()}){refreshPlaques()}
-    flame.setOnClickListener{numberSheet("Огонёк",stats.optInt("goal",10),1..240,listOf(10,15,20,30,45,60),{n->"минут в день, чтобы огонёк горел"}){v->stats.put("goal",v);updateStatistics{it.put("goal",v)};refreshPlaques()}}
-    goal.setOnClickListener{val model=ReadingStatistics(stats,books);val cur=model.target(year)
+    row("Огонёк",value="…"){numberSheet("Огонёк",stats.optInt("goal",10),1..240,listOf(10,15,20,30,45,60),{n->"минут в день, чтобы огонёк горел"}){v->stats.put("goal",v);updateStatistics{it.put("goal",v)};refreshPlaques()}}
+        .let{flame=it.first;flameValue=it.third!!}
+    row("Цель на $year",value="…"){val model=ReadingStatistics(stats,books);val cur=model.target(year)
         fun store(n:Int?){(stats.optJSONObject("annualGoals")?:JSONObject().also{stats.put("annualGoals",it)}).apply{if(n==null)remove("$year") else put("$year",n)};updateStatistics{changeAnnualGoal(it,year,n)};refreshPlaques()}
         numberSheet("Цель на $year",cur,1..9999,listOf(12,24,36,52),{n->if(n<=0)"книг за год" else MainActivity.countBooks(n).substringAfter(' ')+" за год · примерно ${max(1,(n/12f).roundToInt())} в месяц"},if(cur>0)("Убрать цель" to {store(null)}) else null){n->store(n)}}
+        .let{goal=it.first;goalValue=it.third!!}
+    card(listOf(flame,goal))
+    work({stats=library.dao.meta("stats")?.json?.let{JSONObject(it).optJSONObject("data")}?:JSONObject()}){refreshPlaques()}
     // behaviour
-    group("Поведение")
-    fun sw(title:String,on:Boolean,change:(Boolean)->Unit)=LayoutToggle(this,title,on,change)
-    content.addView(sw("Вибрация",prefs.optBoolean("haptics",true)){on->prefs.put("haptics",on);savePreferences()},LinearLayout.LayoutParams(-1,d(48)))
-    content.addView(sw("Меньше движения",prefs.str("motion")=="reduced"){on->prefs.put("motion",if(on)"reduced" else "full");savePreferences()},LinearLayout.LayoutParams(-1,d(48)).apply{topMargin=d(10)})
+    caption("Поведение")
+    fun sw(title:String,on:Boolean,change:(Boolean)->Unit)=LayoutToggle(this,title,on,plain=true,change=change)
+    card(listOf(sw("Вибрация",prefs.optBoolean("haptics",true)){on->prefs.put("haptics",on);savePreferences()},
+        sw("Меньше движения",prefs.str("motion")=="reduced"){on->prefs.put("motion",if(on)"reduced" else "full");savePreferences()}))
     // backups
-    group("Резервные копии")
-    val buttons=line()
-    fun capsule(label:String,primary:Boolean,click:()->Unit)=text(label,15f,if(primary)bg else fg,true).apply{gravity=Gravity.CENTER;background=shape(if(primary)fg else pill,25);isClickable=true;isFocusable=true;setOnClickListener{click()};press(this)}
-    buttons.addView(capsule("Создать копию",true){exportBackup()},LinearLayout.LayoutParams(0,d(50),1f))
-    buttons.addView(capsule("Восстановить",false){pickBackup()},LinearLayout.LayoutParams(0,d(50),1f).apply{leftMargin=d(10)})
-    content.addView(buttons)
+    caption("Резервные копии")
     val time=getSharedPreferences("health",0).getLong("exportedAt",0)
-    val points=line().apply{gravity=Gravity.CENTER_VERTICAL;background=shape(pill,18);setPadding(d(18),d(8),d(16),d(8));isClickable=true;isFocusable=true;contentDescription="Точки восстановления";setOnClickListener{localRecovery()};press(this)}
-    val texts=column();texts.addView(text("Точки восстановления",14f,fg))
-    texts.addView(text("последняя копия — "+(if(time==0L)"ещё не было" else java.text.SimpleDateFormat("d MMM, HH:mm",java.util.Locale("ru")).format(java.util.Date(time))),11.5f,muted2).apply{setPadding(0,d(2),0,0)})
-    points.addView(texts,LinearLayout.LayoutParams(0,-2,1f));points.addView(Chevron(this),LinearLayout.LayoutParams(d(12),d(18)))
-    content.addView(points,LinearLayout.LayoutParams(-1,d(52)).apply{topMargin=d(10)})
+    val last=if(time==0L)"копий ещё не было" else "последняя копия "+java.text.SimpleDateFormat("d MMMM, HH:mm",java.util.Locale("ru")).format(java.util.Date(time))
+    card(listOf(row("Создать копию"){exportBackup()}.first,row("Восстановить из файла"){pickBackup()}.first,
+        row("Точки восстановления",sub=last){localRecovery()}.first))
     // where the reading tools come from
-    group("О приложении")
-    content.addView(text("Glyph ${packageManager.getPackageInfo(packageName,0).versionName}",14f,fg).apply{setPadding(d(4),0,0,0)})
-    content.addView(text("Перевод: Google Переводчик (на устройстве). Словарь: Викисловарь, CC BY-SA 4.0. Фоновые звуки: свободная лицензия CC0. Иконки: Lucide, ISC.",12.5f,muted2).apply{setPadding(d(4),d(6),d(4),0);cssLeading(1.4f)})
+    caption("О приложении")
+    card(listOf(row("Версия",value=packageManager.getPackageInfo(packageName,0).versionName,chevron=false).first))
+    content.addView(text("Перевод: Google Переводчик (на устройстве). Словарь: Викисловарь, CC BY-SA 4.0. Фоновые звуки: свободная лицензия CC0. Иконки: Lucide, ISC.",12.5f,muted).apply{setPadding(d(6),d(10),d(6),0);cssLeading(1.4f)})
     if(animate)Depth(this,scroll).enter()
 }
-
 /** The whole window changes colours under a soft crossfade from a picture of how it looked a moment ago. */
 internal fun MainActivity.themeCrossfade(change:()->Unit){
     val decor=window.decorView as? FrameLayout

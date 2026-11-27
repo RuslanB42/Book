@@ -438,14 +438,16 @@ internal class LayoutBar(private val a:MainActivity,private val title:String,pri
 /** A switch as a capsule: the name on the left, a small switch on the right. After the reference: under the finger
  *  the knob swells toward where it would go; let go, it stretches across the track (its far end first, the near end
  *  following and settling a little past and back) while the track takes its colour. */
-internal class LayoutToggle(private val a:MainActivity,private val title:String,initial:Boolean,private val change:(Boolean)->Unit):View(a){
+/** A switch with its name: on its own capsule, or [plain], a row of a settings card (the card draws the ground and
+ *  lights the row under a finger). The switch is the platforms' size, 52 x 32 dp. */
+internal class LayoutToggle(private val a:MainActivity,private val title:String,initial:Boolean,private val plain:Boolean=false,private val change:(Boolean)->Unit):View(a){
     private var on=initial
     /** Where the knob's two ends are, 0 the left place and 1 the right one; equal at rest. */
     private var lead=if(initial)1f else 0f;private var trail=lead
     private var press=0f;private var anim:ValueAnimator?=null;private var pressAnim:ValueAnimator?=null
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG);private val face by lazy{a.text("",1f).typeface}
     private val reduced get()=a.prefs.str("motion")=="reduced"
-    init{isClickable=true;contentDescription=title;a.press(this);setOnClickListener{flip()}}
+    init{isClickable=true;contentDescription=title;if(!plain)a.press(this);setOnClickListener{flip()}}
     override fun onInitializeAccessibilityNodeInfo(info:android.view.accessibility.AccessibilityNodeInfo){super.onInitializeAccessibilityNodeInfo(info);info.isCheckable=true;info.isChecked=on;info.className="android.widget.Switch"}
     override fun drawableStateChanged(){super.drawableStateChanged();if(reduced)return;val to=if(isPressed)1f else 0f;if(press==to)return
         pressAnim?.cancel();pressAnim=ValueAnimator.ofFloat(press,to).apply{duration=if(isPressed)160 else 240;interpolator=PathInterpolator(.2f,0f,0f,1f);addUpdateListener{press=it.animatedValue as Float;invalidate()};start()}}
@@ -460,15 +462,16 @@ internal class LayoutToggle(private val a:MainActivity,private val title:String,
         postDelayed({change(on)},60)}
     override fun onDetachedFromWindow(){anim?.cancel();pressAnim?.cancel();super.onDetachedFromWindow()}
     override fun onDraw(c:Canvas){val h=height.toFloat();val w=width.toFloat();val d=a.resources.displayMetrics.density
-        p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,h/2,h/2,p)
-        t.typeface=face;t.textSize=13f*a.resources.displayMetrics.scaledDensity;t.color=if(a.light)0xff3a3a3e.toInt() else 0xffcfcfd4.toInt()
-        val sw=36*d;val sh=22*d;val sx=w-8*d-sw;val sy=(h-sh)/2
-        val room=sx-14*d-6*d;var label=title;if(t.measureText(label)>room){while(label.length>1&&t.measureText("$label…")>room)label=label.dropLast(1);label="$label…"}
-        c.drawText(label,14*d,h/2f-(t.ascent()+t.descent())/2f,t)
+        if(!plain){p.color=if(a.light)0x14000000 else 0x12ffffff;c.drawRoundRect(0f,0f,w,h,h/2,h/2,p)}
+        t.typeface=face;t.textSize=(if(plain)16f else 13f)*a.resources.displayMetrics.scaledDensity;t.color=if(plain)a.fg else if(a.light)0xff3a3a3e.toInt() else 0xffcfcfd4.toInt()
+        // on a capsule the switch sits in its end at the same distance from every side
+        val sw=52*d;val sh=32*d;val sx=w-(if(plain)16*d else (h-sh)/2)-sw;val sy=(h-sh)/2;val tx=(if(plain)18 else 14)*d
+        val room=sx-tx-8*d;var label=title;if(t.measureText(label)>room){while(label.length>1&&t.measureText("$label…")>room)label=label.dropLast(1);label="$label…"}
+        c.drawText(label,tx,h/2f-(t.ascent()+t.descent())/2f,t)
         val k=((lead+trail)/2f).coerceIn(0f,1f)
         val offTrack=if(a.light)0x29000000 else 0xff3a3a3d.toInt();val onTrack=if(a.light)0xff1a1a1c.toInt() else 0xfff3f2ef.toInt()
         p.color=androidx.core.graphics.ColorUtils.blendARGB(offTrack,onTrack,k);c.drawRoundRect(sx,sy,sx+sw,sy+sh,sh/2,sh/2,p)
-        val kr=(sh-5*d)/2;val left=sx+2.5f*d+kr;val span=sw-5*d-2*kr
+        val kr=(sh-8*d)/2;val left=sx+4*d+kr;val span=sw-8*d-2*kr
         val a0=left+span*minOf(lead,trail);val b0=left+span*maxOf(lead,trail)
         // stretched it thins a little; pressed it swells toward the other side
         val stretch=abs(lead-trail);val swell=.5f*kr*press;val ry=kr*(1f-.12f*stretch-.08f*press)
