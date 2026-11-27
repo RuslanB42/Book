@@ -301,12 +301,21 @@ class MainActivity : Activity() {
     fun homeBooks()=books.toList()
     fun currentBooks():List<JSONObject> {
         if(query.isNotBlank())return searchBooks()
-        var list=when { shelf!=null -> books.filter { BookShelves.on(it,shelf!!) }; auto!=null -> books.filter { Library.status(it)==auto }; else -> homeBooks() }
+        var list=when { shelf!=null -> books.filter { BookShelves.on(it,shelf!!) }; auto!=null -> books.filter { Library.status(it)==auto }; else -> LibraryFilters.apply(this,homeBooks()) }
         if(query.isNotBlank()) list=list.filter { (it.str("title")+" "+authors(it)).contains(query,true) }
+        // a series chosen in the filters: its books stand in their order
+        if(shelf==null&&auto==null&&LibraryFilters.selected(this,"series").isNotEmpty()) return list.sortedWith(compareBy<JSONObject>({ it.str("series").lowercase() },{ it.optDouble("seriesNo",0.0) }))
         return sortBooks(list)
     }
     /** One order for a shelf everywhere: inside it (where books can be dragged into place) and on its row on «Полки». */
-    fun sortBooks(list:List<JSONObject>):List<JSONObject> = when(sort) { "title" -> list.sortedBy { it.str("title").lowercase() }; "author" -> list.sortedBy(::authors); "recent" -> list.sortedByDescending { maxOf(it.optLong("openedAt"),it.optLong("addedAt")) }; else -> list.sortedWith(compareBy<JSONObject> { it.optDouble("pos",it.optLong("addedAt").toDouble()) }.thenBy { it.str("title") }) }
+    /** The chosen order; «sortReverse» turns it (titles and authors А→Я first, dates newest first). «Прочитаны»: the
+     *  read books by when they were finished, the rest after them by title. */
+    fun sortBooks(list:List<JSONObject>):List<JSONObject> { val rev=prefs.optBoolean("sortReverse")
+        fun <T:Comparable<T>> by(asc:Boolean,key:(JSONObject)->T)=if(asc!=rev) list.sortedBy(key) else list.sortedByDescending(key)
+        return when(sort) { "title" -> by(true) { it.str("title").lowercase() }; "author" -> by(true) { LibraryFilters.surnameFirst(authors(it)).lowercase() }
+            "recent" -> by(false) { maxOf(it.optLong("openedAt"),it.optLong("addedAt")) }; "added" -> by(false) { it.optLong("addedAt") }
+            "done" -> { val (read,rest)=list.partition { it.optLong("completedAt")>0 }; (if(rev) read.sortedBy { it.optLong("completedAt") } else read.sortedByDescending { it.optLong("completedAt") })+rest.sortedBy { it.str("title").lowercase() } }
+            else -> list.sortedWith(compareBy<JSONObject> { it.optDouble("pos",it.optLong("addedAt").toDouble()) }.thenBy { it.str("title") }) } }
     private var renderDeferred=false
     private var destroying=false
     fun flushDeferredRender(){if(!destroying&&!bookClosing&&!loadingReader&&renderDeferred&&reader==null&&bookDetailSheet==null&&shelfReorder==null&&!isFinishing&&!isDestroyed){renderDeferred=false;render(true,false)}}
@@ -337,7 +346,9 @@ class MainActivity : Activity() {
         if(!(tab=="shelves"&&!inShelf))shelvesEditing=false
         librarySearch=null
         when{
-            tab=="home"&&!inShelf->{val top=LibrarySearchBar(this).apply{elevation=d(12).toFloat()};librarySearch=top;page.addView(top,LinearLayout.LayoutParams(-1,d(48)));space(page,20)}
+            tab=="home"&&!inShelf->{val top=LibrarySearchBar(this).apply{elevation=d(12).toFloat()};librarySearch=top;page.addView(top,LinearLayout.LayoutParams(-1,d(48)))
+                // the filters under the search, edge to edge (they scroll sideways)
+                LibraryFilters.row(this)?.let{r->space(page,12);(r as ViewGroup).apply{setPadding(d(20),0,d(20),0);clipToPadding=false};page.addView(r,LinearLayout.LayoutParams(-1,d(36)).apply{leftMargin=-d(20);rightMargin=-d(20)})};space(page,20)}
             tab=="quotes"->{val head=row();head.addView(text("Цитаты",26f,fg,true,serif=true).apply{setPadding(d(2),0,d(14),0)},LinearLayout.LayoutParams(-2,-2))
                 val top=LibrarySearchBar(this,compact=true).apply{elevation=d(12).toFloat()};librarySearch=top;head.addView(top,LinearLayout.LayoutParams(0,d(48),1f));page.addView(head,LinearLayout.LayoutParams(-1,d(48)));space(page,20)}
             tab=="shelves"&&!inShelf->{query="";searchOpen=false;page.addView(shelvesTopBar(),LinearLayout.LayoutParams(-1,d(48)));space(page,12)}
@@ -350,7 +361,7 @@ class MainActivity : Activity() {
         renderLibraryResults()
         navigation(); overlay?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; words?.let { root.addView(it,FrameLayout.LayoutParams(-1,-1)) }; tierList?.reattach(); if(preservePosition) keepScroll(oldY); gridSnap?.let { playGrid(it,if(preservePosition) oldY else null) }; if(gridSnap==null&&animateEntry)screenMotion.play(page,MotionPose(1f,y=d(10).toFloat()),MotionSpec.PAGE_IN)
     }
-    internal fun searchBooks():List<JSONObject> {val q=query.trim();return (if(tab=="home")homeBooks()else books).filter{(it.str("title")+" "+authors(it)+" "+it.str("series")+" "+BookShelves.of(it).joinToString(" ")).contains(q,true)}.sortedByDescending{maxOf(it.optLong("openedAt"),it.optLong("addedAt"))}}
+    internal fun searchBooks():List<JSONObject> {val q=query.trim();return (if(tab=="home")LibraryFilters.apply(this,homeBooks())else books).filter{(it.str("title")+" "+authors(it)+" "+it.str("series")+" "+BookShelves.of(it).joinToString(" ")).contains(q,true)}.sortedByDescending{maxOf(it.optLong("openedAt"),it.optLong("addedAt"))}}
     internal fun renderLibraryResults(){
         if(reader!=null || !::page.isInitialized)return
         screenMotion.stop();page.removeAllViews()
@@ -363,9 +374,9 @@ class MainActivity : Activity() {
             tab=="shelves" && query.isBlank() -> shelfRows()
             tab=="quotes" -> quotes()
             else -> {
-                if(query.isBlank()) continueCard()
+                if(query.isBlank()&&!LibraryFilters.active(this)) continueCard()
                 val list=currentBooks()
-                if(list.isEmpty()) { space(page,96); page.addView(if(query.isNotBlank()) emptyView("search","Ничего не нашлось","Попробуйте название, автора или серию.") else emptyView("books","Пока нет книг","Добавьте epub или fb2 — с телефона или из Telegram.",action="＋  Добавить книги"){ pickBooks() },LinearLayout.LayoutParams(-1,-2)) } else bookGrid(list)
+                if(list.isEmpty()) { space(page,96); page.addView(if(query.isNotBlank()) emptyView("search","Ничего не нашлось","Попробуйте название, автора или серию.") else if(LibraryFilters.active(this)) emptyView("search","Ничего не нашлось","Попробуйте другие фильтры.") else emptyView("books","Пока нет книг","Добавьте epub или fb2 — с телефона или из Telegram.",action="＋  Добавить книги"){ pickBooks() },LinearLayout.LayoutParams(-1,-2)) } else bookGrid(list)
             }
         }
 
@@ -375,7 +386,7 @@ class MainActivity : Activity() {
     private fun shelfHead(list:List<JSONObject>) { val head=FrameLayout(this)
         head.addView(icon("back","Назад к полкам") { leaveShelf() },FrameLayout.LayoutParams(d(44),d(44),Gravity.START or Gravity.CENTER_VERTICAL).apply{marginStart=-d(4)})
         head.addView(text(title(),26f,fg,true,serif=true).apply{maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END;gravity=Gravity.CENTER},FrameLayout.LayoutParams(-1,-2,Gravity.CENTER).apply{leftMargin=d(52);rightMargin=d(52)})
-        head.addView(icon("filter","Фильтры и сортировка",action={ filters() }),FrameLayout.LayoutParams(d(44),d(44),Gravity.END or Gravity.CENTER_VERTICAL))
+        head.addView(icon("sort","Сортировка",action={ sortSheet() }),FrameLayout.LayoutParams(d(44),d(44),Gravity.END or Gravity.CENTER_VERTICAL))
         page.addView(head,LinearLayout.LayoutParams(-1,d(44)))
         if(list.isEmpty()){space(page,18);return}
         page.addView(text(countBooks(list.size),13.5f,muted).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
@@ -459,22 +470,7 @@ class MainActivity : Activity() {
                 val target=tabScroll[key] ?: 0;val sv=scroll;sv.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{sv.viewTreeObserver.removeOnPreDrawListener(this);sv.scrollTo(0,target);return true}})
                 screenMotion.pushTab(oldScroll,to>from) } else scroll.smoothScrollTo(0,0)
     }
-    fun filters() {
-        val box=column()
-        label("Сортировка книг",box)
-        // one row per order, its round mark on the right (as on «Статус и полки»), not Android's radio buttons
-        val marks=HashMap<String,Pair<View,RadioMark>>()
-        fun describe(){marks.forEach{(k,m)->m.first.contentDescription=sortName(k)+if(sort==k)", выбрано" else ""}}
-        listOf("manual","recent","title","author").forEach { value ->
-            val row=line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(d(6),0,d(6),0);isClickable=true;isFocusable=true}
-            row.addView(text(sortName(value),16f),LinearLayout.LayoutParams(0,-2,1f))
-            val mark=RadioMark(this,sort==value);row.addView(mark,LinearLayout.LayoutParams(d(22),d(22)));marks[value]=row to mark
-            row.setOnClickListener{if(sort==value)return@setOnClickListener;sort=value;marks.forEach{(k,m)->m.second.on=k==value};describe();prefs.put("sort",value);savePreferences();render()}
-            press(row);box.addView(row,LinearLayout.LayoutParams(-1,d(52)))}
-        describe()
-        dialog().setTitle("Фильтры и сортировка").setView(box).show()
-    }
-    fun sortName(key:String=sort):String = when(key) { "recent" -> "Недавние"; "title" -> "По названию"; "author" -> "По автору"; else -> "Мой порядок" }
+    fun sortName(key:String=sort):String = when(key) { "recent" -> "Недавние"; "added" -> "Добавлены"; "title" -> "Название"; "author" -> "Автор"; "done" -> "Прочитаны"; else -> "Мой порядок" }
     fun search() { librarySearch?.toggle() }
     /** «Новая полка» (the «+» menu, the home shelves): the page glides over to «Полки», the usual name window opens,
      *  and the new shelf then grows in at the end of the shelves while the page follows it down. */

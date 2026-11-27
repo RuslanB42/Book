@@ -40,8 +40,8 @@ internal class LibrarySearchBar(private val a:MainActivity,private val compact:B
    if(a.query.isEmpty()){input.isFocusable=false;input.isFocusableInTouchMode=false}
    input.setOnTouchListener{_,e->if(e.actionMasked==MotionEvent.ACTION_UP&&!input.isFocusableInTouchMode){input.isFocusable=true;input.isFocusableInTouchMode=true;input.requestFocus();showKeyboard()};false}
    input.setOnFocusChangeListener{_,has->if(has&&!a.searchOpen){a.searchOpen=true}else if(!has&&input.text.isEmpty()){a.searchOpen=false;input.isFocusable=false;input.isFocusableInTouchMode=false}}
-   if(!compact)controls.addView(a.icon("filter","Фильтры и сортировка"){a.filters()},LayoutParams(a.d(44),a.d(44)))
-  }else{paintToggle();controls.addView(View(a),LayoutParams(a.d(8),1));controls.addView(a.icon("filter","Фильтры и сортировка"){a.filters()},LayoutParams(a.d(44),a.d(44)))}
+   if(!compact)controls.addView(a.icon("sort","Сортировка"){a.sortSheet()},LayoutParams(a.d(44),a.d(44)))
+  }else{paintToggle();controls.addView(View(a),LayoutParams(a.d(8),1));controls.addView(a.icon("sort","Сортировка"){a.sortSheet()},LayoutParams(a.d(44),a.d(44)))}
   a.searchOpen=a.searchOpen||a.query.isNotEmpty();field.visibility=if(a.searchOpen||persistent)View.VISIBLE else View.INVISIBLE;clear.visibility=if(a.query.isEmpty())View.GONE else View.VISIBLE
   input.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){clear.visibility=if(s.isNullOrEmpty())View.GONE else View.VISIBLE;pending?.let{removeCallbacks(it)};pending=Runnable{if(a.librarySearch===this@LibrarySearchBar&&a.searchOpen){a.query=input.text.toString();a.renderLibraryResults();a.scroll.scrollTo(0,0)}}.also{postDelayed(it,120)}};override fun afterTextChanged(e:Editable?) {}})
   input.setOnEditorActionListener{_,action,_->if(action==EditorInfo.IME_ACTION_SEARCH){pending?.let{removeCallbacks(it)};a.query=input.text.toString();a.renderLibraryResults();hideKeyboard();true}else false}

@@ -89,6 +89,9 @@ class PolkaSheetBuilder(private val a:MainActivity) {
     /** Stays at the foot of the sheet while the content scrolls above it (a button for a long list). */
     private var footer:View?=null
     fun setFooter(v:View)=apply { footer=v }
+    /** A word in the title row's corner in place of the close cross («Сбросить»). */
+    private var headerAction:Pair<String,()->Unit>?=null
+    fun setHeaderAction(label:String,fn:()->Unit)=apply { headerAction=label to fn }
     fun setCancelable(c:Boolean)=apply { cancel=c }
     fun setItems(v:Array<out CharSequence>,callback:(DialogInterface,Int)->Unit)=apply { items=v; onItem=callback }
     fun setMultiChoiceItems(v:Array<out CharSequence>,checks:BooleanArray,callback:(DialogInterface,Int,Boolean)->Unit)=apply { items=v; checked=checks; onCheck=callback }
@@ -176,7 +179,8 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 val handle=FrameLayout(a).apply { addView(View(a).apply { background=a.shape(if(a.light) 0xffcccccc.toInt() else 0xff424244.toInt(),4) },FrameLayout.LayoutParams(a.d(38),a.d(5),Gravity.CENTER)) }
                 box.addView(handle,LinearLayout.LayoutParams(-1,a.d(18)))
                 val head=FrameLayout(a); head.addView(a.text(title,17f,bold=true).apply { gravity=Gravity.CENTER;tag="sheet-title" },FrameLayout.LayoutParams(-1,a.d(48)))
-                if(cancel) head.addView(IconView(a,"x",a.muted).apply { a.controlSurface(this,24f);a.press(this);contentDescription="Закрыть"; setOnClickListener { dismiss() } },FrameLayout.LayoutParams(a.d(32),a.d(32),Gravity.END or Gravity.CENTER_VERTICAL).apply { rightMargin=a.d(12) })
+                headerAction?.let { (label,fn) -> head.addView(a.text(label,14f,a.muted).apply { typeface=PolkaFonts.sans(500);gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),0,a.d(20),0);isClickable=true;setOnClickListener { fn() } },FrameLayout.LayoutParams(-2,-1,Gravity.END)) }
+                if(cancel&&headerAction==null) head.addView(IconView(a,"x",a.muted).apply { a.controlSurface(this,24f);a.press(this);contentDescription="Закрыть"; setOnClickListener { dismiss() } },FrameLayout.LayoutParams(a.d(32),a.d(32),Gravity.END or Gravity.CENTER_VERTICAL).apply { rightMargin=a.d(12) })
                 if(!bare) box.addView(head)
                 val content=a.column().apply { setPadding(a.d(20),a.d(6),a.d(20),a.d(24)) }
                 if(message.isNotBlank()) content.addView(a.text(message,16f).apply { setPadding(0,a.d(8),0,a.d(16)) })
@@ -276,7 +280,7 @@ internal class PolkaSheetFrame(private val a:MainActivity,internal val panel:Lin
                 watching=r.contains(e.rawX.toInt(),e.rawY.toInt())&&!scrollsUp(panel,e.rawX.toInt(),e.rawY.toInt());dy0=e.rawY;dx0=e.rawX}
             MotionEvent.ACTION_MOVE->if(watching&&!dragging){val dy=e.rawY-dy0;val dx=e.rawX-dx0
                 if(dy<-slop||kotlin.math.abs(dx)>slop&&kotlin.math.abs(dx)>dy)watching=false
-                else if(dy>slop&&dy>kotlin.math.abs(dx)*1.5f){dragging=true
+                else if(dy>slop&&dy>kotlin.math.abs(dx)*1.5f&&!FastScroll.holding){dragging=true
                     val now=android.os.SystemClock.uptimeMillis();val c=MotionEvent.obtain(now,now,MotionEvent.ACTION_CANCEL,e.x,e.y,0);super.dispatchTouchEvent(c);c.recycle()
                     val down=MotionEvent.obtain(now,now,MotionEvent.ACTION_DOWN,e.rawX,dy0,0);d.onTouch(this,down);down.recycle()}}
         }
