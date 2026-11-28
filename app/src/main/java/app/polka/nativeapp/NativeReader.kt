@@ -743,7 +743,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     internal fun bookLocale():java.util.Locale{val lang=book.str("lang").trim().lowercase().take(2);return if(lang.isNotBlank())java.util.Locale(lang) else if((book.str("title")+chapters.optJSONObject(0)?.str("title").orEmpty()).any{it in '\u0400'..'\u04ff'})java.util.Locale("ru") else java.util.Locale.getDefault()}
     internal fun applySpacing(){body.textLocale=bookLocale();body.letterSpacing=a.prefs.optDouble("ls",0.0).toFloat();if(android.os.Build.VERSION.SDK_INT>=29)body.paint.wordSpacing=0f;body.textScaleX=1f;body.hyphenationFrequency=hyphenFreq()}
     internal fun applyBrightness(){val v=a.prefs.optDouble("bright",-1.0).toFloat();val target=if(v<0f)android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE else v.coerceIn(.01f,1f);if(a.window.attributes.screenBrightness!=target)a.window.attributes=a.window.attributes.apply{screenBrightness=target}}
-    fun readerMenu(anchor:View) { ButtonMenu(a,anchor,listOf(ButtonMenu.Item("search","Поиск по книге"){navigation(2)},ButtonMenu.Item("notebook","Блокнот: цитаты и мысли"){notebook()},
+    fun readerMenu(anchor:View) { ButtonMenu(a,anchor,listOf(ButtonMenu.Item("search","Поиск по книге"){navigation(2)},ButtonMenu.Item("notebook","Блокнот"){notebook()},
         ButtonMenu.Item("pen","Данные книги"){a.metadataEditor(book)},
         // the two formats are two rows, as in the book's own menu (a menu does not open a second window)
         ButtonMenu.Item("download","Скачать FB2"){a.exportBook(book,"fb2")},ButtonMenu.Item("download","Скачать EPUB"){a.exportBook(book,"epub")})).open() }

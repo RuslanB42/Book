@@ -55,10 +55,10 @@ internal class PanelKit(private val a:MainActivity,private val refreshers:Mutabl
     fun checkMark()=FrameLayout(a).apply{background=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(a.fg)};addView(IconView(a,"check",a.bg),FrameLayout.LayoutParams(a.d(16),a.d(16),Gravity.CENTER))}
 
     /** Colour choices as cards in their own colours (themes, the comics' backdrop); the chosen one ringed inside. */
-    fun colourCards(items:List<Triple<String,String,Pair<Int,Int>>>,glyph:Boolean,current:()->String,pick:(String)->Unit):View{
+    fun colourCards(items:List<Triple<String,String,Pair<Int,Int>>>,glyph:Boolean,current:()->String,picture:((()->Unit)->android.graphics.Bitmap?)?=null,pick:(String)->Unit):View{
         val row=a.line()
         items.forEachIndexed{i,(key,label,colours)->
-            val tile=ThemeCard(a,colours.first,colours.second,label,glyph).apply{isClickable=true;contentDescription=label}
+            val tile=ThemeCard(a,colours.first,colours.second,label,glyph,picture).apply{isClickable=true;contentDescription=label}
             refreshers.add{tile.on=current()==key}
             tile.setOnClickListener{if(current()!=key){tile.haptic(a,Haptic.SELECT);pick(key)}}
             a.press(tile);row.addView(tile,LinearLayout.LayoutParams(0,-1,1f).apply{if(i>0)leftMargin=a.d(8)})}

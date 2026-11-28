@@ -172,7 +172,9 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     private fun paint(){pageLabel.text="Страница ${page+1}";val left=n-1-page;leftLabel.text=if(left>0)"ещё $left стр" else "последняя"
         markIcon?.let{it.isSelected=page in marks();it.invalidate()}
         for(i in 0 until strip.childCount)(strip.getChildAt(i) as? Thumb)?.place(page)
-        strip.getChildAt(page)?.let{t->val target=t.left+t.width/2-stripScroll.width/2;if(reduced)stripScroll.scrollTo(target,0) else stripScroll.smoothScrollTo(target,0)}}
+        centreStrip(!reduced)}
+    /** The strip of pages shows this one in its middle. */
+    private fun centreStrip(animate:Boolean){strip.getChildAt(page)?.let{t->val target=t.left+t.width/2-stripScroll.width/2;if(animate)stripScroll.smoothScrollTo(target,0) else stripScroll.scrollTo(target,0)}}
     private fun setMode(m:String,animate:Boolean){mode=m;stage.removeAllViews();paged=null;ribbon=null
         if(m=="ribbon")ribbon=RibbonView().also{stage.addView(it,FrameLayout.LayoutParams(-1,-1));it.post{it.scrollTo(page)}}
         else paged=PagedView().also{stage.addView(it,FrameLayout.LayoutParams(-1,-1));it.post{it.show(page,false)}}
@@ -236,6 +238,9 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         bottom=a.column().apply{setPadding(a.d(18),a.d(8),a.d(18),a.d(4));clipChildren=false;clipToPadding=false;forceHasOverlappingRendering(false)}
         // settings and sounds open inside this panel, as in the book reader (see [ReaderPanel])
         panel=ReaderPanel(a,bottom)
+        // back from a page of the panel (the pages, the settings): the strip, hidden meanwhile, is at this page again
+        panel.mainShown={stripScroll.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
+            stripScroll.viewTreeObserver.removeOnPreDrawListener(this);centreStrip(false);return true}})}
         val row=a.line()
         pageLabel=a.text("",Type.TEXT,ink()).apply{gravity=Gravity.CENTER_VERTICAL};leftLabel=a.text("",Type.TEXT,mutedInk()).apply{gravity=Gravity.CENTER_VERTICAL}
         row.addView(pageLabel,LinearLayout.LayoutParams(0,a.d(40),1f));row.addView(leftLabel,LinearLayout.LayoutParams(-2,a.d(40)))
@@ -311,7 +316,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         val refreshers=mutableListOf<()->Unit>();val kit=PanelKit(a,refreshers)
         val box=a.column().apply{clipChildren=false;clipToPadding=false}
         val backdrops=listOf("black" to "Чёрный","graphite" to "Графит","white" to "Белый").map{(k,l)->ReaderTint.comic(k).let{t->Triple(k,l,t.page to t.ink)}}
-        box.addView(kit.colourCards(backdrops,false,{bgKey}){k->root.crossfadeColours(a){a.prefs.put("comicBg",k);a.savePreferences();applyLook();panel.rebuild(settingsPage())}},LinearLayout.LayoutParams(-1,a.d(72)))
+        box.addView(kit.colourCards(backdrops,false,{bgKey},picture={ready->bitmap(page,a.d(48),ready)}){k->root.crossfadeColours(a){a.prefs.put("comicBg",k);a.savePreferences();applyLook();panel.rebuild(settingsPage())}},LinearLayout.LayoutParams(-1,a.d(72)))
         box.addView(kit.brightness{applyBrightness(dialog.window)},LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(16)})
         val turns=listOf(Triple("curl","curl","Листание"),Triple("slide","slide","Сдвиг"),Triple("cover","cover","Наложение"),Triple("none","none","Без анимации"),Triple("ribbon","scroll","Лента"))
         fun currentTurn()=if(mode=="ribbon")"ribbon" else turnStyle

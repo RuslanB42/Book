@@ -29,6 +29,8 @@ internal class ReaderPanel(private val a:MainActivity,private val surface:Linear
     val depth get()=stack.size
     val view:View get()=surface
     private var clock:ValueAnimator?=null;private var settle:(()->Unit)?=null
+    /** The reader's own rows are shown again (lists in them may want to find their place anew). */
+    var mainShown:(()->Unit)?=null
     private val reduced get()=a.reducedMotion
     init{stage.addView(main,FrameLayout.LayoutParams(-1,-2,Gravity.TOP));surface.clipChildren=false}
 
@@ -90,6 +92,7 @@ internal class ReaderPanel(private val a:MainActivity,private val surface:Linear
         clock?.cancel();settle?.invoke();settle=null
         // the surface takes the page's colours (or the reader's again)
         to.visibility=View.VISIBLE
+        if(to===main)mainShown?.invoke()
         val lp=stage.layoutParams
         val startH=stage.height
         val width=stage.width.takeIf{it>0}?:(surface.width-surface.paddingLeft-surface.paddingRight)

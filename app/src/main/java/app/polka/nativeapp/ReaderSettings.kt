@@ -126,7 +126,9 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
             // the held row becomes its own small floating card, so the book text never runs into it; the reader bars step aside
             // the card stays inside the page (the row's frame reaches 4dp past its edges and was cut off on the right) and
             // casts no shadow: it only has to keep the text off the capsule
-            unclip.clear();var up:ViewParent?=row.parent;while(up is ViewGroup){unclip.add(up to (up.clipChildren to up.clipToPadding));up.clipChildren=false;up.clipToPadding=false;if(up===r.panel.view)break;up=up.parent}
+            unclip.clear();var up:ViewParent?=row.parent;while(up is ViewGroup){unclip.add(up to (up.clipChildren to up.clipToPadding))
+                // a scrolling page keeps cutting what scrolls past its top, or the rows would run over the panel's head
+                if(up !is ScrollView)up.clipChildren=false;up.clipToPadding=false;if(up===r.panel.view)break;up=up.parent}
             val card=GradientDrawable().apply{setColor(sheetColor);cornerRadius=row.height/2f;alpha=0};val pad=intArrayOf(row.paddingLeft,row.paddingTop,row.paddingRight,row.paddingBottom);row.background=card;row.setPadding(pad[0],pad[1],pad[2],pad[3]);row.elevation=0f
             ValueAnimator.ofFloat(0f,1f).apply{duration=if(reduced)0 else Motion.FAST;addUpdateListener{val k=it.animatedValue as Float;card.alpha=(255*k).toInt()};start()}
             r.fadeChrome(true)
@@ -178,23 +180,27 @@ internal class AutoChip(private val a:MainActivity,initial:Boolean):TextView(a){
 
 /** A theme as a card: «Аа» and its name in the theme's own ink on its own paper; the chosen one gets a ring in that
  *  ink drawn just inside its edge (the card keeps its size), drawing in softly. */
-internal class ThemeCard(private val a:MainActivity,private val bg:Int,private val ink:Int,private val name:String,private val glyph:Boolean=true):View(a){
+internal class ThemeCard(private val a:MainActivity,private val bg:Int,private val ink:Int,private val name:String,private val glyph:Boolean=true,
+                         private val picture:((()->Unit)->android.graphics.Bitmap?)?=null):View(a){
     private var k=0f;private var anim:ValueAnimator?=null;private var first=true
     var on=false;set(v){if(field==v&&!first)return;field=v;val target=if(v)1f else 0f
         if(first||!isAttachedToWindow||a.reducedMotion){first=false;k=target;invalidate();return}
         anim?.cancel();anim=ValueAnimator.ofFloat(k,target).apply{duration=Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
-    private val p=Paint(Paint.ANTI_ALIAS_FLAG)
+    private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val shot=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
     override fun onDraw(c:Canvas){val d=a.resources.displayMetrics.density;val sd=a.resources.displayMetrics.scaledDensity;val w=width.toFloat();val h=height.toFloat();val rad=16*d
         p.style=Paint.Style.FILL;p.color=bg;c.drawRoundRect(0f,0f,w,h,rad,rad,p)
         p.style=Paint.Style.STROKE;p.strokeWidth=d;p.color=Ui.outline(Color.red(bg)>128);c.drawRoundRect(d/2,d/2,w-d/2,h-d/2,rad,rad,p)
         if(k>0f){p.strokeWidth=2*d;p.color=ink;p.alpha=(255*k).toInt();val o=d;c.drawRoundRect(o,o,w-o,h-o,rad-o,rad-o,p);p.alpha=255}
         p.style=Paint.Style.FILL;p.color=ink;p.textAlign=Paint.Align.CENTER
-        p.textSize=Type.H2*sd;p.typeface=PolkaFonts.reader(a,"literata");p.isFakeBoldText=true;val big=if(glyph)-p.ascent() else 24*d
+        p.textSize=Type.H2*sd;p.typeface=PolkaFonts.reader(a,"literata");p.isFakeBoldText=true;val big=if(glyph)-p.ascent() else 30*d
         val small=Paint(p).apply{textSize=Type.CAPTION*sd;typeface=PolkaFonts.sans(500);isFakeBoldText=false;alpha=204}
         val total=big+5*d+(-small.ascent());val top=(h-total)/2
-        // «Аа» for a theme of the text; for the comics' backdrop a little page lying on it
-        if(glyph)c.drawText("Аа",w/2,top+big,p) else{p.alpha=90;c.drawRoundRect(w/2-9*d,top,w/2+9*d,top+big,3*d,3*d,p);p.alpha=255}
+        // «Аа» for a theme of the text; for the comics' backdrop the page being read, small, lying on it
+        if(glyph)c.drawText("Аа",w/2,top+big,p)
+        else{val b=picture?.invoke{invalidate()};val pw=if(b!=null&&b.height>0)big*b.width/b.height else big*2/3;val r=RectF(w/2-pw/2,top,w/2+pw/2,top+big)
+            if(b!=null){c.save();c.clipPath(Path().apply{addRoundRect(r,2*d,2*d,Path.Direction.CW)});c.drawBitmap(b,null,r,shot);c.restore()}
+            else{p.alpha=90;c.drawRoundRect(r,2*d,2*d,p);p.alpha=255}}
         c.drawText(name,w/2,top+big+5*d-small.ascent(),small)}
 }
 
