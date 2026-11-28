@@ -28,13 +28,15 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
 
  }
  private fun live(v:TextView,fn:()->String){updates.add{v.text=fn()};v.text=fn()}
+ /** The sheet's round buttons: opaque, as every other round button in the app (40 dp seen in their 48). */
+ private fun round()=android.graphics.drawable.InsetDrawable(OpaqueSurface(a,20f),a.d(4))
  private fun build(){
   // Floating controls, not an opaque full-width toolbar. The panel outline is the
   // only clipping boundary; content and halo continue behind controls to its real top edge.
   val top=a.line().apply{gravity=Gravity.CENTER_VERTICAL;setPadding(a.d(12),a.d(18),a.d(12),0)}
-  top.addView(a.icon("chevdown","Закрыть"){dismiss()}.apply{background=android.graphics.drawable.InsetDrawable(android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(Ui.fill(a.light))},a.d(4))},LinearLayout.LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH)))
+  top.addView(a.icon("chevdown","Закрыть"){dismiss()}.apply{background=round()},LinearLayout.LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH)))
   top.addView(View(a),LinearLayout.LayoutParams(0,-1,1f))
-  top.addView(a.icon("more","Ещё"){}.apply{val more=this;setOnClickListener{a.bookMenu(book,more)};background=android.graphics.drawable.InsetDrawable(android.graphics.drawable.GradientDrawable().apply{shape=android.graphics.drawable.GradientDrawable.OVAL;setColor(Ui.fill(a.light))},a.d(4))},LinearLayout.LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH)))
+  top.addView(a.icon("more","Ещё"){}.apply{val more=this;setOnClickListener{a.bookMenu(book,more,a.d(4))};background=round()},LinearLayout.LayoutParams(a.d(Size.TOUCH),a.d(Size.TOUCH)))
   panel.addView(top,LayoutParams(-1,a.d(68),Gravity.TOP))
   a.space(content,78)
   val hero=FrameLayout(a).apply{clipChildren=false;clipToPadding=false};heroCover=CoverView(a,book,a.cover(book)).apply{hiRes=true}

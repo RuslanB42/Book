@@ -114,7 +114,7 @@ fun MainActivity.bookActions(book:JSONObject) {
     val all=bookActionItems(book,false)
     dialog().setTitle(book.str("title")).setItemIcons(*all.map{it.icon}.toTypedArray()).setDestructiveItems(*all.indices.filter{all[it].destructive}.toIntArray()).setItems(all.map{it.label}.toTypedArray()) { _,i -> all[i].act() }.show()
 }
-internal fun MainActivity.bookMenu(book:JSONObject,anchor:View)=ButtonMenu(this,anchor,bookActionItems(book,true)).open()
+internal fun MainActivity.bookMenu(book:JSONObject,anchor:View,inset:Int=0)=ButtonMenu(this,anchor,bookActionItems(book,true),inset).open()
 /** «Настройки»: grouped rows on floating cards — appearance, reading, behaviour, backups. */
 /** Small page mock for the appearance choice; «Системное» is split light/dark. */
 internal class ThemePreview(private val a:MainActivity,private val kind:String,private val selected:Boolean):View(a){
