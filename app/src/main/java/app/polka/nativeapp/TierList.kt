@@ -132,7 +132,7 @@ internal class TierRow(private val a:MainActivity,val k:Int,val covers:FlowRow):
  * new rating. A short tap opens the book card. The share button makes a picture of the list.
  */
 internal class TierListOverlay(private val a:MainActivity,private val model:ReadingStatistics,startYear:Int?,private val source:()->View?,private val onClose:()->Unit):SwipeClosable{
-    private val motion get()=a.prefs.str("motion")!="reduced"
+    private val motion get()=!a.reducedMotion
     private val years=Tiers.years(model)
     private var year:Int?=startYear?.takeIf{it in years}?:years.firstOrNull()
     private val frame=Frame()

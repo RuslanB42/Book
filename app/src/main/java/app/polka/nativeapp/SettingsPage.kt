@@ -97,7 +97,7 @@ internal fun MainActivity.openSettingsPage(animate:Boolean){
 /** The whole window changes colours under a soft crossfade from a picture of how it looked a moment ago. */
 internal fun MainActivity.themeCrossfade(change:()->Unit){
     val decor=window.decorView as? FrameLayout
-    if(decor==null||prefs.str("motion")=="reduced"||decor.width<=0||decor.height<=0){change();return}
+    if(decor==null||reducedMotion||decor.width<=0||decor.height<=0){change();return}
     val pic=runCatching{android.graphics.Bitmap.createBitmap(decor.width,decor.height,android.graphics.Bitmap.Config.ARGB_8888).also{decor.draw(android.graphics.Canvas(it))}}.getOrNull()
     if(pic==null){change();return}
     val cover=ImageView(this).apply{setImageBitmap(pic);scaleType=ImageView.ScaleType.FIT_XY;isClickable=true;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;elevation=d(60).toFloat()}
@@ -114,10 +114,9 @@ internal fun MainActivity.closeSettings(){val page=settingsPage?:return;settings
 internal fun MainActivity.numberSheet(title:String,initial:Int,range:IntRange,presets:List<Int>,unit:(Int)->String,extra:Pair<String,()->Unit>?=null,saved:(Int)->Unit){
     val box=column().apply{gravity=Gravity.CENTER_HORIZONTAL}
     val pill=Ui.fill(light)
-    box.addView(text(title,Type.TEXT,fg,true).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(4)})
     val field=edit(if(initial>0)"$initial" else "","0").apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER;filters=arrayOf(android.text.InputFilter.LengthFilter(range.last.toString().length))
         textSize=Type.NUMBER;typeface=PolkaFonts.serif(this@numberSheet,true);gravity=Gravity.CENTER;background=null;setTextColor(fg);setHintTextColor(Ui.icon(light));setPadding(0,0,0,0);imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE;setSelection(text.length);contentDescription=title}
-    box.addView(field,LinearLayout.LayoutParams(-1,-2).apply{topMargin=d(14)})
+    box.addView(field,LinearLayout.LayoutParams(-1,-2))
     val caption=text(unit(initial),Type.TEXT,muted).apply{gravity=Gravity.CENTER}
     box.addView(caption,LinearLayout.LayoutParams(-1,-2))
     val chips=line()
@@ -134,6 +133,7 @@ internal fun MainActivity.numberSheet(title:String,initial:Int,range:IntRange,pr
     field.setOnEditorActionListener{_,act,_->if(act==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){done();true}else false}
     box.addView(text("Готово",Type.BODY,bg,true).apply{gravity=Gravity.CENTER;background=shape(fg,Radius.R28);isClickable=true;isFocusable=true;press(this);setOnClickListener{done()}},LinearLayout.LayoutParams(-1,d(52)).apply{topMargin=d(18)})
     extra?.let{(label,fn)->box.addView(text(label,Type.TEXT,muted).apply{gravity=Gravity.CENTER;setPadding(0,d(14),0,d(2));isClickable=true;setOnClickListener{fn();sheet.dismiss()}},LinearLayout.LayoutParams(-1,-2))}
-    sheet=dialog().setBare().setView(box).show()
+    // the one window head, as on every sheet: the title there, «×» to leave without saving
+    sheet=dialog().setTitle(title).setView(box).show()
     field.post{field.requestFocus();(getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(field,0)}
 }

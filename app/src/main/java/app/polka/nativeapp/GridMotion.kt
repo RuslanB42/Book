@@ -38,7 +38,7 @@ internal fun MainActivity.captureGrid(keep:Set<String>):GridSnapshot{
 
 /** Called by render() after the new page is in place: animate from the snapshot on the first frame. */
 internal fun MainActivity.playGrid(snap:GridSnapshot,restoreY:Int?){
-    val reduced=prefs.str("motion")=="reduced"
+    val reduced=reducedMotion
     if(!reduced)gridMovingUntil=android.os.SystemClock.uptimeMillis()+900
     val token=++gridToken;pendingGrid=snap
     root.viewTreeObserver.addOnPreDrawListener(object:ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{

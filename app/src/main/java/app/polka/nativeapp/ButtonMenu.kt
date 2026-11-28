@@ -19,7 +19,7 @@ internal class ButtonMenu(private val a:MainActivity,private val anchor:View,pri
     private var view:MenuView?=null
     private var clock:ValueAnimator?=null
     private var closing=false
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
 
     fun open(){
         if(anchor.width==0||!anchor.isShown||items.isEmpty())return

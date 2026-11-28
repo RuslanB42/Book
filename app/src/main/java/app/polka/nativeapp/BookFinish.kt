@@ -65,7 +65,7 @@ internal class BookFinish(private val a:MainActivity,private val book:JSONObject
     private val dialog=Dialog(a,R.style.PolkaBlack)
     private val before=listOf("rating","reviewTags","review","reviewAt").associateWith{book.opt(it)}
     private var closed=false
-    private val motion get()=a.prefs.str("motion")!="reduced"
+    private val motion get()=!a.reducedMotion
     /** The cover's pop: past its size and back, once. */
     private val pop=Motion.expand.interpolator
     private var root:View?=null

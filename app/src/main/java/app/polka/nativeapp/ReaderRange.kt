@@ -18,7 +18,7 @@ internal class ReaderRange(private val a:MainActivity):SeekBar(a){
  // where the knob is drawn and how fast it goes; how far its tail is drawn out and how fast that changes
  private var x=Float.NaN;private var vx=0f;private var s=0f;private var vs=0f;private var dir=1f
  private var last=0L;private var running=false
- private val reduced get()=a.prefs.str("motion")=="reduced"
+ private val reduced get()=a.reducedMotion
  private val frame=object:Runnable{override fun run(){step();if(running)postOnAnimation(this)}}
  init{background=null;setPadding(a.d(12),0,a.d(12),0);thumb=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(Color.WHITE);setSize(a.d(24),a.d(24))};splitTrack=false}
  private fun target():Float{val left=paddingLeft.toFloat();val right=(width-paddingRight).toFloat();return left+(right-left)*progress/max.coerceAtLeast(1)}

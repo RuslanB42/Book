@@ -33,7 +33,7 @@ internal class ContinueReading(private val a:MainActivity,all:List<JSONObject>):
  private val glow=AmbientGlow(a)
  private val holders=mutableListOf<FrameLayout>()
  private var lastViewport=0
- private val reduced get()=a.prefs.str("motion")=="reduced"
+ private val reduced get()=a.reducedMotion
  /** How far the cover rises above the card. */
  private val rise=a.d(22)
  private val strip=a.line().apply{clipChildren=false;clipToPadding=false}

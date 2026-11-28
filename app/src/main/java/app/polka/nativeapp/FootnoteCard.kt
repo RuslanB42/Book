@@ -14,7 +14,7 @@ import org.jsoup.nodes.Element
 internal class FootnoteCard(private val a:MainActivity,private val host:FrameLayout,private val page:Int,private val ink:Int,private val face:Typeface?,private val sizePx:Float,
                             private val label:String,private val text:CharSequence,private val at:FloatArray?,private val closed:()->Unit,private val all:()->Unit){
     private var layer:FrameLayout?=null
-    private val motion get()=a.prefs.str("motion")!="reduced"
+    private val motion get()=!a.reducedMotion
 
     fun show(){
         val surface=blend(page,ink,.075f)

@@ -27,6 +27,8 @@ fun MainActivity.metadataEditor(book:JSONObject) {
     lateinit var drop:TextView
     drop=chip("Убрать"){ preview.remove("cover"); preview.remove("coverThumb"); book.remove("cover"); book.remove("coverThumb"); book.put("coverChanged",true); saveBook(book) {}; c.invalidate(); drop.visibility=View.GONE }
     drop.visibility=if(book.optJSONObject("cover")!=null)View.VISIBLE else View.GONE
+    // a cover picked while the sheet is open: «Убрать» is there at once
+    observeBook(box,book.str("id")){fresh->fresh.optJSONObject("cover")?.let{book.put("cover",it)};drop.visibility=if(fresh.optJSONObject("cover")!=null)View.VISIBLE else View.GONE}
     coverActions.addView(pick); coverActions.addView(drop,LinearLayout.LayoutParams(-2,-2).apply{leftMargin=d(8)}); box.addView(coverActions)
     fun card()=column().apply{floatCard(this,24);setPadding(d(16),d(4),d(16),d(4))}
     fun divider(parent:LinearLayout){parent.addView(View(this).apply{setBackgroundColor(Ui.line(light))},LinearLayout.LayoutParams(-1,1))}
@@ -156,7 +158,7 @@ internal fun MainActivity.deleteBook(book:JSONObject) {
     val sheet=bookDetailSheet?.takeIf { it.isShowing && it.bookId==id }
     val closeGap={ gridMotion=true; render(true,false) }
     val vanish={ val v=gridCell(id)
-        if(v==null||!v.isShown||prefs.str("motion")=="reduced") closeGap()
+        if(v==null||!v.isShown||reducedMotion) closeGap()
         else { v.pivotX=v.width/2f; v.pivotY=v.height*.4f; v.animate().cancel(); v.animate().alpha(0f).scaleX(.86f).scaleY(.86f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.exit).withEndAction{ closeGap() }.start() } }
     if(sheet!=null){ sheet.afterClose={ vanish() }; sheet.discard() } else vanish()
     // the book is only hidden while its notice is up: «Вернуть» brings it back, otherwise it is removed when the notice goes.

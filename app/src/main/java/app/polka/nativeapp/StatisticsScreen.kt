@@ -61,10 +61,10 @@ internal class StatisticsScreen(private val a:MainActivity,private val data:JSON
         background=pill(Ui.alpha(color,(if(light)0x26 else 0x33)),11);importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
         addView(IconView(a,kind,color),FrameLayout.LayoutParams(a.d(17),a.d(17),Gravity.CENTER))
     }
-    private val motionOn get()=animate&&a.prefs.str("motion")!="reduced"
+    private val motionOn get()=animate&&!a.reducedMotion
     /** Ambient and touch motion (sparks, pulses, chart glides, menus) — alive even when the screen is rebuilt in place
      *  without its entrance (after a theme or goal change in the settings); only the entrance follows [animate]. */
-    private val live get()=a.prefs.str("motion")!="reduced"
+    private val live get()=!a.reducedMotion
     private val entrance=mutableListOf<View>()
     /** Where the cards go: the part under the switch. */
     private val section=a.column().apply{clipChildren=false;clipToPadding=false}

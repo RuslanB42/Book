@@ -97,7 +97,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
     /** Morph between the shelf and its edit card; [delay] staggers the rows. */
     fun setEditing(on:Boolean,animate:Boolean,delay:Long=0){editing=on;if(!on){commitRename();cancelAsk()}
         anim?.cancel();val to=if(on)1f else 0f
-        if(!animate||a.prefs.str("motion")=="reduced"){apply(to);return}
+        if(!animate||a.reducedMotion){apply(to);return}
         val from=progress
         val sp=Motion.response;anim=android.animation.ValueAnimator.ofFloat(from,to).apply{duration=sp.duration;startDelay=delay;interpolator=sp.interpolator;addUpdateListener{apply(it.animatedValue as Float)};start()}}
     private fun apply(e:Float){progress=e
@@ -116,7 +116,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         if(!compact)(layoutParams as? MarginLayoutParams)?.let{m->val idx=(parent as? ViewGroup)?.indexOfChild(this)?:0;val want=if(idx<=0)0 else (a.d(26)+(a.d(10)-a.d(26))*e).toInt();if(m.topMargin!=want){m.topMargin=want;layoutParams=m}}}
     private fun askDelete(){if(ask>0f||!editing)return;pill.visibility=View.VISIBLE;pill.isClickable=true;a.touchWatchers.add(outside);a.root.post{if(pill.visibility==View.VISIBLE&&!a.touchWatchers.contains(outside))a.touchWatchers.add(outside)};runAsk(1f)}
     fun cancelAsk(){a.touchWatchers.remove(outside);if(ask<=0f&&askAnim==null)return;runAsk(0f)}
-    private fun runAsk(to:Float){askAnim?.cancel();val from=ask;val reduced=a.prefs.str("motion")=="reduced"
+    private fun runAsk(to:Float){askAnim?.cancel();val from=ask;val reduced=a.reducedMotion
         fun set(k:Float){ask=k;val lp=pill.layoutParams;lp.width=(a.d(40)+(a.d(96)-a.d(40))*k).toInt();pill.layoutParams=lp;pill.alpha=(k*1.5f).coerceIn(0f,1f)
             card.setColor(androidx.core.graphics.ColorUtils.blendARGB(cardColor,Ui.danger(a.light),.14f*k));card.alpha=(progress*255).toInt();apply(progress)
             // the first frame of the opening is k=0: only a finished closing hides the pill
@@ -142,7 +142,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
             val i=head.indexOfChild(name);head.addView(f,i,LayoutParams(-2,-2));name.visibility=View.GONE
             followKeyboard()
             f.requestFocus();(a.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(f,0)}}
-        if(a.prefs.str("motion")=="reduced"||pen.alpha<=0f)swap() else pen.animate().alpha(0f).setDuration(Motion.FAST).withEndAction{swap()}.start()}
+        if(a.reducedMotion||pen.alpha<=0f)swap() else pen.animate().alpha(0f).setDuration(Motion.FAST).withEndAction{swap()}.start()}
     /** The page rides on the keyboard: frame by frame, as far as needed for this card to stay above it, by moving the
      *  page as a picture (no layout); it comes back down the same way as the keyboard closes. */
     private fun followKeyboard()=a.rideKeyboard(head)
@@ -158,7 +158,7 @@ internal class ShelfRow(private val a:MainActivity,var key:String,private var ti
         // the shelves reload after a rename: let this tap finish first
         if(next.isNotBlank()&&next!=title){name.text=next;title=next;if(key.startsWith("s:"))key="s:$next";head.contentDescription="$next, ${MainActivity.countBooks(list.size)}";centerName();settleBreath();val r=rename;a.root.post{r?.invoke(next)}}}
     /** Saved: the card breathes once. */
-    private fun settleBreath(){if(a.prefs.str("motion")=="reduced")return;head.animate().scaleX(1.012f).scaleY(1.012f).setDuration(Motion.FAST).setInterpolator(MotionSpec.enter).withEndAction{head.animate().scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).start()}.start()}
+    private fun settleBreath(){if(a.reducedMotion)return;head.animate().scaleX(1.012f).scaleY(1.012f).setDuration(Motion.FAST).setInterpolator(MotionSpec.enter).withEndAction{head.animate().scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).start()}.start()}
 
     /** Six-dot grip; dragging it moves the shelf. */
     internal inner class Grip:View(a){
@@ -387,7 +387,7 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
     /** Folds the place away after a «+»-menu shelf (outside the edit mode). */
     private fun fold(after:Long){if(!fresh)return;fresh=false;if(a.shelvesEditing)return
         val lp=layoutParams as? LinearLayout.LayoutParams?:return;val m0=lp.topMargin
-        if(a.prefs.str("motion")=="reduced"){lp.topMargin=0;layoutParams=lp;reveal(0f);return}
+        if(a.reducedMotion){lp.topMargin=0;layoutParams=lp;reveal(0f);return}
         val sp=Motion.response;marginAnim?.cancel();marginAnim=android.animation.ValueAnimator.ofFloat(1f,0f).apply{duration=sp.duration;startDelay=after;interpolator=sp.interpolator
             addUpdateListener{val k=it.animatedValue as Float;lp.topMargin=(m0*k).toInt();layoutParams=lp;reveal(k)};start()}}
     private fun start(){if(field!=null||!isAttachedToWindow)return
@@ -415,7 +415,7 @@ internal class ShelfSlot(private val a:MainActivity,private val create:(String)-
     /** Same spacing as the shelves: 26dp apart, 10dp between the edit cards. */
     private var marginAnim:android.animation.ValueAnimator?=null
     fun setEditing(on:Boolean,animate:Boolean,delay:Long=0){if(!on)commit();val lp=layoutParams as? LinearLayout.LayoutParams?:return;val to=a.d(if(on)10 else 0);marginAnim?.cancel()
-        if(!animate||a.prefs.str("motion")=="reduced"){lp.topMargin=to;layoutParams=lp;reveal(if(on)1f else 0f);return}
+        if(!animate||a.reducedMotion){lp.topMargin=to;layoutParams=lp;reveal(if(on)1f else 0f);return}
         val m0=lp.topMargin;val s0=shown;val s1=if(on)1f else 0f
         val sp=Motion.response;marginAnim=android.animation.ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;startDelay=delay;interpolator=sp.interpolator;addUpdateListener{val k=it.animatedValue as Float;lp.topMargin=(m0+(to-m0)*k).toInt();layoutParams=lp;reveal((s0+(s1-s0)*k).coerceIn(0f,1f))};start()}}
 }
@@ -508,7 +508,7 @@ internal class ShelfEditor(private val a:MainActivity,private val page:LinearLay
     init{rows.forEach{r->r.handle.setOnTouchListener{_,e->touch(r,e);true}}}
     fun setEditing(on:Boolean){a.shelvesEditing=on;statuses?.setEditing(on,true);val delays=Stagger.delays(rows.size+1,30,ease=MotionSpec.enter);rows.forEachIndexed{i,r->r.setEditing(on,true,delays[i])};place?.setEditing(on,true,delays.last())}
     private fun saveOrder(){a.prefs.put("shelfOrder",org.json.JSONArray(rows.map{it.key}));a.savePreferences()}
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     /** The shelf [key] leaves the page in place (the quick menu's «Удалить полку»); false if it is not here. */
     fun deleteKey(key:String,done:()->Unit):Boolean{val r=rows.firstOrNull{it.key==key}?:return false;delete(r,done);return true}
     /** A new shelf grows out of the empty place, just above it: its height opens, it rises a little and fades in. */

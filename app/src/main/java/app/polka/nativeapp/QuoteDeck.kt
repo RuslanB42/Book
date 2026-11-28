@@ -26,7 +26,7 @@ internal class QuoteDeck(private val a:MainActivity,private val book:JSONObject,
     private val counter=a.text("",Type.SECONDARY,a.muted)
     private val deck=Deck()
     private val dots=Dots()
-    private fun reduced()=a.prefs.str("motion")=="reduced"
+    private fun reduced()=a.reducedMotion
     private fun word(n:Int)=if(n%100 in 11..14)"цитат" else when(n%10){1->"цитата";2,3,4->"цитаты";else->"цитат"}
     init{
         orientation=VERTICAL;clipChildren=false;clipToPadding=false

@@ -19,7 +19,7 @@ private const val S_SAVED=1
 private const val S_DONE=2
 internal class QuoteColorSheet(private val a:MainActivity,private val readerBg:Int,start:String,private val pick:(String,Boolean)->Unit){
     var onClose:(()->Unit)?=null
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     private val sheetColor get()=a.sheetColor
     private var dialog:android.app.Dialog?=null
     private lateinit var holder:View

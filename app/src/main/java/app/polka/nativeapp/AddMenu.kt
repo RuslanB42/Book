@@ -18,7 +18,7 @@ internal class AddMenu(private val a:MainActivity){
     private var view:MenuView?=null
     private var clock:ValueAnimator?=null
     private var closing=false
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
 
     fun open(){
         val nav=a.nativeNavigation?:return;val fab=a.addButton?:return

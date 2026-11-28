@@ -53,7 +53,7 @@ class ScreenMotion(private val a:MainActivity) {
     /** Tabs are neighbours, not deeper: the REAL outgoing page (no snapshot) fades out shifting a little toward the
      *  side it is left for, the new one comes in from the other side the same short way (approved variant «Б»). */
     fun pushTab(old:View?,opening:Boolean){
-        if(old==null||a.prefs.str("motion")=="reduced"||a.root.width<=0)return
+        if(old==null||a.reducedMotion||a.root.width<=0)return
         (old.parent as? ViewGroup)?.removeView(old)
         old.isEnabled=false
         val blocker=object:FrameLayout(a){override fun onInterceptTouchEvent(e:android.view.MotionEvent)=true;override fun onTouchEvent(e:android.view.MotionEvent)=true}
@@ -67,7 +67,7 @@ class ScreenMotion(private val a:MainActivity) {
     }
     fun stop() { finishTab();motions.toList().forEach { it.cancel() }; motions.clear() }
     fun play(view:View,from:MotionPose,duration:Long,delay:Long=0,curve:TimeInterpolator=MotionSpec.enter) {
-        if(a.prefs.str("motion")=="reduced") return
+        if(a.reducedMotion) return
         motions.add(NativeMotion(view,from,duration=duration,delay=delay,curve=curve).start())
     }
 }
@@ -169,9 +169,9 @@ internal class Depth(private val a:MainActivity,private val top:View){
                 override fun onAnimationEnd(x:Animator){if(!cancelled){detach();done()}}});start()}}
     fun stop(){clock?.removeAllListeners();clock?.cancel();clock=null}
     /** The top page comes in. */
-    fun enter(done:()->Unit={}){if(a.prefs.str("motion")=="reduced"){pose(0f);detach();done();return};pose(1f);run(0f,MotionSpec.DEEP_IN,MotionSpec.enter,done)}
+    fun enter(done:()->Unit={}){if(a.reducedMotion){pose(0f);detach();done();return};pose(1f);run(0f,MotionSpec.DEEP_IN,MotionSpec.enter,done)}
     /** The top page goes back to the right, from wherever it is now. */
-    fun leave(done:()->Unit={}){if(a.prefs.str("motion")=="reduced"){detach();done();return};if(dim.parent==null)pose(0f)
+    fun leave(done:()->Unit={}){if(a.reducedMotion){detach();done();return};if(dim.parent==null)pose(0f)
         run(1f,(MotionSpec.DEEP_BACK*(1-at)).toLong().coerceAtLeast(90L),MotionSpec.move,done)}
     /** Let go too early in a swipe back: the top page settles in again. */
     fun settle(done:()->Unit={}){run(0f,MotionSpec.SETTLE,MotionSpec.move,done)}

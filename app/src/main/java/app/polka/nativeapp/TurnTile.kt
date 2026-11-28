@@ -11,7 +11,7 @@ import kotlin.math.pow
  *  the view, that keeps showing its turn over and over (the card draws the ground and the ring). [kind] is curl,
  *  slide, cover, none or scroll. */
 internal class TurnTile(private val a:MainActivity,private val kind:String,private val paper:Int,private val ink:Int):View(a){
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     private var clock:ValueAnimator?=null;private var t=1.15f
     private val d=a.resources.displayMetrics.density

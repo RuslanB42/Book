@@ -155,7 +155,7 @@ internal object Translation{
  *  and the buttons: «Копировать» and «Учить слово» for a word or a name, «Копировать» and «В заметку» for a
  *  translation. Pulled down or tapped outside, it leaves. */
 internal class LookupSheet(private val a:MainActivity,private val readerBg:Int,private val selected:String,private val source:WordSource?=null,private val toNote:(String)->Unit){
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     private val sheetColor get()=a.sheetColor
     private val quiet get()=Ui.fill(a.light)
     private var dialog:android.app.Dialog?=null

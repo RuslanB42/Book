@@ -12,7 +12,7 @@ internal fun MainActivity.bootLogo():View=FrameLayout(this).apply {
 /** The freshly rendered interface comes in by itself: it fades in and rises a little, part after part. */
 internal fun MainActivity.revealFromBoot(logo:View?){
     (logo?.parent as? android.view.ViewGroup)?.removeView(logo)
-    val reduced=prefs.str("motion")=="reduced"
+    val reduced=reducedMotion
     val ease=MotionSpec.enter
     var i=0
     for(k in 0 until root.childCount){val v=root.getChildAt(k);if(v.visibility!=View.VISIBLE||v.alpha<1f)continue

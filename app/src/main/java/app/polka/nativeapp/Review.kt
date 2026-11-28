@@ -84,7 +84,7 @@ internal class ReviewChip(private val a:MainActivity,val label:String,selected:B
     private val restFill get()=Ui.fill(a.light)
     private val restLine get()=Ui.press(a.light)
     private val onText get()=if(a.light)Color.WHITE else Ui.sheet(false)
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     init{isClickable=true;isFocusable=true;contentDescription=label;setOnClickListener{toggle()};a.press(this)}
     private fun mix(c1:Int,c2:Int,t:Float)=ArgbEvaluator().evaluate(t.coerceIn(0f,1f),c1,c2) as Int
     override fun onMeasure(ws:Int,hs:Int)=setMeasuredDimension((w+a.d(28)).toInt()+1,a.d(34))
@@ -111,7 +111,7 @@ internal class ReviewChip(private val a:MainActivity,val label:String,selected:B
 internal class ReviewBlock(private val a:MainActivity,private val book:JSONObject):LinearLayout(a){
     private enum class Mode{EMPTY,EDIT,NOTE}
     private var mode=Mode.EMPTY
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     private val ru=Locale("ru")
     private var stars=makeStars(Rating.halves(book))
     private val starsBox=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}

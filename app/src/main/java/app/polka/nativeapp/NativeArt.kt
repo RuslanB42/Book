@@ -46,7 +46,7 @@ class CoverView(context: Context, private val book: JSONObject, private val imag
         // the cover changed under a cover already shown (approved «Смена обложки Б»): the old one blurs and sinks away,
         // the new one rises out of a blur
         val key=coverKey()
-        if(shownKey!=null&&key!=shownKey&&!waiting&&isShown&&activity?.prefs?.str("motion")!="reduced"){swapFrom=shownArt;swapAt=android.os.SystemClock.uptimeMillis();fadeFrom=0L}
+        if(shownKey!=null&&key!=shownKey&&!waiting&&isShown&&activity?.reducedMotion!=true){swapFrom=shownArt;swapAt=android.os.SystemClock.uptimeMillis();fadeFrom=0L}
         shownKey=key;shownArt=bitmap
         if(swapAt>0L){val t=(android.os.SystemClock.uptimeMillis()-swapAt)/1000f
             if(t<SWAP){swap(canvas,bounds,t,bitmap);mark(canvas,activity);postInvalidateOnAnimation();return}

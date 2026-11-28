@@ -161,10 +161,10 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
         s.setSpan(android.text.style.ForegroundColorSpan(muted),n,s.length,0);s.setSpan(android.text.style.AbsoluteSizeSpan(Type.SECONDARY.toInt(),true),n,s.length,0);t.text=s}
     private fun showPanel(){val p=panel?:build().also{panel=it}
         p.animate().cancel();p.visibility=View.VISIBLE
-        if(a.prefs.str("motion")=="reduced"){p.alpha=1f;p.translationY=0f;return}
+        if(a.reducedMotion){p.alpha=1f;p.translationY=0f;return}
         p.alpha=0f;p.translationY=a.d(24).toFloat();p.animate().alpha(1f).translationY(0f).setDuration(MotionSpec.SHEET_IN).setInterpolator(MotionSpec.enter).start()}
     private fun hidePanel(){val p=panel?:return;if(p.visibility!=View.VISIBLE)return
-        if(a.prefs.str("motion")=="reduced"){p.visibility=View.GONE;return}
+        if(a.reducedMotion){p.visibility=View.GONE;return}
         p.animate().cancel();p.animate().alpha(0f).translationY(a.d(16).toFloat()).setDuration(MotionSpec.SHEET_OUT).setInterpolator(MotionSpec.exit).withEndAction{if(!running)return@withEndAction;p.visibility=View.GONE}.start()}
     private fun build():LinearLayout{
         val box=LinearLayout(a).apply{orientation=LinearLayout.VERTICAL;setPadding(0,a.d(16),0,a.d(14));isClickable=true;elevation=a.d(16).toFloat()
@@ -255,7 +255,7 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
             background=GradientDrawable().apply{setColor(ink);cornerRadius=a.d(Radius.R24).toFloat()};setOnClickListener{answer()};a.press(this)},LinearLayout.LayoutParams(-1,a.d(48)).apply{topMargin=a.d(18)})
         scrim.addView(box,FrameLayout.LayoutParams(-1,-2,Gravity.CENTER).apply{leftMargin=a.d(22);rightMargin=a.d(22)})
         r.autoView.addView(scrim,FrameLayout.LayoutParams(-1,-1));card=scrim
-        if(a.prefs.str("motion")!="reduced"){scrim.alpha=0f;scrim.animate().alpha(1f).setDuration(MotionSpec.ASK_IN).setInterpolator(MotionSpec.enter).start()}
+        if(!a.reducedMotion){scrim.alpha=0f;scrim.animate().alpha(1f).setDuration(MotionSpec.ASK_IN).setInterpolator(MotionSpec.enter).start()}
         val back=touchPoint
         countdown=ValueAnimator.ofFloat(1f,0f).apply{duration=ASK_FOR;interpolator=android.view.animation.LinearInterpolator()
             addUpdateListener{val k=it.animatedValue as Float;ring.k=k;ring.secs=(k*ASK_FOR/1000f).let{s->kotlin.math.ceil(s).toInt()};ring.invalidate()}
@@ -267,7 +267,7 @@ internal class AutoRead(private val a:MainActivity,private val r:AutoHost){
             start()}}
     private fun answer(){if(!asking)return;asking=false;countdown?.cancel();countdown=null;lastTouch=now;from=now;touchPoint=r.herePointNow()
         val c=card?:return;card=null
-        if(a.prefs.str("motion")=="reduced"){r.autoView.removeView(c);return}
+        if(a.reducedMotion){r.autoView.removeView(c);return}
         c.animate().alpha(0f).setDuration(MotionSpec.ASK_OUT).setInterpolator(MotionSpec.exit).withEndAction{r.autoView.removeView(c)}.start()}
 
     // ── «Вернуться к стр. …» ──

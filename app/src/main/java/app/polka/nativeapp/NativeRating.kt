@@ -25,7 +25,7 @@ class NativeRating(val a:MainActivity,initial:Int=0,val toggle:Boolean=true,priv
     private var shown=value/2f
     private var sweep:ValueAnimator?=null
     private var press=FloatArray(5){1f}
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     private val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{strokeJoin=Paint.Join.ROUND;strokeCap=Paint.Cap.ROUND}
     private val star get()=a.d(1)*starDp
     private val gap get()=a.d(1)*gapDp

@@ -21,7 +21,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
  /** The reading history has been looked up (until then a started book keeps the room of its two facts). */
  private var journeyLoaded=false
  val isShowing get()=parent!=null&&!ended
- private fun reduced()=a.prefs.str("motion")=="reduced"
+ private fun reduced()=a.reducedMotion
  init{a.controlSurface(panel,22f,sheet=true).apply{flushBottom=true;refresh()};clipChildren=false;clipToPadding=false;elevation=a.d(40).toFloat();isClickable=true;isFocusableInTouchMode=true;contentDescription="О книге: ${book.str("title")}";addView(scrim,LayoutParams(-1,-1));addView(panel,LayoutParams(-1,-1,Gravity.BOTTOM).apply{topMargin=a.d(48)})
   panel.addView(scroller,LayoutParams(-1,-1));scroller.addView(content);panel.addView(DetailTopFade(a),LayoutParams(-1,a.d(DetailTopFade.DEPTH_DP),Gravity.TOP));build()
   val handle=FrameLayout(a);handle.addView(View(a).apply{background=a.shape(Ui.handle(a.light),3)},LayoutParams(a.d(38),a.d(5),Gravity.CENTER));panel.addView(handle,LayoutParams(-1,a.d(18),Gravity.TOP))
@@ -99,7 +99,7 @@ class BookDetailSheet(private val a:MainActivity,private val book:JSONObject,pri
   val quoteSection=section(26);heading(quoteSection,"Цитаты")
   val quoteReveal=DetailReveal(a);val quoteBody=quoteReveal.body.apply{clipChildren=false;clipToPadding=false};quoteSection.addView(quoteReveal);var quoteKey="";var quotePage=0
   val ease=MotionSpec.enter
-  fun reducedMotion()=a.prefs.str("motion")=="reduced"
+  fun reducedMotion()=a.reducedMotion
   var collapseQuotes:(List<View>)->Unit={}
   var folding=false
   fun renderQuotes(animated:Boolean=false,unfold:Boolean=false,settle:Boolean=false){

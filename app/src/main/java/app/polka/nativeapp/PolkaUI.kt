@@ -52,7 +52,7 @@ class SlidingSegment(val a:MainActivity,selected:Int,val count:Int,private val t
     private val segmentThumb=OpaqueSurface(a,9f,selected=true)
     private val spring=LiquidSpring{value,_->index=value;invalidate()}
     init { orientation=HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; setPadding(a.d(2),a.d(2),a.d(2),a.d(2)); background=if(trackColor!=null)a.shape(trackColor,pillRadius)else a.controlSurface(this,12f); setWillNotDraw(false);spring.snap(index) }
-    fun choose(value:Int) { val target=value.coerceIn(0,(count-1).coerceAtLeast(0)).toFloat();if(a.prefs.str("motion")=="reduced")spring.snap(target)else spring.to(target) }
+    fun choose(value:Int) { val target=value.coerceIn(0,(count-1).coerceAtLeast(0)).toFloat();if(a.reducedMotion)spring.snap(target)else spring.to(target) }
     override fun onDraw(c:android.graphics.Canvas) { super.onDraw(c); val pad=a.d(2).toFloat(); val cell=(width-pad*2)/count;
         // the selected thumb lies flat in its track: no shade (as asked, on every such switch)
 if(thumbColor!=null){ink.color=thumbColor;c.drawRoundRect(pad+cell*index,pad,pad+cell*(index+1),height-pad,a.d(pillRadius-2).toFloat(),a.d(pillRadius-2).toFloat(),ink)}else{c.save();c.translate(pad+cell*index,pad);segmentThumb.setBounds(0,0,cell.toInt(),(height-pad*2).toInt());segmentThumb.draw(c);c.restore()} }
@@ -60,7 +60,7 @@ if(thumbColor!=null){ink.color=thumbColor;c.drawRoundRect(pad+cell*index,pad,pad
 }
 fun MainActivity.press(v:View) {
     v.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(view:View){};override fun onViewDetachedFromWindow(view:View){v.animate().cancel();v.scaleX=1f;v.scaleY=1f}})
-    v.setOnTouchListener { view,e -> view.background?.setHotspot(e.x,e.y);if(prefs.str("motion")=="reduced")return@setOnTouchListener false
+    v.setOnTouchListener { view,e -> view.background?.setHotspot(e.x,e.y);if(reducedMotion)return@setOnTouchListener false
         // a gentle eased dip under the finger and a soft settle on release (no snap, no bounce)
         when(e.actionMasked){MotionEvent.ACTION_DOWN->{v.animate().cancel();v.animate().scaleX(.955f).scaleY(.955f).setDuration(Motion.FAST).setInterpolator(MotionSpec.enter).start()}
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{v.animate().cancel();v.animate().scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start()}};false }
@@ -72,8 +72,6 @@ class PolkaSheetBuilder(private val a:MainActivity) {
     private var tall=false
     fun setTall(value:Boolean)=apply{tall=value}
     /** No title row and no close button: the content is the whole sheet (it still closes by swipe or a tap outside). */
-    private var bare=false
-    fun setBare()=apply{bare=true}
     private var title=""; private var message=""; private var view:View?=null; private var cancel=true
     private var items:Array<out CharSequence>?=null; private var onItem:((DialogInterface,Int)->Unit)?=null
     private var itemIcons:List<String>?=null; private var destructiveItems:Set<Int> = emptySet()
@@ -141,7 +139,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 if(imeWaited){window?.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);a.root.postDelayed({if(isShowing)super.dismiss()},380)}else super.dismiss()}}
             override fun dismiss() {
                 val body=panel
-                if(allowFinalDismiss || body==null || !isShowing || a.isFinishing || a.isDestroyed || a.prefs.str("motion")=="reduced") { super.dismiss(); return }
+                if(allowFinalDismiss || body==null || !isShowing || a.isFinishing || a.isDestroyed || a.reducedMotion) { super.dismiss(); return }
                 if(closing) return
                 // With the keyboard up, it goes away first (the sheet rides down with it) and the sheet leaves only once
                 // it is gone: leaving earlier handed the keyboard to the page below for a moment, and it popped up again.
@@ -173,13 +171,13 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 val box=a.column().apply { background=a.shape(a.sheetColor,Radius.R24); clipToOutline=true }
                 if(!wide){val r=a.d(22).toFloat();(box.background as android.graphics.drawable.GradientDrawable).cornerRadii=floatArrayOf(r,r,r,r,0f,0f,0f,0f)}
                 a.controlSurface(box,22f,sheet=true).apply{flushBottom=!wide;refresh()};panel=box
-                val animated=a.prefs.str("motion")!="reduced";if(animated)box.alpha=0f
+                val animated=!a.reducedMotion;if(animated)box.alpha=0f
                 motion=SheetMotion{value->moveSheet(value)}
                 val handle=FrameLayout(a).apply { addView(View(a).apply { background=a.shape(Ui.handle(a.light),2) },FrameLayout.LayoutParams(a.d(36),a.d(4),Gravity.CENTER)) }
                 box.addView(handle,LinearLayout.LayoutParams(-1,a.d(16)))
                 // the one window head: «×» on the left (also when the corner holds an action), the title in the middle
                 val head=a.windowHead(title,true,a.fg,Ui.fill(a.light),if(cancel){{dismiss()}}else null,headerAction?.let{(label,fn)->a.headAction(label,a.muted,fn)})
-                if(!bare) box.addView(head,LinearLayout.LayoutParams(-1,a.d(Size.HEADER)).apply{leftMargin=a.d(12);rightMargin=a.d(12);bottomMargin=a.d(4)})
+                box.addView(head,LinearLayout.LayoutParams(-1,a.d(Size.HEADER)).apply{leftMargin=a.d(12);rightMargin=a.d(12);bottomMargin=a.d(4)})
                 val content=a.column().apply { setPadding(a.d(20),a.d(6),a.d(20),a.d(24)) }
                 if(message.isNotBlank()) content.addView(a.text(message,Type.BODY).apply { setPadding(0,a.d(8),0,a.d(16)) })
                 view?.let { (it.parent as? ViewGroup)?.removeView(it); content.addView(it) }
@@ -250,7 +248,7 @@ class PolkaSheetBuilder(private val a:MainActivity) {
                 val drag=View.OnTouchListener { _,e -> if(wide || !cancel) return@OnTouchListener false; when(e.actionMasked) {
                     MotionEvent.ACTION_DOWN -> { down=e.rawY; downAt=e.eventTime;box.animate().cancel();motion?.stop();grabbed=box.translationY }
                     MotionEvent.ACTION_MOVE -> {motion?.snap(((grabbed+e.rawY-down)/box.height.coerceAtLeast(1)).coerceIn(0f,1f))}
-                    MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL -> { val dy=box.translationY; val speed=dy/maxOf(1,e.eventTime-downAt); if(e.actionMasked==MotionEvent.ACTION_UP && (dy>a.d(120) || speed>.6f*a.resources.displayMetrics.density)) dismiss() else {motion?.snap(dy/box.height.coerceAtLeast(1));if(a.prefs.str("motion")=="reduced")motion?.snap(0f)else motion?.to(0f)} }
+                    MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL -> { val dy=box.translationY; val speed=dy/maxOf(1,e.eventTime-downAt); if(e.actionMasked==MotionEvent.ACTION_UP && (dy>a.d(120) || speed>.6f*a.resources.displayMetrics.density)) dismiss() else {motion?.snap(dy/box.height.coerceAtLeast(1));if(a.reducedMotion)motion?.snap(0f)else motion?.to(0f)} }
                 }; true }
                 handle.setOnTouchListener(drag); head.setOnTouchListener(drag);frame.drag=drag;box.addOnAttachStateChangeListener(object:View.OnAttachStateChangeListener{override fun onViewAttachedToWindow(v:View){};override fun onViewDetachedFromWindow(v:View){motion?.stop()}})
             }
@@ -397,7 +395,7 @@ class PolkaNavigation(val a:MainActivity):FrameLayout(a) {
 
     /** Moves to [index] from wherever the bar is now (a move cut short goes on from where it is). */
     private fun go(index:Int,animate:Boolean){shown=index;if(width==0)return;target(index)
-        if(!animate||a.prefs.str("motion")=="reduced"){x.indices.forEach{x0[it]=x1[it];w0[it]=w1[it];s0[it]=s1[it]};pill0.set(pill1);spring.snap(1f);return}
+        if(!animate||a.reducedMotion){x.indices.forEach{x0[it]=x1[it];w0[it]=w1[it];s0[it]=s1[it]};pill0.set(pill1);spring.snap(1f);return}
         System.arraycopy(x,0,x0,0,4);System.arraycopy(w,0,w0,0,4);System.arraycopy(s,0,s0,0,4);pill0.set(pill)
         if(pill0.isEmpty){pill0.set(pill1)}
         spring.snap(0f);spring.to(1f)}

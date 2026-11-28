@@ -12,7 +12,7 @@ private fun MainActivity.quoteGroups():List<QuoteGroup> {
 }
 fun MainActivity.quotes() {
     val groups=quoteGroups()
-    if(groups.isEmpty()){space(page,96);page.addView(if(query.isNotBlank())emptyView("search","Ничего не нашлось","Поиск идёт по тексту цитат и по книгам.") else emptyView("quote","Пока нет цитат","Выделите фрагмент в книге и нажмите «Цитата»."),LinearLayout.LayoutParams(-1,-2));return}
+    if(groups.isEmpty()){space(page,96);page.addView(if(query.isNotBlank())emptyView("search","Ничего не нашлось","Поиск идёт по тексту цитат и по книгам.") else emptyView("quote","Нет цитат","Выделите фрагмент в книге и нажмите «Цитата»."),LinearLayout.LayoutParams(-1,-2));return}
     space(page,8)
     groups.forEach{g->page.addView(QuoteDeck(this,g.book,g.quotes).apply{tag="quote-item"},LinearLayout.LayoutParams(-1,-2));space(page,30)}
 }
@@ -161,7 +161,7 @@ internal fun MainActivity.quoteCardNative(b:JSONObject,q:JSONObject,onOpen:(()->
     foot.addView(round("trash","Удалить цитату"){
         if(onDelete!=null){onDelete();return@round}
         val remove={saveBook(b.copyJson().put("quotes",JSONArray(b.optJSONArray("quotes")!!.objects().filterNot{it.str("id")==q.str("id")})))}
-        if(prefs.str("motion")=="reduced")remove() else NativeMotion(card,MotionPose(),MotionPose(0f,scale=.96f),200,curve=MotionSpec.exit,complete=remove).start()
+        if(reducedMotion)remove() else NativeMotion(card,MotionPose(),MotionPose(0f,scale=.96f),200,curve=MotionSpec.exit,complete=remove).start()
     },LinearLayout.LayoutParams(d(38),d(38)).apply{leftMargin=d(8)})
     card.addView(foot);return card
 }

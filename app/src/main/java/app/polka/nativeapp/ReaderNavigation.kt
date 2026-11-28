@@ -1,6 +1,5 @@
 package app.polka.nativeapp
 
-import android.app.AlertDialog
 import android.content.*
 import android.text.*
 import android.view.*
@@ -8,20 +7,27 @@ import android.widget.*
 import org.json.*
 
 /** The same three navigation sections as the source: contents, notebook and search. */
+/** The same three navigation sections as the source: contents, notebook and search. They open inside the reader's
+ *  bottom panel (approved «Правило окон»: the reader's tools live in its panel), the tabs fixed at the top and each
+ *  section scrolling under them. */
 internal class ReaderNavigation(private val a:MainActivity,private val r:NativeReader,initial:Int=0){
  private val box=a.column()
- private val tabs=a.column()
- private val pane=a.column()
- private var panel:AlertDialog?=null
+ /** The sections' room: a fixed height, so moving between tabs never changes the panel's size. */
+ private val pane=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
+ private var paneHeight=0
  private var selected=initial
  private var filter=0
  private var searchGeneration=0
  private val fields=listOf("quotes","bookmarks")
+ /** The scrolling lists reach the panel's sides, where the cards' shadows fall. */
+ private val side get()=a.d(18)
  fun show(){
-  box.addView(tabs);a.space(box,16);box.addView(pane)
-  // One segment for the whole life of the sheet, so its thumb can slide; only the pane below is swapped.
-  tabs.addView(roundTabs(listOf("Оглавление","Блокнот","Поиск")))
-  fill();panel=a.dialog().setTitle("${r.book.str("title")}").setView(box).setTall(true).show()
+  // One segment for the whole life of the page, so its thumb can slide; only the pane below is swapped.
+  box.addView(roundTabs(listOf("Оглавление","Блокнот","Поиск")),LinearLayout.LayoutParams(-1,-2))
+  paneHeight=(r.panel.room()-a.d(38+16)).coerceAtLeast(a.d(200))
+  box.addView(pane,LinearLayout.LayoutParams(-1,paneHeight).apply{topMargin=a.d(16);leftMargin=-side;rightMargin=-side})
+  fill()
+  r.panel.open(ReaderPanel.Page(r.book.str("title"),box,onLeave={leave()}))
   a.observeBook(box,r.book.str("id")){fresh->replaceJson(r.book,fresh);if(selected==1)drawNotebook()}
  }
  // Fully round track and thumb, matching the pills used across the app.
@@ -31,41 +37,38 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   labels.forEachIndexed{i,s->box.addView(a.text(s,Type.TEXT).apply{gravity=Gravity.CENTER;minHeight=a.d(38);a.press(this);setOnClickListener{if(i!=selected){box.choose(i);tint(i);switchTo(i)}}},LinearLayout.LayoutParams(0,-2,1f))}
   tint(selected);return box
  }
- private fun close(){r.refreshBookmark();panel?.dismiss()}
+ /** The page goes (a chapter or a note chosen, «‹», Back or a tap on the book): the keyboard and the lifted panel too. */
+ private fun leave(){follow(false);r.refreshBookmark()}
+ private fun close(){r.panel.home()}
+ /** Search lifts the panel over the keyboard; the page under it is left as it is. */
+ private fun follow(on:Boolean){
+  if(on){r.imeFollower={h->val by=r.liftPanel(h);pane.layoutParams=pane.layoutParams.apply{height=(paneHeight-by).coerceAtLeast(a.d(120))}};return}
+  if(r.imeFollower==null)return
+  r.imeFollower=null;a.releaseTextFocus();r.liftPanel(0);pane.layoutParams=pane.layoutParams.apply{height=paneHeight}}
  private var transition=0
- private fun reduced()=a.prefs.str("motion")=="reduced"
+ private fun reduced()=a.reducedMotion
  private fun switchTo(index:Int){
   if(index==selected)return;val direction=if(index>selected)1 else -1;selected=index;val token=++transition
   if(reduced()||!pane.isAttachedToWindow){pane.animate().cancel();pane.alpha=1f;pane.translationX=0f;fill();return}
-  // the tabs of the sheet move like the app's own tabs (see MotionSpec)
+  // the tabs move like the app's own tabs (see MotionSpec)
   val shift=a.d(MotionSpec.TAB_SHIFT).toFloat();pane.animate().cancel()
   pane.animate().alpha(0f).translationX(-direction*shift).setDuration(MotionSpec.TAB_OUT).setInterpolator(MotionSpec.exit).withEndAction{
    if(token!=transition)return@withEndAction;fill();pane.translationX=direction*shift
    pane.animate().alpha(1f).translationX(0f).setDuration(MotionSpec.TAB_IN).setInterpolator(MotionSpec.enter).start()
   }.start()
  }
- /** Containers the notebook opened up for its cards' shadows, with how they were; the other tabs get them back clipped,
-  *  or the chapter list would draw over the tabs when it scrolls. */
- private val unclipped=HashMap<ViewGroup,Pair<Boolean,Boolean>>()
  private fun fill(){
-  pane.removeAllViews()
-  if(selected!=1){unclipped.forEach{(v,o)->v.clipChildren=o.first;v.clipToPadding=o.second};unclipped.clear()}
+  pane.removeAllViews();follow(selected==2)
   when(selected){0->contents();1->notebook();2->search()}
  }
+ /** A list that scrolls in the pane, fading out under the tabs and at the panel's foot. */
+ private fun scroller(content:View)=SheetScroll(a,r.panel.color,30,18).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false
+  setPadding(side,0,side,a.d(8));addView(content)}
  private fun contents(){
   val toc=r.contents()
   var here:View?=null
-  // the chapters scroll on their own, under the tabs: opening at the current chapter never hides «Оглавление / Блокнот / Поиск»
-  val list=a.column();val holder=SheetScroll(a,a.sheetColor,30,18).apply{isVerticalScrollBarEnabled=false;addView(list)}
-  pane.addView(holder,LinearLayout.LayoutParams(-1,(a.resources.displayMetrics.heightPixels*.6f).toInt()))
-  // the list runs down to the bottom edge of the screen (under the gesture bar), like every other list in the app
-  holder.clipToPadding=false;holder.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
-   val sv=generateSequence(holder.parent){it.parent}.filterIsInstance<android.widget.ScrollView>().firstOrNull()?:return true
-   val at=IntArray(2);holder.getLocationOnScreen(at);val s=IntArray(2);sv.getLocationOnScreen(s);val c=IntArray(2);sv.getChildAt(0).getLocationOnScreen(c)
-   val below=(c[1]+sv.getChildAt(0).height)-(at[1]+holder.height)
-   val want=(s[1]+sv.height-at[1]-below).coerceAtLeast(a.d(200))
-   holder.setPadding(0,0,0,sv.paddingBottom+a.d(16))
-   val lp=holder.layoutParams;if(lp.height!=want){lp.height=want;holder.layoutParams=lp;return false};return true}})
+  val list=a.column();val holder=scroller(list)
+  pane.addView(holder,FrameLayout.LayoutParams(-1,-1))
   toc.forEach{item->val current=item.optInt("ch")==r.chapter;list.addView(a.text(r.prettyTitle(item.str("title")),Type.BODY,if(current)a.accent else a.fg,current).apply{minHeight=a.d(48);gravity=Gravity.CENTER_VERTICAL;if(current)background=a.shape(Ui.alpha(a.accent,0x1f),Radius.R16);setPadding(a.d(12+item.optInt("depth").coerceIn(0,8)*12),a.d(10),a.d(8),a.d(10));setOnClickListener{close();r.goToLocation(item.optInt("ch"),0,item.str("anchor"))}}.also{if(current&&here==null)here=it})}
   // the list opens at the chapter being read (a little of the one before it still showing above)
   here?.let{row->holder.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
@@ -84,10 +87,11 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
    val chip=a.text("",Type.TEXT,a.fg,true).apply{gravity=Gravity.CENTER;minHeight=a.d(38);maxLines=1;setPadding(a.d(16),0,a.d(16),0);tag=android.graphics.drawable.GradientDrawable().apply{cornerRadius=a.d(Radius.R20).toFloat()};background=tag as android.graphics.drawable.Drawable;isClickable=true;isFocusable=true;setOnClickListener{selectFilter(index)};a.press(this)}
    chipViews.add(chip);chips.addView(chip,LinearLayout.LayoutParams(-2,a.d(38)).apply{if(index>0)leftMargin=a.d(8)})
   }
-  val strip=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(chips);setPadding(0,a.d(2),0,a.d(4))};pane.addView(strip)
-  a.space(pane,16);notebookResults=a.column().apply{clipChildren=false;clipToPadding=false};pane.addView(notebookResults)
-  // the cards' shadows are wider than the cards: no container between them and the scrolling sheet may cut them
-  pane.post{if(selected!=1)return@post;var v:android.view.ViewParent?=pane;while(v is ViewGroup&&v !is android.widget.ScrollView){val g:ViewGroup=v;unclipped.getOrPut(g){g.clipChildren to g.clipToPadding};g.clipChildren=false;g.clipToPadding=false;v=g.parent};(v as? ViewGroup)?.let{unclipped.getOrPut(it){it.clipChildren to it.clipToPadding};it.clipToPadding=false}}
+  val column=a.column().apply{clipChildren=false;clipToPadding=false}
+  val strip=HorizontalScrollView(a).apply{isHorizontalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;addView(chips);setPadding(0,a.d(2),0,a.d(4))};column.addView(strip)
+  a.space(column,16);notebookResults=a.column().apply{clipChildren=false;clipToPadding=false};column.addView(notebookResults)
+  // the cards' shadows are wider than the cards: the list reaches out to the panel's sides
+  pane.addView(scroller(column).apply{clipChildren=false},FrameLayout.LayoutParams(-1,-1))
   updateChips(false);drawNotebook()
  }
  private fun selectFilter(index:Int){if(index==filter)return;filter=index;updateChips(true);drawNotebook(true)}
@@ -109,7 +113,7 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   notebookResults.removeAllViews()
   val rows=fields.flatMapIndexed{index,key->r.book.optJSONArray(key)?.objects().orEmpty().map{index to it}}.filter{(kind,_)->filter==0||(filter==1&&kind==0)||(filter==2&&kind==1)}.sortedByDescending{it.second.optLong("updatedAt",it.second.optLong("at"))}
   if(rows.isEmpty()){
-   val box=if(filter==2)a.emptyView("bookmark","Пока нет закладок","Нажмите на закладку в нижней панели.",100) else a.emptyView("note",if(filter==1)"Пока нет цитат" else "Пока нет записей","Выделите текст и нажмите «Цитата» или «Заметка».",100)
+   val box=if(filter==2)a.emptyView("bookmark","Нет закладок","Нажмите на закладку в нижней панели.",100) else a.emptyView("note",if(filter==1)"Нет цитат" else "Нет записей","Выделите текст и нажмите «Цитата» или «Заметка».",100)
    box.setPadding(0,a.d(52),0,a.d(24))
    notebookResults.addView(box,LinearLayout.LayoutParams(-1,-2));fadeResults(animate);return
   }
@@ -149,7 +153,9 @@ internal class ReaderNavigation(private val a:MainActivity,private val r:NativeR
   notebookResults.animate().alpha(1f).translationY(0f).setDuration(Motion.STANDARD).setStartDelay(40).setInterpolator(MotionSpec.enter).start()
  }
  private fun search(){
-  val input=a.edit("","Поиск").apply{contentDescription="Поиск по книге";imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH};val results=a.column();pane.addView(searchField(input));a.space(pane,14);pane.addView(results)
+  val input=a.edit("","Поиск").apply{contentDescription="Поиск по книге";imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH};val results=a.column()
+  val column=a.column();column.addView(searchField(input),LinearLayout.LayoutParams(-1,-2).apply{leftMargin=side;rightMargin=side});a.space(column,14)
+  column.addView(scroller(results),LinearLayout.LayoutParams(-1,0,1f));pane.addView(column,FrameLayout.LayoutParams(-1,-1))
   fun run(){val generation=++searchGeneration;val q=input.text.toString().trim();results.removeAllViews();if(q.length<2)return;results.addView(a.text("Поиск…",Type.TEXT,a.muted));r.searchEntries(q){rows->if(generation==searchGeneration&&selected==2&&box.isAttachedToWindow){results.removeAllViews();if(rows.isEmpty()){results.addView(a.emptyView("search","Ничего не нашлось","Этого слова нет в книге.",100).apply{setPadding(0,a.d(52),0,a.d(24))},LinearLayout.LayoutParams(-1,-2));return@searchEntries};results.addView(a.text("Найдено: ${rows.size}",Type.SECONDARY,a.muted));rows.forEach{row->results.addView(a.text(row.third,Type.TEXT).apply{setPadding(0,a.d(12),0,a.d(12));setOnClickListener{close();r.goToLocation(row.first,row.second)}})}}}}
   input.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){};override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){input.removeCallbacks(searchTask);searchTask=Runnable{run()};input.postDelayed(searchTask,250)};override fun afterTextChanged(s:Editable?){} });run()
  }

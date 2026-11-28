@@ -20,7 +20,7 @@ internal abstract class ChoiceMark(protected val a:MainActivity,on:Boolean):View
     /** How much the finger is on it (0..1). */
     protected var press=0f
     private var anim:ValueAnimator?=null;private var pressAnim:ValueAnimator?=null
-    protected val reduced get()=a.prefs.str("motion")=="reduced"
+    protected val reduced get()=a.reducedMotion
     var on=on;set(x){if(x==field)return;field=x;go(x)}
     protected abstract val inMs:Long;protected abstract val outMs:Long
     init{importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO;isDuplicateParentStateEnabled=true}

@@ -236,7 +236,7 @@ internal class StageDots(private val a:MainActivity,var stage:Int):View(a){
 /** The «Слова» tab (approved): today's lesson in one plaque, then every word as a plain row; the known ones quieter. */
 fun MainActivity.wordsPage(){
     val words=Words.all(this)
-    if(words.isEmpty()){space(page,96);page.addView(emptyView("words","Пока нет слов","Выделите слово в книге, откройте «Словарь» и нажмите «Учить слово»."),LinearLayout.LayoutParams(-1,-2));return}
+    if(words.isEmpty()){space(page,96);page.addView(emptyView("words","Нет слов","Выделите слово в книге, откройте «Словарь» и нажмите «Учить слово»."),LinearLayout.LayoutParams(-1,-2));return}
     val today=Words.lesson(this).size
     val card=line().apply{floatCard(this,24);gravity=Gravity.CENTER_VERTICAL;setPadding(d(18),d(14),d(14),d(14))}
     card.addView(TextView(this).apply{val sb=SpannableStringBuilder(if(today>0)"$today" else "Всё повторено")
@@ -305,7 +305,7 @@ internal class WordLesson(private val a:MainActivity){
     private var dialog:android.app.Dialog?=null
     private lateinit var root:FrameLayout;private lateinit var col:LinearLayout;private lateinit var stage:FrameLayout;private lateinit var bar:Progress;private lateinit var next:TextView
     private var shownAt=0L;private var answered=false
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     private val handler=android.os.Handler(android.os.Looper.getMainLooper())
 
     private inner class Progress:View(a){

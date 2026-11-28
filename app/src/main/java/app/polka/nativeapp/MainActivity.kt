@@ -141,6 +141,8 @@ class MainActivity : Activity() {
         if(fresh?.optJSONObject("cover")?.str("__polkaBlob").isNullOrBlank()) publish() else requestCover(fresh!!) { publish() }
     }
     fun refreshProfile() { val data=profileStats ?: return; val y=(profileOverlay as? ScrollView)?.scrollY ?: 0; profileOverlay?.let { root.removeView(it) }; showProfile(data,profileRange,false); profileOverlay?.post { (profileOverlay as? ScrollView)?.scrollTo(0,y) } }
+    /** Less motion: the app's «Меньше движения», or the system's «Удалить анимацию» — whichever is on. */
+    val reducedMotion get()=prefs.str("motion")=="reduced"||!android.animation.ValueAnimator.areAnimatorsEnabled()
     var coverTarget:String?=null
     var coverEditorBook:JSONObject?=null
     var coverEditorView:View?=null
@@ -208,7 +210,7 @@ class MainActivity : Activity() {
     internal fun enterShelf(from:ShelfRow?=null,change:()->Unit){if(ShelfMorph.busy)return
         val before=if(::scroll.isInitialized)scroll else null;val trip=from?.trip()
         change();render(false,false);shelfMorph=null
-        val b=backdrop;val page=scroll;if(b==null||page===before||prefs.str("motion")=="reduced")return
+        val b=backdrop;val page=scroll;if(b==null||page===before||reducedMotion)return
         if(trip!=null){shelfMorph=ShelfMorph(this,trip){backToList()}.also{it.open()};return}
         val img=ImageView(this).apply{setImageBitmap(b);scaleType=ImageView.ScaleType.MATRIX;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
         root.addView(img,0,FrameLayout.LayoutParams(b.width,b.height))
@@ -224,9 +226,9 @@ class MainActivity : Activity() {
      *  motion reversed; otherwise the shelf's page goes to the right and the list comes back from the left. */
     fun leaveShelf(){if(ShelfMorph.busy)return
         val key=shelf?.let{"s:$it"}?:auto?.let{"a:$it"}
-        val m=shelfMorph?.takeIf{it.trip.key==key&&backdrop!=null&&backdropTab=="shelves"&&prefs.str("motion")!="reduced"}
+        val m=shelfMorph?.takeIf{it.trip.key==key&&backdrop!=null&&backdropTab=="shelves"&&!reducedMotion}
         if(m!=null){m.close();return}
-        val pic=if(prefs.str("motion")=="reduced"||root.width<=0||root.height<=0)null else try{android.graphics.Bitmap.createBitmap(root.width,root.height,android.graphics.Bitmap.Config.ARGB_8888).also{val c=android.graphics.Canvas(it);c.drawColor(bg);root.draw(c)}}catch(e:Throwable){null}
+        val pic=if(reducedMotion||root.width<=0||root.height<=0)null else try{android.graphics.Bitmap.createBitmap(root.width,root.height,android.graphics.Bitmap.Config.ARGB_8888).also{val c=android.graphics.Canvas(it);c.drawColor(bg);root.draw(c)}}catch(e:Throwable){null}
         backToList()
         if(pic==null)return
         val img=ImageView(this).apply{setImageBitmap(pic);isClickable=true;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
@@ -249,11 +251,11 @@ class MainActivity : Activity() {
 
             override fun onProgress(insets:androidx.core.view.WindowInsetsCompat,running:List<androidx.core.view.WindowInsetsAnimationCompat>):androidx.core.view.WindowInsetsCompat{
                 if(isIme(running)){val h=insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom;imeNow=h;val r=reader
-                    if(r==null){val f=imeFollower;if(f!=null)f(h) else setIme(if(pageIme)h else 0)}else if(readerTyping()){val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],h))}};return insets}
+                    if(r==null){val f=imeFollower;if(f!=null)f(h) else setIme(if(pageIme)h else 0)}else if(readerTyping()){val f=r.imeFollower;if(f!=null)f(h) else{val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],h))}}};return insets}
             override fun onEnd(animation:androidx.core.view.WindowInsetsAnimationCompat){if(animation.typeMask and androidx.core.view.WindowInsetsCompat.Type.ime()==0)return
                 imeAnimating=false;val now=androidx.core.view.ViewCompat.getRootWindowInsets(root);val ime=now?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom?:0
                 imeNow=ime;val r=reader
-                if(r==null){val f=imeFollower;if(f!=null){f(ime);if(ime==0)imeFollower=null}else setIme(if(pageIme)ime else 0)}else{val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],if(readerTyping())ime else 0))};imeVisible(ime>0)}})
+                if(r==null){val f=imeFollower;if(f!=null){f(ime);if(ime==0)imeFollower=null}else setIme(if(pageIme)ime else 0)}else{val f=r.imeFollower;if(f!=null)f(ime) else{val b=readerBase;r.safeArea(b[0],b[1],b[2],maxOf(b[3],if(readerTyping())ime else 0))}};imeVisible(ime>0)}})
         ImeKeeper(root,d(20)){imeNow}.attach()
         // a tap anywhere outside the focused text field closes the keyboard and lets the field go
         touchWatchers.add{e->val f=currentFocus as? android.widget.EditText;if(f!=null&&reader==null){val r=android.graphics.Rect();f.getGlobalVisibleRect(r);val x=e.rawX.toInt();val y=e.rawY.toInt();if(!r.contains(x,y)&&focusKeepers.none{k->k.isAttachedToWindow&&android.graphics.Rect().also{q->k.getGlobalVisibleRect(q)}.contains(x,y)})root.post{releaseTextFocus()}}}
@@ -278,6 +280,23 @@ class MainActivity : Activity() {
         // once: the comics that came without a series get theirs from their titles
         // (it never stands in the way of the library: whatever goes wrong there, the library opens as it is)
         if(!prefs.optBoolean("seriesGuessed"))try{books.forEach{b->if(SeriesGuess.fill(b,books))library.save(b)};prefs.put("seriesGuessed",true);library.savePrefs(prefs)}catch(_:Exception){}
+        slimCovers()
+    }
+    /** Once: covers stored before 2.21.6 kept their original files, several MB each, and were slow to load; they are
+     *  stored again at the size a cover is ever shown (1800 px), in the background. */
+    private fun slimCovers(){
+        if(prefs.optBoolean("coversSlim"))return
+        val ids=books.mapNotNull{it.optJSONObject("cover")?.str("__polkaBlob")?.takeIf{s->s.isNotBlank()}}.distinct()
+        Thread{try{
+            for(id in ids){if(library.dao.assetSize(id)<600_000)continue
+                val row=library.dao.asset(id)?:continue
+                val bounds=BitmapFactory.Options().apply{inJustDecodeBounds=true};BitmapFactory.decodeByteArray(row.bytes,0,row.bytes.size,bounds)
+                if(bounds.outWidth<=0||maxOf(bounds.outWidth,bounds.outHeight)<=1800&&row.bytes.size<1_500_000)continue
+                val b=BookImages.decode(row.bytes,1800)?:continue
+                val png=b.hasAlpha();val out=ByteArrayOutputStream();b.compress(if(png)Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG,90,out);b.recycle()
+                if(out.size()<row.bytes.size)library.dao.putAsset(AssetRow(id,if(png)"image/png" else "image/jpeg",out.toByteArray()))}
+            runOnUiThread{prefs.put("coversSlim",true);savePreferences()}
+        }catch(_:Throwable){}}.start()
     }
     fun requestCover(book:JSONObject,done:(Bitmap?)->Unit) {
         val id=book.optJSONObject("cover")?.str("__polkaBlob")?.takeIf { it.isNotBlank() } ?: return
@@ -396,7 +415,7 @@ class MainActivity : Activity() {
             else -> {
                 if(query.isBlank()&&!LibraryFilters.active(this)) continueCard()
                 val list=currentBooks()
-                if(list.isEmpty()) { space(page,96); page.addView(if(query.isNotBlank()) emptyView("search","Ничего не нашлось","Попробуйте название, автора или серию.") else if(LibraryFilters.active(this)) emptyView("search","Ничего не нашлось","Попробуйте другие фильтры.") else emptyView("books","Пока нет книг","Добавьте epub или fb2 — с телефона или из Telegram.",action="＋  Добавить книги"){ pickBooks() },LinearLayout.LayoutParams(-1,-2)) } else bookGrid(list)
+                if(list.isEmpty()) { space(page,96); page.addView(if(query.isNotBlank()) emptyView("search","Ничего не нашлось","Попробуйте название, автора или серию.") else if(LibraryFilters.active(this)) emptyView("search","Ничего не нашлось","Попробуйте другие фильтры.") else emptyView("books","Нет книг","EPUB, FB2, PDF и комиксы.",action="Найти на телефоне",second="Выбрать файлы" to { pickBooks() }){ findPhoneBooks() },LinearLayout.LayoutParams(-1,-2)) } else bookGrid(list)
             }
         }
 
@@ -471,7 +490,7 @@ class MainActivity : Activity() {
         // Inside a shelf there is no navigation, as in the profile: it goes into the shelf with the list it belongs to
         // (in its picture, see enterShelf) and comes back with it.
         val inside=shelf!=null||auto!=null;val was=navAway;navAway=inside
-        val reduced=prefs.str("motion")=="reduced"
+        val reduced=reducedMotion
         listOf<View>(nav,add).forEach{v->v.animate().cancel();v.clipBounds=null
             when{
                 inside->{v.visibility=View.INVISIBLE;v.alpha=1f;v.translationY=0f}
@@ -495,7 +514,7 @@ class MainActivity : Activity() {
     /** «Новая полка» (the «+» menu, the home shelves): the page glides over to «Полки», the usual name window opens,
      *  and the new shelf then grows in at the end of the shelves while the page follows it down. */
     fun createShelf() {
-        val reduced=prefs.str("motion")=="reduced"
+        val reduced=reducedMotion
         val away=tab!="shelves"||shelf!=null||auto!=null||query.isNotBlank()
         if(away)goTab("shelves")
         root.postDelayed({
@@ -575,7 +594,7 @@ class MainActivity : Activity() {
         if(PageDocs.isDoc(book)) { if(!PageDocs.dir(this,book).exists()) { Notice.short(this,Notice.Kind.ERROR,"Файл книги не найден"); return }; try { PageReader(this,book.copyJson()).show() } catch(e:Exception) { Notice.short(this,Notice.Kind.ERROR,e.message ?: "Не удалось открыть") }; return }
         if(bookDetailSheet==null)returnDetailId=null
         loadingReader=true
-        val veil=if(prefs.str("motion")=="reduced") null else fadeVeil().also{root.addView(it,FrameLayout.LayoutParams(-1,-1))}
+        val veil=if(reducedMotion) null else fadeVeil().also{root.addView(it,FrameLayout.LayoutParams(-1,-1))}
         var loaded:Pair<JSONObject,Map<String,ByteArray>>?=null;var dark=veil==null;var built=false;var picture:android.graphics.Bitmap?=null
         val pictureKey=PageImages.signature(this,root.width,root.height,book.optJSONObject("progress")?.optInt("ch",0)?:0,book.optJSONObject("progress")?.optInt("nativeOffset",-1)?:-1)
         fun build(){
@@ -606,13 +625,13 @@ class MainActivity : Activity() {
         val r=reader?:return
         if(!r.requestClose())return
         root.childrenOpening()?.finish()
-        if(prefs.str("motion")!="reduced")r.pageImage()?.let{(key,image)->PageImages.save(this,r.book.str("id"),key,image)}
+        if(!reducedMotion)r.pageImage()?.let{(key,image)->PageImages.save(this,r.book.str("id"),key,image)}
         // closed on the last page after reading it: the book is read, and its end is shown once it has closed
         val finished=r.finishOnClose()
         r.dispose() // Save the final position once, before any reverse-motion time is credited.
         val updated=r.book.copyJson();books=books.map{if(it.str("id")==updated.str("id"))updated else it}
         reader=null;readerTint=null
-        if(prefs.str("motion")=="reduced" || r.view.width<=0 || isFinishing || isDestroyed){ReaderWindow.configure(window,false,bg);root.requestApplyInsets();render(true,false);if(finished&&!isFinishing&&!isDestroyed)BookFinish(this,updated){}.show();return}
+        if(reducedMotion || r.view.width<=0 || isFinishing || isDestroyed){ReaderWindow.configure(window,false,bg);root.requestApplyInsets();render(true,false);if(finished&&!isFinishing&&!isDestroyed)BookFinish(this,updated){}.show();return}
         closeWithFade(r)
         if(finished)root.postDelayed({if(!isFinishing&&!isDestroyed)BookFinish(this,updated){}.show()},520)
     }

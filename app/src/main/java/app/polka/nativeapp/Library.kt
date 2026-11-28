@@ -54,6 +54,7 @@ data class MetaRow(val id: String, val json: String)
     @Query("DELETE FROM content") abstract fun clearContent()
     @Query("DELETE FROM assets") abstract fun clearAssets()
     @Query("SELECT DISTINCT assetId FROM assets") abstract fun assetIds(): List<String>
+    @Query("SELECT COALESCE(SUM(length(bytes)),0) FROM assets WHERE assetId=:id") abstract fun assetSize(id: String): Long
     @Query("DELETE FROM assets WHERE assetId=:id") abstract fun deleteAsset(id: String)
     @Query("DELETE FROM meta") abstract fun clearMeta()
 }

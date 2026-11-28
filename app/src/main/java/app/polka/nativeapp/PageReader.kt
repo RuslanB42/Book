@@ -51,7 +51,7 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
     private val n=source.count
     private val io=Executors.newFixedThreadPool(2)
     private val cache=object:LruCache<String,Bitmap>((Runtime.getRuntime().maxMemory()/5).toInt()){override fun sizeOf(k:String,v:Bitmap)=v.byteCount}
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     // how pages turn and whether they run as one strip are the reader's own settings, the same for books, documents
     // and comics (they used to be kept apart for comics, and the strip for each comic on its own); a comic's old
     // «справа налево» kept as the mode becomes its own switch
@@ -274,25 +274,34 @@ internal class PageReader(private val a:MainActivity,override val book:JSONObjec
         ButtonMenu(a,anchor,listOf(ButtonMenu.Item("check","Статус и полки"){a.statusSheet(book)},ButtonMenu.Item("pen","Изменить данные"){a.metadataEditor(book)},
             ButtonMenu.Item("download","Скачать файл"){a.exportBook(book,"doc")})).open()
     }
-    /** «Страницы»: every page as a card in a grid (current ringed, bookmarked ones marked); «Закладки» shows only those. */
+    /** «Страницы» in the bottom panel, like the book reader's contents: every page as a card in a grid (current ringed,
+     *  bookmarked ones marked), «Закладки» shows only those; the grid scrolls under the switch and opens at this page. */
     private fun pagesSheet(){
-        val box=a.column();val grid=a.column();var onlyMarks=false;var sheet:android.app.AlertDialog?=null
-        fun fill(){grid.removeAllViews();val marked=marks();val list=if(onlyMarks)marked.sorted() else (0 until n).toList()
+        val box=a.column();val grid=a.column().apply{clipChildren=false;clipToPadding=false};var onlyMarks=false;var here:View?=null
+        fun fill(){grid.removeAllViews();here=null;val marked=marks();val list=if(onlyMarks)marked.sorted() else (0 until n).toList()
             list.chunked(3).forEach{chunk->val r=a.line().apply{gravity=Gravity.TOP;clipChildren=false;clipToPadding=false}
                 for(j in 0 until 3){val i=chunk.getOrNull(j);val lp=LinearLayout.LayoutParams(0,-2,1f).apply{if(j>0)marginStart=a.d(12)}
                     if(i==null){r.addView(View(a),lp);continue}
-                    val cell=a.column().apply{clipChildren=false;clipToPadding=false;isClickable=true;contentDescription="Страница ${i+1}";setOnClickListener{sheet?.dismiss();jump(i)};a.press(this)}
+                    val cell=a.column().apply{clipChildren=false;clipToPadding=false;isClickable=true;contentDescription="Страница ${i+1}";setOnClickListener{panel.home();jump(i)};a.press(this)}
                     cell.addView(GridThumb(i,i in marked))
                     cell.addView(a.text("${i+1}",Type.SECONDARY,if(i==page)a.fg else a.muted).apply{gravity=Gravity.CENTER;setPadding(0,a.d(6),0,0)},LinearLayout.LayoutParams(-1,-2))
-                    r.addView(cell,lp)}
+                    r.addView(cell,lp)
+                    if(i==page)here=r}
                 grid.addView(r,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(14)})}}
+        var room=panel.room()
         if(marks().isNotEmpty()){
-            val seg=SlidingSegment(a,0,2,Ui.fill(a.light),if(a.light)Color.WHITE else a.fg,Radius.R20)
-            fun tint(k:Int){for(i in 0 until seg.childCount)(seg.getChildAt(i) as TextView).setTextColor(if(i==k)(if(a.light)a.fg else a.bg) else a.muted)}
-            listOf("Все","Закладки").forEachIndexed{k,l->seg.addView(a.text(l,Type.SECONDARY,bold=true).apply{gravity=Gravity.CENTER;a.press(this);setOnClickListener{seg.choose(k);tint(k);onlyMarks=k==1;fill()}},LinearLayout.LayoutParams(0,-1,1f))}
-            tint(0);box.addView(seg,LinearLayout.LayoutParams(-1,a.d(40)).apply{bottomMargin=a.d(16)})}
-        box.addView(grid);fill()
-        sheet=a.dialog().setTitle("Страницы").setView(box).setTall(true).show()
+            val seg=SlidingSegment(a,0,2,Ui.press(a.light),Ui.selected(a.light),Radius.R24)
+            fun tint(k:Int){for(i in 0 until seg.childCount)(seg.getChildAt(i) as TextView).setTextColor(if(i==k)a.fg else a.muted)}
+            listOf("Все","Закладки").forEachIndexed{k,l->seg.addView(a.text(l,Type.TEXT).apply{gravity=Gravity.CENTER;minHeight=a.d(38);a.press(this);setOnClickListener{seg.choose(k);tint(k);onlyMarks=k==1;fill()}},LinearLayout.LayoutParams(0,-2,1f))}
+            tint(0);box.addView(seg,LinearLayout.LayoutParams(-1,-2).apply{bottomMargin=a.d(16)});room-=a.d(38+16)}
+        val side=a.d(18)
+        val scroll=SheetScroll(a,panel.color,30,18).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;setPadding(side,0,side,a.d(8));addView(grid)}
+        box.addView(scroll,LinearLayout.LayoutParams(-1,room.coerceAtLeast(a.d(200))).apply{leftMargin=-side;rightMargin=-side})
+        fill()
+        // the grid opens at the page being read (a little of the row before it still showing above)
+        here?.let{row->scroll.viewTreeObserver.addOnPreDrawListener(object:android.view.ViewTreeObserver.OnPreDrawListener{override fun onPreDraw():Boolean{
+            if(row.height==0)return true;scroll.viewTreeObserver.removeOnPreDrawListener(this);scroll.scrollTo(0,(row.top-a.d(40)).coerceAtLeast(0));return true}})}
+        panel.open(ReaderPanel.Page("Страницы",box))
     }
     /** «Оформление» for pictures: the reader's panel (brightness), the backdrop, how pages turn and how they fit. */
     /** «Оформление» in the bottom panel, built like the book reader's «Текст» (approved «Текст А»): the backdrop as

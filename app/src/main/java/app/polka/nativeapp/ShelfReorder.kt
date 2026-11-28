@@ -13,7 +13,7 @@ internal class ShelfReorder(private val a:MainActivity,private val grid:VirtualG
     private var index=-1;private var original=emptyList<JSONObject>();private var grabbed:View?=null;private var ghost:ImageView?=null;private var image:Bitmap?=null;private var shade:ImageView?=null;private var shadeImage:Bitmap?=null
     private var gx=0f;private var gy=0f;private var moved=false;private var pad=0;private var lastFrame=0L;private var landing=false
     internal val active get()=index>=0
-    private fun reduced()=a.prefs.str("motion")=="reduced"||!android.animation.ValueAnimator.areAnimatorsEnabled()
+    private fun reduced()=a.reducedMotion
     private val lift=Runnable {begin()}
     private val frame=object:Runnable{override fun run(){if(!active)return;val now=SystemClock.uptimeMillis();val dt=if(lastFrame==0L)16 else (now-lastFrame).coerceIn(1,32);lastFrame=now
         val scroll=generateSequence(grid.parent){it.parent}.filterIsInstance<ScrollView>().firstOrNull()

@@ -65,7 +65,7 @@ internal object Ambience {
     fun stop(a:MainActivity,fast:Boolean=false){if(key==null)return;key=null;changed()
         val p=cur;val q=queued;cur=null;queued=null
         if(p==null)return
-        if(fast||a.prefs.str("motion")=="reduced"){p.release();q?.release();return}
+        if(fast||a.reducedMotion){p.release();q?.release();return}
         // the old sound fades on its own while nothing else changes
         val v0=volume(a)*gain;fader?.cancel();gain=0f
         ValueAnimator.ofFloat(1f,0f).apply{duration=Motion.LONG;addUpdateListener{val t=it.animatedValue as Float;try{p.setVolume(v0*t,v0*t)}catch(_:Exception){}}
@@ -115,7 +115,7 @@ internal class EqBars(private val a:MainActivity,var ink:Int):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var loop:ValueAnimator?=null
     private var level=0f;private var levelAnim:ValueAnimator?=null;private var t0=android.os.SystemClock.uptimeMillis()
     private val rest=floatArrayOf(.5f,.9f,.38f,.72f)
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     var live=false;private set
     /** [grow]: the bars rise from nothing (a sound was just chosen). */
     fun set(on:Boolean,grow:Boolean){if(on==live&&!grow)return;live=on
@@ -151,7 +151,7 @@ internal class SoundButton(private val a:MainActivity,ink:Int):FrameLayout(a){
     private fun refresh(animate:Boolean){val on=Ambience.key!=null;val col=Ambience.color(a,Ambience.key)
         if(on){tint.setColor(Ui.alpha(col,0x38));bars.ink=if(a.light)col else androidx.core.graphics.ColorUtils.blendARGB(col,Color.WHITE,.35f)}
         val changed=shown!=on;shown=on
-        val motion=animate&&changed&&a.prefs.str("motion")!="reduced"
+        val motion=animate&&changed&&!a.reducedMotion
         fun show(v:View,vis:Boolean,from:Float){v.animate().cancel();if(!motion){v.alpha=if(vis)1f else 0f;v.scaleX=1f;v.scaleY=1f;return}
             if(vis){v.scaleX=from;v.scaleY=from;v.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(Motion.EMPHASIS).setInterpolator(Motion.expand.interpolator).start()}
             else v.animate().alpha(0f).scaleX(from).scaleY(from).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.exit).start()}
@@ -174,7 +174,7 @@ internal class SoundChip(private val a:MainActivity,open:()->Unit):LinearLayout(
     override fun onAttachedToWindow(){super.onAttachedToWindow();Ambience.listen(update);refresh(false)}
     override fun onDetachedFromWindow(){Ambience.unlisten(update);super.onDetachedFromWindow()}
     fun repaint(){key="?";refresh(false)}
-    private fun refresh(animate:Boolean){val k=Ambience.key;val motion=animate&&a.prefs.str("motion")!="reduced"
+    private fun refresh(animate:Boolean){val k=Ambience.key;val motion=animate&&!a.reducedMotion
         bars.set(Ambience.playing,false)
         if(k==key)return;val was=key;key=k
         if(k!=null){val col=Ambience.color(a,k);bg.setColor(Ui.alpha(col,0x38));val ink=if(a.light)col else androidx.core.graphics.ColorUtils.blendARGB(col,Color.WHITE,.4f)
@@ -191,7 +191,7 @@ internal class SoundChip(private val a:MainActivity,open:()->Unit):LinearLayout(
  *  It slides up on the sheet spring with its rows rising in, follows the finger when pulled down and closes. */
 internal class AmbienceSheet(private val a:MainActivity){
     private val pillColor get()=Ui.fill(a.light)
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     private lateinit var sheet:LinearLayout
     private val tiles=mutableListOf<Tile>()
     private lateinit var off:TextView

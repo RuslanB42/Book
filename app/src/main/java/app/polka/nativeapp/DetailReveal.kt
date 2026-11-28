@@ -30,7 +30,7 @@ internal class DetailReveal(private val a:MainActivity):FrameLayout(a){
  init{setWillNotDraw(false);clipChildren=false;clipToPadding=false;addView(body,LayoutParams(-1,-2))}
  private fun stop(){clock?.removeAllListeners();clock?.cancel();clock=null}
  fun change(animated:Boolean,dissolveInk:Boolean=true,crossfadeInk:Boolean=false,duration:Long=360,curve:android.animation.TimeInterpolator=MotionSpec.enter,update:()->Unit){
-  val move=animated&&a.prefs.str("motion")!="reduced"&&isLaidOut&&width>0&&height>0
+  val move=animated&&!a.reducedMotion&&isLaidOut&&width>0&&height>0
   val h=height
   val capture=if(move&&(dissolveInk||crossfadeInk)){val scale=minOf(1f,1024f/max(width,height));Bitmap.createBitmap(max(1,((width+2*side)*scale).roundToInt()),max(1,((height+side+fall)*scale).roundToInt()),Bitmap.Config.ARGB_8888).also{val c=Canvas(it);c.scale(scale,scale);c.translate(side,side);draw(c)}}else null
   stop();old?.recycle();old=capture;overlay?.recycle();overlay=null;softClip=false;dissolve=dissolveInk&&!crossfadeInk;crossfade=crossfadeInk;update()

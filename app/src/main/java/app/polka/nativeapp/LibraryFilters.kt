@@ -212,7 +212,7 @@ internal class FastScroll(private val a:MainActivity,private val content:View):F
     init{setWillNotDraw(false);addView(content,LayoutParams(-1,-2));setPadding(0,0,a.d(14),0);clipChildren=false}
     override fun onAttachedToWindow(){super.onAttachedToWindow();var v=parent;while(v!=null&&v !is ScrollView)v=v.parent;sv=v as? ScrollView;viewTreeObserver.addOnScrollChangedListener(scrolled)}
     override fun onDetachedFromWindow(){viewTreeObserver.removeOnScrollChangedListener(scrolled);removeCallbacks(hide);fade?.cancel();pop?.cancel();holding=false;super.onDetachedFromWindow()}
-    private fun fadeTo(t:Float){if(a.prefs.str("motion")=="reduced"){shown=t;invalidate();return};if(fade?.isRunning==true&&abs(t-shown)<.01f)return;fade?.cancel()
+    private fun fadeTo(t:Float){if(a.reducedMotion){shown=t;invalidate();return};if(fade?.isRunning==true&&abs(t-shown)<.01f)return;fade?.cancel()
         fade=ValueAnimator.ofFloat(shown,t).apply{duration=if(t>shown)Motion.FAST else Motion.STANDARD;addUpdateListener{shown=it.animatedValue as Float;invalidate()};start()}}
     private fun popTo(t:Float){pop?.cancel();pop=ValueAnimator.ofFloat(bubble,t).apply{duration=if(t>bubble)Motion.FAST else Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{bubble=it.animatedValue as Float;invalidate()};start()}}
     // the visible window of the list, in this view's own coordinates

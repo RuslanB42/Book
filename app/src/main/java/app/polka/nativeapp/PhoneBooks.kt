@@ -252,7 +252,7 @@ internal class PhoneScan(private val a:MainActivity){
 private class ScanLine(private val a:MainActivity):View(a){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var x=0f
     private val run=ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.CYCLE;repeatCount=ValueAnimator.INFINITE;interpolator=LinearInterpolator();addUpdateListener{x=it.animatedValue as Float;invalidate()}}
-    override fun onAttachedToWindow(){super.onAttachedToWindow();if(a.prefs.str("motion")!="reduced")run.start()}
+    override fun onAttachedToWindow(){super.onAttachedToWindow();if(!a.reducedMotion)run.start()}
     override fun onDetachedFromWindow(){run.cancel();super.onDetachedFromWindow()}
     fun finish(){animate().alpha(0f).setDuration(Motion.STANDARD).withEndAction{run.cancel();visibility=GONE}.start()}
     override fun onDraw(c:Canvas){val w=width.toFloat();val h=height.toFloat();val r=h/2

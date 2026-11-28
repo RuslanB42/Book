@@ -23,7 +23,7 @@ internal class ReaderSettings(private val a:MainActivity,private val r:NativeRea
     private val fonts=listOf("literata" to "Literata","ptserif" to "PT Serif","sans" to "Без засечек")
     private val sheetColor get()=a.sheetColor
     private val muted2 get()=kit.muted
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     private val refreshers=mutableListOf<()->Unit>()
     private val kit=PanelKit(a,refreshers)
 
@@ -181,7 +181,7 @@ internal class AutoChip(private val a:MainActivity,initial:Boolean):TextView(a){
 internal class ThemeCard(private val a:MainActivity,private val bg:Int,private val ink:Int,private val name:String,private val glyph:Boolean=true):View(a){
     private var k=0f;private var anim:ValueAnimator?=null;private var first=true
     var on=false;set(v){if(field==v&&!first)return;field=v;val target=if(v)1f else 0f
-        if(first||!isAttachedToWindow||a.prefs.str("motion")=="reduced"){first=false;k=target;invalidate();return}
+        if(first||!isAttachedToWindow||a.reducedMotion){first=false;k=target;invalidate();return}
         anim?.cancel();anim=ValueAnimator.ofFloat(k,target).apply{duration=Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{k=it.animatedValue as Float;invalidate()};start()}}
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDetachedFromWindow(){anim?.cancel();super.onDetachedFromWindow()}
@@ -202,7 +202,7 @@ internal class ThemeCard(private val a:MainActivity,private val bg:Int,private v
 internal class RingCard(private val a:MainActivity,private val fill:Int):android.graphics.drawable.Drawable(){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private var k=0f;private var anim:ValueAnimator?=null;private var first=true
     var on=false;set(v){if(field==v&&!first)return;field=v;val target=if(v)1f else 0f
-        if(first||a.prefs.str("motion")=="reduced"){first=false;k=target;invalidateSelf();return}
+        if(first||a.reducedMotion){first=false;k=target;invalidateSelf();return}
         anim?.cancel();anim=ValueAnimator.ofFloat(k,target).apply{duration=Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{k=it.animatedValue as Float;invalidateSelf()};start()}}
     override fun draw(c:Canvas){val d=a.resources.displayMetrics.density;val b=RectF(bounds);val rad=18*d
         p.style=Paint.Style.FILL;p.color=fill;c.drawRoundRect(b,rad,rad,p)
@@ -244,7 +244,7 @@ internal class SizeStepper(private val a:MainActivity,start:Int,private val chan
         s.setSpan(android.text.style.AbsoluteSizeSpan(Type.SECONDARY.toInt(),true),s.length-tail.length,s.length,0);s.setSpan(android.text.style.StyleSpan(Typeface.NORMAL),s.length-tail.length,s.length,0)
         number.text=s;number.contentDescription="Размер текста $value"
         less.alpha=if(value>from)1f else .35f;more.alpha=if(value<to)1f else .35f}
-    private fun pulse(){if(a.prefs.str("motion")=="reduced")return;number.animate().cancel();number.scaleX=1.12f;number.scaleY=1.12f;number.animate().scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start()}
+    private fun pulse(){if(a.reducedMotion)return;number.animate().cancel();number.scaleX=1.12f;number.scaleY=1.12f;number.animate().scaleX(1f).scaleY(1f).setDuration(Motion.STANDARD).setInterpolator(MotionSpec.enter).start()}
     override fun onDetachedFromWindow(){repeat.removeCallbacksAndMessages(null);super.onDetachedFromWindow()}
 }
 
@@ -267,7 +267,7 @@ internal class ThinSlider(private val a:MainActivity,private val from:Float,priv
         MotionEvent.ACTION_DOWN->{parent?.requestDisallowInterceptTouchEvent(true);onGrab?.invoke(true);grab(true);track(e.x,false)}
         MotionEvent.ACTION_MOVE->track(e.x,false)
         MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{track(e.x,true);grab(false);onGrab?.invoke(false)}};return true}
-    private fun grab(on:Boolean){if(a.prefs.str("motion")=="reduced")return;pressAnim?.cancel()
+    private fun grab(on:Boolean){if(a.reducedMotion)return;pressAnim?.cancel()
         pressAnim=ValueAnimator.ofFloat(press,if(on)1f else 0f).apply{duration=if(on)Motion.FAST else Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{press=it.animatedValue as Float;invalidate()};start()}}
     private fun track(x:Float,done:Boolean){var f=((x-left)/(right-left).coerceAtLeast(1f)).coerceIn(0f,1f)
         default?.let{dv->if(abs(f-frac(dv))<.025f)f=frac(dv)}
@@ -300,7 +300,7 @@ internal class LayoutToggle(private val a:MainActivity,private val title:String,
     private var lead=if(initial)1f else 0f;private var trail=lead
     private var press=0f;private var anim:ValueAnimator?=null;private var pressAnim:ValueAnimator?=null
     private val p=Paint(Paint.ANTI_ALIAS_FLAG);private val t=Paint(Paint.ANTI_ALIAS_FLAG);private val face by lazy{a.text("",Type.CAPTION).typeface}
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     init{isClickable=true;contentDescription=title;if(!plain)a.press(this);setOnClickListener{flip()}}
     override fun onInitializeAccessibilityNodeInfo(info:android.view.accessibility.AccessibilityNodeInfo){super.onInitializeAccessibilityNodeInfo(info);info.isCheckable=true;info.isChecked=on;info.className="android.widget.Switch"}
     override fun drawableStateChanged(){super.drawableStateChanged();if(reduced)return;val to=if(isPressed)1f else 0f;if(press==to)return

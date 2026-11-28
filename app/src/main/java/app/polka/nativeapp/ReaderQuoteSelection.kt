@@ -71,7 +71,7 @@ internal object QuoteColors{
 internal class QuoteDot(private val a:MainActivity,val key:String):View(a){
     private var ring=0f;private var ringAnim:android.animation.ValueAnimator?=null
     var on=false;set(v){if(field==v){return};field=v;ringAnim?.cancel()
-        if(!isAttachedToWindow||a.prefs.str("motion")=="reduced"){ring=if(v)1f else 0f;invalidate();return}
+        if(!isAttachedToWindow||a.reducedMotion){ring=if(v)1f else 0f;invalidate();return}
         ringAnim=android.animation.ValueAnimator.ofFloat(ring,if(v)1f else 0f).apply{duration=Motion.STANDARD;interpolator=MotionSpec.enter;addUpdateListener{ring=it.animatedValue as Float;invalidate()};start()}}
     private val p=Paint(Paint.ANTI_ALIAS_FLAG)
     override fun onDraw(c:Canvas){val cx=width/2f;val cy=height/2f;val r=a.d(13).toFloat()
@@ -130,7 +130,7 @@ internal class ReaderQuoteSelection(private val a:MainActivity,private val reade
     /** The quote the strip recolours (chapter offsets), set when it opens. */
     private var stripQuote:Pair<Int,Int>?=null;private var stripOpen=false
     private val stripTimer=Runnable{hideStrip()}
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     private val menu=a.line().apply{gravity=Gravity.CENTER;setPadding(a.d(4),a.d(2),a.d(4),a.d(2));elevation=a.d(8).toFloat();a.controlSurface(this,22f,sheet=true).apply{float=true;lift=Lift.OVER};noNativeShadow(this)}
     private val pageTimer=Runnable { val dir=edge;edge=0;if(active&&dragging&&!edgeLocked&&dir!=0){edgeLocked=true;menu.visibility=INVISIBLE;reader.turnWithSelection(dir){ok->edgeLocked=false;if(ok){val full=reader.selectionFullText();var boundary=if(dir>0)reader.pageBase() else (reader.pageLimit()-1).coerceAtLeast(0);if(dir<0)while(boundary>reader.pageBase()&&full[boundary].isWhitespace())boundary--;atStart=range.move(full,boundary,atStart)}else{Notice.short(a,Notice.Kind.INFO,"Выделение ограничено главой")};invalidate();showMenu();if(dragging){x=if(dir>0)reader.body.paddingLeft+a.d(8).toFloat()else width-reader.body.paddingRight-a.d(8).toFloat();y=if(dir>0)reader.body.paddingTop+a.d(12).toFloat()else min(height-a.d(60).toFloat(),reader.body.height.toFloat());}}} }
     init {

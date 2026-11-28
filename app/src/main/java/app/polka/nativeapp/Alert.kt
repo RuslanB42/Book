@@ -21,7 +21,7 @@ internal class Alert(private val a:MainActivity,private val title:String,private
                      private val details:String?=null,private val onClose:((Boolean)->Unit)?=null,private val onAction:(()->Unit)?=null){
     private val light=a.light
     private var dialog:Dialog?=null
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
 
     fun show():Alert{
         val d=Dialog(a,android.R.style.Theme_Translucent_NoTitleBar);dialog=d

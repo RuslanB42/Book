@@ -28,7 +28,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
     class State(val kind:Kind,val title:String,val sub:String="",val books:List<JSONObject> =emptyList(),val blank:Boolean=false,
                 val action:String?=null,val onAction:(()->Unit)?=null,val progress:Float?=null,val faded:Boolean=false)
 
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     private val smooth=MotionSpec.enter
     private val host=a.window.decorView as FrameLayout
     /** Room round the capsule for its shadow. */
@@ -252,7 +252,7 @@ internal class Notice private constructor(internal val a:MainActivity,private va
             pop=if(bare)1f else 0f;ink=0f
             if(!bare)ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.EMPHASIS;interpolator=Motion.expand.interpolator;addUpdateListener{pop=it.animatedValue as Float;invalidate()};start()}
             ValueAnimator.ofFloat(0f,1f).apply{duration=Motion.STANDARD;startDelay=if(bare)60 else 150;interpolator=MotionSpec.enter;addUpdateListener{ink=it.animatedValue as Float;invalidate()};start()}}
-        private fun startSpin(){if(spinner!=null)return;if(a.prefs.str("motion")=="reduced"){invalidate();return}
+        private fun startSpin(){if(spinner!=null)return;if(a.reducedMotion){invalidate();return}
             spinner=ValueAnimator.ofFloat(0f,360f).apply{duration=Motion.CYCLE;repeatCount=ValueAnimator.INFINITE;interpolator=LinearInterpolator();addUpdateListener{spin=it.animatedValue as Float;invalidate()};start()}}
         override fun onDetachedFromWindow(){spinner?.cancel();spinner=null;super.onDetachedFromWindow()}
         override fun onDraw(c:Canvas){val k=kind?:return;val s=(width-2*inset)/24f;c.save();c.translate(inset,inset);c.scale(s,s)

@@ -12,7 +12,7 @@ internal class BookmarkIcon(private val a:MainActivity,ink:Int):IconView(a,"book
     fun mark(value:Boolean,animate:Boolean){
         if(value==on&&anim==null&&fill==(if(value)1f else 0f))return
         on=value;anim?.cancel();anim=null;val target=if(value)1f else 0f
-        if(!animate||a.prefs.str("motion")=="reduced"){fill=target;invalidate();return}
+        if(!animate||a.reducedMotion){fill=target;invalidate();return}
         anim=ValueAnimator.ofFloat(fill,target).apply{duration=if(value)Motion.STANDARD else Motion.STANDARD;interpolator=MotionSpec.move;addUpdateListener{fill=it.animatedValue as Float;invalidate()};start()}
     }
     override fun onDetachedFromWindow(){anim?.cancel();anim=null;super.onDetachedFromWindow()}
@@ -57,7 +57,7 @@ internal class BookmarkRibbon(private val a:MainActivity):View(a) {
     fun settle(target:Float,drop:Boolean,animate:Boolean=true){
         anim?.cancel();anim=null
         val fromX=x();val toX=if(target>0f)restX() else fromX
-        if(!animate||a.prefs.str("motion")=="reduced"||!isAttachedToWindow){length=target;cx=if(target>0f)Float.NaN else fromX;invalidate();return}
+        if(!animate||a.reducedMotion||!isAttachedToWindow){length=target;cx=if(target>0f)Float.NaN else fromX;invalidate();return}
         val from=length;val grow=from<target
         anim=ValueAnimator.ofFloat(0f,1f).apply{duration=if(drop&&grow)Motion.EMPHASIS else Motion.STANDARD;interpolator=if(drop&&grow)Motion.expand.interpolator else MotionSpec.enter
             addUpdateListener{val t=it.animatedValue as Float;length=(from+(target-from)*t).coerceAtLeast(0f);cx=fromX+(toX-fromX)*t.coerceIn(0f,1f);invalidate()}

@@ -40,5 +40,5 @@ internal fun FrameLayout.crossfadeColours(a:MainActivity,change:()->Unit){
     val cover=ImageView(a).apply{setImageBitmap(pic);scaleType=ImageView.ScaleType.FIT_XY;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO;elevation=a.d(40).toFloat()}
     addView(cover,FrameLayout.LayoutParams(width,height).apply{leftMargin=-paddingLeft;topMargin=-paddingTop;rightMargin=-paddingRight;bottomMargin=-paddingBottom})
     change()
-    val reduced=a.prefs.str("motion")=="reduced"
+    val reduced=a.reducedMotion
     cover.animate().alpha(0f).setDuration(if(reduced)Motion.FAST else Motion.EMPHASIS).setInterpolator(MotionSpec.move).withEndAction{removeView(cover);cover.setImageDrawable(null);pic.recycle()}.start()}

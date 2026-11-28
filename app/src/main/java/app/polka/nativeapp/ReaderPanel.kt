@@ -19,8 +19,9 @@ import kotlin.math.max
  */
 internal class ReaderPanel(private val a:MainActivity,private val surface:LinearLayout){
     /** Every page keeps the page's colours ([MainActivity.readerTint]). [onReturn]: the page is on top again after the
-     *  one over it went back. Without a [title] there is no head (the editor's own buttons lead out). */
-    class Page(val title:String?,val content:View,val right:View?=null,val onReturn:(()->Unit)?=null)
+     *  one over it went back; [onLeave]: the page is gone from the panel. Without a [title] there is no head (the editor's
+     *  own buttons lead out). */
+    class Page(val title:String?,val content:View,val right:View?=null,val onReturn:(()->Unit)?=null,val onLeave:(()->Unit)?=null)
     /** The reader's own rows (chapter, slider, tools). */
     val main=a.column()
     val stage=FrameLayout(a).apply{clipChildren=false;clipToPadding=false}
@@ -28,18 +29,28 @@ internal class ReaderPanel(private val a:MainActivity,private val surface:Linear
     val depth get()=stack.size
     val view:View get()=surface
     private var clock:ValueAnimator?=null;private var settle:(()->Unit)?=null
-    private val reduced get()=a.prefs.str("motion")=="reduced"
+    private val reduced get()=a.reducedMotion
     init{stage.addView(main,FrameLayout.LayoutParams(-1,-2,Gravity.TOP));surface.clipChildren=false}
 
     fun push(page:Page){val from=top();val holder=holder(page);stack.add(page to holder);switch(from,holder,false)}
     /** The top page changes for another in its place (the same move). */
-    fun replace(page:Page){val old=stack.removeLastOrNull()?:return push(page);val holder=holder(page);stack.add(page to holder);switch(old.second,holder,true)}
+    fun replace(page:Page){val old=stack.removeLastOrNull()?:return push(page);old.first.onLeave?.invoke();val holder=holder(page);stack.add(page to holder);switch(old.second,holder,true)}
     /** The top page built anew in place, at once (a theme change: the reader's crossfade covers it). */
     fun rebuild(page:Page){val old=stack.removeLastOrNull()?:return;stage.removeView(old.second);val holder=holder(page);stack.add(page to holder);holder.visibility=View.VISIBLE}
-    fun back(){val old=stack.removeLastOrNull()?:return;switch(old.second,top(),true);stack.lastOrNull()?.first?.onReturn?.invoke()}
+    fun back(){val old=stack.removeLastOrNull()?:return;old.first.onLeave?.invoke();switch(old.second,top(),true);stack.lastOrNull()?.first?.onReturn?.invoke()}
     /** Straight back to the reader's own rows, from however deep. */
-    fun home(){if(stack.isEmpty())return;val old=stack.removeAt(stack.lastIndex);stack.forEach{(_,v)->stage.removeView(v)};stack.clear();switch(old.second,main,true)}
+    fun home(){if(stack.isEmpty())return;stack.forEach{it.first.onLeave?.invoke()};val old=stack.removeAt(stack.lastIndex);stack.forEach{(_,v)->stage.removeView(v)};stack.clear();switch(old.second,main,true)}
+    /** A page that is the panel's whole content on its own (contents, pages): it opens from wherever the panel is, and
+     *  «‹» leads straight back to the reader's own rows. */
+    fun open(page:Page){if(stack.isEmpty())return push(page)
+        val old=top();stack.forEach{(p,v)->p.onLeave?.invoke();if(v!==old)stage.removeView(v)};stack.clear()
+        val holder=holder(page);stack.add(page to holder);switch(old,holder,true)}
     private fun top():View=stack.lastOrNull()?.second?:main
+    /** The most a page's content may take before it scrolls: most of the screen less the head, the book still above. */
+    fun room():Int=cap()-a.d(Size.HEADER+12)
+    private fun cap()=((surface.parent as? View)?.height?.takeIf{it>0}?:a.root.height)*58/100
+    /** The colour under the panel's rows (for fades at a scrolling edge). */
+    val color get()=a.readerTint?.panel?:a.sheetColor
 
     private fun holder(page:Page):LinearLayout{
         val box=a.column().apply{clipChildren=false;clipToPadding=false}
@@ -53,9 +64,8 @@ internal class ReaderPanel(private val a:MainActivity,private val surface:Linear
         // a page taller than most of the screen scrolls inside the panel, so the book still shows above it
         val width=stage.width.takeIf{it>0}?:(surface.width-surface.paddingLeft-surface.paddingRight)
         box.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED))
-        val cap=((surface.parent as? View)?.height?:a.root.height)*58/100
+        val cap=cap()
         if(box.measuredHeight>cap){val headH=box.measuredHeight-page.content.measuredHeight;box.removeView(page.content)
-            val color=a.readerTint?.panel?:a.sheetColor
             // it cuts what scrolls past its top and foot, but reaches out to the panel's sides, where rings round chosen tiles sit
             val side=a.d(18)
             val scroll=SheetScroll(a,color,30,18).apply{isVerticalScrollBarEnabled=false;overScrollMode=View.OVER_SCROLL_NEVER;clipToPadding=false;setPadding(side,0,side,0);addView(page.content)}

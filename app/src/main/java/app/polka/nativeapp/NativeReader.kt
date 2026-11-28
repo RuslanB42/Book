@@ -51,6 +51,8 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     private val bottom=LinearLayout(a).apply { orientation=LinearLayout.VERTICAL; setPadding(a.d(18),a.d(8),a.d(18),a.d(4)) }
     /** Text settings, sounds and page editing open inside the bottom panel (see [ReaderPanel]). */
     internal val panel=ReaderPanel(a,bottom)
+    /** Set while a field in the bottom panel is in use: it gets the keyboard's height instead of the whole reader. */
+    var imeFollower:((Int)->Unit)?=null
     private var readerLightTheme=false
     private val slider=ReaderRange(a)
     private val percent=TextView(a)
@@ -547,7 +549,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     private fun snapshotKey(target:TurnPage)="${chapterKey(target.chapter)}:${target.index}"
     private fun warmSnapshot(){
         snapshotWarm?.let{handler.removeCallbacks(it)}
-        if(!paged()||disposed||preparing||a.prefs.str("motion")=="reduced"||scroll.width<=0)return
+        if(!paged()||disposed||preparing||a.reducedMotion||scroll.width<=0)return
         val fromChapter=chapter;val fromPage=pageIndex
         snapshotWarm=Runnable{if(!disposed&&!isTurning()&&chapter==fromChapter&&pageIndex==fromPage)findTarget(1){target->
             if(target!=null&&!disposed&&!isTurning()&&chapter==fromChapter&&pageIndex==fromPage){val key=snapshotKey(target);if(cachedNext?.first!=key){activateLinks(target.rich);cachedNext=key to snapshot(pageText(target.rich,target.starts,target.index),folioLabel(target.index,target.starts.size),pageBookmarks(target.chapter,target.index,target.starts).isNotEmpty())}}
@@ -595,7 +597,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         val source=cachedCurrent?.takeIf{it.first==currentKey}?.second ?: snapshot(null,folioLabel(pageIndex,pageStarts.size),hasBookmark())
         findTarget(direction){target->if(token!=curlToken||disposed)return@findTarget;if(target==null){stopPageMotion();return@findTarget};targetPage=target;activateLinks(target.rich)
             val upcoming=cachedNext?.takeIf{it.first==snapshotKey(target)}?.second ?: snapshot(pageText(target.rich,target.starts,target.index),folioLabel(target.index,target.starts.size),pageBookmarks(target.chapter,target.index,target.starts).isNotEmpty())
-            val overlay=PageCurlView(a,source,upcoming,direction,readerBackground,a.prefs.str("motion")=="reduced").apply{style=a.prefs.str("turn","curl")};curl=overlay
+            val overlay=PageCurlView(a,source,upcoming,direction,readerBackground,a.reducedMotion).apply{style=a.prefs.str("turn","curl")};curl=overlay
             arrivingKey="${snapshotKey(target)}:${pageBookmarks(target.chapter,target.index,target.starts).isNotEmpty()}" to upcoming
             view.clipToPadding=false
             view.addView(overlay,(view.indexOfChild(ribbon)+1).coerceAtLeast(1),FrameLayout.LayoutParams(view.width,view.height).apply{leftMargin=-view.paddingLeft;topMargin=-view.paddingTop})
@@ -628,7 +630,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     private fun animateCurl(commit:Boolean){
         val overlay=curl?:return;turnClock?.removeAllListeners();turnClock?.cancel()
         val start=overlay.progress;val end=if(commit)1f else 0f
-        if(a.prefs.str("motion")=="reduced"||overlay.style=="none"){overlay.pose(end,dragY+scroll.top);completeCurl(commit);return}
+        if(a.reducedMotion||overlay.style=="none"){overlay.pose(end,dragY+scroll.top);completeCurl(commit);return}
         val remaining=abs(end-start).coerceAtLeast(.001f)
         // After a release the sheet must leave at exactly the finger's speed and then settle: a cubic whose start slope
         // equals the release velocity (in page-widths per second) and whose end slope is zero. No jump, no stall.
@@ -657,7 +659,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
         tracker.touch();if(preparing||disposed||editorOpen||isTurning())return
         if(!paged()){if(direction>0&&atEnd())pastEnd() else scroll.smoothScrollBy(0,direction*pageHeight());return}
         quoteSelection.clear()
-        if(a.prefs.str("motion")=="reduced"||a.prefs.str("turn","curl")=="none"){
+        if(a.reducedMotion||a.prefs.str("turn","curl")=="none"){
             if(direction>0&&panel.depth==0)setCalm(true,false)
             findTarget(direction){target->if(target!=null){targetPage=target;commitTarget();targetPage=null;targetCommitted=false;save()}else if(direction>0)pastEnd()};return
         }
@@ -666,8 +668,10 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     /** Change how the page looks under a soft crossfade from the old picture, so nothing jumps. */
     internal fun crossfade(change:()->Unit)=view.crossfadeColours(a,change)
     /** While a setting is being dragged the reader's bars fade away (only their opacity: the calm state is not touched). */
-    internal fun fadeChrome(hide:Boolean){if(calm)return;val reduced=a.prefs.str("motion")=="reduced";(if(panel.depth>0)listOf(topBar) else listOf(topBar,bottom)).forEach{v->v.animate().cancel();v.translationY=0f;if(reduced)v.alpha=if(hide)0f else 1f else v.animate().alpha(if(hide)0f else 1f).setDuration(if(hide)Motion.FAST else Motion.STANDARD).setInterpolator(MotionSpec.enter).start()}}
+    internal fun fadeChrome(hide:Boolean){if(calm)return;val reduced=a.reducedMotion;(if(panel.depth>0)listOf(topBar) else listOf(topBar,bottom)).forEach{v->v.animate().cancel();v.translationY=0f;if(reduced)v.alpha=if(hide)0f else 1f else v.animate().alpha(if(hide)0f else 1f).setDuration(if(hide)Motion.FAST else Motion.STANDARD).setInterpolator(MotionSpec.enter).start()}}
     /** A tap on the page: with a page open in the panel it goes back to the reader's own rows, else the bars come and go. */
+    /** Lifts the bottom panel over the keyboard ([ime] px high, its own foot already under it); returns by how much. */
+    fun liftPanel(ime:Int):Int{val by=(ime-(bottom.paddingBottom-a.d(4))).coerceAtLeast(0);bottom.translationY=-by.toFloat();return by}
     fun toggleChrome(){if(editorOpen)return;if(panel.depth>0){panel.home();return};setCalm(!calm,true)}
     internal fun sounds()=panel.push(AmbienceSheet(a).page())
 
@@ -699,7 +703,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     override fun pageLabel(p:JSONObject):String?=if(p.optInt("ch")==chapter)pageOf(chapter,p.optInt("off"))?.let{"стр. $it"} else "«${chapterName(p.optInt("ch"))}»"
     override fun autoReturn(p:JSONObject){markJump();goPoint(p)}
     override fun nextChapterAuto(){changeChapter(chapter+1)}
-    private fun setCalm(value:Boolean,animate:Boolean){calm=value;chromeSprings.values.forEach{it.stop()};val reduced=!animate||a.prefs.str("motion")=="reduced";listOf(topBar to -1,bottom to 1).forEach{(v,sign)->v.animate().cancel();if(reduced){v.alpha=if(value)0f else 1f;v.translationY=if(value)sign*v.height.toFloat() else 0f;v.visibility=if(value)View.INVISIBLE else View.VISIBLE;if(value)v.post{if(calm&&v.visibility==View.INVISIBLE)v.translationY=sign*v.height.toFloat()}}else{v.visibility=View.VISIBLE
+    private fun setCalm(value:Boolean,animate:Boolean){calm=value;chromeSprings.values.forEach{it.stop()};val reduced=!animate||a.reducedMotion;listOf(topBar to -1,bottom to 1).forEach{(v,sign)->v.animate().cancel();if(reduced){v.alpha=if(value)0f else 1f;v.translationY=if(value)sign*v.height.toFloat() else 0f;v.visibility=if(value)View.INVISIBLE else View.VISIBLE;if(value)v.post{if(calm&&v.visibility==View.INVISIBLE)v.translationY=sign*v.height.toFloat()}}else{v.visibility=View.VISIBLE
             // the same spring as the sheets that rise from below: the bars glide in and out instead of fading on a curve
             val h=v.height.toFloat().coerceAtLeast(1f);val off=sign*h;val start=(v.translationY/off).coerceIn(0f,1f)
             val sp=chromeSprings.getOrPut(v){LiquidSpring{k,_->v.translationY=off*k;v.alpha=(1f-k*1.25f).coerceIn(0f,1f);if(k>=.999f&&calm)v.visibility=View.INVISIBLE}}
@@ -809,7 +813,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     }
     private val editorInset=View.OnLayoutChangeListener{_,_,_,_,_,_,_,_,_->if(!editorOpen)return@OnLayoutChangeListener;val lp=scroll.layoutParams as FrameLayout.LayoutParams;val inset=(bottom.height-view.paddingBottom+a.d(12)).coerceAtLeast(0);if(lp.bottomMargin!=inset){lp.bottomMargin=inset;scroll.layoutParams=lp}}
     internal fun mountEditor(editor:EditText,toolbar:View){
-        val reduced=a.prefs.str("motion")=="reduced"
+        val reduced=a.reducedMotion
         listOf(topBar,folio).forEach{v->v.animate().cancel();if(v.visibility!=View.VISIBLE||reduced){v.visibility=View.INVISIBLE}else v.animate().alpha(0f).setDuration(Motion.FAST).withEndAction{v.visibility=View.INVISIBLE;v.alpha=1f}.start()}
         // the bottom panel stays (brought back if the bars were away) and turns into the editor's buttons
         chromeSprings[bottom]?.stop();bottom.animate().cancel();bottom.visibility=View.VISIBLE;bottom.alpha=1f;bottom.translationY=0f
@@ -825,7 +829,7 @@ class NativeReader(private val a:MainActivity, override val book:JSONObject, pri
     }
     internal fun unmountEditor(editor:EditText,toolbar:View,draft:PageDraft,changed:Boolean){
         fun restore(){
-            if(a.prefs.str("motion")!="reduced")crossfadePage()
+            if(!a.reducedMotion)crossfadePage()
             scroll.removeView(editor);scroll.layoutParams=(scroll.layoutParams as FrameLayout.LayoutParams).apply{topMargin=0;bottomMargin=0};scroll.addView(body,FrameLayout.LayoutParams(-1,-2));editorOpen=false;scroll.scrollTo(0,0);pageEditor=null;tracker.skipTime();tracker.touch()
             setCalm(draft.calm,true);if(changed){committedKey="";pendingOffset=draft.start;paintChapter()}else if(paged())paintPage()else body.post{jumpOffset(draft.start)}
             syncBookmark(false)
