@@ -1,0 +1,213 @@
+Downloading https://services.gradle.org/distributions/gradle-8.9-bin.zip
+............10%.............20%.............30%.............40%.............50%.............60%.............70%.............80%.............90%.............100%
+
+Welcome to Gradle 8.9!
+
+Here are the highlights of this release:
+ - Enhanced Error and Warning Messages
+ - IDE Integration Improvements
+ - Daemon JVM Information
+
+For more details see https://docs.gradle.org/8.9/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:buildKotlinToolingMetadata
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugResValues
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:mergeDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :app:javaPreCompileDebug
+> Task :app:preDebugAndroidTestBuild SKIPPED
+> Task :app:processDebugResources
+> Task :app:checkDebugAndroidTestAarMetadata
+> Task :app:generateDebugAndroidTestResValues
+> Task :app:mapDebugAndroidTestSourceSetPaths
+> Task :app:generateDebugAndroidTestResources
+> Task :app:mergeDebugAndroidTestResources
+> Task :app:processDebugAndroidTestManifest
+> Task :app:processDebugAndroidTestResources
+> Task :app:javaPreCompileDebugAndroidTest
+> Task :app:mergeDebugArtProfile
+> Task :app:desugarDebugFileDependencies
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugStartupProfile
+> Task :app:kaptGenerateStubsDebugKotlin
+> Task :app:mergeExtDexDebug
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:compressDebugAssets
+> Task :app:extractDebugVersionControlInfo
+> Task :app:optimizeDebugResources
+> Task :app:collectDebugDependencies
+> Task :app:sdkDebugDependencyData
+> Task :app:mergeDebugJniLibFolders
+> Task :app:mergeDebugNativeLibs
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: liblanguage_id_l2c_jni.so, libtranslate_jni.so.
+
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:mergeDebugAndroidTestShaders
+> Task :app:compileDebugAndroidTestShaders NO-SOURCE
+> Task :app:generateDebugAndroidTestAssets UP-TO-DATE
+> Task :app:mergeDebugAndroidTestAssets
+> Task :app:compressDebugAndroidTestAssets
+> Task :app:desugarDebugAndroidTestFileDependencies
+> Task :app:checkDebugAndroidTestDuplicateClasses
+> Task :app:mergeExtDexDebugAndroidTest
+> Task :app:mergeDebugAndroidTestJniLibFolders
+> Task :app:mergeDebugAndroidTestNativeLibs NO-SOURCE
+> Task :app:stripDebugAndroidTestDebugSymbols NO-SOURCE
+> Task :app:validateSigningDebugAndroidTest
+> Task :app:writeDebugAndroidTestSigningConfigVersions
+> Task :app:kaptDebugKotlin
+> Task :app:compileDebugKotlin
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/Alert.kt:42:82 'setter for statusBarColor: Int' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/Alert.kt:42:117 'setter for navigationBarColor: Int' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/Ambience.kt:42:15 Parameter 'a' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/Ambience.kt:73:15 Parameter 'a' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/Ambience.kt:306:27 Parameter 'on' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/Ambience.kt:318:65 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/Ambience.kt:319:97 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/ArchiveIO.kt:57:110 There is more than one label with such a name in this scope
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/AutoRead.kt:197:98 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/AutoRead.kt:212:136 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/AutoRead.kt:247:138 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookCalendar.kt:111:62 'obtain(View!): AccessibilityNodeInfo!' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookCalendar.kt:114:42 'obtain(): AccessibilityNodeInfo!' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookCalendar.kt:117:170 'setBoundsInParent(Rect!): Unit' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookCalendar.kt:118:17 'addAction(Int): Unit' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookCalendar.kt:118:63 'addAction(Int): Unit' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookCalendar.kt:125:250 'obtain(Int): AccessibilityEvent!' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookCalendar.kt:137:97 'obtain(Int): AccessibilityEvent!' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookCoverVolume.kt:28:30 Parameter 'c' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookCoverVolume.kt:28:47 Parameter 'color' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:102:166 Variable 'quotePage' is assigned but never accessed
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:103:7 Variable 'ease' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:105:7 Variable 'collapseQuotes' is assigned but never accessed
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:118:4 Unreachable code
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:118:41 Unreachable code
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:119:4 Unreachable code
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:124:4 Unreachable code
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:125:4 Unreachable code
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:126:4 Unreachable code
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:132:4 Unreachable code
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:133:4 Unreachable code
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:134:4 Unreachable code
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:134:89 Unreachable code
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookDetailSheet.kt:185:7 Variable 'id' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookFinish.kt:154:59 'SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookFinish.kt:160:15 'setter for statusBarColor: Int' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookFinish.kt:160:50 'setter for navigationBarColor: Int' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/BookParser.kt:132:27 Type mismatch: inferred type is String? but String was expected
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/ContinueReading.kt:89:8 Name shadowed: i
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/GoalRing.kt:64:40 Parameter 'model' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/GoalRing.kt:64:118 Parameter 'motion' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/GoalRoad.kt:112:13 Variable 'list' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/GoalRoad.kt:112:49 Variable 'goal' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/LibraryFilters.kt:236:154 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/MainActivity.kt:244:16 'setter for statusBarColor: Int' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/MainActivity.kt:244:57 'setter for navigationBarColor: Int' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/MainActivity.kt:267:980 'onActivityResult(Int, Int, Intent?): Unit' is deprecated. Android activity result API
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/MainActivity.kt:467:13 Variable 'width' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/MainActivity.kt:477:129 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/MainActivity.kt:479:65 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/MainActivity.kt:479:128 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/MainActivity.kt:594:34 Parameter 'source' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/MainActivity.kt:675:121 Parameter 'e' is never used, could be renamed to _
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/MainActivity.kt:732:967 'onBackPressed(): Unit' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/NativeReader.kt:21:13 Lateinit is unnecessary: definitely initialized in constructors
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/NativeReader.kt:406:33 Parameter 'e' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/Notice.kt:142:141 No cast needed
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/PageDocs.kt:56:25 Parameter 'id' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/PageDocs.kt:61:21 Parameter 'a' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/PageReader.kt:429:18 Parameter 'i' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/PanelKit.kt:53:15 No cast needed
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:27:60 Parameter 'italic' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:238:352 'SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/PolkaUI.kt:380:61 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/QuoteScreen.kt:67:36 'computeBounds(RectF, Boolean): Unit' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/ReaderLookup.kt:149:126 Parameter 'e' is never used, could be renamed to _
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/ReaderQuoteSelection.kt:107:13 Lateinit is unnecessary: definitely initialized in constructors
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/ReaderQuoteSelection.kt:108:13 Lateinit is unnecessary: definitely initialized in constructors
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/ReaderSettings.kt:67:21 No cast needed
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/ReaderSettings.kt:136:29 No cast needed
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/ReaderSettings.kt:191:110 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/ReaderSettings.kt:325:118 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/ReaderSettings.kt:329:104 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/SettingsPage.kt:72:108 Parameter 'n' is never used, could be renamed to _
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:52:25 Parameter 'glow' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/StatisticsScreen.kt:303:29 Parameter 'i' is never used, could be renamed to _
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/StatsMore.kt:153:106 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/StatsMore.kt:154:107 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/StatsMore.kt:155:108 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/StatsMore.kt:221:128 Name shadowed: ey
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/StatsMore.kt:243:31 Parameter 'first' is never used
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/StatsMore.kt:261:146 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/StatsWidgets.kt:71:209 Unnecessary non-null assertion (!!) on a non-null receiver of type Path
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/StatsWidgets.kt:112:47 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/StreakMonth.kt:57:184 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/StreakMonth.kt:96:69 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/SurfaceStyle.kt:44:76 'setConvexPath(Path): Unit' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/SurfaceStyle.kt:155:175 'computeBounds(RectF, Boolean): Unit' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/TierList.kt:464:74 Name shadowed: g
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/Tokens.kt:123:110 'scaledDensity: Float' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Book/Book/app/src/main/java/app/polka/nativeapp/Words.kt:332:59 'SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:mergeDexDebug
+> Task :app:compileDebugArtProfile
+> Task :app:processDebugJavaRes
+> Task :app:mergeDebugJavaResource
+> Task :app:kaptGenerateStubsDebugAndroidTestKotlin
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+
+> Task :app:kaptDebugAndroidTestKotlin
+warning: The following options were not recognized by any processor: '[room.schemaLocation, kapt.kotlin.generated]'
+
+> Task :app:compileDebugAndroidTestKotlin FAILED
+e: file:///home/runner/work/Book/Book/app/src/androidTest/java/app/polka/nativeapp/GoalCardCheck.kt:33:61 Unresolved reference: YearBooks
+e: file:///home/runner/work/Book/Book/app/src/androidTest/java/app/polka/nativeapp/SpacingCheck.kt:64:146 Unresolved reference: lastError
+e: file:///home/runner/work/Book/Book/app/src/androidTest/java/app/polka/nativeapp/StatsCheck.kt:44:34 Unresolved reference: readBooksPage
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugAndroidTestKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.9/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 4m
+67 actionable tasks: 67 executed
