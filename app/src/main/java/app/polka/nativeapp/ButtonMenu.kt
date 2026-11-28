@@ -9,16 +9,14 @@ import androidx.core.graphics.ColorUtils
 import kotlin.math.*
 
 /**
- * The «⋯» menus (approved «Меню «Ещё» А: кнопка раскрывается в меню»), in the «＋» menu's way: the round button itself
- * grows into the menu card from its own corner, with a little spring, while its dots blur away; the page dims, and the
- * rows come out of a blur one after another. Closing runs it all back into the button, which lands like a drop of
- * liquid: it spreads a little as it arrives and springs back round. A destructive row comes last, red, after a thin line.
- * [inset]: how far inside the anchor its round is drawn (a 40 dp button in a 48 dp tap), so the card starts and ends
- * exactly on what is seen.
+ * The «⋯» menus, moving like a drop of liquid (as asked, after Telegram's menus): under the finger the round button
+ * swells, stretches toward where the menu will stand, and the whole menu, its rows already in it, comes out of that
+ * shape growing from the button's corner and settles on a spring. Closing runs it back: the menu shrinks into its
+ * corner, its rows go, what is left rounds into a drop over the button, and the button swallows it, swollen for a
+ * moment and springing back to its size. The page dims under it. A destructive row comes last, red, after a thin line.
+ * [inset]: how far inside the anchor its round is drawn (a 40 dp button in a 48 dp tap), so the drop starts and ends
+ * on what is seen.
  */
-/** How far a landing button spreads (and flattens) before it springs back round. */
-private const val SQUASH=.07f
-
 internal class ButtonMenu(private val a:MainActivity,private val anchor:View,private val items:List<Item>,private val inset:Int=0){
     class Item(val icon:String,val label:String,val destructive:Boolean=false,val act:()->Unit)
     private var view:MenuView?=null
@@ -32,13 +30,18 @@ internal class ButtonMenu(private val a:MainActivity,private val anchor:View,pri
         val v=MenuView();view=v
         a.root.addView(v,FrameLayout.LayoutParams(-1,-1))
         anchor.visibility=View.INVISIBLE
-        if(reduced){v.pose(1f,1f,FloatArray(v.rows.size){1f},1f);return}
-        val spring=Motion.expand;val total=max(spring.duration,620L)
+        if(reduced){v.card(1f,1f,1f);return}
+        val spring=Motion.expand;val total=CARD_AT+spring.duration
         clock=ValueAnimator.ofFloat(0f,total.toFloat()).apply{duration=total;interpolator=LinearInterpolator()
             addUpdateListener{val ms=it.animatedValue as Float
-                val t=spring.interpolator.getInterpolation((ms/spring.duration).coerceIn(0f,1f))
-                val rows=FloatArray(v.rows.size){i->MotionSpec.enter.getInterpolation(((ms-150f-45f*i)/300f).coerceIn(0f,1f))}
-                v.pose(t,MotionSpec.enter.getInterpolation((ms/260f).coerceIn(0f,1f)),rows,MotionSpec.exit.getInterpolation((ms/140f).coerceIn(0f,1f)))}
+                // the button swells under the finger, then stretches toward the menu
+                val swell=MotionSpec.enter.getInterpolation((ms/90f).coerceIn(0f,1f))
+                val stretch=MotionSpec.enter.getInterpolation(((ms-70f)/90f).coerceIn(0f,1f))
+                // the menu grows out of it from the corner, on the spring, its rows in it from the start
+                val grow=CARD_FROM+(1f-CARD_FROM)*spring.interpolator.getInterpolation(((ms-CARD_AT)/spring.duration).coerceIn(0f,1f))
+                val merge=MotionSpec.enter.getInterpolation(((ms-CARD_AT)/90f).coerceIn(0f,1f))
+                val rows=MotionSpec.enter.getInterpolation(((ms-CARD_AT-10f)/90f).coerceIn(0f,1f))
+                v.drop(swell,stretch,grow,merge,rows,MotionSpec.enter.getInterpolation((ms/260f).coerceIn(0f,1f)))}
             start()}
     }
 
@@ -49,45 +52,45 @@ internal class ButtonMenu(private val a:MainActivity,private val anchor:View,pri
         clock?.cancel()
         fun done(){(v.parent as? ViewGroup)?.removeView(v);anchor.visibility=View.VISIBLE}
         if(reduced){done();then?.invoke();return}
-        then?.let{go->a.root.postDelayed({go()},170)}
-        val t0=v.t;val dim0=v.dim;val rows0=v.rowsShown.copyOf();val dots0=v.dotsGone
-        clock=ValueAnimator.ofFloat(0f,400f).apply{duration=Motion.EMPHASIS;interpolator=LinearInterpolator()
+        then?.let{go->a.root.postDelayed({go()},120)}
+        val g0=v.grow;val d0=v.dim
+        clock=ValueAnimator.ofFloat(0f,LANDS.toFloat()).apply{duration=LANDS;interpolator=LinearInterpolator()
             addUpdateListener{val ms=it.animatedValue as Float
-                val out=MotionSpec.exit.getInterpolation((ms/140f).coerceIn(0f,1f))
-                val back=MotionSpec.move.getInterpolation(((ms-40f)/340f).coerceIn(0f,1f))
-                val dots=MotionSpec.enter.getInterpolation(((ms-200f)/180f).coerceIn(0f,1f))
-                // the last stretch: the card, now the button's size, spreads as it lands
-                val land=MotionSpec.enter.getInterpolation(((ms-250f)/150f).coerceIn(0f,1f))
-                v.pose(t0*(1f-back),dim0*(1f-back),FloatArray(rows0.size){i->rows0[i]*(1f-out)},dots0*(1f-dots),SQUASH*land)}
-            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){done();settle()}})
+                // the menu shrinks into its corner and its rows go; what is left rounds into a drop over the button
+                val shrink=MotionSpec.exit.getInterpolation((ms/120f).coerceIn(0f,1f))
+                val rows=1f-MotionSpec.exit.getInterpolation((ms/80f).coerceIn(0f,1f))
+                val round=MotionSpec.move.getInterpolation(((ms-70f)/(LANDS-70f)).coerceIn(0f,1f))
+                v.back(g0+(BLOB_FROM-g0)*shrink,rows,round,d0*(1f-MotionSpec.move.getInterpolation((ms/LANDS).coerceIn(0f,1f))))}
+            addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){done();swallow()}})
             start()}
     }
 
-    /** The button itself takes over, spread as the card left it, and springs back round («Отклик»). */
-    private fun settle(){if(reduced||!anchor.isAttachedToWindow){anchor.scaleX=1f;anchor.scaleY=1f;return}
+    /** The button takes the drop in: it stands swollen to the drop's size and springs back («Отклик»). */
+    private fun swallow(){if(reduced||!anchor.isAttachedToWindow){anchor.scaleX=1f;anchor.scaleY=1f;return}
         anchor.animate().cancel();val sp=Motion.response
         ValueAnimator.ofFloat(0f,1f).apply{duration=sp.duration;interpolator=sp.interpolator
-            addUpdateListener{val k=SQUASH*(1f-(it.animatedValue as Float));anchor.scaleX=1f+k;anchor.scaleY=1f-k}
+            addUpdateListener{val s=SWALLOWED+(1f-SWALLOWED)*(it.animatedValue as Float);anchor.scaleX=s;anchor.scaleY=s}
             addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(x:android.animation.Animator){anchor.scaleX=1f;anchor.scaleY=1f}})
             start()}}
 
     private inner class MenuView:FrameLayout(a){
-        // the button (where it starts) and the menu (where it ends), in the root's coordinates
+        // the button's round as seen (where the drop starts and ends) and the menu (where it stands), in the root's coordinates
         private val from:RectF
-        /** The anchor's whole frame (its picture is laid there). */
         private val whole:RectF
         private val to:RectF
-        private val r0:Float;private val r1=a.d(26).toFloat()
+        private val r1=a.d(26).toFloat()
         private val light=a.light
         private val menuColor=Ui.menu(light)
-        private val fill=Paint(Paint.ANTI_ALIAS_FLAG);private val path=Path();private val now=RectF()
+        /** The button's own colour, so the drop is the button until it becomes the menu. */
+        private val buttonColor:Int
+        private val fill=Paint(Paint.ANTI_ALIAS_FLAG);private val path=Path();private val shape=RectF()
+        private var radius=0f;private var colour=0;private var shade=0f
         val rows=ArrayList<View>()
         private val snapshot=ImageView(a)
         private val column=LinearLayout(a).apply{orientation=LinearLayout.VERTICAL;setPadding(0,a.d(6),0,a.d(6))}
-        private val lines=ArrayList<Pair<View,Int>>()
         // the corner of the button the menu grows from: the one nearest the middle of the screen stays put
         private val right:Boolean;private val down:Boolean
-        var t=0f;var dim=0f;var rowsShown=FloatArray(0);var dotsGone=0f;private var squash=0f
+        var grow=0f;var dim=0f
 
         init{
             setWillNotDraw(false);clipChildren=false;isClickable=true
@@ -96,23 +99,27 @@ internal class ButtonMenu(private val a:MainActivity,private val anchor:View,pri
             val at=IntArray(2);val base=IntArray(2);anchor.getLocationInWindow(at);a.root.getLocationInWindow(base)
             val l=(at[0]-base[0]).toFloat();val tp=(at[1]-base[1]).toFloat()
             whole=RectF(l,tp,l+anchor.width,tp+anchor.height)
-            from=RectF(whole).apply{inset(inset.toFloat(),inset.toFloat())};r0=min(from.width(),from.height())/2f
+            from=RectF(whole).apply{inset(inset.toFloat(),inset.toFloat())}
             items.forEachIndexed{i,it->if(it.destructive&&i>0&&!items[i-1].destructive)divider();row(it)}
-            rowsShown=FloatArray(rows.size)
             val w=min(a.d(262).toFloat(),a.root.width-a.d(24).toFloat())
-            val h=a.d(6)*2f+Size.row(a,52)*rows.size+lines.size*a.d(13)
+            val h=a.d(6)*2f+Size.row(a,52)*rows.size+column.childCount.minus(rows.size)*a.d(13)
             right=from.centerX()>a.root.width/2f;down=from.centerY()<a.root.height/2f
             val x0=if(right)from.right-w else from.left;val y0=if(down)from.top else from.bottom-h
             to=RectF(x0,y0,x0+w,y0+h)
-            // the button as it is now, to blur away inside the growing card
-            runCatching{Bitmap.createBitmap(anchor.width,anchor.height,Bitmap.Config.ARGB_8888)}.getOrNull()?.let{bmp->anchor.draw(Canvas(bmp));snapshot.setImageBitmap(bmp)}
+            // the button as it is now: it swells, then its dots fade into the drop
+            var sampled=menuColor
+            runCatching{Bitmap.createBitmap(anchor.width,anchor.height,Bitmap.Config.ARGB_8888)}.getOrNull()?.let{bmp->anchor.draw(Canvas(bmp));snapshot.setImageBitmap(bmp)
+                val px=bmp.getPixel(bmp.width/2,(inset+a.d(4)).coerceAtMost(bmp.height-1));if(Color.alpha(px)>200)sampled=px}
+            buttonColor=sampled
             snapshot.importantForAccessibility=IMPORTANT_FOR_ACCESSIBILITY_NO
             addView(snapshot,LayoutParams(anchor.width,anchor.height).apply{leftMargin=whole.left.toInt();topMargin=whole.top.toInt()})
             addView(column,LayoutParams(to.width().toInt(),to.height().toInt()).apply{leftMargin=to.left.toInt();topMargin=to.top.toInt()})
+            column.pivotX=if(right)to.width() else 0f;column.pivotY=if(down)0f else to.height()
+            column.alpha=0f
         }
 
         private fun divider(){val v=View(a).apply{setBackgroundColor(ColorUtils.setAlphaComponent(a.fg,if(light)18 else 20))}
-            lines.add(v to rows.size);column.addView(v,LinearLayout.LayoutParams(-1,a.d(1)).apply{setMargins(a.d(16),a.d(6),a.d(16),a.d(6))})}
+            column.addView(v,LinearLayout.LayoutParams(-1,a.d(1)).apply{setMargins(a.d(16),a.d(6),a.d(16),a.d(6))})}
 
         private fun row(item:Item){
             val ink=if(item.destructive)Ui.danger(a.light) else a.fg
@@ -129,36 +136,66 @@ internal class ButtonMenu(private val a:MainActivity,private val anchor:View,pri
             rows.add(r);column.addView(r,LinearLayout.LayoutParams(-1,Size.row(a,52)).apply{setMargins(a.d(6),0,a.d(6),0)})
         }
 
-        /** [morph]: button 0 → menu 1 (a spring passes 1 a little); [shade]: the page dims; [shown]: each row out of its
-         *  blur; [dots]: the button's dots gone. */
-        fun pose(morph:Float,shade:Float,shown:FloatArray,dots:Float,spread:Float=0f){
-            t=morph;dim=shade;rowsShown=shown;dotsGone=dots;squash=spread
-            shown.forEachIndexed{i,k->val r=rows[i];r.alpha=k;r.translationY=a.d(8)*(1f-k);blur(r,a.d(8)*(1f-k))}
-            lines.forEach{(v,next)->v.alpha=shown.getOrElse(next){1f}}
-            snapshot.alpha=1f-dots;val s=1f-.08f*dots;snapshot.scaleX=s*(1f+spread);snapshot.scaleY=s*(1f-spread);blur(snapshot,a.d(10)*dots)
+        /** The menu at [g] of its size, grown from its corner. */
+        private fun cardRect(g:Float,out:RectF){val w=to.width()*g;val h=to.height()*g
+            val x=if(right)to.right-w else to.left;val y=if(down)to.top else to.bottom-h;out.set(x,y,x+w,y+h)}
+        /** The button swollen by [swell] and stretched by [stretch] toward the menu's side. */
+        private fun capsule(swell:Float,stretch:Float,out:RectF){val d=from.width()*(1f+(SWOLLEN-1f)*swell)
+            val w=d*(1f+.75f*stretch);val h=d*(1f+.08f*stretch);val cy=from.centerY()
+            val near=if(right)from.centerX()+d/2 else from.centerX()-d/2
+            if(right)out.set(near-w,cy-h/2,near,cy+h/2) else out.set(near,cy-h/2,near+w,cy+h/2)}
+        private fun mix(p:RectF,q:RectF,k:Float,out:RectF)=out.set(p.left+(q.left-p.left)*k,p.top+(q.top-p.top)*k,p.right+(q.right-p.right)*k,p.bottom+(q.bottom-p.bottom)*k)
+        private val t1=RectF();private val t2=RectF()
+
+        /** Opening: [swell] and [stretch] of the button, the menu's [g] of size, [merge] from the drop into the menu,
+         *  its rows [shown], the page's [shade]. */
+        fun drop(swell:Float,stretch:Float,g:Float,merge:Float,shown:Float,shade:Float){
+            grow=g;dim=shade
+            capsule(swell,stretch,t1);cardRect(g,t2);mix(t1,t2,merge,shape)
+            radius=t1.height()/2+(r1*g-t1.height()/2)*merge;colour=ColorUtils.blendARGB(buttonColor,menuColor,merge);this.shade=merge
+            val s=1f+(SWOLLEN-1f)*swell;snapshot.scaleX=s;snapshot.scaleY=s
+            snapshot.alpha=1f-MotionSpec.exit.getInterpolation((stretch*1.4f).coerceIn(0f,1f))
+            column.scaleX=g;column.scaleY=g;column.alpha=shown
             invalidate()}
 
-        private fun blur(v:View,radius:Float){if(android.os.Build.VERSION.SDK_INT<31)return
-            v.setRenderEffect(if(radius<.5f)null else RenderEffect.createBlurEffect(radius,radius,Shader.TileMode.DECAL))}
+        /** Closing: the menu at [g] of its size, its rows still [shown], [round] of the way into the drop over the
+         *  button, the page's [shade]. */
+        fun back(g:Float,shown:Float,round:Float,shade:Float){
+            grow=g;dim=shade
+            cardRect(g,t1);val d=from.width()*SWALLOWED;t2.set(from.centerX()-d/2,from.centerY()-d/2,from.centerX()+d/2,from.centerY()+d/2)
+            mix(t1,t2,round,shape);radius=r1*g+(d/2-r1*g)*round
+            colour=ColorUtils.blendARGB(menuColor,buttonColor,round);this.shade=1f-round
+            snapshot.alpha=0f;column.scaleX=g;column.scaleY=g;column.alpha=shown
+            invalidate()}
 
-        private fun current():RectF{val k=t;val w=from.width()+(to.width()-from.width())*k;val h=from.height()+(to.height()-from.height())*k
-            val x=if(right)from.right-w else from.left;val y=if(down)from.top else from.bottom-h
-            now.set(x,y,x+w,y+h)
-            if(squash!=0f){val cx=now.centerX();val cy=now.centerY();val hw=now.width()/2*(1f+squash);val hh=now.height()/2*(1f-squash);now.set(cx-hw,cy-hh,cx+hw,cy+hh)}
-            return now}
+        /** The menu standing (no motion): [g] of its size. */
+        fun card(g:Float,shown:Float,shade:Float){grow=g;dim=shade;cardRect(g,shape);radius=r1*g;colour=menuColor;this.shade=1f
+            snapshot.alpha=0f;column.scaleX=g;column.scaleY=g;column.alpha=shown;invalidate()}
 
         override fun onDraw(c:Canvas){
             if(dim>0f)c.drawColor(Ui.scrim(light,dim))
-            val r=current();val k=t.coerceIn(0f,1f);val radius=r0+(r1-r0)*k
-            if(k>0f)FloatShade.draw(c,a,r,radius,light,(255*k).roundToInt(),lift=Lift.OVER,bakeAs=to)
-            // the card takes its colour as it leaves the button (whose own ground is in the picture blurring away)
-            fill.color=ColorUtils.setAlphaComponent(menuColor,(255*min(1f,k*3f)).roundToInt());c.drawRoundRect(r,radius,radius,fill)}
+            if(shade>0f)FloatShade.draw(c,a,shape,radius,light,(255*shade).roundToInt(),lift=Lift.OVER,bakeAs=to)
+            fill.color=colour;c.drawRoundRect(shape,radius,radius,fill)}
 
-        override fun dispatchDraw(c:Canvas){val r=current();val k=t.coerceIn(0f,1f);val radius=r0+(r1-r0)*k
-            path.rewind();path.addRoundRect(r,radius,radius,Path.Direction.CW);c.save();c.clipPath(path);super.dispatchDraw(c);c.restore()}
+        // the rows (and the button's picture) are seen only inside the drop's shape
+        override fun dispatchDraw(c:Canvas){path.rewind();path.addRoundRect(shape,radius,radius,Path.Direction.CW)
+            c.save();c.clipPath(path);super.dispatchDraw(c);c.restore()}
 
         // a tap anywhere off the menu closes it
         override fun onTouchEvent(e:MotionEvent):Boolean{if(e.actionMasked==MotionEvent.ACTION_UP&&!to.contains(e.x,e.y))close();return true}
         override fun onDetachedFromWindow(){if(view===this){clock?.cancel();anchor.visibility=View.VISIBLE;if(a.buttonMenu===this@ButtonMenu)a.buttonMenu=null};super.onDetachedFromWindow()}
+    }
+
+    private companion object{
+        /** The button under the finger, swollen. */
+        const val SWOLLEN=1.12f
+        /** When the menu starts out of the drop (ms) and at what share of its size. */
+        const val CARD_AT=110L;const val CARD_FROM=.42f
+        /** How small the menu is when it has rounded into the drop. */
+        const val BLOB_FROM=.4f
+        /** The drop over the button when it lands, and the button swallowing it. */
+        const val SWALLOWED=1.22f
+        /** Closing, from the tap to the drop on the button (ms). */
+        const val LANDS=190L
     }
 }
